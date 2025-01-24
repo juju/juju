@@ -136,7 +136,7 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the application already exists.
-		if err := st.checkApplicationExists(ctx, tx, name); err != nil {
+		if err := st.checkApplicationNameExists(ctx, tx, name); err != nil {
 			return fmt.Errorf("checking if application %q exists: %w", name, err)
 		}
 
@@ -179,26 +179,6 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 		return st.insertResources(ctx, tx, appDetails, app.Resources)
 	})
 	return appUUID, errors.Annotatef(err, "creating application %q", name)
-}
-
-func (st *State) checkApplicationExists(ctx context.Context, tx *sqlair.TX, name string) error {
-	app := applicationDetails{Name: name}
-	existsQueryStmt, err := st.Prepare(`
-SELECT &applicationDetails.uuid
-FROM application
-WHERE name = $applicationDetails.name
-`, app)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := tx.Query(ctx, existsQueryStmt, app).Get(&app); err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
-		return fmt.Errorf("checking if application %q exists: %w", name, err)
-	}
-	return applicationerrors.ApplicationAlreadyExists
 }
 
 func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
@@ -2208,15 +2188,6 @@ func (st *State) GetApplicationConfig(ctx context.Context, appID coreapplication
 	// worth checking if the application is not dead.
 	ident := applicationID{ID: appID}
 
-	// This isn't ideal, as we could request this in one query, but we need to
-	// perform multiple queries to get the data. First is to get the application
-	// availability, second to just get the application overlay config for the
-	// charm config and the application settings for the trust config.
-	appQuery := `
-SELECT &applicationID.*
-FROM application
-WHERE uuid = $applicationID.uuid;
-`
 	configQuery := `
 SELECT &applicationConfig.*
 FROM v_application_config
@@ -2227,10 +2198,6 @@ SELECT &applicationSettings.*
 FROM application_setting
 WHERE application_uuid = $applicationID.uuid;`
 
-	appStmt, err := st.Prepare(appQuery, ident)
-	if err != nil {
-		return nil, internalerrors.Errorf("preparing query for application config: %w", err)
-	}
 	configStmt, err := st.Prepare(configQuery, applicationConfig{}, ident)
 	if err != nil {
 		return nil, internalerrors.Errorf("preparing query for application config: %w", err)
@@ -2243,10 +2210,8 @@ WHERE application_uuid = $applicationID.uuid;`
 	var configs []applicationConfig
 	var settings applicationSettings
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, appStmt, ident).Get(&ident); errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.ApplicationNotFound
-		} else if err != nil {
-			return internalerrors.Errorf("querying application: %w", err)
+		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+			return internalerrors.Errorf("checking application exists: %w", err)
 		}
 
 		if err := tx.Query(ctx, configStmt, ident).GetAll(&configs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -2295,24 +2260,11 @@ func (st *State) GetApplicationTrustSetting(ctx context.Context, appID coreappli
 	// worth checking if the application is not dead.
 	ident := applicationID{ID: appID}
 
-	// This isn't ideal, as we could request this in one query, but we need to
-	// perform multiple queries to get the data. First is to get the application
-	// availability, second to just get the application overlay config for the
-	// charm config and the application settings for the trust config.
-	appQuery := `
-SELECT &applicationID.*
-FROM application
-WHERE uuid = $applicationID.uuid;
-`
 	settingsQuery := `
 SELECT trust AS &applicationSettings.trust
 FROM application_setting
 WHERE application_uuid = $applicationID.uuid;`
 
-	appStmt, err := st.Prepare(appQuery, ident)
-	if err != nil {
-		return false, internalerrors.Errorf("preparing query for application config: %w", err)
-	}
 	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, ident)
 	if err != nil {
 		return false, internalerrors.Errorf("preparing query for application trust setting: %w", err)
@@ -2320,10 +2272,8 @@ WHERE application_uuid = $applicationID.uuid;`
 
 	var settings applicationSettings
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, appStmt, ident).Get(&ident); errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.ApplicationNotFound
-		} else if err != nil {
-			return internalerrors.Errorf("querying application: %w", err)
+		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+			return internalerrors.Errorf("checking application exists: %w", err)
 		}
 
 		if err := tx.Query(ctx, settingsStmt, ident).Get(&settings); err != nil && !errors.Is(err, sqlair.ErrNoRows) {

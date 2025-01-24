@@ -20,6 +20,10 @@ const (
 	// an application that is not alive.
 	ApplicationNotAlive = errors.ConstError("application is not alive")
 
+	// ApplicationIsDead describes an error that occurs when trying to access
+	// an application that is dead.
+	ApplicationIsDead = errors.ConstError("application is dead")
+
 	// ApplicationHasUnits describes an error that occurs when the application
 	// being deleted still has associated units.
 	ApplicationHasUnits = errors.ConstError("application has units")

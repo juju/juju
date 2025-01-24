@@ -12,6 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -64,4 +66,46 @@ func (s *stateSuite) TestSequenceMultipleTimesWithDifferentNames(c *gc.C) {
 			c.Assert(sequence, gc.Equals, i+1)
 		}
 	}
+}
+
+func (s *stateSuite) TestCheckApplication(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return st.checkApplicationExists(ctx, tx, applicationID{ID: id})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestCheckApplicationExistsNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return st.checkApplicationExists(ctx, tx, applicationID{ID: "foo"})
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *stateSuite) TestCheckApplicationDying(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Dying)
+
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return st.checkApplicationExists(ctx, tx, applicationID{ID: id})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestCheckApplicationExistsDead(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return st.checkApplicationExists(ctx, tx, applicationID{ID: id})
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
 }

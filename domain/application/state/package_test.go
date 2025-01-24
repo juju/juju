@@ -8,15 +8,20 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 func TestPackage(t *testing.T) {
@@ -103,4 +108,76 @@ INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return uuid
+}
+
+func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
+	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	platform := application.Platform{
+		Channel:      "22.04/stable",
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &application.Channel{
+		Track:  "track",
+		Risk:   "stable",
+		Branch: "branch",
+	}
+	var appID coreapplication.ID
+	err := state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		appID, err = state.CreateApplication(ctx, name, application.AddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: name,
+					Provides: map[string]charm.Relation{
+						"endpoint": {
+							Name:  "endpoint",
+							Key:   "endpoint",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+						"misc": {
+							Name:  "misc",
+							Key:   "misc",
+							Role:  charm.RoleProvider,
+							Scope: charm.ScopeGlobal,
+						},
+					},
+				},
+				Manifest:      s.minimalManifest(c),
+				ReferenceName: name,
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+				Hash:          "hash",
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
+			},
+			Scale: len(units),
+		})
+		if err != nil {
+			return err
+		}
+		for _, u := range units {
+			if err := state.InsertUnit(ctx, appID, u); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return appID
 }
