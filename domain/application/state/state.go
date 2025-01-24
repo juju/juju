@@ -1271,24 +1271,32 @@ ORDER BY array_index ASC;
 	return result, nil
 }
 
-func (st *State) checkApplicationNameExists(ctx context.Context, tx *sqlair.TX, name string) error {
+// checkApplicationNameAvailable checks if the application name is available.
+// If the application name is available, nil is returned. If the application
+// name is not available, [applicationerrors.ApplicationAlreadyExists] is
+// returned.
+func (st *State) checkApplicationNameAvailable(ctx context.Context, tx *sqlair.TX, name string) error {
 	app := applicationDetails{Name: name}
+
+	var result countResult
 	existsQueryStmt, err := st.Prepare(`
-SELECT &applicationDetails.uuid
+SELECT COUNT(*) AS &countResult.count
 FROM application
 WHERE name = $applicationDetails.name
-`, app)
+`, app, result)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := tx.Query(ctx, existsQueryStmt, app).Get(&app); err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
+	if err := tx.Query(ctx, existsQueryStmt, app).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	} else if err != nil {
 		return fmt.Errorf("checking if application %q exists: %w", name, err)
 	}
-	return applicationerrors.ApplicationAlreadyExists
+	if result.Count > 0 {
+		return applicationerrors.ApplicationAlreadyExists
+	}
+	return nil
 }
 
 // checkApplicationExists checks if the application exists and is not dead. It's

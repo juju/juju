@@ -68,6 +68,26 @@ func (s *stateSuite) TestSequenceMultipleTimesWithDifferentNames(c *gc.C) {
 	}
 }
 
+func (s *stateSuite) TestCheckApplicationNameAvailable(c *gc.C) {
+	s.createApplication(c, "foo", life.Alive)
+
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return st.checkApplicationNameAvailable(ctx, tx, "foo")
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationAlreadyExists)
+}
+
+func (s *stateSuite) TestCheckApplicationNameAvailableNoApplication(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return st.checkApplicationNameAvailable(ctx, tx, "foo")
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *stateSuite) TestCheckApplication(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 

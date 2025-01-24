@@ -136,7 +136,7 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the application already exists.
-		if err := st.checkApplicationNameExists(ctx, tx, name); err != nil {
+		if err := st.checkApplicationNameAvailable(ctx, tx, name); err != nil {
 			return fmt.Errorf("checking if application %q exists: %w", name, err)
 		}
 
@@ -2211,7 +2211,7 @@ WHERE application_uuid = $applicationID.uuid;`
 	var settings applicationSettings
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
-			return internalerrors.Errorf("checking application exists: %w", err)
+			return internalerrors.Capture(err)
 		}
 
 		if err := tx.Query(ctx, configStmt, ident).GetAll(&configs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -2273,7 +2273,7 @@ WHERE application_uuid = $applicationID.uuid;`
 	var settings applicationSettings
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
-			return internalerrors.Errorf("checking application exists: %w", err)
+			return internalerrors.Capture(err)
 		}
 
 		if err := tx.Query(ctx, settingsStmt, ident).Get(&settings); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -2356,6 +2356,10 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+			return internalerrors.Capture(err)
+		}
+
 		var current []applicationConfig
 		if err := tx.Query(ctx, getStmt, ident).GetAll(&current); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return internalerrors.Errorf("querying application config: %w", err)

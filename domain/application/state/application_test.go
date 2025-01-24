@@ -2658,6 +2658,18 @@ func (s *applicationStateSuite) TestSetApplicationConfig(c *gc.C) {
 	})
 }
 
+func (s *applicationStateSuite) TestSetApplicationConfigApplicationIsDead(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Dead)
+
+	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+		"key": {
+			Type:  charm.OptionString,
+			Value: "value",
+		},
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
+}
+
 func (s *applicationStateSuite) TestSetApplicationConfigChangesType(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
