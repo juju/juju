@@ -74,7 +74,26 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
-func (s *fileObjectStoreSuite) TestGetMetadataBySHAFoundNoFile(c *gc.C) {
+func (s *fileObjectStoreSuite) TestGetMetadataBySHA256FoundNoFile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := c.MkDir()
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f").Return(objectstore.Metadata{
+		SHA384: "blah",
+		SHA256: "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f",
+		Path:   "foo",
+		Size:   666,
+	}, nil).Times(2)
+
+	_, _, err := store.GetBySHA256(context.Background(), "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f")
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
+}
+
+func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := c.MkDir()
@@ -118,7 +137,32 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {
 	c.Assert(s.readFile(c, file), gc.Equals, "some content")
 }
 
-func (s *fileObjectStoreSuite) TestGetMetadataBySHAAndFileFound(c *gc.C) {
+func (s *fileObjectStoreSuite) TestGetMetadataBySHA256AndFileFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := c.MkDir()
+
+	namespace := "inferi"
+	fileName := "foo"
+	size, hash384, hash256 := s.createFile(c, s.filePath(path, namespace), fileName, "some content")
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   fileName,
+		Size:   size,
+	}, nil)
+
+	file, fileSize, err := store.GetBySHA256(context.Background(), hash256)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(size, gc.Equals, fileSize)
+	c.Assert(s.readFile(c, file), gc.Equals, "some content")
+}
+
+func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := c.MkDir()
@@ -178,7 +222,41 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) 
 	c.Assert(s.readFile(c, file), gc.Equals, "some content")
 }
 
-func (s *fileObjectStoreSuite) TestGetMetadataBySHAAndFileNotFoundThenFound(c *gc.C) {
+func (s *fileObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Attempt to read the file before it exists. This should fail.
+	// Then attempt to read the file after it exists. This should succeed.
+
+	path := c.MkDir()
+
+	namespace := "inferi"
+	fileName := "foo"
+	size, hash384, hash256 := s.createFile(c, s.filePath(path, namespace), fileName, "some content")
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   fileName,
+		Size:   size,
+	}, errors.NotFoundf("not found"))
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   fileName,
+		Size:   size,
+	}, nil)
+
+	file, fileSize, err := store.GetBySHA256(context.Background(), hash256)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(size, gc.Equals, fileSize)
+	c.Assert(s.readFile(c, file), gc.Equals, "some content")
+}
+
+func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Attempt to read the file before it exists. This should fail.
@@ -236,7 +314,30 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *g
 	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
 }
 
-func (s *fileObjectStoreSuite) TestGetMetadataBySHAAndFileFoundWithIncorrectSize(c *gc.C) {
+func (s *fileObjectStoreSuite) TestGetMetadataBySHA256AndFileFoundWithIncorrectSize(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := c.MkDir()
+
+	namespace := "inferi"
+	fileName := "foo"
+	size, hash384, hash256 := s.createFile(c, s.filePath(path, namespace), fileName, "some content")
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   fileName,
+		Size:   size + 1,
+	}, nil).Times(2)
+
+	_, _, err := store.GetBySHA256(context.Background(), hash256)
+	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
+}
+
+func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFoundWithIncorrectSize(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := c.MkDir()

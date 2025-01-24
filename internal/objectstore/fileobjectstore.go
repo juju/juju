@@ -115,6 +115,45 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 	}
 }
 
+// GetBySHA256 returns an io.ReadCloser for any object with the a SHA256
+// hash starting with a given prefix, namespaced to the model.
+//
+// If no object is found, an [objectstore.ObjectNotFound] error is returned.
+func (t *fileObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+	// Optimistically try to get the file from the file system. If it doesn't
+	// exist, then we'll get an error, and we'll try to get it when sequencing
+	// the get request with the put and remove requests.
+	if reader, size, err := t.getBySHA256(ctx, sha256); err == nil {
+		return reader, size, nil
+	}
+
+	// Sequence the get request with the put and remove requests.
+	response := make(chan response)
+	select {
+	case <-ctx.Done():
+		return nil, -1, ctx.Err()
+	case <-t.tomb.Dying():
+		return nil, -1, tomb.ErrDying
+	case t.requests <- request{
+		op:       opGetBySHA256,
+		sha256:   sha256,
+		response: response,
+	}:
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, -1, ctx.Err()
+	case <-t.tomb.Dying():
+		return nil, -1, tomb.ErrDying
+	case resp := <-response:
+		if resp.err != nil {
+			return nil, -1, errors.Errorf("getting blob: %w", resp.err)
+		}
+		return resp.reader, resp.size, nil
+	}
+}
+
 // GetBySHA256Prefix returns an io.ReadCloser for any object with the a SHA256
 // hash starting with a given prefix, namespaced to the model.
 //
@@ -135,9 +174,9 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 	case <-t.tomb.Dying():
 		return nil, -1, tomb.ErrDying
 	case t.requests <- request{
-		op:           opGetByHash,
-		sha256Prefix: sha256Prefix,
-		response:     response,
+		op:       opGetBySHA256Prefix,
+		sha256:   sha256Prefix,
+		response: response,
 	}:
 	}
 
@@ -286,8 +325,22 @@ func (t *fileObjectStore) loop() error {
 				}:
 				}
 
-			case opGetByHash:
-				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256Prefix)
+			case opGetBySHA256:
+				reader, size, err := t.getBySHA256(ctx, req.sha256)
+
+				select {
+				case <-t.tomb.Dying():
+					return tomb.ErrDying
+
+				case req.response <- response{
+					reader: reader,
+					size:   size,
+					err:    err,
+				}:
+				}
+
+			case opGetBySHA256Prefix:
+				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256)
 
 				select {
 				case <-t.tomb.Dying():
@@ -350,6 +403,20 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 	}
 	if err != nil {
 		return nil, -1, errors.Errorf("get metadata: %w", err)
+	}
+
+	return t.getWithMetadata(ctx, metadata)
+}
+
+func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+	t.logger.Debugf("getting object with SHA256 %q from file storage", sha256)
+
+	metadata, err := t.metadataService.GetMetadataBySHA256(ctx, sha256)
+	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
+		return nil, -1, errors.Errorf("get metadata by SHA256: %w", objectstoreerrors.ObjectNotFound)
+	}
+	if err != nil {
+		return nil, -1, errors.Errorf("get metadata by SHA256: %w", err)
 	}
 
 	return t.getWithMetadata(ctx, metadata)

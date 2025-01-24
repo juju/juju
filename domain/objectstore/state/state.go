@@ -63,6 +63,42 @@ WHERE path = $dbMetadata.path`, metadata)
 	return decodeDbMetadata(metadata), nil
 }
 
+// GetMetadataBySHA256 returns the persistence metadata for the object
+// with SHA256 starting with the provided prefix.
+func (s *State) GetMetadataBySHA256(ctx context.Context, sha256 string) (coreobjectstore.Metadata, error) {
+	db, err := s.DB()
+	if err != nil {
+		return coreobjectstore.Metadata{}, errors.Trace(err)
+	}
+
+	sha256Ident := sha256Ident{SHA256: sha256}
+	var metadata dbMetadata
+
+	stmt, err := s.Prepare(`
+SELECT &dbMetadata.*
+FROM v_object_store_metadata
+WHERE sha_256 = $sha256Ident.sha_256`, metadata, sha256Ident)
+	if err != nil {
+		return coreobjectstore.Metadata{}, errors.Annotate(err, "preparing select metadata statement")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, sha256Ident).Get(&metadata)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return objectstoreerrors.ErrNotFound
+			}
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return coreobjectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata with sha256 %s", sha256)
+	}
+
+	return decodeDbMetadata(metadata), nil
+}
+
 // GetMetadataBySHA256Prefix returns the persistence metadata for the object
 // with SHA256 starting with the provided prefix.
 func (s *State) GetMetadataBySHA256Prefix(ctx context.Context, sha256 string) (coreobjectstore.Metadata, error) {
@@ -71,19 +107,19 @@ func (s *State) GetMetadataBySHA256Prefix(ctx context.Context, sha256 string) (c
 		return coreobjectstore.Metadata{}, errors.Trace(err)
 	}
 
-	sha256Prefix := sha256Prefix{SHA256Prefix: sha256}
+	sha256IdentPrefix := sha256IdentPrefix{SHA256Prefix: sha256}
 	var metadata dbMetadata
 
 	stmt, err := s.Prepare(`
 SELECT &dbMetadata.*
 FROM v_object_store_metadata
-WHERE sha_256 LIKE $sha256Prefix.sha_256_prefix || '%'`, metadata, sha256Prefix)
+WHERE sha_256 LIKE $sha256IdentPrefix.sha_256_prefix || '%'`, metadata, sha256IdentPrefix)
 	if err != nil {
 		return coreobjectstore.Metadata{}, errors.Annotate(err, "preparing select metadata statement")
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, sha256Prefix).Get(&metadata)
+		err := tx.Query(ctx, stmt, sha256IdentPrefix).Get(&metadata)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return objectstoreerrors.ErrNotFound

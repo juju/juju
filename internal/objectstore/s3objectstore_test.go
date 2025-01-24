@@ -101,7 +101,32 @@ func (s *s3ObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataBySHAFoundNoFile(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256FoundNoFile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hash256 := "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f"
+	hash384 := "blah-512-384"
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{
+		SHA256: hash256,
+		SHA384: hash384,
+		Path:   "foo",
+		Size:   666,
+	}, nil).Times(2)
+	s.session.EXPECT().GetObject(gomock.Any(), defaultBucketName, filePath(hash384)).Return(nil, int64(0), "", errors.NotFoundf("not found")).Times(2)
+
+	store := s.newS3ObjectStore(c)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	_, _, err := store.GetBySHA256(context.Background(), hash256)
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
+}
+
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash256 := "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f"
@@ -166,7 +191,46 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
 	c.Assert(s.readFile(c, file), gc.Equals, "hello")
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataBySHAAndFileNotFoundThenFound(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Attempt to read the file before it exists. This should fail.
+	// Then attempt to read the file after it exists. This should succeed.
+
+	fileName := "foo"
+	hash256 := "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f"
+	hash384 := "blah-512-384"
+	size := int64(666)
+	reader := io.NopCloser(bytes.NewBufferString("hello"))
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+
+	// We expect that we call GetMetadataBySHA256 twice. We optimistically call
+	// it once, and if it fails, we call it again. We're exercising the code
+	// serialization code here.
+
+	s.expectBySHA256Failure(hash256, errors.NotFoundf("not found"))
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{
+		SHA256: hash256,
+		SHA384: hash384,
+		Path:   fileName,
+		Size:   size,
+	}, nil)
+	s.session.EXPECT().GetObject(gomock.Any(), defaultBucketName, filePath(hash384)).Return(reader, size, hash384, nil)
+
+	store := s.newS3ObjectStore(c)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	file, fileSize, err := store.GetBySHA256(context.Background(), hash256)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(size, gc.Equals, fileSize)
+	c.Assert(s.readFile(c, file), gc.Equals, "hello")
+}
+
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Attempt to read the file before it exists. This should fail.
@@ -181,11 +245,11 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHAAndFileNotFoundThenFound(c *gc.
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 
-	// We expect that we call GetMetadataBySHAPrefix twice. We optimistically call
-	// it once, and if it fails, we call it again. We're exercising the code
-	// serialization code here.
+	// We expect that we call GetMetadataBySHA256Prefix twice. We optimistically
+	// call it once, and if it fails, we call it again. We're exercising the
+	// code serialization code here.
 
-	s.expectBySHAFailure(hashPrefix, errors.NotFoundf("not found"))
+	s.expectBySHA256PrefixFailure(hashPrefix, errors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), hashPrefix).Return(objectstore.Metadata{
 		SHA256: hash256,
 		SHA384: hash384,
@@ -242,7 +306,43 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.
 	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
 }
 
-func (s *s3ObjectStoreSuite) TestGetMetadataBySHAAndFileFoundWithIncorrectSize(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256AndFileFoundWithIncorrectSize(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fileName := "foo"
+	hash256 := "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f"
+	hash384 := "blah-512-384"
+	size := int64(666)
+	reader := io.NopCloser(bytes.NewBufferString("hello"))
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+
+	// We expect that we call GetMetadata twice. We optimistically call it
+	// once, and if it fails, we call it again. We're exercising the code
+	// serialization code here.
+
+	// This size will be incorrect here, which will cause an error.
+
+	s.expectBySHA256Failure(hash256, errors.NotFoundf("not found"))
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{
+		SHA256: hash256,
+		SHA384: hash384,
+		Path:   fileName,
+		Size:   size + 1,
+	}, nil)
+	s.session.EXPECT().GetObject(gomock.Any(), defaultBucketName, filePath(hash384)).Return(reader, size, hash384, nil)
+
+	store := s.newS3ObjectStore(c)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	_, _, err := store.GetBySHA256(context.Background(), hash256)
+	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
+}
+
+func (s *s3ObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFoundWithIncorrectSize(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	fileName := "foo"
@@ -260,7 +360,7 @@ func (s *s3ObjectStoreSuite) TestGetMetadataBySHAAndFileFoundWithIncorrectSize(c
 
 	// This size will be incorrect here, which will cause an error.
 
-	s.expectBySHAFailure(hashPrefix, errors.NotFoundf("not found"))
+	s.expectBySHA256PrefixFailure(hashPrefix, errors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), hashPrefix).Return(objectstore.Metadata{
 		SHA256: hash256,
 		SHA384: hash384,
@@ -916,7 +1016,11 @@ func (s *s3ObjectStoreSuite) expectFailure(fileName string, err error) {
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{}, err)
 }
 
-func (s *s3ObjectStoreSuite) expectBySHAFailure(sha string, err error) {
+func (s *s3ObjectStoreSuite) expectBySHA256Failure(sha string, err error) {
+	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), sha).Return(objectstore.Metadata{}, err)
+}
+
+func (s *s3ObjectStoreSuite) expectBySHA256PrefixFailure(sha string, err error) {
 	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), sha).Return(objectstore.Metadata{}, err)
 }
 
