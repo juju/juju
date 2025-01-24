@@ -28,6 +28,11 @@ type KeyValue struct {
 
 // applicationID is used to get the ID (and life) of an application.
 type applicationID struct {
+	ID coreapplication.ID `db:"uuid"`
+}
+
+// applicationIDAndLife is used to get the ID (and life) of an application.
+type applicationIDAndLife struct {
 	ID     coreapplication.ID `db:"uuid"`
 	LifeID life.Life          `db:"life_id"`
 }

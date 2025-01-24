@@ -1297,12 +1297,12 @@ WHERE name = $applicationDetails.name
 func (st *State) SetApplicationLife(ctx domain.AtomicContext, appUUID coreapplication.ID, l life.Life) error {
 	lifeQuery := `
 UPDATE application
-SET life_id = $applicationID.life_id
-WHERE uuid = $applicationID.uuid
+SET life_id = $applicationIDAndLife.life_id
+WHERE uuid = $applicationIDAndLife.uuid
 -- we ensure the life can never go backwards.
-AND life_id <= $applicationID.life_id
+AND life_id <= $applicationIDAndLife.life_id
 `
-	app := applicationID{ID: appUUID, LifeID: l}
+	app := applicationIDAndLife{ID: appUUID, LifeID: l}
 	lifeStmt, err := st.Prepare(lifeQuery, app)
 	if err != nil {
 		return errors.Trace(err)
