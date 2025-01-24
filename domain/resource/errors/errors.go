@@ -54,7 +54,7 @@ const (
 	// resource type.
 	StoredResourceNotFound = errors.ConstError("stored resource not found")
 
-	// ResourceAlreadyStored describes an errors where the resource has already
-	// been stored.
-	ResourceAlreadyStored = errors.ConstError("resource already found in storage")
+	// ResourceRevisionNotValid describes an error where the resource revision
+	// is not valid.
+	ResourceRevisionNotValid = errors.ConstError("resource revision not valid")
 )

@@ -708,7 +708,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-app"
 	retrievedByType := resource.Application
-	err := s.state.RecordStoredResource(
+	droppedHash, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -718,9 +718,11 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 			ResourceType:    charmresource.TypeContainerImage,
 			Size:            size,
 			SHA384:          hash,
+			Origin:          charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(droppedHash, gc.Equals, "")
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -762,7 +764,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-unit"
 	retrievedByType := resource.Unit
-	err := s.state.RecordStoredResource(
+	droppedHash, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -772,9 +774,11 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 			ResourceType:    charmresource.TypeFile,
 			Size:            size,
 			SHA384:          hash,
+			Origin:          charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(droppedHash, gc.Equals, "")
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -818,7 +822,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 	initialCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
 
 	// Act: store the resource and increment the CMV.
-	err := s.state.RecordStoredResource(
+	_, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:                  resID,
@@ -827,13 +831,14 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 			IncrementCharmModifiedVersion: true,
 			SHA384:                        hash,
 			Size:                          size,
+			Origin:                        charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
 	foundCharmModifiedVersion1 := s.getCharmModifiedVersion(c, resID.String())
 
-	err = s.state.RecordStoredResource(
+	_, err = s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:                  resID2,
@@ -842,6 +847,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 			IncrementCharmModifiedVersion: true,
 			SHA384:                        hash2,
 			Size:                          size2,
+			Origin:                        charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
@@ -862,7 +868,7 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 	initialCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
 
 	// Act: store the resource.
-	err := s.state.RecordStoredResource(
+	_, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -870,6 +876,7 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 			ResourceType: charmresource.TypeContainerImage,
 			SHA384:       hash,
 			Size:         size,
+			Origin:       charmresource.OriginStore,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
@@ -881,70 +888,302 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 
 func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(c *gc.C) {
 	// Arrange: insert a resource record and generate 2 blobs.
-	resID, storeID1, size, hash := s.createContainerImageResourceAndBlob(c)
+	resID, storeID1, size1, hash1 := s.createContainerImageResourceAndBlob(c)
+	retrievedBy1 := "ubuntu/0"
+	retrievedByType1 := resource.Unit
+
+	// Arrange: store the first resource.
+	droppedHash1, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID:    resID,
+			StorageID:       storeID1,
+			ResourceType:    charmresource.TypeContainerImage,
+			SHA384:          hash1,
+			Size:            size1,
+			RetrievedBy:     retrievedBy1,
+			RetrievedByType: retrievedByType1,
+			Origin:          charmresource.OriginStore,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Check(droppedHash1, gc.Equals, "")
 
 	storageKey2 := "storage-key-2"
 	storeID2 := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey2)
-	err := s.addContainerImage(storageKey2)
+	retrievedBy2 := "user-name"
+	retrievedByType2 := resource.User
+	size2 := int64(422)
+	hash2 := "hash2"
+	err = s.addContainerImage(storageKey2)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
-	// Arrange: store the first resource.
-	err = s.state.RecordStoredResource(
-		context.Background(),
-		resource.RecordStoredResourceArgs{
-			ResourceUUID: resID,
-			StorageID:    storeID1,
-			ResourceType: charmresource.TypeContainerImage,
-			SHA384:       hash,
-			Size:         size,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-
 	// Act: try to store a second resource.
-	err = s.state.RecordStoredResource(
+	droppedHash2, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
-			ResourceUUID: resID,
-			StorageID:    storeID2,
-			ResourceType: charmresource.TypeContainerImage,
-			SHA384:       hash,
-			Size:         size,
+			ResourceUUID:    resID,
+			StorageID:       storeID2,
+			ResourceType:    charmresource.TypeContainerImage,
+			SHA384:          hash2,
+			Size:            size2,
+			RetrievedBy:     retrievedBy2,
+			RetrievedByType: retrievedByType2,
+			Origin:          charmresource.OriginStore,
 		},
 	)
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceAlreadyStored)
+	// Assert: Check the hash of the first blob was returned and changed to the
+	// second hash in the database.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(droppedHash2, gc.DeepEquals, hash1)
+	var foundStoreUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT store_storage_key FROM resource_image_store
+WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_image_store table not updated: %v", errors.ErrorStack(err)))
+	storeID, err := storeID2.ContainerImageMetadataStoreID()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(foundStoreUUID, gc.Equals, storeID)
+
+	// Assert: Check that the retrievedBy was also updated.
+	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resID)
+	c.Check(foundRetrievedBy, gc.Equals, retrievedBy2)
+	c.Check(foundRetrievedByType, gc.Equals, retrievedByType2)
 }
 
 func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	// Arrange: insert a resource.
-	resID, storeID1, _, _ := s.createFileResourceAndBlob(c)
+	resID, storeID1, size1, hash1 := s.createFileResourceAndBlob(c)
+	retrievedBy1 := "ubuntu/0"
+	retrievedByType1 := resource.Unit
+
+	// Arrange: store the first resource.
+	droppedHash1, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID:    resID,
+			StorageID:       storeID1,
+			ResourceType:    charmresource.TypeFile,
+			RetrievedBy:     retrievedBy1,
+			RetrievedByType: retrievedByType1,
+			SHA384:          hash1,
+			Size:            size1,
+			Origin:          charmresource.OriginStore,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Assert(droppedHash1, gc.Equals, "")
 
 	objectStoreUUID2 := objectstoretesting.GenObjectStoreUUID(c)
 	storeID2 := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID2)
-	err := s.addObjectStoreBlobMetadata(objectStoreUUID2)
+	retrievedBy2 := "ubuntu/0"
+	retrievedByType2 := resource.Unit
+	size2 := int64(422)
+	hash2 := "hash2"
+	err = s.addObjectStoreBlobMetadata(objectStoreUUID2)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
+	// Act: try and store the second resource.
+	droppedHash2, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID:    resID,
+			StorageID:       storeID2,
+			ResourceType:    charmresource.TypeFile,
+			RetrievedBy:     retrievedBy2,
+			RetrievedByType: retrievedByType2,
+			SHA384:          hash2,
+			Size:            size2,
+			Origin:          charmresource.OriginStore,
+		},
+	)
+	// Assert: Check the hash of the first blob was returned and changed to the
+	// second hash in the database.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(droppedHash2, gc.DeepEquals, hash1)
+	var foundStoreUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT store_uuid FROM resource_file_store
+WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_file_store table not updated: %v", errors.ErrorStack(err)))
+	objectStoreUUID, err := storeID2.ObjectStoreUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(foundStoreUUID, gc.Equals, objectStoreUUID.String())
+
+	// Assert: Check that the retrievedBy was also updated.
+	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resID)
+	c.Check(foundRetrievedBy, gc.Equals, retrievedBy2)
+	c.Check(foundRetrievedByType, gc.Equals, retrievedByType2)
+}
+
+func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerImage(c *gc.C) {
+	// Arrange: insert a resource record and generate 2 blobs.
+	resID, storeID, size, hash := s.createContainerImageResourceAndBlob(c)
+
 	// Arrange: store the first resource.
-	err = s.state.RecordStoredResource(
+	droppedHash1, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
-			StorageID:    storeID1,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeContainerImage,
+			SHA384:       hash,
+			Size:         size,
+			Origin:       charmresource.OriginStore,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Check(droppedHash1, gc.Equals, "")
+
+	// Act: try to store a second resource.
+	droppedHash2, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeContainerImage,
+			SHA384:       hash,
+			Size:         size,
+			Origin:       charmresource.OriginStore,
+		},
+	)
+	// Assert: That when record a blob twice, the second recording does not
+	// return its own hash to drop.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(droppedHash2, gc.Equals, "")
+}
+
+func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredFile(c *gc.C) {
+	// Arrange: insert a resource record and generate 2 blobs.
+	resID, storeID, size, hash := s.createFileResourceAndBlob(c)
+
+	// Arrange: store the first resource.
+	droppedHash1, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
 			ResourceType: charmresource.TypeFile,
+			SHA384:       hash,
+			Size:         size,
+			Origin:       charmresource.OriginStore,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+	c.Check(droppedHash1, gc.Equals, "")
+
+	// Act: try to store a second resource.
+	droppedHash2, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeFile,
+			SHA384:       hash,
+			Size:         size,
+			Origin:       charmresource.OriginStore,
+		},
+	)
+	// Assert: That when record a blob twice, the second recording does not
+	// return its own hash to drop.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(droppedHash2, gc.Equals, "")
+}
+
+// TestRecordStoredResourceOriginAndRevision checks that resource origin and
+// revision are set correctly.
+func (s *resourceSuite) TestRecordStoredResourceStoreOriginAndRevision(c *gc.C) {
+	// Arrange: Create file resource.
+	resID, storeID, _, _ := s.createFileResourceAndBlob(c)
+	origin := charmresource.OriginStore
+	revision := 8
+
+	// Act: store the resource blob.
+	_, err := s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeFile,
+			Origin:       origin,
+			Revision:     revision,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 
-	// Act: try and store the second resource.
-	err = s.state.RecordStoredResource(
+	// Assert: Check that the origin and revision have been set.
+	var (
+		foundOrigin   string
+		foundRevision int
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT rot.name, r.revision 
+FROM   resource r
+JOIN   resource_origin_type rot ON r.origin_type_id = rot.id
+WHERE  r.uuid = ?`, resID).Scan(&foundOrigin, &foundRevision)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) origin and revision in resource table not updated: %v", errors.ErrorStack(err)))
+	c.Check(foundOrigin, gc.Equals, origin.String())
+	c.Check(foundRevision, gc.Equals, revision)
+}
+
+// TestRecordStoredResourceOriginAndRevision checks that resource origin and
+// revision are set correctly.
+func (s *resourceSuite) TestRecordStoredResourceUpdateOriginAndRevision(c *gc.C) {
+	// Arrange: Create file resource.
+	resID, storeID, _, _ := s.createFileResourceAndBlob(c)
+	origin1 := charmresource.OriginStore
+	revision1 := 8
+
+	origin2 := charmresource.OriginUpload
+	revision2 := -1
+
+	// Arrange: Store the first origin and revision.
+	_, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
-			StorageID:    storeID2,
+			StorageID:    storeID,
 			ResourceType: charmresource.TypeFile,
+			Origin:       origin1,
+			Revision:     revision1,
 		},
 	)
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceAlreadyStored)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+
+	// Act: store the second origin and revision
+	_, err = s.state.RecordStoredResource(
+		context.Background(),
+		resource.RecordStoredResourceArgs{
+			ResourceUUID: resID,
+			StorageID:    storeID,
+			ResourceType: charmresource.TypeFile,
+			Origin:       origin2,
+			Revision:     revision2,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
+
+	// Assert: Check that the origin and revision have been set.
+	var (
+		foundOrigin   string
+		foundRevision int
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT rot.name, r.revision 
+FROM   resource r
+JOIN   resource_origin_type rot ON r.origin_type_id = rot.id
+WHERE  r.uuid = ?`, resID).Scan(&foundOrigin, &foundRevision)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) origin and revision in resource table not updated: %v", errors.ErrorStack(err)))
+	c.Check(foundOrigin, gc.Equals, origin2.String())
+	c.Check(foundRevision, gc.Equals, revision2)
 }
 
 func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObjectStore(c *gc.C) {
@@ -956,7 +1195,7 @@ func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObje
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
 
 	// Act: try and store the resource.
-	err := s.state.RecordStoredResource(
+	_, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -973,7 +1212,7 @@ func (s *resourceSuite) TestRecordStoredResourceContainerImageStoredResourceNotF
 	storeID := resourcestoretesting.GenContainerImageMetadataResourceID(c, "bad-storage-key")
 
 	// Act: try and store the resource.
-	err := s.state.RecordStoredResource(
+	_, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -1818,8 +2057,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
 	err := s.addObjectStoreBlobMetadata(objectStoreUUID)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
-
-	return s.state.RecordStoredResource(
+	_, err = s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resourceUUID,
@@ -1827,8 +2065,10 @@ func (s *resourceSuite) setWithRetrievedBy(
 			ResourceType:    charmresource.TypeFile,
 			RetrievedBy:     retrievedBy,
 			RetrievedByType: retrievedByType,
+			Origin:          charmresource.OriginStore,
 		},
 	)
+	return err
 }
 
 func (s *resourceSuite) getRetrievedByType(c *gc.C, resourceUUID coreresource.UUID) (retrievedBy string, retrievedByType resource.RetrievedByType) {

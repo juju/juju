@@ -480,6 +480,7 @@ WHERE uuid = $resourceIdentity.uuid`,
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return resourceerrors.ResourceNotFound
 		}
+
 		return errors.Capture(err)
 	})
 	if err != nil {
@@ -491,29 +492,31 @@ WHERE uuid = $resourceIdentity.uuid`,
 
 // RecordStoredResource records a stored resource along with who retrieved it.
 //
+// If recording a stored blob for a resource that already has a blob associated
+// with it, this association is removed and the hash of this blob returned in
+// droppedHash. If there was no blob associated, droppedHash is empty.
+//
 // The following error types can be expected to be returned:
 //   - [resourceerrors.StoredResourceNotFound] if the stored resource at the
 //     storageID cannot be found.
-//   - [resourceerrors.ResourceAlreadyStored] if the resource is already
-//     associated with a stored resource blob.
 func (st *State) RecordStoredResource(
 	ctx context.Context,
 	args resource.RecordStoredResourceArgs,
-) error {
+) (droppedHash string, err error) {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		switch args.ResourceType {
 		case charmresource.TypeFile:
-			err = st.insertFileResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
+			droppedHash, err = st.replaceFileResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
 			if err != nil {
 				return errors.Errorf("inserting stored file resource information: %w", err)
 			}
 		case charmresource.TypeContainerImage:
-			err = st.insertImageResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
+			droppedHash, err = st.replaceImageResource(ctx, tx, args.ResourceUUID, args.StorageID, args.Size, args.SHA384)
 			if err != nil {
 				return errors.Errorf("inserting stored container image resource information: %w", err)
 			}
@@ -521,8 +524,13 @@ func (st *State) RecordStoredResource(
 			return errors.Errorf("unknown resource type: %q", args.ResourceType.String())
 		}
 
+		err := st.updateOriginAndRevision(ctx, tx, args.ResourceUUID, args.Origin, args.Revision)
+		if err != nil {
+			return errors.Errorf("updating resource revision and origin: %w", err)
+		}
+
 		if args.RetrievedBy != "" {
-			err := st.insertRetrievedBy(ctx, tx, args.ResourceUUID, args.RetrievedBy, args.RetrievedByType)
+			err := st.upsertRetrievedBy(ctx, tx, args.ResourceUUID, args.RetrievedBy, args.RetrievedByType)
 			if err != nil {
 				return errors.Errorf("inserting retrieval by for resource %s: %w", args.ResourceUUID, err)
 			}
@@ -538,9 +546,9 @@ func (st *State) RecordStoredResource(
 		return nil
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return droppedHash, nil
 }
 
 // GetResourceType finds the type of the given resource from the resource table.
@@ -587,21 +595,25 @@ WHERE  uuid = $resourceKind.uuid
 	return kind, err
 }
 
-// insertFileResource checks that the storage ID corresponds to stored object
+// replaceFileResource checks that the storage ID corresponds to stored object
 // store metadata and then records that the resource is stored at the provided
 // storage ID.
-func (st *State) insertFileResource(
+//
+// If recording a stored file for a resource that already has a file associated
+// with it, this association is removed and the hash of this file returned in
+// droppedHash. If there was no file associated, droppedHash is empty.
+func (st *State) replaceFileResource(
 	ctx context.Context,
 	tx *sqlair.TX,
 	resourceUUID coreresource.UUID,
 	storageID coreresourcestore.ID,
 	size int64,
 	sha384 string,
-) error {
+) (droppedHash string, err error) {
 	// Get the object store UUID of the stored resource blob.
 	uuid, err := storageID.ObjectStoreUUID()
 	if err != nil {
-		return errors.Errorf("cannot get object store UUID: %w", err)
+		return "", errors.Errorf("cannot get object store UUID: %w", err)
 	}
 
 	// Check the resource blob is stored in the object store.
@@ -617,32 +629,52 @@ FROM   object_store_metadata
 WHERE  uuid = $storedFileResource.store_uuid
 `, storedResource)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	err = tx.Query(ctx, checkObjectStoreMetadataStmt, storedResource).Get(&storedResource)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("checking object store for resource %s: %w", resourceUUID, resourceerrors.StoredResourceNotFound)
+		return "", errors.Errorf("checking object store for resource %s: %w", resourceUUID, resourceerrors.StoredResourceNotFound)
 	} else if err != nil {
-		return errors.Errorf("checking object store for resource %s: %w", resourceUUID, err)
+		return "", errors.Errorf("checking object store for resource %s: %w", resourceUUID, err)
 	}
 
-	// Check if the resource has already been stored.
+	// Check if there is already a stored file for this resource.
+	var existingStoredResource storedFileResource
 	checkResourceFileStoreStmt, err := st.Prepare(`
 SELECT &storedFileResource.*
 FROM   resource_file_store
 WHERE  resource_uuid = $storedFileResource.resource_uuid
-`, storedResource)
+`, existingStoredResource)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkResourceFileStoreStmt, storedResource).Get(&storedResource)
+	err = tx.Query(ctx, checkResourceFileStoreStmt, storedResource).Get(&existingStoredResource)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("checking if resource %s already stored: %w", resourceUUID, err)
+		return "", errors.Errorf("checking if resource %s already stored: %w", resourceUUID, err)
 	} else if err == nil {
-		// If a row was found, return that the resource is already stored.
-		return resourceerrors.ResourceAlreadyStored
+		// If a row was found, then a file for that resource is
+		// already stored, remove it and set its storeID as droppedHash.
+		if existingStoredResource == storedResource {
+			// Unless it is the same resource blob.
+			return "", nil
+		}
+
+		removeExistingStoredResource, err := st.Prepare(`
+DELETE FROM   resource_file_store
+WHERE         store_uuid = $storedFileResource.store_uuid
+`, existingStoredResource)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, removeExistingStoredResource, existingStoredResource).Run()
+		if err != nil {
+			return "", errors.Errorf("delinking old file for resource: %w", err)
+		}
+
+		droppedHash = existingStoredResource.SHA384
 	}
 
 	// Record where the resource is stored.
@@ -651,33 +683,37 @@ INSERT INTO resource_file_store (*)
 VALUES      ($storedFileResource.*)
 `, storedResource)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	var outcome sqlair.Outcome
-	err = tx.Query(ctx, insertStoredResourceStmt, storedResource).Get(&outcome)
+	err = tx.Query(ctx, insertStoredResourceStmt, storedResource).Run()
 	if err != nil {
-		return errors.Errorf("resource %s: %w", resourceUUID, err)
+		return "", errors.Errorf("resource %s: %w", resourceUUID, err)
 	}
 
-	return nil
+	return droppedHash, nil
 }
 
-// insertImageResource checks that the storage ID corresponds to stored
+// replaceImageResource checks that the storage ID corresponds to stored
 // container image store metadata and then records that the resource is stored
 // at the provided storage ID.
-func (st *State) insertImageResource(
+//
+// If recording a stored image for a resource that already has an image
+// associated with it, this association is removed and the hash of this image
+// returned in droppedHash. If there was no image associated, droppedHash is
+// empty.
+func (st *State) replaceImageResource(
 	ctx context.Context,
 	tx *sqlair.TX,
 	resourceUUID coreresource.UUID,
 	storageID coreresourcestore.ID,
 	size int64,
 	hash string,
-) error {
+) (droppedHash string, err error) {
 	// Get the container image metadata storage key.
 	storageKey, err := storageID.ContainerImageMetadataStoreID()
 	if err != nil {
-		return errors.Errorf("cannot get container image metadata id: %w", err)
+		return "", errors.Errorf("cannot get container image metadata id: %w", err)
 	}
 
 	// Check the resource is stored in the container image metadata store.
@@ -693,32 +729,52 @@ FROM   resource_container_image_metadata_store
 WHERE  storage_key = $storedContainerImageResource.store_storage_key
 `, storedResource)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	err = tx.Query(ctx, checkContainerImageStoreStmt, storedResource).Get(&storedResource)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("checking container image metadata store for resource %s: %w", resourceUUID, resourceerrors.StoredResourceNotFound)
+		return "", errors.Errorf("checking container image metadata store for resource %s: %w", resourceUUID, resourceerrors.StoredResourceNotFound)
 	} else if err != nil {
-		return errors.Errorf("checking container image metadata store for resource %s: %w", resourceUUID, err)
+		return "", errors.Errorf("checking container image metadata store for resource %s: %w", resourceUUID, err)
 	}
 
-	// Check if the resource has already been stored.
+	// Check if there is already a stored container image for this resource.
+	var existingStoredResource storedContainerImageResource
 	checkResourceImageStoreStmt, err := st.Prepare(`
 SELECT &storedContainerImageResource.*
 FROM   resource_image_store
 WHERE  resource_uuid = $storedContainerImageResource.resource_uuid
-`, storedResource)
+`, existingStoredResource)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkResourceImageStoreStmt, storedResource).Get(&storedResource)
+	err = tx.Query(ctx, checkResourceImageStoreStmt, storedResource).Get(&existingStoredResource)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("checking if resource %s already stored: %w", resourceUUID, err)
+		return "", errors.Errorf("checking if resource %s already stored: %w", resourceUUID, err)
 	} else if err == nil {
-		// If a row was found, return that the resource is already stored.
-		return resourceerrors.ResourceAlreadyStored
+		// If a row was found, then a container image for that resource is
+		// already stored, remove it and set its storeID as droppedHash.
+		if existingStoredResource == storedResource {
+			// Unless it is the same resource blob.
+			return "", nil
+		}
+
+		removeExistingStoredResource, err := st.Prepare(`
+DELETE FROM   resource_image_store
+WHERE         store_storage_key = $storedContainerImageResource.store_storage_key
+`, existingStoredResource)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, removeExistingStoredResource, existingStoredResource).Run()
+		if err != nil {
+			return "", errors.Errorf("delinking old file for resource: %w", err)
+		}
+
+		droppedHash = existingStoredResource.Hash
 	}
 
 	// Record where the resource is stored.
@@ -727,48 +783,30 @@ INSERT INTO resource_image_store (*)
 VALUES ($storedContainerImageResource.*)
 `, storedResource)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	var outcome sqlair.Outcome
 	err = tx.Query(ctx, insertStoredResourceStmt, storedResource).Get(&outcome)
 	if err != nil {
-		return errors.Errorf("resource %s: %w", resourceUUID, err)
+		return "", errors.Errorf("resource %s: %w", resourceUUID, err)
 	}
 
-	return nil
+	return droppedHash, nil
 }
 
-// insertRetrievedBy updates the retrieved by table to record who retrieved the currently stored resource.
-// in the retrieved_by table, and if not, adds the given retrieved by name and
-// type.
-func (st *State) insertRetrievedBy(
+// upsertRetrievedBy updates the retrieved by table to record who retrieved the
+// currently stored resource in the retrieved_by table, and if not, adds the
+// given retrieved by name and type. If there is already a "retrieved by" value
+// set for the resource, it is replaced.
+func (st *State) upsertRetrievedBy(
 	ctx context.Context,
 	tx *sqlair.TX,
 	resourceUUID coreresource.UUID,
 	retrievedBy string,
 	retrievedByType resource.RetrievedByType,
 ) error {
-	// Verify if the resource has already been retrieved.
-	resID := resourceIdentity{UUID: resourceUUID.String()}
-	checkAlreadyRetrievedQuery := `
-SELECT resource_uuid AS &resourceIdentity.uuid 
-FROM   resource_retrieved_by
-WHERE  resource_uuid = $resourceIdentity.uuid`
-	checkAlreadyRetrievedStmt, err := st.Prepare(checkAlreadyRetrievedQuery, resID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, checkAlreadyRetrievedStmt, resID).Get(&resID)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Capture(err)
-	} else if err == nil {
-		// If the resource has already been retrieved, the return an error.
-		return resourceerrors.ResourceAlreadyStored
-	}
-
-	// Insert retrieved by.
+	// Upsert retrieved by.
 	type setRetrievedBy struct {
 		ResourceUUID    string `db:"resource_uuid"`
 		RetrievedByType string `db:"retrieved_by_type"`
@@ -784,6 +822,7 @@ INSERT INTO resource_retrieved_by (resource_uuid, retrieved_by_type_id, name)
 SELECT      $setRetrievedBy.resource_uuid, rrbt.id, $setRetrievedBy.name
 FROM        resource_retrieved_by_type rrbt
 WHERE       rrbt.name = $setRetrievedBy.retrieved_by_type
+ON CONFLICT(resource_uuid) DO UPDATE SET retrieved_by_type_id=excluded.retrieved_by_type_id, name=excluded.name
 `, retrievedByParam)
 	if err != nil {
 		return errors.Capture(err)
@@ -800,6 +839,49 @@ WHERE       rrbt.name = $setRetrievedBy.retrieved_by_type
 		return errors.Capture(err)
 	} else if rows != 1 {
 		return errors.Errorf("updating charm modified version: expected 1 row affected, got %d", rows)
+	}
+
+	return nil
+}
+
+// updateOriginAndRevision sets the resource origin and revision.
+func (st *State) updateOriginAndRevision(
+	ctx context.Context,
+	tx *sqlair.TX,
+	resourceUUID coreresource.UUID,
+	origin charmresource.Origin,
+	revision int,
+) error {
+	originAndRevision := resourceOriginAndRevision{
+		UUID:     resourceUUID.String(),
+		Origin:   origin.String(),
+		Revision: revision,
+	}
+	updateOriginAndRevisionStmt, err := st.Prepare(`
+UPDATE resource
+SET    revision = $resourceOriginAndRevision.revision,
+       origin_type_id = (
+    SELECT id
+    FROM resource_origin_type
+    WHERE name = $resourceOriginAndRevision.origin_name
+)
+WHERE  uuid = $resourceOriginAndRevision.uuid
+`, originAndRevision)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, updateOriginAndRevisionStmt, originAndRevision).Get(&outcome)
+	if err != nil {
+		return errors.Errorf("updating resource origin and revision: %w", err)
+	}
+
+	rows, err := outcome.Result().RowsAffected()
+	if err != nil {
+		return errors.Capture(err)
+	} else if rows != 1 {
+		return errors.Errorf("updating resource origin and revision: expected 1 row affected, got %d", rows)
 	}
 
 	return nil
