@@ -39,6 +39,7 @@ import (
 
 type Environ struct {
 	environs.NoSpaceDiscoveryEnviron
+	environs.NoContainerAddressesEnviron
 
 	Compute    ComputeClient
 	Networking NetworkingClient

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/packethost/packngo"
 
 	"github.com/juju/juju/core/instance"
@@ -205,49 +204,10 @@ func (e *environ) SuperSubnets(context.ProviderCallContext) ([]string, error) {
 	return privateCIDRs, nil
 }
 
-// SupportsContainerAddresses returns true if the current environment is
-// able to allocate addaddresses for containers.
-func (*environ) SupportsContainerAddresses(context.ProviderCallContext) (bool, error) {
-	return false, nil
-}
-
-// SupportsSpaceDiscovery returns whether the current environment
-// supports discovering spaces from the provider. The returned error
-// satisfies errors.IsNotSupported(), unless a general API failure occurs.
-func (*environ) SupportsSpaceDiscovery(context.ProviderCallContext) (bool, error) {
-	return false, nil
-}
-
-// Spaces returns a slice of network.SpaceInfo with info, including
-// details of all associated subnets, about all spaces known to the
-// provider that have subnets available.
-func (*environ) Spaces(context.ProviderCallContext) (network.SpaceInfos, error) {
-	return nil, errors.NotSupportedf("spaces")
-}
-
-// AllocateContainerAddresses allocates a static addsubnetss for each of the
-// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
-// network config including all allocated addaddresses on success.
-func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("container address allocation")
-}
-
 // AreSpacesRoutable returns whether the communication between the
 // two spaces can use cloud-local addaddresses.
 func (*environ) AreSpacesRoutable(context.ProviderCallContext, *environs.ProviderSpaceInfo, *environs.ProviderSpaceInfo) (bool, error) {
 	return false, errors.NotSupportedf("spaces")
-}
-
-// ProviderSpaceInfo returns the details of the space requested as
-// a ProviderSpaceInfo.
-func (*environ) ProviderSpaceInfo(context.ProviderCallContext, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
-	return nil, errors.NotSupportedf("spaces")
-}
-
-// ReleaseContainerAddresses releases the previously allocated
-// addaddresses matching the interface details passed in.
-func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("container address allocation")
 }
 
 // listIPsByProjectIDAndRegion returns a list of reserved ip addressed filtered by projectID and region

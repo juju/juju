@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
 	"github.com/juju/juju/core/instance"
@@ -1091,21 +1090,4 @@ func (e *Environ) SupportsSpaces(envcontext.ProviderCallContext) (bool, error) {
 
 func (e *Environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, errors.NotImplementedf("AreSpacesRoutable")
-}
-
-func (e *Environ) SupportsContainerAddresses(ctx envcontext.ProviderCallContext) (bool, error) {
-	return false, errors.NotSupportedf("container addresses")
-}
-
-func (e *Environ) AllocateContainerAddresses(
-	ctx envcontext.ProviderCallContext,
-	hostInstanceID instance.Id,
-	containerTag names.MachineTag,
-	preparedInfo network.InterfaceInfos,
-) (network.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("AllocateContainerAddresses")
-}
-
-func (e *Environ) ReleaseContainerAddresses(ctx envcontext.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("ReleaseContainerAddresses")
 }

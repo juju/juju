@@ -50,6 +50,7 @@ var (
 
 type manualEnviron struct {
 	environs.NoSpaceDiscoveryEnviron
+	environs.NoContainerAddressesEnviron
 
 	host string
 	user string

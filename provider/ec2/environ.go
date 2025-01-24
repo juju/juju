@@ -92,6 +92,7 @@ var _ Client = (*ec2.Client)(nil)
 
 type environ struct {
 	environs.NoSpaceDiscoveryEnviron
+	environs.NoContainerAddressesEnviron
 
 	name           string
 	cloud          environscloudspec.CloudSpec
@@ -246,11 +247,6 @@ func (e *environ) SupportsInstanceRoles(_ context.ProviderCallContext) bool {
 // SupportsSpaces is specified on environs.Networking.
 func (e *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
 	return true, nil
-}
-
-// SupportsContainerAddresses is specified on environs.Networking.
-func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
-	return false, errors.NotSupportedf("container address allocation")
 }
 
 func (e *environ) instanceTypeCache() *instanceTypeCache {
@@ -2710,14 +2706,6 @@ func ec2ErrCode(err error) string {
 		return apiErr.ErrorCode()
 	}
 	return ""
-}
-
-func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("container address allocation")
-}
-
-func (e *environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("container address allocation")
 }
 
 func (e *environ) hasDefaultVPC(ctx context.ProviderCallContext) (bool, error) {

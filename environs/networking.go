@@ -90,7 +90,12 @@ type Networking interface {
 	// AllocateContainerAddresses allocates a static address for each of the
 	// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
 	// network config including all allocated addresses on success.
-	AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error)
+	AllocateContainerAddresses(
+		ctx context.ProviderCallContext,
+		hostInstanceID instance.Id,
+		containerTag names.MachineTag,
+		preparedInfo network.InterfaceInfos,
+	) (network.InterfaceInfos, error)
 
 	// ReleaseContainerAddresses releases the previously allocated
 	// addresses matching the interface details passed in.
@@ -133,9 +138,31 @@ func (*NoSpaceDiscoveryEnviron) ProviderSpaceInfo(
 	return nil, errors.NotSupportedf("ProviderSpaceInfo")
 }
 
-func supportsNetworking(environ BootstrapEnviron) (NetworkingEnviron, bool) {
-	ne, ok := environ.(NetworkingEnviron)
-	return ne, ok
+// NoContainerAddressesEnviron implements methods from Networking that represent
+// an environ without the ability to allocate container addresses.
+// As with NoSpaceDiscoveryEnviron it can be embedded safely.
+type NoContainerAddressesEnviron struct{}
+
+// SupportsContainerAddresses (Networking) indicates that this provider does not
+// support container addresses.
+func (*NoContainerAddressesEnviron) SupportsContainerAddresses(context.ProviderCallContext) (bool, error) {
+	return false, nil
+}
+
+// AllocateContainerAddresses (Networking) indicates that this provider does
+// not support allocating container addresses.
+func (*NoContainerAddressesEnviron) AllocateContainerAddresses(
+	context.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos,
+) (network.InterfaceInfos, error) {
+	return nil, errors.NotSupportedf("AllocateContainerAddresses")
+}
+
+// ReleaseContainerAddresses (Networking) indicates that this provider does not
+// support releasing container addresses.
+func (*NoContainerAddressesEnviron) ReleaseContainerAddresses(
+	context.ProviderCallContext, []network.ProviderInterfaceInfo,
+) error {
+	return errors.NotSupportedf("ReleaseContainerAddresses")
 }
 
 // SupportsSpaces checks if the environment implements NetworkingEnviron
@@ -170,6 +197,11 @@ func SupportsContainerAddresses(ctx context.ProviderCallContext, env BootstrapEn
 		return false
 	}
 	return ok
+}
+
+func supportsNetworking(environ BootstrapEnviron) (NetworkingEnviron, bool) {
+	ne, ok := environ.(NetworkingEnviron)
+	return ne, ok
 }
 
 // ProviderSpaceInfo contains all the information about a space needed

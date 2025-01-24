@@ -55,6 +55,9 @@ type environConfig struct {
 }
 
 type environ struct {
+	environs.NoSpaceDiscoveryEnviron
+	environs.NoContainerAddressesEnviron
+
 	ecfgMutex     sync.Mutex
 	ecfg          *environConfig
 	name          string
