@@ -15,15 +15,21 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-const minHashPrefixLength = 7
+const (
+	hashLength = 64
+
+	// minHashPrefixLength is the minimum length of the hash prefix. We allow
+	// either 7 or 8 characters.
+	minHashPrefixLength = 7
+)
 
 var (
 	// The hashRegexp is used to validate the SHA256 hash.
-	hashRegexp = regexp.MustCompile(`^[a-f0-9]*$`)
+	hashRegexp = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 	// The hashPrefixRegexp is used to validate the SHA256 hash prefix.
 	// Note: this should include the length of the hash prefix.
-	hashPrefixRegexp = regexp.MustCompile(`^[a-f0-9]*$`)
+	hashPrefixRegexp = regexp.MustCompile(`^[a-f0-9]{7,8}$`)
 )
 
 // State describes retrieval and persistence methods for the objectstore.
@@ -89,8 +95,10 @@ func (s *Service) GetMetadata(ctx context.Context, path string) (objectstore.Met
 // GetMetadataBySHA256 returns the persistence metadata for the object
 // with SHA256 starting with the provided prefix.
 func (s *Service) GetMetadataBySHA256(ctx context.Context, sha256 string) (objectstore.Metadata, error) {
-	if sha256 == "" || !hashRegexp.MatchString(sha256) {
-		return objectstore.Metadata{}, errors.Errorf("sha256 cannot be empty: %w", objectstoreerrors.ErrInvalidHash)
+	if len(sha256) != hashLength {
+		return objectstore.Metadata{}, objectstoreerrors.ErrInvalidHashLength
+	} else if !hashRegexp.MatchString(sha256) {
+		return objectstore.Metadata{}, objectstoreerrors.ErrInvalidHash
 	}
 
 	metadata, err := s.st.GetMetadataBySHA256(ctx, sha256)

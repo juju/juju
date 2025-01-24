@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -56,7 +58,9 @@ func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 func (s *serviceSuite) TestGetMetadataBySHA256(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sha := "deadbeef"
+	sha256 := sha256.New()
+	sha256.Write([]byte(uuid.MustNewUUID().String()))
+	sha := hex.EncodeToString(sha256.Sum(nil))
 
 	metadata := objectstore.Metadata{
 		Path:   "path",
@@ -80,8 +84,32 @@ func (s *serviceSuite) TestGetMetadataBySHA256(c *gc.C) {
 func (s *serviceSuite) TestGetMetadataBySHA256Invalid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state).GetMetadataBySHA256(context.Background(), "abcdefg")
+	sha256 := sha256.New()
+	sha256.Write([]byte(uuid.MustNewUUID().String()))
+	sha := hex.EncodeToString(sha256.Sum(nil))
+
+	illegalSha := "!" + sha[1:]
+
+	_, err := NewService(s.state).GetMetadataBySHA256(context.Background(), illegalSha)
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrInvalidHash)
+}
+
+func (s *serviceSuite) TestGetMetadataBySHA256TooShort(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	sha256 := sha256.New()
+	sha256.Write([]byte(uuid.MustNewUUID().String()))
+	sha := hex.EncodeToString(sha256.Sum(nil))
+
+	_, err := NewService(s.state).GetMetadataBySHA256(context.Background(), sha+"a")
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrInvalidHashLength)
+}
+
+func (s *serviceSuite) TestGetMetadataBySHA256TooLong(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state).GetMetadataBySHA256(context.Background(), "beef")
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrInvalidHashLength)
 }
 
 func (s *serviceSuite) TestGetMetadataBySHA256Prefix(c *gc.C) {
@@ -113,6 +141,13 @@ func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooShort(c *gc.C) {
 
 	_, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), "beef")
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrHashPrefixTooShort)
+}
+
+func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooLong(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state).GetMetadataBySHA256Prefix(context.Background(), "deadbeef1")
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrInvalidHashPrefix)
 }
 
 func (s *serviceSuite) TestGetMetadataBySHA256PrefixInvalid(c *gc.C) {
