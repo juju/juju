@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"regexp"
-	"strings"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
@@ -45,7 +44,7 @@ type State interface {
 	//     application is not found.
 	//   - [resourceerrors.ResourceNotFound] if no resource with name exists for
 	//     given application.
-	GetResourceUUIDByApplicationAndResourceName(ctx context.Context, appName string, resName string) (coreresource.UUID, error)
+	GetResourceUUIDByApplicationAndResourceName(ctx context.Context, appName, resName string) (coreresource.UUID, error)
 
 	// ListResources returns the list of resource for the given application.
 	ListResources(ctx context.Context, applicationID coreapplication.ID) (resource.ApplicationResources, error)
@@ -192,7 +191,7 @@ func (s *Service) GetApplicationResourceID(
 	if err := args.ApplicationID.Validate(); err != nil {
 		return "", errors.Errorf("application id: %w", err)
 	}
-	if strings.TrimSpace(args.Name) == "" {
+	if args.Name == "" {
 		return "", resourceerrors.ResourceNameNotValid
 	}
 	return s.st.GetApplicationResourceID(ctx, args)
@@ -206,12 +205,15 @@ func (s *Service) GetApplicationResourceID(
 //     not found.
 //   - [resourceerrors.ResourceNotFound] if no resource with name exists for
 //     given application.
+//   - [resourceerrors.ResourceNameNotValid] if no resource name is provided
+//     in the args.
+//   - [resourceerrors.ApplicationNameNotValid] if the application name is
+//     invalid.
 func (s *Service) GetResourceUUIDByApplicationAndResourceName(
 	ctx context.Context,
-	appName string,
-	resName string,
+	appName, resName string,
 ) (coreresource.UUID, error) {
-	if strings.TrimSpace(resName) == "" {
+	if resName == "" {
 		return "", resourceerrors.ResourceNameNotValid
 	}
 	if !isValidApplicationName(appName) {
