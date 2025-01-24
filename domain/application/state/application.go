@@ -2370,13 +2370,22 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 		// need.
 		var removals sqlair.S
 		var updates []setApplicationConfig
-		for k := range currentM {
-			if _, ok := config[k]; !ok {
+		for k, currentCfg := range currentM {
+			cfg, ok := config[k]
+			if !ok {
 				removals = append(removals, k)
 				continue
 			}
 
-			typeID, err := encodeConfigType(config[k].Type)
+			// If the value and type are the same, we don't need to update. It
+			// should be safe to compare the types, even if we're casting a
+			// string to the type. This is because the type will either match or
+			// not.
+			if cfg.Value == currentCfg.Value && cfg.Type == charm.OptionType(currentCfg.Type) {
+				continue
+			}
+
+			typeID, err := encodeConfigType(cfg.Type)
 			if err != nil {
 				return internalerrors.Errorf("encoding config type: %w", err)
 			}
@@ -2384,7 +2393,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 			updates = append(updates, setApplicationConfig{
 				ApplicationUUID: ident.ID.String(),
 				Key:             k,
-				Value:           config[k].Value,
+				Value:           cfg.Value,
 				TypeID:          typeID,
 			})
 

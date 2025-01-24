@@ -2691,6 +2691,42 @@ func (s *applicationStateSuite) TestSetApplicationConfigChangesType(c *gc.C) {
 	})
 }
 
+func (s *applicationStateSuite) TestSetApplicationConfigChangesIdempotent(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+		"key": {
+			Type:  charm.OptionString,
+			Value: "value",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The second call should not perform any updates, although it will still
+	// write the trust setting.
+
+	err = s.state.SetApplicationConfig(context.Background(), id, map[string]application.ApplicationConfig{
+		"key": {
+			Type:  charm.OptionString,
+			Value: "value",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := s.state.GetApplicationConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, map[string]application.ApplicationConfig{
+		"key": {
+			Type:  charm.OptionString,
+			Value: "value",
+		},
+		"trust": {
+			Type:  charm.OptionBool,
+			Value: false,
+		},
+	})
+}
+
 func (s *applicationStateSuite) TestSetApplicationConfigNoApplication(c *gc.C) {
 	// If the application is not found, it should return application not found.
 	id := applicationtesting.GenApplicationUUID(c)
