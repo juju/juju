@@ -15,6 +15,24 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
+// StateType indicates if a resource is available to be used on the
+// controller or not.
+type StateType string
+
+func (s StateType) String() string {
+	return string(s)
+}
+
+const (
+	// StatePotential indicates that a resource refers to a version that could
+	// potentially be downloaded from charmhub. Potential resources are used to
+	// let users know a resource can be upgraded.
+	StatePotential StateType = "potential"
+	// StateAvailable indicates that a resource refers to an active resource on
+	// the controller that may be used by applications and units.
+	StateAvailable StateType = "available"
+)
+
 // GetApplicationResourceIDArgs holds the arguments for the
 // GetApplicationResourceID method.
 type GetApplicationResourceIDArgs struct {
@@ -114,4 +132,43 @@ type UpdateResourceRevisionArgs struct {
 	ResourceUUID coreresource.UUID
 	// Revision is the revision of the resource to use.
 	Revision int
+}
+
+// ImportResourcesArgs are the arguments for SetResource.
+type ImportResourcesArgs []ImportResourcesArg
+
+// ImportResourcesArg is a single argument for the ImportResources method.
+type ImportResourcesArg struct {
+	// ApplicationName is the name of the application these resources are
+	// associated with.
+	ApplicationName string
+	// ApplicationResources are the available resources on the application.
+	Resources []ImportResourceInfo
+	// UnitResources contains information about the units using the resources in
+	// ApplicationResources.
+	UnitResources []ImportUnitResourceInfo
+}
+
+// ImportResourceInfo contains information about a single resource for the
+// ImportResources method.
+type ImportResourceInfo struct {
+	// Name is the name of the resource.
+	Name string
+	// Origin identifies where the resource will come from.
+	Origin charmresource.Origin
+	// Revision is the charm store revision of the resource.
+	Revision int
+	// Timestamp is the time the resource was added to the model.
+	Timestamp time.Time
+}
+
+// ImportUnitResourceInfo contains information about a single unit resource for the
+// ImportResources method.
+type ImportUnitResourceInfo struct {
+	// ResourceName is the name of the resource.
+	ResourceName string
+	// UnitName is the name of the unit using the resource.
+	UnitName string
+	// Timestamp is the time the resource was added to the model.
+	Timestamp time.Time
 }

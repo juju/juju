@@ -83,7 +83,7 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 		var err error
 		fakeNetNodeUUID := "fake-net-node-uuid"
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'app', 0)`, fakeCharmUUID)
+		_, err = tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id, source_id) VALUES (?, 'app', 0, 1 /* charmhub */)`, fakeCharmUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -661,7 +661,7 @@ func (s *resourceSuite) TestSetRepositoryResource(c *gc.C) {
 		CreatedAt:       now,
 		RetrievedByType: "user",
 		RetrievedByName: "John Doe",
-		State:           statePotential,
+		State:           resource.StatePotential.String(),
 	}
 	notPolled := []resourceData{
 		defaultResource.DeepCopy(),
@@ -1851,7 +1851,7 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 		Name:            "no-unit",
 		CreatedAt:       now,
 		Type:            charmresource.TypeFile,
-		State:           statePotential,
+		State:           resource.StatePotential.String(),
 	}
 	withUnit1AvailableRes := resourceData{
 		UUID:            "with-unit-available-uuid",
@@ -1875,7 +1875,7 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 		Name:            "with-unit",
 		CreatedAt:       now,
 		Type:            charmresource.TypeFile,
-		State:           statePotential,
+		State:           resource.StatePotential.String(),
 	}
 	withUnitBisAvailableRes := resourceData{
 		UUID:            "with-unit-bis-available-uuid",
@@ -2461,6 +2461,412 @@ VALUES (?, ?)`, resourceUUID.String(), "test-app")
 	s.checkPendingApplicationDeleted(c, resourceUUID.String())
 	s.checkResourceDeleted(c, resourceUUID.String())
 }
+
+func (s *resourceSuite) TestImportResources(c *gc.C) {
+	// Arrange: Add charm resources for the resources we are going to set.
+	app1Res1Name := "app-1-resource-1"
+	app1Res2Name := "app-1-resource-2"
+	app2ResName := "app-2-resource-1"
+	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
+		Name: app1Res1Name,
+		Type: charmresource.TypeFile,
+	})
+	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
+		Name: app1Res2Name,
+		Type: charmresource.TypeFile,
+	})
+	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
+		Name: app2ResName,
+		Type: charmresource.TypeContainerImage,
+	})
+
+	// Arrange: Create arguments for ImportResources containing the resources we
+	// want to set.
+	app1Res1 := resource.ImportResourceInfo{
+		Name:      app1Res1Name,
+		Origin:    charmresource.OriginStore,
+		Revision:  3,
+		Timestamp: time.Now().Truncate(time.Second).UTC(),
+	}
+	app1Res1Unit := resource.ImportUnitResourceInfo{
+		ResourceName: app1Res1Name,
+		UnitName:     s.constants.fakeUnitName1,
+		Timestamp:    time.Now().Truncate(time.Second).UTC(),
+	}
+
+	app1Res2 := resource.ImportResourceInfo{
+		Name:      app1Res2Name,
+		Origin:    charmresource.OriginUpload,
+		Revision:  -1,
+		Timestamp: time.Now().Truncate(time.Second).UTC(),
+	}
+	app1Res2Unit := resource.ImportUnitResourceInfo{
+		ResourceName: app1Res2Name,
+		UnitName:     s.constants.fakeUnitName1,
+		Timestamp:    time.Now().Truncate(time.Second).UTC(),
+	}
+	app2Res := resource.ImportResourceInfo{
+		Name:      app2ResName,
+		Origin:    charmresource.OriginStore,
+		Revision:  2,
+		Timestamp: time.Now().Truncate(time.Second).UTC(),
+	}
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: s.constants.fakeApplicationName1,
+		Resources:       []resource.ImportResourceInfo{app1Res1, app1Res2},
+		UnitResources:   []resource.ImportUnitResourceInfo{app1Res1Unit, app1Res2Unit},
+	}, {
+		ApplicationName: s.constants.fakeApplicationName2,
+		Resources:       []resource.ImportResourceInfo{app2Res},
+	}}
+
+	// Act: Set the resources.
+	err := s.state.ImportResources(context.Background(), args)
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert: Check the resources were set and linked ot the application.
+	app1Res1UUID := s.checkResourceSet(c, fakeCharmUUID, s.constants.fakeApplicationUUID1, app1Res1)
+	app1Res2UUID := s.checkResourceSet(c, fakeCharmUUID, s.constants.fakeApplicationUUID1, app1Res2)
+	app2ResUUID := s.checkResourceSet(c, fakeCharmUUID, s.constants.fakeApplicationUUID2, app2Res)
+
+	// Assert: Check the repo resources were set and linked ot the application
+	// (the testing charm has source "charmhub" so we expect these to be set).
+	s.checkRepoResourceSet(c, s.constants.fakeApplicationUUID1, app1Res1)
+	s.checkRepoResourceSet(c, s.constants.fakeApplicationUUID1, app1Res2)
+	s.checkRepoResourceSet(c, s.constants.fakeApplicationUUID2, app2Res)
+
+	// Assert: Check the unit resources were set.
+	s.checkUnitResourceSet(c, app1Res1UUID, s.constants.fakeUnitUUID1, app1Res1Unit)
+	s.checkUnitResourceSet(c, app1Res2UUID, s.constants.fakeUnitUUID1, app1Res2Unit)
+
+	// Assert: Check that the container image resources were all set on their
+	// applications.
+	s.checkKubernetesResourceSet(c, app2ResUUID, app2Res)
+}
+
+// TestImportResourcesOnLocalCharm checks that repository resources are not set for
+// local charms.
+func (s *resourceSuite) TestImportResourcesOnLocalCharm(c *gc.C) {
+	// Arrange: Add a local charm and an app on it.
+	charmUUID := "local-charm-uuid"
+	appName := "local-charm-app"
+	appUUID := "local-charm-app-uuid"
+	s.addLocalCharmAndApp(c, charmUUID, appName, appUUID)
+
+	// Arrange: Add charm resources for the resources we are going to set.
+	resName := "resource-name"
+	s.addCharmResource(c, charmUUID, charmresource.Meta{
+		Name: resName,
+		Type: charmresource.TypeFile,
+	})
+
+	// Arrange: Create arguments for ImportResources containing the resources we
+	// want to set.
+	setRes := resource.ImportResourceInfo{
+		Name:      resName,
+		Origin:    charmresource.OriginUpload,
+		Revision:  -1,
+		Timestamp: time.Now().Truncate(time.Second).UTC(),
+	}
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: appName,
+		Resources:       []resource.ImportResourceInfo{setRes},
+	}}
+
+	// Act: Set the resources.
+	err := s.state.ImportResources(context.Background(), args)
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert: Check the resources were set and linked to the application.
+	_ = s.checkResourceSet(c, charmUUID, appUUID, setRes)
+
+	// Assert: Check the resource has no repo resources associated with it.
+	s.checkRepoResourceNotSet(c, charmUUID, setRes)
+}
+
+func (s *resourceSuite) TestImportResourcesEmpty(c *gc.C) {
+	// Act:
+	err := s.state.ImportResources(context.Background(), nil)
+
+	// Assert:
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestImportResourcesOnLocalCharm checks that repository resources are not set for
+// local charms.
+func (s *resourceSuite) TestImportResourcesApplicationNotFound(c *gc.C) {
+	// Arrange: Create arguments for ImportResources containing a bad application
+	// name.
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: "bad-app-name",
+	}}
+
+	// Act: Set the resources.
+	err := s.state.ImportResources(context.Background(), args)
+
+	// Assert:
+	c.Check(err, jc.ErrorIs, resourceerrors.ApplicationNotFound)
+}
+
+// TestImportResourcesOnLocalCharm checks that repository resources are not set for
+// local charms.
+func (s *resourceSuite) TestImportResourcesResourceNotFound(c *gc.C) {
+	// Arrange: Create arguments for ImportResources containing the resources we
+	// want to set.
+	setRes := resource.ImportResourceInfo{
+		Name:      "bad-res-name",
+		Origin:    charmresource.OriginUpload,
+		Revision:  -1,
+		Timestamp: time.Now().Truncate(time.Second).UTC(),
+	}
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: s.constants.fakeApplicationName1,
+		Resources:       []resource.ImportResourceInfo{setRes},
+	}}
+
+	// Act: Set the resources.
+	err := s.state.ImportResources(context.Background(), args)
+
+	// Assert:
+	c.Check(err, jc.ErrorIs, resourceerrors.ResourceNotFound)
+}
+
+func (s *resourceSuite) TestImportResourcesUnitNotFound(c *gc.C) {
+	// Arrange: Add charm resources for the resources we are going to set.
+	app1Res1Name := "app-1-resource-1"
+	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
+		Name: app1Res1Name,
+		Type: charmresource.TypeFile,
+	})
+
+	// Arrange: Create arguments for ImportResources containing the resources we
+	// want to set.
+	app1Res1 := resource.ImportResourceInfo{
+		Name:   app1Res1Name,
+		Origin: charmresource.OriginStore,
+	}
+	app1Res1Unit := resource.ImportUnitResourceInfo{
+		ResourceName: app1Res1Name,
+		UnitName:     "bad-unit-name",
+	}
+
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: s.constants.fakeApplicationName1,
+		Resources:       []resource.ImportResourceInfo{app1Res1},
+		UnitResources:   []resource.ImportUnitResourceInfo{app1Res1Unit},
+	}}
+
+	// Act: Set the resources.
+	err := s.state.ImportResources(context.Background(), args)
+
+	// Assert:
+	c.Check(err, jc.ErrorIs, resourceerrors.UnitNotFound)
+}
+
+func (s *resourceSuite) TestImportResourcesOriginNotValid(c *gc.C) {
+	// Arrange: Add charm resources for the resources we are going to set.
+	app1Res1Name := "app-1-resource-1"
+	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
+		Name: app1Res1Name,
+		Type: charmresource.TypeFile,
+	})
+
+	// Arrange: Create arguments for ImportResources containing the resources we
+	// want to set.
+	app1Res1 := resource.ImportResourceInfo{
+		Name:   app1Res1Name,
+		Origin: 0,
+	}
+
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: s.constants.fakeApplicationName1,
+		Resources:       []resource.ImportResourceInfo{app1Res1},
+	}}
+
+	// Act: Set the resources.
+	err := s.state.ImportResources(context.Background(), args)
+
+	// Assert:
+	c.Check(err, jc.ErrorIs, resourceerrors.OriginNotValid)
+}
+
+func (s *resourceSuite) addLocalCharmAndApp(c *gc.C, charmUUID, appName, appUUID string) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, 'app', 0 /* local */)
+`, charmUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO application (uuid, name, life_id, charm_uuid) VALUES (?, ?, 0, ?)
+`, appUUID, appName, charmUUID,
+		)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *resourceSuite) addCharmResource(c *gc.C, charmUUID string, m charmresource.Meta) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO charm_resource (charm_uuid, name, kind_id, path, description) 
+VALUES (?, ?, ?, ?, ?)`,
+			charmUUID, m.Name, TypeID(m.Type), nilZero(m.Path), nilZero(m.Description))
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *resourceSuite) checkResourceSet(
+	c *gc.C,
+	charmUUID string,
+	expectedAppID string,
+	res resource.ImportResourceInfo,
+) string {
+	var (
+		uuid         string
+		revision     sql.NullInt64
+		originTypeID int
+		createdAt    time.Time
+	)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT uuid, revision, origin_type_id, created_at 
+FROM   resource
+WHERE  charm_resource_name = ? 
+AND    charm_uuid = ? 
+AND    state_id = 0 -- "available"
+`, res.Name, charmUUID).Scan(&uuid, &revision, &originTypeID, &createdAt)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid, gc.Not(gc.Equals), "")
+	c.Check(revision.Valid, jc.IsTrue)
+	c.Check(revision.Int64, gc.Equals, int64(res.Revision))
+	c.Check(originTypeID, gc.Equals, OriginTypeID(res.Origin.String()))
+	c.Check(createdAt, gc.Equals, res.Timestamp)
+
+	var appID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT application_uuid
+FROM   application_resource
+WHERE  resource_uuid = ?
+`, uuid).Scan(&appID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(appID, gc.Equals, expectedAppID)
+
+	return uuid
+}
+
+// checkRepoResourceSet checks for the repository resource record ("potential"
+// resource) and application link.
+func (s *resourceSuite) checkRepoResourceSet(
+	c *gc.C,
+	expectedAppID string,
+	res resource.ImportResourceInfo,
+) {
+	var (
+		repoResourceUUID string
+		revision         sql.NullInt64
+		originTypeID     int
+		lastPolled       sql.NullTime
+	)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT uuid, revision, origin_type_id, last_polled
+FROM   resource
+WHERE  charm_resource_name = ? 
+AND    charm_uuid = ? 
+AND    state_id = 1 -- "potential"
+`, res.Name, fakeCharmUUID).Scan(&repoResourceUUID, &revision, &originTypeID, &lastPolled)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(repoResourceUUID, gc.Not(gc.Equals), "")
+	c.Check(originTypeID, gc.Equals, OriginTypeID(charmresource.OriginStore.String()))
+	c.Check(revision.Valid, jc.IsFalse)
+	c.Check(lastPolled.Valid, jc.IsFalse)
+
+	var appID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT application_uuid
+FROM   application_resource
+WHERE  resource_uuid = ?
+`, repoResourceUUID).Scan(&appID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(appID, gc.Equals, expectedAppID)
+}
+
+func (s *resourceSuite) checkKubernetesResourceSet(
+	c *gc.C,
+	resourceUUID string,
+	res resource.ImportResourceInfo,
+) {
+	var addedAt time.Time
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT added_at
+FROM   kubernetes_application_resource
+WHERE  resource_uuid = ?
+`, resourceUUID).Scan(&addedAt)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(addedAt, gc.Equals, res.Timestamp)
+
+}
+
+func (s *resourceSuite) checkUnitResourceSet(
+	c *gc.C,
+	resourceUUID string,
+	expectedUnitUUID string,
+	res resource.ImportUnitResourceInfo) {
+	var (
+		unitUUID string
+		addedAt  time.Time
+	)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT unit_uuid, added_at
+FROM   unit_resource
+WHERE  resource_uuid = ?
+`, resourceUUID).Scan(&unitUUID, &addedAt)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(unitUUID, gc.Equals, expectedUnitUUID)
+	c.Check(addedAt, gc.Equals, res.Timestamp)
+}
+
+// checkRepoResourceNotSet checks there is no potential resource for this charm
+// resource.
+func (s *resourceSuite) checkRepoResourceNotSet(
+	c *gc.C,
+	charmUUID string,
+	res resource.ImportResourceInfo,
+) {
+	var repoResourceUUID string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT uuid
+FROM   resource
+WHERE  charm_resource_name = ? 
+AND    charm_uuid = ? 
+AND    state_id = 1 -- "potential"
+`, res.Name, charmUUID).Scan(&repoResourceUUID)
+	})
+	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+}
+
 func (s *resourceSuite) addResource(c *gc.C, resType charmresource.Type) coreresource.UUID {
 	return s.addResourceWithOrigin(c, resType, "upload")
 }

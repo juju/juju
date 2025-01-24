@@ -1320,6 +1320,135 @@ func (s *resourceServiceSuite) TestDeleteResourcesAddedBeforeApplicationNotValid
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
+func (s *resourceServiceSuite) TestImportResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: Create arguments for ImportResources.
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: "app-name-1",
+		Resources: []resource.ImportResourceInfo{{
+			Name:      "app-1-resource-1",
+			Origin:    charmresource.OriginStore,
+			Revision:  3,
+			Timestamp: time.Now().Truncate(time.Second).UTC(),
+		}, {
+			Name:      "app-1-resource-2",
+			Origin:    charmresource.OriginUpload,
+			Revision:  -1,
+			Timestamp: time.Now().Truncate(time.Second).UTC(),
+		}},
+		UnitResources: []resource.ImportUnitResourceInfo{{
+			ResourceName: "app-1-resource-1",
+			UnitName:     "unit-name",
+			Timestamp:    time.Now().Truncate(time.Second).UTC(),
+		}, {
+			ResourceName: "app-1-resource-2",
+			UnitName:     "unit-name",
+			Timestamp:    time.Now().Truncate(time.Second).UTC(),
+		}},
+	}, {
+		ApplicationName: "app-name-2",
+		Resources: []resource.ImportResourceInfo{{
+			Name:      "app-2-resource-1",
+			Origin:    charmresource.OriginStore,
+			Revision:  2,
+			Timestamp: time.Now().Truncate(time.Second).UTC(),
+		}},
+	}}
+
+	s.state.EXPECT().ImportResources(gomock.Any(), args)
+
+	// Act:
+	err := s.service.ImportResources(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *resourceServiceSuite) TestImportResourcesResourceNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any()).Return(resourceerrors.ResourceNotFound)
+
+	err := s.service.ImportResources(context.Background(), nil)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound)
+}
+
+func (s *resourceServiceSuite) TestImportResourcesApplicationNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any()).Return(resourceerrors.ApplicationNotFound)
+
+	err := s.service.ImportResources(context.Background(), nil)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound)
+}
+
+func (s *resourceServiceSuite) TestImportResourcesUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any()).Return(resourceerrors.UnitNotFound)
+
+	err := s.service.ImportResources(context.Background(), nil)
+	c.Assert(err, jc.ErrorIs, resourceerrors.UnitNotFound)
+}
+
+func (s *resourceServiceSuite) TestImportResourcesOriginNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: Create arguments for ImportResources.
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: "app-name",
+		Resources: []resource.ImportResourceInfo{{
+			Name:   "resource-name",
+			Origin: 0,
+		}},
+	}}
+
+	// Act:
+	err := s.service.ImportResources(context.Background(), args)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, resourceerrors.OriginNotValid)
+}
+
+func (s *resourceServiceSuite) TestImportResourcesResourceNameNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: Create arguments for ImportResources.
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: "app-name",
+		Resources: []resource.ImportResourceInfo{{
+			Name: "",
+		}},
+	}}
+
+	// Act:
+	err := s.service.ImportResources(context.Background(), args)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNameNotValid)
+}
+
+func (s *resourceServiceSuite) TestImportResourcesDuplicateResourceNames(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: Create arguments for ImportResources.
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: "app-name",
+		Resources: []resource.ImportResourceInfo{{
+			Name:   "name",
+			Origin: charmresource.OriginStore,
+		}, {
+			Name:   "name",
+			Origin: charmresource.OriginStore,
+		}},
+	}}
+
+	// Act:
+	err := s.service.ImportResources(context.Background(), args)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNameNotValid)
+}
+
 func (s *resourceServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

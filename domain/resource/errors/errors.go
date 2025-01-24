@@ -81,4 +81,7 @@ const (
 	// ResourceUUIDNotValid describes an error when the resource UUID is
 	// not valid.
 	ResourceUUIDNotValid = errors.ConstError("resource UUID not valid")
+
+	// OriginNotValid describes an error where the resource origin is invalid
+	OriginNotValid = errors.ConstError("origin not valid")
 )

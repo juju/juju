@@ -122,6 +122,20 @@ type State interface {
 		arg resource.UpdateResourceRevisionArgs,
 		resType charmresource.Type,
 	) (string, error)
+
+	// ImportResources sets resources imported in migration. It first builds all the
+	// resources to insert from the arguments, then inserts them at the end so as to
+	// wait as long as possible before turning into a write transaction.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if the resource metadata cannot be
+	//     found on the charm.
+	//   - [resourceerrors.ApplicationNotFound] if the application name of an
+	//     application resource cannot be found in the database.
+	//   - [resourceerrors.UnitNotFound] if the unit name of a unit resource cannot
+	//     be found in the database.
+	//   - [resourceerrors.OriginNotValid] if the resource origin is not valid.
+	ImportResources(ctx context.Context, args resource.ImportResourcesArgs) error
 }
 
 type ResourceStoreGetter interface {
@@ -658,6 +672,36 @@ func (s *Service) DeleteResourcesAddedBeforeApplication(ctx context.Context, res
 		}
 	}
 	return s.st.DeleteResourcesAddedBeforeApplication(ctx, resUUIDs)
+}
+
+// ImportResources sets resources imported in migration. It first builds all the
+// resources to insert from the arguments, then inserts them at the end so as to
+// wait as long as possible before turning into a write transaction.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceNotFound] if the resource metadata cannot be
+//     found on the charm.
+//   - [resourceerrors.ApplicationNotFound] if the application name of an
+//     application resource cannot be found in the database.
+//   - [resourceerrors.UnitNotFound] if the unit name of a unit resource cannot
+//     be found in the database.
+//   - [resourceerrors.OriginNotValid] if the resource origin is not valid.
+func (s *Service) ImportResources(ctx context.Context, args resource.ImportResourcesArgs) error {
+	for _, appArg := range args {
+		for _, res := range appArg.Resources {
+			if res.Name == "" {
+				return errors.Errorf("resource on application %s: %w",
+					appArg.ApplicationName, resourceerrors.ResourceNameNotValid)
+			}
+
+			err := res.Origin.Validate()
+			if err != nil {
+				return errors.Errorf("origin %s of resource %s on application %s: %w",
+					res.Origin, res.Name, appArg.ApplicationName, resourceerrors.OriginNotValid)
+			}
+		}
+	}
+	return s.st.ImportResources(ctx, args)
 }
 
 // Store the resource with a path made up of the UUID and the resource
