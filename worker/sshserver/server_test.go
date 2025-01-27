@@ -20,7 +20,6 @@ import (
 type sshServerSuite struct {
 	testing.IsolationSuite
 
-	cfg        *sshserver.ServerWorkerConfig
 	userSigner ssh.Signer
 }
 

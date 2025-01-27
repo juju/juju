@@ -4,7 +4,6 @@
 package sshserver_test
 
 import (
-	"github.com/juju/worker/v3"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -24,7 +23,7 @@ func newServerWrapperWorkerConfig(
 	modifier func(*sshserver.ServerWrapperWorkerConfig),
 ) *sshserver.ServerWrapperWorkerConfig {
 	cfg := &sshserver.ServerWrapperWorkerConfig{
-		NewServerWorker: func() (worker.Worker, error) { return nil, nil },
+		NewServerWorker: func(sshserver.ServerWorkerConfig, bool) (*sshserver.ServerWorker, error) { return nil, nil },
 		Logger:          l,
 		StatePool:       s,
 		StateInfo: controller.StateServingInfo{

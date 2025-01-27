@@ -26,7 +26,7 @@ func newManifoldConfig(l *mocks.MockLogger, modifier func(cfg *sshserver.Manifol
 		StateName:              "state",
 		AgentName:              "agent",
 		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
-		NewServerWorker:        func() (worker.Worker, error) { return nil, nil },
+		NewServerWorker:        func(sshserver.ServerWorkerConfig, bool) (*sshserver.ServerWorker, error) { return nil, nil },
 		Logger:                 l,
 	}
 
@@ -105,7 +105,7 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 		AgentName:              "agent-name",
 		StateName:              "state",
 		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
-		NewServerWorker:        func() (worker.Worker, error) { return nil, nil },
+		NewServerWorker:        func(sshserver.ServerWorkerConfig, bool) (*sshserver.ServerWorker, error) { return nil, nil },
 		Logger:                 mockLogger,
 	})
 

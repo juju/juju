@@ -29,7 +29,7 @@ type ManifoldConfig struct {
 	NewServerWrapperWorker func(ServerWrapperWorkerConfig) (worker.Worker, error)
 	// NewServerWorker is the function that creates a worker that has a catacomb
 	// to run the server and other worker dependencies.
-	NewServerWorker func() (worker.Worker, error)
+	NewServerWorker func(ServerWorkerConfig, bool) (*ServerWorker, error)
 	// Logger is the logger to use for the worker.
 	Logger Logger
 }

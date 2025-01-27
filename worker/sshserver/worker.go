@@ -20,7 +20,7 @@ type SystemStateGetter interface {
 type ServerWrapperWorkerConfig struct {
 	StateInfo       controller.StateServingInfo
 	StatePool       SystemStateGetter
-	NewServerWorker func() (worker.Worker, error)
+	NewServerWorker func(ServerWorkerConfig, bool) (*ServerWorker, error)
 	Logger          Logger
 }
 
@@ -88,7 +88,9 @@ func (ssw *serverWrapperWorker) Wait() error {
 // loop is the main loop of the server wrapper worker. It starts the server worker
 // and listens for changes in the controller configuration.
 func (ssw *serverWrapperWorker) loop() error {
-	srv, err := ssw.config.NewServerWorker()
+	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
+		Logger: ssw.config.Logger,
+	}, true)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -123,7 +125,9 @@ func (ssw *serverWrapperWorker) loop() error {
 			}
 
 			// Start the server again.
-			srv, err = ssw.config.NewServerWorker()
+			srv, err = ssw.config.NewServerWorker(ServerWorkerConfig{
+				Logger: ssw.config.Logger,
+			}, true)
 			if err != nil {
 				return errors.Trace(err)
 			}

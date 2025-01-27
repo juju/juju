@@ -100,6 +100,7 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
+	"github.com/juju/juju/worker/sshserver"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -782,6 +783,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:  controlsocket.NewWorker,
 			SocketName: paths.ControlSocket(paths.OSUnixLike),
 		})),
+
+		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
+			AgentName: agentName,
+			StateName: stateName,
+			Logger:    loggo.GetLogger("juju.worker.sshserver"),
+			NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
+			NewServerWorker: sshserver.NewServerWorker,
+		})),
 	}
 
 	return manifolds
@@ -1193,4 +1202,6 @@ const (
 	charmhubHTTPClientName = "charmhub-http-client"
 
 	controlSocketName = "control-socket"
+
+	sshServerName = "ssh-server"
 )
