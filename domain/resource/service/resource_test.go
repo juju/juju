@@ -556,7 +556,7 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobFile(c 
 	revision := 17
 
 	s.state.EXPECT().GetResource(gomock.Any(), resourceUUID).Return(
-		resource.Resource{
+		coreresource.Resource{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
 					Type: charmresource.TypeFile,

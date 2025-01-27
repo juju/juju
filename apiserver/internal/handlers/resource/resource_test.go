@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource_test
+package resource
 
 import (
 	"context"
@@ -23,7 +23,6 @@ import (
 
 	api "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/internal/handlers/resource"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	domainresource "github.com/juju/juju/domain/resource"
@@ -39,7 +38,7 @@ type ResourcesHandlerSuite struct {
 	authErr  error
 	username string
 	recorder *httptest.ResponseRecorder
-	handler  *resource.ResourceHandler
+	handler  *ResourceHandler
 
 	resourceUUID    coreresource.UUID
 	resourceName    string
@@ -96,7 +95,7 @@ func (s *ResourcesHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.resourceServiceGetter = NewMockResourceServiceGetter(ctrl)
 	s.validator = NewMockValidator(ctrl)
 
-	s.handler = resource.NewResourceHandler(
+	s.handler = NewResourceHandler(
 		loggertesting.WrapCheckLog(c),
 		s.authFunc,
 		func(context.Context) error { return nil },
@@ -134,7 +133,7 @@ func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
 		return tag, nil
 	}
 
-	s.handler = resource.NewResourceHandler(
+	s.handler = NewResourceHandler(
 		loggertesting.WrapCheckLog(c),
 		authFunc,
 		func(context.Context) error { return nil },
@@ -298,7 +297,7 @@ func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
 	changeAllowedFunc := func(context.Context) error {
 		return expectedError
 	}
-	s.handler = resource.NewResourceHandler(
+	s.handler = NewResourceHandler(
 		loggertesting.WrapCheckLog(c),
 		s.authFunc,
 		changeAllowedFunc,

@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resource_test
+package resource
 
 import (
 	"io"
@@ -17,7 +17,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	resource "github.com/juju/juju/apiserver/internal/handlers/resource"
 	coreresource "github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -82,7 +81,7 @@ func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	failure, expectedBody := apiFailure("boom", "")
 	s.openerGetter.EXPECT().Opener(gomock.Any(), names.UnitTagKind, names.ApplicationTagKind).Return(nil, failure)
-	handler := resource.NewUnitResourcesHandler(
+	handler := NewUnitResourcesHandler(
 		loggertesting.WrapCheckLog(c),
 		s.openerGetter,
 	)

@@ -119,15 +119,15 @@ func (h *resourcesMigrationUploadHandler) processPost(
 
 	resUUID, err := resourceService.GetApplicationResourceID(ctx,
 		domainresource.GetApplicationResourceIDArgs{
-			ApplicationID: target.AppID,
-			Name:          target.Name,
+			ApplicationID: target.appID,
+			Name:          target.name,
 		})
 	if err != nil {
 		return empty, internalerrors.Errorf("resource upload failed: %w", err)
 	}
 
-	if target.UnitUUID != "" {
-		err := resourceService.SetUnitResource(ctx, resUUID, target.UnitUUID)
+	if target.unitUUID != "" {
+		err := resourceService.SetUnitResource(ctx, resUUID, target.unitUUID)
 		if err != nil {
 			return empty, internalerrors.Capture(err)
 		}
@@ -138,14 +138,14 @@ func (h *resourcesMigrationUploadHandler) processPost(
 			retrievedBy     string
 			retrievedByType coreresource.RetrievedByType
 		)
-		if target.UnitUUID != "" {
-			retrievedBy = target.UnitUUID.String()
+		if target.unitUUID != "" {
+			retrievedBy = target.unitUUID.String()
 			retrievedByType = resource.Unit
 		} else if userID != "" {
 			retrievedBy = userID
 			retrievedByType = coreresource.User
 		} else {
-			retrievedBy = target.AppID.String()
+			retrievedBy = target.appID.String()
 			retrievedByType = resource.Application
 		}
 
@@ -183,10 +183,10 @@ func isPlaceholder(query url.Values) bool {
 	return query.Get("timestamp") == ""
 }
 
-type ResourceUploadTarget struct {
-	Name     string
-	AppID    coreapplication.ID
-	UnitUUID coreunit.UUID
+type resourceUploadTarget struct {
+	name     string
+	appID    coreapplication.ID
+	unitUUID coreunit.UUID
 }
 
 // getUploadTarget resolves the upload target by determining the application ID
@@ -199,7 +199,7 @@ func getUploadTarget(
 	ctx context.Context,
 	service ApplicationService,
 	query url.Values,
-) (target ResourceUploadTarget, err error) {
+) (target resourceUploadTarget, err error) {
 	// Validate parameters
 	target.name = query.Get("name")
 	appName := query.Get("application")
@@ -222,16 +222,16 @@ func getUploadTarget(
 		if err != nil {
 			return target, errors.BadRequestf(err.Error())
 		}
-		target.UnitUUID, err = service.GetUnitUUID(ctx, coreUnitName)
+		target.unitUUID, err = service.GetUnitUUID(ctx, coreUnitName)
 		if err != nil {
 			return target, internalerrors.Capture(err)
 		}
-		target.AppID, err = service.GetApplicationIDByUnitName(ctx, coreUnitName)
+		target.appID, err = service.GetApplicationIDByUnitName(ctx, coreUnitName)
 		return target, internalerrors.Capture(err)
 	}
 
 	// Resolve target by appName
-	target.AppID, err = service.GetApplicationIDByName(ctx, appName)
+	target.appID, err = service.GetApplicationIDByName(ctx, appName)
 	return target, internalerrors.Capture(err)
 }
 
