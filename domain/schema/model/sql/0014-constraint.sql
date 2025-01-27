@@ -8,7 +8,7 @@ CREATE TABLE "constraint" (
     root_disk_source TEXT,
     instance_role TEXT,
     instance_type TEXT,
-    container_type_id INT,
+    container_type_id NOT NULL INT,
     virt_type TEXT,
     allocate_public_ip BOOLEAN,
     image_id TEXT,
