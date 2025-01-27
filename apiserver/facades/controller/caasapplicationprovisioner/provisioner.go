@@ -67,7 +67,7 @@ type APIGroup struct {
 	lifeCanRead     common.GetAuthFunc
 }
 
-type NewResourceOpenerFunc func(appName string) (coreresource.Opener, error)
+type NewResourceOpenerFunc func(ctx context.Context, appName string) (coreresource.Opener, error)
 
 type API struct {
 	auth      facade.Authorizer
@@ -118,14 +118,14 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 		return nil, errors.Trace(err)
 	}
 
-	newResourceOpener := func(appName string) (coreresource.Opener, error) {
+	newResourceOpener := func(ctx context.Context, appName string) (coreresource.Opener, error) {
 		args := resource.ResourceOpenerArgs{
 			State:                st,
 			ResourceService:      resourceService,
 			ApplicationService:   applicationService,
 			CharmhubClientGetter: resourcecharmhub.NewCharmHubOpener(modelConfigService),
 		}
-		return resource.NewResourceOpenerForApplication(stdCtx, args, appName)
+		return resource.NewResourceOpenerForApplication(ctx, args, appName)
 	}
 
 	systemState, err := ctx.StatePool().SystemState()
@@ -871,7 +871,7 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 			continue
 		}
 
-		resourceClient, err := a.newResourceOpener(appName)
+		resourceClient, err := a.newResourceOpener(ctx, appName)
 		if err != nil {
 			res.Results[i].Error = apiservererrors.ServerError(err)
 			continue

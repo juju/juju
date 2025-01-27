@@ -97,7 +97,7 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.leadershipRevoker = NewMockRevoker(ctrl)
 	s.resourceOpener = NewMockOpener(ctrl)
-	newResourceOpener := func(appName string) (jujuresource.Opener, error) {
+	newResourceOpener := func(context.Context, string) (jujuresource.Opener, error) {
 		return s.resourceOpener, nil
 	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
