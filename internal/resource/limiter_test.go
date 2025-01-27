@@ -26,10 +26,21 @@ var shortAttempt = &utils.AttemptStrategy{
 	Delay: 10 * time.Millisecond,
 }
 
-func (s *LimiterSuite) TestNoLimits(c *gc.C) {
+func (s *LimiterSuite) TestNoLimitsInvalidLimits(c *gc.C) {
+	_, err := NewResourceDownloadLimiter(-1, 0)
+	c.Assert(err, gc.ErrorMatches, "resource download limits must be non-negative")
 
+	_, err = NewResourceDownloadLimiter(0, -1)
+	c.Assert(err, gc.ErrorMatches, "resource download limits must be non-negative")
+
+	_, err = NewResourceDownloadLimiter(-1, -1)
+	c.Assert(err, gc.ErrorMatches, "resource download limits must be non-negative")
+}
+
+func (s *LimiterSuite) TestNoLimits(c *gc.C) {
 	const totalToAcquire = 10
-	limiter := NewResourceDownloadLimiter(0, 0)
+	limiter, err := NewResourceDownloadLimiter(0, 0)
+	c.Assert(err, jc.ErrorIsNil)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
@@ -83,12 +94,12 @@ func (s *LimiterSuite) TestNoLimits(c *gc.C) {
 }
 
 func (s *LimiterSuite) TestGlobalLimit(c *gc.C) {
-
 	const (
 		globalLimit    = 5
 		totalToAcquire = 10
 	)
-	limiter := NewResourceDownloadLimiter(globalLimit, 0)
+	limiter, err := NewResourceDownloadLimiter(globalLimit, 0)
+	c.Assert(err, jc.ErrorIsNil)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
@@ -150,13 +161,13 @@ func (s *LimiterSuite) TestGlobalLimit(c *gc.C) {
 }
 
 func (s *LimiterSuite) TestApplicationLimit(c *gc.C) {
-
 	const (
 		applicationLimit             = 5
 		numApplications              = 2
 		totalToAcquirePerApplication = 10
 	)
-	limiter := NewResourceDownloadLimiter(0, applicationLimit)
+	limiter, err := NewResourceDownloadLimiter(0, applicationLimit)
+	c.Assert(err, jc.ErrorIsNil)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})
@@ -229,7 +240,8 @@ func (s *LimiterSuite) TestGlobalAndApplicationLimit(c *gc.C) {
 		numApplications              = 3
 		totalToAcquirePerApplication = 2
 	)
-	limiter := NewResourceDownloadLimiter(globalLimit, applicationLimit)
+	limiter, err := NewResourceDownloadLimiter(globalLimit, applicationLimit)
+	c.Assert(err, jc.ErrorIsNil)
 
 	totalAcquiredCount := int32(0)
 	trigger := make(chan struct{})

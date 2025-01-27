@@ -480,14 +480,17 @@ func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *gc.C) {
 
 func (s *OpenerSuite) newUnitResourceOpener(
 	c *gc.C,
-	maxRequests int64,
+	maxRequests int,
 ) coreresource.Opener {
-	var limiter ResourceDownloadLock = NewResourceDownloadLimiter(
-		maxRequests,
-		0,
+	var (
+		limiter ResourceDownloadLock
+		err     error
 	)
 	if maxRequests < 0 {
 		limiter = s.limiter
+	} else {
+		limiter, err = NewResourceDownloadLimiter(maxRequests, 0)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// Service calls in NewResourceOpenerForUnit.

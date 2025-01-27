@@ -396,7 +396,9 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		healthStatus: "starting",
 	}
 	srv.updateAgentRateLimiter(controllerConfig)
-	srv.updateResourceDownloadLimiters(controllerConfig)
+	if err := srv.updateResourceDownloadLimiters(controllerConfig); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// We are able to get the current controller config before subscribing to changes
 	// because the changes are only ever published in response to an API call,
@@ -531,18 +533,25 @@ func (srv *Server) updateAgentRateLimiter(cfg controller.Config) {
 	srv.agentRateLimitRate = cfg.AgentRateLimitRate()
 	if srv.agentRateLimitMax > 0 {
 		srv.agentRateLimit = ratelimit.NewBucketWithClock(
-			srv.agentRateLimitRate, int64(srv.agentRateLimitMax), rateClock{srv.clock})
+			srv.agentRateLimitRate, int64(srv.agentRateLimitMax), rateClock{Clock: srv.clock})
 	} else {
 		srv.agentRateLimit = nil
 	}
 }
 
-func (srv *Server) updateResourceDownloadLimiters(cfg controller.Config) {
+func (srv *Server) updateResourceDownloadLimiters(cfg controller.Config) error {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	globalLimit := cfg.ControllerResourceDownloadLimit()
 	appLimit := cfg.ApplicationResourceDownloadLimit()
-	srv.resourceLock = resource.NewResourceDownloadLimiter(int64(globalLimit), int64(appLimit))
+
+	var err error
+	srv.resourceLock, err = resource.NewResourceDownloadLimiter(globalLimit, appLimit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 func (srv *Server) getResourceDownloadLimiter() resource.ResourceDownloadLock {

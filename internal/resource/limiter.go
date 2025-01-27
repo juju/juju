@@ -5,6 +5,7 @@ package resource
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -34,15 +35,18 @@ type resourceDownloadLimiter struct {
 }
 
 // NewResourceDownloadLimiter creates a new resource download limiter.
-func NewResourceDownloadLimiter(globalLimit, applicationLimit int64) *resourceDownloadLimiter {
+func NewResourceDownloadLimiter(globalLimit, applicationLimit int) (*resourceDownloadLimiter, error) {
+	if globalLimit < 0 || applicationLimit < 0 {
+		return nil, fmt.Errorf("resource download limits must be non-negative")
+	}
 	limiter := &resourceDownloadLimiter{
-		applicationLimit: applicationLimit,
+		applicationLimit: int64(applicationLimit),
 		applicationLocks: make(map[string]appLock),
 	}
 	if globalLimit > 0 {
-		limiter.globalLock = semaphore.NewWeighted(globalLimit)
+		limiter.globalLock = semaphore.NewWeighted(int64(globalLimit))
 	}
-	return limiter
+	return limiter, nil
 }
 
 // Acquire grabs the lock for a given application so long as the per application
