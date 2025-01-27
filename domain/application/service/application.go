@@ -45,12 +45,14 @@ import (
 
 // AtomicApplicationState describes retrieval and persistence methods for
 // applications that require atomic transactions.
+// Deprecated: use ApplicationState instead.
 type AtomicApplicationState interface {
 	domain.AtomicStateBase
 
 	// GetApplicationID returns the ID for the named application, returning an
 	// error satisfying [applicationerrors.ApplicationNotFound] if the
 	// application is not found.
+	// Deprecated: use GetApplicationIDByName instead.
 	GetApplicationID(ctx domain.AtomicContext, name string) (coreapplication.ID, error)
 
 	// GetUnitUUID returns the UUID for the named unit, returning an error
@@ -161,6 +163,11 @@ type AtomicApplicationState interface {
 type ApplicationState interface {
 	AtomicApplicationState
 
+	// GetApplicationIDByName returns the application ID for the named application.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
 	// GetModelType returns the model type for the underlying model. If the
 	// model does not exist then an error satisfying [modelerrors.NotFound] will
 	// be returned.
@@ -249,11 +256,16 @@ type ApplicationState interface {
 	// [applicationerrors.CharmNotFoundError] is returned.
 	GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (corecharm.ID, charm.Config, error)
 
-	// GetApplicationConfig returns the application config attributes for the
-	// configuration.
+	// GetApplicationConfigAndSettings returns the application config and
+	// settings attributes for the application ID.
+	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConfig(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, error)
+	GetApplicationConfigAndSettings(ctx context.Context, appID coreapplication.ID) (
+		map[string]application.ApplicationConfig,
+		application.ApplicationSettings,
+		error,
+	)
 
 	// GetApplicationTrustSetting returns the application trust setting.
 	// If no application is found, an error satisfying
@@ -1532,7 +1544,7 @@ func (s *Service) GetApplicationConfig(ctx context.Context, appID coreapplicatio
 		return nil, internalerrors.Errorf("application ID: %w", err)
 	}
 
-	cfg, err := s.st.GetApplicationConfig(ctx, appID)
+	cfg, settings, err := s.st.GetApplicationConfigAndSettings(ctx, appID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1541,6 +1553,10 @@ func (s *Service) GetApplicationConfig(ctx context.Context, appID coreapplicatio
 	for k, v := range cfg {
 		result[k] = v.Value
 	}
+
+	// Always return the trust setting, as it's a special case.
+	result[coreapplication.TrustConfigOptionName] = settings.Trust
+
 	return result, nil
 }
 

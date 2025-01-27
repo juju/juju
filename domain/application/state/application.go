@@ -181,26 +181,6 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 	return appUUID, errors.Annotatef(err, "creating application %q", name)
 }
 
-func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
-	app := applicationDetails{Name: name}
-	queryApplicationStmt, err := st.Prepare(`
-SELECT &applicationDetails.*
-FROM application
-WHERE name = $applicationDetails.name
-`, app)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
-	if err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return "", errors.Annotatef(err, "looking up UUID for application %q", name)
-		}
-		return "", fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, name)
-	}
-	return app.UUID, nil
-}
-
 // DeleteApplication deletes the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
@@ -1139,7 +1119,12 @@ func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domains
 }
 
 // GetApplicationID returns the ID for the named application, returning an error
-// satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
+// satisfying [applicationerrors.ApplicationNotFound] if the application is not
+// found.
+//
+// Deprecated: AtomicContext is deprecated, use GetApplicationIDByName
+// instead. Once this is removed, we could rename GetApplicationIDByName to
+// GetApplicationID.
 func (st *State) GetApplicationID(ctx domain.AtomicContext, name string) (coreapplication.ID, error) {
 	var appUUID coreapplication.ID
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -2174,14 +2159,15 @@ FROM v_revision_updater_application_unit
 	})
 }
 
-// GetApplicationConfig returns the application config attributes for the
-// configuration.
+// GetApplicationConfigAndSettings returns the application config and settings
+// attributes for the application ID.
+//
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationConfig(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, error) {
+func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, application.ApplicationSettings, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, application.ApplicationSettings{}, internalerrors.Capture(err)
 	}
 
 	// We don't currently check for life in the old code, it might though be
@@ -2200,11 +2186,11 @@ WHERE application_uuid = $applicationID.uuid;`
 
 	configStmt, err := st.Prepare(configQuery, applicationConfig{}, ident)
 	if err != nil {
-		return nil, internalerrors.Errorf("preparing query for application config: %w", err)
+		return nil, application.ApplicationSettings{}, internalerrors.Errorf("preparing query for application config: %w", err)
 	}
 	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, ident)
 	if err != nil {
-		return nil, internalerrors.Errorf("preparing query for application config: %w", err)
+		return nil, application.ApplicationSettings{}, internalerrors.Errorf("preparing query for application config: %w", err)
 	}
 
 	var configs []applicationConfig
@@ -2225,14 +2211,14 @@ WHERE application_uuid = $applicationID.uuid;`
 		return nil
 	})
 	if err != nil {
-		return nil, internalerrors.Errorf("querying application config: %w", err)
+		return nil, application.ApplicationSettings{}, internalerrors.Errorf("querying application config: %w", err)
 	}
 
 	result := make(map[string]application.ApplicationConfig)
 	for _, c := range configs {
 		typ, err := decodeConfigType(c.Type)
 		if err != nil {
-			return nil, internalerrors.Errorf("decoding config type: %w", err)
+			return nil, application.ApplicationSettings{}, internalerrors.Errorf("decoding config type: %w", err)
 		}
 
 		result[c.Key] = application.ApplicationConfig{
@@ -2240,11 +2226,9 @@ WHERE application_uuid = $applicationID.uuid;`
 			Value: c.Value,
 		}
 	}
-	result["trust"] = application.ApplicationConfig{
-		Type:  charm.OptionBool,
-		Value: settings.Trust,
-	}
-	return result, nil
+	return result, application.ApplicationSettings{
+		Trust: settings.Trust,
+	}, nil
 }
 
 // GetApplicationTrustSetting returns the application trust setting.
@@ -2597,6 +2581,48 @@ WHERE uuid = $applicationID.uuid;
 	}
 
 	return charmID, charmConfig, nil
+}
+
+// GetApplicationIDByName returns the application ID for the named application.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	var id coreapplication.ID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		id, err = st.lookupApplication(ctx, tx, name)
+		return err
+	}); err != nil {
+		return "", internalerrors.Capture(err)
+	}
+	return id, nil
+}
+
+// lookupApplication looks up the application by name and returns the
+// application.ID.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
+	app := applicationDetails{Name: name}
+	queryApplicationStmt, err := st.Prepare(`
+SELECT uuid AS &applicationDetails.uuid
+FROM application
+WHERE name = $applicationDetails.name
+`, app)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, name)
+	} else if err != nil {
+		return "", errors.Annotatef(err, "looking up UUID for application %q", name)
+	}
+	return app.UUID, nil
 }
 
 func (st *State) checkApplicationCharm(ctx context.Context, tx *sqlair.TX, ident applicationID, charmID charmID) error {

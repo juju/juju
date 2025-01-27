@@ -1584,17 +1584,20 @@ func (s *applicationServiceSuite) TestGetApplicationConfig(c *gc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationConfig(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
 			Value: "bar",
 		},
+	}, application.ApplicationSettings{
+		Trust: true,
 	}, nil)
 
 	results, err := s.service.GetApplicationConfig(context.Background(), appUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, config.ConfigAttributes{
-		"foo": "bar",
+		"foo":   "bar",
+		"trust": true,
 	})
 }
 
@@ -1603,11 +1606,13 @@ func (s *applicationServiceSuite) TestGetApplicationConfigWithError(c *gc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationConfig(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
 		"foo": {
 			Type:  applicationcharm.OptionString,
 			Value: "bar",
 		},
+	}, application.ApplicationSettings{
+		Trust: true,
 	}, errors.Errorf("boom"))
 
 	_, err := s.service.GetApplicationConfig(context.Background(), appUUID)
@@ -1619,11 +1624,31 @@ func (s *applicationServiceSuite) TestGetApplicationConfigNoConfig(c *gc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetApplicationConfig(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{}, nil)
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
+		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{}, nil)
 
 	results, err := s.service.GetApplicationConfig(context.Background(), appUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, config.ConfigAttributes{})
+	c.Check(results, gc.DeepEquals, config.ConfigAttributes{
+		"trust": false,
+	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
+		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{
+			Trust: true,
+		}, nil)
+
+	results, err := s.service.GetApplicationConfig(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, config.ConfigAttributes{
+		"trust": true,
+	})
 }
 
 func (s *applicationServiceSuite) TestGetApplicationConfigInvalidApplicationID(c *gc.C) {
