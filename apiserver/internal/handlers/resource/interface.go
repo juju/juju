@@ -20,12 +20,9 @@ type ResourceServiceGetter interface {
 	Resource(*http.Request) (ResourceService, error)
 }
 
-// ResourceAndApplicationServiceGetter is an interface for getting resource and
+// ApplicationServiceGetter is an interface for getting resource and
 // application service.
-type ResourceAndApplicationServiceGetter interface {
-	// Resource returns the model's resource service.
-	Resource(*http.Request) (ResourceService, error)
-
+type ApplicationServiceGetter interface {
 	// Application returns the model's application service.
 	Application(*http.Request) (ApplicationService, error)
 }

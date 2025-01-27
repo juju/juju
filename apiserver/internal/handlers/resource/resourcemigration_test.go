@@ -31,10 +31,11 @@ import (
 const migrateResourcesPrefix = "/migrate/resources"
 
 type resourcesUploadSuite struct {
-	serviceGetter       *MockResourceAndApplicationServiceGetter
-	applicationsService *MockApplicationService
-	resourceService     *MockResourceService
-	validator           *MockValidator
+	applicationServiceGetter *MockApplicationServiceGetter
+	resourceServiceGetter    *MockResourceServiceGetter
+	applicationsService      *MockApplicationService
+	resourceService          *MockResourceService
+	validator                *MockValidator
 
 	mux *apiserverhttp.Mux
 	srv *httptest.Server
@@ -63,6 +64,7 @@ func (s *resourcesUploadSuite) TestStub(c *gc.C) {
 func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *gc.C) {
 	// Arrange
 	handler := NewResourceMigrationUploadHandler(
+		nil,
 		nil,
 		nil,
 		loggertesting.WrapCheckLog(c),
@@ -553,7 +555,8 @@ func (s *resourcesUploadSuite) setupHandler(c *gc.C) Finisher {
 	s.expectResourceService()
 
 	handler := NewResourceMigrationUploadHandler(
-		s.serviceGetter,
+		s.applicationServiceGetter,
+		s.resourceServiceGetter,
 		s.validator,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -571,12 +574,12 @@ func (s *resourcesUploadSuite) setupHandler(c *gc.C) Finisher {
 
 // expectApplicationService prepare mocks for application service
 func (s *resourcesUploadSuite) expectApplicationService() {
-	s.serviceGetter.EXPECT().Application(gomock.Any()).Return(s.applicationsService, nil)
+	s.applicationServiceGetter.EXPECT().Application(gomock.Any()).Return(s.applicationsService, nil)
 }
 
 // expectResourceService prepare mocks for resource service
 func (s *resourcesUploadSuite) expectResourceService() {
-	s.serviceGetter.EXPECT().Resource(gomock.Any()).Return(s.resourceService, nil)
+	s.resourceServiceGetter.EXPECT().Resource(gomock.Any()).Return(s.resourceService, nil)
 }
 
 // setupMocks initializes mock services and returns a gomock.Controller
@@ -585,7 +588,8 @@ func (s *resourcesUploadSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationsService = NewMockApplicationService(ctrl)
-	s.serviceGetter = NewMockResourceAndApplicationServiceGetter(ctrl)
+	s.applicationServiceGetter = NewMockApplicationServiceGetter(ctrl)
+	s.resourceServiceGetter = NewMockResourceServiceGetter(ctrl)
 	s.resourceService = NewMockResourceService(ctrl)
 	s.validator = NewMockValidator(ctrl)
 

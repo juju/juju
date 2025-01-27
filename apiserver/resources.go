@@ -24,11 +24,11 @@ func (a *resourceServiceGetter) Resource(r *http.Request) (handlersresource.Reso
 	return domainServices.Resource(), nil
 }
 
-type migratingResourceServicesGetter struct {
+type migratingResourceServiceGetter struct {
 	ctxt httpContext
 }
 
-func (a *migratingResourceServicesGetter) Resource(r *http.Request) (handlersresource.ResourceService, error) {
+func (a *migratingResourceServiceGetter) Resource(r *http.Request) (handlersresource.ResourceService, error) {
 	domainServices, err := a.ctxt.domainServicesDuringMigrationForRequest(r)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
@@ -36,7 +36,11 @@ func (a *migratingResourceServicesGetter) Resource(r *http.Request) (handlersres
 	return domainServices.Resource(), nil
 }
 
-func (a *migratingResourceServicesGetter) Application(r *http.Request) (handlersresource.ApplicationService, error) {
+type migratingResourceApplicationServiceGetter struct {
+	ctxt httpContext
+}
+
+func (a *migratingResourceApplicationServiceGetter) Application(r *http.Request) (handlersresource.ApplicationService, error) {
 	domainServices, err := a.ctxt.domainServicesDuringMigrationForRequest(r)
 	if err != nil {
 		return nil, internalerrors.Capture(err)

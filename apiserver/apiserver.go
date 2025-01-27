@@ -879,7 +879,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		stateAuthFunc: httpCtxt.stateForMigrationImporting,
 	}, "tools")
 	resourcesMigrationUploadHandler := srv.monitoredHandler(handlersresource.NewResourceMigrationUploadHandler(
-		&migratingResourceServicesGetter{ctxt: httpCtxt},
+		&migratingResourceApplicationServiceGetter{ctxt: httpCtxt},
+		&migratingResourceServiceGetter{ctxt: httpCtxt},
 		resourcevalidate.NewValidator(logger, resourcevalidate.DefaultFileSystem()),
 		logger,
 	), "applications")

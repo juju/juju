@@ -33,22 +33,25 @@ type Resources interface {
 
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
 type resourcesMigrationUploadHandler struct {
-	serviceGetter ResourceAndApplicationServiceGetter
-	validator     Validator
-	logger        logger.Logger
+	applicationServiceGetter ApplicationServiceGetter
+	resourceServiceGetter    ResourceServiceGetter
+	validator                Validator
+	logger                   logger.Logger
 }
 
 // NewResourceMigrationUploadHandler returns a new HTTP client for handling
 // resources uploads for model migrations.
 func NewResourceMigrationUploadHandler(
-	serviceGetter ResourceAndApplicationServiceGetter,
+	applicationServiceGetter ApplicationServiceGetter,
+	resourceServiceGetter ResourceServiceGetter,
 	validator Validator,
 	logger logger.Logger,
 ) *resourcesMigrationUploadHandler {
 	return &resourcesMigrationUploadHandler{
-		serviceGetter: serviceGetter,
-		validator:     validator,
-		logger:        logger,
+		validator:                validator,
+		applicationServiceGetter: applicationServiceGetter,
+		resourceServiceGetter:    resourceServiceGetter,
+		logger:                   logger,
 	}
 }
 
@@ -77,12 +80,12 @@ func (h *resourcesMigrationUploadHandler) servePost(w http.ResponseWriter, r *ht
 	//  the request has been authenticated, and that the targeted model is in
 	//  `importing` state.
 
-	resourceService, err := h.serviceGetter.Resource(r)
+	resourceService, err := h.resourceServiceGetter.Resource(r)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
 
-	applicationService, err := h.serviceGetter.Application(r)
+	applicationService, err := h.applicationServiceGetter.Application(r)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
@@ -253,7 +256,7 @@ func resourceDetailsFromQuery(query url.Values) (resourceDetails, error) {
 		details resourceDetails
 		err     error
 	)
-	details.origin, err = charmresource.ParseOrigin(query.Get("origin"))
+	details.Origin, err = charmresource.ParseOrigin(query.Get("origin"))
 	if err != nil {
 		return details, errors.BadRequestf("invalid origin")
 	}
