@@ -207,7 +207,7 @@ func (m *ModelManagerAPI) createModelNew(
 	// if there was an error. If a failure to rollback occurs, then the endpoint
 	// should at least be somewhat idempotent.
 
-	creationArgs := model.ModelCreationArgs{
+	creationArgs := model.GlobalModelCreationArgs{
 		CloudRegion: args.CloudRegion,
 		Name:        args.Name,
 	}

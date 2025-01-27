@@ -109,7 +109,7 @@ func (s *State) Create(
 	ctx context.Context,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input model.ModelCreationArgs,
+	input model.GlobalModelCreationArgs,
 ) error {
 	db, err := s.DB()
 	if err != nil {
@@ -138,7 +138,7 @@ func Create(
 	tx *sqlair.TX,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input model.ModelCreationArgs,
+	input model.GlobalModelCreationArgs,
 ) error {
 	// This function is responsible for driving all of the facets of model
 	// creation.
@@ -555,7 +555,7 @@ INSERT INTO model_secret_backend (*) VALUES ($dbModelSecretBackend.*)
 //
 // Should the provided cloud and region not be found an error matching
 // errors.NotFound will be returned.
-// If the ModelCreationArgs contains a non zero value cloud credential this func
+// If the GlobalModelCreationArgs contains a non zero value cloud credential this func
 // will also attempt to set the model cloud credential using updateCredential. In
 // this  scenario the errors from updateCredential are also possible.
 // If the model owner does not exist an error satisfying [usererrors.NotFound]
@@ -566,7 +566,7 @@ func createModel(
 	tx *sqlair.TX,
 	modelUUID coremodel.UUID,
 	modelType coremodel.ModelType,
-	input model.ModelCreationArgs,
+	input model.GlobalModelCreationArgs,
 ) error {
 	cloudName := dbName{Name: input.Cloud}
 

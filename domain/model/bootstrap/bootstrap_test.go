@@ -94,7 +94,7 @@ var _ = gc.Suite(&bootstrapSuite{})
 func (s *bootstrapSuite) TestUUIDIsRespected(c *gc.C) {
 	fn := CreateModel(
 		modeltesting.GenModelUUID(c),
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: jujuversion.Current,
 			Cloud:        s.cloudName,
 			Credential: credential.Key{
@@ -126,7 +126,7 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	controllerUUID := uuid.MustNewUUID()
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	args := model.ModelCreationArgs{
+	args := model.GlobalModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.cloudName,
 		Credential: credential.Key{
@@ -166,7 +166,7 @@ func (s *modelBootstrapSuite) TestCreateModelWithDifferingBuildNumber(c *gc.C) {
 	v := jujuversion.Current
 	v.Build++
 
-	args := model.ModelCreationArgs{
+	args := model.GlobalModelCreationArgs{
 		AgentVersion: v,
 		Cloud:        s.cloudName,
 		Credential: credential.Key{

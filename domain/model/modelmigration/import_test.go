@@ -134,7 +134,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 
 	args := model.ModelImportArgs{
-		ModelCreationArgs: model.ModelCreationArgs{
+		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
 			AgentVersion: jujuversion.Current,
 			Cloud:        "AWS",
 			CloudRegion:  "region1",
@@ -210,7 +210,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 
 	args := model.ModelImportArgs{
-		ModelCreationArgs: model.ModelCreationArgs{
+		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
 			AgentVersion: jujuversion.Current,
 			Cloud:        "AWS",
 			CloudRegion:  "region1",
@@ -297,7 +297,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 
 	args := model.ModelImportArgs{
-		ModelCreationArgs: model.ModelCreationArgs{
+		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
 			AgentVersion: jujuversion.Current,
 			Cloud:        "AWS",
 			CloudRegion:  "region1",
@@ -383,7 +383,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	}
 
 	args := model.ModelImportArgs{
-		ModelCreationArgs: model.ModelCreationArgs{
+		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
 			AgentVersion: jujuversion.Current,
 			Cloud:        "AWS",
 			CloudRegion:  "region1",

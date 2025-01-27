@@ -359,7 +359,7 @@ func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 }
 
 // CreateModel mocks base method.
-func (m *MockModelService) CreateModel(arg0 context.Context, arg1 model0.ModelCreationArgs) (model.UUID, func(context.Context) error, error) {
+func (m *MockModelService) CreateModel(arg0 context.Context, arg1 model0.GlobalModelCreationArgs) (model.UUID, func(context.Context) error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1)
 	ret0, _ := ret[0].(model.UUID)
@@ -387,13 +387,13 @@ func (c *MockModelServiceCreateModelCall) Return(arg0 model.UUID, arg1 func(cont
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceCreateModelCall) Do(f func(context.Context, model0.ModelCreationArgs) (model.UUID, func(context.Context) error, error)) *MockModelServiceCreateModelCall {
+func (c *MockModelServiceCreateModelCall) Do(f func(context.Context, model0.GlobalModelCreationArgs) (model.UUID, func(context.Context) error, error)) *MockModelServiceCreateModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceCreateModelCall) DoAndReturn(f func(context.Context, model0.ModelCreationArgs) (model.UUID, func(context.Context) error, error)) *MockModelServiceCreateModelCall {
+func (c *MockModelServiceCreateModelCall) DoAndReturn(f func(context.Context, model0.GlobalModelCreationArgs) (model.UUID, func(context.Context) error, error)) *MockModelServiceCreateModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

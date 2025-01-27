@@ -134,7 +134,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 		context.Background(),
 		m.uuid,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
@@ -203,7 +203,7 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 		context.Background(),
 		modelUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			Credential: corecredential.Key{
@@ -331,7 +331,7 @@ func (m *stateSuite) TestCreateModelWithExisting(c *gc.C) {
 			tx,
 			m.uuid,
 			coremodel.IAAS,
-			model.ModelCreationArgs{
+			model.GlobalModelCreationArgs{
 				Cloud:         "my-cloud",
 				CloudRegion:   "my-region",
 				Name:          "fantasticmodel",
@@ -353,7 +353,7 @@ func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *gc.C) {
 		context.Background(),
 		testUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud:         "my-cloud",
 			CloudRegion:   "my-region",
 			Name:          "my-test-model",
@@ -371,7 +371,7 @@ func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *gc.C) {
 		context.Background(),
 		testUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud:         "my-cloud",
 			CloudRegion:   "noexist",
 			Name:          "noregion",
@@ -389,7 +389,7 @@ func (m *stateSuite) TestCreateWithEmptyRegion(c *gc.C) {
 		context.Background(),
 		testUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud: "my-cloud",
 			Name:  "noregion",
 			Owner: m.userUUID,
@@ -418,7 +418,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 		context.Background(),
 		modeltesting.GenModelUUID(c),
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud:       "my-cloud",
 			CloudRegion: "my-region",
 			Name:        "controller",
@@ -438,7 +438,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 		context.Background(),
 		testUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud: "my-cloud",
 			Name:  "noregion",
 			Owner: m.userUUID,
@@ -469,7 +469,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 		context.Background(),
 		controllerUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud:       "my-cloud",
 			CloudRegion: "my-region",
 			Name:        "controller",
@@ -496,7 +496,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 		context.Background(),
 		testUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud: "other-cloud",
 			Name:  "noregion",
 			Owner: m.userUUID,
@@ -532,7 +532,7 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 		context.Background(),
 		testUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud:         "my-cloud",
 			CloudRegion:   "noexist",
 			Name:          "noregion",
@@ -557,7 +557,7 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 		context.Background(),
 		testUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud:         "my-cloud",
 			CloudRegion:   "noexist",
 			Name:          "noregion",
@@ -578,7 +578,7 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *gc.C) {
 		ctx,
 		testUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
@@ -610,7 +610,7 @@ func (m *stateSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
 		context.Background(),
 		testUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud:         "noexist",
 			CloudRegion:   "my-region",
 			Name:          "noregion",
@@ -710,7 +710,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 		context.Background(),
 		m.uuid,
 		coremodel.CAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud: "minikube",
 			Credential: corecredential.Key{
 				Cloud: "minikube",
@@ -799,7 +799,7 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 		context.Background(),
 		uuid1,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
@@ -822,7 +822,7 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 		context.Background(),
 		uuid2,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
@@ -912,7 +912,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 		context.Background(),
 		uuid1,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
@@ -934,7 +934,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 		context.Background(),
 		uuid2,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
@@ -1061,7 +1061,7 @@ func (m *stateSuite) TestSecretBackendNotFoundForModelCreate(c *gc.C) {
 		context.Background(),
 		uuid,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
@@ -1134,7 +1134,7 @@ func (m *stateSuite) TestCleanupBrokenModel(c *gc.C) {
 		context.Background(),
 		modelID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
@@ -1158,7 +1158,7 @@ func (m *stateSuite) TestCleanupBrokenModel(c *gc.C) {
 		context.Background(),
 		newModelID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",
@@ -1508,7 +1508,7 @@ func (m *stateSuite) createTestModel(c *gc.C, modelSt *State, name string, creat
 		context.Background(),
 		modelUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        "my-cloud",
 			CloudRegion:  "my-region",

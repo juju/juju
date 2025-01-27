@@ -32,7 +32,7 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 
 // CreateModel is responsible for making a new model with all of its associated
 // metadata during the bootstrap process.
-// If the ModelCreationArgs does not have a credential name set then no cloud
+// If the GlobalModelCreationArgs does not have a credential name set then no cloud
 // credential will be associated with the model.
 //
 // The only supported agent version during bootstrap is that of the current
@@ -55,7 +55,7 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 // the bootstrap process.
 func CreateModel(
 	modelID coremodel.UUID,
-	args model.ModelCreationArgs,
+	args model.GlobalModelCreationArgs,
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		if err := args.Validate(); err != nil {

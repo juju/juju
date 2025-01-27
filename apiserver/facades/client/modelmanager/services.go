@@ -77,7 +77,7 @@ type ModelConfigService interface {
 // ModelService defines an interface for interacting with the model service.
 type ModelService interface {
 	// CreateModel creates a model returning the resultant model's new id.
-	CreateModel(context.Context, model.ModelCreationArgs) (coremodel.UUID, func(context.Context) error, error)
+	CreateModel(context.Context, model.GlobalModelCreationArgs) (coremodel.UUID, func(context.Context) error, error)
 
 	// DefaultModelCloudNameAndCredential returns the default cloud name and
 	// credential that should be used for newly created models that haven't had

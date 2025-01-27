@@ -349,7 +349,7 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 		context.Background(),
 		modelUUID,
 		coremodel.IAAS,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			Cloud:         testCloud.Name,
 			Name:          coremodel.ControllerModelName,
 			Owner:         user.UUID(s.adminUUID.String()),

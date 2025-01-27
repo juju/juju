@@ -21,18 +21,18 @@ type typesSuite struct {
 var _ = gc.Suite(&typesSuite{})
 
 // TestModelCreationArgsValidation is aserting all the validation cases that the
-// [ModelCreationArgs.Validate] function checks for.
+// [GlobalModelCreationArgs.Validate] function checks for.
 func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 	userUUID := usertesting.GenUserUUID(c)
 
 	tests := []struct {
-		Args    ModelCreationArgs
+		Args    GlobalModelCreationArgs
 		Name    string
 		ErrTest error
 	}{
 		{
 			Name: "Test invalid name",
-			Args: ModelCreationArgs{
+			Args: GlobalModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "",
@@ -42,7 +42,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 		},
 		{
 			Name: "Test invalid owner",
-			Args: ModelCreationArgs{
+			Args: GlobalModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
@@ -52,7 +52,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 		},
 		{
 			Name: "Test invalid cloud",
-			Args: ModelCreationArgs{
+			Args: GlobalModelCreationArgs{
 				Cloud:       "",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
@@ -62,7 +62,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 		},
 		{
 			Name: "Test invalid cloud region",
-			Args: ModelCreationArgs{
+			Args: GlobalModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "",
 				Name:        "my-awesome-model",
@@ -72,7 +72,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 		},
 		{
 			Name: "Test invalid credential key",
-			Args: ModelCreationArgs{
+			Args: GlobalModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Credential: credential.Key{
@@ -85,7 +85,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 		},
 		{
 			Name: "Test happy path without credential key",
-			Args: ModelCreationArgs{
+			Args: GlobalModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
@@ -95,7 +95,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 		},
 		{
 			Name: "Test happy path with credential key",
-			Args: ModelCreationArgs{
+			Args: GlobalModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Credential: credential.Key{
@@ -135,7 +135,7 @@ func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
 		{
 			Name: "Test happy path with valid model id",
 			Args: ModelImportArgs{
-				ModelCreationArgs: ModelCreationArgs{
+				GlobalModelCreationArgs: GlobalModelCreationArgs{
 					Cloud:       "my-cloud",
 					CloudRegion: "my-region",
 					Credential: credential.Key{
@@ -152,7 +152,7 @@ func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
 		{
 			Name: "Test invalid model id",
 			Args: ModelImportArgs{
-				ModelCreationArgs: ModelCreationArgs{
+				GlobalModelCreationArgs: GlobalModelCreationArgs{
 					Cloud:       "my-cloud",
 					CloudRegion: "my-region",
 					Credential: credential.Key{
