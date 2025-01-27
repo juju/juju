@@ -36,6 +36,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/apiserver/internal/handlers/objects"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/stateauthenticator"
@@ -52,6 +53,7 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	coretrace "github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
@@ -779,11 +781,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	)
 
 	charmsObjectsAuthorizer := tagKindAuthorizer{names.UserTagKind}
-	modelObjectsCharmsHTTPHandler := srv.monitoredHandler(&objectsCharmHTTPHandler{
-		stateGetter:              &stateGetter{authFunc: httpCtxt.stateForRequestAuthenticatedUser},
-		applicationServiceGetter: &applicationServiceGetter{ctxt: httpCtxt},
-		makeCharmURL:             CharmURLFromLocator,
-	}, "charms")
+	modelObjectsCharmsHTTPHandler := srv.monitoredHandler(objects.NewObjectsCharmHTTPHandler(
+		&stateGetter{authFunc: httpCtxt.stateForRequestAuthenticatedUser},
+		&applicationServiceGetter{ctxt: httpCtxt},
+		objects.CharmURLFromLocator,
+	), "charms")
 
 	modelToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
 		ctxt:          httpCtxt,
@@ -866,19 +868,19 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	controllerAdminAuthorizer := controllerAdminAuthorizer{
 		controllerTag: systemState.ControllerTag(),
 	}
-	migratingApplicationServiceGetter := &migratingApplicationServiceGetter{ctxt: httpCtxt}
-	migrateObjectsCharmsHTTPHandler := srv.monitoredHandler(&objectsCharmHTTPHandler{
-		stateGetter:              &stateGetter{authFunc: httpCtxt.stateForMigrationImporting},
-		applicationServiceGetter: migratingApplicationServiceGetter,
-		makeCharmURL:             CharmURLFromLocatorDuringMigration,
-	}, "charms")
+
+	migrateObjectsCharmsHTTPHandler := srv.monitoredHandler(objects.NewObjectsCharmHTTPHandler(
+		&stateGetter{authFunc: httpCtxt.stateForMigrationImporting},
+		&migratingObjectsApplicationServiceGetter{ctxt: httpCtxt},
+		objects.CharmURLFromLocatorDuringMigration,
+	), "charms")
 	migrateToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForMigrationImporting,
 	}, "tools")
 	resourcesMigrationUploadHandler := srv.monitoredHandler(&resourcesMigrationUploadHandler{
 		resourceServiceGetter:    &migratingResourceServiceGetter{ctxt: httpCtxt},
-		applicationServiceGetter: migratingApplicationServiceGetter,
+		applicationServiceGetter: &migratingApplicationServiceGetter{ctxt: httpCtxt},
 	}, "applications")
 	registerHandler := srv.monitoredHandler(&registerUserHandler{
 		ctxt: httpCtxt,
@@ -1224,4 +1226,69 @@ func (srv *Server) monitoredHandler(handler http.Handler, label string) http.Han
 		defer gauge.Dec()
 		handler.ServeHTTP(w, r)
 	})
+}
+
+type stateGetter struct {
+	authFunc func(*http.Request) (*state.PooledState, error)
+}
+
+func (s *stateGetter) GetState(r *http.Request) (objects.ModelState, error) {
+	st, err := s.authFunc(r)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	return &stateGetterModel{
+		pooledState: st,
+		st:          st.State,
+	}, nil
+}
+
+type stateGetterModel struct {
+	pooledState *state.PooledState
+	st          *state.State
+}
+
+func (s *stateGetterModel) Model() (objects.Model, error) {
+	return s.st.Model()
+}
+
+func (s *stateGetterModel) Release() bool {
+	return s.pooledState.Release()
+}
+
+type applicationServiceGetter struct {
+	ctxt httpContext
+}
+
+func (a *applicationServiceGetter) Application(r *http.Request) (objects.ApplicationService, error) {
+	domainServices, err := a.ctxt.domainServicesForRequest(r.Context())
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	return domainServices.Application(), nil
+}
+
+type migratingApplicationServiceGetter struct {
+	ctxt httpContext
+}
+
+func (a *migratingApplicationServiceGetter) Application(r *http.Request) (ApplicationService, error) {
+	domainServices, err := a.ctxt.domainServicesDuringMigrationForRequest(r)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	return domainServices.Application(), nil
+}
+
+type migratingObjectsApplicationServiceGetter struct {
+	ctxt httpContext
+}
+
+func (a *migratingObjectsApplicationServiceGetter) Application(r *http.Request) (objects.ApplicationService, error) {
+	domainServices, err := a.ctxt.domainServicesDuringMigrationForRequest(r)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	return domainServices.Application(), nil
 }

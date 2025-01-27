@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
+	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	coreuser "github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	proxyerrors "github.com/juju/juju/domain/proxy/errors"
@@ -83,7 +84,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	}
 	http.SetCookie(w, cookie)
 
-	if err := sendStatusAndJSON(w, http.StatusOK, response); err != nil {
+	if err := internalhttp.SendStatusAndJSON(w, http.StatusOK, response); err != nil {
 		logger.Errorf("%v", err)
 	}
 }

@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package objects
 
 import (
 	"context"
@@ -15,18 +15,22 @@ import (
 	jujuerrors "github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	coreapplication "github.com/juju/juju/core/application"
+	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+)
+
+var (
+	logger = internallogger.GetLogger("juju.apiserver.objects")
 )
 
 const (
@@ -50,12 +54,6 @@ type StateGetter interface {
 	GetState(*http.Request) (ModelState, error)
 }
 
-type objectsCharmHTTPHandler struct {
-	stateGetter              StateGetter
-	applicationServiceGetter ApplicationServiceGetter
-	makeCharmURL             func(locator applicationcharm.CharmLocator, includeArchitecture bool) (*charm.URL, error)
-}
-
 // ApplicationService is an interface for the application domain service.
 type ApplicationService interface {
 	// GetCharmArchiveBySHA256Prefix returns a ReadCloser stream for the charm
@@ -67,16 +65,6 @@ type ApplicationService interface {
 
 	// ResolveUploadCharm resolves the upload of a charm archive.
 	ResolveUploadCharm(context.Context, applicationcharm.ResolveUploadCharm) (applicationcharm.CharmLocator, error)
-
-	// GetApplicationIDByName returns an application ID by application name. It
-	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
-
-	// GetApplicationIDByUnitName returns the application ID for the named unit.
-	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
-
-	// GetUnitUUID returns the UUID for the named unit.
-	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 }
 
 // ApplicationServiceGetter is an interface for getting an ApplicationService.
@@ -85,7 +73,33 @@ type ApplicationServiceGetter interface {
 	Application(*http.Request) (ApplicationService, error)
 }
 
-func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// CharmURLMakerFunc is a function that creates a charm URL from a charm
+// locator.
+type CharmURLMakerFunc func(locator applicationcharm.CharmLocator, includeArchitecture bool) (*charm.URL, error)
+
+// ObjectsCharmHTTPHandler is an http.Handler for the "/objects/charms"
+// endpoint.
+type ObjectsCharmHTTPHandler struct {
+	stateGetter              StateGetter
+	applicationServiceGetter ApplicationServiceGetter
+	makeCharmURL             CharmURLMakerFunc
+}
+
+// NewObjectsCharmHTTPHandler returns a new ObjectsCharmHTTPHandler.
+func NewObjectsCharmHTTPHandler(
+	stateGetter StateGetter,
+	applicationServiceGetter ApplicationServiceGetter,
+	charmURLMaker CharmURLMakerFunc,
+) http.Handler {
+	return &ObjectsCharmHTTPHandler{
+		stateGetter:              stateGetter,
+		applicationServiceGetter: applicationServiceGetter,
+		makeCharmURL:             charmURLMaker,
+	}
+}
+
+// ServeHTTP implements the http.Handler interface.
+func (h *ObjectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch r.Method {
 	case "GET":
@@ -112,7 +126,7 @@ func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 
 // ServeGet serves the GET method for the S3 API. This is the equivalent of the
 // `GetObject` method in the AWS S3 API.
-func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
+func (h *ObjectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 	applicationService, err := h.applicationServiceGetter.Application(r)
 	if err != nil {
 		return errors.Capture(err)
@@ -145,7 +159,7 @@ func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Reques
 // Since juju's objects (S3) API only acts as a shim, this method will only
 // rewrite the http request for it to be correctly processed by the legacy
 // '/charms' handler.
-func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Request) error {
+func (h *ObjectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Request) error {
 	// Make sure the content type is zip.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/zip" {
@@ -177,7 +191,7 @@ func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 	return errors.Capture(sendStatusAndHeadersAndJSON(w, http.StatusOK, headers, &params.CharmsResponse{CharmURL: charmURL.String()}))
 }
 
-func (h *objectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Request, st ModelState, applicationService ApplicationService) (*charm.URL, error) {
+func (h *ObjectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Request, st ModelState, applicationService ApplicationService) (*charm.URL, error) {
 	name, shaFromQuery, err := splitNameAndSHAFromQuery(r.URL.Query())
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -312,7 +326,7 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 // object.
 func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
 	perr, status := apiservererrors.ServerErrorAndStatus(err)
-	return errors.Capture(sendStatusAndJSON(w, status, &params.CharmsResponse{
+	return errors.Capture(internalhttp.SendStatusAndJSON(w, status, &params.CharmsResponse{
 		Error:     perr.Message,
 		ErrorCode: perr.Code,
 		ErrorInfo: perr.Info,
@@ -336,59 +350,6 @@ func modelIsImporting(st ModelState) (bool, error) {
 		return false, errors.Capture(err)
 	}
 	return model.MigrationMode() == state.MigrationModeImporting, nil
-}
-
-type stateGetter struct {
-	authFunc func(*http.Request) (*state.PooledState, error)
-}
-
-func (s *stateGetter) GetState(r *http.Request) (ModelState, error) {
-	st, err := s.authFunc(r)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return &stateGetterModel{
-		pooledState: st,
-		st:          st.State,
-	}, nil
-}
-
-type stateGetterModel struct {
-	pooledState *state.PooledState
-	st          *state.State
-}
-
-func (s *stateGetterModel) Model() (Model, error) {
-	return s.st.Model()
-}
-
-func (s *stateGetterModel) Release() bool {
-	return s.pooledState.Release()
-}
-
-type applicationServiceGetter struct {
-	ctxt httpContext
-}
-
-func (a *applicationServiceGetter) Application(r *http.Request) (ApplicationService, error) {
-	domainServices, err := a.ctxt.domainServicesForRequest(r.Context())
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return domainServices.Application(), nil
-}
-
-type migratingApplicationServiceGetter struct {
-	ctxt httpContext
-}
-
-func (a *migratingApplicationServiceGetter) Application(r *http.Request) (ApplicationService, error) {
-	domainServices, err := a.ctxt.domainServicesDuringMigrationForRequest(r)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return domainServices.Application(), nil
 }
 
 func convertSource(source applicationcharm.CharmSource) (string, error) {
@@ -422,4 +383,16 @@ func convertApplication(a application.Architecture) (string, error) {
 	default:
 		return "", errors.Errorf("unsupported architecture %q", a)
 	}
+}
+
+// sendStatusAndHeadersAndJSON send an HTTP status code, custom headers
+// and a JSON-encoded response to a client
+func sendStatusAndHeadersAndJSON(w http.ResponseWriter, statusCode int, headers map[string]string, response interface{}) error {
+	for k, v := range headers {
+		if !strings.HasPrefix(k, "Juju-") {
+			return errors.Errorf(`Custom header %q must be prefixed with "Juju-"`, k)
+		}
+		w.Header().Set(k, v)
+	}
+	return internalhttp.SendStatusAndJSON(w, statusCode, response)
 }
