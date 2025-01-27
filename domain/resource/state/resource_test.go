@@ -35,12 +35,15 @@ type resourceSuite struct {
 	state *State
 
 	constants struct {
-		fakeApplicationUUID1 string
-		fakeApplicationUUID2 string
-		fakeApplicationName1 string
-		fakeApplicationName2 string
-		fakeUnitUUID1        string
-		fakeUnitUUID2        string
+		fakeApplicationUUID1   string
+		fakeApplicationUUID2   string
+		fakeApplicationName1   string
+		fakeApplicationName2   string
+		fakeUnitUUID1          string
+		fakeUnitUUID2          string
+		fakeUnitName1          string
+		fakeUnitName2          string
+		applicatioNameFromUUID map[string]string
 	}
 }
 
@@ -56,10 +59,16 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	s.constants.fakeApplicationUUID1 = "fake-application-1-uuid"
 	s.constants.fakeApplicationUUID2 = "fake-application-2-uuid"
-	s.constants.fakeApplicationName1 = "app1"
-	s.constants.fakeApplicationName2 = "app2"
-	s.constants.fakeUnitUUID1 = "fake-unit-1-name"
+	s.constants.fakeApplicationName1 = "fake-application-1"
+	s.constants.fakeApplicationName2 = "fake-application-2"
+	s.constants.fakeUnitUUID1 = "fake-unit-1-uuid"
 	s.constants.fakeUnitUUID2 = "fake-unit-2-uuid"
+	s.constants.fakeUnitName1 = "fake-unit/0"
+	s.constants.fakeUnitName2 = "fake-unit/1"
+	s.constants.applicatioNameFromUUID = map[string]string{
+		s.constants.fakeApplicationUUID1: s.constants.fakeApplicationName1,
+		s.constants.fakeApplicationUUID2: s.constants.fakeApplicationName2,
+	}
 
 	// Populate DB with two application and a charm
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -84,8 +93,9 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?),(?, ?, ?, ?, ?)`,
-			s.constants.fakeUnitUUID1, "unit1", 0 /* alive */, s.constants.fakeApplicationUUID1, fakeNetNodeUUID,
-			s.constants.fakeUnitUUID2, "unit2", 0 /* alive */, s.constants.fakeApplicationUUID2, fakeNetNodeUUID)
+			s.constants.fakeUnitUUID1, s.constants.fakeUnitName1, 0 /* alive */, s.constants.fakeApplicationUUID1, fakeNetNodeUUID,
+			s.constants.fakeUnitUUID2, s.constants.fakeUnitName2, 0 /* alive */, s.constants.fakeApplicationUUID2,
+			fakeNetNodeUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -503,7 +513,7 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 	// Arrange : a simple resource
 	resID := coreresource.UUID("resource-id")
 	now := time.Now().Truncate(time.Second).UTC()
-	expected := resource.Resource{
+	expected := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Name:        "resource-name",
@@ -518,9 +528,8 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 			//Size:        0,
 		},
 		UUID:            resID,
-		ApplicationID:   application.ID(s.constants.fakeApplicationUUID1),
+		ApplicationName: s.constants.fakeApplicationName1,
 		RetrievedBy:     "johnDoe",
-		RetrievedByType: "user",
 		Timestamp:       now,
 	}
 	input := resourceData{
@@ -533,7 +542,7 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 		Type:            charmresource.TypeFile,
 		Path:            expected.Path,
 		Description:     expected.Description,
-		RetrievedByType: string(expected.RetrievedByType),
+		RetrievedByType: coreresource.Application.String(),
 		RetrievedByName: expected.RetrievedBy,
 	}
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -555,7 +564,7 @@ func (s *resourceSuite) TestGetResourceWithStoredFile(c *gc.C) {
 	resID := coreresource.UUID("resource-id")
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := resource.Resource{
+	expected := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Type: charmresource.TypeFile,
@@ -563,8 +572,8 @@ func (s *resourceSuite) TestGetResourceWithStoredFile(c *gc.C) {
 			Fingerprint: fp,
 			Size:        42,
 		},
-		UUID:          resID,
-		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
+		UUID:            resID,
+		ApplicationName: s.constants.fakeApplicationName1,
 	}
 	input := resourceData{
 		UUID:            resID.String(),
@@ -593,7 +602,7 @@ func (s *resourceSuite) TestGetResourceWithStoredImage(c *gc.C) {
 	resID := coreresource.UUID("resource-id")
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := resource.Resource{
+	expected := coreresource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
 				Type: charmresource.TypeContainerImage,
@@ -601,8 +610,8 @@ func (s *resourceSuite) TestGetResourceWithStoredImage(c *gc.C) {
 			Fingerprint: fp,
 			Size:        42,
 		},
-		UUID:          resID,
-		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
+		UUID:            resID,
+		ApplicationName: s.constants.fakeApplicationName1,
 	}
 	input := resourceData{
 		UUID:                     resID.String(),
@@ -746,7 +755,8 @@ func (s *resourceSuite) TestSetRepositoryResourceUnknownResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute TestSetRepositoryResource: %v", errors.ErrorStack(err)))
 
 	// Assert
-	c.Check(c.GetTestLog(), jc.Contains, fmt.Sprintf("Resource not found for application app1 (%s)", s.constants.fakeApplicationUUID1), gc.Commentf("(Assert) application not found in log"))
+	c.Check(c.GetTestLog(), jc.Contains, fmt.Sprintf("Resource not found for application %s (%s)", s.constants.fakeApplicationName1,
+		s.constants.fakeApplicationUUID1), gc.Commentf("(Assert) application not found in log"))
 	c.Check(c.GetTestLog(), jc.Contains, "not-a-resource-1", gc.Commentf("(Assert) missing resource name log"))
 	c.Check(c.GetTestLog(), jc.Contains, "not-a-resource-2", gc.Commentf("(Assert) missing resource name log"))
 }
@@ -773,7 +783,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-app"
-	retrievedByType := resource.Application
+	retrievedByType := coreresource.Application
 	droppedHash, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
@@ -829,7 +839,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-unit"
-	retrievedByType := resource.Unit
+	retrievedByType := coreresource.Unit
 	droppedHash, err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
@@ -956,7 +966,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 	// Arrange: insert a resource record and generate 2 blobs.
 	resID, storeID1, size1, hash1 := s.createContainerImageResourceAndBlob(c)
 	retrievedBy1 := "ubuntu/0"
-	retrievedByType1 := resource.Unit
+	retrievedByType1 := coreresource.Unit
 
 	// Arrange: store the first resource.
 	droppedHash1, err := s.state.RecordStoredResource(
@@ -978,7 +988,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 	storageKey2 := "storage-key-2"
 	storeID2 := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey2)
 	retrievedBy2 := "user-name"
-	retrievedByType2 := resource.User
+	retrievedByType2 := coreresource.User
 	size2 := int64(422)
 	hash2 := "hash2"
 	err = s.addContainerImage(storageKey2)
@@ -1023,7 +1033,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	// Arrange: insert a resource.
 	resID, storeID1, size1, hash1 := s.createFileResourceAndBlob(c)
 	retrievedBy1 := "ubuntu/0"
-	retrievedByType1 := resource.Unit
+	retrievedByType1 := coreresource.Unit
 
 	// Arrange: store the first resource.
 	droppedHash1, err := s.state.RecordStoredResource(
@@ -1045,7 +1055,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	objectStoreUUID2 := objectstoretesting.GenObjectStoreUUID(c)
 	storeID2 := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID2)
 	retrievedBy2 := "ubuntu/0"
-	retrievedByType2 := resource.Unit
+	retrievedByType2 := coreresource.Unit
 	size2 := int64(422)
 	hash2 := "hash2"
 	err = s.addObjectStoreBlobMetadata(objectStoreUUID2)
@@ -1292,7 +1302,7 @@ func (s *resourceSuite) TestRecordStoredResourceContainerImageStoredResourceNotF
 func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByUnit(c *gc.C) {
 	resourceUUID := s.addResource(c, charmresource.TypeFile)
 	retrievedBy := "app-test/0"
-	retrievedByType := resource.Unit
+	retrievedByType := coreresource.Unit
 	err := s.setWithRetrievedBy(c, resourceUUID, retrievedBy, retrievedByType)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resourceUUID)
@@ -1303,7 +1313,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByUnit(c *gc.C) {
 func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByApplication(c *gc.C) {
 	resourceUUID := s.addResource(c, charmresource.TypeFile)
 	retrievedBy := "app-test"
-	retrievedByType := resource.Application
+	retrievedByType := coreresource.Application
 	err := s.setWithRetrievedBy(c, resourceUUID, retrievedBy, retrievedByType)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resourceUUID)
@@ -1314,7 +1324,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByApplication(c *gc
 func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByUser(c *gc.C) {
 	resourceUUID := s.addResource(c, charmresource.TypeFile)
 	retrievedBy := "jim"
-	retrievedByType := resource.User
+	retrievedByType := coreresource.User
 	err := s.setWithRetrievedBy(c, resourceUUID, retrievedBy, retrievedByType)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
 	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resourceUUID)
@@ -1326,7 +1336,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithRetrievedByNotSet(c *gc.C) {
 	// Retrieve by should not be set if it is blank and the type is unknown.
 	resourceUUID := s.addResource(c, charmresource.TypeFile)
 	retrievedBy := ""
-	retrievedByType := resource.Unknown
+	retrievedByType := coreresource.Unknown
 	err := s.setWithRetrievedBy(c, resourceUUID, retrievedBy, retrievedByType)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1846,27 +1856,27 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Assert(results.UnitResources, gc.DeepEquals, []resource.UnitResources{
+	c.Assert(results.UnitResources, gc.DeepEquals, []coreresource.UnitResources{
 		{
-			ID: unit.UUID(s.constants.fakeUnitUUID1),
-			Resources: []resource.Resource{
-				unitRes.toResource(),
-				bothRes.toResource(),
+			Name: unit.Name(s.constants.fakeUnitName1),
+			Resources: []coreresource.Resource{
+				unitRes.toResource(s),
+				bothRes.toResource(s),
 			},
 		},
 		{
-			ID: unit.UUID(s.constants.fakeUnitUUID2),
-			Resources: []resource.Resource{
-				anotherUnitRes.toResource(),
+			Name: unit.Name(s.constants.fakeUnitName2),
+			Resources: []coreresource.Resource{
+				anotherUnitRes.toResource(s),
 			},
 		},
 	})
-	c.Assert(results.Resources, gc.DeepEquals, []resource.Resource{
-		simpleRes.toResource(),
-		polledRes.toResource(),
-		unitRes.toResource(),
-		bothRes.toResource(),
-		anotherUnitRes.toResource(),
+	c.Assert(results.Resources, gc.DeepEquals, []coreresource.Resource{
+		simpleRes.toResource(s),
+		polledRes.toResource(s),
+		unitRes.toResource(s),
+		bothRes.toResource(s),
+		anotherUnitRes.toResource(s),
 	})
 	c.Assert(results.RepositoryResources, gc.DeepEquals, []charmresource.Resource{
 		{}, // not polled
@@ -1966,12 +1976,12 @@ func (s *resourceSuite) TestGetResourcesByApplicationID(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Assert(results, gc.DeepEquals, []resource.Resource{
-		simpleRes.toResource(),
-		polledRes.toResource(),
-		unitRes.toResource(),
-		bothRes.toResource(),
-		anotherUnitRes.toResource(),
+	c.Assert(results, gc.DeepEquals, []coreresource.Resource{
+		simpleRes.toResource(s),
+		polledRes.toResource(s),
+		unitRes.toResource(s),
+		bothRes.toResource(s),
+		anotherUnitRes.toResource(s),
 	})
 }
 
@@ -2015,8 +2025,8 @@ func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *gc.
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Assert(results, gc.DeepEquals, []resource.Resource{
-		availableRes.toResource(),
+	c.Assert(results, gc.DeepEquals, []coreresource.Resource{
+		availableRes.toResource(s),
 		// potential resources are not returned
 	})
 }
@@ -2117,7 +2127,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 	c *gc.C,
 	resourceUUID coreresource.UUID,
 	retrievedBy string,
-	retrievedByType resource.RetrievedByType,
+	retrievedByType coreresource.RetrievedByType,
 ) error {
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
@@ -2137,7 +2147,8 @@ func (s *resourceSuite) setWithRetrievedBy(
 	return err
 }
 
-func (s *resourceSuite) getRetrievedByType(c *gc.C, resourceUUID coreresource.UUID) (retrievedBy string, retrievedByType resource.RetrievedByType) {
+func (s *resourceSuite) getRetrievedByType(c *gc.C, resourceUUID coreresource.UUID) (retrievedBy string,
+	retrievedByType coreresource.RetrievedByType) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT rrb.name, rrbt.name AS type
@@ -2222,13 +2233,12 @@ func (d resourceData) toCharmResource() charmresource.Resource {
 
 // toResource converts a resourceData object to a resource.Resource object with
 // enriched metadata.
-func (d resourceData) toResource() resource.Resource {
-	return resource.Resource{
+func (d resourceData) toResource(s *resourceSuite) coreresource.Resource {
+	return coreresource.Resource{
 		Resource:        d.toCharmResource(),
 		UUID:            coreresource.UUID(d.UUID),
-		ApplicationID:   application.ID(d.ApplicationUUID),
+		ApplicationName: s.constants.applicatioNameFromUUID[d.ApplicationUUID],
 		RetrievedBy:     d.RetrievedByName,
-		RetrievedByType: resource.RetrievedByType(d.RetrievedByType),
 		Timestamp:       d.CreatedAt,
 	}
 }

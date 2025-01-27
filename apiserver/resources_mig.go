@@ -13,6 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/resource"
+	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	domainresource "github.com/juju/juju/domain/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -34,7 +35,7 @@ type ResourceService interface {
 	StoreResource(ctx context.Context, args domainresource.StoreResourceArgs) error
 
 	// GetResource returns the identified application resource.
-	GetResource(ctx context.Context, resourceUUID resource.UUID) (domainresource.Resource, error)
+	GetResource(ctx context.Context, resourceUUID resource.UUID) (coreresource.Resource, error)
 }
 
 // ResourceServiceGetter is an interface for retrieving a ResourceService
@@ -109,8 +110,8 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	r *http.Request,
 	resourceService ResourceService,
 	applicationService ApplicationService,
-) (domainresource.Resource, error) {
-	var empty domainresource.Resource
+) (coreresource.Resource, error) {
+	var empty coreresource.Resource
 	ctx := r.Context()
 	query := r.URL.Query()
 
@@ -141,17 +142,17 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	if !isPlaceholder(query) {
 		var (
 			retrievedBy     string
-			retrievedByType domainresource.RetrievedByType
+			retrievedByType coreresource.RetrievedByType
 		)
 		if target.unitUUID != "" {
 			retrievedBy = target.unitUUID.String()
-			retrievedByType = domainresource.Unit
+			retrievedByType = coreresource.Unit
 		} else if userID != "" {
 			retrievedBy = userID
-			retrievedByType = domainresource.User
+			retrievedByType = coreresource.User
 		} else {
 			retrievedBy = target.appID.String()
-			retrievedByType = domainresource.Application
+			retrievedByType = coreresource.Application
 		}
 
 		err := resourceService.StoreResource(ctx, domainresource.StoreResourceArgs{

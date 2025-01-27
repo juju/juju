@@ -93,21 +93,23 @@ func NewPlaceholderResource(c *gc.C, name, applicationID string) resource.Resour
 	return res
 }
 
-func newResource(c *gc.C, name, applicationID, username, content string, charmResourceFunc newCharmResourceFunc) resource.Resource {
+func newResource(c *gc.C, name, applicationName, username, content string, charmResourceFunc newCharmResourceFunc) resource.Resource {
 	var timestamp time.Time
 	if username != "" {
 		// TODO(perrito666) 2016-05-02 lp:1558657
 		timestamp = time.Now().UTC()
 	}
+	uuid, err := resource.NewUUID()
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot generate uuid for resource %q ", name))
+
 	res := resource.Resource{
-		Resource:      charmResourceFunc(c, name, content),
-		ID:            applicationID + "/" + name,
-		PendingID:     "",
-		ApplicationID: applicationID,
-		Username:      username,
-		Timestamp:     timestamp,
+		Resource:        charmResourceFunc(c, name, content),
+		UUID:            uuid,
+		ApplicationName: applicationName,
+		RetrievedBy:     username,
+		Timestamp:       timestamp,
 	}
-	err := res.Validate()
+	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	return res
 }

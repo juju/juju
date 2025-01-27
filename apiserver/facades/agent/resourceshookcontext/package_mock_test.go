@@ -14,8 +14,8 @@ import (
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
+	resource "github.com/juju/juju/core/resource"
 	unit "github.com/juju/juju/core/unit"
-	resource "github.com/juju/juju/domain/resource"
 	gomock "go.uber.org/mock/gomock"
 )
 

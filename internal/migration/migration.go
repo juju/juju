@@ -444,8 +444,8 @@ func uploadResources(ctx context.Context, config UploadBinariesConfig, logger co
 }
 
 func uploadAppResource(ctx context.Context, config UploadBinariesConfig, rev resource.Resource, logger corelogger.Logger) error {
-	logger.Debugf("opening application resource for %s: %s", rev.ApplicationID, rev.Name)
-	reader, err := config.ResourceDownloader.OpenResource(ctx, rev.ApplicationID, rev.Name)
+	logger.Debugf("opening application resource for %s: %s", rev.ApplicationName, rev.Name)
+	reader, err := config.ResourceDownloader.OpenResource(ctx, rev.ApplicationName, rev.Name)
 	if err != nil {
 		return errors.Annotate(err, "cannot open resource")
 	}

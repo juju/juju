@@ -47,10 +47,10 @@ type State interface {
 	GetResourceUUIDByApplicationAndResourceName(ctx context.Context, appName, resName string) (coreresource.UUID, error)
 
 	// ListResources returns the list of resource for the given application.
-	ListResources(ctx context.Context, applicationID coreapplication.ID) (resource.ApplicationResources, error)
+	ListResources(ctx context.Context, applicationID coreapplication.ID) (coreresource.ApplicationResources, error)
 
 	// GetResource returns the identified resource.
-	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (resource.Resource, error)
+	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
 
 	// GetResourcesByApplicationID returns the list of resource for the given application.
 	//
@@ -60,7 +60,7 @@ type State interface {
 	//
 	// If the application exists but doesn't have any resources, no error are
 	// returned, the result just contains an empty list.
-	GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]resource.Resource, error)
+	GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]coreresource.Resource, error)
 
 	// GetResourceType finds the type of the given resource from the resource table.
 	//
@@ -229,14 +229,16 @@ func (s *Service) GetResourceUUIDByApplicationAndResourceName(
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ApplicationIDNotValid] is returned if the application ID
 //     is not valid.
+//   - [resourceerrors.ApplicationNotFound] when the specified application
+//     does not exist.
 //
 // No error is returned if the provided application has no resource.
 func (s *Service) ListResources(
 	ctx context.Context,
 	applicationID coreapplication.ID,
-) (resource.ApplicationResources, error) {
+) (coreresource.ApplicationResources, error) {
 	if err := applicationID.Validate(); err != nil {
-		return resource.ApplicationResources{}, errors.Errorf("%w: %w", err, resourceerrors.ApplicationIDNotValid)
+		return coreresource.ApplicationResources{}, errors.Errorf("%w: %w", err, resourceerrors.ApplicationIDNotValid)
 	}
 	return s.st.ListResources(ctx, applicationID)
 }
@@ -252,7 +254,8 @@ func (s *Service) ListResources(
 //
 // If the application doesn't have any resources, no error are
 // returned, the result just contain an empty list.
-func (s *Service) GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]resource.Resource, error) {
+func (s *Service) GetResourcesByApplicationID(ctx context.Context, applicationID coreapplication.ID) ([]coreresource.Resource,
+	error) {
 	if err := applicationID.Validate(); err != nil {
 		return nil, errors.Errorf("%w: %w", err, resourceerrors.ApplicationIDNotValid)
 	}
@@ -267,9 +270,9 @@ func (s *Service) GetResourcesByApplicationID(ctx context.Context, applicationID
 func (s *Service) GetResource(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
-) (resource.Resource, error) {
+) (coreresource.Resource, error) {
 	if err := resourceUUID.Validate(); err != nil {
-		return resource.Resource{}, errors.Errorf("application id: %w", err)
+		return coreresource.Resource{}, errors.Errorf("application id: %w", err)
 	}
 	return s.st.GetResource(ctx, resourceUUID)
 }
@@ -337,7 +340,7 @@ func (s *Service) storeResource(
 		return errors.Errorf("invalid fingerprint")
 	}
 
-	if args.RetrievedBy != "" && args.RetrievedByType == resource.Unknown {
+	if args.RetrievedBy != "" && args.RetrievedByType == coreresource.Unknown {
 		return resourceerrors.RetrievedByTypeNotValid
 	}
 
@@ -434,19 +437,19 @@ func (s *Service) storeResource(
 func (s *Service) OpenResource(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
-) (resource.Resource, io.ReadCloser, error) {
+) (coreresource.Resource, io.ReadCloser, error) {
 	if err := resourceUUID.Validate(); err != nil {
-		return resource.Resource{}, nil, errors.Errorf("resource id: %w", err)
+		return coreresource.Resource{}, nil, errors.Errorf("resource id: %w", err)
 	}
 
 	res, err := s.st.GetResource(ctx, resourceUUID)
 	if err != nil {
-		return resource.Resource{}, nil, err
+		return coreresource.Resource{}, nil, err
 	}
 
 	store, err := s.resourceStoreGetter.GetResourceStore(ctx, res.Type)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Errorf("getting resource store for %s: %w", res.Type.String(), err)
+		return coreresource.Resource{}, nil, errors.Errorf("getting resource store for %s: %w", res.Type.String(), err)
 	}
 
 	// TODO(aflynn): ideally this would be finding the resource via the
@@ -455,9 +458,9 @@ func (s *Service) OpenResource(
 	reader, _, err := store.Get(ctx, blobPath(resourceUUID, res.Fingerprint.String()))
 	if errors.Is(err, objectstoreerrors.ErrNotFound) ||
 		errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataNotFound) {
-		return resource.Resource{}, nil, resourceerrors.StoredResourceNotFound
+		return coreresource.Resource{}, nil, resourceerrors.StoredResourceNotFound
 	} else if err != nil {
-		return resource.Resource{}, nil, errors.Errorf("getting resource from store: %w", err)
+		return coreresource.Resource{}, nil, errors.Errorf("getting resource from store: %w", err)
 	}
 
 	return res, reader, nil

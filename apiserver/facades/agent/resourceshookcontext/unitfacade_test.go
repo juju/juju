@@ -15,8 +15,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreapplication "github.com/juju/juju/core/application"
+	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
@@ -233,8 +233,8 @@ func (s *unitFacadeSuite) TestGetResourceInfoListResourceError(c *gc.C) {
 // - All requested resources (found and not found), yield a line in the results.
 func (s *unitFacadeSuite) TestGetResourceInfo(c *gc.C) {
 	// helpers
-	minimalResourceInfo := func(name string) resource.Resource {
-		return resource.Resource{
+	minimalResourceInfo := func(name string) coreresource.Resource {
+		return coreresource.Resource{
 			Resource: charmresource.Resource{
 				Meta: charmresource.Meta{
 					Name: name,
@@ -247,7 +247,7 @@ func (s *unitFacadeSuite) TestGetResourceInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), gomock.Any()).Return("expected-application-id", nil)
-	s.resourceService.EXPECT().GetResourcesByApplicationID(gomock.Any(), gomock.Any()).Return([]resource.Resource{
+	s.resourceService.EXPECT().GetResourcesByApplicationID(gomock.Any(), gomock.Any()).Return([]coreresource.Resource{
 		minimalResourceInfo("fetched-resource-1"),
 		minimalResourceInfo("not-fetched-resource"),
 		minimalResourceInfo("fetched-resource-2"),

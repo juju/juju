@@ -14,7 +14,7 @@ import (
 
 // Resource defines a single resource within a Juju model.
 //
-// Each application will have have exactly the same resources associated
+// Each application will have exactly the same resources associated
 // with it as are defined in the charm's metadata, no more, no less.
 // When associated with the application the resource may have additional
 // information associated with it.
@@ -23,47 +23,43 @@ import (
 // populated before an upload (whether local or from the charm store).
 // In that case the following fields are not set:
 //
-//	Timestamp
-//	Username
+//	UUID, Timestamp, RetrievedBy
 //
 // For "upload" placeholders, the following additional fields are
 // not set:
 //
-//	Fingerprint
-//	Size
-//
-// A resource may also be added to the model as "pending", meaning it
-// is queued up to be used as a resource for the application. Until it is
-// "activated", a pending resources is virtually invisible. There may
-// be more that one pending resource for a given resource UUID.
+//	Fingerprint, Size
 type Resource struct {
 	resource.Resource
 
-	// ID uniquely identifies a resource-application pair within the model.
-	// Note that the model ignores pending resources (those with a
-	// pending ID) except for in a few clearly pending-related places.
-	// ID may be empty if the ID (assigned by the model) is not known.
-	ID string
+	UUID UUID
 
-	// PendingID identifies that this resource is pending and
-	// distinguishes it from other pending resources with the same model
-	// ID (and from the active resource). The active resource for the
-	// applications will not have PendingID set.
-	// Deprecated.
-	PendingID string
+	// ApplicationName identifies the application name for the resource
+	ApplicationName string
 
-	// ApplicationID identifies the application for the resource.
-	ApplicationID string
+	// RetrievedBy is the name of who added the resource to the controller.
+	// The name is a username if the resource is uploaded from the cli
+	// by a specific user. If the resource is downloaded from a repository,
+	// the ID of the unit which triggered the download is used.
+	RetrievedBy string
 
-	// Username is the ID of who added the resource to the controller.
-	// The ID is a username if the resource is uploaded from the cli
-	// by a specific user. If the resources is downloaded from a repository,
-	// the ID of the unit which triggered the download, or the name of
-	// the application in the case of oci-images.
-	Username string
-
-	// Timestamp indicates when the resource was added to the model.
+	// Timestamp indicates when this resource was added to the model in
+	// the case of applications or when this resource was loaded by a unit.
 	Timestamp time.Time
+}
+
+// RetrievedByType indicates what the RetrievedBy name represents.
+type RetrievedByType string
+
+const (
+	Unknown     RetrievedByType = "unknown"
+	Application RetrievedByType = "application"
+	Unit        RetrievedByType = "unit"
+	User        RetrievedByType = "user"
+)
+
+func (r RetrievedByType) String() string {
+	return string(r)
 }
 
 // Validate ensures that the spec is valid.
@@ -77,20 +73,20 @@ func (res Resource) Validate() error {
 		return errors.Annotate(err, "bad info")
 	}
 
-	if res.ApplicationID == "" {
-		return errors.NewNotValid(nil, "missing application UUID")
+	if res.ApplicationName == "" {
+		return errors.Annotate(errors.NotValid, "missing application name")
 	}
 
-	// TODO(ericsnow) Require that Username be set if timestamp is?
+	// TODO(ericsnow) Require that RetrievedBy be set if timestamp is?
 
-	if res.Timestamp.IsZero() && res.Username != "" {
+	if res.Timestamp.IsZero() && res.RetrievedBy != "" {
 		return errors.NewNotValid(nil, "missing timestamp")
 	}
 
 	return nil
 }
 
-// IsPlaceholder indicates whether or not the resource is a
+// IsPlaceholder indicates if the resource is a
 // "placeholder" (partially populated pending an upload).
 func (res Resource) IsPlaceholder() bool {
 	return res.Timestamp.IsZero()

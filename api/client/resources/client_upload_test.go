@@ -294,7 +294,7 @@ func newResource(c *gc.C, name, username, data string) (coreresources.Resource, 
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Revision = 1
-	res.Username = username
+	res.RetrievedBy = username
 	if username == "" {
 		// Note that resourcetesting.NewResource() returns a resources
 		// with a username and timestamp set. So if the username was
@@ -313,10 +313,10 @@ func newResource(c *gc.C, name, username, data string) (coreresources.Resource, 
 			Fingerprint: res.Fingerprint.Bytes(),
 			Size:        res.Size,
 		},
-		ID:            res.ID,
-		ApplicationID: res.ApplicationID,
-		Username:      username,
-		Timestamp:     res.Timestamp,
+		UUID:            res.UUID.String(),
+		ApplicationName: res.ApplicationName,
+		Username:        username,
+		Timestamp:       res.Timestamp,
 	}
 
 	return res, apiRes

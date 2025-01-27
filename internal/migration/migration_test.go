@@ -420,12 +420,12 @@ func (f *fakeUploader) UploadResource(_ context.Context, res resource.Resource, 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	f.resources[res.ApplicationID+"/"+res.Name] = string(body)
+	f.resources[res.ApplicationName+"/"+res.Name] = string(body)
 	return nil
 }
 
 func (f *fakeUploader) SetPlaceholderResource(_ context.Context, res resource.Resource) error {
-	f.resources[res.ApplicationID+"/"+res.Name] = "<placeholder>"
+	f.resources[res.ApplicationName+"/"+res.Name] = "<placeholder>"
 	return nil
 }
 

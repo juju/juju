@@ -142,7 +142,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 
 	// It's a lot easier to read and to digest a list of resources
 	// when they are ordered.
-	sort.Sort(charmResourceList(v.CharmStoreResources))
+	sort.Sort(charmResourceList(v.RepositoryResources))
 	sort.Sort(resourceList(v.Resources))
 	for _, u := range v.UnitResources {
 		sort.Sort(resourceList(u.Resources))
@@ -195,7 +195,7 @@ func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, application st
 	resources := unitResources(unit, application, sr)
 	res := make([]FormattedAppResource, len(sr.Resources))
 	for i, r := range sr.Resources {
-		if unitResource, ok := resources[r.ID]; ok {
+		if unitResource, ok := resources[r.UUID.String()]; ok {
 			// Unit has this application resource,
 			// so use unit's version.
 			r = unitResource
@@ -215,7 +215,7 @@ func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, application st
 func unitResources(unit, application string, sr coreresources.ApplicationResources) map[string]coreresources.Resource {
 	var res []coreresources.Resource
 	for _, r := range sr.UnitResources {
-		if r.Tag.Id() == unit {
+		if r.Name.String() == unit {
 			res = r.Resources
 		}
 	}
@@ -224,7 +224,7 @@ func unitResources(unit, application string, sr coreresources.ApplicationResourc
 	}
 	unitResourcesById := make(map[string]coreresources.Resource)
 	for _, r := range res {
-		unitResourcesById[r.ID] = r
+		unitResourcesById[r.UUID.String()] = r
 	}
 	return unitResourcesById
 }

@@ -103,7 +103,7 @@ func newResourceOpenerForUnit(
 		modelUUID:            state.ModelUUID(),
 		resourceClientGetter: newClientGetter(charmURL, args.CharmhubClientGetter),
 		retrievedBy:          unitName.String(),
-		retrievedByType:      resource.Unit,
+		retrievedByType:      coreresource.Unit,
 		setResourceFunc: func(ctx context.Context, resourceUUID coreresource.UUID) error {
 			return args.ResourceService.SetUnitResource(ctx, resourceUUID, unitUUID)
 		},
@@ -165,7 +165,7 @@ func newResourceOpenerForApplication(
 		modelUUID:            state.ModelUUID(),
 		resourceClientGetter: newClientGetter(charmURL, args.CharmhubClientGetter),
 		retrievedBy:          applicationName,
-		retrievedByType:      resource.Application,
+		retrievedByType:      coreresource.Application,
 		setResourceFunc:      args.ResourceService.SetApplicationResource,
 		charmURL:             charmURL,
 		charmOrigin:          *application.CharmOrigin(),
@@ -209,7 +209,7 @@ type ResourceOpener struct {
 	modelUUID       string
 	resourceService ResourceService
 	retrievedBy     string
-	retrievedByType resource.RetrievedByType
+	retrievedByType coreresource.RetrievedByType
 	setResourceFunc func(ctx context.Context, resourceUUID coreresource.UUID) error
 	charmURL        *charm.URL
 	charmOrigin     state.CharmOrigin
@@ -346,7 +346,7 @@ func (ro ResourceOpener) store(
 	reader io.Reader,
 	size int64,
 	fingerprint charmresource.Fingerprint,
-) (_ resource.Resource, _ io.ReadCloser, err error) {
+) (_ coreresource.Resource, _ io.ReadCloser, err error) {
 	err = ro.resourceService.StoreResource(
 		ctx, resource.StoreResourceArgs{
 			ResourceUUID:    resourceUUID,
@@ -358,13 +358,13 @@ func (ro ResourceOpener) store(
 		},
 	)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Capture(err)
+		return coreresource.Resource{}, nil, errors.Capture(err)
 	}
 
 	// Make sure to use the potentially updated resource details.
 	res, opened, err := ro.resourceService.OpenResource(ctx, resourceUUID)
 	if err != nil {
-		return resource.Resource{}, nil, errors.Capture(err)
+		return coreresource.Resource{}, nil, errors.Capture(err)
 	}
 
 	return res, opened, nil

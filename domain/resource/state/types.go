@@ -8,7 +8,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
-	"github.com/juju/juju/domain/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 )
@@ -51,6 +50,7 @@ type resourceOriginAndRevision struct {
 type resourceView struct {
 	UUID            string    `db:"uuid"`
 	ApplicationUUID string    `db:"application_uuid"`
+	ApplicationName string    `db:"application_name"`
 	Name            string    `db:"name"`
 	CreatedAt       time.Time `db:"created_at"`
 	Revision        int       `db:"revision"`
@@ -95,17 +95,16 @@ func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
 
 // toResource converts a resourceView object to a resource.Resource object
 // including metadata and timestamps.
-func (rv resourceView) toResource() (resource.Resource, error) {
+func (rv resourceView) toResource() (coreresource.Resource, error) {
 	charmRes, err := rv.toCharmResource()
 	if err != nil {
-		return resource.Resource{}, errors.Capture(err)
+		return coreresource.Resource{}, errors.Capture(err)
 	}
-	return resource.Resource{
-		Resource:        charmRes,
+	return coreresource.Resource{
 		UUID:            coreresource.UUID(rv.UUID),
-		ApplicationID:   coreapplication.ID(rv.ApplicationUUID),
+		Resource:        charmRes,
+		ApplicationName: rv.ApplicationName,
 		RetrievedBy:     rv.RetrievedBy,
-		RetrievedByType: resource.RetrievedByType(rv.RetrievedByType),
 		Timestamp:       rv.CreatedAt,
 	}, nil
 }
@@ -114,6 +113,14 @@ func (rv resourceView) toResource() (resource.Resource, error) {
 type unitResource struct {
 	ResourceUUID string    `db:"resource_uuid"`
 	UnitUUID     string    `db:"unit_uuid"`
+	AddedAt      time.Time `db:"added_at"`
+}
+
+// unitResourceWithUnitName represents the mapping of a resource to a unit.
+type unitResourceWithUnitName struct {
+	ResourceUUID string    `db:"resource_uuid"`
+	UnitUUID     string    `db:"unit_uuid"`
+	UnitName     string    `db:"unit_name"`
 	AddedAt      time.Time `db:"added_at"`
 }
 

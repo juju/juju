@@ -51,7 +51,7 @@ func (s *BaseSuite) newFacade(c *gc.C) *resources.API {
 func newResource(c *gc.C, name, username, data string) (coreresources.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
-	res.Username = username
+	res.RetrievedBy = username
 	if username == "" {
 		res.Timestamp = time.Time{}
 	}
@@ -67,10 +67,10 @@ func newResource(c *gc.C, name, username, data string) (coreresources.Resource, 
 			Fingerprint: res.Fingerprint.Bytes(),
 			Size:        res.Size,
 		},
-		ID:            res.ID,
-		ApplicationID: res.ApplicationID,
-		Username:      username,
-		Timestamp:     res.Timestamp,
+		UUID:            res.UUID.String(),
+		ApplicationName: res.ApplicationName,
+		Username:        username,
+		Timestamp:       res.Timestamp,
 	}
 
 	return res, apiRes

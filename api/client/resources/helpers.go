@@ -9,6 +9,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/unit"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
@@ -17,12 +18,11 @@ import (
 // a Resource struct.
 func Resource2API(res resource.Resource) params.Resource {
 	return params.Resource{
-		CharmResource: CharmResource2API(res.Resource),
-		ID:            res.ID,
-		PendingID:     res.PendingID,
-		ApplicationID: res.ApplicationID,
-		Username:      res.Username,
-		Timestamp:     res.Timestamp,
+		CharmResource:   CharmResource2API(res.Resource),
+		UUID:            res.UUID.String(),
+		ApplicationName: res.ApplicationName,
+		Username:        res.RetrievedBy,
+		Timestamp:       res.Timestamp,
 	}
 }
 
@@ -53,7 +53,11 @@ func apiResult2ApplicationResources(apiResult params.ResourcesResult) (resource.
 			return resource.ApplicationResources{}, errors.Annotate(err, "got bad data from server")
 		}
 		resNames := map[string]bool{}
-		unitResources := resource.UnitResources{Tag: tag}
+		unitName, err := unit.NewName(tag.Id())
+		if err != nil {
+			return resource.ApplicationResources{}, errors.Annotate(err, "got bad data from server")
+		}
+		unitResources := resource.UnitResources{Name: unitName}
 		for _, apiRes := range unitRes.Resources {
 			res, err := API2Resource(apiRes)
 			if err != nil {
@@ -61,16 +65,6 @@ func apiResult2ApplicationResources(apiResult params.ResourcesResult) (resource.
 			}
 			resNames[res.Name] = true
 			unitResources.Resources = append(unitResources.Resources, res)
-		}
-		if len(unitRes.DownloadProgress) > 0 {
-			unitResources.DownloadProgress = make(map[string]int64)
-			for resName, progress := range unitRes.DownloadProgress {
-				if _, ok := resNames[resName]; !ok {
-					err := errors.Errorf("got progress from unrecognized resource %q", resName)
-					return resource.ApplicationResources{}, errors.Annotate(err, "got bad data from server")
-				}
-				unitResources.DownloadProgress[resName] = progress
-			}
 		}
 		result.UnitResources = append(result.UnitResources, unitResources)
 	}
@@ -80,7 +74,7 @@ func apiResult2ApplicationResources(apiResult params.ResourcesResult) (resource.
 		if err != nil {
 			return resource.ApplicationResources{}, errors.Annotate(err, "got bad data from server")
 		}
-		result.CharmStoreResources = append(result.CharmStoreResources, res)
+		result.RepositoryResources = append(result.RepositoryResources, res)
 	}
 
 	return result, nil
@@ -93,24 +87,18 @@ func ApplicationResources2APIResult(svcRes resource.ApplicationResources) params
 	}
 
 	for _, unitResources := range svcRes.UnitResources {
-		tag := unitResources.Tag
+		tag := names.NewUnitTag(unitResources.Name.String())
 		apiRes := params.UnitResources{
 			Entity: params.Entity{Tag: tag.String()},
 		}
 		for _, unitRes := range unitResources.Resources {
 			apiRes.Resources = append(apiRes.Resources, Resource2API(unitRes))
 		}
-		if len(unitResources.DownloadProgress) > 0 {
-			apiRes.DownloadProgress = make(map[string]int64)
-			for resName, progress := range unitResources.DownloadProgress {
-				apiRes.DownloadProgress[resName] = progress
-			}
-		}
 		result.UnitResources = append(result.UnitResources, apiRes)
 	}
 
-	result.CharmStoreResources = make([]params.CharmResource, len(svcRes.CharmStoreResources))
-	for i, chRes := range svcRes.CharmStoreResources {
+	result.CharmStoreResources = make([]params.CharmResource, len(svcRes.RepositoryResources))
+	for i, chRes := range svcRes.RepositoryResources {
 		result.CharmStoreResources[i] = CharmResource2API(chRes)
 	}
 	return result
@@ -126,13 +114,17 @@ func API2Resource(apiRes params.Resource) (resource.Resource, error) {
 		return res, errors.Trace(err)
 	}
 
+	uuid, err := resource.ParseUUID(apiRes.UUID)
+	if err != nil {
+		return res, errors.Trace(err)
+	}
+
 	res = resource.Resource{
-		Resource:      charmRes,
-		ID:            apiRes.ID,
-		PendingID:     apiRes.PendingID,
-		ApplicationID: apiRes.ApplicationID,
-		Username:      apiRes.Username,
-		Timestamp:     apiRes.Timestamp,
+		Resource:        charmRes,
+		UUID:            uuid,
+		ApplicationName: apiRes.ApplicationName,
+		RetrievedBy:     apiRes.Username,
+		Timestamp:       apiRes.Timestamp,
 	}
 
 	if err := res.Validate(); err != nil {
