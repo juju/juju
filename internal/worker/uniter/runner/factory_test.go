@@ -187,10 +187,12 @@ func (s *FactorySuite) TestNewHookRunnerWithBadRelation(c *gc.C) {
 func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 	for i, test := range []struct {
 		actionName string
+		charmName  string
 		payload    map[string]interface{}
 	}{
 		{
 			actionName: "snapshot",
+			charmName:  "dummy",
 			payload: map[string]interface{}{
 				"outfile": "/some/file.bz2",
 			},
@@ -199,6 +201,17 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 			// juju-exec should work as a predefined action even if
 			// it's not part of the charm
 			actionName: "juju-exec",
+			charmName:  "dummy",
+			payload: map[string]interface{}{
+				"command": "foo",
+				"timeout": 0.0,
+			},
+		},
+		{
+			// juju-exec should work as a predefined action even if
+			// the charm has no actions
+			actionName: "juju-exec",
+			charmName:  "actionless",
 			payload: map[string]interface{}{
 				"command": "foo",
 				"timeout": 0.0,
@@ -217,7 +230,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 			false,
 			"",
 		)
-		s.setCharm(c, "dummy")
+		s.setCharm(c, test.charmName)
 		rnr, err := s.factory.NewActionRunner(stdcontext.Background(), action, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		s.AssertPaths(c, rnr)

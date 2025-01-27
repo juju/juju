@@ -91,13 +91,13 @@ func (f *factory) NewActionRunner(stdCtx stdcontext.Context, action *uniter.Acti
 		return nil, errors.Trace(err)
 	}
 	actions, err := charm.ReadCharmDirActions(meta.Name, f.paths.GetCharmDir())
-	if err != nil {
+	if err != nil && !errors.Is(err, charm.FileNotFound) {
 		return nil, errors.Trace(err)
 	}
 
 	name := action.Name()
 	spec, ok := coreactions.PredefinedActionsSpec[name]
-	if !ok {
+	if !ok && actions != nil {
 		var ok bool
 		spec, ok = actions.ActionSpecs[name]
 		if !ok {
