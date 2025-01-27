@@ -20,12 +20,89 @@ import (
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Validator validates downloaded resource blobs.
+type Validator interface {
+	Validate(
+		reader io.ReadCloser,
+		expectedSHA384 string,
+		expectedSize int64,
+	) (io.ReadCloser, error)
+}
+
+// ResourceServiceGetter is an interface for getting an ResourceService.
+type ResourceServiceGetter interface {
+	// Resource returns the model's resource service.
+	Resource(*http.Request) (ResourceService, error)
+}
+
+type ResourceService interface {
+	// GetResourceUUIDByApplicationAndResourceName returns the ID of the application
+	// resource specified by natural key of application and resource Name.
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if the specified resource does not
+	//     exist.
+	GetResourceUUIDByApplicationAndResourceName(
+		ctx context.Context,
+		appName string,
+		resName string,
+	) (coreresource.UUID, error)
+
+	// GetResource returns the identified application resource.
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if the specified resource does not
+	//     exist.
+	GetResource(
+		ctx context.Context,
+		resourceUUID coreresource.UUID,
+	) (coreresource.Resource, error)
+
+	// OpenResource returns the details of and a reader for the resource.
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if the specified resource does not
+	//     exist.
+	//   - [resourceerrors.StoredResourceNotFound] if the specified resource is
+	//     not in the resource store.
+	OpenResource(
+		ctx context.Context,
+		resourceUUID coreresource.UUID,
+	) (coreresource.Resource, io.ReadCloser, error)
+
+	// StoreResource adds the application resource to blob storage and updates the
+	// metadata. It also sets the retrival information for the resource.
+	StoreResource(
+		ctx context.Context,
+		args resource.StoreResourceArgs,
+	) error
+
+	// StoreResourceAndIncrementCharmModifiedVersion adds the application resource to blob storage and updates the
+	// metadata. It also sets the retrival information for the resource.
+	StoreResourceAndIncrementCharmModifiedVersion(
+		ctx context.Context,
+		args resource.StoreResourceArgs,
+	) error
+
+	// GetApplicationResourceID returns the ID of the application resource
+	// specified by natural key of application and resource Name.
+	GetApplicationResourceID(
+		ctx context.Context,
+		args resource.GetApplicationResourceIDArgs,
+	) (coreresource.UUID, error)
+
+	// SetUnitResource sets the resource metadata for a specific unit.
+	SetUnitResource(
+		ctx context.Context,
+		resourceUUID coreresource.UUID,
+		unitUUID coreunit.UUID,
+	) error
+}
 
 // ResourceHandler is the HTTP handler for client downloads and
 // uploads of resources.

@@ -23,6 +23,26 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// ApplicationServiceGetter is an interface for getting resource and
+// application service.
+type ApplicationServiceGetter interface {
+	// Application returns the model's application service.
+	Application(*http.Request) (ApplicationService, error)
+}
+
+// ApplicationService is an interface for the application domain service.
+type ApplicationService interface {
+	// GetApplicationIDByName returns an application ID by application Name. It
+	// returns an error if the application can not be found by the Name.
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
+	// GetApplicationIDByUnitName returns the application ID for the named unit.
+	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
+
+	// GetUnitUUID returns the UUID for the named unit.
+	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
+}
+
 // Resources represents the methods required to migrate a
 // resource blob.
 type Resources interface {

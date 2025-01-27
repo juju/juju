@@ -13,8 +13,13 @@ import (
 
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/core/logger"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/rpc/params"
 )
+
+type ResourceOpenerGetter interface {
+	Opener(*http.Request, ...string) (coreresource.Opener, error)
+}
 
 // UnitResourcesHandler is the HTTP handler for unit agent downloads of
 // resources.
