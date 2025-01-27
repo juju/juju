@@ -285,6 +285,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 	expected := set.NewStrings(
 		"v_address",
 		"v_application_charm_download_info",
+		"v_application_config",
 		"v_application_resource",
 		"v_charm_annotation_index",
 		"v_charm_config",

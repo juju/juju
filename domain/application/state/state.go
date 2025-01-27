@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	internaldatabase "github.com/juju/juju/internal/database"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
@@ -1268,6 +1269,70 @@ ORDER BY array_index ASC;
 	}
 
 	return result, nil
+}
+
+// checkApplicationNameAvailable checks if the application name is available.
+// If the application name is available, nil is returned. If the application
+// name is not available, [applicationerrors.ApplicationAlreadyExists] is
+// returned.
+func (st *State) checkApplicationNameAvailable(ctx context.Context, tx *sqlair.TX, name string) error {
+	app := applicationDetails{Name: name}
+
+	var result countResult
+	existsQueryStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM application
+WHERE name = $applicationDetails.name
+`, app, result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := tx.Query(ctx, existsQueryStmt, app).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("checking if application %q exists: %w", name, err)
+	}
+	if result.Count > 0 {
+		return applicationerrors.ApplicationAlreadyExists
+	}
+	return nil
+}
+
+// checkApplicationExists checks if the application exists and is not dead. It's
+// possible to access alive and dying applications, but not dead ones. If the
+// application is dead, [applicationerrors.ApplicationIsDead] is returned. If
+// the application is not found, [applicationerrors.ApplicationNotFound] is
+// returned.
+func (st *State) checkApplicationExists(ctx context.Context, tx *sqlair.TX, ident applicationID) error {
+	query := `
+SELECT &applicationIDAndLife.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	stmt, err := st.Prepare(query, ident, applicationIDAndLife{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application %q: %w", ident.ID, err)
+	}
+
+	var result applicationIDAndLife
+	err = tx.Query(ctx, stmt, ident).Get(&result)
+	if errors.Is(err, sql.ErrNoRows) {
+		return applicationerrors.ApplicationNotFound
+	} else if err != nil {
+		return internalerrors.Errorf("checking application %q exists: %w", ident.ID, err)
+	}
+
+	// If we're not alive or dying, then the application is dead.
+	if result.LifeID > domainlife.Dying {
+		return applicationerrors.ApplicationIsDead
+	}
+
+	if err := result.ID.Validate(); err != nil {
+		return internalerrors.Errorf("invalid application ID %q: %w", result.ID, err)
+	}
+
+	return nil
 }
 
 func decodeCharmState(state charmState) (charm.Charm, error) {

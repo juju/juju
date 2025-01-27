@@ -51,7 +51,7 @@ CREATE TABLE application_scale (
     scale INT,
     scale_target INT,
     scaling BOOLEAN DEFAULT FALSE,
-    CONSTRAINT fk_application_endpoint_space_application
+    CONSTRAINT fk_application_endpoint_scale_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid)
 );
@@ -71,7 +71,7 @@ CREATE TABLE application_endpoint_space (
 CREATE TABLE application_endpoint_cidr (
     application_uuid TEXT NOT NULL,
     cidr TEXT,
-    CONSTRAINT fk_application_endpoint_space_application
+    CONSTRAINT fk_application_endpoint_cidr_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),
     PRIMARY KEY (application_uuid, cidr)
@@ -79,8 +79,8 @@ CREATE TABLE application_endpoint_cidr (
 
 CREATE TABLE application_config (
     application_uuid TEXT NOT NULL,
-    name TEXT NOT NULL,
-    type_id TEXT,
+    "key" TEXT NOT NULL,
+    type_id INT NOT NULL,
     value TEXT,
     CONSTRAINT fk_application_config_application
     FOREIGN KEY (application_uuid)
@@ -88,8 +88,18 @@ CREATE TABLE application_config (
     CONSTRAINT fk_application_config_charm_config_type
     FOREIGN KEY (type_id)
     REFERENCES charm_config_type (id),
-    PRIMARY KEY (application_uuid, name)
+    PRIMARY KEY (application_uuid, "key")
 );
+
+CREATE VIEW v_application_config AS
+SELECT
+    a.uuid,
+    ac."key",
+    ac.value,
+    cct.name AS type
+FROM application AS a
+LEFT JOIN application_config AS ac ON a.uuid = ac.application_uuid
+INNER JOIN charm_config_type AS cct ON ac.type_id = cct.id;
 
 CREATE TABLE application_constraint (
     application_uuid TEXT NOT NULL PRIMARY KEY,

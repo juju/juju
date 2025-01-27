@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -28,7 +29,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagestate "github.com/juju/juju/domain/storage/state"
-	jujudb "github.com/juju/juju/internal/database"
+	internaldatabase "github.com/juju/juju/internal/database"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -135,7 +136,7 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the application already exists.
-		if err := st.checkApplicationExists(ctx, tx, name); err != nil {
+		if err := st.checkApplicationNameAvailable(ctx, tx, name); err != nil {
 			return fmt.Errorf("checking if application %q exists: %w", name, err)
 		}
 
@@ -178,26 +179,6 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 		return st.insertResources(ctx, tx, appDetails, app.Resources)
 	})
 	return appUUID, errors.Annotatef(err, "creating application %q", name)
-}
-
-func (st *State) checkApplicationExists(ctx context.Context, tx *sqlair.TX, name string) error {
-	app := applicationDetails{Name: name}
-	existsQueryStmt, err := st.Prepare(`
-SELECT &applicationDetails.uuid
-FROM application
-WHERE name = $applicationDetails.name
-`, app)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := tx.Query(ctx, existsQueryStmt, app).Get(&app); err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
-		return fmt.Errorf("checking if application %q exists: %w", name, err)
-	}
-	return applicationerrors.ApplicationAlreadyExists
 }
 
 func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
@@ -1296,12 +1277,12 @@ WHERE name = $applicationDetails.name
 func (st *State) SetApplicationLife(ctx domain.AtomicContext, appUUID coreapplication.ID, l life.Life) error {
 	lifeQuery := `
 UPDATE application
-SET life_id = $applicationID.life_id
-WHERE uuid = $applicationID.uuid
+SET life_id = $applicationIDAndLife.life_id
+WHERE uuid = $applicationIDAndLife.uuid
 -- we ensure the life can never go backwards.
-AND life_id <= $applicationID.life_id
+AND life_id <= $applicationIDAndLife.life_id
 `
-	app := applicationID{ID: appUUID, LifeID: l}
+	app := applicationIDAndLife{ID: appUUID, LifeID: l}
 	lifeStmt, err := st.Prepare(lifeQuery, app)
 	if err != nil {
 		return errors.Trace(err)
@@ -1513,7 +1494,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 		// This is purely defensive and is not expected in practice - the
 		// unitUUID is expected to be validated earlier in the atomic txn
 		// workflow.
-		if jujudb.IsErrConstraintForeignKey(err) {
+		if internaldatabase.IsErrConstraintForeignKey(err) {
 			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 		}
 		err = st.saveStatusData(ctx, tx, "cloud_container_status_data", unitUUID, status.Data)
@@ -1546,7 +1527,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 		err = tx.Query(ctx, stmt, statusInfo).Run()
 		// This is purely defensive and is not expected in practice - the unitUUID
 		// is expected to be validated earlier in the atomic txn workflow.
-		if jujudb.IsErrConstraintForeignKey(err) {
+		if internaldatabase.IsErrConstraintForeignKey(err) {
 			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 		}
 		err = st.saveStatusData(ctx, tx, "unit_agent_status_data", unitUUID, status.Data)
@@ -1580,7 +1561,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 		// This is purely defensive and is not expected in practice - the
 		// unitUUID is expected to be validated earlier in the atomic txn
 		// workflow.
-		if jujudb.IsErrConstraintForeignKey(err) {
+		if internaldatabase.IsErrConstraintForeignKey(err) {
 			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 		}
 		err = st.saveStatusData(ctx, tx, "unit_workload_status_data", unitUUID, status.Data)
@@ -2191,6 +2172,395 @@ FROM v_revision_updater_application_unit
 			NumUnits: unitCounts[r.UUID],
 		}, nil
 	})
+}
+
+// GetApplicationConfig returns the application config attributes for the
+// configuration.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationConfig(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	// We don't currently check for life in the old code, it might though be
+	// worth checking if the application is not dead.
+	ident := applicationID{ID: appID}
+
+	configQuery := `
+SELECT &applicationConfig.*
+FROM v_application_config
+WHERE uuid = $applicationID.uuid;
+`
+	settingsQuery := `
+SELECT &applicationSettings.*
+FROM application_setting
+WHERE application_uuid = $applicationID.uuid;`
+
+	configStmt, err := st.Prepare(configQuery, applicationConfig{}, ident)
+	if err != nil {
+		return nil, internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, ident)
+	if err != nil {
+		return nil, internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+
+	var configs []applicationConfig
+	var settings applicationSettings
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+			return internalerrors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, configStmt, ident).GetAll(&configs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("querying application config: %w", err)
+		}
+
+		if err := tx.Query(ctx, settingsStmt, ident).Get(&settings); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("querying application settings: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, internalerrors.Errorf("querying application config: %w", err)
+	}
+
+	result := make(map[string]application.ApplicationConfig)
+	for _, c := range configs {
+		typ, err := decodeConfigType(c.Type)
+		if err != nil {
+			return nil, internalerrors.Errorf("decoding config type: %w", err)
+		}
+
+		result[c.Key] = application.ApplicationConfig{
+			Type:  typ,
+			Value: c.Value,
+		}
+	}
+	result["trust"] = application.ApplicationConfig{
+		Type:  charm.OptionBool,
+		Value: settings.Trust,
+	}
+	return result, nil
+}
+
+// GetApplicationTrustSetting returns the application trust setting.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, internalerrors.Capture(err)
+	}
+
+	// We don't currently check for life in the old code, it might though be
+	// worth checking if the application is not dead.
+	ident := applicationID{ID: appID}
+
+	settingsQuery := `
+SELECT trust AS &applicationSettings.trust
+FROM application_setting
+WHERE application_uuid = $applicationID.uuid;`
+
+	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, ident)
+	if err != nil {
+		return false, internalerrors.Errorf("preparing query for application trust setting: %w", err)
+	}
+
+	var settings applicationSettings
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+			return internalerrors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, settingsStmt, ident).Get(&settings); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("querying application settings: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return false, internalerrors.Errorf("querying application config: %w", err)
+	}
+
+	return settings.Trust, nil
+}
+
+// SetApplicationConfig sets the application config attributes using the
+// configuration.
+func (st *State) SetApplicationConfig(ctx context.Context, appID coreapplication.ID, config map[string]application.ApplicationConfig) error {
+	db, err := st.DB()
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+
+	// We don't need to verify the application exists on write, as there
+	// will be a foreign key constraint that will fail if the application
+	// doesn't exist.
+	getQuery := `
+SELECT &applicationConfig.*
+FROM v_application_config
+WHERE uuid = $applicationID.uuid;
+`
+	deleteQuery := `
+DELETE FROM application_config
+WHERE application_uuid = $applicationID.uuid
+AND key IN ($S[:]);
+`
+	insertQuery := `
+INSERT INTO application_config (*)
+VALUES ($setApplicationConfig.*);
+`
+	updateQuery := `
+UPDATE application_config
+SET value = $setApplicationConfig.value,
+	type_id = $setApplicationConfig.type_id
+WHERE application_uuid = $setApplicationConfig.application_uuid;
+`
+	settingsQuery := `
+INSERT INTO application_setting (*)
+VALUES ($setApplicationSettings.*)
+ON CONFLICT(application_uuid) DO UPDATE SET
+	trust = excluded.trust;
+`
+
+	getStmt, err := st.Prepare(getQuery, applicationConfig{}, ident)
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	deleteStmt, err := st.Prepare(deleteQuery, ident, sqlair.S{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	insertStmt, err := st.Prepare(insertQuery, setApplicationConfig{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	updateStmt, err := st.Prepare(updateQuery, setApplicationConfig{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	settingsStmt, err := st.Prepare(settingsQuery, setApplicationSettings{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+
+	trust, err := encodeTrustConfig(config)
+	if err != nil {
+		return internalerrors.Errorf("encoding trust config: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+			return internalerrors.Capture(err)
+		}
+
+		var current []applicationConfig
+		if err := tx.Query(ctx, getStmt, ident).GetAll(&current); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf("querying application config: %w", err)
+		}
+
+		currentM := make(map[string]applicationConfig)
+		for _, c := range current {
+			currentM[c.Key] = c
+		}
+
+		// Work out what we need to do, based on what we have, vs what we
+		// need.
+		var removals sqlair.S
+		var updates []setApplicationConfig
+		for k, currentCfg := range currentM {
+			cfg, ok := config[k]
+			if !ok {
+				removals = append(removals, k)
+				continue
+			}
+
+			// If the value and type are the same, we don't need to update. It
+			// should be safe to compare the types, even if we're casting a
+			// string to the type. This is because the type will either match or
+			// not.
+			if cfg.Value == currentCfg.Value && cfg.Type == charm.OptionType(currentCfg.Type) {
+				continue
+			}
+
+			typeID, err := encodeConfigType(cfg.Type)
+			if err != nil {
+				return internalerrors.Errorf("encoding config type: %w", err)
+			}
+
+			updates = append(updates, setApplicationConfig{
+				ApplicationUUID: ident.ID.String(),
+				Key:             k,
+				Value:           cfg.Value,
+				TypeID:          typeID,
+			})
+
+		}
+		var inserts []setApplicationConfig
+		for k, v := range config {
+			if _, ok := currentM[k]; ok {
+				continue
+			}
+
+			typeID, err := encodeConfigType(v.Type)
+			if err != nil {
+				return internalerrors.Errorf("encoding config type: %w", err)
+			}
+
+			inserts = append(inserts, setApplicationConfig{
+				ApplicationUUID: ident.ID.String(),
+				Key:             k,
+				Value:           v.Value,
+				TypeID:          typeID,
+			})
+		}
+
+		// We have to check the foreign key constraint on each request, as
+		// each one is optional, bar the last query.
+
+		if len(removals) > 0 {
+			if err := tx.Query(ctx, deleteStmt, removals, ident).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+				return applicationerrors.ApplicationNotFound
+			} else if err != nil {
+				return internalerrors.Errorf("deleting config: %w", err)
+			}
+		}
+		if len(inserts) > 0 {
+			if err := tx.Query(ctx, insertStmt, inserts).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+				return applicationerrors.ApplicationNotFound
+			} else if err != nil {
+				return internalerrors.Errorf("inserting config: %w", err)
+			}
+		}
+		for _, update := range updates {
+			if err := tx.Query(ctx, updateStmt, update).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+				return applicationerrors.ApplicationNotFound
+			} else if err != nil {
+				return internalerrors.Errorf("updating config: %w", err)
+			}
+		}
+
+		if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
+			ApplicationUUID: ident.ID.String(),
+			Trust:           trust,
+		}).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return internalerrors.Errorf("updating settings: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return internalerrors.Errorf("setting application config: %w", err)
+	}
+	return nil
+}
+
+// UnsetApplicationConfigKeys removes the specified keys from the application
+// config. If the key does not exist, it is ignored.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error {
+	db, err := st.DB()
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+
+	// This isn't ideal, as we could request this in one query, but we need to
+	// perform multiple queries to get the data. First is to get the application
+	// availability, second to just get the application overlay config for the
+	// charm config and the application settings for the trust config.
+	appQuery := `
+SELECT &applicationID.*
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	deleteQuery := `
+DELETE FROM application_config
+WHERE application_uuid = $applicationID.uuid
+AND key IN ($S[:]);
+`
+	settingsQuery := `
+INSERT INTO application_setting (*)
+VALUES ($setApplicationSettings.*)
+ON CONFLICT(application_uuid) DO UPDATE SET
+	trust = excluded.trust;
+`
+
+	appStmt, err := st.Prepare(appQuery, ident)
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	deleteStmt, err := st.Prepare(deleteQuery, ident, sqlair.S{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+	settingsStmt, err := st.Prepare(settingsQuery, setApplicationSettings{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for application config: %w", err)
+	}
+
+	removals := make(sqlair.S, len(keys))
+	for i, k := range keys {
+		removals[i] = k
+	}
+	removeTrust := slices.Contains(keys, "trust")
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, appStmt, ident).Get(&ident); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return internalerrors.Errorf("querying application: %w", err)
+		}
+
+		if err := tx.Query(ctx, deleteStmt, removals, ident).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return internalerrors.Errorf("deleting config: %w", err)
+		}
+
+		if !removeTrust {
+			return nil
+		}
+
+		if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
+			ApplicationUUID: ident.ID.String(),
+			Trust:           false,
+		}).Run(); err != nil {
+			return internalerrors.Errorf("deleting setting: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return internalerrors.Errorf("removing application config: %w", err)
+	}
+	return nil
+}
+
+func encodeTrustConfig(config map[string]application.ApplicationConfig) (bool, error) {
+	trust, ok := config["trust"]
+	if !ok {
+		return false, nil
+	}
+
+	switch t := trust.Value.(type) {
+	case bool:
+		return t, nil
+	case nil:
+		return false, nil
+	default:
+		return false, internalerrors.Errorf("unexpected trust config type %T", t)
+	}
 }
 
 func decodeRisk(risk string) (application.ChannelRisk, error) {

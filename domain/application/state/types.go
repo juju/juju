@@ -28,6 +28,11 @@ type KeyValue struct {
 
 // applicationID is used to get the ID (and life) of an application.
 type applicationID struct {
+	ID coreapplication.ID `db:"uuid"`
+}
+
+// applicationIDAndLife is used to get the ID (and life) of an application.
+type applicationIDAndLife struct {
 	ID     coreapplication.ID `db:"uuid"`
 	LifeID life.Life          `db:"life_id"`
 }
@@ -672,4 +677,26 @@ type revisionUpdaterApplication struct {
 type revisionUpdaterApplicationNumUnits struct {
 	UUID     string `db:"uuid"`
 	NumUnits int    `db:"num_units"`
+}
+
+type applicationConfig struct {
+	Key   string `db:"key"`
+	Value any    `db:"value"`
+	Type  string `db:"type"`
+}
+
+type setApplicationConfig struct {
+	ApplicationUUID string `db:"application_uuid"`
+	Key             string `db:"key"`
+	Value           any    `db:"value"`
+	TypeID          int    `db:"type_id"`
+}
+
+type applicationSettings struct {
+	Trust bool `db:"trust"`
+}
+
+type setApplicationSettings struct {
+	ApplicationUUID string `db:"application_uuid"`
+	Trust           bool   `db:"trust"`
 }
