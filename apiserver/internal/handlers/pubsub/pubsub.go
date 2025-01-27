@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package pubsub
 
 import (
 	"net/http"
@@ -23,18 +23,20 @@ type Hub interface {
 	Publish(string, interface{}) (func(), error)
 }
 
-func newPubSubHandler(h httpContext, hub Hub) http.Handler {
+type pubsubHandler struct {
+	abort  <-chan struct{}
+	hub    Hub
+	logger corelogger.Logger
+}
+
+// NewPubSubHandler returns a new http.Handler that handles pubsub
+// messages.
+func NewPubSubHandler(abort <-chan struct{}, hub Hub) http.Handler {
 	return &pubsubHandler{
-		ctxt:   h,
+		abort:  abort,
 		hub:    hub,
 		logger: internallogger.GetLogger("juju.apiserver.pubsub"),
 	}
-}
-
-type pubsubHandler struct {
-	ctxt   httpContext
-	hub    Hub
-	logger corelogger.Logger
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -62,7 +64,7 @@ func (h *pubsubHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		messageCh := h.receiveMessages(socket)
 		for {
 			select {
-			case <-h.ctxt.stop():
+			case <-h.abort:
 				return
 			case <-ticker.C:
 				deadline := time.Now().Add(websocket.WriteWait)
@@ -108,7 +110,7 @@ func (h *pubsubHandler) receiveMessages(socket *websocket.Conn) <-chan params.Pu
 
 			// Send the log message.
 			select {
-			case <-h.ctxt.stop():
+			case <-h.abort:
 				return
 			case messageCh <- m:
 			}

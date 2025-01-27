@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/internal/handlers/objects"
+	handlerspubsub "github.com/juju/juju/apiserver/internal/handlers/pubsub"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/stateauthenticator"
@@ -761,7 +762,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		},
 		srv.logDir,
 	), "log")
-	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
+	pubsubHandler := handlerspubsub.NewPubSubHandler(httpCtxt.stop(), srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, srv.logSink),
 		httpCtxt.stop(),
@@ -1210,6 +1211,11 @@ func (srv *Server) publicDNSName() string {
 func (srv *Server) GetAuditConfig() auditlog.Config {
 	// Delegates to the getter passed in.
 	return srv.getAuditConfig()
+}
+
+// GetCentralHub returns the central hub for the server.
+func (srv *Server) GetCentralHub() *pubsub.StructuredHub {
+	return srv.shared.centralHub.(*pubsub.StructuredHub)
 }
 
 func serverError(err error) error {

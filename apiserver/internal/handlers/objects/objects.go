@@ -118,7 +118,7 @@ func (h *ObjectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err != nil {
-		if err := sendJSONError(w, r, errors.Capture(err)); err != nil {
+		if err := sendJSONError(w, errors.Capture(err)); err != nil {
 			logger.Errorf("%v", errors.Errorf("cannot return error to user: %w", err))
 		}
 	}
@@ -324,7 +324,7 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 // difference from the error response sent by the sendError function -
 // the error is encoded in the Error field as a string, not an Error
 // object.
-func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
+func sendJSONError(w http.ResponseWriter, err error) error {
 	perr, status := apiservererrors.ServerErrorAndStatus(err)
 	return errors.Capture(internalhttp.SendStatusAndJSON(w, status, &params.CharmsResponse{
 		Error:     perr.Message,
