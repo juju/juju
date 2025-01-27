@@ -15,6 +15,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
+	"github.com/juju/retry"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/version/v2"
 
@@ -1447,7 +1448,22 @@ func (u *Unit) charm() (CharmRefFull, error) {
 	if cURL == nil {
 		return nil, errors.Errorf("missing charm URL for %q", u.Name())
 	}
-	ch, err := u.st.Charm(*cURL)
+
+	var ch CharmRefFull
+	err := retry.Call(retry.CallArgs{
+		Attempts: 20,
+		Delay:    50 * time.Millisecond,
+		Func: func() error {
+			var err error
+			ch, err = u.st.Charm(*cURL)
+			return err
+		},
+		Clock: u.st.clock(),
+		NotifyFunc: func(err error, attempt int) {
+			logger.Warningf("error getting charm for unit %q. Retrying (attempt %d): %v", u.Name(), attempt, err)
+		},
+	})
+
 	return ch, errors.Annotatef(err, "getting charm for %s", u)
 }
 

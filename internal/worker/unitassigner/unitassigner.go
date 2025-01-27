@@ -61,9 +61,12 @@ func (u unitAssignerHandler) Handle(ctx context.Context, ids []string) error {
 
 	failures := map[string]error{}
 
-	if traceEnabled {
-		u.logger.Tracef("Unit assignment results: %q", results)
+	for _, err := range results {
+		if err != nil {
+			u.logger.Errorf("Unit assignment error: %q", results)
+		}
 	}
+
 	// errors are returned in the same order as the ids given. Any errors from
 	// the assign units call must be reported as error statuses on the
 	// respective units (though the assignments will be retried).  Not found
