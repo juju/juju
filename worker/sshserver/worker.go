@@ -5,10 +5,11 @@ package sshserver
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/state"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/state"
 )
 
 type SystemStateGetter interface {

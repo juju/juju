@@ -4,16 +4,16 @@
 package sshserver_test
 
 import (
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/worker/sshserver/mocks"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/worker/sshserver"
+	"github.com/juju/juju/worker/sshserver/mocks"
 )
 
 type manifoldSuite struct {
