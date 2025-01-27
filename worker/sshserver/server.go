@@ -14,7 +14,6 @@ import (
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
 	gossh "golang.org/x/crypto/ssh"
 	"gopkg.in/tomb.v2"
 )
@@ -36,20 +35,21 @@ func (c ServerWorkerConfig) Validate() error {
 type ServerWorker struct {
 	tomb tomb.Tomb
 
-	server *ssh.Server
+	// Server holds the embedded server.
+	Server *ssh.Server
 
 	// config holds the configuration required by the server worker.
 	config ServerWorkerConfig
 }
 
 // NewServerWorker returns a running embedded SSH server.
-func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
+func NewServerWorker(config ServerWorkerConfig, startServer bool) (*ServerWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	s := &ServerWorker{config: config}
-	s.server = &ssh.Server{
+	s.Server = &ssh.Server{
 		Addr: ":2223",
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 			return true
@@ -66,9 +66,11 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	terminatingHostKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 	signer, _ := gossh.NewSignerFromKey(terminatingHostKey)
 
-	s.server.AddHostKey(signer)
+	s.Server.AddHostKey(signer)
 
-	s.tomb.Go(s.loop)
+	if startServer {
+		s.tomb.Go(s.loop)
+	}
 
 	return s, nil
 }
@@ -88,7 +90,7 @@ func (s *ServerWorker) loop() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := s.server.Shutdown(ctx); err != nil {
+		if err := s.Server.Shutdown(ctx); err != nil {
 			// There's really not a lot we can do if the shutdown fails,
 			// either due to a timeout or another reason. So we simply log it.
 			//
@@ -97,7 +99,7 @@ func (s *ServerWorker) loop() error {
 			s.config.Logger.Errorf("failed to shutdown server: %v", err)
 		}
 	}()
-	return s.server.ListenAndServe()
+	return s.Server.ListenAndServe()
 }
 
 func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {

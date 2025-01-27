@@ -11,11 +11,15 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 )
 
+type SystemStateGetter interface {
+	SystemState() (*state.State, error)
+}
+
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
 type ServerWrapperWorkerConfig struct {
 	StateInfo       controller.StateServingInfo
-	StatePool       *state.StatePool
-	NewServerWorker func() (*ServerWorker, error)
+	StatePool       SystemStateGetter
+	NewServerWorker func() (worker.Worker, error)
 	Logger          Logger
 }
 
