@@ -89,6 +89,7 @@ import (
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/secretbackendrotate"
 	"github.com/juju/juju/worker/singular"
+	"github.com/juju/juju/worker/sshserver"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
 	"github.com/juju/juju/worker/stateconverter"
@@ -100,7 +101,6 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
-	"github.com/juju/juju/worker/sshserver"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -785,11 +785,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
-			AgentName: agentName,
-			StateName: stateName,
-			Logger:    loggo.GetLogger("juju.worker.sshserver"),
+			AgentName:              agentName,
+			StateName:              stateName,
+			Logger:                 loggo.GetLogger("juju.worker.sshserver"),
 			NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
-			NewServerWorker: sshserver.NewServerWorker,
+			NewServerWorker:        sshserver.NewServerWorker,
 		})),
 	}
 
