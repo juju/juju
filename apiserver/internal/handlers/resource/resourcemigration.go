@@ -16,7 +16,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resource"
-	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	domainresource "github.com/juju/juju/domain/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -39,8 +38,8 @@ type resourcesMigrationUploadHandler struct {
 	logger                   logger.Logger
 }
 
-// NewResourceMigrationUploadHandler returns a new HTTP client for handling
-// resources uploads for model migrations.
+// NewResourceMigrationUploadHandler returns a new HTTP handler for resources
+// uploads during model migrations.
 func NewResourceMigrationUploadHandler(
 	applicationServiceGetter ApplicationServiceGetter,
 	resourceServiceGetter ResourceServiceGetter,
@@ -106,8 +105,8 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	r *http.Request,
 	resourceService ResourceService,
 	applicationService ApplicationService,
-) (coreresource.Resource, error) {
-	var empty coreresource.Resource
+) (resource.Resource, error) {
+	var empty resource.Resource
 	ctx := r.Context()
 	query := r.URL.Query()
 
@@ -139,14 +138,14 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	if !isPlaceholder(query) {
 		var (
 			retrievedBy     string
-			retrievedByType coreresource.RetrievedByType
+			retrievedByType resource.RetrievedByType
 		)
 		if target.unitUUID != "" {
 			retrievedBy = target.unitUUID.String()
 			retrievedByType = resource.Unit
 		} else if userID != "" {
 			retrievedBy = userID
-			retrievedByType = coreresource.User
+			retrievedByType = resource.User
 		} else {
 			retrievedBy = target.appID.String()
 			retrievedByType = resource.Application
@@ -157,7 +156,7 @@ func (h *resourcesMigrationUploadHandler) processPost(
 			return empty, internalerrors.Errorf("extracting resource details from request: %w", err)
 		}
 
-		reader, err := h.validator.Validate(r.Body, details.Fingerprint.String(), details.Size)
+		reader, err := h.validator.Validate(r.Body, details.fingerprint.String(), details.size)
 		if err != nil {
 			return empty, internalerrors.Errorf("validating resource size and hash: %w", err)
 		}
@@ -167,10 +166,10 @@ func (h *resourcesMigrationUploadHandler) processPost(
 			Reader:          reader,
 			RetrievedBy:     retrievedBy,
 			RetrievedByType: retrievedByType,
-			Size:            details.Size,
-			Fingerprint:     details.Fingerprint,
-			Origin:          details.Origin,
-			Revision:        details.Revision,
+			Size:            details.size,
+			Fingerprint:     details.fingerprint,
+			Origin:          details.origin,
+			Revision:        details.revision,
 		})
 		if err != nil {
 			return empty, internalerrors.Capture(err)
@@ -239,14 +238,14 @@ func getUploadTarget(
 }
 
 type resourceDetails struct {
-	// Origin identifies where the resource will come from.
-	Origin charmresource.Origin
-	// Revision is the charm store revision of the resource.
-	Revision int
-	// Fingerprint is the SHA-384 checksum for the resource blob.
-	Fingerprint charmresource.Fingerprint
-	// Size is the size of the resource, in bytes.
-	Size int64
+	// origin identifies where the resource will come from.
+	origin charmresource.Origin
+	// revision is the charm store revision of the resource.
+	revision int
+	// fingerprint is the SHA-384 checksum for the resource blob.
+	fingerprint charmresource.Fingerprint
+	// size is the size of the resource, in bytes.
+	size int64
 }
 
 // resourceDetailsFromQuery extracts details about the uploaded resource from
@@ -256,19 +255,21 @@ func resourceDetailsFromQuery(query url.Values) (resourceDetails, error) {
 		details resourceDetails
 		err     error
 	)
-	details.Origin, err = charmresource.ParseOrigin(query.Get("origin"))
+	details.origin, err = charmresource.ParseOrigin(query.Get("origin"))
 	if err != nil {
 		return details, errors.BadRequestf("invalid origin")
 	}
-	details.Revision, err = strconv.Atoi(query.Get("revision"))
+	details.revision, err = strconv.Atoi(query.Get("revision"))
 	if err != nil {
-		return details, errors.BadRequestf("invalid revision")
+		if details.origin == charmresource.OriginStore {
+			return details, errors.BadRequestf("invalid revision")
+		}
 	}
-	details.Size, err = strconv.ParseInt(query.Get("size"), 10, 64)
+	details.size, err = strconv.ParseInt(query.Get("size"), 10, 64)
 	if err != nil {
 		return details, errors.BadRequestf("invalid size")
 	}
-	details.Fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
+	details.fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
 	if err != nil {
 		return details, errors.BadRequestf("invalid fingerprint")
 	}

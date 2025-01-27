@@ -42,14 +42,20 @@ type ResourceService interface {
 	) (coreresource.UUID, error)
 
 	// GetResource returns the identified application resource.
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if the specified resource does not
+	//     exist.
 	GetResource(
 		ctx context.Context,
 		resourceUUID coreresource.UUID,
 	) (coreresource.Resource, error)
 
 	// OpenResource returns the details of and a reader for the resource.
-	//   - [resourceerrors.StoredResourceNotFound] if the specified resource is not
-	//     in the resource store.
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if the specified resource does not
+	//     exist.
+	//   - [resourceerrors.StoredResourceNotFound] if the specified resource is
+	//     not in the resource store.
 	OpenResource(
 		ctx context.Context,
 		resourceUUID coreresource.UUID,

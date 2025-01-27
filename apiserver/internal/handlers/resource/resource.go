@@ -121,12 +121,6 @@ func (h *ResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request)
 }
 
 func (h *ResourceHandler) download(service ResourceService, req *http.Request) (io.ReadCloser, int64, error) {
-	defer func() {
-		if req.Body != nil {
-			req.Body.Close()
-		}
-	}()
-
 	query := req.URL.Query()
 	application := query.Get(":application")
 	name := query.Get(":resource")
@@ -139,7 +133,9 @@ func (h *ResourceHandler) download(service ResourceService, req *http.Request) (
 	}
 
 	res, reader, err := service.OpenResource(req.Context(), uuid)
-	if errors.Is(err, resourceerrors.StoredResourceNotFound) {
+	if errors.Is(err, resourceerrors.ResourceNotFound) {
+		return nil, 0, jujuerrors.NotFoundf("resource %s of application %s", name, application)
+	} else if errors.Is(err, resourceerrors.StoredResourceNotFound) {
 		return nil, 0, jujuerrors.NotFoundf("resource %s of application %s has no blob downloaded on controller", name, application)
 	} else if err != nil {
 		return nil, 0, errors.Errorf("opening resource %s for application %s: %w", name, application, err)
@@ -149,7 +145,7 @@ func (h *ResourceHandler) download(service ResourceService, req *http.Request) (
 
 func (h *ResourceHandler) upload(resourceService ResourceService, req *http.Request, username string) (_ *params.UploadResult, err error) {
 
-	reader, uploaded, err := h.readResource(resourceService, req)
+	reader, uploaded, err := h.getUploadedResource(resourceService, req)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -162,24 +158,23 @@ func (h *ResourceHandler) upload(resourceService ResourceService, req *http.Requ
 	err = resourceService.StoreResourceAndIncrementCharmModifiedVersion(
 		req.Context(),
 		resource.StoreResourceArgs{
-			ResourceUUID:    uploaded.UUID,
+			ResourceUUID:    uploaded.uuid,
 			Reader:          reader,
 			RetrievedBy:     username,
 			RetrievedByType: coreresource.User,
-			Size:            uploaded.Size,
-			Fingerprint:     uploaded.Fingerprint,
+			Size:            uploaded.size,
+			Fingerprint:     uploaded.fingerprint,
 			Origin:          charmresource.OriginUpload,
 			Revision:        -1,
 		},
 	)
 	if err != nil {
-		return nil, errors.Errorf("storing resource %s of application %s: %w", uploaded.Resource.Name, uploaded.Application, err)
+		return nil, errors.Errorf("storing resource %s of application %s: %w", uploaded.resourceName, uploaded.applicationName, err)
 	}
 
-	res, err := resourceService.GetResource(req.Context(), uploaded.UUID)
+	res, err := resourceService.GetResource(req.Context(), uploaded.uuid)
 	if err != nil {
-		h.logger.Errorf("getting uploaded resource details: %w", err)
-		return &params.UploadResult{}, nil
+		return nil, errors.Errorf("getting uploaded resource details: %w", err)
 	}
 
 	return &params.UploadResult{
@@ -202,29 +197,25 @@ func encodeResource(res coreresource.Resource) params.Resource {
 // uploadedResource holds both the information about an uploaded
 // resource and the reader containing its data.
 type uploadedResource struct {
-	// UUID is the resource UUID.
-	UUID coreresource.UUID
+	// uuid is the resource UUID.
+	uuid coreresource.UUID
 
-	// Application is the Name of the application associated with the resource.
-	Application string
+	// applicationName is the Name of the application associated with the resource.
+	applicationName string
 
-	// Resource is the information about the resource.
-	Resource charmresource.Resource
+	// resourceName is the name of the resource.
+	resourceName string
 
-	// Size is the size of the resource blob.
-	Size int64
+	// size is the size of the resource blob.
+	size int64
 
-	// Fingerprint is the hash of the resource blob.
-	Fingerprint charmresource.Fingerprint
+	// fingerprint is the hash of the resource blob.
+	fingerprint charmresource.Fingerprint
 }
 
-// readResource extracts the relevant info from the request.
-func (h *ResourceHandler) readResource(resourceService ResourceService, req *http.Request) (io.ReadCloser, *uploadedResource, error) {
-	defer func() {
-		if req.Body != nil {
-			req.Body.Close()
-		}
-	}()
+// getResource reads the resource from the request, validates that it is known
+// to the controller and validates the uploaded blobs contents.
+func (h *ResourceHandler) getUploadedResource(resourceService ResourceService, req *http.Request) (io.ReadCloser, *uploadedResource, error) {
 	uReq, err := extractUploadRequest(req)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
@@ -240,7 +231,9 @@ func (h *ResourceHandler) readResource(resourceService ResourceService, req *htt
 	}
 
 	res, err := resourceService.GetResource(req.Context(), uuid)
-	if err != nil {
+	if errors.Is(err, resourceerrors.ResourceNotFound) {
+		return nil, nil, jujuerrors.NotFoundf("resource %s of application %s", uReq.Name, uReq.Application)
+	} else if err != nil {
 		return nil, nil, errors.Errorf("getting resource details: %w", err)
 	}
 
@@ -258,11 +251,11 @@ func (h *ResourceHandler) readResource(resourceService ResourceService, req *htt
 	}
 
 	return reader, &uploadedResource{
-		UUID:        res.UUID,
-		Application: uReq.Application,
-		Resource:    res.Resource,
-		Size:        uReq.Size,
-		Fingerprint: uReq.Fingerprint,
+		uuid:            res.UUID,
+		applicationName: uReq.Application,
+		resourceName:    res.Resource.Name,
+		size:            uReq.Size,
+		fingerprint:     uReq.Fingerprint,
 	}, nil
 }
 
@@ -270,23 +263,13 @@ func (h *ResourceHandler) readResource(resourceService ResourceService, req *htt
 func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 	var ur api.UploadRequest
 
-	if req.Header.Get(api.HeaderContentLength) == "" {
-		size := req.ContentLength
-		// size will be negative if there is no content.
-		if size < 0 {
-			size = 0
-		}
-		req.Header.Set(api.HeaderContentLength, fmt.Sprint(size))
-	}
-
 	ctype := req.Header.Get(api.HeaderContentType)
 	if ctype != api.ContentTypeRaw {
 		return ur, errors.Errorf("unsupported content type %q", ctype)
 	}
 
 	application, name := extractEndpointDetails(req.URL)
-	fingerprint := req.Header.Get(api.HeaderContentSha384) // This parallels "Content-MD5".
-	sizeRaw := req.Header.Get(api.HeaderContentLength)
+	fingerprint := req.Header.Get(api.HeaderContentSha384)
 
 	fp, err := charmresource.ParseFingerprint(fingerprint)
 	if err != nil {
@@ -298,9 +281,9 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 		return ur, errors.Capture(err)
 	}
 
-	size, err := strconv.ParseInt(sizeRaw, 10, 64)
+	size, err := extractSize(req)
 	if err != nil {
-		return ur, errors.Errorf("parsing size: %w", err)
+		return ur, errors.Capture(err)
 	}
 
 	ur = api.UploadRequest{
@@ -337,30 +320,24 @@ func extractFilename(req *http.Request) (string, error) {
 			api.FilenameParamForContentDispositionHeader)
 	}
 
-	filename, err := decodeParam(param)
+	// Decode param, possibly encoded in base64.
+	var filename string
+	filename, err = new(mime.WordDecoder).Decode(param)
 	if err != nil {
-		return "", errors.Errorf("decoding filename %q from upload request: %w", param, err)
+		// If encoding is not required, the encoder will return the original string.
+		// However, the decoder doesn't expect that, so it barfs on non-encoded
+		// strings. To detect if a string was not encoded, we simply try encoding
+		// again, if it returns the same string, we know it wasn't encoded.
+		if param == mime.BEncoding.Encode("utf-8", param) {
+			filename = param
+		} else {
+			return "", errors.Errorf("decoding filename %q from upload request: %w", param, err)
+		}
 	}
+
 	return filename, nil
 }
 
-<<<<<<< HEAD
-func decodeParam(s string) (string, error) {
-	decoded, err := new(mime.WordDecoder).Decode(s)
-
-	// If encoding is not required, the encoder will return the original string.
-	// However, the decoder doesn't expect that, so it barfs on non-encoded
-	// strings. To detect if a string was not encoded, we simply try encoding
-	// again, if it returns the same string, we know it wasn't encoded.
-	if err != nil && s == encodeParam(s) {
-		return s, nil
-	}
-	return decoded, errors.Capture(err)
-}
-
-func encodeParam(s string) string {
-	return mime.BEncoding.Encode("utf-8", s)
-=======
 func extractSize(req *http.Request) (int64, error) {
 	var size int64
 	if req.Header.Get(api.HeaderContentLength) == "" {
@@ -379,7 +356,6 @@ func extractSize(req *http.Request) (int64, error) {
 		return 0, errors.Errorf("parsing size: %w", err)
 	}
 	return size, nil
->>>>>>> 314d026c68 (fixuo)
 }
 
 func tagToUsername(tag names.Tag) string {
