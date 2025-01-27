@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/permission"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
@@ -25,20 +25,18 @@ import (
 // ApplicationService is an interface that provides access to application
 // entities.
 type ApplicationService interface {
-	// GetCharmIDByApplicationName returns a charm ID by application name. It
-	// returns an error if the charm can not be found by the name. This can also
-	// be used as a cheap way to see if a charm exists without needing to load
-	// the charm metadata.
-	//
-	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not
-	// valid, and [applicationerrors.CharmNotFound] if the charm is not found.
-	GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error)
+	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
+	// It returns an error if the charm can not be found by the name. This can also
+	// be used as a cheap way to see if a charm exists without needing to load the
+	// charm metadata.
+	GetCharmLocatorByApplicationName(ctx context.Context, name string) (applicationcharm.CharmLocator, error)
 
-	// GetCharmActions returns the actions for the charm using the charm ID.
+	// GetCharmActions returns the actions for the charm using the charm name,
+	// source and revision.
 	//
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
-	GetCharmActions(ctx context.Context, id corecharm.ID) (internalcharm.Actions, error)
+	GetCharmActions(ctx context.Context, locator applicationcharm.CharmLocator) (internalcharm.Actions, error)
 }
 
 // ActionAPI implements the client API for interacting with Actions
@@ -211,7 +209,7 @@ func (a *ActionAPI) ApplicationsCharmsActions(ctx context.Context, args params.E
 		}
 		currentResult.ApplicationTag = svcTag.String()
 
-		charmID, err := a.applicationService.GetCharmIDByApplicationName(ctx, svcTag.Id())
+		locator, err := a.applicationService.GetCharmLocatorByApplicationName(ctx, svcTag.Id())
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			currentResult.Error = apiservererrors.ServerError(errors.NotFoundf("application %q", svcTag.Id()))
 			continue
@@ -220,9 +218,9 @@ func (a *ActionAPI) ApplicationsCharmsActions(ctx context.Context, args params.E
 			continue
 		}
 
-		actions, err := a.applicationService.GetCharmActions(ctx, charmID)
+		actions, err := a.applicationService.GetCharmActions(ctx, locator)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
-			currentResult.Error = apiservererrors.ServerError(errors.NotFoundf("charm %q", charmID))
+			currentResult.Error = apiservererrors.ServerError(errors.NotFoundf("charm %q", locator))
 			continue
 		} else if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)

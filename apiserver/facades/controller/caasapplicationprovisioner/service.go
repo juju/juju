@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -52,10 +52,21 @@ type ApplicationService interface {
 	GetApplicationScale(ctx context.Context, name string) (int, error)
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
-	GetCharmIDByApplicationName(ctx context.Context, name string) (charm.ID, error)
-	GetCharmMetadataStorage(ctx context.Context, id charm.ID) (map[string]internalcharm.Storage, error)
-	GetCharmMetadataResources(ctx context.Context, id charm.ID) (map[string]resource.Meta, error)
-	IsCharmAvailable(ctx context.Context, id charm.ID) (bool, error)
+	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
+	// It returns an error if the charm can not be found by the name. This can also
+	// be used as a cheap way to see if a charm exists without needing to load the
+	// charm metadata.
+	GetCharmLocatorByApplicationName(ctx context.Context, name string) (applicationcharm.CharmLocator, error)
+	// GetCharmMetadataStorage returns the storage specification for the charm using
+	// the charm name, source and revision.
+	GetCharmMetadataStorage(ctx context.Context, locator applicationcharm.CharmLocator) (map[string]internalcharm.Storage, error)
+	// GetCharmMetadataResources returns the specifications for the resources for the
+	// charm using the charm name, source and revision.
+	GetCharmMetadataResources(ctx context.Context, locator applicationcharm.CharmLocator) (map[string]resource.Meta, error)
+	// IsCharmAvailable returns whether the charm is available for use. This
+	// indicates if the charm has been uploaded to the controller.
+	// This will return true if the charm is available, and false otherwise.
+	IsCharmAvailable(ctx context.Context, locator applicationcharm.CharmLocator) (bool, error)
 	DestroyUnit(context.Context, unit.Name) error
 	RemoveUnit(context.Context, unit.Name, leadership.Revoker) error
 	UpdateCAASUnit(context.Context, unit.Name, service.UpdateCAASUnitParams) error

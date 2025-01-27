@@ -19,7 +19,6 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
-	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
@@ -413,12 +412,11 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithLXDProfile(c 
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,
 		Name:     curl.Name,
-		Revision: ptr(curl.Revision),
-	}).Return(charm.ID("foo"), nil)
-	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charm.ID("foo")).
+		Revision: curl.Revision,
+	}).
 		Return(internalcharm.LXDProfile{
 			Config: map[string]string{
 				"security.nesting": "true",
@@ -450,12 +448,11 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithoutLXDProfile
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,
 		Name:     curl.Name,
-		Revision: ptr(curl.Revision),
-	}).Return(charm.ID("foo"), nil)
-	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charm.ID("foo")).
+		Revision: curl.Revision,
+	}).
 		Return(internalcharm.LXDProfile{}, 0, nil)
 }
 
@@ -982,8 +979,4 @@ func (s *InstanceMutaterAPIWatchContainersSuite) expectWatchContainersWithClosed
 	s.state.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 	s.machine.EXPECT().WatchContainers(instance.LXD).Return(s.watcher)
 	s.watcher.EXPECT().Changes().Return(ch)
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

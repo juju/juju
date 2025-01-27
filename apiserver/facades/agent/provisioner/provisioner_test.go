@@ -10,9 +10,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	environtesting "github.com/juju/juju/environs/testing"
@@ -141,9 +141,13 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
 
 	s.application.EXPECT().Name().Return("application")
 
-	charmUUID := testing.GenCharmID(c)
-	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "application").Return(charmUUID, nil)
-	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charmUUID).Return(charm.LXDProfile{
+	locator := applicationcharm.CharmLocator{
+		Name:     "application",
+		Revision: 42,
+		Source:   applicationcharm.CharmHubSource,
+	}
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "application").Return(locator, nil)
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), locator).Return(charm.LXDProfile{
 		Config: map[string]string{
 			"security.nesting":    "true",
 			"security.privileged": "true",
@@ -186,9 +190,13 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
 	s.unit.EXPECT().Name().Return("application/0")
 	s.application.EXPECT().Name().Return("application")
 
-	charmUUID := testing.GenCharmID(c)
-	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "application").Return(charmUUID, nil)
-	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charmUUID).Return(charm.LXDProfile{}, -1, nil)
+	locator := applicationcharm.CharmLocator{
+		Name:     "application",
+		Revision: 42,
+		Source:   applicationcharm.CharmHubSource,
+	}
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "application").Return(locator, nil)
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), locator).Return(charm.LXDProfile{}, -1, nil)
 
 	res := params.ContainerProfileResults{
 		Results: []params.ContainerProfileResult{{}},

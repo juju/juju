@@ -170,16 +170,11 @@ func DeployApplication(
 
 		var downloadInfo *applicationcharm.DownloadInfo
 		if args.CharmOrigin.Source == corecharm.CharmHub {
-			charmID, err := applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
-				Source:   applicationcharm.CharmHubSource,
+			downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, applicationcharm.CharmLocator{
 				Name:     args.ApplicationName,
-				Revision: args.CharmOrigin.Revision,
+				Revision: *args.CharmOrigin.Revision,
+				Source:   applicationcharm.CharmHubSource,
 			})
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, charmID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

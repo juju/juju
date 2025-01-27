@@ -17,7 +17,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -229,13 +228,10 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 }
 
 type CharmService interface {
-	// GetCharmID returns a charm ID by name. It returns an error if the charm
-	// can not be found by the name.
-	GetCharmID(context.Context, domaincharm.GetCharmArgs) (corecharm.ID, error)
-
 	// GetCharmArchive returns a ReadCloser stream for the charm archive for a given
-	// charm id, along with the hash of the charm archive.
-	GetCharmArchive(context.Context, corecharm.ID) (io.ReadCloser, string, error)
+	// charm id, along with the hash of the charm archive. Clients can use the hash
+	// to verify the integrity of the charm archive.
+	GetCharmArchive(context.Context, domaincharm.CharmLocator) (io.ReadCloser, string, error)
 }
 
 // CharmUploader defines a single method that is used to upload a
@@ -372,15 +368,11 @@ func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corel
 		if err != nil {
 			return errors.Annotate(err, "bad charm URL schema")
 		}
-		charmID, err := config.CharmService.GetCharmID(ctx, domaincharm.GetCharmArgs{
+		reader, hash, err := config.CharmService.GetCharmArchive(ctx, domaincharm.CharmLocator{
 			Name:     curl.Name,
-			Revision: ptr(curl.Revision),
+			Revision: curl.Revision,
 			Source:   charmSource,
 		})
-		if err != nil {
-			return errors.Annotate(err, "cannot get charm ID")
-		}
-		reader, hash, err := config.CharmService.GetCharmArchive(ctx, charmID)
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
@@ -464,8 +456,4 @@ func uploadAppResource(ctx context.Context, config UploadBinariesConfig, rev res
 		return errors.Annotate(err, "cannot upload resource")
 	}
 	return nil
-}
-
-func ptr[T any](t T) *T {
-	return &t
 }

@@ -904,33 +904,28 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 	if err != nil {
 		return charmResult{}, errors.Trace(err)
 	}
-	deployedCharmId, err := v.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+	deployedCharm, _, _, err := v.applicationService.GetCharm(ctx, applicationcharm.CharmLocator{
 		Name:     resolvedData.URL.Name,
-		Revision: ptr(resolvedData.URL.Revision),
+		Revision: resolvedData.URL.Revision,
 		Source:   charmSource,
 	})
-	if err == nil {
-		deployedCharm, _, _, err := v.applicationService.GetCharm(ctx, deployedCharmId)
-		if err != nil {
-			return charmResult{}, errors.Trace(err)
-		}
+	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return charmResult{
 			CharmURL:     resolvedData.URL,
 			Origin:       resolvedOrigin,
-			Charm:        deployedCharm,
+			Charm:        resolvedCharm,
 			DownloadInfo: essentialMetadata.DownloadInfo,
 		}, nil
-	}
-	if !errors.Is(err, applicationerrors.CharmNotFound) {
+	} else if err != nil {
 		return charmResult{}, errors.Trace(err)
 	}
-
 	return charmResult{
 		CharmURL:     resolvedData.URL,
 		Origin:       resolvedOrigin,
-		Charm:        resolvedCharm,
+		Charm:        deployedCharm,
 		DownloadInfo: essentialMetadata.DownloadInfo,
 	}, nil
+
 }
 
 func (v *deployFromRepositoryValidator) appCharmSettings(appName string, trust bool, chCfg *charm.Config, configYAML string) (*config.Config, charm.Settings, error) {

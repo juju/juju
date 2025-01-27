@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
@@ -30,14 +29,11 @@ var _ = gc.Suite(&uniterSuite{})
 func (s *uniterSuite) TestCharmArchiveSha256Local(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
-
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), domaincharm.GetCharmArgs{
+	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), domaincharm.CharmLocator{
 		Source:   domaincharm.LocalSource,
 		Name:     "foo",
-		Revision: ptr(1),
-	}).Return(id, nil)
-	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), id).Return("sha256:foo", nil)
+		Revision: 1,
+	}).Return("sha256:foo", nil)
 
 	results, err := s.uniter.CharmArchiveSha256(context.Background(), params.CharmURLs{
 		URLs: []params.CharmURL{
@@ -55,14 +51,11 @@ func (s *uniterSuite) TestCharmArchiveSha256Local(c *gc.C) {
 func (s *uniterSuite) TestCharmArchiveSha256Charmhub(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
-
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), domaincharm.GetCharmArgs{
+	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), domaincharm.CharmLocator{
 		Source:   domaincharm.CharmHubSource,
 		Name:     "foo",
-		Revision: ptr(1),
-	}).Return(id, nil)
-	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), id).Return("sha256:foo", nil)
+		Revision: 1,
+	}).Return("sha256:foo", nil)
 
 	results, err := s.uniter.CharmArchiveSha256(context.Background(), params.CharmURLs{
 		URLs: []params.CharmURL{
@@ -80,27 +73,21 @@ func (s *uniterSuite) TestCharmArchiveSha256Charmhub(c *gc.C) {
 func (s *uniterSuite) TestCharmArchiveSha256Errors(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
-
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), domaincharm.GetCharmArgs{
+	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), domaincharm.CharmLocator{
 		Source:   domaincharm.CharmHubSource,
 		Name:     "foo",
-		Revision: ptr(1),
-	}).Return(id, applicationerrors.CharmNotFound)
-
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), domaincharm.GetCharmArgs{
+		Revision: 1,
+	}).Return("", applicationerrors.CharmNotFound)
+	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), domaincharm.CharmLocator{
 		Source:   domaincharm.CharmHubSource,
 		Name:     "foo",
-		Revision: ptr(2),
-	}).Return(id, nil)
-	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), id).Return("", applicationerrors.CharmNotFound)
-
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), domaincharm.GetCharmArgs{
+		Revision: 2,
+	}).Return("", applicationerrors.CharmNotFound)
+	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), domaincharm.CharmLocator{
 		Source:   domaincharm.CharmHubSource,
 		Name:     "foo",
-		Revision: ptr(3),
-	}).Return(id, nil)
-	s.applicationService.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), id).Return("", applicationerrors.CharmNotResolved)
+		Revision: 3,
+	}).Return("", applicationerrors.CharmNotResolved)
 
 	results, err := s.uniter.CharmArchiveSha256(context.Background(), params.CharmURLs{
 		URLs: []params.CharmURL{

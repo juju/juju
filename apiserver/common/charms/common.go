@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -26,8 +25,13 @@ import (
 // CharmService is the interface that the CharmInfoAPI requires to fetch charm
 // information.
 type CharmService interface {
-	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, bool, error)
+	// GetCharm returns the charm by name, source and revision. Calling this method
+	// will return all the data associated with the charm. It is not expected to
+	// call this method for all calls, instead use the move focused and specific
+	// methods. That's because this method is very expensive to call. This is
+	// implemented for the cases where all the charm data is needed; model
+	// migration, charm export, etc.
+	GetCharm(ctx context.Context, locator applicationcharm.CharmLocator) (charm.Charm, applicationcharm.CharmLocator, bool, error)
 }
 
 // CharmInfoAPI implements the charms interface and is the concrete
@@ -74,19 +78,15 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
-	id, err := a.service.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+
+	ch, locator, _, err := a.service.GetCharm(ctx, applicationcharm.CharmLocator{
 		Name:     url.Name,
-		Revision: ptr(url.Revision),
+		Revision: url.Revision,
 		Source:   charmSource,
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return params.Charm{}, errors.NotFoundf("charm %q", args.URL)
 	} else if err != nil {
-		return params.Charm{}, errors.Trace(err)
-	}
-
-	ch, locator, _, err := a.service.GetCharm(ctx, id)
-	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 

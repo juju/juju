@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -62,17 +61,12 @@ type MachineService interface {
 
 // ApplicationService is an interface for the application domain service.
 type ApplicationService interface {
-	// GetCharmID returns a charm ID by name. It returns an error.CharmNotFound
-	// if the charm can not be found by the name.
-	// This can also be used as a cheap way to see if a charm exists without
-	// needing to load the charm metadata.
-	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
 	// GetCharmLXDProfile returns the LXD profile along with the revision of the
-	// charm using the charm ID. The revision
+	// charm using the charm name, source and revision.
 	//
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
-	GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (charm.LXDProfile, applicationcharm.Revision, error)
+	GetCharmLXDProfile(ctx context.Context, locator applicationcharm.CharmLocator) (charm.LXDProfile, applicationcharm.Revision, error)
 	// WatchCharms returns a watcher that observes changes to charms.
 	WatchCharms() (watcher.StringsWatcher, error)
 }
@@ -425,27 +419,16 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 		if charmURLStr == nil {
 			continue
 		}
-		curl, err := charm.ParseURL(*charmURLStr)
+
+		locator, err := common.CharmLocatorFromURL(*charmURLStr)
 		if err != nil {
-			return empty, errors.Annotatef(err, "parsing charm URL %q", *charmURLStr)
-		}
-		source, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
-		if err != nil {
-			return empty, errors.Trace(err)
-		}
-		charmID, err := api.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
-			Source:   source,
-			Name:     curl.Name,
-			Revision: &curl.Revision,
-		})
-		if errors.Is(err, applicationerrors.CharmNotFound) {
-			return empty, errors.NotFoundf("charm %q", curl)
-		} else if err != nil {
 			return empty, errors.Trace(err)
 		}
 
-		lxdProfile, _, err := api.applicationService.GetCharmLXDProfile(ctx, charmID)
-		if err != nil {
+		lxdProfile, _, err := api.applicationService.GetCharmLXDProfile(ctx, locator)
+		if errors.Is(err, applicationerrors.CharmNotFound) {
+			return empty, errors.NotFoundf("charm %q", *charmURLStr)
+		} else if err != nil {
 			changeResults = append(changeResults, params.ProfileInfoResult{
 				Error: apiservererrors.ServerError(err)})
 			continue
@@ -461,7 +444,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 		}
 		changeResults = append(changeResults, params.ProfileInfoResult{
 			ApplicationName: appName,
-			Revision:        curl.Revision,
+			Revision:        locator.Revision,
 			Profile:         normalised,
 		})
 	}

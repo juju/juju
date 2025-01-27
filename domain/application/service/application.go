@@ -1087,20 +1087,26 @@ func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (core
 	return id, errors.Trace(err)
 }
 
-// GetCharmIDByApplicationName returns a charm ID by application name. It
-// returns an error if the charm can not be found by the name. This can also be
-// used as a cheap way to see if a charm exists without needing to load the
+// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
+// It returns an error if the charm can not be found by the name. This can also
+// be used as a cheap way to see if a charm exists without needing to load the
 // charm metadata.
 //
 // Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
 // [applicationerrors.ApplicationNotFound] if the application is not found, and
 // [applicationerrors.CharmNotFound] if the charm is not found.
-func (s *Service) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
+func (s *Service) GetCharmLocatorByApplicationName(ctx context.Context, name string) (domaincharm.CharmLocator, error) {
 	if !isValidApplicationName(name) {
-		return "", applicationerrors.ApplicationNameNotValid
+		return domaincharm.CharmLocator{}, applicationerrors.ApplicationNameNotValid
 	}
 
-	return s.st.GetCharmIDByApplicationName(ctx, name)
+	charmID, err := s.st.GetCharmIDByApplicationName(ctx, name)
+	if err != nil {
+		return domaincharm.CharmLocator{}, errors.Trace(err)
+	}
+
+	_, locator, _, err := s.getCharmAndLocator(ctx, charmID)
+	return locator, errors.Trace(err)
 }
 
 // GetCharmModifiedVersion looks up the charm modified version of the given

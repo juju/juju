@@ -482,12 +482,12 @@ func (api *ProvisionerAPI) machineLXDProfileNames(
 		}
 
 		appName := app.Name()
-		uuid, err := api.applicationService.GetCharmIDByApplicationName(ctx, appName)
+		locator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		profile, revision, err := api.applicationService.GetCharmLXDProfile(ctx, uuid)
+		profile, revision, err := api.applicationService.GetCharmLXDProfile(ctx, locator)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

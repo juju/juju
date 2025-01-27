@@ -14,7 +14,9 @@ import (
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/domain/application/charm"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -108,4 +110,22 @@ func ValidateCharmOrigin(o *params.CharmOrigin) error {
 		return errors.BadRequestf("%q not a valid charm origin source", o.Source)
 	}
 	return nil
+}
+
+// CharmLocatorFromURL returns a CharmLocator using the charm name, revision
+// and source (which is extracted from the schema) of the provided URL.
+func CharmLocatorFromURL(url string) (charm.CharmLocator, error) {
+	u, err := internalcharm.ParseURL(url)
+	if err != nil {
+		return charm.CharmLocator{}, errors.Trace(err)
+	}
+	source, err := charm.ParseCharmSchema(internalcharm.Schema(u.Schema))
+	if err != nil {
+		return charm.CharmLocator{}, errors.Trace(err)
+	}
+	return charm.CharmLocator{
+		Name:     u.Name,
+		Revision: u.Revision,
+		Source:   source,
+	}, nil
 }

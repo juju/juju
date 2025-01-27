@@ -14,7 +14,3 @@ import (
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}

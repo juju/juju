@@ -8,7 +8,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v8"
@@ -20,7 +22,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
@@ -28,7 +29,6 @@ import (
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	domaincharm "github.com/juju/juju/domain/application/charm"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
@@ -108,9 +108,18 @@ func (s *ExportSuite) TestExportValidationFails(c *gc.C) {
 
 type ImportSuite struct {
 	testing.IsolationSuite
+	charmService *MockCharmService
 }
 
 var _ = gc.Suite(&ImportSuite{})
+
+func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.charmService = NewMockCharmService(ctrl)
+
+	return ctrl
+}
 
 func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
@@ -214,7 +223,8 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 }
 
 func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
-	charmService := &fakeCharmService{}
+	defer s.setupMocks(c).Finish()
+
 	downloader := &fakeDownloader{}
 	uploader := &fakeUploader{
 		tools:     make(map[version.Binary]string),
@@ -240,6 +250,21 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		{ApplicationRevision: app2Res},
 	}
 
+	s.charmService.EXPECT().GetCharmArchive(gomock.Any(), domaincharm.CharmLocator{
+		Name:     "postgresql",
+		Revision: 42,
+		Source:   domaincharm.CharmHubSource,
+	}).Return(ioutil.NopCloser(strings.NewReader("postgresql content")), "hash0123", nil)
+	s.charmService.EXPECT().GetCharmArchive(gomock.Any(), domaincharm.CharmLocator{
+		Name:     "magic",
+		Revision: 2,
+		Source:   domaincharm.LocalSource,
+	}).Return(ioutil.NopCloser(strings.NewReader("magic content")), "hash0123", nil)
+	s.charmService.EXPECT().GetCharmArchive(gomock.Any(), domaincharm.CharmLocator{
+		Name:     "magic",
+		Revision: 10,
+		Source:   domaincharm.LocalSource,
+	}).Return(ioutil.NopCloser(strings.NewReader("magic content")), "hash0123", nil)
 	config := migration.UploadBinariesConfig{
 		Charms: []string{
 			// These 2 are out of order. Rev 2 must be uploaded first.
@@ -247,7 +272,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 			"local:trusty/magic-2",
 			"ch:trusty/postgresql-42",
 		},
-		CharmService:       charmService,
+		CharmService:       s.charmService,
 		CharmUploader:      uploader,
 		Tools:              toolsMap,
 		ToolsDownloader:    downloader,
@@ -258,14 +283,6 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	}
 	err := migration.UploadBinaries(context.Background(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
-
-	expectedCharms := []domaincharm.GetCharmArgs{
-		// Note ordering.
-		{Name: "postgresql", Revision: ptr(42), Source: domaincharm.CharmHubSource},
-		{Name: "magic", Revision: ptr(2), Source: domaincharm.LocalSource},
-		{Name: "magic", Revision: ptr(10), Source: domaincharm.LocalSource},
-	}
-	c.Assert(charmService.charms, jc.DeepEquals, expectedCharms)
 
 	expectedCurls := []string{
 		// Note ordering.
@@ -300,15 +317,21 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 }
 
 func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
-	charmService := &fakeCharmService{}
+	defer s.setupMocks(c).Finish()
+
 	downloader := &fakeDownloader{}
 	uploader := &fakeUploader{
 		reassignCharmURL: true,
 	}
 
+	s.charmService.EXPECT().GetCharmArchive(gomock.Any(), domaincharm.CharmLocator{
+		Name:     "bar",
+		Revision: 2,
+		Source:   domaincharm.CharmHubSource,
+	}).Return(ioutil.NopCloser(strings.NewReader("bar content")), "hash0123", nil)
 	config := migration.UploadBinariesConfig{
 		Charms:             []string{"ch:foo/bar-2"},
-		CharmService:       charmService,
+		CharmService:       s.charmService,
 		CharmUploader:      uploader,
 		ToolsDownloader:    downloader,
 		ToolsUploader:      uploader,
@@ -331,32 +354,6 @@ func (i *fakeImporter) Import(model description.Model, controllerConfig controll
 	i.model = model
 	i.controllerConfig = controllerConfig
 	return i.m, i.st, nil
-}
-
-type fakeCharmService struct {
-	charms     []domaincharm.GetCharmArgs
-	charmIndex map[corecharm.ID]domaincharm.GetCharmArgs
-}
-
-func (s *fakeCharmService) GetCharmID(_ context.Context, charm domaincharm.GetCharmArgs) (corecharm.ID, error) {
-	id, err := corecharm.NewID()
-	if err != nil {
-		return "", err
-	}
-	s.charms = append(s.charms, charm)
-	if s.charmIndex == nil {
-		s.charmIndex = make(map[corecharm.ID]domaincharm.GetCharmArgs)
-	}
-	s.charmIndex[id] = charm
-	return id, nil
-}
-
-func (s *fakeCharmService) GetCharmArchive(_ context.Context, id corecharm.ID) (io.ReadCloser, string, error) {
-	ch, ok := s.charmIndex[id]
-	if !ok {
-		return nil, "", applicationerrors.CharmNotFound
-	}
-	return io.NopCloser(bytes.NewReader([]byte(ch.Name + " content"))), "hash0123", nil
 }
 
 type fakeDownloader struct {
@@ -432,8 +429,4 @@ func (f *fakeUploader) SetPlaceholderResource(_ context.Context, res resource.Re
 func (f *fakeUploader) SetUnitResource(_ context.Context, unit string, res resource.Resource) error {
 	f.unitResources = append(f.unitResources, unit+"-"+res.Name)
 	return nil
-}
-
-func ptr[T any](x T) *T {
-	return &x
 }

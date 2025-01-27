@@ -347,18 +347,15 @@ func (u *LXDProfileAPIv2) getOneLXDProfileRequired(ctx context.Context, curl str
 	if err != nil {
 		return false, err
 	}
-	_, err = u.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+	lxdProfile, _, err := u.applicationService.GetCharmLXDProfile(ctx, applicationcharm.CharmLocator{
 		Source:   parsedSource,
 		Name:     parsedURL.Name,
-		Revision: &parsedURL.Revision,
+		Revision: parsedURL.Revision,
 	})
 	if err != nil {
 		return false, err
 	}
-	// TODO(nvinuesa): LXD Profiles are not yet implemented. In this case,
-	// we'll find the LXD profile for the given charm and return true if
-	// it's not empty.
-	return false, nil
+	return !lxdProfile.Empty(), nil
 }
 
 func (u *LXDProfileAPIv2) getLXDProfileMachineV2(tag names.Tag) (LXDProfileMachineV2, error) {

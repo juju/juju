@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/controller/migrationtarget"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
@@ -122,16 +121,10 @@ type Facade interface {
 }
 
 type CharmService interface {
-	// GetCharmID returns a charm ID by name. It returns an error if the charm
-	// can not be found by the name.
-	// This can also be used as a cheap way to see if a charm exists without
-	// needing to load the charm metadata.
-	GetCharmID(context.Context, charm.GetCharmArgs) (corecharm.ID, error)
-
 	// GetCharmArchive returns a ReadCloser stream for the charm archive for a given
-	// charm id, along with the hash of the charm archive. The hash to verify the
-	// integrity of the charm archive.
-	GetCharmArchive(context.Context, corecharm.ID) (io.ReadCloser, string, error)
+	// charm id, along with the hash of the charm archive. Clients can use the hash
+	// to verify the integrity of the charm archive.
+	GetCharmArchive(context.Context, charm.CharmLocator) (io.ReadCloser, string, error)
 }
 
 // Config defines the operation of a Worker.

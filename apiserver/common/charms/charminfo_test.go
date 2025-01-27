@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common/charms/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -37,11 +36,6 @@ func (s *charmInfoSuite) TestCharmInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().AuthController().Return(true)
-	s.charmService.EXPECT().GetCharmID(gomock.Any(), charm.GetCharmArgs{
-		Name:     "foo",
-		Revision: ptr(1),
-		Source:   charm.CharmHubSource,
-	}).Return(corecharm.ID("deadbeef"), nil)
 
 	metadata := &internalcharm.Meta{Name: "foo"}
 	manifest := &internalcharm.Manifest{
@@ -59,7 +53,11 @@ func (s *charmInfoSuite) TestCharmInfo(c *gc.C) {
 
 	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
 	charmOrigin := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1}
-	s.charmService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(charmBase, charmOrigin, true, nil)
+	s.charmService.EXPECT().GetCharm(gomock.Any(), charm.CharmLocator{
+		Name:     "foo",
+		Revision: 1,
+		Source:   charm.CharmHubSource,
+	}).Return(charmBase, charmOrigin, true, nil)
 
 	// Make the CharmInfo call
 	api, err := charms.NewCharmInfoAPI(internaltesting.ModelTag, s.charmService, s.authorizer)
@@ -79,17 +77,16 @@ func (s *charmInfoSuite) TestCharmInfoMinimal(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.authorizer.EXPECT().AuthController().Return(true)
-	s.charmService.EXPECT().GetCharmID(gomock.Any(), charm.GetCharmArgs{
-		Name:     "foo",
-		Revision: ptr(1),
-		Source:   charm.CharmHubSource,
-	}).Return(corecharm.ID("deadbeef"), nil)
 
 	metadata := &internalcharm.Meta{Name: "foo"}
 
 	charmBase := internalcharm.NewCharmBase(metadata, nil, nil, nil, nil)
 	charmOrigin := charm.CharmLocator{Source: charm.CharmHubSource, Revision: 1}
-	s.charmService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(charmBase, charmOrigin, true, nil)
+	s.charmService.EXPECT().GetCharm(gomock.Any(), charm.CharmLocator{
+		Name:     "foo",
+		Revision: 1,
+		Source:   charm.CharmHubSource,
+	}).Return(charmBase, charmOrigin, true, nil)
 
 	// Make the CharmInfo call
 	api, err := charms.NewCharmInfoAPI(internaltesting.ModelTag, s.charmService, s.authorizer)

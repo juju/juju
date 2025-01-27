@@ -298,20 +298,15 @@ func (w *machineLXDProfileWatcher) init(ctx context.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		charmID, err := w.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), applicationcharm.CharmLocator{
 			Source:   source,
 			Name:     curl.Name,
-			Revision: &curl.Revision,
+			Revision: curl.Revision,
 		})
 		if errors.Is(err, applicationerrors.CharmNotFound) {
 			return errors.NotFoundf("charm %q", curl)
 		} else if err != nil {
 			return errors.Trace(err)
-		}
-
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, charmID)
-		if err != nil {
-			return err
 		}
 		if !lxdProfile.Empty() {
 			info.charmProfile = lxdProfile
@@ -364,19 +359,11 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(ctx context.Context
 		if err != nil {
 			return errors.Trace(err)
 		}
-		charmID, err := w.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), applicationcharm.CharmLocator{
 			Source:   source,
 			Name:     curl.Name,
-			Revision: &curl.Revision,
+			Revision: curl.Revision,
 		})
-		if errors.Is(err, applicationerrors.CharmNotFound) {
-			w.logger.Debugf("not watching %s with removed charm %s on machine-%s", appName, *charmURLStr, w.machine.Id())
-			return nil
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, charmID)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
 			w.logger.Debugf("not watching %s with removed charm %s on machine-%s", appName, *charmURLStr, w.machine.Id())
 			return nil
@@ -440,18 +427,12 @@ func (w *machineLXDProfileWatcher) charmChange(chURL string) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		charmID, err := w.applicationService.GetCharmID(context.TODO(), applicationcharm.GetCharmArgs{
+
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), applicationcharm.CharmLocator{
 			Source:   source,
 			Name:     curl.Name,
-			Revision: &curl.Revision,
+			Revision: curl.Revision,
 		})
-		if errors.Is(err, applicationerrors.CharmNotFound) {
-			return errors.NotFoundf("charm %q", curl)
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), charmID)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
 			w.logger.Debugf("charm %s removed for %s on machine-%s", chURL, appName, w.machine.Id())
 			continue
@@ -543,19 +524,12 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 		if err != nil {
 			return false, errors.Trace(err)
 		}
-		charmID, err := w.applicationService.GetCharmID(context.TODO(), applicationcharm.GetCharmArgs{
+
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), applicationcharm.CharmLocator{
 			Source:   source,
 			Name:     curl.Name,
-			Revision: &curl.Revision,
+			Revision: curl.Revision,
 		})
-		if errors.Is(err, applicationerrors.CharmNotFound) {
-			w.logger.Debugf("charm %s removed for %s on machine-%s", *curl, unitName, w.machine.Id())
-			return false, nil
-		} else if err != nil {
-			return false, errors.Trace(err)
-		}
-
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), charmID)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
 			w.logger.Debugf("charm %s removed for %s on machine-%s", *curl, unitName, w.machine.Id())
 			return false, nil

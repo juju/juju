@@ -912,21 +912,14 @@ func (u *UniterAPI) oneCharmArchiveSha256(ctx context.Context, curl string) (str
 		return "", errors.Trace(err)
 	}
 
-	id, err := u.applicationService.GetCharmID(ctx, domaincharm.GetCharmArgs{
-		Source:   source,
-		Name:     cu.Name,
-		Revision: ptr(cu.Revision),
-	})
-	if errors.Is(err, applicationerrors.CharmNotFound) {
-		return "", errors.NotFoundf("charm %q", curl)
-	} else if err != nil {
-		return "", errors.Trace(err)
-	}
-
 	// Only return the SHA256 if the charm is available. It is expected
 	// that the caller (in this case the uniter) will retry if they get
 	// a NotYetAvailable error.
-	sha, err := u.applicationService.GetAvailableCharmArchiveSHA256(ctx, id)
+	sha, err := u.applicationService.GetAvailableCharmArchiveSHA256(ctx, domaincharm.CharmLocator{
+		Name:     cu.Name,
+		Revision: cu.Revision,
+		Source:   source,
+	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return "", errors.NotFoundf("charm %q", curl)
 	} else if errors.Is(err, applicationerrors.CharmNotResolved) {

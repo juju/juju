@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
@@ -109,14 +108,15 @@ type KeyUpdaterService interface {
 
 // ApplicationService instances implement an application service.
 type ApplicationService interface {
-	// GetCharmIDByApplicationName returns a charm ID by application name. It
-	// returns an error if the charm can not be found by the name. This can also be
-	// used as a cheap way to see if a charm exists without needing to load the
+	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
+	// It returns an error if the charm can not be found by the name. This can also
+	// be used as a cheap way to see if a charm exists without needing to load the
 	// charm metadata.
-	GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error)
+	GetCharmLocatorByApplicationName(ctx context.Context, name string) (charm.CharmLocator, error)
 
-	// GetCharmLXDProfile returns the LXD profile for the charm using the charm ID.
-	GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (internalcharm.LXDProfile, charm.Revision, error)
+	// GetCharmLXDProfile returns the LXD profile along with the revision of the
+	// charm using the charm name, source and revision.
+	GetCharmLXDProfile(ctx context.Context, locator charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
 }
 
 // CloudImageMetadataService manages cloud image metadata for provisionning

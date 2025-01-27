@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/application"
 	coreassumes "github.com/juju/juju/core/assumes"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -515,27 +514,23 @@ func (s *applicationSuite) expectSpaceNameNotFound(c *gc.C, name string) {
 }
 
 func (s *applicationSuite) expectCharm(c *gc.C, name string) {
-	id := charmtesting.GenCharmID(c)
-
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+	locator := applicationcharm.CharmLocator{
 		Name:     name,
-		Revision: ptr(42),
-		Source:   applicationcharm.LocalSource,
-	}).Return(id, nil)
-
-	s.applicationService.EXPECT().GetCharm(gomock.Any(), id).Return(s.charm, applicationcharm.CharmLocator{
 		Revision: 42,
-	}, true, nil)
+		Source:   applicationcharm.LocalSource,
+	}
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), locator).Return(s.charm, locator, true, nil)
 
-	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(true, nil)
+	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(true, nil)
 }
 
 func (s *applicationSuite) expectCharmNotFound(c *gc.C, name string) {
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+	locator := applicationcharm.CharmLocator{
 		Name:     name,
-		Revision: ptr(42),
+		Revision: 42,
 		Source:   applicationcharm.LocalSource,
-	}).Return("", applicationerrors.CharmNotFound)
+	}
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), locator).Return(nil, applicationcharm.CharmLocator{}, false, applicationerrors.CharmNotFound)
 }
 
 func (s *applicationSuite) expectCharmConfig(c *gc.C, times int) {
@@ -573,15 +568,17 @@ func (s *applicationSuite) expectCharmAssumes(c *gc.C) {
 }
 
 func (s *applicationSuite) expectCharmFormatCheck(c *gc.C, name string) {
-	id := charmtesting.GenCharmID(c)
-
-	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), name).Return(id, nil)
-
-	s.applicationService.EXPECT().GetCharm(gomock.Any(), id).Return(s.charm, applicationcharm.CharmLocator{
+	locator := applicationcharm.CharmLocator{
+		Name:     "ubuntu",
 		Revision: 42,
-	}, true, nil)
+		Source:   applicationcharm.LocalSource,
+	}
 
-	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(true, nil)
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), name).Return(locator, nil)
+
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), locator).Return(s.charm, locator, true, nil)
+
+	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(true, nil)
 
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
 		Bases: []internalcharm.Base{{
@@ -594,15 +591,17 @@ func (s *applicationSuite) expectCharmFormatCheck(c *gc.C, name string) {
 }
 
 func (s applicationSuite) expectCharmFormatCheckDowngrade(c *gc.C, name string) {
-	id := charmtesting.GenCharmID(c)
-
-	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), name).Return(id, nil)
-
-	s.applicationService.EXPECT().GetCharm(gomock.Any(), id).Return(s.charm, applicationcharm.CharmLocator{
+	locator := applicationcharm.CharmLocator{
+		Name:     "ubuntu",
 		Revision: 42,
-	}, true, nil)
+		Source:   applicationcharm.LocalSource,
+	}
 
-	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(true, nil)
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), name).Return(locator, nil)
+
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), locator).Return(s.charm, locator, true, nil)
+
+	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(true, nil)
 
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
 		Bases: []internalcharm.Base{{
@@ -626,7 +625,9 @@ func (s *applicationSuite) expectSetCharm(c *gc.C, name string, fn func(*gc.C, s
 		c.Assert(params.Charm, gc.DeepEquals, &domainCharm{
 			charm: s.charm,
 			locator: applicationcharm.CharmLocator{
+				Name:     "foo",
 				Revision: 42,
+				Source:   applicationcharm.LocalSource,
 			},
 			available: true,
 		})

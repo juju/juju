@@ -50,15 +50,13 @@ type NetworkService interface {
 
 // ApplicationService is an interface for the application domain service.
 type ApplicationService interface {
-	// GetCharmID returns a charm ID by name. It returns an error.CharmNotFound
-	// if the charm can not be found by the name.
-	// This can also be used as a cheap way to see if a charm exists without
-	// needing to load the charm metadata.
-	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
-	// GetCharm returns the charm metadata for the given charm ID.
-	// It returns an error.CharmNotFound if the charm can not be found by the
-	// ID.
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, bool, error)
+	// GetCharm returns the charm by name, source and revision. Calling this method
+	// will return all the data associated with the charm. It is not expected to
+	// call this method for all calls, instead use the move focused and specific
+	// methods. That's because this method is very expensive to call. This is
+	// implemented for the cases where all the charm data is needed; model
+	// migration, charm export, etc.
+	GetCharm(ctx context.Context, locator applicationcharm.CharmLocator) (charm.Charm, applicationcharm.CharmLocator, bool, error)
 }
 
 // APIv8 provides the Bundle API facade for version 8. It drops IncludeSeries
@@ -501,19 +499,14 @@ func (b *BundleAPI) bundleDataApplications(
 				if err != nil {
 					return nil, nil, nil, errors.Trace(err)
 				}
-				charmID, err := b.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
+				ch, _, _, err := b.applicationService.GetCharm(ctx, applicationcharm.CharmLocator{
 					Source:   source,
 					Name:     curl.Name,
-					Revision: revision,
+					Revision: curl.Revision,
 				})
 				if errors.Is(err, applicationerrors.CharmNotFound) {
 					return nil, nil, nil, errors.NotFoundf("charm %q", curl)
 				} else if err != nil {
-					return nil, nil, nil, errors.Trace(err)
-				}
-
-				ch, _, _, err := b.applicationService.GetCharm(ctx, charmID)
-				if err != nil {
 					return nil, nil, nil, errors.Trace(err)
 				}
 				cfgInfo = ch.Config()
