@@ -23,7 +23,10 @@ run_deploy_charm() {
 	wait_for "nginx-ingress-integrator" "$(active_idle_condition "nginx-ingress-integrator" 1)"
 
 	echo "Verify discourse user can be created"
-	check_contains "$(juju run discourse-k8s/0 create-user admin=true email=user@example.com | yq .user)" "user@example.com"
+	# discourse-k8s charm introduces a bug, that writes not valid yaml to stdout (injecting WARNING message). Until
+	# this is fixed, we can just check that the user is created, by checking that the email is in the output.
+	#check_contains "$(juju run discourse-k8s/0 create-user admin=true email=user@example.com | yq .user)" "user@example.com"
+	check_contains "$(juju run discourse-k8s/0 create-user admin=true email=user@example.com)" "user: user@example.com"
 
 	destroy_model "test-deploy-charm"
 }
