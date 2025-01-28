@@ -217,6 +217,9 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 			errs = append(errs, err)
 		}
 	}
+	if len(errs) == 0 {
+		return nil
+	}
 	return internalerrors.Errorf("rollback failed: %w", internalerrors.Join(errs...))
 }
 

@@ -260,7 +260,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *migrationServiceSuite) TestGetApplicationConfig(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -275,7 +275,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfig(c *gc.C) {
 		Trust: true,
 	}, nil)
 
-	results, settings, err := s.service.GetApplicationConfig(context.Background(), "foo")
+	results, settings, err := s.service.GetApplicationConfigAndSettings(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, config.ConfigAttributes{
 		"foo": "bar",
@@ -292,7 +292,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigWithNameError(c *gc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, errors.Errorf("boom"))
 
-	_, _, err := s.service.GetApplicationConfig(context.Background(), "foo")
+	_, _, err := s.service.GetApplicationConfigAndSettings(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, "boom")
 
 }
@@ -306,7 +306,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigWithConfigError(c *gc.C)
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
 		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{}, errors.Errorf("boom"))
 
-	_, _, err := s.service.GetApplicationConfig(context.Background(), "foo")
+	_, _, err := s.service.GetApplicationConfigAndSettings(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, "boom")
 
 }
@@ -320,7 +320,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigNoConfig(c *gc.C) {
 	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
 		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{}, nil)
 
-	results, settings, err := s.service.GetApplicationConfig(context.Background(), "foo")
+	results, settings, err := s.service.GetApplicationConfigAndSettings(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, config.ConfigAttributes{})
 	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{})
@@ -337,7 +337,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *gc.
 			Trust: true,
 		}, nil)
 
-	results, settings, err := s.service.GetApplicationConfig(context.Background(), "foo")
+	results, settings, err := s.service.GetApplicationConfigAndSettings(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, config.ConfigAttributes{})
 	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{
@@ -348,7 +348,7 @@ func (s *migrationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *gc.
 func (s *migrationServiceSuite) TestGetApplicationConfigInvalidApplicationName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, _, err := s.service.GetApplicationConfig(context.Background(), "!!!")
+	_, _, err := s.service.GetApplicationConfigAndSettings(context.Background(), "!!!")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 

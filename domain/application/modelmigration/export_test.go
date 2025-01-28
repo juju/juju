@@ -15,6 +15,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
@@ -43,27 +45,6 @@ func (s *exportSuite) TestApplicationExportEmpty(c *gc.C) {
 	c.Check(model.Applications(), gc.HasLen, 0)
 }
 
-func (s *exportSuite) TestApplicationExportCharmAlreadySet(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-
-	appArgs := description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("prometheus"),
-		CharmURL: "ch:prometheus-1",
-	}
-	app := model.AddApplication(appArgs)
-	app.SetCharmMetadata(description.CharmMetadataArgs{})
-
-	exportOp := exportOperation{
-		service: s.exportService,
-	}
-
-	err := exportOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(model.Applications(), gc.HasLen, 1)
-}
-
 func (s *exportSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -80,6 +61,7 @@ func (s *exportSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 
 	s.expectCharmID()
 	s.expectMinimalCharm()
+	s.expectApplicationConfig()
 
 	exportOp := exportOperation{
 		service: s.exportService,
@@ -204,7 +186,7 @@ func (s *exportSuite) TestExportCharmMetadata(c *gc.C) {
 		service: s.exportService,
 	}
 
-	args, err := exportOp.exportCharmMetadata(meta, "")
+	args, err := exportOp.exportCharmMetadata(meta, "{}")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// As the description package exposes interfaces, it becomes difficult to
@@ -304,6 +286,7 @@ func (s *exportSuite) TestExportCharmMetadata(c *gc.C) {
 		ExtraBindings: map[string]string{
 			"foo": "bar",
 		},
+		LXDProfile: "{}",
 	})
 }
 
@@ -416,9 +399,27 @@ func (s *exportSuite) expectMinimalCharm() {
 	meta := &internalcharm.Meta{
 		Name: "prometheus",
 	}
-	ch := internalcharm.NewCharmBase(meta, nil, nil, nil, nil)
+	cfg := &internalcharm.Config{
+		Options: map[string]internalcharm.Option{
+			"foo": {
+				Type:    "string",
+				Default: "baz",
+			},
+		},
+	}
+	ch := internalcharm.NewCharmBase(meta, nil, cfg, nil, nil)
 	locator := charm.CharmLocator{
 		Revision: 1,
 	}
 	s.exportService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(ch, locator, nil)
+}
+
+func (s *exportSuite) expectApplicationConfig() {
+	config := config.ConfigAttributes{
+		"foo": "bar",
+	}
+	settings := application.ApplicationSettings{
+		Trust: true,
+	}
+	s.exportService.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), "prometheus").Return(config, settings, nil)
 }

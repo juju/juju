@@ -54,14 +54,14 @@ type ExportService interface {
 	// ID.
 	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, error)
 
-	// GetApplicationConfig returns the application config for the specified
-	// application. This will return the application config and the settings in
-	// one config.ConfigAttributes object.
+	// GetApplicationConfigAndSettings returns the application config and
+	// settings for the specified application. This will return the application
+	// config and the settings in one config.ConfigAttributes object.
 	//
-	// If the application does not exist, a [applicationerrors.ApplicationNotFound]
-	// error is returned.
-	// If no config is set for the application, an empty config is returned.
-	GetApplicationConfig(ctx context.Context, name string) (config.ConfigAttributes, application.ApplicationSettings, error)
+	// If the application does not exist, a
+	// [applicationerrors.ApplicationNotFound] error is returned. If no config
+	// is set for the application, an empty config is returned.
+	GetApplicationConfigAndSettings(ctx context.Context, name string) (config.ConfigAttributes, application.ApplicationSettings, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -107,7 +107,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 
 		// This is temporary until we switch over to using dqlite as the
 		// source of applications.
-		config, settings, err := e.service.GetApplicationConfig(ctx, app.Name())
+		config, settings, err := e.service.GetApplicationConfigAndSettings(ctx, app.Name())
 		if err != nil {
 			return fmt.Errorf("getting application config for %q: %v", app.Name(), err)
 		}

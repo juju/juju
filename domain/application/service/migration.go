@@ -129,14 +129,14 @@ func (s *MigrationService) GetCharm(ctx context.Context, id corecharm.ID) (inter
 	), locator, nil
 }
 
-// GetApplicationConfig returns the application config for the specified
-// application. This will return the application config and the settings in
-// one config.ConfigAttributes object.
+// GetApplicationConfigAndSettings returns the application config and settings
+// for the specified application. This will return the application config and
+// the settings in one config.ConfigAttributes object.
 //
 // If the application does not exist, a [applicationerrors.ApplicationNotFound]
-// error is returned.
-// If no config is set for the application, an empty config is returned.
-func (s *MigrationService) GetApplicationConfig(ctx context.Context, name string) (config.ConfigAttributes, application.ApplicationSettings, error) {
+// error is returned. If no config is set for the application, an empty config
+// is returned.
+func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, name string) (config.ConfigAttributes, application.ApplicationSettings, error) {
 	if !isValidApplicationName(name) {
 		return nil, application.ApplicationSettings{}, applicationerrors.ApplicationNameNotValid
 	}

@@ -61,7 +61,18 @@ func (c *Config) setAttributes(attrs ConfigAttributes) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.attributes = result.(ConfigAttributes)
+
+	// Ensure that the underlying map is of the correct type, otherwise
+	// this can panic.
+	switch result := result.(type) {
+	case map[string]interface{}:
+		c.attributes = result
+	case ConfigAttributes:
+		c.attributes = result
+	default:
+		return errors.Errorf("unexpected result type %T", result)
+	}
+
 	return nil
 }
 

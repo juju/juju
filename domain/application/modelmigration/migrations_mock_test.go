@@ -144,42 +144,42 @@ func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 	return m.recorder
 }
 
-// GetApplicationConfig mocks base method.
-func (m *MockExportService) GetApplicationConfig(arg0 context.Context, arg1 string) (config.ConfigAttributes, application.ApplicationSettings, error) {
+// GetApplicationConfigAndSettings mocks base method.
+func (m *MockExportService) GetApplicationConfigAndSettings(arg0 context.Context, arg1 string) (config.ConfigAttributes, application.ApplicationSettings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationConfig", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetApplicationConfigAndSettings", arg0, arg1)
 	ret0, _ := ret[0].(config.ConfigAttributes)
 	ret1, _ := ret[1].(application.ApplicationSettings)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// GetApplicationConfig indicates an expected call of GetApplicationConfig.
-func (mr *MockExportServiceMockRecorder) GetApplicationConfig(arg0, arg1 any) *MockExportServiceGetApplicationConfigCall {
+// GetApplicationConfigAndSettings indicates an expected call of GetApplicationConfigAndSettings.
+func (mr *MockExportServiceMockRecorder) GetApplicationConfigAndSettings(arg0, arg1 any) *MockExportServiceGetApplicationConfigAndSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConfig", reflect.TypeOf((*MockExportService)(nil).GetApplicationConfig), arg0, arg1)
-	return &MockExportServiceGetApplicationConfigCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConfigAndSettings", reflect.TypeOf((*MockExportService)(nil).GetApplicationConfigAndSettings), arg0, arg1)
+	return &MockExportServiceGetApplicationConfigAndSettingsCall{Call: call}
 }
 
-// MockExportServiceGetApplicationConfigCall wrap *gomock.Call
-type MockExportServiceGetApplicationConfigCall struct {
+// MockExportServiceGetApplicationConfigAndSettingsCall wrap *gomock.Call
+type MockExportServiceGetApplicationConfigAndSettingsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockExportServiceGetApplicationConfigCall) Return(arg0 config.ConfigAttributes, arg1 application.ApplicationSettings, arg2 error) *MockExportServiceGetApplicationConfigCall {
+func (c *MockExportServiceGetApplicationConfigAndSettingsCall) Return(arg0 config.ConfigAttributes, arg1 application.ApplicationSettings, arg2 error) *MockExportServiceGetApplicationConfigAndSettingsCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExportServiceGetApplicationConfigCall) Do(f func(context.Context, string) (config.ConfigAttributes, application.ApplicationSettings, error)) *MockExportServiceGetApplicationConfigCall {
+func (c *MockExportServiceGetApplicationConfigAndSettingsCall) Do(f func(context.Context, string) (config.ConfigAttributes, application.ApplicationSettings, error)) *MockExportServiceGetApplicationConfigAndSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceGetApplicationConfigCall) DoAndReturn(f func(context.Context, string) (config.ConfigAttributes, application.ApplicationSettings, error)) *MockExportServiceGetApplicationConfigCall {
+func (c *MockExportServiceGetApplicationConfigAndSettingsCall) DoAndReturn(f func(context.Context, string) (config.ConfigAttributes, application.ApplicationSettings, error)) *MockExportServiceGetApplicationConfigAndSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
