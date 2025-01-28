@@ -125,6 +125,123 @@ func (s *migrationServiceSuite) TestGetCharm(c *gc.C) {
 	})
 }
 
+func (s *migrationServiceSuite) TestGetCharmInvalidMetadata(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name:  "foo",
+			RunAs: "blah",
+		},
+		Source:    domaincharm.LocalSource,
+		Revision:  42,
+		Available: true,
+	}, nil, nil)
+
+	_, _, err := s.service.GetCharm(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, `.*decode charm user.*`)
+}
+
+func (s *migrationServiceSuite) TestGetCharmInvalidManifest(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name:  "foo",
+			RunAs: "default",
+		},
+		Manifest: domaincharm.Manifest{
+			Bases: []domaincharm.Base{
+				{
+					Name: "foo",
+				},
+			},
+		},
+		Source:    domaincharm.LocalSource,
+		Revision:  42,
+		Available: true,
+	}, nil, nil)
+
+	_, _, err := s.service.GetCharm(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, `.*decode bases: decode base.*`)
+}
+
+func (s *migrationServiceSuite) TestGetCharmInvalidActions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name:  "foo",
+			RunAs: "default",
+		},
+		Actions: domaincharm.Actions{
+			Actions: map[string]domaincharm.Action{
+				"foo": {
+					Params: []byte("!!!"),
+				},
+			},
+		},
+		Source:    domaincharm.LocalSource,
+		Revision:  42,
+		Available: true,
+	}, nil, nil)
+
+	_, _, err := s.service.GetCharm(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, `.*decode action params: unmarshal.*`)
+}
+
+func (s *migrationServiceSuite) TestGetCharmInvalidConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name:  "foo",
+			RunAs: "default",
+		},
+		Config: domaincharm.Config{
+			Options: map[string]domaincharm.Option{
+				"foo": {
+					Type: "foo",
+				},
+			},
+		},
+		Source:    domaincharm.LocalSource,
+		Revision:  42,
+		Available: true,
+	}, nil, nil)
+
+	_, _, err := s.service.GetCharm(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, `.*decode config.*`)
+}
+
+func (s *migrationServiceSuite) TestGetCharmInvalidLXDProfile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name:  "foo",
+			RunAs: "default",
+		},
+		LXDProfile: []byte("!!!"),
+		Source:     domaincharm.LocalSource,
+		Revision:   42,
+		Available:  true,
+	}, nil, nil)
+
+	_, _, err := s.service.GetCharm(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, `.*unmarshal lxd profile.*`)
+}
+
 func (s *migrationServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -168,7 +285,19 @@ func (s *migrationServiceSuite) TestGetApplicationConfig(c *gc.C) {
 	})
 }
 
-func (s *migrationServiceSuite) TestGetApplicationConfigWithError(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplicationConfigWithNameError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, errors.Errorf("boom"))
+
+	_, _, err := s.service.GetApplicationConfig(context.Background(), "foo")
+	c.Assert(err, gc.ErrorMatches, "boom")
+
+}
+
+func (s *migrationServiceSuite) TestGetApplicationConfigWithConfigError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -259,7 +388,15 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 			Name:  "ubuntu",
 			RunAs: "default",
 		},
-		Manifest:      s.minimalManifest(c),
+		Manifest: s.minimalManifest(c),
+		Config: domaincharm.Config{
+			Options: map[string]domaincharm.Option{
+				"foo": {
+					Type:    domaincharm.OptionString,
+					Default: "baz",
+				},
+			},
+		},
 		ReferenceName: "ubuntu",
 		Source:        domaincharm.CharmHubSource,
 		Revision:      42,
@@ -276,24 +413,19 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 		DownloadSize:       24,
 		CharmhubIdentifier: "foobar",
 	}
-	app := application.AddApplicationArg{
-		Charm:             ch,
-		Platform:          platform,
-		Scale:             1,
-		CharmDownloadInfo: downloadInfo,
-		Config: config.ConfigAttributes{
-			"foo": "bar",
-		},
-		Settings: application.ApplicationSettings{
-			Trust: true,
-		},
-	}
+
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "ubuntu", app).Return(id, nil)
 	s.state.EXPECT().InsertUnit(domaintesting.IsAtomicContextChecker, id, u)
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
-	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Config().Return(&charm.Config{
+		Options: map[string]charm.Option{
+			"foo": {
+				Type:    "string",
+				Default: "baz",
+			},
+		},
+	})
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "ubuntu",
 	}).MinTimes(1)
@@ -308,6 +440,23 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 			},
 		},
 	}).MinTimes(1)
+
+	args := application.AddApplicationArg{
+		Charm:             ch,
+		Platform:          platform,
+		Scale:             1,
+		CharmDownloadInfo: downloadInfo,
+		Config: map[string]application.ApplicationConfig{
+			"foo": {
+				Type:  domaincharm.OptionString,
+				Value: "bar",
+			},
+		},
+		Settings: application.ApplicationSettings{
+			Trust: true,
+		},
+	}
+	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "ubuntu", args).Return(id, nil)
 
 	unitArg := ImportUnitArg{
 		UnitName:     "ubuntu/666",
@@ -346,6 +495,13 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 			unitArg,
 		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *migrationServiceSuite) TestRemoveImportedApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.RemoveImportedApplication(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

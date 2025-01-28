@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/objectstore"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
@@ -38,7 +37,7 @@ type AddApplicationArg struct {
 	Resources []AddApplicationResourceArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
-	Config config.ConfigAttributes
+	Config map[string]ApplicationConfig
 	// Settings contains the settings for the application. This includes the
 	// trust setting.
 	Settings ApplicationSettings

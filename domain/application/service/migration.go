@@ -230,6 +230,8 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 // application might be in an incomplete state, so it's important to remove
 // as much of the application as possible, even on failure.
 func (s *MigrationService) RemoveImportedApplication(context.Context, string) error {
+	// TODO (stickupkid): This is a placeholder for now, we need to implement
+	// this method.
 	return nil
 }
 

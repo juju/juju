@@ -65,7 +65,7 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 // [applicationerrors.ApplicationAlreadyExists] if the application already exists.
 // It returns as error satisfying [applicationerrors.CharmNotFound] if the charm
 // for the application is not found.
-func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app application.AddApplicationArg) (coreapplication.ID, error) {
+func (st *State) CreateApplication(ctx domain.AtomicContext, name string, args application.AddApplicationArg) (coreapplication.ID, error) {
 	appUUID, err := coreapplication.NewID()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -91,7 +91,7 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 
 	scaleInfo := applicationScale{
 		ApplicationID: appUUID,
-		Scale:         app.Scale,
+		Scale:         args.Scale,
 	}
 	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
 	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
@@ -101,9 +101,9 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 
 	platformInfo := applicationPlatform{
 		ApplicationID:  appUUID,
-		OSTypeID:       int(app.Platform.OSType),
-		Channel:        app.Platform.Channel,
-		ArchitectureID: int(app.Platform.Architecture),
+		OSTypeID:       int(args.Platform.OSType),
+		Channel:        args.Platform.Channel,
+		ArchitectureID: int(args.Platform.Architecture),
 	}
 	createPlatform := `INSERT INTO application_platform (*) VALUES ($applicationPlatform.*)`
 	createPlatformStmt, err := st.Prepare(createPlatform, platformInfo)
@@ -112,16 +112,16 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 	}
 
 	var (
-		referenceName = app.Charm.ReferenceName
-		revision      = app.Charm.Revision
-		charmName     = app.Charm.Metadata.Name
+		referenceName = args.Charm.ReferenceName
+		revision      = args.Charm.Revision
+		charmName     = args.Charm.Metadata.Name
 	)
 
 	var (
 		createChannelStmt *sqlair.Statement
 		channelInfo       applicationChannel
 	)
-	if ch := app.Channel; ch != nil {
+	if ch := args.Channel; ch != nil {
 		channelInfo = applicationChannel{
 			ApplicationID: appUUID,
 			Track:         ch.Track,
@@ -155,28 +155,40 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, app ap
 		}
 
 		if shouldInsertCharm {
-			if err := st.setCharm(ctx, tx, charmID, app.Charm, app.CharmDownloadInfo); err != nil {
+			if err := st.setCharm(ctx, tx, charmID, args.Charm, args.CharmDownloadInfo); err != nil {
 				return errors.Annotate(err, "setting charm")
 			}
 		}
 
 		// If the application doesn't exist, create it.
 		if err := tx.Query(ctx, createApplicationStmt, appDetails).Run(); err != nil {
-			return errors.Annotatef(err, "creating row for application %q", name)
+			return errors.Annotatef(err, "inserting row for application %q", name)
 		}
 		if err := tx.Query(ctx, createPlatformStmt, platformInfo).Run(); err != nil {
-			return errors.Annotatef(err, "creating platform row for application %q", name)
+			return errors.Annotatef(err, "inserting platform row for application %q", name)
 		}
 		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
-			return errors.Annotatef(err, "creating scale row for application %q", name)
+			return errors.Annotatef(err, "inserting scale row for application %q", name)
 		}
+		if err := st.insertResources(ctx, tx, appDetails, args.Resources); err != nil {
+			return errors.Annotatef(err, "inserting resources for application %q", name)
+		}
+		if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
+			return errors.Annotatef(err, "inserting config for application %q", name)
+		}
+		if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
+			return errors.Annotatef(err, "inserting settings for application %q", name)
+		}
+
+		// The channel is optional for local charms. Although, it would be
+		// nice to have a channel for local charms, it's not a requirement.
 		if createChannelStmt != nil {
 			if err := tx.Query(ctx, createChannelStmt, channelInfo).Run(); err != nil {
-				return errors.Annotatef(err, "creating channel row for application %q", name)
+				return errors.Annotatef(err, "inserting channel row for application %q", name)
 			}
 		}
 
-		return st.insertResources(ctx, tx, appDetails, app.Resources)
+		return nil
 	})
 	return appUUID, errors.Annotatef(err, "creating application %q", name)
 }
@@ -2645,6 +2657,72 @@ AND charm_uuid = $charmID.uuid;
 	if count.Count == 0 {
 		return applicationerrors.ApplicationHasDifferentCharm
 	}
+	return nil
+}
+
+func (st *State) insertApplicationConfig(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appID coreapplication.ID,
+	config map[string]application.ApplicationConfig,
+) error {
+	if len(config) == 0 {
+		return nil
+	}
+
+	insertQuery := `
+INSERT INTO application_config (*)
+VALUES ($setApplicationConfig.*);
+`
+	insertStmt, err := st.Prepare(insertQuery, setApplicationConfig{})
+	if err != nil {
+		return internalerrors.Errorf("preparing insert query: %w", err)
+	}
+
+	inserts := make([]setApplicationConfig, 0, len(config))
+	for k, v := range config {
+		typeID, err := encodeConfigType(v.Type)
+		if err != nil {
+			return internalerrors.Errorf("encoding config type: %w", err)
+		}
+
+		inserts = append(inserts, setApplicationConfig{
+			ApplicationUUID: appID.String(),
+			Key:             k,
+			Value:           v.Value,
+			TypeID:          typeID,
+		})
+	}
+
+	if err := tx.Query(ctx, insertStmt, inserts).Run(); err != nil {
+		return internalerrors.Errorf("inserting config: %w", err)
+	}
+
+	return nil
+}
+
+func (st *State) insertApplicationSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appID coreapplication.ID,
+	settings application.ApplicationSettings,
+) error {
+	insertQuery := `
+INSERT INTO application_setting (*)
+VALUES ($setApplicationSettings.*);
+`
+	insertStmt, err := st.Prepare(insertQuery, setApplicationSettings{})
+	if err != nil {
+		return internalerrors.Errorf("preparing insert query: %w", err)
+	}
+
+	if err := tx.Query(ctx, insertStmt, setApplicationSettings{
+		ApplicationUUID: appID.String(),
+		Trust:           settings.Trust,
+	}).Run(); err != nil {
+		return internalerrors.Errorf("inserting settings: %w", err)
+	}
+
 	return nil
 }
 

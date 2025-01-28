@@ -506,7 +506,12 @@ func makeCreateApplicationArgs(
 
 	channelArg, platformArg, err := encodeChannelAndPlatform(origin)
 	if err != nil {
-		return application.AddApplicationArg{}, fmt.Errorf("encode charm origin: %w", err)
+		return application.AddApplicationArg{}, fmt.Errorf("encoding charm origin: %w", err)
+	}
+
+	applicationConfig, err := encodeApplicationConfig(args.ApplicationConfig, ch.Config)
+	if err != nil {
+		return application.AddApplicationArg{}, fmt.Errorf("encoding application config: %w", err)
 	}
 
 	return application.AddApplicationArg{
@@ -515,7 +520,7 @@ func makeCreateApplicationArgs(
 		Platform:          platformArg,
 		Channel:           channelArg,
 		Resources:         makeResourcesArgs(args.ResolvedResources),
-		Config:            args.ApplicationConfig,
+		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,
 	}, nil
 }
@@ -1686,4 +1691,27 @@ func getTrustSettingFromConfig(cfg map[string]string) (bool, error) {
 		return false, internalerrors.Errorf("parsing trust setting: %w", err)
 	}
 	return b, nil
+}
+
+func encodeApplicationConfig(cfg config.ConfigAttributes, charmConfig domaincharm.Config) (map[string]application.ApplicationConfig, error) {
+	// If there is no config, then we can just return nil.
+	if len(cfg) == 0 {
+		return nil, nil
+	}
+
+	encodedConfig := make(map[string]application.ApplicationConfig, len(cfg))
+	for k, v := range cfg {
+		option, ok := charmConfig.Options[k]
+		if !ok {
+			// This should never happen, as we've verified the config is valid.
+			// But if it does, then we should return an error.
+			return nil, internalerrors.Errorf("missing charm config, expected %q", k)
+		}
+
+		encodedConfig[k] = application.ApplicationConfig{
+			Value: v,
+			Type:  option.Type,
+		}
+	}
+	return encodedConfig, nil
 }

@@ -86,8 +86,10 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 		Branch: "branch",
 	}
 
+	var id coreapplication.ID
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+		var err error
+		id, err = s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
 			Platform: platform,
 			Charm: charm.Charm{
 				Metadata:      s.minimalMetadata(c, "666"),
@@ -111,6 +113,73 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
+
+	// Ensure that config is empty and trust is false.
+	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, gc.HasLen, 0)
+	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{Trust: false})
+}
+
+func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *gc.C) {
+	platform := application.Platform{
+		Channel:      "666",
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &application.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+
+	var id coreapplication.ID
+	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
+		var err error
+		id, err = s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+			Platform: platform,
+			Charm: charm.Charm{
+				Metadata:      s.minimalMetadata(c, "666"),
+				Manifest:      s.minimalManifest(c),
+				Source:        charm.CharmHubSource,
+				ReferenceName: "666",
+				Revision:      42,
+				Architecture:  architecture.ARM64,
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident-1",
+				DownloadURL:        "http://example.com/charm",
+				DownloadSize:       666,
+			},
+			Scale:   1,
+			Channel: channel,
+			Config: map[string]application.ApplicationConfig{
+				"foo": {
+					Value: "bar",
+					Type:  charm.OptionString,
+				},
+			},
+			Settings: application.ApplicationSettings{
+				Trust: true,
+			},
+		})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	scale := application.ScaleState{Scale: 1}
+	s.assertApplication(c, "666", platform, channel, scale, false)
+
+	// Ensure that config is empty and trust is false.
+	config, settings, err := s.state.GetApplicationConfigAndSettings(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, gc.DeepEquals, map[string]application.ApplicationConfig{
+		"foo": {
+			Value: "bar",
+			Type:  charm.OptionString,
+		},
+	})
+	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{Trust: true})
 }
 
 func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
@@ -2488,7 +2557,12 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsWithTrust(c *
 			return err
 		}
 
-		stmt = `INSERT INTO application_setting (application_uuid, trust) VALUES (?, true)`
+		stmt = `
+INSERT INTO application_setting (application_uuid, trust) 
+VALUES (?, true)
+ON CONFLICT(application_uuid) DO UPDATE SET
+	trust = excluded.trust;
+`
 		_, err = tx.ExecContext(ctx, stmt, id.String())
 		return err
 	})
@@ -2582,7 +2656,12 @@ func (s *applicationStateSuite) TestGetApplicationTrustSetting(c *gc.C) {
 			return err
 		}
 
-		stmt = `INSERT INTO application_setting (application_uuid, trust) VALUES (?, true)`
+		stmt = `
+INSERT INTO application_setting (application_uuid, trust) 
+VALUES (?, true)
+ON CONFLICT(application_uuid) DO UPDATE SET
+	trust = excluded.trust;
+`
 		_, err = tx.ExecContext(ctx, stmt, id.String())
 		return err
 	})
