@@ -1,4 +1,4 @@
-(how-to-manage-metadata)=
+(manage-metadata)=
 # How to manage metadata
 
 <!--
@@ -37,7 +37,7 @@ The cloud specification comes from the current Juju model, but it is possible to
 
 The generated metadata image can then be used to speed up bootstrap and deployment.
 
-> See more: {ref}`command-juju-bootstrap`, {ref}`Bootstrapping <bootstrapping`, {ref}`VMware vSphere and Juju <the-vmware-vsphere-cloud-and-juju`
+> See more: {ref}`command-juju-bootstrap`, {ref}`cloud-vsphere`
 
 **For agent binaries.** To create metadata for Juju agent binaries, use the `metadata` plugin with the `generate-agent-binaries` subcommand. This generates simplestreams metadata for agent binaries, facilitating their discovery and use.
 

@@ -16,7 +16,7 @@ The rest of this document expands on this mapping.
 
 ## Namespace and Model
 
-Both namespaces and models allow for the aggregation of a set of resources into a common "context". However, a model must be part of a Juju {ref}`cloud <cloud-substrate>`, whereas a namespace is
+Both namespaces and models allow for the aggregation of a set of resources into a common "context". However, a model must be part of a Juju {ref}`cloud <cloud>`, whereas a namespace is
 not part of any higher grouping; there is not an equivalent concept of a cloud on Kubernetes.
 
 ## Node and Machine
@@ -35,6 +35,6 @@ deploy code into a container or process. However, units in an **application** wi
 
 Both similar in concept, **services** and **applications** allow the integration of other services/applications within the cluster and can also
 be exposed to enable access from the external world to the cluster.
-A key difference is that applications can be automatically integrated with other applications, provided that the applications' {ref}`endpoints <endpoint>` are
+A key difference is that applications can be automatically integrated with other applications, provided that the applications' {ref}`endpoints <application-endpoint>` are
 compatible with each other. On the other hand, the integration between services must be done
 manually, using the services' IP addresses or DNS names as their integration points.

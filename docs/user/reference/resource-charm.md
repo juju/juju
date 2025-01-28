@@ -1,4 +1,4 @@
-(resource-charm)=
+(charm-resource)=
 # Resource (charm)
 >
 > See also: {ref}`manage-charm-resources`

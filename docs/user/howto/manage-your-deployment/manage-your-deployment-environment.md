@@ -1,4 +1,5 @@
-(set-up-your-test-environment)=
+(manage-your-deployment-environment)=
+# Manage your deployment environment
 
 Whether you are a charm user looking to try out some charms or a charm author looking to develop a charm, you will likely need / want all of the following: 
 

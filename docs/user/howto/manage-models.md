@@ -277,7 +277,7 @@ Just as before, by using various flags you can filter by a specific cloud or clo
 
 > See more: {ref}`command-juju-model-defaults`
 
-
+(manage-constraints-for-a-model)=
 ## Manage constraints for a model
 > See also: {ref}`constraint`
 
@@ -638,7 +638,7 @@ This procedure cannot be used to upgrade a controller model.
 
 ```
 
-> See more: {ref}`migrate-a-workload-model-to-another-controller` 
+> See more: {ref}`migrate-a-model` 
 
 
 
@@ -695,8 +695,8 @@ sudo systemctl restart jujud-machine-2
 
 `````
 
-(migrate-a-workload-model-to-another-controller)=
-## Migrate a workload model to another controller
+(migrate-a-model)=
+## Migrate a model
 
 Model migration is the movement of a model from one controller to another. The same configuration of machines, units, and their relations will be replicated on the destination controller, while your applications continue uninterrupted. Migration is used to upgrade models across minor or major versions. Migration is also useful for load balancing: If a controller hosting multiple models reaches capacity, you can move the busiest models to a new controller, reducing load without affecting your applications.
 

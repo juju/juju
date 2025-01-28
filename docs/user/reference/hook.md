@@ -1,7 +1,3 @@
----
-tocdepth: 3
----
-
 (hook)=
 # Hook
 
@@ -1235,7 +1231,7 @@ TBA
 TBA
 
 (hook-storage-storage-detaching)=
-### `<storage>-storage-detaching`
+#### `<storage>-storage-detaching`
 
 #### What triggers it?
 

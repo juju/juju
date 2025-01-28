@@ -475,7 +475,7 @@ To observe an application, on a separate Kubernetes model deploy the Canonical O
 
 To migrate an application from one controller to another, migrate the model that it has been deployed to.
 
-> See more: {ref}`migrate-a-workload-model-to-another-controller`
+> See more: {ref}`migrate-a-model`
 
 (upgrade-an-application)=
 ## Upgrade an application

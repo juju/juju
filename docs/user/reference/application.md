@@ -95,7 +95,7 @@ In Juju, an application **endpoint** is a struct defined in an {ref}`application
 
 whose purpose is to help define a {ref}`relation <relation>`.
 
-For example, the MySQL application deployed from the `mysql` charm has an endpoint called `mysql` with role `provides` and interface `mysql` and this can be used to form  a {ref}`non-subordinate relation <non-subordinate-relation` relation with WordPress. 
+For example, the MySQL application deployed from the `mysql` charm has an endpoint called `mysql` with role `provides` and interface `mysql` and this can be used to form  a {ref}`non-subordinate relation <non-subordinate-relation>` relation with WordPress. 
 
 > See more: [GitHub | `mysql-operator` > `metadata.yaml`](https://github.com/canonical/mysql-operator/blob/2bd2bcc65590937dab18d1d9b0fe21a445557bb6/metadata.yaml#L35), [Charmhub | `mysql`](https://charmhub.io/mysql/integrations#mysql)
 

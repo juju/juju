@@ -28,7 +28,7 @@ At any point, to ask for help or give feedback or contribute: Get in touch: {ref
 
 On your machine, install Multipass and use it to set up an Ubuntu virtual machine (VM) called `my-juju-vm` from the `charm-dev` blueprint. 
 
-> See more: {ref}`set-up-your-deployment-environment` > Set things up (automatically)
+> See more: {ref}`manage-your-deployment-environment` > Set things up (automatically)
 > 
 > Note: This document also contains a manual path, using which you can set things up without the Multipass VM or the `charm-dev` blueprint. However, please note that the manual path may yield slightly different results that may impact your experience of this tutorial. For best results we strongly recommend the automatic path, or else suggest that you follow the manual path in a way that stays very close to [the definition of the `charm-dev` blueprint](https://github.com/canonical/multipass-blueprints/blob/ae90147b811a79eaf4508f4776390141e0195fe7/v1/charm-dev.yaml#L134).
 
@@ -41,7 +41,7 @@ In this tutorial your goal is to set up a chat service on a cloud.
 
 First, decide which cloud (i.e., anything that provides storage, compute, and networking) you want to use. Juju supports a long list of clouds; in this tutorial we will use a low-ops, minimal production Kubernetes called 'MicroK8s'. In a terminal, open a shell into your VM and verify that you already have MicroK8s installed (`microk8s version`). 
 
-> See more: {ref}`cloud`, {ref}`list-of-supported-clouds`, {ref}`the-microk8s-cloud-and-juju`, {ref}`Manage your test environment > steps 3-4 <manage-your-test-environment>` 
+> See more: {ref}`cloud`, {ref}`list-of-supported-clouds`, {ref}`cloud-kubernetes-microk8s`, {ref}`manage-your-deployment-environment`> steps 3-4 
 
 
 Next, decide which charms (i.e., software operators) you want to use. Charmhub provides a large collection. For this tutorial we will use `mattermost-k8s`  for the chat service,  `postgresql-k8s` for its backing database, and `self-signed-certificates` to TLS-encrypt traffic from PostgreSQL.
@@ -220,7 +220,7 @@ Congratulations, your chat service is up and running!
 
 
 
-> See more: {ref}`manage-your-test-environment`, {ref}`manage-juju`, {ref}`manage-clouds`, {ref}`manage-credentials`, {ref}`manage-controllers`, {ref}`manage-models`, {ref}`manage-applications`
+> See more: {ref}`manage-your-deployment-environment`, {ref}`manage-juju`, {ref}`manage-clouds`, {ref}`manage-credentials`, {ref}`manage-controllers`, {ref}`manage-models`, {ref}`manage-applications`
 
 ```{dropdown} Look around
 
@@ -231,7 +231,7 @@ Congratulations, your chat service is up and running!
 **1d.** Filter by keyword: Use `juju help commands | grep <keyword>` to get a quick sense of the commands related to a particular keyword (e.g., "secret"). Try ` juju help commands | grep -v Alias` to exclude any aliases. <br>
 **1e.** Find out more about a specific command: `juju help <command>`.<br>
 **1f.** Inspect the files on your workstation associated with the client: `ls ~/.local/share/juju`.<br>
-**1g.** Learn about other Juju clients: {ref}`client`. <p>
+**1g.** Learn about other Juju clients: [terraform-provider-juju](https://canonical-terraform-provider-juju.readthedocs-hosted.com/en/latest/tutorial/), [Python Libjuju](https://pythonlibjuju.readthedocs.io/en/latest/). <p>
 
 **2.** **Learn more about your cloud definition and credentials *in* Juju.** <br>
 **2a.** Find out more about the Juju notion of a cloud: {ref}`cloud`.<br>
@@ -517,7 +517,7 @@ charm "self-signed-certificates": already up-to-date
 ```
 
 
-> See more: {ref}`juju-roadmap-and-releases`, {ref}`juju-cross-version-compatibility-in-juju`, {ref}`upgrade-your-deployment`
+> See more: {ref}`juju-roadmap-and-releases`, {ref}`juju-cross-version-compatibility`, {ref}`upgrade-your-deployment`
 
 
 ### Observe
@@ -629,7 +629,7 @@ Congratulations, you now have a functional observability setup! But your control
 
 To tear things down, remove your entire Multipass Ubuntu VM, then uninstall Multipass:
 
-> See more: {ref}`set-up-your-deployment-environment` > Tear things down (automatically)
+> See more: {ref}`manage-your-deployment-environment` > Tear things down (automatically)
 
 
 ## Next steps

@@ -293,7 +293,7 @@ To deploy an application, refer to the pool as usual. Here we deploy PostgreSQL 
 juju deploy postgresql --storage pgdata=lxd,8G
 ```
 
-See {ref}`the-lxd-cloud-and-juju`` for how to use LXD in conjunction with Juju, including the use of ZFS as an alternative filesystem.
+See {ref}`cloud-lxd` for how to use LXD in conjunction with Juju, including the use of ZFS as an alternative filesystem.
 
 
 (loop-devices-and-lxd)=

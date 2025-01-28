@@ -218,7 +218,7 @@ The procedure for how to share a controller with other users depends on whether 
 
 2. Send the users the information they need to register your controller with their client and to set up their login information for the controller.
 
-> See more: {ref}`register-a-private-controller`
+> See more: {ref}`register-a-controller`
 
 **Share a public controller.**
 
@@ -376,6 +376,7 @@ If the removal of a controller will result in an **odd** number of systems then 
 
 > See more: {ref}`command-juju-enable-ha`
 
+(collect-metrics-about-a-controller)=
 ## Collect metrics about a controller
 
 Each controller provides an HTTPS endpoint to expose Prometheus metrics. To feed these metrics into Prometheus, configure Prometheus to scrape the controller's metrics. You can do that automatically via Juju relations or manually.
@@ -685,7 +686,7 @@ See `upgrade-your-deployment for a full demo!
 
 > See more: 
 > - {ref}`back-up-a-controller`
-> - {ref}`migrate-a-workload-model-to-another-controller`
+> - {ref}`migrate-a-model`
 > - {ref}`manage-a-users-login-details`
 
 ## Remove a controller

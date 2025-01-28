@@ -38,7 +38,7 @@ juju model-config resource-tags="origin=v2 owner=Canonical"
 
 You can change the tags back by running the above command again with different values. Changes will not be made to existing machines, but the new tags will apply to any future machines created.
 
-> See more: {ref}`List of model configuration keys > `resource-tags` <1102md>`
+> See more: {ref}`list-of-model-configuration-keys` > `resource-tags`
 
 These tags may be used, for example, to set up chargeback accounting.
 

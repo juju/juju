@@ -5,7 +5,7 @@
 ```{toctree}
 :maxdepth: 2
 
-Manage your test environment <manage-your-test-environment>
+Manage your deployment environment <manage-your-deployment-environment>
 Harden your deployment <harden-your-deployment>
 Upgrade your deployment <upgrade-your-deployment>
 Troubleshoot your deployment <troubleshoot-your-deployment>
