@@ -514,14 +514,14 @@ func (s *Service) SetApplicationResource(
 	return nil
 }
 
-// SetRepositoryResources sets the "polled" resource for the application to
-// the provided values. These are resource collected from the repository for
-// the application.
+// SetRepositoryResources updates the last available revision of resources
+// from charm repository for a specific application.
 //
 // The following error types can be expected to be returned:
-//   - [coreerrors.NotValid] is returned if the Application ID is not valid.
-//   - [resourceerrors.ArgumentNotValid] is returned if LastPolled is zero.
-//   - [resourceerrors.ArgumentNotValid] is returned if the length of Info is zero.
+//   - [resourceerrors.ApplicationIDNotValid] is returned if the Application ID is not valid.
+//   - [resourceerrors.CharmIDNotValid] is returned if the charm ID is not valid.
+//   - [resourceerrors.ArgumentNotValid] is returned if LastPolled is zero,
+//     if the length of Info is zero or if any info are invalid.
 //   - [resourceerrors.ApplicationNotFound] if the specified application does
 //     not exist.
 func (s *Service) SetRepositoryResources(
@@ -529,14 +529,17 @@ func (s *Service) SetRepositoryResources(
 	args resource.SetRepositoryResourcesArgs,
 ) error {
 	if err := args.ApplicationID.Validate(); err != nil {
-		return errors.Errorf("application id: %w", err)
+		return errors.Errorf("%w: %w", resourceerrors.ApplicationIDNotValid, err)
+	}
+	if err := args.CharmID.Validate(); err != nil {
+		return errors.Errorf("%w: %w", resourceerrors.CharmIDNotValid, err)
 	}
 	if len(args.Info) == 0 {
 		return errors.Errorf("empty Info: %w", resourceerrors.ArgumentNotValid)
 	}
 	for _, info := range args.Info {
 		if err := info.Validate(); err != nil {
-			return errors.Errorf("resource: %w", err)
+			return errors.Errorf("%w: resource: %w", resourceerrors.ArgumentNotValid, err)
 		}
 	}
 	if args.LastPolled.IsZero() {

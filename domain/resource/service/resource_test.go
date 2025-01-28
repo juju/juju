@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
@@ -904,6 +905,7 @@ func (s *resourceServiceSuite) TestSetRepositoryResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	args := resource.SetRepositoryResourcesArgs{
 		ApplicationID: applicationtesting.GenApplicationUUID(c),
+		CharmID:       charmtesting.GenCharmID(c),
 		Info: []charmresource.Resource{{
 
 			Meta: charmresource.Meta{
@@ -923,6 +925,113 @@ func (s *resourceServiceSuite) TestSetRepositoryResources(c *gc.C) {
 
 	err = s.service.SetRepositoryResources(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedErr := errors.New("application error")
+	s.state.EXPECT().SetRepositoryResources(gomock.Any(), gomock.Any()).Return(expectedErr)
+
+	// Act
+	err = s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+		ApplicationID: applicationtesting.GenApplicationUUID(c),
+		CharmID:       charmtesting.GenCharmID(c),
+		Info: []charmresource.Resource{{
+			Meta: charmresource.Meta{
+				Name:        "my-resource",
+				Type:        charmresource.TypeFile,
+				Path:        "filename.tgz",
+				Description: "One line that is useful when operators need to push it.",
+			},
+			Origin:      charmresource.OriginStore,
+			Revision:    1,
+			Fingerprint: fp,
+			Size:        1,
+		}},
+		LastPolled: time.Now(),
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, expectedErr)
+}
+
+func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationIDNotValid(c *gc.C) {
+	// Act
+	err := s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+		ApplicationID: "Not-valid",
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationIDNotValid)
+}
+
+func (s *resourceServiceSuite) TestSetRepositoryResourcesCharmIDNotValid(c *gc.C) {
+	// Act
+	err := s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+		ApplicationID: applicationtesting.GenApplicationUUID(c),
+		CharmID:       "Not-valid",
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, resourceerrors.CharmIDNotValid)
+}
+
+func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationNoLastPolled(c *gc.C) {
+	// Arrange
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Act
+	err = s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+		ApplicationID: applicationtesting.GenApplicationUUID(c),
+		CharmID:       charmtesting.GenCharmID(c),
+		Info: []charmresource.Resource{{
+			Meta: charmresource.Meta{
+				Name:        "my-resource",
+				Type:        charmresource.TypeFile,
+				Path:        "filename.tgz",
+				Description: "One line that is useful when operators need to push it.",
+			},
+			Origin:      charmresource.OriginStore,
+			Revision:    1,
+			Fingerprint: fp,
+			Size:        1,
+		}},
+		LastPolled: time.Time{},
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, resourceerrors.ArgumentNotValid)
+}
+
+func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationNoInfo(c *gc.C) {
+	// Act
+	err := s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+		ApplicationID: applicationtesting.GenApplicationUUID(c),
+		CharmID:       charmtesting.GenCharmID(c),
+		Info:          nil,
+		LastPolled:    time.Now(),
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, resourceerrors.ArgumentNotValid)
+}
+
+func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationInvalidInfo(c *gc.C) {
+	// Act
+	err := s.service.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
+		ApplicationID: applicationtesting.GenApplicationUUID(c),
+		CharmID:       charmtesting.GenCharmID(c),
+		Info:          []charmresource.Resource{{}, {}}, // Invalid resources
+		LastPolled:    time.Now(),
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, resourceerrors.ArgumentNotValid)
 }
 
 func (s *resourceServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
