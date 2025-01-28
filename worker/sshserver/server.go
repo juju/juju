@@ -111,7 +111,10 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	}{}
 
 	if err := gossh.Unmarshal(newChan.ExtraData(), &d); err != nil {
-		newChan.Reject(gossh.ConnectionFailed, "Failed to parse channel data")
+		err := newChan.Reject(gossh.ConnectionFailed, "Failed to parse channel data")
+		if err != nil {
+			s.config.Logger.Errorf("failed to reject channel: %v", err)
+		}
 		return
 	}
 
@@ -130,7 +133,10 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		defer ch.Close()
 		defer jumpServerPipe.Close()
 		defer terminatingServerPipe.Close()
-		io.Copy(ch, jumpServerPipe)
+		_, err := io.Copy(ch, jumpServerPipe)
+		if err != nil {
+			s.config.Logger.Errorf("failed to copy data from jump server to client: %v", err)
+		}
 
 		return nil
 	})
@@ -138,7 +144,10 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		defer ch.Close()
 		defer jumpServerPipe.Close()
 		defer terminatingServerPipe.Close()
-		io.Copy(jumpServerPipe, ch)
+		_, err := io.Copy(jumpServerPipe, ch)
+		if err != nil {
+			s.config.Logger.Errorf("failed to copy data from client to jump server: %v", err)
+		}
 
 		return nil
 	})
