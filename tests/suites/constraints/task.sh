@@ -9,11 +9,7 @@ test_constraints() {
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 
-	file="${TEST_DIR}/test-constraints.txt"
-
-	bootstrap "test-constraints" "${file}"
-
 	test_constraints_common
 
-	destroy_controller "test-constraints"
+	test_constraints_model
 }
