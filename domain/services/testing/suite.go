@@ -191,7 +191,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 		Owner:        s.AdminUserUUID,
 	}
 
-	fn := modelbootstrap.CreateModel(s.ControllerModelUUID, controllerArgs)
+	fn := modelbootstrap.CreateGlobalModelRecord(s.ControllerModelUUID, controllerArgs)
 	c.Assert(backendbootstrap.CreateDefaultBackends(coremodel.IAAS)(
 		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String())), jc.ErrorIsNil)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
@@ -216,7 +216,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 		Owner:        s.AdminUserUUID,
 	}
 
-	fn = modelbootstrap.CreateModel(s.DefaultModelUUID, modelArgs)
+	fn = modelbootstrap.CreateGlobalModelRecord(s.DefaultModelUUID, modelArgs)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 

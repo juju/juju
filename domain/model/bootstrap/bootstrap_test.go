@@ -92,7 +92,7 @@ type bootstrapSuite struct {
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestUUIDIsRespected(c *gc.C) {
-	fn := CreateModel(
+	fn := CreateGlobalModelRecord(
 		modeltesting.GenModelUUID(c),
 		model.GlobalModelCreationArgs{
 			AgentVersion: jujuversion.Current,
@@ -139,7 +139,7 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	}
 
 	// Create a model and then create a read-only model from it.
-	fn := CreateModel(modelUUID, args)
+	fn := CreateGlobalModelRecord(modelUUID, args)
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -179,7 +179,7 @@ func (s *modelBootstrapSuite) TestCreateModelWithDifferingBuildNumber(c *gc.C) {
 	}
 
 	// Create a model and then create a read-only model from it.
-	fn := CreateModel(modeltesting.GenModelUUID(c), args)
+	fn := CreateGlobalModelRecord(modeltesting.GenModelUUID(c), args)
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
