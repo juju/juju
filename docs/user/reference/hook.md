@@ -8,7 +8,7 @@ tocdepth: 3
 In Juju, a **hook** is a notification from  the controller agent through the unit agent to the charm that the internal representation of Juju has changed in a way that requires a reaction from the charm so that the unit's state and the controller's state can be reconciled.
 
 
-For a charm written with {ref}`Ops <ops>`, Juju hooks are translated into Ops events = 'events', specifically, into classes that inherit from [`HookEvent`](https://ops.readthedocs.io/en/latest/index.html#ops.HookEvent).
+For a charm written with [Ops](https://ops.readthedocs.io/en/latest/), Juju hooks are translated into Ops events = 'events', specifically, into classes that inherit from [`HookEvent`](https://ops.readthedocs.io/en/latest/index.html#ops.HookEvent).
 
 Whenever a hook event is received, the associated event handler should ensure the current charm configuration is properly reflected in the underlying application configuration.
 Invocations of associated handlers should be idempotent and should not make changes to the environment, or restart services, unless there is a material change to the charm's configuration, such as a change in the port exposed by the charm, addition or removal of a relation which may require a database migration or a "scale out" event for high availability, or similar.
@@ -185,102 +185,45 @@ and this means we're inside the charm execution context.
 At this point,  typing `printenv` will print out the environment variables.
 ```
 
+The following environment variables are set for every hook:
 
-### Common charm hooks
+* PATH is the usual Unix path, prefixed by a directory containing command line tools through which the hooks can interact with juju.
+* JUJU_CHARM_DIR holds the path to the charm directory.
+* JUJU_HOOK_NAME holds the name of the currently executing hook.
+* JUJU_UNIT_NAME holds the name of the local unit.
+* JUJU_CONTEXT_ID, JUJU_AGENT_SOCKET_NETWORK and JUJU_AGENT_SOCKET_ADDRESS are set (but should not be messed with: the command line tools won't work without them).
+* JUJU_API_ADDRESSES holds a space separated list of juju API addresses.
+* JUJU_MODEL_UUID holds the UUID of the current model.
+* JUJU_MODEL_NAME holds the human friendly name of the current model.
+* JUJU_PRINCIPAL_UNIT holds the name of the principal unit if the current unit is a subordinate. 
+* JUJU_MACHINE_ID holds the ID of the machine on which the local unit is running.
+* JUJU_AVAILABILITY_ZONE holds the cloud's availability zone where the machine has been provisioned.
+* CLOUD_API_VERSION holds the API version of the cloud endpoint.
+* JUJU_VERSION holds the version of the model hosting the local unit.
+* JUJU_CHARM_HTTP_PROXY holds the value of the `juju-http-proxy` model config attribute.
+* JUJU_CHARM_HTTPS_PROXY holds the value of the `juju-https-proxy` model config attribute.
+* JUJU_CHARM_FTP_PROXY holds the value of the `juju-ftp-proxy` model config attribute.
+* JUJU_CHARM_NO_PROXY holds the value of the `juju-no-proxy` model config attribute.
 
-The following environment variables set for every hook:
-
-* $PATH is the usual Unix path, prefixed by a directory containing command line tools through which the hooks can interact with juju.
-* $JUJU_CHARM_DIR holds the path to the charm directory.
-* $JUJU_HOOK_NAME holds the name of the currently executing hook.
-* $JUJU_UNIT_NAME holds the name of the local unit.
-* $JUJU_CONTEXT_ID, $JUJU_AGENT_SOCKET_NETWORK and $JUJU_AGENT_SOCKET_ADDRESS are set (but should not be messed with: the command line tools won't work without them).
-* $JUJU_API_ADDRESSES holds a space separated list of juju API addresses.
-* $JUJU_MODEL_UUID holds the UUID of the current model.
-* $JUJU_MODEL_NAME holds the human friendly name of the current model.
-* $JUJU_PRINCIPAL_UNIT holds the name of the principal unit if the current unit is a subordinate. 
-* $JUJU_MACHINE_ID holds the ID of the machine on which the local unit is running.
-* $JUJU_AVAILABILITY_ZONE holds the cloud's availability zone where the machine has been provisioned.
-* $CLOUD_API_VERSION holds the API version of the cloud endpoint.
-* $JUJU_VERSION holds the version of the model hosting the local unit.
-* $JUJU_CHARM_HTTP_PROXY holds the value of the `juju-http-proxy` model config attribute.
-* $JUJU_CHARM_HTTPS_PROXY holds the value of the `juju-https-proxy` model config attribute.
-* $JUJU_CHARM_FTP_PROXY holds the value of the `juju-ftp-proxy` model config attribute.
-* $JUJU_CHARM_NO_PROXY holds the value of the `juju-no-proxy` model config attribute.
-
-Additionally, hooks will have extra environment variables set which correspond to the type of hook.
-Not all environment variables listed are set for every hook of a given type. Where relevant, each
-hook listed below mentions which specific environment variables are set for that particular hook.
-
-### Action hooks
-
-* $JUJU_ACTION_NAME holds the name of the action.
-* $JUJU_ACTION_UUID holds the UUID of the action.
-
-### Relation hooks
-
-These hooks require an associated relation.
-The hook names that these kinds represent will be prefixed by the relation name; for example, `database-relation-joined`.
-
-The following environment variables may be set depending on the exact hook:
-
-* $JUJU_RELATION holds the name of the relation.
-* $JUJU_RELATION_ID holds the ID of the relation.
-* $JUJU_REMOTE_UNIT holds the name of the related unit. 
-* $JUJU_REMOTE_APP holds the name of the related application.
-* $JUJU_DEPARTING_UNIT holds the name of a related unit departing the relation.
-
-### Secret hooks
-
-These hooks require an associated secret.
-The following environment variables may be set depending on the exact hook:
-
-* $JUJU_SECRET_ID holds the ID of the secret.
-* $JUJU_SECRET_LABEL holds the label of the secret.
-* $JUJU_SECRET_REVISION holds the revision of the secret.
-
-### Storage hooks
-
-These hooks require an associated storage.
-The hook names that these kinds represent will be prefixed by the storage name; for example, `database-storage-attached`.
-
-* $JUJU_STORAGE_ID holds the ID of the storage.
-* $JUJU_STORAGE_LOCATION holds the path at which the storage is mounted.
-* $JUJU_STORAGE_KIND holds the kind of storage (`block` or `filesystem`).
-
-### Upgrade series hook
-
-* $JUJU_TARGET_BASE holds the target base for the machine.
-
-### Workload (pebble) hooks
-
-These hooks require an associated workload/container.
-The hook names that these kinds represent will be prefixed by the workload/container name; for example, `mycontainer-pebble-ready`.
-
-The following environment variables may be set depending on the exact hook:
- 
-* $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
-* $JUJU_NOTICE_ID holds the Pebble notice ID.
-* $JUJU_NOTICE_TYPE holds the Pebble notice type.
-* $JUJU_NOTICE_KEY holds the Pebble notice key.
-* $JUJU_PEBBLE_CHECK_NAME holds the name of the Pebble check.
+Additionally, hooks will have extra environment variables set which correspond to the kind of hook.
+The operation of each hook kind is explained in the following sections, including any relevant additional environment variables.
 
 ## Hook ordering
 
 A charm's lifecycle consists of distinct **phases**:
-* install
+* installation
 * operation
 * upgrade
 * tear down
 
-Generally, no assumptions can be made about order of hook execution. However, there are some limited guarantees
+Generally, no assumptions can be made about the order of hook execution. However, there are some limited guarantees
 about hook sequencing during install, upgrade and relation removal. 
 
-In normal operation, a unit will run at least the install, start, config-changed  and stop hooks over the course of its lifetime.
+In normal operation, a unit will run at least the `install`, `start`, `config-changed` and `stop` hooks over the course of its lifetime.
 
-### Install phase
+### Installation phase
 
-When a charm is first deployed, the following hook are executed in order before a charm reaches its operation phase:
+When a charm is first deployed, the following hooks are executed in order before a charm reaches its operation phase:
 
 * storage-attached (if the unit has storage)
 * install
@@ -290,12 +233,13 @@ When a charm is first deployed, the following hook are executed in order before 
 
 ### Operation phase
 
-This phase is when a charm has completed its install operations and starts responding to events which correspond to interesting (relevant) changes to the Juju model.
-The behaviour is described in terms of hook kinds and is covered in subsequent sections.
+This phase occurs when a charm has completed its installation operations and starts responding to events which correspond to interesting (relevant) changes to the Juju model.
+The behaviour when in this phase can be explained by understanding the events which trigger the execution of the different hook kinds, and the context in which the hooks execute.
+This is covered in subsequent sections where hook kinds are explored in more detail.
 
 ### Upgrade phase
 
-When a charm is upgraded, the `upgrade-charm` hook is usually followed by a `config-changed` hook.
+When a charm is upgraded, the `upgrade-charm` hook is followed by a `config-changed` hook.
 
 The `upgrade-charm` hook always runs once immediately after the charm directory
 contents have been changed by an unforced charm upgrade operation, and *may* do
@@ -311,16 +255,15 @@ When an application is to be removed, the `stop` hook is the last hook to be run
 ## Errors in hooks
 
 Hooks should ideally be idempotent, so that they can fail and be re-executed
-from scratch without trouble. As a hook author, you don't have complete control
-over the times your hook might be stopped: if the unit agent process is killed
+from scratch without trouble. Charm code in hooks does not have complete control
+over the times the hook might be stopped: if the unit agent process is killed
 for any reason while running a hook, then when it recovers it will treat that
 hook as having failed -- just as if it had returned a non-zero exit code -- and
 request user intervention.
 
-It is unrealistic to expect great sophistication on the part of the average user,
-and as a charm author you should expect that users will attempt to re-execute
-failed hooks before attempting to investigate or understand the situation. You
-should therefore make every effort to ensure your hooks are idempotent when
+Hooks should be written to expect that users could (and probably will) attempt to
+re-execute failed hooks before attempting to investigate or understand the situation.
+Hook code should therefore make every effort to ensure hooks are idempotent when
 aborted and restarted.
 
 The most sophisticated charms will consider the nature of their operations with
@@ -333,7 +276,16 @@ information or advice before signalling the error.
 
 This section describes the workflows and associated hook events which are important to the operation of Juju.
 
-## Relation hooks
+### Action hooks
+
+Action hooks operate in an environment with additional environment variables available:
+
+* JUJU_ACTION_NAME holds the name of the action.
+* JUJU_ACTION_UUID holds the UUID of the action.
+
+### Relation hooks
+
+The hook names that these kinds represent will be prefixed by the endpoint name; for example, `database-relation-joined`.
 
 For every relation defined by a charm, relation hook events are named after the charm relation:
 
@@ -346,13 +298,13 @@ For every relation defined by a charm, relation hook events are named after the 
 For each charm relation, any or all of the above relation hooks can be implemented.
 Relation hooks operate in an environment with additional environment variables available:
 
-* JUJU_RELATION is set to the name of the charm relation. This is of limited value, because every relation hook already "knows" what charm relation it was written for; that is, in the `foo-relation-joined` hook, JUJU_RELATION is `foo`.
-* JUJU_RELATION_ID is more useful, because it serves as unique identifier for a particular relation, and thereby allows the charm to handle distinct relations over a single endpoint. In hooks for the `foo` charm relation, JUJU_RELATION_ID always has the form "foo:<id>", where id uniquely but opaquely identifies the runtime relation currently in play.
-* JUJU_REMOTE_APPLICATION is set to the name of the related application.
+* JUJU_RELATION holds the name of the relation. This is of limited value, because every relation hook already "knows" what charm relation it was written for; that is, in the `foo-relation-joined` hook, JUJU_RELATION is `foo`.
+* JUJU_RELATION_ID holds the ID of the relation. It is more useful, because it serves as unique identifier for a particular relation, and thereby allows the charm to handle distinct relations over a single endpoint. In hooks for the `foo` charm relation, JUJU_RELATION_ID always has the form "foo:<id>", where id uniquely but opaquely identifies the runtime relation currently in play.
+* JUJU_REMOTE_APP holds the name of the related application.
 
 Furthermore, all relation hooks except relation-created and relation-broken are notifications about some specific unit of a related application, and operate in an environment with the following additional environment variables available:
 
-* JUJU_REMOTE_UNIT is set to the name of the current related unit.
+* JUJU_REMOTE_UNIT holds the name of the current related unit.
 
 For every relation in which a unit participates, hooks for the appropriate charm relation are run according to the following rules.
 
@@ -369,10 +321,51 @@ the next hook to be run *in relation id "foo:123"* will be "foo-relation-changed
 Non-relation hooks may intervene, as may hooks for other relations, and even for other "foo" relations.
 ```
 
-The `relation-departed` hook for a given unit always runs once when a related unit is no longer related. After the `relation-departed` hook has run, no further notifications will be received from that unit; however, its settings will remain accessible via relation-get for the complete lifetime of the relation.
+The `relation-departed` hook for a given unit always runs once when a related unit is no longer related.
+After the `relation-departed` hook has run, no further notifications will be received from that unit; however, its settings will remain accessible via relation-get for the complete lifetime of the relation.
+This hook also sets an additional environment variable:
+
+* JUJU_DEPARTING_UNIT holds the name of the related unit departing the relation.
 
 The `relation-broken` hook is not specific to any unit, and always runs once when the local unit is ready to depart the relation itself. Before this hook is run, a relation-departed hook will be executed for every unit known to be related; it will never run while the relation appears to have members, but it may be the first and only hook to run for a given relation. The stop hook will not run while relations remain to be broken.
 
+### Secret hooks
+
+Secret hooks operate in an environment with additional environment variables available:
+
+* JUJU_SECRET_ID holds the ID of the secret.
+* JUJU_SECRET_LABEL holds the label of the secret.
+* JUJU_SECRET_REVISION holds the revision of the secret.
+
+### Storage hooks
+
+The hook names that these kinds represent will be prefixed by the storage name; for example, `database-storage-attached`.
+
+Storage hooks operate in an environment with additional environment variables available:
+
+* JUJU_STORAGE_ID holds the ID of the storage.
+* JUJU_STORAGE_LOCATION holds the path at which the storage is mounted.
+* JUJU_STORAGE_KIND holds the kind of storage (`block` or `filesystem`).
+
+### Upgrade series hook
+
+This hook is run to inform the charm the version of the underlying OS will be upgraded.
+
+Upgrade series hooks operate in an environment with additional environment variables available:
+
+* JUJU_TARGET_BASE holds the target base for the machine.
+
+### Workload (pebble) hooks
+
+The hook names that these kinds represent will be prefixed by the workload/container name; for example, `mycontainer-pebble-ready`.
+
+Workload hooks operate in an environment with additional environment variables available:
+
+* JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
+* JUJU_NOTICE_ID holds the Pebble notice ID.
+* JUJU_NOTICE_TYPE holds the Pebble notice type.
+* JUJU_NOTICE_KEY holds the Pebble notice key.
+* JUJU_PEBBLE_CHECK_NAME holds the name of the Pebble check.
 
 ## List of hooks
 
@@ -398,7 +391,7 @@ All the units that the charm user has run the action on.
 
 > Note that the action handler in the charm can in principle cause other events to be fired. For example:
 > - Deferred events will trigger before the action.
-> - If the action handler updates relation data, a `<relation name>_relation_changed` will be emitted afterwards on the affected units.
+> - If the action handler updates relation data, a `<endpoint name>_relation_changed` will be emitted afterwards on the affected units.
 -->
 
 (hook-collect-metrics)=
@@ -577,7 +570,7 @@ The hook indicates that the relation under consideration is no longer valid, and
 
 > Also, it’s important to internalise the fact that there may be multiple relations in play with the same name, and that they’re independent: one `-broken` hook does not mean that *every* such relation is broken.
 
-> For a peer relation, `<peer relation name>-relation-broken` will never fire, not even during the teardown phase.
+> For a peer relation, `<peer endpoint name>-relation-broken` will never fire, not even during the teardown phase.
 
 
 #### Which hooks can be guaranteed to have fired before it, if any?
@@ -692,7 +685,7 @@ TBA
 
 #### What triggers it?
 
-<relation name>-relation-departed; emitted when a unit departs from an existing relation.
+<endpoint name>-relation-departed; emitted when a unit departs from an existing relation.
 
 The "relation-departed" hook for a given unit always runs once when a related unit is no longer related. After the "relation-departed" hook has run, no further notifications will be received from that unit; however, its settings will remain accessible via relation-get for the complete lifetime of the relation.
 
@@ -763,7 +756,7 @@ TBA
 
 #### What triggers it?
 
-<relation name>-relation-joined; emitted when a new unit joins in an existing relation.
+<endpoint name>-relation-joined; emitted when a new unit joins in an existing relation.
 
 The "relation-joined" hook always runs once when a related unit is first seen.
 
