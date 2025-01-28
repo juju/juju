@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/packethost/packngo"
 
 	"github.com/juju/juju/core/instance"
@@ -179,43 +178,36 @@ func (e *environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 	return infos, nil
 }
 
-// SupportsContainerAddresses returns true if the current environment is
-// able to allocate addaddresses for containers.
-func (*environ) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool, error) {
-	return false, nil
+// SuperSubnets returns information about the reserved private subnets that can
+// be used as underlays when setting up FAN networking.
+func (e *environ) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
+	attrs := e.cloud.Credential.Attributes()
+	if attrs == nil {
+		return nil, errors.Trace(fmt.Errorf("empty attribute credentials"))
+	}
+	// We checked the presence of project-id when we were verifying the credentials.
+	projectID := attrs["project-id"]
+
+	ips, err := e.listIPsByProjectIDAndRegion(projectID, e.cloud.Region)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var privateCIDRs []string
+	for _, ipblock := range ips {
+		if ipblock.Public {
+			continue // we are only interested in private block reservations from the right region
+		}
+		privateCIDRs = append(privateCIDRs, fmt.Sprintf("%s/%d", ipblock.Network, ipblock.CIDR))
+	}
+
+	return privateCIDRs, nil
 }
 
-// SupportsSpaceDiscovery returns whether the current environment
-// supports discovering spaces from the provider. The returned error
-// satisfies errors.IsNotSupported(), unless a general API failure occurs.
-func (*environ) SupportsSpaceDiscovery() (bool, error) {
-	return false, nil
-}
-
-// Spaces returns a slice of network.SpaceInfo with info, including
-// details of all associated subnets, about all spaces known to the
-// provider that have subnets available.
-func (*environ) Spaces(envcontext.ProviderCallContext) (network.SpaceInfos, error) {
-	return nil, errors.NotSupportedf("spaces")
-}
-
-// AllocateContainerAddresses allocates a static addsubnetss for each of the
-// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
-// network config including all allocated addaddresses on success.
-func (e *environ) AllocateContainerAddresses(envcontext.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("container address allocation")
-}
-
-// ProviderSpaceInfo returns the details of the space requested as
-// a ProviderSpaceInfo.
-func (*environ) ProviderSpaceInfo(envcontext.ProviderCallContext, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
-	return nil, errors.NotSupportedf("spaces")
-}
-
-// ReleaseContainerAddresses releases the previously allocated
-// addaddresses matching the interface details passed in.
-func (*environ) ReleaseContainerAddresses(envcontext.ProviderCallContext, []network.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("container address allocation")
+// AreSpacesRoutable returns whether the communication between the
+// two spaces can use cloud-local addaddresses.
+func (*environ) AreSpacesRoutable(envcontext.ProviderCallContext, *environs.ProviderSpaceInfo, *environs.ProviderSpaceInfo) (bool, error) {
+	return false, errors.NotSupportedf("spaces")
 }
 
 // listIPsByProjectIDAndRegion returns a list of reserved ip addressed filtered by projectID and region

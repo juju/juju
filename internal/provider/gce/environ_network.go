@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/core/instance"
@@ -325,19 +324,22 @@ func (e *environ) SupportsSpaces() (bool, error) {
 	return false, nil
 }
 
-// SupportsContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) SupportsContainerAddresses(ctx envcontext.ProviderCallContext) (bool, error) {
+// AreSpacesRoutable implements environs.NetworkingEnviron.
+func (*environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
 
-// AllocateContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) AllocateContainerAddresses(envcontext.ProviderCallContext, instance.Id, names.MachineTag, corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("container addresses")
-}
-
-// ReleaseContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) ReleaseContainerAddresses(envcontext.ProviderCallContext, []corenetwork.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("container addresses")
+// SuperSubnets implements environs.SuperSubnets
+func (e *environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
+	subnets, err := e.Subnets(ctx, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	cidrs := make([]string, len(subnets))
+	for i, subnet := range subnets {
+		cidrs[i] = subnet.CIDR
+	}
+	return cidrs, nil
 }
 
 func copyStrings(items []string) []string {

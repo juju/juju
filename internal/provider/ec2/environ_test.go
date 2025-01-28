@@ -8,7 +8,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -263,9 +262,9 @@ func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {
 
 func (*Suite) TestSupportsContainerAddresses(c *gc.C) {
 	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
-	var env *environ
+	env := new(environ)
 	supported, err := env.SupportsContainerAddresses(callCtx)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsFalse)
 	c.Check(environs.SupportsContainerAddresses(callCtx, env), jc.IsFalse)
 }

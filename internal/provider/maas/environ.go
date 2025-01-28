@@ -60,10 +60,7 @@ var defaultLongRetryStrategy = retry.CallArgs{
 	MaxDuration: 1200 * time.Second,
 }
 
-var (
-	DeploymentStatusCall = deploymentStatusCall
-	GetMAASController    = getMAASController
-)
+var GetMAASController = getMAASController
 
 func getMAASController(args gomaasapi.ControllerArgs) (gomaasapi.Controller, error) {
 	return gomaasapi.NewController(args)
@@ -884,11 +881,6 @@ func (env *maasEnviron) waitForNodeDeployment(ctx envcontext.ProviderCallContext
 	return errors.Trace(err)
 }
 
-func deploymentStatusCall(nodes gomaasapi.MAASObject, ids ...instance.Id) (gomaasapi.JSONObject, error) {
-	filter := getSystemIdValues("nodes", ids)
-	return nodes.CallGet("deployment_status", filter)
-}
-
 type selectNodeArgs struct {
 	AvailabilityZone string
 	NodeName         string
@@ -1373,6 +1365,8 @@ func (env *maasEnviron) ReleaseContainerAddresses(ctx envcontext.ProviderCallCon
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)
 	}
+	logger.Infof("found %d MAAS devices to remove", len(devices))
+
 	// If one device matched on multiple MAC addresses (like for
 	// multi-nic containers) it will be in the slice multiple
 	// times. Skip devices we've seen already.
@@ -1387,6 +1381,7 @@ func (env *maasEnviron) ReleaseContainerAddresses(ctx envcontext.ProviderCallCon
 		if err != nil {
 			return errors.Annotatef(err, "deleting device %s", device.SystemID())
 		}
+		logger.Infof("removed MAAS device %s", device.SystemID())
 	}
 	return nil
 }

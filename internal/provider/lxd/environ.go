@@ -43,6 +43,7 @@ type baseProvider interface {
 
 type environ struct {
 	environs.NoSpaceDiscoveryEnviron
+	environs.NoContainerAddressesEnviron
 
 	cloud    environscloudspec.CloudSpec
 	provider *environProvider

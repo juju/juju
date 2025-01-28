@@ -31,7 +31,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
@@ -309,6 +308,7 @@ func (p EnvironProvider) newConfig(ctx context.Context, cfg *config.Config) (*en
 
 type Environ struct {
 	environs.NoSpaceDiscoveryEnviron
+	environs.NoContainerAddressesEnviron
 
 	name      string
 	uuid      string
@@ -2379,19 +2379,23 @@ func (e *Environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
-// SupportsContainerAddresses is specified on environs.Networking.
-func (e *Environ) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool, error) {
-	return false, errors.NotSupportedf("container address")
+// SuperSubnets is specified on environs.Networking
+func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
+	subnets, err := e.networking.Subnets("", nil)
+	if err != nil {
+		handleCredentialError(err, ctx)
+		return nil, err
+	}
+	cidrs := make([]string, len(subnets))
+	for i, subnet := range subnets {
+		cidrs[i] = subnet.CIDR
+	}
+	return cidrs, nil
 }
 
-// AllocateContainerAddresses is specified on environs.Networking.
-func (e *Environ) AllocateContainerAddresses(ctx envcontext.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("allocate container address")
-}
-
-// ReleaseContainerAddresses is specified on environs.Networking.
-func (e *Environ) ReleaseContainerAddresses(ctx envcontext.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("release container address")
+// AreSpacesRoutable is specified on environs.NetworkingEnviron.
+func (*Environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
 }
 
 // SupportsRulesWithIPV6CIDRs returns true if the environment supports ingress

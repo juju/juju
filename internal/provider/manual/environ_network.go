@@ -5,7 +5,6 @@ package manual
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -25,21 +24,14 @@ func (e *manualEnviron) Subnets(envcontext.ProviderCallContext, instance.Id, []n
 	return nil, errors.NotSupportedf("subnets")
 }
 
-// SupportsContainerAddresses implements environs.NetworkingEnviron.
-func (e *manualEnviron) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool, error) {
+// SuperSubnets implements environs.NetworkingEnviron.
+func (e *manualEnviron) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
+	return nil, errors.NotSupportedf("super subnets")
+}
+
+// AreSpacesRoutable implements environs.NetworkingEnviron.
+func (*manualEnviron) AreSpacesRoutable(_ envcontext.ProviderCallContext, _, _ *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
-}
-
-// AllocateContainerAddresses implements environs.NetworkingEnviron.
-func (e *manualEnviron) AllocateContainerAddresses(
-	envcontext.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos,
-) (network.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("container addresses")
-}
-
-// ReleaseContainerAddresses implements environs.NetworkingEnviron.
-func (e *manualEnviron) ReleaseContainerAddresses(envcontext.ProviderCallContext, []network.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("container addresses")
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.

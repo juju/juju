@@ -10,7 +10,6 @@ import (
 
 	azurenetwork "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -141,21 +140,14 @@ func (env *azureEnviron) allPublicIPs(ctx envcontext.ProviderCallContext) (map[s
 	return idToIPMap, nil
 }
 
-// SupportsContainerAddresses implements environs.NetworkingEnviron.
-func (env *azureEnviron) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool, error) {
+// SuperSubnets implements environs.NetworkingEnviron.
+func (*azureEnviron) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
+	return nil, errors.NotSupportedf("super subnets")
+}
+
+// AreSpacesRoutable implements environs.NetworkingEnviron.
+func (*azureEnviron) AreSpacesRoutable(_ envcontext.ProviderCallContext, _, _ *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
-}
-
-// AllocateContainerAddresses implements environs.NetworkingEnviron.
-func (env *azureEnviron) AllocateContainerAddresses(
-	envcontext.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos,
-) (network.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("container addresses")
-}
-
-// ReleaseContainerAddresses implements environs.NetworkingEnviron.
-func (env *azureEnviron) ReleaseContainerAddresses(envcontext.ProviderCallContext, []network.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("container addresses")
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron. It returns back
