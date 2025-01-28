@@ -5,46 +5,20 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/port"
 	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
-// AtomicState describes the subset of methods on state that run within an atomic
-// context.
-type AtomicState interface {
-	domain.AtomicStateBase
-
-	// GetColocatedOpenedPorts returns all the open ports for all units co-located
-	// with the given unit. Units are considered co-located if they share the same
-	// net-node.
-	GetColocatedOpenedPorts(ctx domain.AtomicContext, unitUUID coreunit.UUID) ([]network.PortRange, error)
-
-	// GetEndpointOpenedPorts returns the opened ports for a given endpoint of a
-	// given unit.
-	GetEndpointOpenedPorts(ctx domain.AtomicContext, unitUUID coreunit.UUID, endpoint string) ([]network.PortRange, error)
-
-	// GetEndpoints returns all the valid relation endpoints for a given unit. This
-	// does not include the special wildcard endpoint.
-	GetEndpoints(ctx domain.AtomicContext, unitUUID coreunit.UUID) ([]string, error)
-
-	// UpdateUnitPorts opens and closes ports for the endpoints of a given unit.
-	// The opened and closed ports for the same endpoints must not conflict.
-	UpdateUnitPorts(ctx domain.AtomicContext, unitUUID coreunit.UUID, openPorts, closePorts network.GroupedPortRanges) error
-}
-
 // State describes the methods that a state implementation must provide to
 // manage opened ports for units.
 type State interface {
 	WatcherState
-	AtomicState
 
 	// GetUnitOpenedPorts returns the opened ports for a given unit uuid,
 	// grouped by endpoint.
@@ -64,6 +38,10 @@ type State interface {
 
 	// GetUnitUUID returns the UUID of the unit with the given name.
 	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
+
+	// UpdateUnitPorts opens and closes ports for the endpoints of a given unit.
+	// The opened and closed ports for the same endpoints must not conflict.
+	UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, openPorts, closePorts network.GroupedPortRanges) error
 }
 
 // Service provides the API for managing the opened ports for units.
@@ -171,10 +149,6 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 		return nil
 	}
 
-	// Clone input vars so they can be safely mutated
-	openPorts = openPorts.Clone()
-	closePorts = closePorts.Clone()
-
 	allInputPortRanges := append(openPorts.UniquePortRanges(), closePorts.UniquePortRanges()...)
 	//  verify input port ranges do not conflict with each other.
 	err := verifyNoPortRangeConflicts(allInputPortRanges, allInputPortRanges)
@@ -182,136 +156,7 @@ func (s *Service) UpdateUnitPorts(ctx context.Context, unitUUID coreunit.UUID, o
 		return errors.Errorf("cannot update unit ports with conflict(s): %w", err)
 	}
 
-	// construct a map of all port ranges being closed to the endpoint they're
-	// being closed on. Except the wildcard endpoint.
-	closePortsToEndpointMap := make(map[network.PortRange]string)
-	for endpoint, endpointClosePorts := range closePorts {
-		for _, portRange := range endpointClosePorts {
-			closePortsToEndpointMap[portRange] = endpoint
-		}
-	}
-	// Ensure endpoints closed on the wildcard endpoint are not in the map.
-	for _, wildcardClosePorts := range closePorts[port.WildcardEndpoint] {
-		delete(closePortsToEndpointMap, wildcardClosePorts)
-	}
-
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		// Verify input port ranges do not conflict with any port ranges
-		// co-located with the unit.
-		colocatedOpened, err := s.st.GetColocatedOpenedPorts(ctx, unitUUID)
-		if err != nil {
-			return errors.Errorf("failed to get opened ports co-located with unit %s: %w", unitUUID, err)
-		}
-		err = verifyNoPortRangeConflicts(allInputPortRanges, colocatedOpened)
-		if err != nil {
-			return errors.Errorf("cannot update unit ports with conflict(s) on co-located units: %w", err)
-		}
-
-		wildcardOpen, _ := openPorts[port.WildcardEndpoint]
-		wildcardClose, _ := closePorts[port.WildcardEndpoint]
-
-		wildcardOpened, err := s.st.GetEndpointOpenedPorts(ctx, unitUUID, port.WildcardEndpoint)
-		if err != nil {
-			return errors.Errorf("failed to get opened ports for wildcard endpoint: %w", err)
-		}
-
-		// Remove openPorts ranges that are already open on the wildcard endpoint,
-		// or are about to be opened on the wildcard endpoint
-		wildcardOpenedSet := map[network.PortRange]bool{}
-		for _, portRange := range append(wildcardOpened, wildcardOpen...) {
-			wildcardOpenedSet[portRange] = true
-		}
-		for endpoint, endpointOpenPorts := range openPorts {
-			if endpoint == port.WildcardEndpoint {
-				continue
-			}
-			for i, portRange := range endpointOpenPorts {
-				if _, ok := wildcardOpenedSet[portRange]; ok {
-					openPorts[endpoint] = append(openPorts[endpoint][:i], openPorts[endpoint][i+1:]...)
-				}
-			}
-			if len(openPorts[endpoint]) == 0 {
-				delete(openPorts, endpoint)
-			}
-		}
-
-		// cache for endpoints. We may need to list the existing endpoints 0, 1,
-		// or n times. Cache the result and only fill it when we need it, to avoid
-		// unnecessary calls.
-		var endpoints []string
-
-		// If we're opening a port range on the wildcard endpoint, we need to
-		// close it on all other endpoints.
-		//
-		// NOTE: This ensures that if a port range is open on the wildcard
-		// endpoint, it is closed on all other endpoints.
-		for _, openPortRange := range wildcardOpen {
-			if endpoints == nil {
-				endpoints, err = s.st.GetEndpoints(ctx, unitUUID)
-				if err != nil {
-					return errors.Errorf("failed to get unit endpoints: %w", err)
-				}
-			}
-
-			for _, endpoint := range endpoints {
-				closePorts[endpoint] = append(closePorts[endpoint], openPortRange)
-
-			}
-		}
-
-		// Close port ranges closed on the wildcard endpoint on all other endpoints.
-		for _, closePortRange := range wildcardClose {
-			if endpoints == nil {
-				endpoints, err = s.st.GetEndpoints(ctx, unitUUID)
-				if err != nil {
-					return errors.Errorf("failed to get unit endpoints: %w", err)
-				}
-			}
-
-			for _, endpoint := range endpoints {
-				closePorts[endpoint] = append(closePorts[endpoint], closePortRange)
-			}
-		}
-
-		// If we're closing a port range for a specific endpoint which is open
-		// on the wildcard endpoint, we need to close it on the wildcard endpoint
-		// and open it on all other endpoints except the targeted endpoint.
-		for _, portRange := range wildcardOpened {
-			if endpoint, ok := closePortsToEndpointMap[portRange]; ok {
-				if endpoints == nil {
-					endpoints, err = s.st.GetEndpoints(ctx, unitUUID)
-					if err != nil {
-						return errors.Errorf("failed to get unit endpoints: %w", err)
-					}
-				}
-
-				// This port range, open on the wildcard endpoint, is being closed
-				// on some endpoint. We need to close it on the wildcard, and open
-				// it on all endpoints other than the wildcard & targeted endpoint.
-				closePorts[port.WildcardEndpoint] = append(closePorts[port.WildcardEndpoint], portRange)
-
-				for _, otherEndpoint := range endpoints {
-					if otherEndpoint == endpoint {
-						continue
-					}
-					openPorts[otherEndpoint] = append(openPorts[otherEndpoint], portRange)
-				}
-
-				// Remove the port range from openPorts for the targeted endpoint.
-				for i, otherPortRange := range openPorts[endpoint] {
-					if otherPortRange == portRange {
-						openPorts[endpoint] = append(openPorts[endpoint][:i], openPorts[endpoint][i+1:]...)
-						break
-					}
-				}
-				if len(openPorts[endpoint]) == 0 {
-					delete(openPorts, endpoint)
-				}
-			}
-		}
-
-		return s.st.UpdateUnitPorts(ctx, unitUUID, openPorts, closePorts)
-	})
+	err = s.st.UpdateUnitPorts(ctx, unitUUID, openPorts, closePorts)
 	if err != nil {
 		return errors.Errorf("failed to update unit ports: %w", err)
 	}
@@ -332,16 +177,16 @@ func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (core
 // A conflict occurs when two (or more) port ranges across all endpoints overlap,
 // but are not equal.
 func verifyNoPortRangeConflicts(rangesA, rangesB []network.PortRange) error {
-	var conflicts []string
+	var conflicts []error
 	for _, portRange := range rangesA {
 		for _, otherPortRange := range rangesB {
-			if portRange.ConflictsWith(otherPortRange) && portRange != otherPortRange {
-				conflicts = append(conflicts, fmt.Sprintf("[%s, %s]", portRange, otherPortRange))
+			if portRange != otherPortRange && portRange.ConflictsWith(otherPortRange) {
+				conflicts = append(conflicts, errors.Errorf("[%s, %s]", portRange, otherPortRange))
 			}
 		}
 	}
 	if len(conflicts) == 0 {
 		return nil
 	}
-	return errors.Errorf("%w: %s", porterrors.PortRangeConflict, conflicts)
+	return errors.Errorf("%w: %w", porterrors.PortRangeConflict, errors.Join(conflicts...))
 }
