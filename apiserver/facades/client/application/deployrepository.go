@@ -170,7 +170,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	return info, nil, nil
+	return info, dt.resourcesToUpload, nil
 }
 
 // resolveResources resolves and maps resources for deployment, handling input
@@ -183,10 +183,11 @@ func (v *deployFromRepositoryValidator) resolveResources(
 	origin corecharm.Origin,
 	deployResArg map[string]string,
 	resMeta map[string]resource.Meta,
-) (applicationservice.ResolvedResources, error) {
+) (applicationservice.ResolvedResources, []*params.PendingResourceUpload, error) {
+	var resourcesToUpload []*params.PendingResourceUpload
 	var resources []resource.Resource
 
-	// solve charm meta against resources args.
+	// Solve charm meta against resources args.
 	for name, meta := range resMeta {
 		r := resource.Resource{
 			Meta:     meta,
@@ -194,30 +195,37 @@ func (v *deployFromRepositoryValidator) resolveResources(
 			Revision: -1,
 		}
 		if deployValue, ok := deployResArg[name]; ok {
-			// resource flag is used on the cli, either a resource revision, or a filename.
+			// Resource flag is used on the cli, either a resource revision, or a filename.
 			providedRev, err := strconv.Atoi(deployValue)
 			if err != nil {
-				// a file is coming from the client.
+				// A file is coming from the client.
 				r.Origin = resource.OriginUpload
+
+				// Record resources that the client needs to upload.
+				resourcesToUpload = append(resourcesToUpload, &params.PendingResourceUpload{
+					Name:     meta.Name,
+					Type:     meta.Type.String(),
+					Filename: deployValue,
+				})
 			} else {
-				// a revision is coming from client.
+				// A revision is coming from client.
 				r.Revision = providedRev
 			}
 		}
 		resources = append(resources, r)
 	}
 
-	// solve revision against charm repository.
+	// Solve revision against charm repository.
 	repo, err := v.getCharmRepository(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	resolvedResources, resolveErr := repo.ResolveResources(ctx, resources, corecharm.CharmID{URL: curl, Origin: origin})
 	if resolveErr != nil {
-		return nil, resolveErr
+		return nil, nil, resolveErr
 	}
 
-	// convert it in resolved resources.
+	// Convert it in resolved resources.
 	result := make(applicationservice.ResolvedResources, 0, len(resolvedResources))
 	for _, res := range resolvedResources {
 		var revision *int
@@ -230,7 +238,7 @@ func (v *deployFromRepositoryValidator) resolveResources(
 			Revision: revision,
 		})
 	}
-	return result, nil
+	return result, resourcesToUpload, nil
 }
 
 type deployTemplate struct {
@@ -249,6 +257,7 @@ type deployTemplate struct {
 	placement         []*instance.Placement
 	resources         map[string]string
 	storage           map[string]storage.Directive
+	resourcesToUpload []*params.PendingResourceUpload
 	resolvedResources applicationservice.ResolvedResources
 	downloadInfo      corecharm.DownloadInfo
 }
@@ -396,12 +405,13 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	}
 
 	// Resolve resources and validate against the charm metadata.
-	resources, resolveResErr := v.resolveResources(ctx, dt.charmURL, dt.origin, dt.resources, charmResult.Charm.Meta().Resources)
+	resources, resourcesToUpload, resolveResErr := v.resolveResources(ctx, dt.charmURL, dt.origin, dt.resources, charmResult.Charm.Meta().Resources)
 	if resolveResErr != nil {
 		errs = append(errs, resolveResErr)
 	}
-
+	dt.resourcesToUpload = resourcesToUpload
 	dt.resolvedResources = resources
+
 	dt.downloadInfo = charmResult.DownloadInfo
 
 	if v.logger.IsLevelEnabled(corelogger.TRACE) {
