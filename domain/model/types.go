@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// ModelCreationArgs supplies the information required for instantiating a new
-// model.
-type ModelCreationArgs struct {
+// GlobalModelCreationArgs supplies the information required for
+// recording details of a new model in the controller database.
+type GlobalModelCreationArgs struct {
 	// AgentVersion is the target version for agents running under this model.
 	AgentVersion version.Number
 
@@ -49,10 +49,10 @@ type ModelCreationArgs struct {
 	SecretBackend string
 }
 
-// Validate is responsible for checking all of the fields of ModelCreationArgs
+// Validate is responsible for checking all of the fields of GlobalModelCreationArgs
 // are in a set state that is valid for use. If a validation failure happens an
 // error satisfying [errors.NotValid] is returned.
-func (m ModelCreationArgs) Validate() error {
+func (m GlobalModelCreationArgs) Validate() error {
 	if m.Cloud == "" {
 		return fmt.Errorf("%w cloud cannot be empty", errors.NotValid)
 	}
@@ -76,17 +76,17 @@ type ModelImportArgs struct {
 	// ID represents the unique id of the model to import.
 	ID coremodel.UUID
 
-	// ModelCreationArgs supplies the information needed for importing the new
+	// GlobalModelCreationArgs supplies the information needed for importing the new
 	// model into Juju.
-	ModelCreationArgs
+	GlobalModelCreationArgs
 }
 
 // Validate is responsible for checking all of the fields of [ModelImportArgs]
 // are in a set state valid for use. If a validation failure happens an error
 // satisfying [errors.NotValid] is returned.
 func (m ModelImportArgs) Validate() error {
-	if err := m.ModelCreationArgs.Validate(); err != nil {
-		return fmt.Errorf("ModelCreationArgs %w", err)
+	if err := m.GlobalModelCreationArgs.Validate(); err != nil {
+		return fmt.Errorf("GlobalModelCreationArgs %w", err)
 	}
 
 	if err := m.ID.Validate(); err != nil {

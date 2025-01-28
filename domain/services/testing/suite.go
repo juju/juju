@@ -182,7 +182,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 	controllerUUID, err := uuid.UUIDFromString(jujutesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerArgs := modeldomain.ModelCreationArgs{
+	controllerArgs := modeldomain.GlobalModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.CloudName,
 		CloudRegion:  "dummy-region",
@@ -208,7 +208,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelArgs := modeldomain.ModelCreationArgs{
+	modelArgs := modeldomain.GlobalModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.CloudName,
 		Credential:   s.CredentialKey,

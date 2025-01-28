@@ -225,7 +225,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		},
 	)
 
-	controllerModelArgs := modeldomain.ModelCreationArgs{
+	controllerModelArgs := modeldomain.GlobalModelCreationArgs{
 		AgentVersion: stateParams.AgentVersion,
 		Name:         stateParams.ControllerModelConfig.Name(),
 		Owner:        adminUserUUID,

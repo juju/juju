@@ -64,7 +64,7 @@ func (d *dummyState) Create(
 	_ context.Context,
 	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
-	args model.ModelCreationArgs,
+	args model.GlobalModelCreationArgs,
 ) error {
 	if _, exists := d.models[modelID]; exists {
 		return fmt.Errorf("%w %q", modelerrors.AlreadyExists, modelID)

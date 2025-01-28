@@ -95,7 +95,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelFn := modelbootstrap.CreateModel(
 		modelUUID,
-		model.ModelCreationArgs{
+		model.GlobalModelCreationArgs{
 			AgentVersion: jujuversion.Current,
 			Cloud:        cloudName,
 			Credential: credential.Key{
