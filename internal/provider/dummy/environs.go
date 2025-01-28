@@ -98,6 +98,8 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
+	environs.NoContainerAddressesEnviron
+
 	storage.ProviderRegistry
 	name         string
 	modelUUID    string
@@ -774,11 +776,6 @@ func (env *environ) SupportsSpaceDiscovery() (bool, error) {
 	return true, nil
 }
 
-// SupportsContainerAddresses is specified on environs.Networking.
-func (env *environ) SupportsContainerAddresses(_ envcontext.ProviderCallContext) (bool, error) {
-	return false, errors.NotSupportedf("container addresses")
-}
-
 // Spaces is specified on environs.Networking.
 func (env *environ) Spaces(_ envcontext.ProviderCallContext) (network.SpaceInfos, error) {
 	if err := env.checkBroken("Spaces"); err != nil {
@@ -1104,14 +1101,6 @@ func delay() {
 		logger.Infof("pausing for %v", providerDelay)
 		<-time.After(providerDelay)
 	}
-}
-
-func (e *environ) AllocateContainerAddresses(envcontext.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error) {
-	return nil, errors.NotSupportedf("container address allocation")
-}
-
-func (e *environ) ReleaseContainerAddresses(envcontext.ProviderCallContext, []network.ProviderInterfaceInfo) error {
-	return errors.NotSupportedf("container address allocation")
 }
 
 // ProviderSpaceInfo implements NetworkingEnviron.
