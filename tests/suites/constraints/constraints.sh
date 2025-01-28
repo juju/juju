@@ -34,7 +34,8 @@ test_constraints_common() {
 	)
 }
 
-# test_constraints_model is concerned with
+# test_constraints_model is concerned with testing constraints on a model and
+# how a user interacts with them.
 test_constraints_model() {
 	if [ "$(skip 'test_constraints_model')" ]; then
 		echo "==> TEST SKIPPED: constraints model"
