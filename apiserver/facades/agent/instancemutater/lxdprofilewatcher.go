@@ -189,7 +189,7 @@ func (w *machineLXDProfileWatcher) loop() error {
 		case charms := <-charmWatcher.Changes():
 			w.logger.Tracef("charm changes: %v", charms)
 			for _, chURL := range charms {
-				if err := w.charmChange(chURL); err != nil {
+				if err := w.charmChange(ctx, chURL); err != nil {
 					return errors.Annotatef(err, "processing change for charm %q", chURL)
 				}
 			}
@@ -211,7 +211,7 @@ func (w *machineLXDProfileWatcher) loop() error {
 						return errors.Annotatef(err, "processing change for unit %q", unitName)
 					}
 				} else {
-					if err := w.addUnit(u); err != nil {
+					if err := w.addUnit(ctx, u); err != nil {
 						return errors.Annotatef(err, "processing change for unit %q", unitName)
 					}
 				}
@@ -298,7 +298,7 @@ func (w *machineLXDProfileWatcher) init(ctx context.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), applicationcharm.CharmLocator{
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, applicationcharm.CharmLocator{
 			Source:   source,
 			Name:     curl.Name,
 			Revision: curl.Revision,
@@ -359,7 +359,7 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(ctx context.Context
 		if err != nil {
 			return errors.Trace(err)
 		}
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), applicationcharm.CharmLocator{
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, applicationcharm.CharmLocator{
 			Source:   source,
 			Name:     curl.Name,
 			Revision: curl.Revision,
@@ -395,7 +395,7 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(ctx context.Context
 // pointer for any application on the machine that references the charm URL
 // included in the change. No notification is sent if the profile pointer
 // begins and ends as nil.
-func (w *machineLXDProfileWatcher) charmChange(chURL string) error {
+func (w *machineLXDProfileWatcher) charmChange(ctx context.Context, chURL string) error {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
@@ -428,7 +428,7 @@ func (w *machineLXDProfileWatcher) charmChange(chURL string) error {
 			return errors.Trace(err)
 		}
 
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), applicationcharm.CharmLocator{
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, applicationcharm.CharmLocator{
 			Source:   source,
 			Name:     curl.Name,
 			Revision: curl.Revision,
@@ -460,7 +460,7 @@ func (w *machineLXDProfileWatcher) charmChange(chURL string) error {
 // addUnit modifies the map of applications being watched when a unit is
 // added to the machine.  Notification is sent if a new unit whose charm has
 // an lxd profile is added.
-func (w *machineLXDProfileWatcher) addUnit(unit Unit) error {
+func (w *machineLXDProfileWatcher) addUnit(ctx context.Context, unit Unit) error {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
@@ -488,7 +488,7 @@ func (w *machineLXDProfileWatcher) addUnit(unit Unit) error {
 		return nil
 	}
 	w.logger.Debugf("start watching %q on machine-%s", unitName, w.machine.Id())
-	notify, err = w.add(unit)
+	notify, err = w.add(ctx, unit)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -497,7 +497,7 @@ func (w *machineLXDProfileWatcher) addUnit(unit Unit) error {
 	return nil
 }
 
-func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
+func (w *machineLXDProfileWatcher) add(ctx context.Context, unit Unit) (bool, error) {
 	unitName := unit.Name()
 	appName := unit.ApplicationName()
 
@@ -525,7 +525,7 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 			return false, errors.Trace(err)
 		}
 
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(context.TODO(), applicationcharm.CharmLocator{
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, applicationcharm.CharmLocator{
 			Source:   source,
 			Name:     curl.Name,
 			Revision: curl.Revision,

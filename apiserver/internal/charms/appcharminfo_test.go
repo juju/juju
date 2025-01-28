@@ -13,10 +13,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common/charms"
-	"github.com/juju/juju/apiserver/common/charms/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	"github.com/juju/juju/apiserver/internal/charms"
+	"github.com/juju/juju/apiserver/internal/charms/mocks"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/application/architecture"

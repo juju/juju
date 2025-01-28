@@ -11,9 +11,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 	corecharm "github.com/juju/juju/core/charm"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/internal/charm/repository"
