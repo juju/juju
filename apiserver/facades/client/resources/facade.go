@@ -17,6 +17,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -142,7 +143,7 @@ func (a *API) ListResources(ctx context.Context, args params.ListResourcesArgs) 
 			continue
 		}
 
-		r.Results[i] = apiresources.ApplicationResources2APIResult(svcRes)
+		r.Results[i] = applicationResources2APIResult(svcRes)
 	}
 	return r, nil
 }
@@ -238,4 +239,28 @@ func errorResult(err error) params.ResourcesResult {
 			Error: apiservererrors.ServerError(err),
 		},
 	}
+}
+
+func applicationResources2APIResult(svcRes resource.ApplicationResources) params.ResourcesResult {
+	var result params.ResourcesResult
+	for _, res := range svcRes.Resources {
+		result.Resources = append(result.Resources, apiresources.Resource2API(res))
+	}
+
+	for _, unitResources := range svcRes.UnitResources {
+		tag := names.NewUnitTag(unitResources.Name.String())
+		apiRes := params.UnitResources{
+			Entity: params.Entity{Tag: tag.String()},
+		}
+		for _, unitRes := range unitResources.Resources {
+			apiRes.Resources = append(apiRes.Resources, apiresources.Resource2API(unitRes))
+		}
+		result.UnitResources = append(result.UnitResources, apiRes)
+	}
+
+	result.CharmStoreResources = make([]params.CharmResource, len(svcRes.RepositoryResources))
+	for i, chRes := range svcRes.RepositoryResources {
+		result.CharmStoreResources[i] = apiresources.CharmResource2API(chRes)
+	}
+	return result
 }

@@ -8,14 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/resource"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
-	"github.com/juju/juju/core/unit"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
@@ -495,77 +492,4 @@ func (HelpersSuite) TestAPI2CharmResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(res, jc.DeepEquals, expected)
-}
-
-func (HelpersSuite) TestServiceResources2API(c *gc.C) {
-	res1 := resourcetesting.NewResource(c, nil, "res1", "a-application", "data").Resource
-	res2 := resourcetesting.NewResource(c, nil, "res2", "a-application", "data2").Resource
-
-	tag0 := names.NewUnitTag("a-application/0")
-	tag1 := names.NewUnitTag("a-application/1")
-
-	chres1 := res1.Resource
-	chres2 := res2.Resource
-	chres1.Revision++
-	chres2.Revision++
-
-	svcRes := resource.ApplicationResources{
-		Resources: []resource.Resource{
-			res1,
-			res2,
-		},
-		UnitResources: []resource.UnitResources{
-			{
-				Name: unit.Name(tag0.Id()),
-				Resources: []resource.Resource{
-					res1,
-					res2,
-				},
-			},
-			{
-				Name: unit.Name(tag1.Id()),
-			},
-		},
-		RepositoryResources: []charmresource.Resource{
-			chres1,
-			chres2,
-		},
-	}
-
-	result := ApplicationResources2APIResult(svcRes)
-
-	apiRes1 := Resource2API(res1)
-	apiRes2 := Resource2API(res2)
-
-	apiChRes1 := CharmResource2API(chres1)
-	apiChRes2 := CharmResource2API(chres2)
-
-	c.Check(result, jc.DeepEquals, params.ResourcesResult{
-		Resources: []params.Resource{
-			apiRes1,
-			apiRes2,
-		},
-		UnitResources: []params.UnitResources{
-			{
-				Entity: params.Entity{
-					Tag: "unit-a-application-0",
-				},
-				Resources: []params.Resource{
-					apiRes1,
-					apiRes2,
-				},
-			},
-			{
-				// we should have a listing for every unit, even if they
-				// have no resources.
-				Entity: params.Entity{
-					Tag: "unit-a-application-1",
-				},
-			},
-		},
-		CharmStoreResources: []params.CharmResource{
-			apiChRes1,
-			apiChRes2,
-		},
-	})
 }

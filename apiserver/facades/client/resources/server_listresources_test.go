@@ -11,8 +11,10 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	apiresources "github.com/juju/juju/api/client/resources"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -172,5 +174,78 @@ func (s *ListResourcesSuite) TestListResourcesError(c *gc.C) {
 				Message: "<failure>",
 			}},
 		}},
+	})
+}
+
+func (s *ListResourcesSuite) TestServiceResources2API(c *gc.C) {
+	res1 := resourcetesting.NewResource(c, nil, "res1", "a-application", "data").Resource
+	res2 := resourcetesting.NewResource(c, nil, "res2", "a-application", "data2").Resource
+
+	tag0 := names.NewUnitTag("a-application/0")
+	tag1 := names.NewUnitTag("a-application/1")
+
+	chres1 := res1.Resource
+	chres2 := res2.Resource
+	chres1.Revision++
+	chres2.Revision++
+
+	svcRes := resource.ApplicationResources{
+		Resources: []resource.Resource{
+			res1,
+			res2,
+		},
+		UnitResources: []resource.UnitResources{
+			{
+				Name: coreunit.Name(tag0.Id()),
+				Resources: []resource.Resource{
+					res1,
+					res2,
+				},
+			},
+			{
+				Name: coreunit.Name(tag1.Id()),
+			},
+		},
+		RepositoryResources: []charmresource.Resource{
+			chres1,
+			chres2,
+		},
+	}
+
+	result := applicationResources2APIResult(svcRes)
+
+	apiRes1 := apiresources.Resource2API(res1)
+	apiRes2 := apiresources.Resource2API(res2)
+
+	apiChRes1 := apiresources.CharmResource2API(chres1)
+	apiChRes2 := apiresources.CharmResource2API(chres2)
+
+	c.Check(result, jc.DeepEquals, params.ResourcesResult{
+		Resources: []params.Resource{
+			apiRes1,
+			apiRes2,
+		},
+		UnitResources: []params.UnitResources{
+			{
+				Entity: params.Entity{
+					Tag: "unit-a-application-0",
+				},
+				Resources: []params.Resource{
+					apiRes1,
+					apiRes2,
+				},
+			},
+			{
+				// we should have a listing for every unit, even if they
+				// have no resources.
+				Entity: params.Entity{
+					Tag: "unit-a-application-1",
+				},
+			},
+		},
+		CharmStoreResources: []params.CharmResource{
+			apiChRes1,
+			apiChRes2,
+		},
 	})
 }
