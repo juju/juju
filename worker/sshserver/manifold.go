@@ -62,12 +62,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.AgentName,
 		},
-		Start: config.StartWrapperWorker,
+		Start: config.startWrapperWorker,
 	}
 }
 
-// StartWrapperWorker starts the SSH server worker wrapper passing the necessary dependencies.
-func (config ManifoldConfig) StartWrapperWorker(context dependency.Context) (worker.Worker, error) {
+// startWrapperWorker starts the SSH server worker wrapper passing the necessary dependencies.
+func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}

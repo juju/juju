@@ -86,16 +86,14 @@ func (s *ServerWorker) Wait() error {
 }
 
 func (s *ServerWorker) loop() error {
-	defer func() {
+	go func() {
+		<-s.tomb.Dying()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		if err := s.Server.Shutdown(ctx); err != nil {
 			// There's really not a lot we can do if the shutdown fails,
 			// either due to a timeout or another reason. So we simply log it.
-			//
-			// TODO(ale8k): It would be nice to write it to the machine agent log.
-			// How do we do this?
 			s.config.Logger.Errorf("failed to shutdown server: %v", err)
 		}
 	}()
