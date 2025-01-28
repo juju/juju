@@ -1449,6 +1449,68 @@ UPDATE model SET life_id = 1 WHERE uuid = ?
 	})
 }
 
+// TestGetEmptyCredentialsModel verifies that the model view continues to work correctly
+// when the model's credentials are empty. This ensures that even in cases where a model
+// is created without associated credentials (e.g., nil credential scenarios), the system
+// behaves as expected.
+//
+// Specifically, the test validates that (for both IAAS and CAAS model types):
+//  1. A model does not encounter errors when created without credentials.
+//  2. Activating such a model does not cause unexpected errors.
+//  3. Retrieving the model's state and properties works as expected even when credentials
+//     are missing.
+//
+// This test addresses potential issues with SQL queries that include joins involving credential data.
+// With this test, we can ensure that future modifications to the SQL layer do not unintentionally
+// break functionality, preserving accessibility and consistent behavior for models with nil credentials.
+func (m *stateSuite) TestGetEmptyCredentialsModel(c *gc.C) {
+	// Define the test cases for different model types
+	testCases := []struct {
+		modelType coremodel.ModelType
+		modelName string
+	}{
+		{
+			modelType: coremodel.IAAS,
+			modelName: "my-iaas-model",
+		},
+		{
+			modelType: coremodel.CAAS,
+			modelName: "my-container-model",
+		},
+	}
+
+	for _, test := range testCases {
+		modelState := NewState(m.TxnRunnerFactory())
+		modelUUID := modeltesting.GenModelUUID(c)
+
+		// Create model with empty credentials
+		modelCreationArgs := model.GlobalModelCreationArgs{
+			Cloud:         "my-cloud",
+			CloudRegion:   "my-region",
+			Name:          test.modelName,
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
+		}
+
+		err := modelState.Create(context.Background(), modelUUID, test.modelType, modelCreationArgs)
+		c.Assert(err, jc.ErrorIsNil)
+
+		err = modelState.Activate(context.Background(), modelUUID)
+		c.Assert(err, jc.ErrorIsNil)
+
+		retrievedModel, err := modelState.GetModel(context.Background(), modelUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(retrievedModel, gc.NotNil)
+
+		c.Check(retrievedModel.AgentVersion, jc.DeepEquals, modelCreationArgs.AgentVersion)
+		c.Check(retrievedModel.Cloud, gc.Equals, modelCreationArgs.Cloud)
+		c.Check(retrievedModel.CloudRegion, gc.Equals, modelCreationArgs.CloudRegion)
+		c.Check(retrievedModel.Credential, jc.DeepEquals, modelCreationArgs.Credential)
+		c.Check(retrievedModel.Name, gc.Equals, modelCreationArgs.Name)
+		c.Check(retrievedModel.Owner, jc.DeepEquals, modelCreationArgs.Owner)
+	}
+}
+
 // createSuperuser adds a new superuser created by themselves.
 func (m *stateSuite) createSuperuser(c *gc.C, accessState *accessstate.State, name user.Name) user.UUID {
 	userUUID, err := user.NewUUID()
