@@ -1,10 +1,11 @@
 (script)=
+# Script
 
 In Juju, a **script** refers to any script you execute on a {ref}`compute resource <resource-compute>` provisioned by Juju, whether it is a charm {ref}`action <action>` or another kind of script, e.g., a terminal command.
 
 
 (task)=
-## Script tasks
+## Script task
 
 
 In Juju, a **task** is the execution of a {ref}`script <script>` on a target {ref}`unit <unit>` (e.g., for actions, via {ref}`command-juju-run`, or, for other arbitrary scripts, via {ref}`command-juju-exec`).

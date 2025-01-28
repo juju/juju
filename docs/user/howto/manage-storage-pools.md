@@ -1,4 +1,4 @@
-(how-to-manage-storage-pools)=
+(manage-storage-pools)=
 # How to manage storage pools
 
 > See also: {ref}`storage-pool`

@@ -18,7 +18,7 @@ The rest of this document gives details about the locations.
 
 ```{caution}
 
-When the location is a key-value pair, its availability and meaning may vary from cloud to cloud. For details see {ref}`List of supported clouds > `<cloud name>` <list-of-supported-clouds>`.
+When the location is a key-value pair, its availability and meaning may vary from cloud to cloud. For details see {ref}`list-of-supported-clouds` > `<cloud name>`.
 
 ```
 

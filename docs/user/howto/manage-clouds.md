@@ -7,7 +7,7 @@ This document shows how to manage your existing cloud(s) with Juju.
 
 (add-a-cloud)=
 ## Add a cloud
-> See also: {ref}`list-of-supported-clouds` > `<cloud name`
+> See also: {ref}`list-of-supported-clouds` > `<cloud name>`
 
 ```{important}
 This step is typically required only for non-local private clouds.

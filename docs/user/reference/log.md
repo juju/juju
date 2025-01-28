@@ -52,7 +52,17 @@ In a controller high availability scenario, `logsink.log` is not guaranteed to c
 
 ### The machine-lock log file
 
-The machine-lock log file (`machine-lock.log`) contains logs for the file lock that synchronises hook execution on Juju {ref}`machines <machine>`. (A machine will only ever run one {ref}`hook` at a time.)
+
+The machine-lock log file (`machine-lock.log`) contains logs for the machine lock. The file is only written written after the lock has been released and its purpose is to give more visibility to who has been holding the machine lock. 
+
+The machine lock is a file lock that synchronises hook execution on Juju machines. (A machine will only ever run one {ref}`hook <hook>` at a time.) The lock is used to serialize a number of activities of the agents on the machines started by Juju, as follows:
+
+- The {ref}`machine agent <machine-agent>` will acquire the lock when it needs to install software to create containers, and also in some other instances.
+
+- The {ref}`unit agents <unit-agent>` acquire the machine lock whenever they are going to execute hooks or run actions. Sometimes, when there are multiple units on a given machine, it is not always clear as to why something isn’t happening as soon as you’d normally expect. This log file is to help give you insight into the actions of the agents.
+
+
+
 
 <!--ALREADY COVERED IN https://discourse.charmhub.io/t/list-of-model-configuration-keys/7068#heading--logging-config
 

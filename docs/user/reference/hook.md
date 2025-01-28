@@ -1,7 +1,3 @@
----
-tocdepth: 3
----
-
 (hook)=
 # Hook
 
