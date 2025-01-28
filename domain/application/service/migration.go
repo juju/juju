@@ -161,12 +161,8 @@ func (s *MigrationService) GetApplicationConfig(ctx context.Context, name string
 // ImportApplication imports the specified application and units if required,
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
-func (s *MigrationService) ImportApplication(
-	ctx context.Context, appName string,
-	charm internalcharm.Charm, origin corecharm.Origin, args AddApplicationArgs,
-	units ...ImportUnitArg,
-) error {
-	if err := validateCreateApplicationParams(appName, args.ReferenceName, charm, origin, args.DownloadInfo, args.ResolvedResources, s.logger); err != nil {
+func (s *MigrationService) ImportApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
+	if err := validateCreateApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin, args.DownloadInfo, args.ResolvedResources, s.logger); err != nil {
 		return errors.Annotatef(err, "invalid application args")
 	}
 
@@ -174,13 +170,21 @@ func (s *MigrationService) ImportApplication(
 	if err != nil {
 		return errors.Annotatef(err, "getting model type")
 	}
-	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, charm, origin, args)
+	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, args.Charm, args.CharmOrigin, AddApplicationArgs{
+		ReferenceName:       args.ReferenceName,
+		DownloadInfo:        args.DownloadInfo,
+		ApplicationConfig:   args.ApplicationConfig,
+		ApplicationSettings: args.ApplicationSettings,
+	})
 	if err != nil {
 		return errors.Annotatef(err, "creating application args")
 	}
-	appArg.Scale = len(units)
 
-	unitArgs := make([]application.InsertUnitArg, len(units))
+	units := args.Units
+	numUnits := len(units)
+	appArg.Scale = numUnits
+
+	unitArgs := make([]application.InsertUnitArg, numUnits)
 	for i, u := range units {
 		arg := application.InsertUnitArg{
 			UnitName: u.UnitName,
@@ -208,9 +212,9 @@ func (s *MigrationService) ImportApplication(
 	}
 
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.CreateApplication(ctx, appName, appArg)
+		appID, err := s.st.CreateApplication(ctx, name, appArg)
 		if err != nil {
-			return errors.Annotatef(err, "creating application %q", appName)
+			return errors.Annotatef(err, "creating application %q", name)
 		}
 		for _, arg := range unitArgs {
 			if err := s.st.InsertUnit(ctx, appID, arg); err != nil {
@@ -220,6 +224,13 @@ func (s *MigrationService) ImportApplication(
 		return nil
 	})
 	return err
+}
+
+// RemoveImportedApplication removes an application that was imported. The
+// application might be in an incomplete state, so it's important to remove
+// as much of the application as possible, even on failure.
+func (s *MigrationService) RemoveImportedApplication(context.Context, string) error {
+	return nil
 }
 
 func (s *MigrationService) makeUnitStatus(in StatusParams) application.StatusInfo {

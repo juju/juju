@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/objectstore"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
@@ -19,14 +20,30 @@ import (
 
 // AddApplicationArg contains parameters for saving an application to state.
 type AddApplicationArg struct {
-	Charm             domaincharm.Charm
+	// Charm is the charm to add to the application. This is required to
+	// be able to add the application.
+	Charm domaincharm.Charm
+	// CharmDownloadInfo contains the download information for the charm.
+	// This information is used to download the charm from the charm store if
+	// required.
 	CharmDownloadInfo *domaincharm.DownloadInfo
-	Scale             int
-	Platform          Platform
-	Channel           *Channel
+	// Platform contains the platform information for the application. The
+	// operating system and architecture.
+	Platform Platform
+	// Channel contains the channel information for the application. The track,
+	// risk and branch of the charm when it was downloaded from the charm store.
+	Channel *Channel
 	// Resources defines the list of resources to add to an application.
 	// They should match all the resources defined in the Charm.
 	Resources []AddApplicationResourceArg
+	// Config contains the configuration for the application, overlaid on top
+	// of the charm's default configuration.
+	Config config.ConfigAttributes
+	// Settings contains the settings for the application. This includes the
+	// trust setting.
+	Settings ApplicationSettings
+	// Scale contains the scale information for the application.
+	Scale int
 }
 
 // AddApplicationResourceArg defines the arguments required to add a resource to an application.

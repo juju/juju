@@ -16,9 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
@@ -110,34 +108,13 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 
 	defer s.setupMocks(c).Finish()
 
-	rev := 1
 	s.importService.EXPECT().ImportApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
-		corecharm.Origin{
-			Source:   "charm-hub",
-			Type:     "charm",
-			ID:       "1234",
-			Hash:     "deadbeef",
-			Revision: &rev,
-			Channel: &internalcharm.Channel{
-				Track: "666",
-				Risk:  "stable",
-			},
-			Platform: corecharm.Platform{
-				Architecture: "arm64",
-				OS:           "ubuntu",
-				Channel:      "24.04",
-			},
-		},
-		service.AddApplicationArgs{
-			ReferenceName: "prometheus",
-			DownloadInfo: &charm.DownloadInfo{
-				Provenance: charm.ProvenanceMigration,
-			},
-		},
-		[]service.ImportUnitArg{{
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
+		c.Assert(args.Units, gc.DeepEquals, []service.ImportUnitArg{{
 			UnitName:     "prometheus/0",
 			PasswordHash: ptr("passwordhash"),
 			CloudContainer: ptr(service.CloudContainerParams{
@@ -165,16 +142,13 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 				Data:    map[string]any{"foo": "bar"},
 				Since:   ptr(updatedAt),
 			},
-		}},
-	).DoAndReturn(func(_ context.Context, _ string, ch internalcharm.Charm, _ corecharm.Origin, _ service.AddApplicationArgs, _ ...service.ImportUnitArg) error {
-		c.Assert(ch.Meta().Name, gc.Equals, "prometheus")
+		}})
 		return nil
 	})
 
 	importOp := importOperation{
-		service:      s.importService,
-		logger:       loggertesting.WrapCheckLog(c),
-		charmOrigins: make(map[string]*corecharm.Origin),
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
 	}
 
 	err := importOp.Execute(context.Background(), model)

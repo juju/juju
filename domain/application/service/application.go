@@ -339,9 +339,10 @@ func (s *Service) CreateApplication(
 		name = appArg.Charm.Metadata.Name
 	}
 
-	appArg.Scale = len(units)
+	numUnits := len(units)
+	appArg.Scale = numUnits
 
-	unitArgs := make([]application.AddUnitArg, len(units))
+	unitArgs := make([]application.AddUnitArg, numUnits)
 	for i, u := range units {
 		arg := application.AddUnitArg{
 			UnitName: u.UnitName,
@@ -514,6 +515,8 @@ func makeCreateApplicationArgs(
 		Platform:          platformArg,
 		Channel:           channelArg,
 		Resources:         makeResourcesArgs(args.ResolvedResources),
+		Config:            args.ApplicationConfig,
+		Settings:          args.ApplicationSettings,
 	}, nil
 }
 

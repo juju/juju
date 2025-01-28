@@ -281,6 +281,12 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 		Platform:          platform,
 		Scale:             1,
 		CharmDownloadInfo: downloadInfo,
+		Config: config.ConfigAttributes{
+			"foo": "bar",
+		},
+		Settings: application.ApplicationSettings{
+			Trust: true,
+		},
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -303,14 +309,7 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 		},
 	}).MinTimes(1)
 
-	err := s.service.ImportApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
-		Source:   corecharm.CharmHub,
-		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-		Revision: ptr(42),
-	}, AddApplicationArgs{
-		ReferenceName: "ubuntu",
-		DownloadInfo:  downloadInfo,
-	}, ImportUnitArg{
+	unitArg := ImportUnitArg{
 		UnitName:     "ubuntu/666",
 		PasswordHash: ptr("passwordhash"),
 		AgentStatus: StatusParams{
@@ -326,6 +325,26 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 			Since:   ptr(s.clock.Now()),
 		},
 		CloudContainer: nil,
+	}
+
+	err := s.service.ImportApplication(context.Background(), "ubuntu", ImportApplicationArgs{
+		Charm: s.charm,
+		CharmOrigin: corecharm.Origin{
+			Source:   corecharm.CharmHub,
+			Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+			Revision: ptr(42),
+		},
+		ReferenceName: "ubuntu",
+		DownloadInfo:  downloadInfo,
+		ApplicationConfig: map[string]any{
+			"foo": "bar",
+		},
+		ApplicationSettings: application.ApplicationSettings{
+			Trust: true,
+		},
+		Units: []ImportUnitArg{
+			unitArg,
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
