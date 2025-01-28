@@ -396,7 +396,9 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		healthStatus: "starting",
 	}
 	srv.updateAgentRateLimiter(controllerConfig)
-	srv.updateResourceDownloadLimiters(controllerConfig)
+	if err := srv.updateResourceDownloadLimiters(controllerConfig); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// We are able to get the current controller config before subscribing to changes
 	// because the changes are only ever published in response to an API call,
@@ -408,8 +410,15 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 				logger.Criticalf("programming error in %s message data: %v", topic, err)
 				return
 			}
+
 			srv.updateAgentRateLimiter(data.Config)
-			srv.updateResourceDownloadLimiters(data.Config)
+
+			// If the update fails, there is nothing else we can do but log the
+			// error. The server will continue to run with the old limits.
+			if err := srv.updateResourceDownloadLimiters(data.Config); err != nil {
+				logger.Errorf("failed to update resource download limiters: %v", err)
+				return
+			}
 		})
 	if err != nil {
 		logger.Criticalf("programming error in subscribe function: %v", err)
@@ -531,18 +540,25 @@ func (srv *Server) updateAgentRateLimiter(cfg controller.Config) {
 	srv.agentRateLimitRate = cfg.AgentRateLimitRate()
 	if srv.agentRateLimitMax > 0 {
 		srv.agentRateLimit = ratelimit.NewBucketWithClock(
-			srv.agentRateLimitRate, int64(srv.agentRateLimitMax), rateClock{srv.clock})
+			srv.agentRateLimitRate, int64(srv.agentRateLimitMax), rateClock{Clock: srv.clock})
 	} else {
 		srv.agentRateLimit = nil
 	}
 }
 
-func (srv *Server) updateResourceDownloadLimiters(cfg controller.Config) {
+func (srv *Server) updateResourceDownloadLimiters(cfg controller.Config) error {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	globalLimit := cfg.ControllerResourceDownloadLimit()
 	appLimit := cfg.ApplicationResourceDownloadLimit()
-	srv.resourceLock = resource.NewResourceDownloadLimiter(globalLimit, appLimit)
+
+	var err error
+	srv.resourceLock, err = resource.NewResourceDownloadLimiter(globalLimit, appLimit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 func (srv *Server) getResourceDownloadLimiter() resource.ResourceDownloadLock {
