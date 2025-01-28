@@ -448,7 +448,7 @@ type dbConstraint struct {
 	RootDiskSource   sql.NullString `db:"root_disk_source"`
 	InstanceRole     sql.NullString `db:"instance_role"`
 	InstanceType     sql.NullString `db:"instance_type"`
-	ContainerType    sql.NullString `db:"container_type"`
+	ContainerType    string         `db:"container_type"`
 	VirtType         sql.NullString `db:"virt_type"`
 	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
 	ImageID          sql.NullString `db:"image_id"`
@@ -456,6 +456,69 @@ type dbConstraint struct {
 
 func ptr[T any](i T) *T {
 	return &i
+}
+
+// deref returns the dereferenced value of T if T is not nil. Otherwise the zero
+// value of T is returned.
+func deref[T any](i *T) T {
+	if i == nil {
+		return *new(T)
+	}
+	return *i
+}
+
+// toDBConstraint is responsible for transforming a [constraints.Value]
+// representation of model constraints into a [dbConstraints] value that can be
+// used for persistence into the underlying database.
+func toDBConstraint(uuid string, constraints constraints.Value) dbConstraint {
+	return dbConstraint{
+		UUID: uuid,
+		Arch: sql.NullString{
+			String: deref(constraints.Arch),
+			Valid:  constraints.Arch != nil,
+		},
+		CPUCores: sql.NullInt64{
+			Int64: int64(deref(constraints.CpuCores)),
+			Valid: constraints.CpuCores != nil,
+		},
+		CPUPower: sql.NullInt64{
+			Int64: int64(deref(constraints.CpuPower)),
+			Valid: constraints.CpuPower != nil,
+		},
+		Mem: sql.NullInt64{
+			Int64: int64(deref(constraints.Mem)),
+			Valid: constraints.Mem != nil,
+		},
+		RootDisk: sql.NullInt64{
+			Int64: int64(deref(constraints.RootDisk)),
+			Valid: constraints.RootDisk != nil,
+		},
+		RootDiskSource: sql.NullString{
+			String: deref(constraints.RootDiskSource),
+			Valid:  constraints.RootDiskSource != nil,
+		},
+		InstanceRole: sql.NullString{
+			String: deref(constraints.InstanceRole),
+			Valid:  constraints.InstanceRole != nil,
+		},
+		InstanceType: sql.NullString{
+			String: deref(constraints.InstanceType),
+			Valid:  constraints.InstanceType != nil,
+		},
+		ContainerType: string(deref(constraints.Container)),
+		VirtType: sql.NullString{
+			String: deref(constraints.VirtType),
+			Valid:  constraints.VirtType != nil,
+		},
+		AllocatePublicIP: sql.NullBool{
+			Bool:  deref(constraints.AllocatePublicIP),
+			Valid: constraints.VirtType != nil,
+		},
+		ImageID: sql.NullString{
+			String: deref(constraints.ImageID),
+			Valid:  constraints.ImageID != nil,
+		},
+	}
 }
 
 func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace, zones []dbConstraintZone) (constraints.Value, error) {
@@ -493,39 +556,36 @@ func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace
 	if c.ImageID.Valid {
 		consVal.ImageID = &c.ImageID.String
 	}
-	if c.ContainerType.Valid {
-		containerType, err := instance.ParseContainerTypeOrNone(c.ContainerType.String)
-		if err != nil {
-			// This should never happen as the container type is validated when
-			// it is inserted into the database.
-			return constraints.Value{}, errors.Annotatef(err, "parsing container type %q", c.ContainerType.String)
-		}
-		consVal.Container = &containerType
-	}
+	containerType := instance.ContainerType(c.ContainerType)
+	consVal.Container = &containerType
 
+	consTags := make([]string, 0, len(tags))
 	for _, tag := range tags {
-		if consVal.Tags == nil {
-			var tagStrings []string
-			consVal.Tags = &tagStrings
-		}
-		*consVal.Tags = append(*consVal.Tags, tag.Tag)
+		consTags = append(consTags, tag.Tag)
+	}
+	// Only set constraint tags if there are tags in the database value.
+	if len(consTags) != 0 {
+		consVal.Tags = &consTags
 	}
 
+	consSpaces := make([]string, 0, len(spaces))
 	for _, space := range spaces {
-		if consVal.Spaces == nil {
-			var spaceStrings []string
-			consVal.Spaces = &spaceStrings
-		}
-		*consVal.Spaces = append(*consVal.Spaces, space.Space)
+		consSpaces = append(consSpaces, space.Space)
+	}
+	// Only set constraint spaces if there are spaces in the database value.
+	if len(consSpaces) != 0 {
+		consVal.Spaces = &consSpaces
 	}
 
+	consZones := make([]string, 0, len(zones))
 	for _, zone := range zones {
-		if consVal.Zones == nil {
-			var zoneStrings []string
-			consVal.Zones = &zoneStrings
-		}
-		*consVal.Zones = append(*consVal.Zones, zone.Zone)
+		consZones = append(consZones, zone.Zone)
 	}
+	// Only set constraint zones if there are zones in the database value.
+	if len(consZones) != 0 {
+		consVal.Zones = &consZones
+	}
+
 	return consVal, nil
 }
 
@@ -543,4 +603,10 @@ type dbConstraintSpace struct {
 type dbConstraintZone struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 	Zone           string `db:"zone"`
+}
+
+// dbConstraintUUID represents a constraint uuid within the database as
+// referenced by an external table.
+type dbConstraintUUID struct {
+	UUID string `db:"constraint_uuid"`
 }
