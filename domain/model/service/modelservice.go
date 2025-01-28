@@ -9,10 +9,10 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -39,6 +39,8 @@ type ModelState interface {
 	// GetModelConstraints returns the currently set constraints for the model.
 	// The following error types can be expected:
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
+	// - [modelerrors.ConstraintsNotFound]: when no model constraints have been
+	// set for the model.
 	GetModelConstraints(context.Context) (constraints.Value, error)
 
 	// SetModelConstraints sets the model constraints to the new values removing
@@ -95,13 +97,18 @@ func NewModelService(
 // It returns an empty Value if the model does not have any constraints
 // configured.
 func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
-	return s.modelSt.GetModelConstraints(ctx)
+	cons, err := s.modelSt.GetModelConstraints(ctx)
+	// If no constraints have been set for the model we return a zero value of
+	// constraints. This is done so the state layer isn't making decisions on
+	// what the caller of this service requires.
+	if errors.Is(err, modelerrors.ConstraintsNotFound) {
+		return constraints.Value{}, nil
+	}
+	return cons, err
 }
 
 // SetModelConstraints sets the model constraints to the new values removing
-// any previously set constraints. If the constraints being set does not have a
-// container type set one will automatically be set to the value of
-// [instance.NONE].
+// any previously set constraints.
 //
 // The following error types can be expected:
 // - [modelerrors.NotFound]: when the model does not exist
@@ -110,11 +117,6 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Val
 // - [github.com/juju/juju/domain/machine/errors.InvalidContainerType]: when
 // the container type being set in the model constraint isn't valid.
 func (s *ModelService) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
-	if !cons.HasContainer() {
-		defaultContainerType := instance.NONE
-		cons.Container = &defaultContainerType
-	}
-
 	return s.modelSt.SetModelConstraints(ctx, cons)
 }
 
