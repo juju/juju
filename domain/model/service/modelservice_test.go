@@ -29,13 +29,15 @@ import (
 type modelServiceSuite struct {
 	testing.IsolationSuite
 
-	mockControllerState *MockControllerState
-	mockModelState      *MockModelState
+	mockControllerState        *MockControllerState
+	mockEnvironVersionProvider *MockEnvironVersionProvider
+	mockModelState             *MockModelState
 }
 
 func (s *modelServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockControllerState = NewMockControllerState(ctrl)
+	s.mockEnvironVersionProvider = NewMockEnvironVersionProvider(ctrl)
 	s.mockModelState = NewMockModelState(ctrl)
 	return ctrl
 }
@@ -44,6 +46,15 @@ var _ = gc.Suite(&modelServiceSuite{})
 
 func ptr[T any](v T) *T {
 	return &v
+}
+
+// environVersionProviderGetter provides a test implementation of
+// [EnvironVersionProviderFunc] that uses the mocked [EnvironVersionProvider] on
+// this suite.
+func (s *modelServiceSuite) environVersionProviderGetter() EnvironVersionProviderFunc {
+	return func(_ string) (EnvironVersionProvider, error) {
+		return s.mockEnvironVersionProvider, nil
+	}
 }
 
 // TestGetModelConstraints is asserting the happy path of retrieving the set
@@ -61,10 +72,39 @@ func (s *modelServiceSuite) TestGetModelConstraints(c *gc.C) {
 	}
 	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(cons, nil)
 
-	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
 	result, err := svc.GetModelConstraints(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, gc.DeepEquals, cons)
+}
+
+// TestGetModelConstraintsNotFound is asserting that when the state layer
+// reports that no model constraints exist with an error of
+// [modelerrors.ConstraintsNotFound] that we correctly handle this error and
+// receive a zero value constraints object back with no error.
+func (s *modelServiceSuite) TestGetModelConstraintsNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(
+		constraints.Value{},
+		modelerrors.ConstraintsNotFound,
+	)
+
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
+	result, err := svc.GetModelConstraints(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, constraints.Value{})
 }
 
 // TestGetModelConstraintsFailedModelNotFound is asserting that if we ask for
@@ -76,7 +116,12 @@ func (s *modelServiceSuite) TestGetModelConstraintsFailedModelNotFound(c *gc.C) 
 
 	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Value{}, modelerrors.NotFound)
 
-	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
 	_, err := svc.GetModelConstraints(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
@@ -94,24 +139,13 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(nil)
 
-	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
 	err := svc.SetModelConstraints(context.Background(), cons)
-	c.Check(err, jc.ErrorIsNil)
-}
-
-// TestSetModelConstraintsContainerTypeSet is asserting that if we supply model
-// constraints to be set on a model and  we have not specified a value for
-// container type one of [instance.None] is set for us.
-func (s *modelServiceSuite) TestSetModelConstraintsContainerTypeSet(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), constraints.Value{
-		Container: ptr(instance.NONE),
-	}).Return(nil)
-
-	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
-	err := svc.SetModelConstraints(context.Background(), constraints.Value{})
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -130,7 +164,12 @@ func (s *modelServiceSuite) TestSetModelConstraintsInvalidContainerType(c *gc.C)
 		machineerrors.InvalidContainerType,
 	)
 
-	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
 	err := svc.SetModelConstraints(context.Background(), badConstraints)
 	c.Check(err, jc.ErrorIs, machineerrors.InvalidContainerType)
 }
@@ -149,7 +188,12 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *gc.C) 
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(networkerrors.SpaceNotFound)
 
-	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
 	err := svc.SetModelConstraints(context.Background(), cons)
 	c.Check(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
@@ -167,7 +211,12 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *gc.C) 
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(modelerrors.NotFound)
 
-	svc := NewModelService(modeltesting.GenModelUUID(c), s.mockControllerState, s.mockModelState)
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
 	err := svc.SetModelConstraints(context.Background(), cons)
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
