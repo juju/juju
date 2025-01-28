@@ -410,8 +410,15 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 				logger.Criticalf("programming error in %s message data: %v", topic, err)
 				return
 			}
+
 			srv.updateAgentRateLimiter(data.Config)
-			srv.updateResourceDownloadLimiters(data.Config)
+
+			// If the update fails, there is nothing else we can do but log the
+			// error. The server will continue to run with the old limits.
+			if err := srv.updateResourceDownloadLimiters(data.Config); err != nil {
+				logger.Errorf("failed to update resource download limiters: %v", err)
+				return
+			}
 		})
 	if err != nil {
 		logger.Criticalf("programming error in subscribe function: %v", err)
