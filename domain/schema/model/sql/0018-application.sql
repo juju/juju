@@ -77,6 +77,14 @@ CREATE TABLE application_endpoint_cidr (
     PRIMARY KEY (application_uuid, cidr)
 );
 
+CREATE TABLE application_config_hash (
+    application_uuid TEXT NOT NULL PRIMARY KEY,
+    sha256 TEXT NOT NULL,
+    CONSTRAINT fk_application_config_hash_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid)
+);
+
 CREATE TABLE application_config (
     application_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,

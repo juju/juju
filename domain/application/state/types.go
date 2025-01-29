@@ -691,3 +691,8 @@ type setApplicationSettings struct {
 	ApplicationUUID string `db:"application_uuid"`
 	Trust           bool   `db:"trust"`
 }
+
+type applicationConfigHash struct {
+	ApplicationUUID string `db:"application_uuid"`
+	SHA256          string `db:"sha256"`
+}

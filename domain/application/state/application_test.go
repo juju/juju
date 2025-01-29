@@ -2575,6 +2575,22 @@ func (s *applicationStateSuite) TestGetApplicationTrustSettingNoApplication(c *g
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *applicationStateSuite) TestGetApplicationConfigHash(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	// No config, so the hash should just be the trust value.
+
+	hash, err := s.state.GetApplicationConfigHash(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa")
+}
+
+func (s *applicationStateSuite) TestGetApplicationConfigHashNotFound(c *gc.C) {
+	id := applicationtesting.GenApplicationUUID(c)
+	_, err := s.state.GetApplicationConfigHash(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *applicationStateSuite) TestSetApplicationConfigAndSettings(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
@@ -2598,6 +2614,10 @@ func (s *applicationStateSuite) TestSetApplicationConfigAndSettings(c *gc.C) {
 		},
 	})
 	c.Check(settings, jc.DeepEquals, application.ApplicationSettings{})
+
+	sha256, err := s.state.GetApplicationConfigHash(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sha256, gc.Equals, "6e1b3adca7459d700abb8e270b06ee7fc96f83436bb533ad4540a3a6eb66cf1b")
 }
 
 func (s *applicationStateSuite) TestSetApplicationConfigAndSettingsApplicationIsDead(c *gc.C) {
@@ -2910,6 +2930,69 @@ func (s *applicationStateSuite) TestGetApplicationIDByName(c *gc.C) {
 func (s *applicationStateSuite) TestGetApplicationIDByNameNotFound(c *gc.C) {
 	_, err := s.state.GetApplicationIDByName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestHashConfigAndSettings(c *gc.C) {
+	tests := []struct {
+		name     string
+		config   map[string]application.ApplicationConfig
+		settings application.ApplicationSettings
+		expected string
+	}{{
+		name:     "empty",
+		config:   map[string]application.ApplicationConfig{},
+		settings: application.ApplicationSettings{},
+		expected: "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
+	}, {
+		name: "config",
+		config: map[string]application.ApplicationConfig{
+			"key": {
+				Type:  charm.OptionString,
+				Value: "value",
+			},
+		},
+		settings: application.ApplicationSettings{},
+		expected: "6e1b3adca7459d700abb8e270b06ee7fc96f83436bb533ad4540a3a6eb66cf1b",
+	}, {
+		name: "multiple config",
+		config: map[string]application.ApplicationConfig{
+			"key": {
+				Type:  charm.OptionString,
+				Value: "value",
+			},
+			"key2": {
+				Type:  charm.OptionInt,
+				Value: 42,
+			},
+			"key3": {
+				Type:  charm.OptionFloat,
+				Value: 3.14,
+			},
+			"key4": {
+				Type:  charm.OptionBool,
+				Value: true,
+			},
+			"key5": {
+				Type:  charm.OptionSecret,
+				Value: "secret",
+			},
+		},
+		settings: application.ApplicationSettings{},
+		expected: "5e78a3d09ac74eee2b554e2d57cddea7646f58de262e6d76b00005424427fe33",
+	}, {
+		name:   "trust",
+		config: map[string]application.ApplicationConfig{},
+		settings: application.ApplicationSettings{
+			Trust: true,
+		},
+		expected: "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.name)
+		hash, err := hashConfigAndSettings(test.config, test.settings)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(hash, gc.Equals, test.expected)
+	}
 }
 
 func (s *applicationStateSuite) assertApplication(

@@ -5,9 +5,14 @@ package state
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
+	"maps"
 	"slices"
+	"sort"
+	"strconv"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -147,6 +152,11 @@ func (st *State) CreateApplication(
 		}
 	}
 
+	configHash, err := hashConfigAndSettings(args.Config, args.Settings)
+	if err != nil {
+		return "", jujuerrors.Trace(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the application already exists.
 		if err := st.checkApplicationNameAvailable(ctx, tx, name); err != nil {
@@ -196,6 +206,9 @@ func (st *State) CreateApplication(
 		}
 		if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
 			return errors.Errorf("inserting settings for application %q: %w", name, err)
+		}
+		if err := st.insertApplicationConfigHash(ctx, tx, appDetails.UUID, configHash); err != nil {
+			return errors.Errorf("inserting config hash for application %q: %w", name, err)
 		}
 
 		// The channel is optional for local charms. Although, it would be
@@ -356,6 +369,7 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		"application_platform",
 		"application_scale",
 		"application_config",
+		"application_config_hash",
 		"application_constraint",
 		"application_setting",
 		"application_endpoint_space",
@@ -2603,6 +2617,11 @@ VALUES ($setApplicationSettings.*)
 ON CONFLICT(application_uuid) DO UPDATE SET
 	trust = excluded.trust;
 `
+	setHashQuery := `
+UPDATE application_config_hash
+SET sha256 = $applicationConfigHash.sha256
+WHERE application_uuid = $applicationConfigHash.application_uuid;
+`
 
 	getStmt, err := st.Prepare(getQuery, applicationConfig{}, ident)
 	if err != nil {
@@ -2623,6 +2642,10 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	settingsStmt, err := st.Prepare(settingsQuery, setApplicationSettings{})
 	if err != nil {
 		return errors.Errorf("preparing settings query: %w", err)
+	}
+	setHashStmt, err := st.Prepare(setHashQuery, applicationConfigHash{})
+	if err != nil {
+		return internalerrors.Errorf("preparing set hash query: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -2726,6 +2749,18 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
 			return errors.Errorf("updating settings: %w", err)
+		}
+
+		configHash, err := hashConfigAndSettings(config, settings)
+		if err != nil {
+			return internalerrors.Errorf("hashing config and settings: %w", err)
+		}
+
+		if err := tx.Query(ctx, setHashStmt, applicationConfigHash{
+			ApplicationUUID: ident.ID.String(),
+			SHA256:          configHash,
+		}).Run(); err != nil {
+			return internalerrors.Errorf("setting hash: %w", err)
 		}
 
 		return nil
@@ -2889,6 +2924,49 @@ func (st *State) GetApplicationIDByName(ctx context.Context, name string) (corea
 	return id, nil
 }
 
+// GetApplicationConfigHash returns the SHA256 hash of the application config
+// for the specified application ID.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationConfigHash(ctx context.Context, appID coreapplication.ID) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+
+	query := `
+SELECT sha256 AS &applicationConfigHash.sha256
+FROM application_config_hash
+WHERE application_uuid = $applicationID.uuid;
+`
+
+	stmt, err := st.Prepare(query, applicationConfigHash{}, ident)
+	if err != nil {
+		return "", internalerrors.Errorf("preparing query for application config hash: %w", err)
+	}
+
+	var hash applicationConfigHash
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+			return internalerrors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, stmt, ident).Get(&hash); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return internalerrors.Capture(err)
+		}
+
+		return nil
+	}); err != nil {
+		return "", internalerrors.Capture(err)
+	}
+
+	return hash.SHA256, nil
+}
+
 // lookupApplication looks up the application by name and returns the
 // application.ID.
 // If no application is found, an error satisfying
@@ -3001,6 +3079,30 @@ VALUES ($setApplicationSettings.*);
 	return nil
 }
 
+func (st *State) insertApplicationConfigHash(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appID coreapplication.ID,
+	sha256 string,
+) error {
+
+	insertQuery := `
+INSERT INTO application_config_hash (*) VALUES ($applicationConfigHash.*);
+`
+	insertStmt, err := st.Prepare(insertQuery, applicationConfigHash{})
+	if err != nil {
+		return internalerrors.Errorf("preparing insert query: %w", err)
+	}
+
+	if err := tx.Query(ctx, insertStmt, applicationConfigHash{
+		ApplicationUUID: appID.String(),
+		SHA256:          sha256,
+	}).Run(); err != nil {
+		return internalerrors.Errorf("inserting hash: %w", err)
+	}
+	return nil
+}
+
 func decodeRisk(risk string) (application.ChannelRisk, error) {
 	switch risk {
 	case "stable":
@@ -3026,5 +3128,71 @@ func decodeOSType(osType sql.NullInt64) (application.OSType, error) {
 		return application.Ubuntu, nil
 	default:
 		return -1, errors.Errorf("unknown os type %v", osType)
+	}
+}
+
+func hashConfigAndSettings(config map[string]application.ApplicationConfig, settings application.ApplicationSettings) (string, error) {
+	h := sha256.New()
+
+	// Ensure we have a stable order for the keys.
+	keys := slices.Collect(maps.Keys(config))
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		if _, err := h.Write([]byte(key)); err != nil {
+			return "", internalerrors.Errorf("writing key %q: %w", key, err)
+		}
+
+		v, ok := config[key]
+		if !ok {
+			return "", internalerrors.Errorf("missing value for key %q", key)
+		}
+
+		val, err := encodeConfigValue(v)
+		if err != nil {
+			return "", internalerrors.Errorf("encoding value for key %q: %w", key, err)
+		}
+		if _, err := h.Write([]byte(val)); err != nil {
+			return "", internalerrors.Errorf("writing value for key %q: %w", key, err)
+		}
+	}
+	if _, err := h.Write([]byte(fmt.Sprintf("%t", settings.Trust))); err != nil {
+		return "", internalerrors.Errorf("writing trust setting: %w", err)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func encodeConfigValue(v application.ApplicationConfig) (string, error) {
+	switch v.Type {
+	case charm.OptionBool:
+		b, ok := v.Value.(bool)
+		if !ok {
+			return "", internalerrors.Errorf("value is not a bool")
+		}
+		return strconv.FormatBool(b), nil
+	case charm.OptionInt:
+		switch t := v.Value.(type) {
+		case int:
+			return strconv.Itoa(t), nil
+		case int64:
+			return strconv.FormatInt(t, 10), nil
+		default:
+			return "", internalerrors.Errorf("value is not an int")
+		}
+	case charm.OptionFloat:
+		f, ok := v.Value.(float64)
+		if !ok {
+			return "", internalerrors.Errorf("value is not a float")
+		}
+		return fmt.Sprintf("%f", f), nil
+	case charm.OptionString, charm.OptionSecret:
+		s, ok := v.Value.(string)
+		if !ok {
+			return "", internalerrors.Errorf("value is not a string")
+		}
+		return s, nil
+	default:
+		return "", internalerrors.Errorf("unknown config type %v", v.Type)
+
 	}
 }

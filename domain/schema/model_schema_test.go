@@ -28,6 +28,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"application",
 		"application_channel",
 		"application_config",
+		"application_config_hash",
 		"application_constraint",
 		"application_endpoint_space",
 		"application_endpoint_cidr",
