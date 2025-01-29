@@ -8,9 +8,11 @@ import (
 
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -33,6 +35,23 @@ type ModelState interface {
 
 	// GetModelCloudType returns the model cloud type set in the database.
 	GetModelCloudType(context.Context) (string, error)
+
+	// GetModelConstraints returns the currently set constraints for the model.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound]: when no model exists to set constraints for.
+	// - [modelerrors.ConstraintsNotFound]: when no model constraints have been
+	// set for the model.
+	GetModelConstraints(context.Context) (constraints.Value, error)
+
+	// SetModelConstraints sets the model constraints to the new values removing
+	// any previously set values.
+	// The following error types can be expected:
+	// - [networkerrors.SpaceNotFound]: when a space constraint is set but the
+	// space does not exist.
+	// - [machineerrors.InvalidContainerType]: when the container type set on
+	// the constraints is invalid.
+	// - [modelerrors.NotFound]: when no model exists to set constraints for.
+	SetModelConstraints(ctx context.Context, cons constraints.Value) error
 }
 
 // ControllerState is the controller state required by this service. This is the
@@ -70,6 +89,35 @@ func NewModelService(
 		clock:                 clock.WallClock,
 		environProviderGetter: environProviderGetter,
 	}
+}
+
+// GetModelConstraints returns the current model constraints.
+// It returns an error satisfying [modelerrors.NotFound] if the model does not
+// exist.
+// It returns an empty Value if the model does not have any constraints
+// configured.
+func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
+	cons, err := s.modelSt.GetModelConstraints(ctx)
+	// If no constraints have been set for the model we return a zero value of
+	// constraints. This is done so the state layer isn't making decisions on
+	// what the caller of this service requires.
+	if errors.Is(err, modelerrors.ConstraintsNotFound) {
+		return constraints.Value{}, nil
+	}
+	return cons, err
+}
+
+// SetModelConstraints sets the model constraints to the new values removing
+// any previously set constraints.
+//
+// The following error types can be expected:
+// - [modelerrors.NotFound]: when the model does not exist
+// - [github.com/juju/juju/domain/network/errors.SpaceNotFound]: when the space
+// being set in the model constraint doesn't exist.
+// - [github.com/juju/juju/domain/machine/errors.InvalidContainerType]: when
+// the container type being set in the model constraint isn't valid.
+func (s *ModelService) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
+	return s.modelSt.SetModelConstraints(ctx, cons)
 }
 
 // GetModelInfo returns the readonly model information for the model in

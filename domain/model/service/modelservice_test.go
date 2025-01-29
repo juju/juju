@@ -10,18 +10,218 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/constraints"
 	corecredential "github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestatus "github.com/juju/juju/core/status"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type modelServiceSuite struct {
+	testing.IsolationSuite
+
+	mockControllerState        *MockControllerState
+	mockEnvironVersionProvider *MockEnvironVersionProvider
+	mockModelState             *MockModelState
+}
+
+func (s *modelServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockControllerState = NewMockControllerState(ctrl)
+	s.mockEnvironVersionProvider = NewMockEnvironVersionProvider(ctrl)
+	s.mockModelState = NewMockModelState(ctrl)
+	return ctrl
+}
+
+var _ = gc.Suite(&modelServiceSuite{})
+
+func ptr[T any](v T) *T {
+	return &v
+}
+
+// environVersionProviderGetter provides a test implementation of
+// [EnvironVersionProviderFunc] that uses the mocked [EnvironVersionProvider] on
+// this suite.
+func (s *modelServiceSuite) environVersionProviderGetter() EnvironVersionProviderFunc {
+	return func(_ string) (EnvironVersionProvider, error) {
+		return s.mockEnvironVersionProvider, nil
+	}
+}
+
+// TestGetModelConstraints is asserting the happy path of retrieving the set
+// model constraints.
+func (s *modelServiceSuite) TestGetModelConstraints(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	cons := constraints.Value{
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
+	}
+	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(cons, nil)
+
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
+	result, err := svc.GetModelConstraints(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, cons)
+}
+
+// TestGetModelConstraintsNotFound is asserting that when the state layer
+// reports that no model constraints exist with an error of
+// [modelerrors.ConstraintsNotFound] that we correctly handle this error and
+// receive a zero value constraints object back with no error.
+func (s *modelServiceSuite) TestGetModelConstraintsNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(
+		constraints.Value{},
+		modelerrors.ConstraintsNotFound,
+	)
+
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
+	result, err := svc.GetModelConstraints(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, constraints.Value{})
+}
+
+// TestGetModelConstraintsFailedModelNotFound is asserting that if we ask for
+// model constraints and the model does not exist in the database we get back
+// an error satisfying [modelerrors.NotFound].
+func (s *modelServiceSuite) TestGetModelConstraintsFailedModelNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Value{}, modelerrors.NotFound)
+
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
+	_, err := svc.GetModelConstraints(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	cons := constraints.Value{
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
+	}
+	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(nil)
+
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
+	err := svc.SetModelConstraints(context.Background(), cons)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestSetModelConstraintsInvalidContainerType is asserting that if we provide
+// a constraints that uses an invalid container type we get back an error that
+// satisfies [machineerrors.InvalidContainerType].
+func (s *modelServiceSuite) TestSetModelConstraintsInvalidContainerType(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	badConstraints := constraints.Value{
+		Container: ptr(instance.ContainerType("bad")),
+	}
+
+	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), badConstraints).Return(
+		machineerrors.InvalidContainerType,
+	)
+
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
+	err := svc.SetModelConstraints(context.Background(), badConstraints)
+	c.Check(err, jc.ErrorIs, machineerrors.InvalidContainerType)
+}
+
+func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	cons := constraints.Value{
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
+		Spaces:    ptr([]string{"space1"}),
+	}
+	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(networkerrors.SpaceNotFound)
+
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
+	err := svc.SetModelConstraints(context.Background(), cons)
+	c.Check(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+}
+
+func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	cons := constraints.Value{
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
+	}
+	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(modelerrors.NotFound)
+
+	svc := NewModelService(
+		modeltesting.GenModelUUID(c),
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+	)
+	err := svc.SetModelConstraints(context.Background(), cons)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+type legacyModelServiceSuite struct {
 	testing.IsolationSuite
 
 	controllerState *dummyControllerModelState
@@ -29,9 +229,9 @@ type modelServiceSuite struct {
 	controllerUUID  uuid.UUID
 }
 
-var _ = gc.Suite(&modelServiceSuite{})
+var _ = gc.Suite(&legacyModelServiceSuite{})
 
-func (s *modelServiceSuite) SetUpTest(c *gc.C) {
+func (s *legacyModelServiceSuite) SetUpTest(c *gc.C) {
 	s.controllerState = &dummyControllerModelState{
 		models:     map[coremodel.UUID]model.ReadOnlyModelCreationArgs{},
 		modelState: map[coremodel.UUID]model.ModelState{},
@@ -43,7 +243,7 @@ func (s *modelServiceSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = uuid.MustNewUUID()
 }
 
-func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
+func (s *legacyModelServiceSuite) TestModelCreation(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.controllerState, s.modelState, nil)
 
@@ -75,7 +275,7 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 	})
 }
 
-func (s *modelServiceSuite) TestGetModelMetrics(c *gc.C) {
+func (s *legacyModelServiceSuite) TestGetModelMetrics(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.controllerState, s.modelState, nil)
 
@@ -108,7 +308,7 @@ func (s *modelServiceSuite) TestGetModelMetrics(c *gc.C) {
 		}})
 }
 
-func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
+func (s *legacyModelServiceSuite) TestModelDeletion(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.controllerState, s.modelState, nil)
 
@@ -134,7 +334,7 @@ func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
 	c.Assert(exists, jc.IsFalse)
 }
 
-func (s *modelServiceSuite) TestStatusSuspended(c *gc.C) {
+func (s *legacyModelServiceSuite) TestStatusSuspended(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.controllerState, s.modelState, nil)
 	svc.clock = testclock.NewClock(time.Time{})
@@ -154,7 +354,7 @@ func (s *modelServiceSuite) TestStatusSuspended(c *gc.C) {
 	c.Check(status.Since, jc.Almost, now)
 }
 
-func (s *modelServiceSuite) TestStatusDestroying(c *gc.C) {
+func (s *legacyModelServiceSuite) TestStatusDestroying(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := &ModelService{
 		clock:        testclock.NewClock(time.Time{}),
@@ -176,7 +376,7 @@ func (s *modelServiceSuite) TestStatusDestroying(c *gc.C) {
 	c.Check(status.Since, jc.Almost, now)
 }
 
-func (s *modelServiceSuite) TestStatusBusy(c *gc.C) {
+func (s *legacyModelServiceSuite) TestStatusBusy(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := &ModelService{
 		clock:        testclock.NewClock(time.Time{}),
@@ -198,7 +398,7 @@ func (s *modelServiceSuite) TestStatusBusy(c *gc.C) {
 	c.Check(status.Since, jc.Almost, now)
 }
 
-func (s *modelServiceSuite) TestStatus(c *gc.C) {
+func (s *legacyModelServiceSuite) TestStatus(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := &ModelService{
 		clock:        testclock.NewClock(time.Time{}),
@@ -217,7 +417,7 @@ func (s *modelServiceSuite) TestStatus(c *gc.C) {
 	c.Check(status.Since, jc.Almost, now)
 }
 
-func (s *modelServiceSuite) TestStatusFailedModelNotFound(c *gc.C) {
+func (s *legacyModelServiceSuite) TestStatusFailedModelNotFound(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.controllerState, s.modelState, nil)
 
@@ -264,6 +464,14 @@ func (d *dummyControllerModelState) GetModelState(_ context.Context, modelUUID c
 type dummyModelState struct {
 	models map[coremodel.UUID]model.ReadOnlyModelCreationArgs
 	setID  coremodel.UUID
+}
+
+func (d *dummyModelState) GetModelConstraints(context.Context) (constraints.Value, error) {
+	return constraints.Value{}, nil
+}
+
+func (d *dummyModelState) SetModelConstraints(_ context.Context, cons constraints.Value) error {
+	return nil
 }
 
 func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {

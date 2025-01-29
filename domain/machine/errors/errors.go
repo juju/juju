@@ -4,7 +4,7 @@
 package errors
 
 import (
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -23,6 +23,12 @@ const (
 	// StatusNotSet describes an error that occurs when the status of a machine
 	// or a cloud instance is not set yet.
 	StatusNotSet = errors.ConstError("status not set")
+
+	// InvalidContainerType describes an error that can occur when a container
+	// type has been used that isn't understood by the Juju controller.
+	// Container types can currently be found in
+	// [github.com/juju/juju/core/instance.ContainerType]
+	InvalidContainerType = errors.ConstError("invalid container type")
 
 	// InvalidStatus describes a status that is not valid
 	InvalidStatus = errors.ConstError("invalid status")

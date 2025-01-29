@@ -20,6 +20,10 @@ const (
 	// to activate a model that has already been activated.
 	AlreadyActivated = errors.ConstError("model already activated")
 
+	// ConstraintsNotFound describes an error that occurs when no model
+	// constraints have been set for the model but they are requested.
+	ConstraintsNotFound = errors.ConstError("model constraints not found")
+
 	// ModelNamespaceNotFound describes an error that occurs when no database
 	// namespace for a model exists.
 	ModelNamespaceNotFound = errors.ConstError("model namespace not found")
