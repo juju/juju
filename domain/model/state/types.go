@@ -448,7 +448,24 @@ type dbConstraint struct {
 	RootDiskSource   sql.NullString `db:"root_disk_source"`
 	InstanceRole     sql.NullString `db:"instance_role"`
 	InstanceType     sql.NullString `db:"instance_type"`
-	ContainerType    string         `db:"container_type"`
+	ContainerType    sql.NullString `db:"container_type"`
+	VirtType         sql.NullString `db:"virt_type"`
+	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
+	ImageID          sql.NullString `db:"image_id"`
+}
+
+// dbConstraintInsert is used to supply insert values into the constraint table.
+type dbConstraintInsert struct {
+	UUID             string         `db:"uuid"`
+	Arch             sql.NullString `db:"arch"`
+	CPUCores         sql.NullInt64  `db:"cpu_cores"`
+	CPUPower         sql.NullInt64  `db:"cpu_power"`
+	Mem              sql.NullInt64  `db:"mem"`
+	RootDisk         sql.NullInt64  `db:"root_disk"`
+	RootDiskSource   sql.NullString `db:"root_disk_source"`
+	InstanceRole     sql.NullString `db:"instance_role"`
+	InstanceType     sql.NullString `db:"instance_type"`
+	ContainerTypeId  sql.NullInt64  `db:"container_type_id"`
 	VirtType         sql.NullString `db:"virt_type"`
 	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
 	ImageID          sql.NullString `db:"image_id"`
@@ -505,7 +522,10 @@ func toDBConstraint(uuid string, constraints constraints.Value) dbConstraint {
 			String: deref(constraints.InstanceType),
 			Valid:  constraints.InstanceType != nil,
 		},
-		ContainerType: string(deref(constraints.Container)),
+		ContainerType: sql.NullString{
+			String: string(deref(constraints.Container)),
+			Valid:  constraints.Container != nil,
+		},
 		VirtType: sql.NullString{
 			String: deref(constraints.VirtType),
 			Valid:  constraints.VirtType != nil,
@@ -556,8 +576,10 @@ func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace
 	if c.ImageID.Valid {
 		consVal.ImageID = &c.ImageID.String
 	}
-	containerType := instance.ContainerType(c.ContainerType)
-	consVal.Container = &containerType
+	if c.ContainerType.Valid {
+		containerType := instance.ContainerType(c.ContainerType.String)
+		consVal.Container = &containerType
+	}
 
 	consTags := make([]string, 0, len(tags))
 	for _, tag := range tags {
@@ -587,6 +609,14 @@ func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace
 	}
 
 	return consVal, nil
+}
+
+type dbContainerTypeId struct {
+	Id int64 `db:"id"`
+}
+
+type dbContainerTypeValue struct {
+	Value string `db:"value"`
 }
 
 type dbConstraintTag struct {
