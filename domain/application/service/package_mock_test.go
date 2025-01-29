@@ -294,6 +294,84 @@ func (c *MockStateGetApplicationConfigAndSettingsCall) DoAndReturn(f func(contex
 	return c
 }
 
+// GetApplicationConfigHash mocks base method.
+func (m *MockState) GetApplicationConfigHash(arg0 context.Context, arg1 application.ID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationConfigHash", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationConfigHash indicates an expected call of GetApplicationConfigHash.
+func (mr *MockStateMockRecorder) GetApplicationConfigHash(arg0, arg1 any) *MockStateGetApplicationConfigHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConfigHash", reflect.TypeOf((*MockState)(nil).GetApplicationConfigHash), arg0, arg1)
+	return &MockStateGetApplicationConfigHashCall{Call: call}
+}
+
+// MockStateGetApplicationConfigHashCall wrap *gomock.Call
+type MockStateGetApplicationConfigHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationConfigHashCall) Return(arg0 string, arg1 error) *MockStateGetApplicationConfigHashCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationConfigHashCall) Do(f func(context.Context, application.ID) (string, error)) *MockStateGetApplicationConfigHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationConfigHashCall) DoAndReturn(f func(context.Context, application.ID) (string, error)) *MockStateGetApplicationConfigHashCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationID mocks base method.
+func (m *MockState) GetApplicationID(arg0 domain.AtomicContext, arg1 string) (application.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationID", arg0, arg1)
+	ret0, _ := ret[0].(application.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationID indicates an expected call of GetApplicationID.
+func (mr *MockStateMockRecorder) GetApplicationID(arg0, arg1 any) *MockStateGetApplicationIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationID", reflect.TypeOf((*MockState)(nil).GetApplicationID), arg0, arg1)
+	return &MockStateGetApplicationIDCall{Call: call}
+}
+
+// MockStateGetApplicationIDCall wrap *gomock.Call
+type MockStateGetApplicationIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationIDCall) Return(arg0 application.ID, arg1 error) *MockStateGetApplicationIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationIDCall) Do(f func(domain.AtomicContext, string) (application.ID, error)) *MockStateGetApplicationIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationIDCall) DoAndReturn(f func(domain.AtomicContext, string) (application.ID, error)) *MockStateGetApplicationIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationIDByName mocks base method.
 func (m *MockState) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.ID, error) {
 	m.ctrl.T.Helper()
@@ -1626,6 +1704,45 @@ func (c *MockStateGetUnitUUIDByNameCall) Do(f func(context.Context, unit.Name) (
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetUnitUUIDByNameCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchStatementApplicationConfigHash mocks base method.
+func (m *MockState) InitialWatchStatementApplicationConfigHash(arg0 string) (string, eventsource.NamespaceQuery) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementApplicationConfigHash", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(eventsource.NamespaceQuery)
+	return ret0, ret1
+}
+
+// InitialWatchStatementApplicationConfigHash indicates an expected call of InitialWatchStatementApplicationConfigHash.
+func (mr *MockStateMockRecorder) InitialWatchStatementApplicationConfigHash(arg0 any) *MockStateInitialWatchStatementApplicationConfigHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementApplicationConfigHash", reflect.TypeOf((*MockState)(nil).InitialWatchStatementApplicationConfigHash), arg0)
+	return &MockStateInitialWatchStatementApplicationConfigHashCall{Call: call}
+}
+
+// MockStateInitialWatchStatementApplicationConfigHashCall wrap *gomock.Call
+type MockStateInitialWatchStatementApplicationConfigHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchStatementApplicationConfigHashCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementApplicationConfigHashCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchStatementApplicationConfigHashCall) Do(f func(string) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementApplicationConfigHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchStatementApplicationConfigHashCall) DoAndReturn(f func(string) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementApplicationConfigHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -1923,6 +1923,40 @@ WHERE c.available = FALSE
 	return "application", queryFunc
 }
 
+// InitialWatchStatementApplicationConfigHash returns the initial namespace
+// query for the application config hash watcher.
+func (st *State) InitialWatchStatementApplicationConfigHash(appName string) (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		app := applicationName{Name: appName}
+		stmt, err := st.Prepare(`
+SELECT &applicationConfigHash.*
+FROM application_config_hash ach
+JOIN application a ON a.uuid = ach.application_uuid
+WHERE a.name = $applicationName.name
+`, app, applicationConfigHash{})
+		if err != nil {
+			return nil, jujuerrors.Trace(err)
+		}
+		var result []applicationConfigHash
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt, app).GetAll(&result)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
+			return jujuerrors.Trace(err)
+		})
+		if err != nil {
+			return nil, jujuerrors.Annotatef(err, "querying unit IDs for %q", appName)
+		}
+		hashes := make([]string, len(result))
+		for i, r := range result {
+			hashes[i] = r.SHA256
+		}
+		return hashes, nil
+	}
+	return "application_config_hash", queryFunc
+}
+
 // GetApplicationsWithPendingCharmsFromUUIDs returns the application IDs for the
 // applications with pending charms from the specified UUIDs.
 func (st *State) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error) {

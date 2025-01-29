@@ -255,7 +255,6 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 // WatchApplicationsWithPendingCharms returns a watcher that observes changes to
 // applications that have pending charms.
 func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error) {
-
 	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		table,
@@ -346,6 +345,58 @@ func (s *WatchableService) WatchApplication(ctx context.Context, name string) (w
 		uuid.String(),
 		changestream.All,
 	)
+}
+
+// WatchApplicationConfigHash watches for changes to the specified application's
+// config hash.
+func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name string) (watcher.StringsWatcher, error) {
+	appID, err := s.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting ID of application %s: %w", name, err)
+	}
+
+	var sha256 string
+
+	table, query := s.st.InitialWatchStatementApplicationConfigHash(name)
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		table,
+		changestream.All,
+		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
+			initialResults, err := query(ctx, txn)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if num := len(initialResults); num > 1 {
+				return nil, internalerrors.Errorf("too many config hashes for application %q", name)
+			} else if num == 1 {
+				sha256 = initialResults[0]
+			}
+
+			return initialResults, nil
+		},
+		func(ctx context.Context, _ database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			currentSHA256, err := s.st.GetApplicationConfigHash(ctx, appID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			// If the hash hasn't changed, return no changes.
+			if currentSHA256 == sha256 {
+				return nil, nil
+			}
+			sha256 = currentSHA256
+
+			// All the changes are for the same application, so in theory, we
+			// could just group these changes as one. However, we would need
+			// to verify that the consumer isn't concerned about each individual
+			// event type. For now, we'll just return all the changes.
+			return changes, nil
+		},
+	)
+}
+
+type watchApplicationConfigHashMapperState struct {
+	appID  coreapplication.ID
+	sha256 string
 }
 
 // isValidApplicationName returns whether name is a valid application name.
