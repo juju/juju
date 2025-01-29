@@ -394,9 +394,9 @@ INSERT INTO space (uuid, name) VALUES
 	}
 	err = state.SetModelConstraints(context.Background(), consVal)
 	c.Assert(err, jc.ErrorIsNil)
+
 	cons, err := state.GetModelConstraints(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	consVal.Container = ptr(instance.NONE)
 	c.Assert(cons, jc.DeepEquals, consVal)
 
 	// Test setting all constraints.

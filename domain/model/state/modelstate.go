@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -206,8 +205,13 @@ WHERE c.uuid = $dbConstraint.uuid`, dbConstraintZone{}, dbConstraint{})
 
 // getConstraintUUID returns the constraint uuid that is active for the model.
 // If the currently does not have any constraints then an error satisfying
-// [coreerrors.NotFound] is returned.
-func (s *ModelState) getConstrainUUID(ctx context.Context, modelUUID coremodel.UUID, tx *sqlair.TX) (string, error) {
+// [modelerrors.ConstraintsNotFound] is returned.
+func (s *ModelState) getConstrainUUID(
+	ctx context.Context,
+	tx *sqlair.TX,
+) (string, error) {
+	modelUUID, err := s.getModelUUID(ctx, tx)
+
 	modelConstraint := dbModelConstraint{
 		ModelUUID: modelUUID.String(),
 	}
@@ -222,14 +226,13 @@ WHERE  model_uuid = $dbModelConstraint.model_uuid`, modelConstraint)
 
 	err = tx.Query(ctx, stmt, modelConstraint).Get(&modelConstraint)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", errors.New("model does not have any constraints set").Add(
-			coreerrors.NotFound,
-		)
-	}
-
-	if err != nil {
+		return "", errors.Errorf(
+			"no constraints set for model %q", modelUUID,
+		).Add(modelerrors.ConstraintsNotFound)
+	} else if err != nil {
 		return "", errors.Errorf("getting constraint UUID for model %q: %w", modelUUID, err)
 	}
+
 	return modelConstraint.ConstraintUUID, nil
 }
 
@@ -262,7 +265,7 @@ SELECT c.uuid AS &dbConstraint.uuid,
        c.image_id AS &dbConstraint.image_id
 FROM   model_constraint mc
        JOIN "constraint" c ON c.uuid = mc.constraint_uuid
-       JOIN container_type ct ON ct.id = c.container_type_id
+       LEFT JOIN container_type ct ON ct.id = c.container_type_id
 WHERE  mc.model_uuid = $dbModelConstraint.model_uuid
 `, dbConstraint{}, dbModelConstraint{})
 	if err != nil {
@@ -274,7 +277,7 @@ WHERE  mc.model_uuid = $dbModelConstraint.model_uuid
 	err = tx.Query(ctx, stmt, modelConstraint).Get(&constraint)
 	if errors.Is(err, sql.ErrNoRows) {
 		return dbConstraint{}, errors.Errorf(
-			"no constraints available for model %q", modelUUID,
+			"no constraints set for model %q", modelUUID,
 		).Add(modelerrors.ConstraintsNotFound)
 	}
 	if err != nil {
@@ -289,14 +292,13 @@ WHERE  mc.model_uuid = $dbModelConstraint.model_uuid
 // does not exist no error is raised.
 func (s *ModelState) deleteModelConstraint(
 	ctx context.Context,
-	modelUUID coremodel.UUID,
 	tx *sqlair.TX,
 ) error {
-	constraintUUID, err := s.getConstrainUUID(ctx, modelUUID, tx)
-	if errors.Is(err, coreerrors.NotFound) {
+	constraintUUID, err := s.getConstrainUUID(ctx, tx)
+	if errors.Is(err, modelerrors.ConstraintsNotFound) {
 		return nil
 	} else if err != nil {
-		return errors.Errorf("getting model constraint uuid: %w", err)
+		return errors.Errorf("deleting existing model constraints: %w", err)
 	}
 
 	stmt, err := s.Prepare(`DELETE FROM model_constraint`)
@@ -305,7 +307,7 @@ func (s *ModelState) deleteModelConstraint(
 	}
 	err = tx.Query(ctx, stmt).Run()
 	if err != nil {
-		return errors.Errorf("removing model constraints: %w", err)
+		return errors.Errorf("delete constraints %q for model: %w", constraintUUID, err)
 	}
 
 	dbConstraintUUID := dbConstraintUUID{UUID: constraintUUID}
@@ -320,7 +322,7 @@ WHERE constraint_uuid = $dbConstraintUUID.constraint_uuid`, dbConstraintUUID,
 
 	err = tx.Query(ctx, stmt, dbConstraintUUID).Run()
 	if err != nil {
-		return errors.Errorf("removing model constraint tags: %w", err)
+		return errors.Errorf("deleting model constraint %q tags: %w", constraintUUID, err)
 	}
 
 	stmt, err = s.Prepare(`
@@ -332,7 +334,7 @@ WHERE constraint_uuid = $dbConstraintUUID.constraint_uuid`, dbConstraintUUID,
 	}
 	err = tx.Query(ctx, stmt, dbConstraintUUID).Run()
 	if err != nil {
-		return errors.Errorf("removing model constraint spaces: %w", err)
+		return errors.Errorf("deleting model constraint %q spaces: %w", constraintUUID, err)
 	}
 
 	stmt, err = s.Prepare(`
@@ -344,7 +346,7 @@ WHERE constraint_uuid = $dbConstraintUUID.constraint_uuid`, dbConstraintUUID,
 	}
 	err = tx.Query(ctx, stmt, dbConstraintUUID).Run()
 	if err != nil {
-		return errors.Errorf("removing model constraint zones: %w", err)
+		return errors.Errorf("deleting model constraint %q zones: %w", constraintUUID, err)
 	}
 
 	stmt, err = s.Prepare(`
@@ -355,7 +357,7 @@ DELETE FROM "constraint" WHERE uuid = $dbConstraintUUID.constraint_uuid`, dbCons
 	}
 	err = tx.Query(ctx, stmt, dbConstraintUUID).Run()
 	if err != nil {
-		return errors.Errorf("removing model constraint %q: %w", constraintUUID, err)
+		return errors.Errorf("deleting model constraint %q: %w", constraintUUID, err)
 	}
 	return nil
 }
@@ -458,7 +460,7 @@ INSERT INTO "constraint" (*) VALUES($dbConstraintInsert.*)
 			return errors.Errorf("getting model uuid: %w", err)
 		}
 
-		err = s.deleteModelConstraint(ctx, modelUUID, tx)
+		err = s.deleteModelConstraint(ctx, tx)
 		if err != nil {
 			return errors.Errorf("deleting existing model constraints: %w", err)
 		}
