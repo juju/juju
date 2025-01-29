@@ -28,9 +28,11 @@ import (
 )
 
 const (
-	credAttrServerCert    = "server-cert"
-	credAttrClientCert    = "client-cert"
-	credAttrClientKey     = "client-key"
+	credAttrServerCert = "server-cert"
+	credAttrClientCert = "client-cert"
+	credAttrClientKey  = "client-key"
+	// Deprecated: In LXD 6.1, and only trust-token should
+	// be used. See https://documentation.ubuntu.com/lxd/en/stable-5.0/authentication/#adding-client-certificates-using-tokens
 	credAttrTrustPassword = "trust-password"
 	credAttrTrustToken    = "trust-token"
 )
@@ -90,20 +92,24 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 			},
 		},
 		cloud.InteractiveAuthType: {
-			// deprecated in LXD 6.1, and only trust-token should
+			{
+				Name: credAttrTrustToken,
+				CredentialAttr: cloud.CredentialAttr{
+					Description: "the LXD server trust token",
+					Hidden:      false,
+					Optional:    true,
+					ShortSuffix: "(leave blank to provide a trust password instead)",
+				},
+			},
+			// Deprecated: In LXD 6.1, and only trust-token should
 			// be used. See https://documentation.ubuntu.com/lxd/en/stable-5.0/authentication/#adding-client-certificates-using-tokens
 			{
 				Name: credAttrTrustPassword,
 				CredentialAttr: cloud.CredentialAttr{
 					Description: "the LXD server trust password",
 					Hidden:      true,
-				},
-			},
-			{
-				Name: credAttrTrustToken,
-				CredentialAttr: cloud.CredentialAttr{
-					Description: "the LXD server trust token",
-					Hidden:      true,
+					Optional:    true,
+					ShortSuffix: "(leave blank if a trust token was provided)",
 				},
 			},
 		},
@@ -294,6 +300,9 @@ func (p environProviderCredentials) FinalizeCredential(
 		// Both trust password and trust tokens should create new client
 		// certs that will be passed to the server and store them.
 		_, isTrustPassword := credAttrs[credAttrTrustPassword]
+		if isTrustToken && isTrustPassword {
+			return nil, errors.NotValidf("both trust token and trust password were supplied")
+		}
 		if isTrustToken || isTrustPassword {
 			// check to see if the client cert, keys exist, if they do not,
 			// generate them for the user.

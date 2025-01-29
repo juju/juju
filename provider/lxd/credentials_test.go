@@ -808,6 +808,25 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustToken(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, &expected)
 }
 
+func (s *credentialsSuite) TestFinalizeCredentialRemoteWithTrustTokenAndTrustPasswordFails(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	insecureCred := cloud.NewCredential(cloud.InteractiveAuthType, map[string]string{
+		"trust-token":    "token1",
+		"trust-password": "password1",
+	})
+	params := environs.FinalizeCredentialParams{
+		CloudEndpoint: "8.8.8.8",
+		Credential:    insecureCred,
+	}
+
+	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
+	c.Assert(err, gc.ErrorMatches, "both trust token and trust password were supplied.*")
+}
+
 func (s *credentialsSuite) TestFinalizeCredentialNonLocalWithCertAlreadyExists(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
