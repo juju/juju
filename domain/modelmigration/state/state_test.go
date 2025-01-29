@@ -38,7 +38,7 @@ func (s *migrationSuite) SetUpTest(c *gc.C) {
 	state := modelstate.NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
+	args := model.ModelDetailArgs{
 		UUID:            id,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,

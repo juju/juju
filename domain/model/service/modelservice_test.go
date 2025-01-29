@@ -233,11 +233,11 @@ var _ = gc.Suite(&legacyModelServiceSuite{})
 
 func (s *legacyModelServiceSuite) SetUpTest(c *gc.C) {
 	s.controllerState = &dummyControllerModelState{
-		models:     map[coremodel.UUID]model.ReadOnlyModelCreationArgs{},
+		models:     map[coremodel.UUID]model.ModelDetailArgs{},
 		modelState: map[coremodel.UUID]model.ModelState{},
 	}
 	s.modelState = &dummyModelState{
-		models: map[coremodel.UUID]model.ReadOnlyModelCreationArgs{},
+		models: map[coremodel.UUID]model.ModelDetailArgs{},
 	}
 
 	s.controllerUUID = uuid.MustNewUUID()
@@ -247,7 +247,7 @@ func (s *legacyModelServiceSuite) TestModelCreation(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.controllerState, s.modelState, nil)
 
-	m := model.ReadOnlyModelCreationArgs{
+	m := model.ModelDetailArgs{
 		UUID:        id,
 		Name:        "my-awesome-model",
 		Cloud:       "aws",
@@ -279,7 +279,7 @@ func (s *legacyModelServiceSuite) TestGetModelMetrics(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.controllerState, s.modelState, nil)
 
-	m := model.ReadOnlyModelCreationArgs{
+	m := model.ModelDetailArgs{
 		UUID:        id,
 		Name:        "my-awesome-model",
 		Cloud:       "aws",
@@ -312,7 +312,7 @@ func (s *legacyModelServiceSuite) TestModelDeletion(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	svc := NewModelService(id, s.controllerState, s.modelState, nil)
 
-	m := model.ReadOnlyModelCreationArgs{
+	m := model.ModelDetailArgs{
 		UUID:        id,
 		Name:        "my-awesome-model",
 		Cloud:       "aws",
@@ -426,7 +426,7 @@ func (s *legacyModelServiceSuite) TestStatusFailedModelNotFound(c *gc.C) {
 }
 
 type dummyControllerModelState struct {
-	models     map[coremodel.UUID]model.ReadOnlyModelCreationArgs
+	models     map[coremodel.UUID]model.ModelDetailArgs
 	modelState map[coremodel.UUID]model.ModelState
 }
 
@@ -462,7 +462,7 @@ func (d *dummyControllerModelState) GetModelState(_ context.Context, modelUUID c
 }
 
 type dummyModelState struct {
-	models map[coremodel.UUID]model.ReadOnlyModelCreationArgs
+	models map[coremodel.UUID]model.ModelDetailArgs
 	setID  coremodel.UUID
 }
 
@@ -474,7 +474,7 @@ func (d *dummyModelState) SetModelConstraints(_ context.Context, cons constraint
 	return nil
 }
 
-func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {
+func (d *dummyModelState) Create(ctx context.Context, args model.ModelDetailArgs) error {
 	if d.setID != coremodel.UUID("") {
 		return modelerrors.AlreadyExists
 	}

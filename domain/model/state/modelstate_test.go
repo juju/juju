@@ -38,7 +38,7 @@ func (s *modelSuite) TestCreateAndReadModel(c *gc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
+	args := model.ModelDetailArgs{
 		UUID:            id,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
@@ -75,7 +75,7 @@ func (s *modelSuite) TestDeleteModel(c *gc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
+	args := model.ModelDetailArgs{
 		UUID:            id,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
@@ -108,7 +108,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
 	// Ensure that we can't create the same model twice.
 
 	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
+	args := model.ModelDetailArgs{
 		UUID:           id,
 		AgentVersion:   jujuversion.Current,
 		ControllerUUID: s.controllerUUID,
@@ -130,7 +130,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 
 	// Ensure that you can only ever insert one model.
 
-	err := state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
+	err := state.Create(context.Background(), model.ModelDetailArgs{
 		UUID:         modeltesting.GenModelUUID(c),
 		AgentVersion: jujuversion.Current,
 		Name:         "my-awesome-model",
@@ -141,7 +141,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
+	err = state.Create(context.Background(), model.ModelDetailArgs{
 		UUID:         modeltesting.GenModelUUID(c),
 		AgentVersion: jujuversion.Current,
 		Name:         "my-awesome-model",
@@ -160,7 +160,7 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 	// Ensure that you can't update it.
 
 	id := modeltesting.GenModelUUID(c)
-	err := state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
+	err := state.Create(context.Background(), model.ModelDetailArgs{
 		UUID:           id,
 		AgentVersion:   jujuversion.Current,
 		ControllerUUID: s.controllerUUID,
@@ -184,7 +184,7 @@ func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
 	// Ensure that you can't update it.
 
 	id := modeltesting.GenModelUUID(c)
-	err := state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
+	err := state.Create(context.Background(), model.ModelDetailArgs{
 		UUID:         id,
 		AgentVersion: jujuversion.Current,
 		Name:         "my-awesome-model",
@@ -213,7 +213,7 @@ func (s *modelSuite) TestGetModelMetrics(c *gc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
+	args := model.ModelDetailArgs{
 		UUID:            id,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
@@ -274,7 +274,7 @@ func (s *modelSuite) TestGetModelCloudType(c *gc.C) {
 
 	id := modeltesting.GenModelUUID(c)
 	cloudType := "ec2"
-	args := model.ReadOnlyModelCreationArgs{
+	args := model.ModelDetailArgs{
 		UUID:            id,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,

@@ -107,7 +107,7 @@ func (s *suite) TestModelID(c *gc.C) {
 	// Create model info.
 	modelID := modeltesting.GenModelUUID(c)
 	modelSt := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := modelSt.Create(context.Background(), model.ReadOnlyModelCreationArgs{
+	err := modelSt.Create(context.Background(), model.ModelDetailArgs{
 		UUID:           modelID,
 		AgentVersion:   version.Number{Major: 4, Minor: 21, Patch: 67},
 		ControllerUUID: uuid.MustNewUUID(),
