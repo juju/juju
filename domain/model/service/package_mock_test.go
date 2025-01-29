@@ -205,7 +205,7 @@ func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockModelState) Create(arg0 context.Context, arg1 model0.ReadOnlyModelCreationArgs) error {
+func (m *MockModelState) Create(arg0 context.Context, arg1 model0.ModelDetailArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -231,13 +231,13 @@ func (c *MockModelStateCreateCall) Return(arg0 error) *MockModelStateCreateCall 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateCreateCall) Do(f func(context.Context, model0.ReadOnlyModelCreationArgs) error) *MockModelStateCreateCall {
+func (c *MockModelStateCreateCall) Do(f func(context.Context, model0.ModelDetailArgs) error) *MockModelStateCreateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateCreateCall) DoAndReturn(f func(context.Context, model0.ReadOnlyModelCreationArgs) error) *MockModelStateCreateCall {
+func (c *MockModelStateCreateCall) DoAndReturn(f func(context.Context, model0.ModelDetailArgs) error) *MockModelStateCreateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

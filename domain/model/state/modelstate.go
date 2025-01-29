@@ -44,7 +44,7 @@ func NewModelState(
 }
 
 // Create creates a new read-only model.
-func (s *ModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {
+func (s *ModelState) Create(ctx context.Context, args model.ModelDetailArgs) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -274,7 +274,7 @@ func (s *ModelState) GetModelCloudType(ctx context.Context) (string, error) {
 // CreateReadOnlyModel is responsible for creating a new model within the model
 // database. If the model already exists then an error satisfying
 // [modelerrors.AlreadyExists] is returned.
-func CreateReadOnlyModel(ctx context.Context, args model.ReadOnlyModelCreationArgs, preparer domain.Preparer, tx *sqlair.TX) error {
+func CreateReadOnlyModel(ctx context.Context, args model.ModelDetailArgs, preparer domain.Preparer, tx *sqlair.TX) error {
 	// This is some defensive programming. The zero value of agent version is
 	// still valid but should really be considered null for the purposes of
 	// allowing the DDL to assert constraints.

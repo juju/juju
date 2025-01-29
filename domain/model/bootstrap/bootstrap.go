@@ -136,7 +136,7 @@ func CreateReadOnlyModel(
 			return fmt.Errorf("getting model for id %q: %w", id, err)
 		}
 
-		args := model.ReadOnlyModelCreationArgs{
+		args := model.ModelDetailArgs{
 			UUID:              m.UUID,
 			AgentVersion:      m.AgentVersion,
 			ControllerUUID:    controllerUUID,

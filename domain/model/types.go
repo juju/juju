@@ -96,10 +96,10 @@ func (m ModelImportArgs) Validate() error {
 	return nil
 }
 
-// ReadOnlyModelCreationArgs is a struct that is used to create a model
+// ModelDetailArgs is a struct that is used to create a model
 // within the model database. This struct is used to create a model with all of
 // its associated metadata.
-type ReadOnlyModelCreationArgs struct {
+type ModelDetailArgs struct {
 	// UUID represents the unique id for the model when being created. This
 	// value is optional and if omitted will be generated for the caller. Use
 	// this value when you are trying to import a model during model migration.

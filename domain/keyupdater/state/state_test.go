@@ -99,7 +99,7 @@ func (s *stateSuite) TestGetModelId(c *gc.C) {
 	mst := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
+	args := model.ModelDetailArgs{
 		UUID:            modelUUID,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  uuid.MustNewUUID(),
