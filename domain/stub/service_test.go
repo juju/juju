@@ -12,9 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -57,13 +55,7 @@ var addApplicationArg = application.AddApplicationArg{
 func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
-		if err != nil {
-			return err
-		}
-		return s.appState.AddUnits(ctx, appID, application.AddUnitArg{UnitName: "foo/0"})
-	})
+	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.AddUnitArg{UnitName: "foo/0"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
@@ -97,13 +89,7 @@ func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
 func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
-		if err != nil {
-			return err
-		}
-		return s.appState.AddUnits(ctx, appID, application.AddUnitArg{UnitName: "foo/0"})
-	})
+	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.AddUnitArg{UnitName: "foo/0"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{
@@ -115,13 +101,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
 func (s *stubSuite) TestAssignUnitsToMachinesUnitNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
-		if err != nil {
-			return err
-		}
-		return s.appState.AddUnits(ctx, appID, application.AddUnitArg{UnitName: "foo/0"})
-	})
+	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.AddUnitArg{UnitName: "foo/0"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
@@ -141,16 +121,10 @@ func (s *stubSuite) TestAssignUnitsToMachinesUnitNotFound(c *gc.C) {
 func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		appID, err := s.appState.CreateApplication(ctx, "foo", addApplicationArg)
-		if err != nil {
-			return err
-		}
-		return s.appState.AddUnits(ctx, appID,
-			application.AddUnitArg{UnitName: "foo/0"},
-			application.AddUnitArg{UnitName: "foo/1"},
-		)
-	})
+	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg,
+		application.AddUnitArg{UnitName: "foo/0"},
+		application.AddUnitArg{UnitName: "foo/1"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
@@ -191,15 +165,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
 func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	var appID coreapplication.ID
-	err := s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		appID, err = s.appState.CreateApplication(ctx, "foo", addApplicationArg)
-		if err != nil {
-			return err
-		}
-		return s.appState.AddUnits(ctx, appID, application.AddUnitArg{UnitName: "foo/0"})
-	})
+	appID, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.AddUnitArg{UnitName: "foo/0"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
@@ -210,10 +176,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.appState.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.appState.AddUnits(ctx, appID, application.AddUnitArg{UnitName: "foo/1"})
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	err = s.appState.AddUnits(context.Background(), appID, application.AddUnitArg{UnitName: "foo/1"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{

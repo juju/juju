@@ -127,7 +127,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				arg.PasswordHash = ptr(unit.PasswordHash())
 			}
 			if cc := unit.CloudContainer(); cc != nil {
-				cldContainer := &service.CloudContainerParams{}
+				cldContainer := &application.CloudContainerParams{}
 				cldContainer.Address, cldContainer.AddressOrigin = i.makeAddress(cc.Address())
 				if cc.ProviderId() != "" {
 					cldContainer.ProviderId = cc.ProviderId()

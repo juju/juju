@@ -14,7 +14,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -71,29 +70,24 @@ func (s *baseSuite) createApplicationWithRelations(c *gc.C, appName string, rela
 	}
 
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
-	var appUUID coreapplication.ID
-	err := applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		appUUID, err = applicationSt.CreateApplication(ctx, appName, application.AddApplicationArg{
-			Charm: charm.Charm{
-				Metadata: charm.Metadata{
-					Name:     appName,
-					Requires: relationsMap,
-				},
-				Manifest: charm.Manifest{
-					Bases: []charm.Base{{
-						Name:          "ubuntu",
-						Channel:       charm.Channel{Risk: charm.RiskStable},
-						Architectures: []string{"amd64"},
-					}},
-				},
-				ReferenceName: appName,
-				Architecture:  architecture.AMD64,
-				Revision:      1,
-				Source:        charm.LocalSource,
+	appUUID, err := applicationSt.CreateApplication(context.Background(), appName, application.AddApplicationArg{
+		Charm: charm.Charm{
+			Metadata: charm.Metadata{
+				Name:     appName,
+				Requires: relationsMap,
 			},
-		})
-		return err
+			Manifest: charm.Manifest{
+				Bases: []charm.Base{{
+					Name:          "ubuntu",
+					Channel:       charm.Channel{Risk: charm.RiskStable},
+					Architectures: []string{"amd64"},
+				}},
+			},
+			ReferenceName: appName,
+			Architecture:  architecture.AMD64,
+			Revision:      1,
+			Source:        charm.LocalSource,
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return appUUID
@@ -104,15 +98,13 @@ func (s *baseSuite) createApplicationWithRelations(c *gc.C, appName string, rela
 func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.UUID, coreunit.Name) {
 	unitName, err := coreunit.NewNameFromParts(appName, s.unitCount)
 	c.Assert(err, jc.ErrorIsNil)
-
+	ctx := context.Background()
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
-	err = applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		appID, err := applicationSt.GetApplicationID(ctx, appName)
-		if err != nil {
-			return err
-		}
-		return applicationSt.AddUnits(ctx, appID, application.AddUnitArg{UnitName: unitName})
-	})
+
+	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = applicationSt.AddUnits(ctx, appID, application.AddUnitArg{UnitName: unitName})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unitCount++
 

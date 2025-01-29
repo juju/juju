@@ -8,7 +8,6 @@ import (
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -60,14 +59,6 @@ type AddApplicationArgs struct {
 	ApplicationSettings application.ApplicationSettings
 }
 
-// CloudContainerParams contains parameters for a unit cloud container.
-type CloudContainerParams struct {
-	ProviderId    string
-	Address       *network.SpaceAddress
-	AddressOrigin *network.Origin
-	Ports         *[]string
-}
-
 // AddressParams contains parameters for a unit/cloud container address.
 type AddressParams struct {
 	Value       string
@@ -91,7 +82,7 @@ type ImportUnitArg struct {
 	PasswordHash   *string
 	AgentStatus    StatusParams
 	WorkloadStatus StatusParams
-	CloudContainer *CloudContainerParams
+	CloudContainer *application.CloudContainerParams
 }
 
 // ScalingState contains attributes that describes
@@ -99,18 +90,6 @@ type ImportUnitArg struct {
 type ScalingState struct {
 	ScaleTarget int
 	Scaling     bool
-}
-
-// RegisterCAASUnitParams contains parameters for introducing
-// a k8s unit representing a new pod to the model.
-type RegisterCAASUnitParams struct {
-	UnitName     coreunit.Name
-	PasswordHash string
-	ProviderId   string
-	Address      *string
-	Ports        *[]string
-	OrderedScale bool
-	OrderedId    int
 }
 
 // StatusParams contains parameters for setting unit status.

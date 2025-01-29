@@ -11,7 +11,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -19,17 +19,21 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/linklayerdevice"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagestate "github.com/juju/juju/domain/storage/state"
 	internaldatabase "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -39,13 +43,13 @@ import (
 func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 
 	var result modelInfo
 	stmt, err := st.Prepare("SELECT &modelInfo.type FROM model", result)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -56,7 +60,7 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 		return err
 	})
 	if err != nil {
-		return "", errors.Annotatef(err, "querying model type")
+		return "", errors.Errorf("querying model type: %w", err)
 	}
 	return coremodel.ModelType(result.ModelType), nil
 }
@@ -65,15 +69,25 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 // [applicationerrors.ApplicationAlreadyExists] if the application already exists.
 // It returns as error satisfying [applicationerrors.CharmNotFound] if the charm
 // for the application is not found.
-func (st *State) CreateApplication(ctx domain.AtomicContext, name string, args application.AddApplicationArg) (coreapplication.ID, error) {
+func (st *State) CreateApplication(
+	ctx context.Context,
+	name string,
+	args application.AddApplicationArg,
+	units ...application.AddUnitArg,
+) (coreapplication.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", jujuerrors.Trace(err)
+	}
+
 	appUUID, err := coreapplication.NewID()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 
 	charmID, err := corecharm.NewID()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 
 	appDetails := applicationDetails{
@@ -86,7 +100,7 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, args a
 	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`
 	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 
 	scaleInfo := applicationScale{
@@ -96,7 +110,7 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, args a
 	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
 	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 
 	platformInfo := applicationPlatform{
@@ -108,7 +122,7 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, args a
 	createPlatform := `INSERT INTO application_platform (*) VALUES ($applicationPlatform.*)`
 	createPlatformStmt, err := st.Prepare(createPlatform, platformInfo)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 
 	var (
@@ -130,11 +144,11 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, args a
 		}
 		createChannel := `INSERT INTO application_channel (*) VALUES ($applicationChannel.*)`
 		if createChannelStmt, err = st.Prepare(createChannel, channelInfo); err != nil {
-			return "", errors.Trace(err)
+			return "", jujuerrors.Trace(err)
 		}
 	}
 
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the application already exists.
 		if err := st.checkApplicationNameAvailable(ctx, tx, name); err != nil {
 			return fmt.Errorf("checking if application %q exists: %w", name, err)
@@ -156,41 +170,57 @@ func (st *State) CreateApplication(ctx domain.AtomicContext, name string, args a
 
 		if shouldInsertCharm {
 			if err := st.setCharm(ctx, tx, charmID, args.Charm, args.CharmDownloadInfo); err != nil {
-				return errors.Annotate(err, "setting charm")
+				return errors.Errorf("setting charm: %w", err)
 			}
 		}
 
 		// If the application doesn't exist, create it.
 		if err := tx.Query(ctx, createApplicationStmt, appDetails).Run(); err != nil {
-			return errors.Annotatef(err, "inserting row for application %q", name)
+			return errors.Errorf("inserting row for application %q: %w", name, err)
 		}
 		if err := tx.Query(ctx, createPlatformStmt, platformInfo).Run(); err != nil {
-			return errors.Annotatef(err, "inserting platform row for application %q", name)
+			return errors.Errorf("inserting platform row for application %q: %w", name, err)
 		}
 		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
-			return errors.Annotatef(err, "inserting scale row for application %q", name)
+			return errors.Errorf("inserting scale row for application %q: %w", name, err)
 		}
 		if err := st.insertResources(ctx, tx, appDetails, args.Resources); err != nil {
-			return errors.Annotatef(err, "inserting resources for application %q", name)
+			return errors.Errorf("inserting resources for application %q: %w", name, err)
 		}
 		if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
-			return errors.Annotatef(err, "inserting config for application %q", name)
+			return errors.Errorf("inserting config for application %q: %w", name, err)
 		}
 		if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
-			return errors.Annotatef(err, "inserting settings for application %q", name)
+			return errors.Errorf("inserting settings for application %q: %w", name, err)
 		}
 
 		// The channel is optional for local charms. Although, it would be
 		// nice to have a channel for local charms, it's not a requirement.
 		if createChannelStmt != nil {
 			if err := tx.Query(ctx, createChannelStmt, channelInfo).Run(); err != nil {
-				return errors.Annotatef(err, "inserting channel row for application %q", name)
+				return errors.Errorf("inserting channel row for application %q: %w", name, err)
+			}
+		}
+
+		for _, unit := range units {
+			insertArg := application.InsertUnitArg{
+				UnitName: unit.UnitName,
+				UnitStatusArg: application.UnitStatusArg{
+					AgentStatus:    unit.UnitStatusArg.AgentStatus,
+					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
+				},
+			}
+			if _, err := st.insertUnit(ctx, tx, appUUID, insertArg); err != nil {
+				return errors.Errorf("adding unit for application %q: %w", appUUID, err)
 			}
 		}
 
 		return nil
 	})
-	return appUUID, errors.Annotatef(err, "creating application %q", name)
+	if err != nil {
+		return "", errors.Errorf("creating application %q: %w", name, err)
+	}
+	return appUUID, nil
 }
 
 // DeleteApplication deletes the specified application, returning an error
@@ -201,7 +231,10 @@ func (st *State) DeleteApplication(ctx domain.AtomicContext, name string) error 
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.deleteApplication(ctx, tx, name)
 	})
-	return errors.Annotatef(err, "deleting application %q", name)
+	if err != nil {
+		return errors.Errorf("deleting application %q: %w", name, err)
+	}
+	return nil
 }
 
 func (st *State) deleteApplication(ctx context.Context, tx *sqlair.TX, name string) error {
@@ -212,17 +245,17 @@ FROM unit
 WHERE application_uuid = $applicationDetails.uuid
 `, countResult{}, app)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	deleteApplicationStmt, err := st.Prepare(`DELETE FROM application WHERE name = $applicationDetails.name`, app)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	appUUID, err := st.lookupApplication(ctx, tx, name)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 	app.UUID = appUUID
 
@@ -230,14 +263,14 @@ WHERE application_uuid = $applicationDetails.uuid
 	var result countResult
 	err = tx.Query(ctx, queryUnitsStmt, app).Get(&result)
 	if err != nil {
-		return errors.Annotatef(err, "querying units for application %q", name)
+		return errors.Errorf("querying units for application %q: %w", name, err)
 	}
 	if numUnits := result.Count; numUnits > 0 {
-		return fmt.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, errors.Hide(applicationerrors.ApplicationHasUnits))
+		return errors.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, jujuerrors.Hide(applicationerrors.ApplicationHasUnits))
 	}
 
 	if err := st.deleteCloudServices(ctx, tx, appUUID); err != nil {
-		return errors.Annotatef(err, "deleting cloud service for application %q", name)
+		return errors.Errorf("deleting cloud service for application %q: %w", name, err)
 	}
 
 	// TODO(units) - fix these tables to allow deletion of rows
@@ -250,10 +283,10 @@ WHERE application_uuid = $applicationDetails.uuid
 	// resource_meta
 
 	if err := st.deleteSimpleApplicationReferences(ctx, tx, app.UUID); err != nil {
-		return errors.Annotatef(err, "deleting associated records for application %q", name)
+		return errors.Errorf("deleting associated records for application %q: %w", name, err)
 	}
 	if err := tx.Query(ctx, deleteApplicationStmt, app).Run(); err != nil {
-		return errors.Annotatef(err, "deleting application %q", name)
+		return errors.Errorf("deleting application %q: %w", name, err)
 	}
 	return nil
 }
@@ -268,7 +301,7 @@ DELETE FROM net_node WHERE uuid IN (
     WHERE application_uuid = $applicationDetails.uuid
 )`, app)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	deleteCloudServiceStmt, err := st.Prepare(`
@@ -276,14 +309,14 @@ DELETE FROM cloud_service
 WHERE application_uuid = $applicationDetails.uuid
 `, app)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	if err := tx.Query(ctx, deleteCloudServiceStmt, app).Run(); err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 	if err := tx.Query(ctx, deleteNodeStmt, app).Run(); err != nil {
-		return errors.Annotatef(err, "deleting net node for cloud service application  %q", appUUID)
+		return errors.Errorf("deleting net node for cloud service application %q: %w", appUUID, err)
 	}
 	return nil
 }
@@ -305,29 +338,44 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		deleteApplicationReference := fmt.Sprintf(`DELETE FROM %s WHERE application_uuid = $applicationID.uuid`, table)
 		deleteApplicationReferenceStmt, err := st.Prepare(deleteApplicationReference, app)
 		if err != nil {
-			return errors.Trace(err)
+			return jujuerrors.Trace(err)
 		}
 
 		if err := tx.Query(ctx, deleteApplicationReferenceStmt, app).Run(); err != nil {
-			return errors.Annotatef(err, "deleting reference to application in table %q", table)
+			return errors.Errorf("deleting reference to application in table %q: %w", table, err)
 		}
 	}
 	return nil
 }
 
 // AddUnits adds the specified units to the application.
-func (st *State) AddUnits(ctx domain.AtomicContext, appUUID coreapplication.ID, args ...application.AddUnitArg) error {
-	for _, arg := range args {
-		insertARg := application.InsertUnitArg{
-			UnitName: arg.UnitName,
-			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus:    arg.UnitStatusArg.AgentStatus,
-				WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
-			},
+func (st *State) AddUnits(ctx context.Context, appUUID coreapplication.ID, args ...application.AddUnitArg) error {
+	if len(args) == 0 {
+		return nil
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		for _, arg := range args {
+			insertArg := application.InsertUnitArg{
+				UnitName: arg.UnitName,
+				UnitStatusArg: application.UnitStatusArg{
+					AgentStatus:    arg.UnitStatusArg.AgentStatus,
+					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
+				},
+			}
+			if _, err := st.insertUnit(ctx, tx, appUUID, insertArg); err != nil {
+				return errors.Errorf("adding unit for application %q: %w", appUUID, err)
+			}
 		}
-		if _, err := st.insertUnit(ctx, appUUID, insertARg); err != nil {
-			return fmt.Errorf("adding unit for application %q: %w", appUUID, err)
-		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("adding units to application %q: %w", appUUID, err)
 	}
 	return nil
 }
@@ -335,22 +383,33 @@ func (st *State) AddUnits(ctx domain.AtomicContext, appUUID coreapplication.ID, 
 // GetUnitUUID returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *State) GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (coreunit.UUID, error) {
+	var unitUUID coreunit.UUID
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		unitUUID, err = st.getUnitUUID(ctx, tx, unitName)
+		return err
+	})
+	if err != nil {
+		return "", errors.Errorf("getting unit UUID for unit %q: %w", unitName, err)
+	}
+	return unitUUID, nil
+}
+
+func (st *State) getUnitUUID(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (coreunit.UUID, error) {
 	unit := unitDetails{Name: unitName}
 	getUnitStmt, err := st.Prepare(`SELECT &unitDetails.uuid FROM unit WHERE name = $unitDetails.name`, unit)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
-		}
-		if err != nil {
-			return fmt.Errorf("querying unit %q: %w", unitName, err)
-		}
-		return nil
-	})
-	return unit.UnitUUID, errors.Trace(err)
+
+	err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("unit %q not found%w", unitName, jujuerrors.Hide(applicationerrors.UnitNotFound))
+	}
+	if err != nil {
+		return "", errors.Errorf("querying unit %q: %w", unitName, err)
+	}
+	return unit.UnitUUID, nil
 }
 
 // GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an error
@@ -358,7 +417,7 @@ func (st *State) GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (
 func (st *State) GetUnitUUIDs(ctx context.Context, names []coreunit.Name) ([]coreunit.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 	unitNames := unitNames(names)
 
@@ -368,7 +427,7 @@ FROM unit
 WHERE name IN ($unitNames[:])
 `, unitNameAndUUID{}, unitNames)
 	if err != nil {
-		return nil, internalerrors.Errorf("preparing query: %w", err)
+		return nil, errors.Errorf("preparing query: %w", err)
 	}
 
 	uuidsAndNames := []unitNameAndUUID{}
@@ -380,7 +439,7 @@ WHERE name IN ($unitNames[:])
 		return err
 	})
 	if err != nil {
-		return nil, internalerrors.Errorf("querying unit names: %w", err)
+		return nil, errors.Errorf("querying unit names: %w", err)
 	}
 
 	nameToUUID := make(map[coreunit.Name]coreunit.UUID, len(uuidsAndNames))
@@ -391,7 +450,7 @@ WHERE name IN ($unitNames[:])
 	return transform.SliceOrErr(names, func(name coreunit.Name) (coreunit.UUID, error) {
 		uuid, ok := nameToUUID[name]
 		if !ok {
-			return "", internalerrors.Errorf("unit %q not found%w", name, errors.Hide(applicationerrors.UnitNotFound))
+			return "", errors.Errorf("unit %q not found%w", name, jujuerrors.Hide(applicationerrors.UnitNotFound))
 		}
 		return uuid, nil
 	})
@@ -402,7 +461,7 @@ WHERE name IN ($unitNames[:])
 func (st *State) GetUnitNames(ctx context.Context, uuids []coreunit.UUID) ([]coreunit.Name, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 	unitUUIDs := unitUUIDs(uuids)
 
@@ -412,7 +471,7 @@ FROM unit
 WHERE uuid IN ($unitUUIDs[:])
 `, unitNameAndUUID{}, unitUUIDs)
 	if err != nil {
-		return nil, internalerrors.Errorf("preparing query: %w", err)
+		return nil, errors.Errorf("preparing query: %w", err)
 	}
 
 	uuidsAndNames := []unitNameAndUUID{}
@@ -424,7 +483,7 @@ WHERE uuid IN ($unitUUIDs[:])
 		return err
 	})
 	if err != nil {
-		return nil, internalerrors.Errorf("querying unit names: %w", err)
+		return nil, errors.Errorf("querying unit names: %w", err)
 	}
 
 	uuidToName := make(map[coreunit.UUID]coreunit.Name, len(uuidsAndNames))
@@ -435,34 +494,36 @@ WHERE uuid IN ($unitUUIDs[:])
 	return transform.SliceOrErr(uuids, func(uuid coreunit.UUID) (coreunit.Name, error) {
 		name, ok := uuidToName[uuid]
 		if !ok {
-			return "", internalerrors.Errorf("unit %q not found%w", uuid, errors.Hide(applicationerrors.UnitNotFound))
+			return "", errors.Errorf("unit %q not found%w", uuid, jujuerrors.Hide(applicationerrors.UnitNotFound))
 		}
 		return name, nil
 	})
 }
 
-func (st *State) getUnit(ctx domain.AtomicContext, unitName coreunit.Name) (*unitDetails, error) {
+func (st *State) getUnit(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (*unitDetails, error) {
 	unit := unitDetails{Name: unitName}
 	getUnit := `SELECT &unitDetails.* FROM unit WHERE name = $unitDetails.name`
 	getUnitStmt, err := st.Prepare(getUnit, unit)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
-		}
-		return errors.Trace(err)
-	})
-	if err != nil {
-		return nil, internalerrors.Errorf("querying unit %q: %w", unitName, err)
+	err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("unit %q not found%w", unitName, jujuerrors.Hide(applicationerrors.UnitNotFound))
+	} else if err != nil {
+		return nil, jujuerrors.Trace(err)
 	}
 	return &unit, nil
 }
 
 // SetUnitPassword updates the password for the specified unit UUID.
 func (st *State) SetUnitPassword(ctx domain.AtomicContext, unitUUID coreunit.UUID, password application.PasswordInfo) error {
+	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setUnitPassword(ctx, tx, unitUUID, password)
+	})
+}
+
+func (st *State) setUnitPassword(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, password application.PasswordInfo) error {
 	info := unitPassword{
 		UnitUUID:                unitUUID,
 		PasswordHash:            password.PasswordHash,
@@ -475,43 +536,199 @@ UPDATE unit SET
 WHERE uuid = $unitPassword.uuid
 `, info)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, updatePasswordStmt, info).Run()
+	err = tx.Query(ctx, updatePasswordStmt, info).Run()
+	if err != nil {
+		return errors.Errorf("updating password for unit %q: %w", unitUUID, err)
+	}
+	return nil
+}
+
+func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
+	result := &application.CloudContainer{
+		ProviderId: cloudContainer.ProviderId,
+		Ports:      cloudContainer.Ports,
+	}
+	if cloudContainer.Address != nil {
+		// TODO(units) - handle the cloudContainer.Address space ID
+		// For k8s we'll initially create a /32 subnet off the container address
+		// and add that to the default space.
+		result.Address = &application.ContainerAddress{
+			// For cloud containers, the device is a placeholder without
+			// a MAC address and once inserted, not updated. It just exists
+			// to tie the address to the net node corresponding to the
+			// cloud container.
+			Device: application.ContainerDevice{
+				Name:              fmt.Sprintf("placeholder for %q cloud container", unitName),
+				DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
+				VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+			},
+			Value:       cloudContainer.Address.Value,
+			AddressType: ipaddress.MarshallAddressType(cloudContainer.Address.AddressType()),
+			Scope:       ipaddress.MarshallScope(cloudContainer.Address.Scope),
+			Origin:      ipaddress.MarshallOrigin(network.OriginProvider),
+			ConfigType:  ipaddress.MarshallConfigType(network.ConfigDHCP),
+		}
+		if cloudContainer.AddressOrigin != nil {
+			result.Address.Origin = ipaddress.MarshallOrigin(*cloudContainer.AddressOrigin)
+		}
+	}
+	return result
+}
+
+// InsertCAASUnit inserts the specified CAAS application unit, returning an
+// error satisfying [applicationerrors.UnitAlreadyExists] if the unit exists,
+// or [applicationerrors.UnitNotAssigned] if the unit was not assigned.
+func (st *State) InsertCAASUnit(ctx context.Context, appUUID coreapplication.ID, arg application.RegisterCAASUnitArg) error {
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	cloudContainerParams := application.CloudContainerParams{
+		ProviderId: arg.ProviderId,
+		Ports:      arg.Ports,
+	}
+	if arg.Address != nil {
+		addr := network.NewSpaceAddress(*arg.Address, network.WithScope(network.ScopeMachineLocal))
+		cloudContainerParams.Address = &addr
+		origin := network.OriginProvider
+		cloudContainerParams.AddressOrigin = &origin
+	}
+	cloudContainer := makeCloudContainerArg(arg.UnitName, cloudContainerParams)
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		unitLife, err := st.getUnitLife(ctx, tx, arg.UnitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return st.insertCAASUnit(ctx, tx, appUUID, arg, cloudContainer)
+		} else if err != nil {
+			return errors.Errorf("checking unit life %q: %w", arg.UnitName, err)
+		}
+		if unitLife == life.Dead {
+			return errors.Errorf("dead unit %q already exists%w", arg.UnitName, jujuerrors.Hide(applicationerrors.UnitAlreadyExists))
+		}
+
+		// Unit already exists and is not dead. Update the cloud container.
+		toUpdate, err := st.getUnit(ctx, tx, arg.UnitName)
+		if err != nil {
+			return jujuerrors.Trace(err)
+		}
+		err = st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
+		if err != nil {
+			return errors.Errorf("updating cloud container for unit %q: %w", arg.UnitName, err)
+		}
+
+		err = st.setUnitPassword(ctx, tx, toUpdate.UnitUUID, application.PasswordInfo{
+			PasswordHash:  arg.PasswordHash,
+			HashAlgorithm: application.HashAlgorithmSHA256,
+		})
+		if err != nil {
+			return errors.Errorf("setting password for unit %q: %w", arg.UnitName, err)
+		}
+		return nil
 	})
-	return errors.Annotatef(err, "updating password for unit %q", unitUUID)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+	return nil
+}
+
+func (st *State) insertCAASUnit(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appID coreapplication.ID,
+	arg application.RegisterCAASUnitArg,
+	cloudContainer *application.CloudContainer,
+) error {
+	appScale, err := st.getApplicationScaleState(ctx, tx, appID)
+	if err != nil {
+		return errors.Errorf("getting application scale state for app %q: %w", appID, err)
+	}
+	if arg.OrderedId >= appScale.Scale ||
+		(appScale.Scaling && arg.OrderedId >= appScale.ScaleTarget) {
+		return fmt.Errorf("unrequired unit %s is not assigned%w", arg.UnitName, jujuerrors.Hide(applicationerrors.UnitNotAssigned))
+	}
+
+	insertArg := application.InsertUnitArg{
+		UnitName: arg.UnitName,
+		Password: &application.PasswordInfo{
+			PasswordHash:  arg.PasswordHash,
+			HashAlgorithm: application.HashAlgorithmSHA256,
+		},
+		CloudContainer: cloudContainer,
+	}
+	st.addNewUnitStatusToArg(&insertArg.UnitStatusArg, coremodel.CAAS)
+
+	_, err = st.insertUnit(ctx, tx, appID, insertArg)
+	if err != nil {
+		return errors.Errorf("inserting unit for CAAS application %q: %w", appID, err)
+	}
+	return nil
+}
+
+func (s *State) addNewUnitStatusToArg(arg *application.UnitStatusArg, modelType coremodel.ModelType) {
+	now := s.clock.Now()
+	arg.AgentStatus = application.UnitAgentStatusInfo{
+		StatusID: application.UnitAgentStatusAllocating,
+		StatusInfo: application.StatusInfo{
+			Since: now,
+		},
+	}
+	arg.WorkloadStatus = application.UnitWorkloadStatusInfo{
+		StatusID: application.UnitWorkloadStatusWaiting,
+		StatusInfo: application.StatusInfo{
+			Message: corestatus.MessageInstallingAgent,
+			Since:   now,
+		},
+	}
+	if modelType == coremodel.IAAS {
+		arg.WorkloadStatus.Message = corestatus.MessageWaitForMachine
+	}
 }
 
 // InsertUnit insert the specified application unit, returning an error
-// satisfying [applicationerrors.UnitAlreadyExists]
-// if the unit exists.
+// satisfying [applicationerrors.UnitAlreadyExists] if the unit exists.
 func (st *State) InsertUnit(
-	ctx domain.AtomicContext, appUUID coreapplication.ID, args application.InsertUnitArg,
+	ctx context.Context, appUUID coreapplication.ID, args application.InsertUnitArg,
 ) error {
-	var err error
-	_, err = st.getUnit(ctx, args.UnitName)
-	if err == nil {
-		return fmt.Errorf("unit %q already exists%w", args.UnitName, errors.Hide(applicationerrors.UnitAlreadyExists))
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
 	}
-	if !errors.Is(err, applicationerrors.UnitNotFound) {
-		return errors.Annotatef(err, "looking up unit %q", args.UnitName)
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := st.getUnit(ctx, tx, args.UnitName)
+		if err == nil {
+			return errors.Errorf("unit %q already exists%w", args.UnitName, jujuerrors.Hide(applicationerrors.UnitAlreadyExists))
+		}
+		if !errors.Is(err, applicationerrors.UnitNotFound) {
+			return errors.Errorf("looking up unit %q: %w", args.UnitName, err)
+		}
+
+		_, err = st.insertUnit(ctx, tx, appUUID, args)
+		if err != nil {
+			return errors.Errorf("inserting unit for application %q: %w", appUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return jujuerrors.Trace(err)
 	}
-	_, err = st.insertUnit(ctx, appUUID, args)
-	return errors.Annotatef(err, "inserting unit for application %q", appUUID)
+	return nil
 }
 
 func (st *State) insertUnit(
-	ctx domain.AtomicContext, appUUID coreapplication.ID, args application.InsertUnitArg,
+	ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, args application.InsertUnitArg,
 ) (string, error) {
 	unitUUID, err := coreunit.NewUUID()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 	nodeUUID, err := uuid.NewUUID()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 	createParams := unitDetails{
 		ApplicationID: appUUID,
@@ -527,39 +744,34 @@ func (st *State) insertUnit(
 	createUnit := `INSERT INTO unit (*) VALUES ($unitDetails.*)`
 	createUnitStmt, err := st.Prepare(createUnit, createParams)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 
 	createNode := `INSERT INTO net_node (uuid) VALUES ($unitDetails.net_node_uuid)`
 	createNodeStmt, err := st.Prepare(createNode, createParams)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 
 	createParams.Name = args.UnitName
 
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
-			return errors.Annotatef(err, "creating net node for unit %q", args.UnitName)
-		}
-		if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
-			return errors.Annotatef(err, "creating unit for unit %q", args.UnitName)
-		}
-		if args.CloudContainer != nil {
-			if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, unitUUID, nodeUUID.String(), args.CloudContainer); err != nil {
-				return errors.Annotatef(err, "creating cloud container for unit %q", args.UnitName)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return "", errors.Trace(err)
+	if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
+		return "", errors.Errorf("creating net node for unit %q: %w", args.UnitName, err)
 	}
-	if err := st.SetUnitAgentStatus(ctx, unitUUID, args.AgentStatus); err != nil {
-		return "", errors.Annotatef(err, "saving agent status for unit %q", args.UnitName)
+	if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
+		return "", errors.Errorf("creating unit for unit %q: %w", args.UnitName, err)
 	}
-	if err := st.SetUnitWorkloadStatus(ctx, unitUUID, args.WorkloadStatus); err != nil {
-		return "", errors.Annotatef(err, "saving workload status for unit %q", args.UnitName)
+	if args.CloudContainer != nil {
+		if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, unitUUID, nodeUUID.String(), args.CloudContainer); err != nil {
+			return "", errors.Errorf("creating cloud container for unit %q: %w", args.UnitName, err)
+		}
+	}
+
+	if err := st.setUnitAgentStatus(ctx, tx, unitUUID, args.AgentStatus); err != nil {
+		return "", errors.Errorf("saving agent status for unit %q: %w", args.UnitName, err)
+	}
+	if err := st.setUnitWorkloadStatus(ctx, tx, unitUUID, args.WorkloadStatus); err != nil {
+		return "", errors.Errorf("saving workload status for unit %q: %w", args.UnitName, err)
 	}
 	return unitUUID.String(), nil
 }
@@ -570,14 +782,17 @@ func (st *State) insertUnit(
 func (st *State) UpdateUnitContainer(
 	ctx domain.AtomicContext, unitName coreunit.Name, container *application.CloudContainer,
 ) error {
-	toUpdate, err := st.getUnit(ctx, unitName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		toUpdate, err := st.getUnit(ctx, tx, unitName)
+		if err != nil {
+			return jujuerrors.Trace(err)
+		}
 		return st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, container)
 	})
-	return errors.Annotatef(err, "updating cloud container unit %q", unitName)
+	if err != nil {
+		return errors.Errorf("updating cloud container unit %q: %w", unitName, err)
+	}
+	return nil
 }
 
 func (st *State) upsertUnitCloudContainer(
@@ -594,14 +809,14 @@ FROM cloud_container
 WHERE unit_uuid = $cloudContainer.unit_uuid
 `, containerInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	insertStmt, err := st.Prepare(`
 INSERT INTO cloud_container (*) VALUES ($cloudContainer.*)
 `, containerInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	updateStmt, err := st.Prepare(`
@@ -610,12 +825,12 @@ UPDATE cloud_container SET
 WHERE unit_uuid = $cloudContainer.unit_uuid
 `, containerInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	err = tx.Query(ctx, queryStmt, containerInfo).Get(&containerInfo)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Annotatef(err, "looking up cloud container %q", unitName)
+		return errors.Errorf("looking up cloud container %q: %w", unitName, err)
 	}
 	if err == nil {
 		newProviderId := cc.ProviderId
@@ -626,22 +841,22 @@ WHERE unit_uuid = $cloudContainer.unit_uuid
 		}
 		containerInfo.ProviderID = newProviderId
 		if err := tx.Query(ctx, updateStmt, containerInfo).Run(); err != nil {
-			return errors.Annotatef(err, "updating cloud container for unit %q", unitName)
+			return errors.Errorf("updating cloud container for unit %q: %w", unitName, err)
 		}
 	} else {
 		if err := tx.Query(ctx, insertStmt, containerInfo).Run(); err != nil {
-			return errors.Annotatef(err, "inserting cloud container for unit %q", unitName)
+			return errors.Errorf("inserting cloud container for unit %q: %w", unitName, err)
 		}
 	}
 
 	if cc.Address != nil {
 		if err := st.upsertCloudContainerAddress(ctx, tx, unitName, netNodeUUID, *cc.Address); err != nil {
-			return errors.Annotatef(err, "updating cloud container address for unit %q", unitName)
+			return errors.Errorf("updating cloud container address for unit %q: %w", unitName, err)
 		}
 	}
 	if cc.Ports != nil {
 		if err := st.upsertCloudContainerPorts(ctx, tx, unitUUID, *cc.Ports); err != nil {
-			return errors.Annotatef(err, "updating cloud container ports for unit %q", unitName)
+			return errors.Errorf("updating cloud container ports for unit %q: %w", unitName, err)
 		}
 	}
 	return nil
@@ -667,29 +882,29 @@ FROM link_layer_device
 WHERE net_node_uuid = $cloudContainerDevice.net_node_uuid
 `, cloudContainerDeviceInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	insertCloudContainerDeviceStmt, err := st.Prepare(`
 INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
 `, cloudContainerDeviceInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	// See if the link layer device exists, if not insert it.
 	err = tx.Query(ctx, selectCloudContainerDeviceStmt, cloudContainerDeviceInfo).Get(&cloudContainerDeviceInfo)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Annotatef(err, "querying cloud container link layer device for unit %q", unitName)
+		return errors.Errorf("querying cloud container link layer device for unit %q: %w", unitName, err)
 	}
 	if errors.Is(err, sqlair.ErrNoRows) {
 		deviceUUID, err := uuid.NewUUID()
 		if err != nil {
-			return errors.Trace(err)
+			return jujuerrors.Trace(err)
 		}
 		cloudContainerDeviceInfo.UUID = deviceUUID.String()
 		if err := tx.Query(ctx, insertCloudContainerDeviceStmt, cloudContainerDeviceInfo).Run(); err != nil {
-			return errors.Annotatef(err, "inserting cloud container device for unit %q", unitName)
+			return errors.Errorf("inserting cloud container device for unit %q: %w", unitName, err)
 		}
 	}
 	deviceUUID := cloudContainerDeviceInfo.UUID
@@ -710,7 +925,7 @@ FROM ip_address
 WHERE device_uuid = $ipAddress.device_uuid;
 `, ipAddr)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	upsertAddressStmt, err := sqlair.Prepare(`
@@ -724,7 +939,7 @@ ON CONFLICT(uuid) DO UPDATE SET
     config_type_id = excluded.config_type_id
 `, ipAddr)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	// Container addresses are never deleted unless the container itself is deleted.
@@ -738,7 +953,7 @@ ON CONFLICT(uuid) DO UPDATE SET
 	if errors.Is(err, sqlair.ErrNoRows) {
 		addrUUID, err := uuid.NewUUID()
 		if err != nil {
-			return errors.Trace(err)
+			return jujuerrors.Trace(err)
 		}
 		ipAddr.AddressUUID = addrUUID.String()
 	}
@@ -762,7 +977,7 @@ WHERE port NOT IN ($ports[:])
 AND unit_uuid = $cloudContainerPort.unit_uuid;
 `, ports{}, ccPort)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	upsertStmt, err := sqlair.Prepare(`
@@ -772,7 +987,7 @@ ON CONFLICT(unit_uuid, port)
 DO NOTHING
 `, ccPort)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	if err := tx.Query(ctx, deleteStmt, ports(portValues), ccPort).Run(); err != nil {
@@ -805,7 +1020,7 @@ WHERE u.name = $minimalUnit.name
 `
 	peerCountStmt, err := st.Prepare(peerCountQuery, unit, unitCount{})
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, jujuerrors.Trace(err)
 	}
 	canRemoveApplication := false
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -814,10 +1029,10 @@ WHERE u.name = $minimalUnit.name
 		var count unitCount
 		err = tx.Query(ctx, peerCountStmt, unit).Get(&count)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
+			return fmt.Errorf("unit %q not found%w", unitName, jujuerrors.Hide(applicationerrors.UnitNotFound))
 		}
 		if err != nil {
-			return errors.Annotatef(err, "querying peer count for unit %q", unitName)
+			return errors.Errorf("querying peer count for unit %q: %w", unitName, err)
 		}
 		// This should never happen since this method is called by the service
 		// after setting the unit to Dead. But we check anyway.
@@ -828,12 +1043,15 @@ WHERE u.name = $minimalUnit.name
 
 		err = st.deleteUnit(ctx, tx, unitName)
 		if err != nil {
-			return errors.Annotate(err, "deleting dead unit")
+			return errors.Errorf("deleting dead unit: %w", err)
 		}
 		canRemoveApplication = count.Count == 0 && count.ApplicationLifeID != life.Alive
 		return nil
 	})
-	return canRemoveApplication, errors.Annotatef(err, "removing unit %q", unitName)
+	if err != nil {
+		return false, errors.Errorf("removing unit %q: %w", unitName, err)
+	}
+	return canRemoveApplication, nil
 }
 
 func (st *State) deleteUnit(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) error {
@@ -843,13 +1061,13 @@ func (st *State) deleteUnit(ctx context.Context, tx *sqlair.TX, unitName coreuni
 	queryUnit := `SELECT &minimalUnit.* FROM unit WHERE name = $minimalUnit.name`
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	deleteUnit := `DELETE FROM unit WHERE name = $minimalUnit.name`
 	deleteUnitStmt, err := st.Prepare(deleteUnit, unit)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	deleteNode := `
@@ -859,7 +1077,7 @@ DELETE FROM net_node WHERE uuid = (
 `
 	deleteNodeStmt, err := st.Prepare(deleteNode, unit)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	err = tx.Query(ctx, queryUnitStmt, unit).Get(&unit)
@@ -868,28 +1086,28 @@ DELETE FROM net_node WHERE uuid = (
 		return nil
 	}
 	if err != nil {
-		return errors.Annotatef(err, "looking up UUID for unit %q", unitName)
+		return errors.Errorf("looking up UUID for unit %q: %w", unitName, err)
 	}
 
 	if err := st.deleteCloudContainer(ctx, tx, unit.UUID, unit.NetNodeID); err != nil {
-		return errors.Annotatef(err, "deleting cloud container for unit %q", unitName)
+		return errors.Errorf("deleting cloud container for unit %q: %w", unitName, err)
 	}
 
 	if err := st.deletePorts(ctx, tx, unit.UUID); err != nil {
-		return errors.Annotatef(err, "deleting port ranges for unit %q", unitName)
+		return errors.Errorf("deleting port ranges for unit %q: %w", unitName, err)
 	}
 
 	// TODO(units) - delete storage, annotations
 
 	if err := st.deleteSimpleUnitReferences(ctx, tx, unit.UUID); err != nil {
-		return errors.Annotatef(err, "deleting associated records for unit %q", unitName)
+		return errors.Errorf("deleting associated records for unit %q: %w", unitName, err)
 	}
 
 	if err := tx.Query(ctx, deleteUnitStmt, unit).Run(); err != nil {
-		return errors.Annotatef(err, "deleting unit %q", unitName)
+		return errors.Errorf("deleting unit %q: %w", unitName, err)
 	}
 	if err := tx.Query(ctx, deleteNodeStmt, unit).Run(); err != nil {
-		return errors.Annotatef(err, "deleting net node for unit  %q", unitName)
+		return errors.Errorf("deleting net node for unit  %q: %w", unitName, err)
 	}
 	return nil
 }
@@ -898,22 +1116,22 @@ func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, unitUU
 	cloudContainer := cloudContainer{UnitUUID: unitUUID}
 
 	if err := st.deleteCloudContainerPorts(ctx, tx, unitUUID); err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	if err := st.deleteCloudContainerAddresses(ctx, tx, netNodeUUID); err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	deleteCloudContainerStmt, err := st.Prepare(`
 DELETE FROM cloud_container
 WHERE unit_uuid = $cloudContainer.unit_uuid`, cloudContainer)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	if err := tx.Query(ctx, deleteCloudContainerStmt, cloudContainer).Run(); err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 	return nil
 }
@@ -930,13 +1148,13 @@ WHERE device_uuid IN (
 )
 `, unit)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 	deleteDeviceStmt, err := st.Prepare(`
 DELETE FROM link_layer_device
 WHERE net_node_uuid = $minimalUnit.net_node_uuid`, unit)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 	if err := tx.Query(ctx, deleteAddressStmt, unit).Run(); err != nil {
 		return fmt.Errorf("removing cloud container addresses for %q: %w", netNodeID, err)
@@ -955,7 +1173,7 @@ func (st *State) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, u
 DELETE FROM cloud_container_port
 WHERE unit_uuid = $cloudContainer.unit_uuid`, cloudContainer)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 	if err := tx.Query(ctx, deleteStmt, cloudContainer).Run(); err != nil {
 		return fmt.Errorf("removing cloud container ports for %q: %w", unitUUID, err)
@@ -972,11 +1190,11 @@ WHERE unit_uuid = $minimalUnit.uuid
 `
 	deletePortRangeStmt, err := st.Prepare(deletePortRange, unit)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	if err := tx.Query(ctx, deletePortRangeStmt, unit).Run(); err != nil {
-		return errors.Annotate(err, "cannot delete port range records")
+		return errors.Errorf("cannot delete port range records: %w", err)
 	}
 
 	return nil
@@ -1000,11 +1218,11 @@ func (st *State) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, 
 		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $minimalUnit.uuid`, table)
 		deleteUnitReferenceStmt, err := st.Prepare(deleteUnitReference, unit)
 		if err != nil {
-			return errors.Trace(err)
+			return jujuerrors.Trace(err)
 		}
 
 		if err := tx.Query(ctx, deleteUnitReferenceStmt, unit).Run(); err != nil {
-			return errors.Annotatef(err, "deleting reference to unit in table %q", table)
+			return errors.Errorf("deleting reference to unit in table %q: %w", table, err)
 		}
 	}
 	return nil
@@ -1023,7 +1241,7 @@ JOIN application a ON a.uuid = sao.application_uuid
 WHERE a.name = $applicationName.name
 `, app, secretID{})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
 	var (
@@ -1040,7 +1258,7 @@ WHERE a.name = $applicationName.name
 		uris, err = dbSecrets.toSecretURIs()
 		return err
 	}); err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 	return uris, nil
 }
@@ -1058,7 +1276,7 @@ JOIN unit u ON u.uuid = suo.unit_uuid
 WHERE u.name = $unitNameAndUUID.name
 `, unit, secretID{})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
 	var (
@@ -1073,7 +1291,7 @@ WHERE u.name = $unitNameAndUUID.name
 		uris, err = dbSecrets.toSecretURIs()
 		return err
 	}); err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 	return uris, nil
 }
@@ -1084,7 +1302,7 @@ func (st *State) StorageDefaults(ctx context.Context) (domainstorage.StorageDefa
 
 	db, err := st.DB()
 	if err != nil {
-		return rval, errors.Trace(err)
+		return rval, jujuerrors.Trace(err)
 	}
 
 	attrs := []string{application.StorageDefaultBlockSourceKey, application.StorageDefaultFilesystemSourceKey}
@@ -1093,7 +1311,7 @@ func (st *State) StorageDefaults(ctx context.Context) (domainstorage.StorageDefa
 SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
 `, sqlair.S{}, KeyValue{})
 	if err != nil {
-		return rval, errors.Trace(err)
+		return rval, jujuerrors.Trace(err)
 	}
 
 	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1125,7 +1343,7 @@ SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
 func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error) {
 	db, err := st.DB()
 	if err != nil {
-		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
+		return domainstorage.StoragePoolDetails{}, jujuerrors.Trace(err)
 	}
 	return storagestate.GetStoragePoolByName(ctx, db, name)
 }
@@ -1147,12 +1365,28 @@ func (st *State) GetApplicationID(ctx domain.AtomicContext, name string) (coreap
 		}
 		return nil
 	})
-	return appUUID, errors.Annotatef(err, "getting ID for %q", name)
+	if err != nil {
+		return "", errors.Errorf("getting ID for %q: %w", name, err)
+	}
+	return appUUID, nil
 }
 
 // GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 func (st *State) GetUnitLife(ctx domain.AtomicContext, unitName coreunit.Name) (life.Life, error) {
+	var life life.Life
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		life, err = st.getUnitLife(ctx, tx, unitName)
+		return err
+	})
+	if err != nil {
+		return 0, errors.Errorf("querying unit %q life: %w", unitName, err)
+	}
+	return life, nil
+}
+
+func (st *State) getUnitLife(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (life.Life, error) {
 	unit := minimalUnit{Name: unitName}
 	queryUnit := `
 SELECT &minimalUnit.life_id
@@ -1161,20 +1395,17 @@ WHERE name = $minimalUnit.name
 `
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
-		return -1, errors.Trace(err)
+		return -1, jujuerrors.Trace(err)
 	}
 
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryUnitStmt, unit).Get(&unit)
-		if err != nil {
-			if !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(err, "querying unit %q life", unitName)
-			}
-			return fmt.Errorf("%w: %s", applicationerrors.UnitNotFound, unitName)
+	err = tx.Query(ctx, queryUnitStmt, unit).Get(&unit)
+	if err != nil {
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return -1, errors.Errorf("querying unit %q life: %w", unitName, err)
 		}
-		return nil
-	})
-	return unit.LifeID, errors.Annotatef(err, "querying unit %q life", unitName)
+		return -1, errors.Errorf("%w: %s", applicationerrors.UnitNotFound, unitName)
+	}
+	return unit.LifeID, nil
 }
 
 // SetUnitLife sets the life of the specified unit, returning an error
@@ -1188,7 +1419,7 @@ WHERE name = $minimalUnit.name
 `
 	stmt, err := st.Prepare(query, unit)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	updateLifeQuery := `
@@ -1201,24 +1432,40 @@ AND life_id < $minimalUnit.life_id
 
 	updateLifeStmt, err := st.Prepare(updateLifeQuery, unit)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, unit).Get(&unit)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(applicationerrors.UnitNotFound))
+			return fmt.Errorf("unit %q not found%w", unitName, jujuerrors.Hide(applicationerrors.UnitNotFound))
 		} else if err != nil {
-			return errors.Annotatef(err, "querying unit %q", unitName)
+			return errors.Errorf("querying unit %q: %w", unitName, err)
 		}
 		return tx.Query(ctx, updateLifeStmt, unit).Run()
 	})
-	return errors.Annotatef(err, "updating unit life for %q", unitName)
+	if err != nil {
+		return errors.Errorf("updating unit life for %q: %w", unitName, err)
+	}
+	return nil
 }
 
 // GetApplicationScaleState looks up the scale state of the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
 func (st *State) GetApplicationScaleState(ctx domain.AtomicContext, appUUID coreapplication.ID) (application.ScaleState, error) {
+	var appScale application.ScaleState
+	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		appScale, err = st.getApplicationScaleState(ctx, tx, appUUID)
+		return err
+	})
+	if err != nil {
+		return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
+	}
+	return appScale, nil
+}
+
+func (st *State) getApplicationScaleState(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) (application.ScaleState, error) {
 	appScale := applicationScale{ApplicationID: appUUID}
 	queryScale := `
 SELECT &applicationScale.*
@@ -1227,20 +1474,17 @@ WHERE application_uuid = $applicationScale.application_uuid
 `
 	queryScaleStmt, err := st.Prepare(queryScale, appScale)
 	if err != nil {
-		return application.ScaleState{}, errors.Trace(err)
+		return application.ScaleState{}, jujuerrors.Trace(err)
 	}
 
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryScaleStmt, appScale).Get(&appScale)
-		if err != nil {
-			if !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(err, "querying application %q scale", appUUID)
-			}
-			return fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appUUID)
+	err = tx.Query(ctx, queryScaleStmt, appScale).Get(&appScale)
+	if err != nil {
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
 		}
-		return nil
-	})
-	return appScale.toScaleState(), errors.Annotatef(err, "querying application %q scale", appUUID)
+		return application.ScaleState{}, errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appUUID)
+	}
+	return appScale.toScaleState(), nil
 }
 
 // GetApplicationLife looks up the life of the specified application, returning
@@ -1255,26 +1499,26 @@ WHERE name = $applicationDetails.name
 `
 	stmt, err := st.Prepare(query, app)
 	if err != nil {
-		return "", -1, errors.Trace(err)
+		return "", -1, jujuerrors.Trace(err)
 	}
 
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, app).Get(&app); err != nil {
 			if !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(err, "querying life for application %q", appName)
+				return errors.Errorf("querying life for application %q: %w", appName, err)
 			}
 			return fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appName)
 		}
 		return nil
 	})
-	return app.UUID, app.LifeID, errors.Trace(err)
+	return app.UUID, app.LifeID, jujuerrors.Trace(err)
 }
 
 // SetApplicationLife sets the life of the specified application.
 func (st *State) SetApplicationLife(ctx context.Context, appUUID coreapplication.ID, l life.Life) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	lifeQuery := `
@@ -1287,17 +1531,17 @@ AND life_id <= $applicationIDAndLife.life_id
 	app := applicationIDAndLife{ID: appUUID, LifeID: l}
 	lifeStmt, err := st.Prepare(lifeQuery, app)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, lifeStmt, app).Run()
 		if err != nil {
-			return internalerrors.Errorf("updating application life for %q: %w", appUUID, err)
+			return errors.Errorf("updating application life for %q: %w", appUUID, err)
 		}
 		return nil
 	})
-	return errors.Trace(err)
+	return jujuerrors.Trace(err)
 }
 
 // SetDesiredApplicationScale updates the desired scale of the specified
@@ -1314,12 +1558,12 @@ WHERE application_uuid = $applicationScale.application_uuid
 
 	upsertStmt, err := st.Prepare(upsertApplicationScale, scaleDetails)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, upsertStmt, scaleDetails).Run()
 	})
-	return errors.Trace(err)
+	return jujuerrors.Trace(err)
 }
 
 // SetApplicationScalingState sets the scaling details for the given caas
@@ -1346,12 +1590,12 @@ WHERE application_uuid = $applicationScale.application_uuid
 
 	upsertStmt, err := st.Prepare(upsertApplicationScale, scaleDetails)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, upsertStmt, scaleDetails).Run()
 	})
-	return errors.Trace(err)
+	return jujuerrors.Trace(err)
 }
 
 // UpsertCloudService updates the cloud service for the specified application,
@@ -1360,7 +1604,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 func (st *State) UpsertCloudService(ctx context.Context, applicationName, providerID string, sAddrs network.SpaceAddresses) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	// TODO(units) - handle addresses
@@ -1373,36 +1617,36 @@ SELECT &cloudService.* FROM cloud_service
 WHERE application_uuid = $cloudService.application_uuid
 AND provider_id = $cloudService.provider_id`, serviceInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	createNodeStmt, err := st.Prepare(`
 INSERT INTO net_node (uuid) VALUES ($cloudService.net_node_uuid)
 `, serviceInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	insertStmt, err := st.Prepare(`
 INSERT INTO cloud_service (*) VALUES ($cloudService.*)
 `, serviceInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		appUUID, err := st.lookupApplication(ctx, tx, applicationName)
 		if err != nil {
-			return errors.Trace(err)
+			return jujuerrors.Trace(err)
 		}
 		serviceInfo.ApplicationUUID = appUUID
 
 		// First see if the cloud service for the app and provider id already exists.
 		// If so, it's a no-op.
 		err = tx.Query(ctx, queryExistingStmt, serviceInfo).Get(&serviceInfo)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(
-				err, "querying cloud service for application %q and provider id %q", applicationName, providerID)
+		if err != nil && !jujuerrors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"querying cloud service for application %q and provider id %q: %w", applicationName, providerID, err)
 		}
 		if err == nil {
 			return nil
@@ -1411,21 +1655,24 @@ INSERT INTO cloud_service (*) VALUES ($cloudService.*)
 		// Nothing already exists so create a new net node for the cloud service.
 		nodeUUID, err := uuid.NewUUID()
 		if err != nil {
-			return errors.Trace(err)
+			return jujuerrors.Trace(err)
 		}
 		serviceInfo.NetNodeUUID = nodeUUID.String()
 		if err := tx.Query(ctx, createNodeStmt, serviceInfo).Run(); err != nil {
-			return errors.Annotatef(err, "creating cloud service net node for application %q", applicationName)
+			return errors.Errorf("creating cloud service net node for application %q: %w", applicationName, err)
 		}
 		serviceInfo.ProviderID = providerID
 		uuid, err := uuid.NewUUID()
 		if err != nil {
-			return errors.Trace(err)
+			return jujuerrors.Trace(err)
 		}
 		serviceInfo.UUID = uuid.String()
 		return tx.Query(ctx, insertStmt, serviceInfo).Run()
 	})
-	return errors.Annotatef(err, "updating cloud service for application %q", applicationName)
+	if err != nil {
+		return errors.Errorf("updating cloud service for application %q: %w", applicationName, err)
+	}
+	return nil
 }
 
 type statusKeys []string
@@ -1446,7 +1693,7 @@ WHERE key NOT IN ($statusKeys[:])
 AND unit_uuid = $minimalUnit.uuid;
 `, table), keys, unit)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	statusData := unitStatusData{UnitUUID: unitUUID}
@@ -1457,7 +1704,7 @@ ON CONFLICT(unit_uuid, key) DO UPDATE SET
     data = excluded.data;
 `, table), statusData)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 
 	if err := tx.Query(ctx, deleteStmt, keys, minimalUnit{}).Run(); err != nil {
@@ -1474,7 +1721,7 @@ ON CONFLICT(unit_uuid, key) DO UPDATE SET
 	return nil
 }
 
-// SetCloudContainerStatus saves the given cloud container status, overwriting
+// SetCloudContainerStatusAtomic saves the given cloud container status, overwriting
 // any current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *State) SetCloudContainerStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error {
@@ -1492,7 +1739,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
     updated_at = excluded.updated_at;
 `, statusInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, statusInfo).Run()
@@ -1503,15 +1750,20 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 		}
 		err = st.saveStatusData(ctx, tx, "cloud_container_status_data", unitUUID, status.Data)
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	})
-	return errors.Annotatef(err, "saving cloud container status for unit %q", unitUUID)
+	if err != nil {
+		return errors.Errorf("saving cloud container status for unit %q: %w", unitUUID, err)
+	}
+	return nil
 }
 
-// SetUnitAgentStatus saves the given unit agent status, overwriting any current
+// SetUnitAgentStatusAtomic saves the given unit agent status, overwriting any current
 // status data. If returns an error satisfying [applicationerrors.UnitNotFound]
 // if the unit doesn't exist.
-func (st *State) SetUnitAgentStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
+//
+// deprecated: RunAtomic methods are deprecated
+func (st *State) SetUnitAgentStatusAtomic(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
 		StatusID:  int(status.StatusID),
@@ -1526,7 +1778,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
     updated_at = excluded.updated_at;
 `, statusInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, statusInfo).Run()
@@ -1536,15 +1788,54 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 		}
 		err = st.saveStatusData(ctx, tx, "unit_agent_status_data", unitUUID, status.Data)
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	})
-	return errors.Annotatef(err, "saving unit agent status for unit %q", unitUUID)
+	if err != nil {
+		return errors.Errorf("saving unit agent status for unit %q: %w", unitUUID, err)
+	}
+	return nil
 }
 
-// SetUnitWorkloadStatus saves the given unit workload status, overwriting any
+// setUnitAgentStatus saves the given unit agent status, overwriting any current
+// status data. If returns an error satisfying [applicationerrors.UnitNotFound]
+// if the unit doesn't exist.
+func (st *State) setUnitAgentStatus(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
+	statusInfo := unitStatusInfo{
+		UnitUUID:  unitUUID,
+		StatusID:  int(status.StatusID),
+		Message:   status.Message,
+		UpdatedAt: status.Since,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO unit_agent_status (*) VALUES ($unitStatusInfo.*)
+ON CONFLICT(unit_uuid) DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at;
+`, statusInfo)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	err = tx.Query(ctx, stmt, statusInfo).Run()
+	// This is purely defensive and is not expected in practice - the unitUUID
+	// is expected to be validated earlier in the atomic txn workflow.
+	if internaldatabase.IsErrConstraintForeignKey(err) {
+		return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
+	}
+	err = st.saveStatusData(ctx, tx, "unit_agent_status_data", unitUUID, status.Data)
+	if err != nil {
+		return errors.Errorf("saving unit agent status for unit %q: %w", unitUUID, err)
+	}
+	return nil
+}
+
+// SetUnitWorkloadStatusAtomic saves the given unit workload status, overwriting any
 // current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) SetUnitWorkloadStatus(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
+//
+// deprecated: RunAtomic methods are deprecated
+func (st *State) SetUnitWorkloadStatusAtomic(ctx domain.AtomicContext, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
 		StatusID:  int(status.StatusID),
@@ -1559,7 +1850,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
     updated_at = excluded.updated_at;
 `, statusInfo)
 	if err != nil {
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	}
 	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, statusInfo).Run()
@@ -1570,9 +1861,47 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 			return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
 		}
 		err = st.saveStatusData(ctx, tx, "unit_workload_status_data", unitUUID, status.Data)
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	})
-	return errors.Annotatef(err, "saving unit workload status for unit %q", unitUUID)
+	if err != nil {
+		return errors.Errorf("saving unit workload status for unit %q: %w", unitUUID, err)
+	}
+	return nil
+}
+
+// setUnitWorkloadStatus saves the given unit workload status, overwriting any
+// current status data. If returns an error satisfying
+// [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (st *State) setUnitWorkloadStatus(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
+	statusInfo := unitStatusInfo{
+		UnitUUID:  unitUUID,
+		StatusID:  int(status.StatusID),
+		Message:   status.Message,
+		UpdatedAt: status.Since,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO unit_workload_status (*) VALUES ($unitStatusInfo.*)
+ON CONFLICT(unit_uuid) DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at;
+`, statusInfo)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	err = tx.Query(ctx, stmt, statusInfo).Run()
+	// This is purely defensive and is not expected in practice - the
+	// unitUUID is expected to be validated earlier in the atomic txn
+	// workflow.
+	if internaldatabase.IsErrConstraintForeignKey(err) {
+		return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
+	}
+	err = st.saveStatusData(ctx, tx, "unit_workload_status_data", unitUUID, status.Data)
+	if err != nil {
+		return errors.Errorf("saving unit workload status for unit %q: %w", unitUUID, err)
+	}
+	return nil
 }
 
 // InitialWatchStatementUnitLife returns the initial namespace query for the
@@ -1587,7 +1916,7 @@ JOIN application a ON a.uuid = u.application_uuid
 WHERE a.name = $applicationName.name
 `, app, unitDetails{})
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, jujuerrors.Trace(err)
 		}
 		var result []unitDetails
 		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1595,10 +1924,10 @@ WHERE a.name = $applicationName.name
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return nil
 			}
-			return errors.Trace(err)
+			return jujuerrors.Trace(err)
 		})
 		if err != nil {
-			return nil, errors.Annotatef(err, "querying unit IDs for %q", appName)
+			return nil, errors.Errorf("querying unit IDs for %q: %w", appName, err)
 		}
 		uuids := make([]string, len(result))
 		for i, r := range result {
@@ -1620,7 +1949,7 @@ JOIN charm c ON a.charm_uuid = c.uuid
 WHERE c.available = FALSE
 `, applicationID{})
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, jujuerrors.Trace(err)
 		}
 
 		var results []applicationID
@@ -1629,10 +1958,10 @@ WHERE c.available = FALSE
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return nil
 			}
-			return errors.Trace(err)
+			return jujuerrors.Trace(err)
 		})
 		if err != nil {
-			return nil, errors.Annotatef(err, "querying requested applications that have pending charms")
+			return nil, errors.Errorf("querying requested applications that have pending charms: %w", err)
 		}
 
 		return transform.Slice(results, func(r applicationID) string {
@@ -1647,7 +1976,7 @@ WHERE c.available = FALSE
 func (st *State) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
 	type applicationIDs []coreapplication.ID
@@ -1659,7 +1988,7 @@ JOIN charm AS c ON a.charm_uuid = c.uuid
 WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
 `, applicationID{}, applicationIDs{})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
 	var results []applicationID
@@ -1668,10 +1997,10 @@ WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "querying requested applications that have pending charms")
+		return nil, errors.Errorf("querying requested applications that have pending charms: %w", err)
 	}
 
 	return transform.Slice(results, func(r applicationID) coreapplication.ID {
@@ -1685,7 +2014,7 @@ WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
 func (st *State) GetApplicationUnitLife(ctx context.Context, appName string, ids ...coreunit.UUID) (map[coreunit.UUID]life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 	unitUUIDs := unitUUIDs(ids)
 
@@ -1700,7 +2029,7 @@ AND a.name = $applicationName.name
 	app := applicationName{Name: appName}
 	lifeStmt, err := st.Prepare(lifeQuery, app, unitDetails{}, unitUUIDs)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
 	var lifes []unitDetails
@@ -1709,10 +2038,10 @@ AND a.name = $applicationName.name
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
-		return errors.Trace(err)
+		return jujuerrors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "querying unit life for %q", appName)
+		return nil, errors.Errorf("querying unit life for %q: %w", appName, err)
 	}
 	result := make(map[coreunit.UUID]life.Life)
 	for _, u := range lifes {
@@ -1732,7 +2061,7 @@ AND a.name = $applicationName.name
 func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 
 	query, err := st.Prepare(`
@@ -1741,14 +2070,14 @@ FROM application
 WHERE uuid = $applicationID.uuid
 	`, applicationCharmUUID{}, applicationID{})
 	if err != nil {
-		return "", internalerrors.Errorf("preparing query for application %q: %w", name, err)
+		return "", errors.Errorf("preparing query for application %q: %w", name, err)
 	}
 
 	var result charmID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		appUUID, err := st.lookupApplication(ctx, tx, name)
 		if err != nil {
-			return internalerrors.Errorf("looking up application %q: %w", name, err)
+			return errors.Errorf("looking up application %q: %w", name, err)
 		}
 
 		appIdent := applicationID{ID: appUUID}
@@ -1756,9 +2085,9 @@ WHERE uuid = $applicationID.uuid
 		var charmIdent applicationCharmUUID
 		if err := tx.Query(ctx, query, appIdent).Get(&charmIdent); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return internalerrors.Errorf("application %s: %w", name, applicationerrors.ApplicationNotFound)
+				return errors.Errorf("application %s: %w", name, applicationerrors.ApplicationNotFound)
 			}
-			return internalerrors.Errorf("getting charm for application %q: %w", name, err)
+			return errors.Errorf("getting charm for application %q: %w", name, err)
 		}
 
 		// If the charmUUID is empty, then something went wrong with adding an
@@ -1767,7 +2096,7 @@ WHERE uuid = $applicationID.uuid
 			// Do not return a CharmNotFound error here. The application is in
 			// a broken state. There isn't anything we can do to fix it here.
 			// This will require manual intervention.
-			return internalerrors.Errorf("application is missing charm")
+			return errors.Errorf("application is missing charm")
 		}
 
 		// Now get the charm by the UUID, but if it doesn't exist, return an
@@ -1775,14 +2104,14 @@ WHERE uuid = $applicationID.uuid
 		chIdent := charmID{UUID: charmIdent.CharmUUID}
 		err = st.checkCharmExists(ctx, tx, chIdent)
 		if err != nil {
-			return internalerrors.Errorf("getting charm for application %q: %w", name, err)
+			return errors.Errorf("getting charm for application %q: %w", name, err)
 		}
 
 		result = chIdent
 
 		return nil
 	}); err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 
 	return corecharm.ParseID(result.UUID)
@@ -1801,7 +2130,7 @@ WHERE uuid = $applicationID.uuid
 func (st *State) GetCharmByApplicationID(ctx context.Context, appUUID coreapplication.ID) (charm.Charm, error) {
 	db, err := st.DB()
 	if err != nil {
-		return charm.Charm{}, errors.Trace(err)
+		return charm.Charm{}, jujuerrors.Trace(err)
 	}
 
 	query, err := st.Prepare(`
@@ -1810,7 +2139,7 @@ FROM application
 WHERE uuid = $applicationID.uuid
 `, applicationCharmUUID{}, applicationID{})
 	if err != nil {
-		return charm.Charm{}, internalerrors.Errorf("preparing query for application %q: %w", appUUID, err)
+		return charm.Charm{}, errors.Errorf("preparing query for application %q: %w", appUUID, err)
 	}
 
 	var ch charm.Charm
@@ -1820,9 +2149,9 @@ WHERE uuid = $applicationID.uuid
 		var charmIdent applicationCharmUUID
 		if err := tx.Query(ctx, query, appIdent).Get(&charmIdent); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return internalerrors.Errorf("application %s: %w", appUUID, applicationerrors.ApplicationNotFound)
+				return errors.Errorf("application %s: %w", appUUID, applicationerrors.ApplicationNotFound)
 			}
-			return internalerrors.Errorf("getting charm for application %q: %w", appUUID, err)
+			return errors.Errorf("getting charm for application %q: %w", appUUID, err)
 		}
 
 		// If the charmUUID is empty, then something went wrong with adding an
@@ -1831,7 +2160,7 @@ WHERE uuid = $applicationID.uuid
 			// Do not return a CharmNotFound error here. The application is in
 			// a broken state. There isn't anything we can do to fix it here.
 			// This will require manual intervention.
-			return internalerrors.Errorf("application is missing charm")
+			return errors.Errorf("application is missing charm")
 		}
 
 		// Now get the charm by the UUID, but if it doesn't exist, return an
@@ -1840,13 +2169,13 @@ WHERE uuid = $applicationID.uuid
 		ch, _, err = st.getCharm(ctx, tx, chIdent)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return internalerrors.Errorf("application %s: %w", appUUID, applicationerrors.CharmNotFound)
+				return errors.Errorf("application %s: %w", appUUID, applicationerrors.CharmNotFound)
 			}
-			return internalerrors.Errorf("getting charm for application %q: %w", appUUID, err)
+			return errors.Errorf("getting charm for application %q: %w", appUUID, err)
 		}
 		return nil
 	}); err != nil {
-		return ch, errors.Trace(err)
+		return ch, jujuerrors.Trace(err)
 	}
 
 	return ch, nil
@@ -1862,7 +2191,7 @@ func (st *State) GetApplicationIDByUnitName(
 ) (coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	unit := unitNameAndUUID{Name: name}
@@ -1873,19 +2202,19 @@ WHERE name = $unitNameAndUUID.name
 `
 	query, err := st.Prepare(queryUnit, applicationID{}, unit)
 	if err != nil {
-		return "", internalerrors.Errorf("preparing query for unit %q: %w", name, err)
+		return "", errors.Errorf("preparing query for unit %q: %w", name, err)
 	}
 
 	var app applicationID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query, unit).Get(&app)
-		if internalerrors.Is(err, sqlair.ErrNoRows) {
+		if errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.UnitNotFound
 		}
 		return err
 	})
 	if err != nil {
-		return "", internalerrors.Errorf("querying unit %q application id: %w", name, err)
+		return "", errors.Errorf("querying unit %q application id: %w", name, err)
 	}
 	return app.ID, nil
 }
@@ -1898,7 +2227,7 @@ WHERE name = $unitNameAndUUID.name
 func (st *State) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error) {
 	db, err := st.DB()
 	if err != nil {
-		return -1, internalerrors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 
 	type cmv struct {
@@ -1913,19 +2242,19 @@ WHERE uuid = $applicationID.uuid
 `
 	query, err := st.Prepare(queryApp, cmv{}, appUUID)
 	if err != nil {
-		return -1, internalerrors.Errorf("preparing query for application %q: %w", id, err)
+		return -1, errors.Errorf("preparing query for application %q: %w", id, err)
 	}
 
 	var version cmv
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query, appUUID).Get(&version)
-		if internalerrors.Is(err, sqlair.ErrNoRows) {
+		if errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		}
 		return err
 	})
 	if err != nil {
-		return -1, internalerrors.Errorf("querying charm modified version: %w", err)
+		return -1, errors.Errorf("querying charm modified version: %w", err)
 	}
 	return version.CharmModifiedVersion, err
 }
@@ -1938,7 +2267,7 @@ WHERE uuid = $applicationID.uuid
 func (st *State) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
 	db, err := st.DB()
 	if err != nil {
-		return application.CharmDownloadInfo{}, internalerrors.Capture(err)
+		return application.CharmDownloadInfo{}, errors.Capture(err)
 	}
 
 	appIdent := applicationID{ID: appID}
@@ -1949,13 +2278,13 @@ FROM v_application_charm_download_info
 WHERE application_uuid = $applicationID.uuid
 `, applicationCharmDownloadInfo{}, appIdent)
 	if err != nil {
-		return application.CharmDownloadInfo{}, internalerrors.Errorf("preparing query for application %q: %w", appID, err)
+		return application.CharmDownloadInfo{}, errors.Errorf("preparing query for application %q: %w", appID, err)
 	}
 
 	var info applicationCharmDownloadInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query, appIdent).Get(&info)
-		if internalerrors.Is(err, sqlair.ErrNoRows) {
+		if errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
 			return err
@@ -1966,19 +2295,19 @@ WHERE application_uuid = $applicationID.uuid
 		return nil
 	})
 	if err != nil {
-		return application.CharmDownloadInfo{}, internalerrors.Errorf("reserving charm download for application %q: %w", appID, err)
+		return application.CharmDownloadInfo{}, errors.Errorf("reserving charm download for application %q: %w", appID, err)
 	}
 
 	// We can only reserve charms from CharmHub charms.
 	if source, err := decodeCharmSource(info.SourceID); err != nil {
-		return application.CharmDownloadInfo{}, internalerrors.Errorf("decoding charm source for %q: %w", appID, err)
+		return application.CharmDownloadInfo{}, errors.Errorf("decoding charm source for %q: %w", appID, err)
 	} else if source != charm.CharmHubSource {
-		return application.CharmDownloadInfo{}, internalerrors.Errorf("unexpected charm source for %q: %w", appID, applicationerrors.CharmProvenanceNotValid)
+		return application.CharmDownloadInfo{}, errors.Errorf("unexpected charm source for %q: %w", appID, applicationerrors.CharmProvenanceNotValid)
 	}
 
 	charmUUID, err := corecharm.ParseID(info.CharmUUID)
 	if err != nil {
-		return application.CharmDownloadInfo{}, internalerrors.Errorf("encoding charm uuid for %q: %w", appID, err)
+		return application.CharmDownloadInfo{}, errors.Errorf("encoding charm uuid for %q: %w", appID, err)
 	}
 
 	provenance, err := decodeProvenance(info.Provenance)
@@ -2010,7 +2339,7 @@ WHERE application_uuid = $applicationID.uuid
 func (st *State) ResolveCharmDownload(ctx context.Context, id corecharm.ID, info application.ResolvedCharmDownload) error {
 	db, err := st.DB()
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	charmUUID := charmID{UUID: id.String()}
@@ -2022,7 +2351,7 @@ WHERE uuid = $charmID.uuid
 `
 	resolvedStmt, err := st.Prepare(resolvedQuery, charmUUID, charmAvailable{})
 	if err != nil {
-		return internalerrors.Errorf("preparing query for charm %q: %w", id, err)
+		return errors.Errorf("preparing query for charm %q: %w", id, err)
 	}
 
 	chState := resolveCharmState{
@@ -2050,7 +2379,7 @@ WHERE uuid = $charmID.uuid;`
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.CharmNotFound
 		} else if err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		} else if available.Available {
 			// If the charm is already resolved, we don't need to provide
 			// any additional information.
@@ -2060,7 +2389,7 @@ WHERE uuid = $charmID.uuid;`
 		// Write the charm actions.yaml, this will actually disappear once the
 		// charmhub store provides this information.
 		if err = st.setCharmActions(ctx, tx, id, info.Actions); err != nil {
-			return internalerrors.Errorf("setting charm actions for %q: %w", id, err)
+			return errors.Errorf("setting charm actions for %q: %w", id, err)
 		}
 
 		if err := tx.Query(ctx, charmStmt, charmUUID, chState).Run(); err != nil {
@@ -2070,7 +2399,7 @@ WHERE uuid = $charmID.uuid;`
 		return nil
 	})
 	if err != nil {
-		return internalerrors.Errorf("resolving charm download for %q: %w", id, err)
+		return errors.Errorf("resolving charm download for %q: %w", id, err)
 	}
 	return nil
 }
@@ -2082,7 +2411,7 @@ WHERE uuid = $charmID.uuid;`
 func (st *State) GetApplicationsForRevisionUpdater(ctx context.Context) ([]application.RevisionUpdaterApplication, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	revUpdaterAppQuery := `
@@ -2092,7 +2421,7 @@ FROM v_revision_updater_application
 
 	revUpdaterAppStmt, err := st.Prepare(revUpdaterAppQuery, revisionUpdaterApplication{})
 	if err != nil {
-		return nil, internalerrors.Errorf("preparing query for revision updater applications: %w", err)
+		return nil, errors.Errorf("preparing query for revision updater applications: %w", err)
 	}
 
 	numUnitsQuery := `
@@ -2102,7 +2431,7 @@ FROM v_revision_updater_application_unit
 
 	numUnitsStmt, err := st.Prepare(numUnitsQuery, revisionUpdaterApplicationNumUnits{})
 	if err != nil {
-		return nil, internalerrors.Errorf("preparing query for number of units: %w", err)
+		return nil, errors.Errorf("preparing query for number of units: %w", err)
 	}
 
 	var apps []revisionUpdaterApplication
@@ -2121,7 +2450,7 @@ FROM v_revision_updater_application_unit
 		return err
 	})
 	if err != nil {
-		return nil, internalerrors.Errorf("querying revision updater applications: %w", err)
+		return nil, errors.Errorf("querying revision updater applications: %w", err)
 	}
 
 	unitCounts := make(map[string]int)
@@ -2134,22 +2463,22 @@ FROM v_revision_updater_application_unit
 		// support homogenous architectures. Yet we have two sources of truth.
 		charmArch, err := decodeArchitecture(r.CharmArchitectureID)
 		if err != nil {
-			return application.RevisionUpdaterApplication{}, internalerrors.Errorf("decoding architecture: %w", err)
+			return application.RevisionUpdaterApplication{}, errors.Errorf("decoding architecture: %w", err)
 		}
 
 		appArch, err := decodeArchitecture(r.PlatformArchitectureID)
 		if err != nil {
-			return application.RevisionUpdaterApplication{}, internalerrors.Errorf("decoding architecture: %w", err)
+			return application.RevisionUpdaterApplication{}, errors.Errorf("decoding architecture: %w", err)
 		}
 
 		risk, err := decodeRisk(r.ChannelRisk)
 		if err != nil {
-			return application.RevisionUpdaterApplication{}, internalerrors.Errorf("decoding risk: %w", err)
+			return application.RevisionUpdaterApplication{}, errors.Errorf("decoding risk: %w", err)
 		}
 
 		osType, err := decodeOSType(r.PlatformOSID)
 		if err != nil {
-			return application.RevisionUpdaterApplication{}, internalerrors.Errorf("decoding os type: %w", err)
+			return application.RevisionUpdaterApplication{}, errors.Errorf("decoding os type: %w", err)
 		}
 
 		return application.RevisionUpdaterApplication{
@@ -2187,7 +2516,7 @@ FROM v_revision_updater_application_unit
 func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID coreapplication.ID) (map[string]application.ApplicationConfig, application.ApplicationSettings, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, application.ApplicationSettings{}, internalerrors.Capture(err)
+		return nil, application.ApplicationSettings{}, errors.Capture(err)
 	}
 
 	// We don't currently check for life in the old code, it might though be
@@ -2206,39 +2535,39 @@ WHERE application_uuid = $applicationID.uuid;`
 
 	configStmt, err := st.Prepare(configQuery, applicationConfig{}, ident)
 	if err != nil {
-		return nil, application.ApplicationSettings{}, internalerrors.Errorf("preparing query for application config: %w", err)
+		return nil, application.ApplicationSettings{}, errors.Errorf("preparing query for application config: %w", err)
 	}
 	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, ident)
 	if err != nil {
-		return nil, application.ApplicationSettings{}, internalerrors.Errorf("preparing query for application config: %w", err)
+		return nil, application.ApplicationSettings{}, errors.Errorf("preparing query for application config: %w", err)
 	}
 
 	var configs []applicationConfig
 	var settings applicationSettings
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 
 		if err := tx.Query(ctx, configStmt, ident).GetAll(&configs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return internalerrors.Errorf("querying application config: %w", err)
+			return errors.Errorf("querying application config: %w", err)
 		}
 
 		if err := tx.Query(ctx, settingsStmt, ident).Get(&settings); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return internalerrors.Errorf("querying application settings: %w", err)
+			return errors.Errorf("querying application settings: %w", err)
 		}
 
 		return nil
 	})
 	if err != nil {
-		return nil, application.ApplicationSettings{}, internalerrors.Errorf("querying application config: %w", err)
+		return nil, application.ApplicationSettings{}, errors.Errorf("querying application config: %w", err)
 	}
 
 	result := make(map[string]application.ApplicationConfig)
 	for _, c := range configs {
 		typ, err := decodeConfigType(c.Type)
 		if err != nil {
-			return nil, application.ApplicationSettings{}, internalerrors.Errorf("decoding config type: %w", err)
+			return nil, application.ApplicationSettings{}, errors.Errorf("decoding config type: %w", err)
 		}
 
 		result[c.Key] = application.ApplicationConfig{
@@ -2257,7 +2586,7 @@ WHERE application_uuid = $applicationID.uuid;`
 func (st *State) GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
-		return false, internalerrors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	// We don't currently check for life in the old code, it might though be
@@ -2271,23 +2600,23 @@ WHERE application_uuid = $applicationID.uuid;`
 
 	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, ident)
 	if err != nil {
-		return false, internalerrors.Errorf("preparing query for application trust setting: %w", err)
+		return false, errors.Errorf("preparing query for application trust setting: %w", err)
 	}
 
 	var settings applicationSettings
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 
 		if err := tx.Query(ctx, settingsStmt, ident).Get(&settings); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return internalerrors.Errorf("querying application settings: %w", err)
+			return errors.Errorf("querying application settings: %w", err)
 		}
 
 		return nil
 	})
 	if err != nil {
-		return false, internalerrors.Errorf("querying application config: %w", err)
+		return false, errors.Errorf("querying application config: %w", err)
 	}
 
 	return settings.Trust, nil
@@ -2304,7 +2633,7 @@ func (st *State) SetApplicationConfigAndSettings(
 ) error {
 	db, err := st.DB()
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	ident := applicationID{ID: appID}
@@ -2339,36 +2668,36 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 
 	getStmt, err := st.Prepare(getQuery, applicationConfig{}, ident)
 	if err != nil {
-		return internalerrors.Errorf("preparing get query: %w", err)
+		return errors.Errorf("preparing get query: %w", err)
 	}
 	deleteStmt, err := st.Prepare(deleteQuery, ident, sqlair.S{})
 	if err != nil {
-		return internalerrors.Errorf("preparing delete query: %w", err)
+		return errors.Errorf("preparing delete query: %w", err)
 	}
 	insertStmt, err := st.Prepare(insertQuery, setApplicationConfig{})
 	if err != nil {
-		return internalerrors.Errorf("preparing insert query: %w", err)
+		return errors.Errorf("preparing insert query: %w", err)
 	}
 	updateStmt, err := st.Prepare(updateQuery, setApplicationConfig{})
 	if err != nil {
-		return internalerrors.Errorf("preparing update query: %w", err)
+		return errors.Errorf("preparing update query: %w", err)
 	}
 	settingsStmt, err := st.Prepare(settingsQuery, setApplicationSettings{})
 	if err != nil {
-		return internalerrors.Errorf("preparing settings query: %w", err)
+		return errors.Errorf("preparing settings query: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 		if err := st.checkApplicationCharm(ctx, tx, ident, charmIdent); err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 
 		var current []applicationConfig
 		if err := tx.Query(ctx, getStmt, ident).GetAll(&current); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return internalerrors.Errorf("querying application config: %w", err)
+			return errors.Errorf("querying application config: %w", err)
 		}
 
 		currentM := make(map[string]applicationConfig)
@@ -2397,7 +2726,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 
 			typeID, err := encodeConfigType(cfg.Type)
 			if err != nil {
-				return internalerrors.Errorf("encoding config type: %w", err)
+				return errors.Errorf("encoding config type: %w", err)
 			}
 
 			updates = append(updates, setApplicationConfig{
@@ -2416,7 +2745,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 
 			typeID, err := encodeConfigType(v.Type)
 			if err != nil {
-				return internalerrors.Errorf("encoding config type: %w", err)
+				return errors.Errorf("encoding config type: %w", err)
 			}
 
 			inserts = append(inserts, setApplicationConfig{
@@ -2434,21 +2763,21 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 			if err := tx.Query(ctx, deleteStmt, removals, ident).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 				return applicationerrors.ApplicationNotFound
 			} else if err != nil {
-				return internalerrors.Errorf("deleting config: %w", err)
+				return errors.Errorf("deleting config: %w", err)
 			}
 		}
 		if len(inserts) > 0 {
 			if err := tx.Query(ctx, insertStmt, inserts).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 				return applicationerrors.ApplicationNotFound
 			} else if err != nil {
-				return internalerrors.Errorf("inserting config: %w", err)
+				return errors.Errorf("inserting config: %w", err)
 			}
 		}
 		for _, update := range updates {
 			if err := tx.Query(ctx, updateStmt, update).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 				return applicationerrors.ApplicationNotFound
 			} else if err != nil {
-				return internalerrors.Errorf("updating config: %w", err)
+				return errors.Errorf("updating config: %w", err)
 			}
 		}
 
@@ -2458,13 +2787,13 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 		}).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
-			return internalerrors.Errorf("updating settings: %w", err)
+			return errors.Errorf("updating settings: %w", err)
 		}
 
 		return nil
 	})
 	if err != nil {
-		return internalerrors.Errorf("setting application config: %w", err)
+		return errors.Errorf("setting application config: %w", err)
 	}
 	return nil
 }
@@ -2476,7 +2805,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 func (st *State) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error {
 	db, err := st.DB()
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	ident := applicationID{ID: appID}
@@ -2504,15 +2833,15 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 
 	appStmt, err := st.Prepare(appQuery, ident)
 	if err != nil {
-		return internalerrors.Errorf("preparing query for application config: %w", err)
+		return errors.Errorf("preparing query for application config: %w", err)
 	}
 	deleteStmt, err := st.Prepare(deleteQuery, ident, sqlair.S{})
 	if err != nil {
-		return internalerrors.Errorf("preparing query for application config: %w", err)
+		return errors.Errorf("preparing query for application config: %w", err)
 	}
 	settingsStmt, err := st.Prepare(settingsQuery, setApplicationSettings{})
 	if err != nil {
-		return internalerrors.Errorf("preparing query for application config: %w", err)
+		return errors.Errorf("preparing query for application config: %w", err)
 	}
 
 	removals := make(sqlair.S, len(keys))
@@ -2525,13 +2854,13 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 		if err := tx.Query(ctx, appStmt, ident).Get(&ident); errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
-			return internalerrors.Errorf("querying application: %w", err)
+			return errors.Errorf("querying application: %w", err)
 		}
 
 		if err := tx.Query(ctx, deleteStmt, removals, ident).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
-			return internalerrors.Errorf("deleting config: %w", err)
+			return errors.Errorf("deleting config: %w", err)
 		}
 
 		if !removeTrust {
@@ -2542,13 +2871,13 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 			ApplicationUUID: ident.ID.String(),
 			Trust:           false,
 		}).Run(); err != nil {
-			return internalerrors.Errorf("deleting setting: %w", err)
+			return errors.Errorf("deleting setting: %w", err)
 		}
 
 		return nil
 	})
 	if err != nil {
-		return internalerrors.Errorf("removing application config: %w", err)
+		return errors.Errorf("removing application config: %w", err)
 	}
 	return nil
 }
@@ -2562,7 +2891,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 func (st *State) GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (corecharm.ID, charm.Config, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", charm.Config{}, internalerrors.Capture(err)
+		return "", charm.Config{}, errors.Capture(err)
 	}
 
 	appIdent := applicationID{ID: appID}
@@ -2574,7 +2903,7 @@ WHERE uuid = $applicationID.uuid;
 `
 	appStmt, err := st.Prepare(appQuery, appIdent, charmUUID{})
 	if err != nil {
-		return "", charm.Config{}, internalerrors.Errorf("preparing query for charm config: %w", err)
+		return "", charm.Config{}, errors.Errorf("preparing query for charm config: %w", err)
 	}
 
 	var (
@@ -2586,18 +2915,18 @@ WHERE uuid = $applicationID.uuid;
 		if err := tx.Query(ctx, appStmt, appIdent).Get(&ident); errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 
 		charmConfig, err = st.getCharmConfig(ctx, tx, charmID{UUID: ident.UUID})
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}); err != nil {
-		return "", charm.Config{}, internalerrors.Capture(err)
+		return "", charm.Config{}, errors.Capture(err)
 	}
 
 	charmID, err := corecharm.ParseID(ident.UUID)
 	if err != nil {
-		return "", charm.Config{}, internalerrors.Errorf("parsing charm id: %w", err)
+		return "", charm.Config{}, errors.Errorf("parsing charm id: %w", err)
 	}
 
 	return charmID, charmConfig, nil
@@ -2609,7 +2938,7 @@ WHERE uuid = $applicationID.uuid;
 func (st *State) GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	var id coreapplication.ID
@@ -2617,7 +2946,7 @@ func (st *State) GetApplicationIDByName(ctx context.Context, name string) (corea
 		id, err = st.lookupApplication(ctx, tx, name)
 		return err
 	}); err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 	return id, nil
 }
@@ -2634,13 +2963,13 @@ FROM application
 WHERE name = $applicationDetails.name
 `, app)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
 	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return "", fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, name)
 	} else if err != nil {
-		return "", errors.Annotatef(err, "looking up UUID for application %q", name)
+		return "", errors.Errorf("looking up UUID for application %q: %w", name, err)
 	}
 	return app.UUID, nil
 }
@@ -2654,13 +2983,13 @@ AND charm_uuid = $charmID.uuid;
 	`
 	stmt, err := st.Prepare(query, countResult{}, ident, charmID)
 	if err != nil {
-		return internalerrors.Errorf("preparing verification query: %w", err)
+		return errors.Errorf("preparing verification query: %w", err)
 	}
 
 	// Ensure that the charm is the same as the one we're trying to set.
 	var count countResult
 	if err := tx.Query(ctx, stmt, ident, charmID).Get(&count); err != nil {
-		return internalerrors.Errorf("verifying charm: %w", err)
+		return errors.Errorf("verifying charm: %w", err)
 	}
 	if count.Count == 0 {
 		return applicationerrors.ApplicationHasDifferentCharm
@@ -2745,19 +3074,19 @@ func decodeRisk(risk string) (application.ChannelRisk, error) {
 	case "edge":
 		return application.RiskEdge, nil
 	default:
-		return "", internalerrors.Errorf("unknown risk %q", risk)
+		return "", errors.Errorf("unknown risk %q", risk)
 	}
 }
 
 func decodeOSType(osType sql.NullInt64) (application.OSType, error) {
 	if !osType.Valid {
-		return 0, internalerrors.Errorf("os type is null")
+		return 0, errors.Errorf("os type is null")
 	}
 
 	switch osType.Int64 {
 	case 0:
 		return application.Ubuntu, nil
 	default:
-		return -1, internalerrors.Errorf("unknown os type %v", osType)
+		return -1, errors.Errorf("unknown os type %v", osType)
 	}
 }

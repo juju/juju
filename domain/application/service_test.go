@@ -463,7 +463,7 @@ func (s *serviceSuite) TestReplaceCAASUnit(c *gc.C) {
 
 	address := "10.6.6.6"
 	ports := []string{"666"}
-	args := service.RegisterCAASUnitParams{
+	args := application.RegisterCAASUnitArg{
 		UnitName:     "foo/1",
 		PasswordHash: "passwordhash",
 		ProviderId:   "provider-id",
@@ -489,7 +489,7 @@ func (s *serviceSuite) TestReplaceDeadCAASUnit(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := service.RegisterCAASUnitParams{
+	args := application.RegisterCAASUnitArg{
 		UnitName:     "foo/1",
 		PasswordHash: "passwordhash",
 		ProviderId:   "provider-id",
@@ -511,7 +511,7 @@ func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {
 
 	address := "10.6.6.6"
 	ports := []string{"666"}
-	args := service.RegisterCAASUnitParams{
+	args := application.RegisterCAASUnitArg{
 		UnitName:     "foo/1",
 		PasswordHash: "passwordhash",
 		ProviderId:   "provider-id",
@@ -528,7 +528,7 @@ func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {
 func (s *serviceSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
 	s.createApplication(c, "foo")
 
-	args := service.RegisterCAASUnitParams{
+	args := application.RegisterCAASUnitArg{
 		UnitName:     "foo/1",
 		PasswordHash: "passwordhash",
 		ProviderId:   "provider-id",
@@ -548,7 +548,7 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := service.RegisterCAASUnitParams{
+	args := application.RegisterCAASUnitArg{
 		UnitName:     "foo/1",
 		PasswordHash: "passwordhash",
 		ProviderId:   "provider-id",
