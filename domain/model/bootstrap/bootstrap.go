@@ -30,10 +30,10 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 	return m(c, n)
 }
 
-// CreateModel is responsible for making a new model with all of its associated
-// metadata during the bootstrap process.
-// If the GlobalModelCreationArgs does not have a credential name set then no cloud
-// credential will be associated with the model.
+// CreateGlobalModelRecord is responsible for making a new model with all of its
+// associated metadata during the bootstrap process.
+// If the GlobalModelCreationArgs does not have a credential name set then no
+// cloud credential will be associated with the model.
 //
 // The only supported agent version during bootstrap is that of the current
 // controller. This will be the default if no agent version is supplied.
@@ -48,12 +48,12 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 // - [secretbackenderrors.NotFound] When the secret backend for the model
 // cannot be found.
 //
-// CreateModel expects the caller to generate their own model id and pass it to
-// this function. In an ideal world we want to have this stopped and make this
-// function generate a new id and return the value. This can only be achieved
-// once we have the Juju client stop generating id's for controller models in
-// the bootstrap process.
-func CreateModel(
+// CreateGlobalModelRecord expects the caller to generate their own model id and
+// pass it to this function. In an ideal world we want to have this stopped and
+// make this function generate a new id and return the value. This can only be
+// achieved once we have the Juju client stop generating id's for controller
+// models in the bootstrap process.
+func CreateGlobalModelRecord(
 	modelID coremodel.UUID,
 	args model.GlobalModelCreationArgs,
 ) internaldatabase.BootstrapOpt {

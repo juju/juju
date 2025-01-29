@@ -233,7 +233,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		CloudRegion:  stateParams.ControllerCloudRegion,
 		Credential:   credential.KeyFromTag(cloudCredTag),
 	}
-	controllerModelCreateFunc := modelbootstrap.CreateModel(controllerModelUUID, controllerModelArgs)
+	controllerModelCreateFunc := modelbootstrap.CreateGlobalModelRecord(controllerModelUUID, controllerModelArgs)
 
 	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
 		stateParams.ControllerInheritedConfig,

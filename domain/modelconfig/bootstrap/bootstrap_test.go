@@ -93,7 +93,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelFn := modelbootstrap.CreateModel(
+	modelFn := modelbootstrap.CreateGlobalModelRecord(
 		modelUUID,
 		model.GlobalModelCreationArgs{
 			AgentVersion: jujuversion.Current,
