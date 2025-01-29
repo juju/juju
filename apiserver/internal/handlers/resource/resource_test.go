@@ -248,7 +248,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
 		s.resource, nil,
 	)
 
-	s.validator.EXPECT().Validate(
+	s.validator.EXPECT().ValidateAndStoreReader(
 		s.resourceReader,
 		s.resource.Fingerprint.String(),
 		s.resource.Size,
@@ -332,7 +332,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
 		res, nil,
 	)
 
-	s.validator.EXPECT().Validate(
+	s.validator.EXPECT().ValidateAndStoreReader(
 		s.resourceReader,
 		s.resource.Fingerprint.String(),
 		s.resource.Size,
@@ -417,7 +417,7 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
 		s.resource, nil,
 	)
 
-	s.validator.EXPECT().Validate(
+	s.validator.EXPECT().ValidateAndStoreReader(
 		s.resourceReader,
 		s.resource.Fingerprint.String(),
 		s.resource.Size,

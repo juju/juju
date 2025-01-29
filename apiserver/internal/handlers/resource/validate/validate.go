@@ -51,16 +51,16 @@ func NewValidator(logger logger.Logger, fileSystem FileSystem) *Validator {
 	}
 }
 
-// Validate takes a ReadCloser containing a resource blob and checks that
-// the size and hash match the expected values. It downloads the blob to a
-// temporary file and returns a ReadCloser that deletes the temporary file on
-// closure.
+// ValidateAndStoreReader takes a ReadCloser containing a resource blob and
+// checks that the size and hash match the expected values. It downloads the
+// blob to a temporary file and returns a ReadCloser that deletes the temporary
+// file on closure.
 //
 // Returns [ErrUnexpectedHash] if the hash of the downloaded resource does not
 // match the expected hash.
 // Returns [ErrUnexpectedSize] if the size of the downloaded resource does not
 // match the expected size.
-func (v *Validator) Validate(
+func (v *Validator) ValidateAndStoreReader(
 	reader io.ReadCloser,
 	expectedSHA384 string,
 	expectedSize int64,

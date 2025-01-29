@@ -62,7 +62,7 @@ func (s *ValidateSuite) TestValidateResource(c *gc.C) {
 	s.fileSystem.EXPECT().Remove(f.Name())
 
 	// Act:
-	reader, err := validator.Validate(
+	reader, err := validator.ValidateAndStoreReader(
 		io.NopCloser(bytes.NewBuffer(resourceContent)),
 		hash,
 		size,
@@ -98,7 +98,7 @@ func (s *ValidateSuite) TestGetResourceUnexpectedSize(c *gc.C) {
 	s.fileSystem.EXPECT().Remove(f.Name())
 
 	// Act:
-	reader, err := validator.Validate(
+	reader, err := validator.ValidateAndStoreReader(
 		io.NopCloser(bytes.NewBuffer(resourceContent)),
 		hash,
 		666,
@@ -127,7 +127,7 @@ func (s *ValidateSuite) TestGetResourceUnexpectedHash(c *gc.C) {
 	s.fileSystem.EXPECT().Remove(f.Name())
 
 	// Act:
-	reader, err := validator.Validate(
+	reader, err := validator.ValidateAndStoreReader(
 		io.NopCloser(bytes.NewBuffer(resourceContent)),
 		"bad-hash",
 		size,

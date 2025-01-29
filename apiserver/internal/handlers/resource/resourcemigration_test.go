@@ -269,7 +269,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *g
 	_, _, _, _ = s.setQueryHeaders(c, query)
 
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
-	s.validator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any())
+	s.validator.EXPECT().ValidateAndStoreReader(gomock.Any(), gomock.Any(), gomock.Any())
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(errors.New("cannot store resource"))
 
 	// Act
@@ -294,7 +294,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *gc.
 	_, _, _, _ = s.setQueryHeaders(c, query)
 
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
-	s.validator.EXPECT().Validate(gomock.Any(), gomock.Any(), gomock.Any())
+	s.validator.EXPECT().ValidateAndStoreReader(gomock.Any(), gomock.Any(), gomock.Any())
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(coreresource.Resource{}, errors.New(
 		"cannot get resource"))
@@ -363,7 +363,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 		ApplicationID: "testapp-id",
 		Name:          "test",
 	}).Return("res-uuid", nil)
-	s.validator.EXPECT().Validate(
+	s.validator.EXPECT().ValidateAndStoreReader(
 		http.NoBody,
 		fp.String(),
 		size,
@@ -462,7 +462,7 @@ func (s *resourcesUploadSuite) TestServeUploadUnit(c *gc.C) {
 	}).Return("res-uuid", nil)
 	s.resourceService.EXPECT().SetUnitResource(gomock.Any(), coreresource.UUID("res-uuid"),
 		unit.UUID("testunit-id")).Return(nil)
-	s.validator.EXPECT().Validate(
+	s.validator.EXPECT().ValidateAndStoreReader(
 		http.NoBody,
 		fp.String(),
 		size,

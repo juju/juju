@@ -670,41 +670,41 @@ func (m *MockValidator) EXPECT() *MockValidatorMockRecorder {
 	return m.recorder
 }
 
-// Validate mocks base method.
-func (m *MockValidator) Validate(arg0 io.ReadCloser, arg1 string, arg2 int64) (io.ReadCloser, error) {
+// ValidateAndStoreReader mocks base method.
+func (m *MockValidator) ValidateAndStoreReader(arg0 io.ReadCloser, arg1 string, arg2 int64) (io.ReadCloser, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validate", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ValidateAndStoreReader", arg0, arg1, arg2)
 	ret0, _ := ret[0].(io.ReadCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Validate indicates an expected call of Validate.
-func (mr *MockValidatorMockRecorder) Validate(arg0, arg1, arg2 any) *MockValidatorValidateCall {
+// ValidateAndStoreReader indicates an expected call of ValidateAndStoreReader.
+func (mr *MockValidatorMockRecorder) ValidateAndStoreReader(arg0, arg1, arg2 any) *MockValidatorValidateAndStoreReaderCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockValidator)(nil).Validate), arg0, arg1, arg2)
-	return &MockValidatorValidateCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateAndStoreReader", reflect.TypeOf((*MockValidator)(nil).ValidateAndStoreReader), arg0, arg1, arg2)
+	return &MockValidatorValidateAndStoreReaderCall{Call: call}
 }
 
-// MockValidatorValidateCall wrap *gomock.Call
-type MockValidatorValidateCall struct {
+// MockValidatorValidateAndStoreReaderCall wrap *gomock.Call
+type MockValidatorValidateAndStoreReaderCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockValidatorValidateCall) Return(arg0 io.ReadCloser, arg1 error) *MockValidatorValidateCall {
+func (c *MockValidatorValidateAndStoreReaderCall) Return(arg0 io.ReadCloser, arg1 error) *MockValidatorValidateAndStoreReaderCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockValidatorValidateCall) Do(f func(io.ReadCloser, string, int64) (io.ReadCloser, error)) *MockValidatorValidateCall {
+func (c *MockValidatorValidateAndStoreReaderCall) Do(f func(io.ReadCloser, string, int64) (io.ReadCloser, error)) *MockValidatorValidateAndStoreReaderCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockValidatorValidateCall) DoAndReturn(f func(io.ReadCloser, string, int64) (io.ReadCloser, error)) *MockValidatorValidateCall {
+func (c *MockValidatorValidateAndStoreReaderCall) DoAndReturn(f func(io.ReadCloser, string, int64) (io.ReadCloser, error)) *MockValidatorValidateAndStoreReaderCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
