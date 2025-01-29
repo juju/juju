@@ -217,7 +217,6 @@ func (api *APIBase) addUnits(
 	charmMeta *charm.Meta,
 ) ([]Unit, error) {
 	units := make([]Unit, n)
-	policy := state.AssignNew
 
 	allSpaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
@@ -249,8 +248,8 @@ func (api *APIBase) addUnits(
 
 		// Are there still placement directives to use?
 		if i > len(placement)-1 {
-			if err := unit.AssignWithPolicy(policy); err != nil {
-				return nil, internalerrors.Errorf("acquiring machine for policy %q to host unit %q: %w", policy, unitName, err)
+			if err := unit.AssignUnit(); err != nil {
+				return nil, internalerrors.Errorf("acquiring new machine to host unit %q: %w", unitName, err)
 			}
 		} else {
 			if err := unit.AssignWithPlacement(placement[i], allSpaces); err != nil {

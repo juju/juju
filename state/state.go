@@ -1427,7 +1427,7 @@ func (st *State) assignStagedUnit(
 		return errors.Trace(err)
 	}
 	if a.Scope == "" && a.Directive == "" {
-		return errors.Trace(st.AssignUnit(u, AssignNew))
+		return errors.Trace(st.AssignUnit(u))
 	}
 
 	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
@@ -2227,24 +2227,12 @@ func (st *State) UnitsInError() ([]*Unit, error) {
 // within the model.
 func (st *State) AssignUnit(
 	u *Unit,
-	policy AssignmentPolicy,
 ) (err error) {
 	if !u.IsPrincipal() {
 		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
 	defer errors.DeferredAnnotatef(&err, "cannot assign unit %q to machine", u)
-	var m *Machine
-	switch policy {
-	case AssignLocal:
-		m, err = st.Machine("0")
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return u.AssignToMachine(m)
-	case AssignNew:
-		return errors.Trace(u.AssignToNewMachine())
-	}
-	return errors.Errorf("unknown unit assignment policy: %q", policy)
+	return errors.Trace(u.AssignToNewMachine())
 }
 
 // SetAdminMongoPassword sets the administrative password

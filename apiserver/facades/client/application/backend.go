@@ -164,7 +164,7 @@ type Unit interface {
 
 	AssignedMachineId() (string, error)
 	WorkloadVersion() (string, error)
-	AssignWithPolicy(state.AssignmentPolicy) error
+	AssignUnit() error
 	AssignWithPlacement(*instance.Placement, network.SpaceInfos) error
 	ContainerInfo() (state.CloudContainer, error)
 }
@@ -491,8 +491,8 @@ type stateUnitShim struct {
 	st *state.State
 }
 
-func (u stateUnitShim) AssignWithPolicy(policy state.AssignmentPolicy) error {
-	return u.st.AssignUnit(u.Unit, policy)
+func (u stateUnitShim) AssignUnit() error {
+	return u.st.AssignUnit(u.Unit)
 }
 
 func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement, allSpaces network.SpaceInfos) error {

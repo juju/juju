@@ -36,19 +36,6 @@ import (
 
 var unitLogger = internallogger.GetLogger("juju.state.unit")
 
-// AssignmentPolicy controls what machine a unit will be assigned to.
-type AssignmentPolicy string
-
-const (
-	// AssignLocal indicates that all application units should be assigned
-	// to machine 0.
-	AssignLocal AssignmentPolicy = "local"
-
-	// AssignNew indicates that every application unit should be assigned to a new
-	// dedicated machine.  A new machine will be launched for each new unit.
-	AssignNew AssignmentPolicy = "new"
-)
-
 // ResolvedMode describes the way state transition errors
 // are resolved.
 type ResolvedMode string
