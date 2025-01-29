@@ -182,19 +182,21 @@ func (st *State) SetUnitStateRelation(ctx domain.AtomicContext, uuid string, sta
 
 	keyVals := makeUnitRelationStateKeyVals(uuid, state)
 
-	q = "INSERT INTO unit_state_relation(*) VALUES ($unitRelationStateKeyVal.*)"
-	iStmt, err := st.Prepare(q, keyVals[0])
-	if err != nil {
-		return errors.Errorf("preparing relation state insert query: %w", err)
-	}
-
 	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, dStmt, id).Run(); err != nil {
 			return errors.Errorf("deleting unit relation state: %w", err)
 		}
 
-		if err := tx.Query(ctx, iStmt, keyVals).Run(); err != nil {
-			return errors.Errorf("setting unit relation state: %w", err)
+		if len(keyVals) != 0 {
+			q = "INSERT INTO unit_state_relation(*) VALUES ($unitRelationStateKeyVal.*)"
+			iStmt, err := st.Prepare(q, keyVals[0])
+			if err != nil {
+				return errors.Errorf("preparing relation state insert query: %w", err)
+			}
+
+			if err := tx.Query(ctx, iStmt, keyVals).Run(); err != nil {
+				return errors.Errorf("setting unit relation state: %w", err)
+			}
 		}
 		return nil
 	})
