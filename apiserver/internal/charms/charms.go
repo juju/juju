@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package charms
 
 import (
 	"archive/zip"
@@ -13,7 +13,9 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -123,9 +125,34 @@ func CharmLocatorFromURL(url string) (charm.CharmLocator, error) {
 	if err != nil {
 		return charm.CharmLocator{}, errors.Trace(err)
 	}
-	return charm.CharmLocator{
+	locator := charm.CharmLocator{
 		Name:     u.Name,
 		Revision: u.Revision,
 		Source:   source,
-	}, nil
+	}
+	if u.Architecture != "" {
+		arch, err := decodeArchitecture(u.Architecture)
+		if err != nil {
+			return charm.CharmLocator{}, errors.Trace(err)
+		}
+		locator.Architecture = arch
+	}
+	return locator, nil
+}
+
+func decodeArchitecture(a arch.Arch) (architecture.Architecture, error) {
+	switch a {
+	case arch.AMD64:
+		return architecture.AMD64, nil
+	case arch.ARM64:
+		return architecture.ARM64, nil
+	case arch.PPC64EL:
+		return architecture.PPC64EL, nil
+	case arch.S390X:
+		return architecture.S390X, nil
+	case arch.RISCV64:
+		return architecture.RISCV64, nil
+	default:
+		return -1, errors.BadRequestf("unsupported architecture %q", a)
+	}
 }

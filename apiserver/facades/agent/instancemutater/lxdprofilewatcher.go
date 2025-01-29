@@ -12,9 +12,9 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
@@ -290,21 +290,13 @@ func (w *machineLXDProfileWatcher) init(ctx context.Context) error {
 			units:    set.NewStrings(unitName),
 		}
 
-		curl, err := charm.ParseURL(*charmURLStr)
-		if err != nil {
-			return errors.Annotatef(err, "parsing charm URL %q", *charmURLStr)
-		}
-		source, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
+		locator, err := charms.CharmLocatorFromURL(*charmURLStr)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, applicationcharm.CharmLocator{
-			Source:   source,
-			Name:     curl.Name,
-			Revision: curl.Revision,
-		})
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, locator)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
-			return errors.NotFoundf("charm %q", curl)
+			return errors.NotFoundf("charm %q", locator.Name)
 		} else if err != nil {
 			return errors.Trace(err)
 		}
@@ -351,19 +343,11 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(ctx context.Context
 		if charmURLStr == nil || info.charmURL == *charmURLStr {
 			return nil
 		}
-		curl, err := charm.ParseURL(*charmURLStr)
-		if err != nil {
-			return errors.Annotatef(err, "parsing charm URL %q", *charmURLStr)
-		}
-		source, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
+		locator, err := charms.CharmLocatorFromURL(*charmURLStr)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, applicationcharm.CharmLocator{
-			Source:   source,
-			Name:     curl.Name,
-			Revision: curl.Revision,
-		})
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, locator)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
 			w.logger.Debugf("not watching %s with removed charm %s on machine-%s", appName, *charmURLStr, w.machine.Id())
 			return nil
@@ -419,20 +403,11 @@ func (w *machineLXDProfileWatcher) charmChange(ctx context.Context, chURL string
 		if info.charmURL != chURL {
 			continue
 		}
-		curl, err := charm.ParseURL(chURL)
-		if err != nil {
-			return errors.Annotatef(err, "parsing charm URL %q", chURL)
-		}
-		source, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
+		locator, err := charms.CharmLocatorFromURL(chURL)
 		if err != nil {
 			return errors.Trace(err)
 		}
-
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, applicationcharm.CharmLocator{
-			Source:   source,
-			Name:     curl.Name,
-			Revision: curl.Revision,
-		})
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, locator)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
 			w.logger.Debugf("charm %s removed for %s on machine-%s", chURL, appName, w.machine.Id())
 			continue
@@ -516,25 +491,16 @@ func (w *machineLXDProfileWatcher) add(ctx context.Context, unit Unit) (bool, er
 			charmURLStr = app.CharmURL()
 		}
 
-		curl, err := charm.ParseURL(*charmURLStr)
-		if err != nil {
-			return false, errors.Annotatef(err, "parsing charm URL %q", *charmURLStr)
-		}
-		source, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
+		locator, err := charms.CharmLocatorFromURL(*charmURLStr)
 		if err != nil {
 			return false, errors.Trace(err)
 		}
-
-		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, applicationcharm.CharmLocator{
-			Source:   source,
-			Name:     curl.Name,
-			Revision: curl.Revision,
-		})
+		lxdProfile, _, err := w.applicationService.GetCharmLXDProfile(ctx, locator)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
-			w.logger.Debugf("charm %s removed for %s on machine-%s", *curl, unitName, w.machine.Id())
+			w.logger.Debugf("charm %s removed for %s on machine-%s", locator.Name, unitName, w.machine.Id())
 			return false, nil
 		} else if err != nil {
-			return false, errors.Annotatef(err, "failed to get charm %q for %s on machine-%s", *curl, appName, w.machine.Id())
+			return false, errors.Annotatef(err, "failed to get charm %q for %s on machine-%s", locator.Name, appName, w.machine.Id())
 		}
 		info := appInfo{
 			charmURL: *charmURLStr,

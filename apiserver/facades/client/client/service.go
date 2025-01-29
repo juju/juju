@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/blockdevice"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
@@ -70,12 +69,7 @@ type ApplicationService interface {
 	// from the charmhub store. If there are no charms, returns is not found, as
 	// [applicationerrors.CharmNotFound]. If there are multiple charms, then the
 	// latest created at date is returned first.
-	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (corecharm.ID, error)
-
-	// GetCharmLocatorByCharmID returns the charm locator for the charm using
-	// the charm ID. If the charm is not found, a
-	// [applicationerrors.CharmNotFound] error is returned.
-	GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (charm.CharmLocator, error)
+	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (charm.CharmLocator, error)
 }
 
 // PortService defines the methods that the facade assumes from the Port

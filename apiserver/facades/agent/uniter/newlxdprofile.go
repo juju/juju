@@ -13,14 +13,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	"github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -339,19 +338,11 @@ func (u *LXDProfileAPIv2) LXDProfileRequired(ctx context.Context, args params.Ch
 }
 
 func (u *LXDProfileAPIv2) getOneLXDProfileRequired(ctx context.Context, curl string) (bool, error) {
-	parsedURL, err := charm.ParseURL(curl)
+	locator, err := charms.CharmLocatorFromURL(curl)
 	if err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
-	parsedSource, err := applicationcharm.ParseCharmSchema(charm.Schema(parsedURL.Schema))
-	if err != nil {
-		return false, err
-	}
-	lxdProfile, _, err := u.applicationService.GetCharmLXDProfile(ctx, applicationcharm.CharmLocator{
-		Source:   parsedSource,
-		Name:     parsedURL.Name,
-		Revision: parsedURL.Revision,
-	})
+	lxdProfile, _, err := u.applicationService.GetCharmLXDProfile(ctx, locator)
 	if err != nil {
 		return false, err
 	}

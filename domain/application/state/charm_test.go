@@ -3364,9 +3364,15 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharm(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	expectedLocator := charm.CharmLocator{
+		Name:         "ubuntu",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
 	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(latest, gc.DeepEquals, id)
+	c.Check(latest, gc.DeepEquals, expectedLocator)
 }
 
 func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmForAnotherArch(c *gc.C) {
@@ -3410,9 +3416,15 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithMultipleCharms(c 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	expectedLocator := charm.CharmLocator{
+		Name:         "ubuntu",
+		Revision:     1,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
 	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(latest, gc.DeepEquals, id1)
+	c.Check(latest, gc.DeepEquals, expectedLocator)
 }
 
 func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithAssignedApplication(c *gc.C) {
@@ -3445,18 +3457,15 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithAssignedApplicati
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	expectedLocator := charm.CharmLocator{
+		Name:         "ubuntu",
+		Revision:     2,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
 	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(latest, gc.DeepEquals, id0)
-}
-
-func (s *charmStateSuite) TestGetCharmLocatorNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-
-	id := charmtesting.GenCharmID(c)
-
-	_, err := st.GetCharmLocatorByCharmID(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+	c.Check(latest, gc.DeepEquals, expectedLocator)
 }
 
 func (s *charmStateSuite) TestGetCharmLocator(c *gc.C) {
@@ -3473,13 +3482,10 @@ func (s *charmStateSuite) TestGetCharmLocator(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	latest, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
+	latestLocator, err := st.GetLatestPendingCharmhubCharm(context.Background(), "ubuntu", architecture.AMD64)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(latest, gc.DeepEquals, id)
-
-	locator, err := st.GetCharmLocatorByCharmID(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(locator, gc.DeepEquals, charm.CharmLocator{
+	c.Check(latestLocator, gc.DeepEquals, charm.CharmLocator{
 		Name:         "ubuntu",
 		Source:       charm.CharmHubSource,
 		Revision:     42,

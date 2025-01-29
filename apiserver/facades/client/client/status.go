@@ -732,14 +732,7 @@ func fetchAllApplicationsAndUnits(ctx context.Context, applicationService Applic
 
 	// Latest charm lookup for all base URLs.
 	for baseURL := range latestCharms {
-		charmID, err := applicationService.GetLatestPendingCharmhubCharm(ctx, baseURL.Name, baseURL.Architecture)
-		if errors.Is(err, applicationerrors.CharmNotFound) {
-			continue
-		} else if err != nil {
-			return applicationStatusInfo{}, err
-		}
-
-		locator, err := applicationService.GetCharmLocatorByCharmID(ctx, charmID)
+		locator, err := applicationService.GetLatestPendingCharmhubCharm(ctx, baseURL.Name, baseURL.Architecture)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
 			continue
 		} else if err != nil {

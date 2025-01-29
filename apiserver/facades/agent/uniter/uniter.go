@@ -19,6 +19,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
@@ -31,7 +32,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	corewatcher "github.com/juju/juju/core/watcher"
-	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/unitstate"
@@ -902,12 +902,7 @@ func (u *UniterAPI) CharmArchiveSha256(ctx context.Context, args params.CharmURL
 }
 
 func (u *UniterAPI) oneCharmArchiveSha256(ctx context.Context, curl string) (string, error) {
-	cu, err := charm.ParseURL(curl)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	source, err := domaincharm.ParseCharmSchema(charm.Schema(cu.Schema))
+	locator, err := apiservercharms.CharmLocatorFromURL(curl)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -915,11 +910,7 @@ func (u *UniterAPI) oneCharmArchiveSha256(ctx context.Context, curl string) (str
 	// Only return the SHA256 if the charm is available. It is expected
 	// that the caller (in this case the uniter) will retry if they get
 	// a NotYetAvailable error.
-	sha, err := u.applicationService.GetAvailableCharmArchiveSHA256(ctx, domaincharm.CharmLocator{
-		Name:     cu.Name,
-		Revision: cu.Revision,
-		Source:   source,
-	})
+	sha, err := u.applicationService.GetAvailableCharmArchiveSHA256(ctx, locator)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return "", errors.NotFoundf("charm %q", curl)
 	} else if errors.Is(err, applicationerrors.CharmNotResolved) {

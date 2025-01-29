@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -420,7 +421,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 			continue
 		}
 
-		locator, err := common.CharmLocatorFromURL(*charmURLStr)
+		locator, err := apiservercharms.CharmLocatorFromURL(*charmURLStr)
 		if err != nil {
 			return empty, errors.Trace(err)
 		}

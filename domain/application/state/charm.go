@@ -921,15 +921,15 @@ WHERE uuid = $charmID.uuid;
 // [applicationerrors.CharmNotFound].
 // If there are multiple charms, then the latest created at date is returned
 // first.
-func (s *State) GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch architecture.Architecture) (corecharm.ID, error) {
+func (s *State) GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch architecture.Architecture) (charm.CharmLocator, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return charm.CharmLocator{}, internalerrors.Capture(err)
 	}
 
 	archID, err := encodeArchitecture(arch)
 	if err != nil {
-		return "", internalerrors.Errorf("getting architecture ID: %w", err)
+		return charm.CharmLocator{}, internalerrors.Errorf("getting architecture ID: %w", err)
 	}
 	ident := charmNameAndArchitecture{
 		Name:           name,
@@ -937,8 +937,13 @@ func (s *State) GetLatestPendingCharmhubCharm(ctx context.Context, name string, 
 	}
 
 	query := `
-SELECT charm.uuid AS &charmID.uuid
-FROM charm
+SELECT v.name AS &charmLocator.name, 
+    v.reference_name AS &charmLocator.reference_name,
+    v.source_id AS &charmLocator.source_id,
+    v.architecture_id AS &charmLocator.architecture_id,
+    v.revision AS &charmLocator.revision
+FROM v_charm_locator AS v
+JOIN charm ON v.uuid = charm.uuid
 LEFT JOIN application ON application.charm_uuid = charm.uuid
 WHERE
     charm.available = FALSE
@@ -948,42 +953,6 @@ WHERE
     AND application.uuid IS NULL
 ORDER BY charm.create_time DESC;
 `
-	stmt, err := s.Prepare(query, ident, charmID{})
-	if err != nil {
-		return "", internalerrors.Errorf("preparing query: %w", err)
-	}
-
-	var id corecharm.ID
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var cid charmID
-		if err := tx.Query(ctx, stmt, ident).Get(&cid); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.CharmNotFound
-			}
-			return err
-		}
-
-		id, err = corecharm.ParseID(cid.UUID)
-		return err
-	}); err != nil {
-		return "", internalerrors.Errorf("getting latest charmhub pending charm: %w", err)
-	}
-
-	return id, nil
-}
-
-// GetCharmLocatorByCharmID returns the charm locator for the charm using
-// the charm ID. If the charm is not found, a
-// [applicationerrors.CharmNotFound] error is returned.
-func (s *State) GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (charm.CharmLocator, error) {
-	db, err := s.DB()
-	if err != nil {
-		return charm.CharmLocator{}, internalerrors.Capture(err)
-	}
-
-	ident := charmID{UUID: id.String()}
-
-	query := `SELECT &charmLocator.* FROM v_charm_locator WHERE uuid = $charmID.uuid;`
 	stmt, err := s.Prepare(query, ident, charmLocator{})
 	if err != nil {
 		return charm.CharmLocator{}, internalerrors.Errorf("preparing query: %w", err)
@@ -999,7 +968,7 @@ func (s *State) GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (
 		}
 		return nil
 	}); err != nil {
-		return charm.CharmLocator{}, internalerrors.Errorf("getting charm locator: %w", err)
+		return charm.CharmLocator{}, internalerrors.Errorf("getting latest charmhub pending charm: %w", err)
 	}
 
 	return decodeCharmLocator(locator)

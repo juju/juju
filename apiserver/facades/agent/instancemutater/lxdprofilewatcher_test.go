@@ -364,8 +364,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeCharmURLN
 		Source:   applicationcharm.CharmHubSource,
 		Name:     "name-me",
 		Revision: 42,
-	}).
-		Return(internalcharm.LXDProfile{}, 42, applicationerrors.CharmNotFound)
+	}).Return(internalcharm.LXDProfile{}, 42, applicationerrors.CharmNotFound)
 
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
@@ -473,8 +472,7 @@ func (s *lxdProfileWatcherSuite) assertCharmWithoutLXDProfile(c *gc.C, chURLStr 
 		Source:   source,
 		Name:     curl.Name,
 		Revision: curl.Revision,
-	}).
-		Return(internalcharm.LXDProfile{}, 0, nil)
+	}).Return(internalcharm.LXDProfile{}, 0, nil)
 }
 
 func (s *lxdProfileWatcherSuite) setupScenarioNoProfile(c *gc.C) {

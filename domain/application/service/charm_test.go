@@ -39,7 +39,7 @@ var _ = gc.Suite(&charmServiceSuite{})
 func (s *charmServiceSuite) TestGetCharmIDWithoutRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
+	_, err := s.service.getCharmID(context.Background(), charm.GetCharmArgs{
 		Name:   "foo",
 		Source: charm.CharmHubSource,
 	})
@@ -49,7 +49,7 @@ func (s *charmServiceSuite) TestGetCharmIDWithoutRevision(c *gc.C) {
 func (s *charmServiceSuite) TestGetCharmIDWithoutSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
+	_, err := s.service.getCharmID(context.Background(), charm.GetCharmArgs{
 		Name:     "foo",
 		Revision: ptr(42),
 	})
@@ -59,7 +59,7 @@ func (s *charmServiceSuite) TestGetCharmIDWithoutSource(c *gc.C) {
 func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
+	_, err := s.service.getCharmID(context.Background(), charm.GetCharmArgs{
 		Name: "Foo",
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
@@ -68,7 +68,7 @@ func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 func (s *charmServiceSuite) TestGetCharmIDInvalidSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
+	_, err := s.service.getCharmID(context.Background(), charm.GetCharmArgs{
 		Name:     "foo",
 		Revision: ptr(42),
 		Source:   "wrong-source",
@@ -85,7 +85,7 @@ func (s *charmServiceSuite) TestGetCharmID(c *gc.C) {
 
 	s.state.EXPECT().GetCharmID(gomock.Any(), "foo", rev, charm.LocalSource).Return(id, nil)
 
-	result, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
+	result, err := s.service.getCharmID(context.Background(), charm.GetCharmArgs{
 		Name:     "foo",
 		Revision: &rev,
 		Source:   charm.LocalSource,
@@ -1801,13 +1801,17 @@ func (s *charmServiceSuite) TestReserveCharmRevision(c *gc.C) {
 func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expected := charmtesting.GenCharmID(c)
-
-	s.state.EXPECT().GetLatestPendingCharmhubCharm(gomock.Any(), "foo", architecture.AMD64).Return(expected, nil)
+	expectedLocator := charm.CharmLocator{
+		Name:         "foo",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+	s.state.EXPECT().GetLatestPendingCharmhubCharm(gomock.Any(), "foo", architecture.AMD64).Return(expectedLocator, nil)
 
 	result, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "foo", arch.AMD64)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, expected)
+	c.Check(result, gc.DeepEquals, expectedLocator)
 }
 
 func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharmInvalidName(c *gc.C) {
@@ -1815,32 +1819,6 @@ func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharmInvalidName(c *gc.C
 
 	_, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "!!!foo", arch.AMD64)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
-}
-
-func (s *charmServiceSuite) TestGetCharmLocatorByCharmID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := charmtesting.GenCharmID(c)
-
-	locator := charm.CharmLocator{
-		Name:         "foo",
-		Revision:     1,
-		Source:       charm.CharmHubSource,
-		Architecture: architecture.AMD64,
-	}
-
-	s.state.EXPECT().GetCharmLocatorByCharmID(gomock.Any(), id).Return(locator, nil)
-
-	result, err := s.service.GetCharmLocatorByCharmID(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, locator)
-}
-
-func (s *charmServiceSuite) TestGetCharmLocatorByCharmIDInvalidID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetCharmLocatorByCharmID(context.Background(), "!!!id")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 type watchableServiceSuite struct {

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	corebase "github.com/juju/juju/core/base"
@@ -301,7 +302,7 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 	}
 
 	for i, arg := range args.Applications {
-		if err := common.ValidateCharmOrigin(arg.CharmOrigin); err != nil {
+		if err := apiservercharms.ValidateCharmOrigin(arg.CharmOrigin); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -480,7 +481,7 @@ func (api *APIBase) deployApplication(
 		return errors.Trace(err)
 	}
 
-	locator, err := common.CharmLocatorFromURL(args.CharmURL)
+	locator, err := apiservercharms.CharmLocatorFromURL(args.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -863,7 +864,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		}
 	}
 
-	if err := common.ValidateCharmOrigin(args.CharmOrigin); err != nil {
+	if err := apiservercharms.ValidateCharmOrigin(args.CharmOrigin); err != nil {
 		return err
 	}
 
@@ -925,7 +926,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 		return errors.Trace(err)
 	}
 
-	newLocator, err := common.CharmLocatorFromURL(url)
+	newLocator, err := apiservercharms.CharmLocatorFromURL(url)
 	if err != nil {
 		return errors.Trace(err)
 	}
