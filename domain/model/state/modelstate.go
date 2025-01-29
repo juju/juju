@@ -176,11 +176,7 @@ WHERE c.uuid = $dbConstraint.uuid`, dbConstraintZone{}, dbConstraint{})
 		zones  []dbConstraintZone
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		modelUUID, err := s.getModelUUID(ctx, tx)
-		if err != nil {
-			return errors.Errorf("getting model uuid: %w", err)
-		}
-		cons, err = s.getModelConstraints(ctx, modelUUID, tx)
+		cons, err = s.getModelConstraints(ctx, tx)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -243,9 +239,13 @@ WHERE  model_uuid = $dbModelConstraint.model_uuid`, modelConstraint)
 // returned.
 func (s *ModelState) getModelConstraints(
 	ctx context.Context,
-	modelUUID coremodel.UUID,
 	tx *sqlair.TX,
 ) (dbConstraint, error) {
+	modelUUID, err := s.getModelUUID(ctx, tx)
+	if err != nil {
+		return dbConstraint{}, errors.Errorf("getting model uuid: %w", err)
+	}
+
 	stmt, err := s.Prepare(`
 SELECT c.uuid AS &dbConstraint.uuid,
        c.arch AS &dbConstraint.arch,
