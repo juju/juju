@@ -271,6 +271,42 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *gc.C) {
 	c.Check(gotState, gc.DeepEquals, expState)
 }
 
+func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	// Set some initial state. This should be overwritten.
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		q := "INSERT INTO unit_state_relation VALUES (?, 1, 'one-val')"
+		_, err := tx.ExecContext(ctx, q, s.unitUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+		return st.SetUnitStateRelation(ctx, s.unitUUID, map[int]string{})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var rowCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		q := "SELECT key, value FROM unit_state_relation WHERE unit_uuid = ?"
+		rows, err := tx.QueryContext(ctx, q, s.unitUUID)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			rowCount++
+		}
+		return rows.Err()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(rowCount, gc.DeepEquals, 0)
+}
+
 func (s *stateSuite) TestGetUnitState(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
