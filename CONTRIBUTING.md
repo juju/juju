@@ -2,7 +2,7 @@ Thanks for your interest in Juju! Contributions like yours make good projects
 great.
 
 # TL;DR
-- Bug reports should be filed on Github [juju/juju](https://github.com/juju/juju/issues).
+- Bug reports should be filed on GitHub [juju/juju](https://github.com/juju/juju/issues).
   Please check that your bug has not already been reported.
 - When opening a pull request:
   - Check that all your [commits are signed](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).
@@ -32,7 +32,7 @@ Quick links
 Issue tracker: https://github.com/juju/juju/issues
 
 Documentation:
-* https://juju.is/docs
+* https://canonical-juju.readthedocs-hosted.com/en/latest/
 * [source tree docs](docs/dev)
 
 Community:
@@ -102,7 +102,7 @@ For information on setting up and using `git`, check out the following:
 GitHub
 ------
 
-The upstream Juju repository is hosted on [Github](http://github.com). Patches
+The upstream Juju repository is hosted on [GitHub](http://github.com). Patches
 to Juju are contributed through pull requests (more on that in the
 [Pushing](#pushing) section). So you should have a github account and a fork
 there. The following steps will help you get that ready:
@@ -357,7 +357,7 @@ The title of the PR should match the form of the title of a conventional commit.
 This can be the title of the most significant commit in the PR.
 
 Make sure to add a clear description of why and what has been changed, and
-include the Github issue number or Launchpad bug number if one exists.
+include the GitHub issue number or Launchpad bug number if one exists.
 
 It is often helpful to mention newly created proposals on the Discourse forum,
 especially if you would like a specific developer to be aware of the proposal.
@@ -386,7 +386,7 @@ passes, please follow these steps:
    (you can't use the `@users.noreply.github.com` email that GitHub provides).
 2. Visit the [CLA website](https://ubuntu.com/legal/contributors), scroll down
    and press "Sign the contributor agreement".
-3. Read the agreement and fill in your contact details. 
+3. Read the agreement and fill in your contact details.
 4. Press "I agree" to sign the CLA.
 
 
@@ -457,7 +457,7 @@ Community
 =========
 
 The Juju community is growing and you have a number of options for interacting
-beyond the [juju/juju](https://github.com/juju/juju) Github repository.
+beyond the [juju/juju](https://github.com/juju/juju) GitHub repository.
 
 Use the following links to contact the community:
 
