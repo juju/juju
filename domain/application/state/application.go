@@ -2639,9 +2639,7 @@ AND charm_uuid = $charmID.uuid;
 
 	// Ensure that the charm is the same as the one we're trying to set.
 	var count countResult
-	if err := tx.Query(ctx, stmt, ident, charmID).Get(&count); errors.Is(err, sqlair.ErrNoRows) {
-		return applicationerrors.ApplicationHasDifferentCharm
-	} else if err != nil {
+	if err := tx.Query(ctx, stmt, ident, charmID).Get(&count); err != nil {
 		return internalerrors.Errorf("verifying charm: %w", err)
 	}
 	if count.Count == 0 {
