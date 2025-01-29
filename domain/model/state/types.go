@@ -438,6 +438,7 @@ type dbModelConstraint struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 }
 
+// dbConstraint represents a single row with
 type dbConstraint struct {
 	UUID             string         `db:"uuid"`
 	Arch             sql.NullString `db:"arch"`

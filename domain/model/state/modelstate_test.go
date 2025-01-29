@@ -318,6 +318,7 @@ INSERT INTO space (uuid, name) VALUES
 	c.Assert(err, jc.ErrorIsNil)
 
 	getCons, err := state.GetModelConstraints(context.Background())
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(getCons, jc.DeepEquals, cons)
 }
 

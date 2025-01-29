@@ -250,31 +250,15 @@ func (s *ModelState) getModelConstraints(
 	}
 
 	stmt, err := s.Prepare(`
-SELECT c.uuid AS &dbConstraint.uuid,
-       c.arch AS &dbConstraint.arch,
-       c.cpu_cores AS &dbConstraint.cpu_cores,
-       c.cpu_power AS &dbConstraint.cpu_power,
-       c.mem AS &dbConstraint.mem,
-       c.root_disk AS &dbConstraint.root_disk,
-       c.root_disk_source AS &dbConstraint.root_disk_source,
-       c.instance_role AS &dbConstraint.instance_role,
-       c.instance_type AS &dbConstraint.instance_type,
-       ct.value AS &dbConstraint.container_type,
-       c.virt_type AS &dbConstraint.virt_type,
-       c.allocate_public_ip AS &dbConstraint.allocate_public_ip,
-       c.image_id AS &dbConstraint.image_id
-FROM   model_constraint mc
-       JOIN "constraint" c ON c.uuid = mc.constraint_uuid
-       LEFT JOIN container_type ct ON ct.id = c.container_type_id
-WHERE  mc.model_uuid = $dbModelConstraint.model_uuid
-`, dbConstraint{}, dbModelConstraint{})
+SELECT &dbConstraint.*
+FROM v_model_constraints
+`, dbConstraint{})
 	if err != nil {
 		return dbConstraint{}, errors.Capture(err)
 	}
 
-	modelConstraint := dbModelConstraint{ModelUUID: modelUUID.String()}
 	var constraint dbConstraint
-	err = tx.Query(ctx, stmt, modelConstraint).Get(&constraint)
+	err = tx.Query(ctx, stmt).Get(&constraint)
 	if errors.Is(err, sql.ErrNoRows) {
 		return dbConstraint{}, errors.Errorf(
 			"no constraints set for model %q", modelUUID,

@@ -21,3 +21,8 @@ CREATE TABLE model_constraint (
     FOREIGN KEY (constraint_uuid)
     REFERENCES "constraint" (uuid)
 );
+
+CREATE VIEW v_model_constraints AS
+SELECT c.*
+FROM model_constraint mc
+INNER JOIN v_constraints c ON mc.constraint_uuid = c.uuid;

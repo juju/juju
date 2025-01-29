@@ -17,6 +17,26 @@ CREATE TABLE "constraint" (
     REFERENCES container_type (id)
 );
 
+-- v_constraints represents a view of the constraints in the model with foreign
+-- keys resolved for the viewer.
+CREATE VIEW v_constraints AS
+SELECT
+    c.uuid,
+    c.arch,
+    c.cpu_cores,
+    c.cpu_power,
+    c.mem,
+    c.root_disk,
+    c.root_disk_source,
+    c.instance_role,
+    c.instance_type,
+    ct.value AS container_type,
+    c.virt_type,
+    c.allocate_public_ip,
+    c.image_id
+FROM "constraint" AS c
+LEFT JOIN container_type ct ON ct.id = c.container_type_id;
+
 CREATE TABLE constraint_tag (
     constraint_uuid TEXT NOT NULL,
     tag TEXT NOT NULL,
