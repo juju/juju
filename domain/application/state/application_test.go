@@ -946,17 +946,15 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	portSt := portstate.NewState(s.TxnRunnerFactory())
-	err = portSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return portSt.UpdateUnitPorts(ctx, unitUUID, network.GroupedPortRanges{
-			"endpoint": {
-				{Protocol: "tcp", FromPort: 80, ToPort: 80},
-				{Protocol: "udp", FromPort: 1000, ToPort: 1500},
-			},
-			"misc": {
-				{Protocol: "tcp", FromPort: 8080, ToPort: 8080},
-			},
-		}, network.GroupedPortRanges{})
-	})
+	err = portSt.UpdateUnitPorts(context.Background(), unitUUID, network.GroupedPortRanges{
+		"endpoint": {
+			{Protocol: "tcp", FromPort: 80, ToPort: 80},
+			{Protocol: "udp", FromPort: 1000, ToPort: 1500},
+		},
+		"misc": {
+			{Protocol: "tcp", FromPort: 8080, ToPort: 8080},
+		},
+	}, network.GroupedPortRanges{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var gotIsLast bool

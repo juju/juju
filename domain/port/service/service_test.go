@@ -13,10 +13,8 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	domain "github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/port"
 	porterrors "github.com/juju/juju/domain/port/errors"
-	domaintesting "github.com/juju/juju/domain/testing"
 )
 
 type serviceSuite struct {
@@ -36,10 +34,6 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = NewMockState(ctrl)
-	s.st.EXPECT().RunAtomic(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(ctx domain.AtomicContext) error) error {
-		return fn(domaintesting.NewAtomicContext(ctx))
-	}).AnyTimes()
-
 	s.srv = &Service{st: s.st}
 
 	return ctrl
@@ -236,13 +230,11 @@ func (s *serviceSuite) TestGetApplicationOpenedPortsByEndpointOverlap(c *gc.C) {
 func (s *serviceSuite) TestUpdateUnitPorts(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{}, nil)
 	s.st.EXPECT().UpdateUnitPorts(
-		domaintesting.IsAtomicContextChecker, unitUUID,
+		gomock.Any(), unitUUID,
 		network.GroupedPortRanges{
 			"ep1": {network.MustParsePortRange("80/tcp"), network.MustParsePortRange("443/tcp")},
-			"ep2": {network.MustParsePortRange("8000-9000/udp")},
+			"ep2": {network.MustParsePortRange("8000-9000/tcp")},
 		},
 		network.GroupedPortRanges{
 			"ep1": {network.MustParsePortRange("22/tcp")},
@@ -253,7 +245,7 @@ func (s *serviceSuite) TestUpdateUnitPorts(c *gc.C) {
 		context.Background(), unitUUID,
 		network.GroupedPortRanges{
 			"ep1": {network.MustParsePortRange("80/tcp"), network.MustParsePortRange("443/tcp")},
-			"ep2": {network.MustParsePortRange("8000-9000/udp")},
+			"ep2": {network.MustParsePortRange("8000-9000/tcp")},
 		},
 		network.GroupedPortRanges{
 			"ep1": {network.MustParsePortRange("22/tcp")},
@@ -267,35 +259,52 @@ func (s *serviceSuite) TestUpdateUnitPortsNoChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateUnitPortsSameRangeAcrossEndpoints(c *gc.C) {
+func (s *serviceSuite) TestUpdateUnitPortsNilOpenPorts(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{}, nil)
 	s.st.EXPECT().UpdateUnitPorts(
-		domaintesting.IsAtomicContextChecker, unitUUID,
+		gomock.Any(), unitUUID, nil,
+		network.GroupedPortRanges{
+			"ep1": {network.MustParsePortRange("22/tcp")},
+		},
+	).Return(nil)
+
+	err := s.srv.UpdateUnitPorts(
+		context.Background(), unitUUID, nil,
+		network.GroupedPortRanges{
+			"ep1": {network.MustParsePortRange("22/tcp")},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpdateUnitPortsNilClosePorts(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().UpdateUnitPorts(
+		gomock.Any(), unitUUID,
 		network.GroupedPortRanges{
 			"ep1": {network.MustParsePortRange("80/tcp"), network.MustParsePortRange("443/tcp")},
-			"ep2": {network.MustParsePortRange("80/tcp")},
-			"ep3": {network.MustParsePortRange("80/tcp")},
 		},
-		network.GroupedPortRanges{},
+		nil,
 	).Return(nil)
 
 	err := s.srv.UpdateUnitPorts(
 		context.Background(), unitUUID,
 		network.GroupedPortRanges{
 			"ep1": {network.MustParsePortRange("80/tcp"), network.MustParsePortRange("443/tcp")},
-			"ep2": {network.MustParsePortRange("80/tcp")},
-			"ep3": {network.MustParsePortRange("80/tcp")},
 		},
-		network.GroupedPortRanges{},
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateUnitPortsConflict(c *gc.C) {
+func (s *serviceSuite) TestUpdateUnitPortsNilPortMaps(c *gc.C) {
+	err := s.srv.UpdateUnitPorts(context.Background(), unitUUID, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
 
+func (s *serviceSuite) TestUpdateUnitPortsConflict(c *gc.C) {
 	err := s.srv.UpdateUnitPorts(context.Background(), unitUUID, network.GroupedPortRanges{
 		"ep1": {
 			network.MustParsePortRange("100-200/tcp"),
@@ -324,262 +333,6 @@ func (s *serviceSuite) TestUpdateUnitPortsConflict(c *gc.C) {
 		},
 	}, network.GroupedPortRanges{})
 	c.Assert(err, jc.ErrorIs, porterrors.PortRangeConflict)
-}
-
-func (s *serviceSuite) TestUpdateUnitPortsOpenPortConflictColocated(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{
-		network.MustParsePortRange("150-250/tcp"),
-	}, nil)
-
-	err := s.srv.UpdateUnitPorts(context.Background(), unitUUID,
-		network.GroupedPortRanges{
-			"ep1": {network.MustParsePortRange("100-200/tcp")},
-		},
-		network.GroupedPortRanges{},
-	)
-
-	c.Assert(err, jc.ErrorIs, porterrors.PortRangeConflict)
-}
-
-func (s *serviceSuite) TestUpdateUnitPortsClosePortConflictColocated(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{
-		network.MustParsePortRange("150-250/tcp"),
-	}, nil)
-
-	err := s.srv.UpdateUnitPorts(
-		context.Background(), unitUUID, network.GroupedPortRanges{},
-		network.GroupedPortRanges{
-			"ep1": {network.MustParsePortRange("100-200/tcp")},
-		},
-	)
-
-	c.Assert(err, jc.ErrorIs, porterrors.PortRangeConflict)
-}
-
-func (s *serviceSuite) TestUpdateUnitPortsOpenWildcard(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpoints(gomock.Any(), unitUUID).Return([]string{"ep1", "ep2", "ep3"}, nil)
-	s.st.EXPECT().UpdateUnitPorts(
-		domaintesting.IsAtomicContextChecker, unitUUID,
-		network.GroupedPortRanges{
-			port.WildcardEndpoint: {network.MustParsePortRange("100-200/tcp")},
-		},
-		network.GroupedPortRanges{
-			"ep1": {network.MustParsePortRange("100-200/tcp")},
-			"ep2": {network.MustParsePortRange("100-200/tcp")},
-			"ep3": {network.MustParsePortRange("100-200/tcp")},
-		},
-	).Return(nil)
-
-	err := s.srv.UpdateUnitPorts(
-		context.Background(), unitUUID,
-		network.GroupedPortRanges{
-			port.WildcardEndpoint: {network.MustParsePortRange("100-200/tcp")},
-		},
-		network.GroupedPortRanges{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestUpdateUnitPortsOpenPortRangeOpenOnWildcard(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{
-		network.MustParsePortRange("100-200/tcp"),
-	}, nil)
-	s.st.EXPECT().UpdateUnitPorts(
-		domaintesting.IsAtomicContextChecker, unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{},
-	).Return(nil)
-
-	err := s.srv.UpdateUnitPorts(
-		context.Background(), unitUUID,
-		network.GroupedPortRanges{
-			"ep1": {network.MustParsePortRange("100-200/tcp")},
-		},
-		network.GroupedPortRanges{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestUpdateUnitPortsCloseWildcard(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpoints(gomock.Any(), unitUUID).Return([]string{"ep1", "ep2", "ep3"}, nil)
-	s.st.EXPECT().UpdateUnitPorts(domaintesting.IsAtomicContextChecker, unitUUID, network.GroupedPortRanges{}, network.GroupedPortRanges{
-		port.WildcardEndpoint: {
-			network.MustParsePortRange("100-200/tcp"),
-		},
-		"ep1": {
-			network.MustParsePortRange("100-200/tcp"),
-		},
-		"ep2": {
-			network.MustParsePortRange("100-200/tcp"),
-		},
-		"ep3": {
-			network.MustParsePortRange("100-200/tcp"),
-		},
-	})
-
-	err := s.srv.UpdateUnitPorts(
-		context.Background(), unitUUID, network.GroupedPortRanges{},
-		network.GroupedPortRanges{
-			port.WildcardEndpoint: {
-				network.MustParsePortRange("100-200/tcp"),
-			},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestUpdateUnitPortsClosePortRangeOpenOnWildcard(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{
-		network.MustParsePortRange("100-200/tcp"),
-	}, nil)
-	s.st.EXPECT().GetEndpoints(gomock.Any(), unitUUID).Return([]string{"ep1", "ep2", "ep3"}, nil)
-	s.st.EXPECT().UpdateUnitPorts(domaintesting.IsAtomicContextChecker, unitUUID, network.GroupedPortRanges{
-		"ep2": {
-			network.MustParsePortRange("100-200/tcp"),
-		},
-		"ep3": {
-			network.MustParsePortRange("100-200/tcp"),
-		},
-	}, network.GroupedPortRanges{
-		port.WildcardEndpoint: {
-			network.MustParsePortRange("100-200/tcp"),
-		},
-		"ep1": {
-			network.MustParsePortRange("100-200/tcp"),
-		},
-	}).Return(nil)
-
-	err := s.srv.UpdateUnitPorts(
-		context.Background(), unitUUID, network.GroupedPortRanges{},
-		network.GroupedPortRanges{
-			"ep1": {network.MustParsePortRange("100-200/tcp")},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestUpdateUnitPortsOpenWildcardAndOtherRangeOnEndpoint(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpoints(gomock.Any(), unitUUID).Return([]string{"ep1", "ep2", "ep3"}, nil)
-	s.st.EXPECT().UpdateUnitPorts(
-		domaintesting.IsAtomicContextChecker, unitUUID,
-		network.GroupedPortRanges{
-			port.WildcardEndpoint: {network.MustParsePortRange("100-200/tcp")},
-			"ep1":                 {network.MustParsePortRange("10-20/tcp")},
-		},
-		network.GroupedPortRanges{
-			"ep1": {network.MustParsePortRange("100-200/tcp")},
-			"ep2": {network.MustParsePortRange("100-200/tcp")},
-			"ep3": {network.MustParsePortRange("100-200/tcp")},
-		},
-	).Return(nil)
-
-	err := s.srv.UpdateUnitPorts(
-		context.Background(), unitUUID,
-		network.GroupedPortRanges{
-			port.WildcardEndpoint: {network.MustParsePortRange("100-200/tcp")},
-			"ep1":                 {network.MustParsePortRange("10-20/tcp")},
-		},
-		network.GroupedPortRanges{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestUpdateUnitPortsOpenPortRangeOnWildcardAndOtherJustOpenedWIldcard(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpoints(gomock.Any(), unitUUID).Return([]string{"ep1", "ep2", "ep3"}, nil)
-	s.st.EXPECT().UpdateUnitPorts(
-		domaintesting.IsAtomicContextChecker, unitUUID,
-		network.GroupedPortRanges{
-			port.WildcardEndpoint: {network.MustParsePortRange("100-200/tcp")},
-		},
-		network.GroupedPortRanges{
-			"ep1": {network.MustParsePortRange("100-200/tcp")},
-			"ep2": {network.MustParsePortRange("100-200/tcp")},
-			"ep3": {network.MustParsePortRange("100-200/tcp")},
-		},
-	).Return(nil)
-
-	err := s.srv.UpdateUnitPorts(
-		context.Background(), unitUUID,
-		network.GroupedPortRanges{
-			port.WildcardEndpoint: {network.MustParsePortRange("100-200/tcp")},
-			"ep1":                 {network.MustParsePortRange("100-200/tcp")},
-		},
-		network.GroupedPortRanges{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestUpdateUnitPortsNilOpenPorts(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().UpdateUnitPorts(
-		domaintesting.IsAtomicContextChecker, unitUUID, nil,
-		network.GroupedPortRanges{
-			"ep1": {network.MustParsePortRange("22/tcp")},
-		},
-	).Return(nil)
-
-	err := s.srv.UpdateUnitPorts(
-		context.Background(), unitUUID, nil,
-		network.GroupedPortRanges{
-			"ep1": {network.MustParsePortRange("22/tcp")},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestUpdateUnitPortsNilClosePorts(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetColocatedOpenedPorts(gomock.Any(), unitUUID).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().GetEndpointOpenedPorts(domaintesting.IsAtomicContextChecker, unitUUID, port.WildcardEndpoint).Return([]network.PortRange{}, nil)
-	s.st.EXPECT().UpdateUnitPorts(
-		domaintesting.IsAtomicContextChecker, unitUUID,
-		network.GroupedPortRanges{
-			"ep1": {network.MustParsePortRange("80/tcp"), network.MustParsePortRange("443/tcp")},
-		},
-		nil,
-	).Return(nil)
-
-	err := s.srv.UpdateUnitPorts(
-		context.Background(), unitUUID,
-		network.GroupedPortRanges{
-			"ep1": {network.MustParsePortRange("80/tcp"), network.MustParsePortRange("443/tcp")},
-		},
-		nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestUpdateUnitPortsNilPortMaps(c *gc.C) {
-	err := s.srv.UpdateUnitPorts(context.Background(), unitUUID, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestGetUnitUUID(c *gc.C) {

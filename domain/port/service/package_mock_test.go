@@ -18,7 +18,6 @@ import (
 	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
-	domain "github.com/juju/juju/domain"
 	port "github.com/juju/juju/domain/port"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -159,123 +158,6 @@ func (c *MockStateGetApplicationOpenedPortsCall) Do(f func(context.Context, appl
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetApplicationOpenedPortsCall) DoAndReturn(f func(context.Context, application.ID) (port.UnitEndpointPortRanges, error)) *MockStateGetApplicationOpenedPortsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetColocatedOpenedPorts mocks base method.
-func (m *MockState) GetColocatedOpenedPorts(arg0 domain.AtomicContext, arg1 unit.UUID) ([]network.PortRange, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetColocatedOpenedPorts", arg0, arg1)
-	ret0, _ := ret[0].([]network.PortRange)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetColocatedOpenedPorts indicates an expected call of GetColocatedOpenedPorts.
-func (mr *MockStateMockRecorder) GetColocatedOpenedPorts(arg0, arg1 any) *MockStateGetColocatedOpenedPortsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetColocatedOpenedPorts", reflect.TypeOf((*MockState)(nil).GetColocatedOpenedPorts), arg0, arg1)
-	return &MockStateGetColocatedOpenedPortsCall{Call: call}
-}
-
-// MockStateGetColocatedOpenedPortsCall wrap *gomock.Call
-type MockStateGetColocatedOpenedPortsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetColocatedOpenedPortsCall) Return(arg0 []network.PortRange, arg1 error) *MockStateGetColocatedOpenedPortsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetColocatedOpenedPortsCall) Do(f func(domain.AtomicContext, unit.UUID) ([]network.PortRange, error)) *MockStateGetColocatedOpenedPortsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetColocatedOpenedPortsCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID) ([]network.PortRange, error)) *MockStateGetColocatedOpenedPortsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetEndpointOpenedPorts mocks base method.
-func (m *MockState) GetEndpointOpenedPorts(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 string) ([]network.PortRange, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEndpointOpenedPorts", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]network.PortRange)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetEndpointOpenedPorts indicates an expected call of GetEndpointOpenedPorts.
-func (mr *MockStateMockRecorder) GetEndpointOpenedPorts(arg0, arg1, arg2 any) *MockStateGetEndpointOpenedPortsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEndpointOpenedPorts", reflect.TypeOf((*MockState)(nil).GetEndpointOpenedPorts), arg0, arg1, arg2)
-	return &MockStateGetEndpointOpenedPortsCall{Call: call}
-}
-
-// MockStateGetEndpointOpenedPortsCall wrap *gomock.Call
-type MockStateGetEndpointOpenedPortsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetEndpointOpenedPortsCall) Return(arg0 []network.PortRange, arg1 error) *MockStateGetEndpointOpenedPortsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetEndpointOpenedPortsCall) Do(f func(domain.AtomicContext, unit.UUID, string) ([]network.PortRange, error)) *MockStateGetEndpointOpenedPortsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetEndpointOpenedPortsCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, string) ([]network.PortRange, error)) *MockStateGetEndpointOpenedPortsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetEndpoints mocks base method.
-func (m *MockState) GetEndpoints(arg0 domain.AtomicContext, arg1 unit.UUID) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEndpoints", arg0, arg1)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetEndpoints indicates an expected call of GetEndpoints.
-func (mr *MockStateMockRecorder) GetEndpoints(arg0, arg1 any) *MockStateGetEndpointsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEndpoints", reflect.TypeOf((*MockState)(nil).GetEndpoints), arg0, arg1)
-	return &MockStateGetEndpointsCall{Call: call}
-}
-
-// MockStateGetEndpointsCall wrap *gomock.Call
-type MockStateGetEndpointsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetEndpointsCall) Return(arg0 []string, arg1 error) *MockStateGetEndpointsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetEndpointsCall) Do(f func(domain.AtomicContext, unit.UUID) ([]string, error)) *MockStateGetEndpointsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetEndpointsCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID) ([]string, error)) *MockStateGetEndpointsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -474,46 +356,8 @@ func (c *MockStateInitialWatchMachineOpenedPortsStatementCall) DoAndReturn(f fun
 	return c
 }
 
-// RunAtomic mocks base method.
-func (m *MockState) RunAtomic(arg0 context.Context, arg1 func(domain.AtomicContext) error) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunAtomic", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RunAtomic indicates an expected call of RunAtomic.
-func (mr *MockStateMockRecorder) RunAtomic(arg0, arg1 any) *MockStateRunAtomicCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAtomic", reflect.TypeOf((*MockState)(nil).RunAtomic), arg0, arg1)
-	return &MockStateRunAtomicCall{Call: call}
-}
-
-// MockStateRunAtomicCall wrap *gomock.Call
-type MockStateRunAtomicCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateRunAtomicCall) Return(arg0 error) *MockStateRunAtomicCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateRunAtomicCall) Do(f func(context.Context, func(domain.AtomicContext) error) error) *MockStateRunAtomicCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRunAtomicCall) DoAndReturn(f func(context.Context, func(domain.AtomicContext) error) error) *MockStateRunAtomicCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // UpdateUnitPorts mocks base method.
-func (m *MockState) UpdateUnitPorts(arg0 domain.AtomicContext, arg1 unit.UUID, arg2, arg3 network.GroupedPortRanges) error {
+func (m *MockState) UpdateUnitPorts(arg0 context.Context, arg1 unit.UUID, arg2, arg3 network.GroupedPortRanges) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateUnitPorts", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -539,13 +383,13 @@ func (c *MockStateUpdateUnitPortsCall) Return(arg0 error) *MockStateUpdateUnitPo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateUnitPortsCall) Do(f func(domain.AtomicContext, unit.UUID, network.GroupedPortRanges, network.GroupedPortRanges) error) *MockStateUpdateUnitPortsCall {
+func (c *MockStateUpdateUnitPortsCall) Do(f func(context.Context, unit.UUID, network.GroupedPortRanges, network.GroupedPortRanges) error) *MockStateUpdateUnitPortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateUnitPortsCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, network.GroupedPortRanges, network.GroupedPortRanges) error) *MockStateUpdateUnitPortsCall {
+func (c *MockStateUpdateUnitPortsCall) DoAndReturn(f func(context.Context, unit.UUID, network.GroupedPortRanges, network.GroupedPortRanges) error) *MockStateUpdateUnitPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
