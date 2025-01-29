@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+const (
+
+	// statePotential represents a constant string value indicating potential
+	// state for a resource in the DB
+	statePotential = "potential"
+)
+
 // resourceAndAppName represents the resource name and app name, this can be
 // used as an identifier for a resource.
 type resourceAndAppName struct {
@@ -54,7 +61,7 @@ type resourceView struct {
 	Name            string    `db:"name"`
 	CreatedAt       time.Time `db:"created_at"`
 	Revision        int       `db:"revision"`
-	OriginTypeId    int       `db:"origin_type_id"`
+	OriginType      string    `db:"origin_type"`
 	RetrievedBy     string    `db:"retrieved_by"`
 	RetrievedByType string    `db:"retrieved_by_type"`
 	Path            string    `db:"path"`
@@ -62,6 +69,7 @@ type resourceView struct {
 	Kind            string    `db:"kind_name"`
 	Size            int64     `db:"size"`
 	SHA384          string    `db:"sha384"`
+	State           string    `db:"state"`
 }
 
 // toCharmResource converts the resourceView struct to a
@@ -70,6 +78,10 @@ func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
 	kind, err := charmresource.ParseType(rv.Kind)
 	if err != nil {
 		return charmresource.Resource{}, errors.Errorf("converting resource type: %w", err)
+	}
+	origin, err := charmresource.ParseOrigin(rv.OriginType)
+	if err != nil {
+		return charmresource.Resource{}, errors.Errorf("converting origin type: %w", err)
 	}
 	var fingerprint charmresource.Fingerprint
 	if rv.SHA384 != "" {
@@ -86,7 +98,7 @@ func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
 			Path:        rv.Path,
 			Description: rv.Description,
 		},
-		Origin:      charmresource.Origin(rv.OriginTypeId),
+		Origin:      origin,
 		Revision:    rv.Revision,
 		Fingerprint: fingerprint,
 		Size:        rv.Size,
@@ -116,14 +128,6 @@ type unitResource struct {
 	AddedAt      time.Time `db:"added_at"`
 }
 
-// unitResourceWithUnitName represents the mapping of a resource to a unit.
-type unitResourceWithUnitName struct {
-	ResourceUUID string    `db:"resource_uuid"`
-	UnitUUID     string    `db:"unit_uuid"`
-	UnitName     string    `db:"unit_name"`
-	AddedAt      time.Time `db:"added_at"`
-}
-
 type applicationNameAndID struct {
 	ApplicationID coreapplication.ID `db:"uuid"`
 	Name          string             `db:"name"`
@@ -147,4 +151,10 @@ type storedContainerImageResource struct {
 	ResourceUUID string `db:"resource_uuid"`
 	Size         int64  `db:"size"`
 	Hash         string `db:"sha384"`
+}
+
+// unitUUIDAndName represents an unit with uuid and name
+type unitUUIDAndName struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
 }

@@ -316,14 +316,13 @@ WHERE charm_uuid=?`, charmUUID)
 	})
 	assertTxn("Fetch application resources", func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
-SELECT vr.name, revision, rot.name as origin_name
+SELECT vr.name, revision, origin_type
 FROM v_resource vr
-JOIN resource_origin_type rot ON rot.id=origin_type_id
 WHERE application_uuid = ?`, appUUID)
-		defer rows.Close()
 		if err != nil {
 			return errors.Capture(err)
 		}
+		defer rows.Close()
 		for rows.Next() {
 			var res application.AddApplicationResourceArg
 			var originName string

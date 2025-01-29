@@ -24,22 +24,10 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// Backend is the functionality of Juju's state needed for the resources API.
-type Backend interface {
-	// ListResources returns the resources for the given application.
-	ListResources(application string) (resource.ApplicationResources, error)
-
-	// AddPendingResource adds the resource to the data backend in a
-	// "pending" state. It will stay pending (and unavailable) until
-	// it is resolved. The returned ID is used to identify the pending
-	// resources when resolving it.
-	AddPendingResource(applicationID, userID string, chRes charmresource.Resource) (string, error)
-}
-
 // API is the public API facade for resources.
 type API struct {
-	// backend is the data source for the facade.
-	backend Backend
+	applicationService ApplicationService
+	resourceService    ResourceService
 
 	factory func(context.Context, *charm.URL) (NewCharmRepository, error)
 	logger  corelogger.Logger
@@ -89,10 +77,7 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 		}
 	}
 
-	// rst is a temporary variable to allow for building and tests to run
-	// during the transition from mongo state to the resource domain.
-	var rst Backend
-	f, err := NewResourcesAPI(rst, factory, logger)
+	f, err := NewResourcesAPI(ctx.DomainServices().Application(), ctx.DomainServices().Resource(), factory, logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,9 +85,17 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 }
 
 // NewResourcesAPI returns a new resources API facade.
-func NewResourcesAPI(backend Backend, factory func(context.Context, *charm.URL) (NewCharmRepository, error), logger corelogger.Logger) (*API, error) {
-	if backend == nil {
-		return nil, errors.Errorf("missing data backend")
+func NewResourcesAPI(
+	applicationService ApplicationService,
+	resourceService ResourceService,
+	factory func(context.Context, *charm.URL) (NewCharmRepository, error),
+	logger corelogger.Logger,
+) (*API, error) {
+	if applicationService == nil {
+		return nil, errors.Errorf("missing application service")
+	}
+	if resourceService == nil {
+		return nil, errors.Errorf("missing resource service")
 	}
 	if factory == nil {
 		// Technically this only matters for one code path through
@@ -113,9 +106,10 @@ func NewResourcesAPI(backend Backend, factory func(context.Context, *charm.URL) 
 	}
 
 	f := &API{
-		backend: backend,
-		factory: factory,
-		logger:  logger,
+		applicationService: applicationService,
+		resourceService:    resourceService,
+		factory:            factory,
+		logger:             logger,
 	}
 	return f, nil
 }
@@ -137,13 +131,19 @@ func (a *API) ListResources(ctx context.Context, args params.ListResourcesArgs) 
 			continue
 		}
 
-		svcRes, err := a.backend.ListResources(tag.Id())
+		appID, err := a.applicationService.GetApplicationIDByName(ctx, tag.Id())
 		if err != nil {
 			r.Results[i] = errorResult(err)
 			continue
 		}
 
-		r.Results[i] = apiresources.ApplicationResources2APIResult(svcRes)
+		svcRes, err := a.resourceService.ListResources(ctx, appID)
+		if err != nil {
+			r.Results[i] = errorResult(err)
+			continue
+		}
+
+		r.Results[i] = applicationResources2APIResult(svcRes)
 	}
 	return r, nil
 }
@@ -219,12 +219,7 @@ func (a *API) addPendingResources(ctx context.Context, appName, chRef string, or
 }
 
 func (a *API) addPendingResource(appName string, chRes charmresource.Resource) (pendingID string, err error) {
-	userID := ""
-	pendingID, err = a.backend.AddPendingResource(appName, userID, chRes)
-	if err != nil {
-		return "", errors.Annotatef(err, "while adding pending resource info for %q", chRes.Name)
-	}
-	return pendingID, nil
+	return "", errors.Errorf("not implemented")
 }
 
 func parseApplicationTag(tagStr string) (names.ApplicationTag, *params.Error) { // note the concrete error type
@@ -244,4 +239,28 @@ func errorResult(err error) params.ResourcesResult {
 			Error: apiservererrors.ServerError(err),
 		},
 	}
+}
+
+func applicationResources2APIResult(svcRes resource.ApplicationResources) params.ResourcesResult {
+	var result params.ResourcesResult
+	for _, res := range svcRes.Resources {
+		result.Resources = append(result.Resources, apiresources.Resource2API(res))
+	}
+
+	for _, unitResources := range svcRes.UnitResources {
+		tag := names.NewUnitTag(unitResources.Name.String())
+		apiRes := params.UnitResources{
+			Entity: params.Entity{Tag: tag.String()},
+		}
+		for _, unitRes := range unitResources.Resources {
+			apiRes.Resources = append(apiRes.Resources, apiresources.Resource2API(unitRes))
+		}
+		result.UnitResources = append(result.UnitResources, apiRes)
+	}
+
+	result.CharmStoreResources = make([]params.CharmResource, len(svcRes.RepositoryResources))
+	for i, chRes := range svcRes.RepositoryResources {
+		result.CharmStoreResources[i] = apiresources.CharmResource2API(chRes)
+	}
+	return result
 }

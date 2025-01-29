@@ -41,8 +41,10 @@ type resourceSuite struct {
 		fakeApplicationName2   string
 		fakeUnitUUID1          string
 		fakeUnitUUID2          string
+		fakeUnitUUID3          string
 		fakeUnitName1          string
 		fakeUnitName2          string
+		fakeUnitName3          string
 		applicatioNameFromUUID map[string]string
 	}
 }
@@ -63,8 +65,10 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 	s.constants.fakeApplicationName2 = "fake-application-2"
 	s.constants.fakeUnitUUID1 = "fake-unit-1-uuid"
 	s.constants.fakeUnitUUID2 = "fake-unit-2-uuid"
+	s.constants.fakeUnitUUID3 = "fake-unit-3-uuid"
 	s.constants.fakeUnitName1 = "fake-unit/0"
 	s.constants.fakeUnitName2 = "fake-unit/1"
+	s.constants.fakeUnitName3 = "fake-unit/2"
 	s.constants.applicatioNameFromUUID = map[string]string{
 		s.constants.fakeApplicationUUID1: s.constants.fakeApplicationName1,
 		s.constants.fakeApplicationUUID2: s.constants.fakeApplicationName2,
@@ -92,10 +96,13 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 			return errors.Capture(err)
 		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?),(?, ?, ?, ?, ?)`,
+		_, err = tx.ExecContext(ctx, `INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?)`,
 			s.constants.fakeUnitUUID1, s.constants.fakeUnitName1, 0 /* alive */, s.constants.fakeApplicationUUID1, fakeNetNodeUUID,
-			s.constants.fakeUnitUUID2, s.constants.fakeUnitName2, 0 /* alive */, s.constants.fakeApplicationUUID2,
-			fakeNetNodeUUID)
+			s.constants.fakeUnitUUID2, s.constants.fakeUnitName2, 0 /* alive */, s.constants.fakeApplicationUUID1,
+			fakeNetNodeUUID,
+			s.constants.fakeUnitUUID3, s.constants.fakeUnitName3, 0 /* alive */, s.constants.fakeApplicationUUID1,
+			fakeNetNodeUUID,
+		)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -522,7 +529,7 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 				Type:        charmresource.TypeFile,
 			},
 			Revision: 42,
-			Origin:   0,
+			Origin:   charmresource.OriginUpload,
 			// todo(gfouillet): handle size/fingerprint
 			//Fingerprint: charmresource.Fingerprint{},
 			//Size:        0,
@@ -536,7 +543,7 @@ func (s *resourceSuite) TestGetResource(c *gc.C) {
 		UUID:            resID.String(),
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
 		Revision:        expected.Revision,
-		OriginType:      "uploaded", // 0 in db
+		OriginType:      "uploaded",
 		CreatedAt:       now,
 		Name:            expected.Name,
 		Type:            charmresource.TypeFile,
@@ -571,6 +578,8 @@ func (s *resourceSuite) TestGetResourceWithStoredFile(c *gc.C) {
 			},
 			Fingerprint: fp,
 			Size:        42,
+			// origin is upload by default if not specified in test input value
+			Origin: charmresource.OriginUpload,
 		},
 		UUID:            resID,
 		ApplicationName: s.constants.fakeApplicationName1,
@@ -609,6 +618,8 @@ func (s *resourceSuite) TestGetResourceWithStoredImage(c *gc.C) {
 			},
 			Fingerprint: fp,
 			Size:        42,
+			// origin is upload by default if not specified in test input value
+			Origin: charmresource.OriginUpload,
 		},
 		UUID:            resID,
 		ApplicationName: s.constants.fakeApplicationName1,
@@ -1794,55 +1805,67 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 	// Arrange : Insert several resources
-	// - 1 with no unit nor polled
-	// - 1 with unit but no polled
-	// - 1 with polled but no unit
-	// - 1 with polled and unit
-	// - 1 not polled and another unit
-	simpleRes := resourceData{
-		UUID:            "simple-uuid",
+	// - 1 with no unit (state available)
+	// - 1 with no unit (state potential)
+	// - 1 associated with two units (state available)
+	// - 1 with the same name as above, no unit (state potential)
+	// - 1 associated with one unit (state available)
+	noUnitAvailableRes := resourceData{
+		UUID:            "no-unit-available-uuid",
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
-		Name:            "simple",
+		Name:            "no-unit",
 		CreatedAt:       now,
 		Type:            charmresource.TypeFile,
 	}
-	polledRes := resourceData{
-		UUID:            "polled-uuid",
+	noUnitPotentialRes := resourceData{
+		UUID:            "no-unit-potential-uuid",
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
-		Name:            "polled",
+		Name:            "no-unit",
 		CreatedAt:       now,
-		PolledAt:        now,
-		Type:            charmresource.TypeContainerImage,
-	}
-	unitRes := resourceData{
-		UUID:            "unit-uuid",
-		ApplicationUUID: s.constants.fakeApplicationUUID1,
-		Name:            "unit",
-		CreatedAt:       now,
-		UnitUUID:        s.constants.fakeUnitUUID1,
-		AddedAt:         now,
 		Type:            charmresource.TypeFile,
+		State:           statePotential,
 	}
-	bothRes := resourceData{
-		UUID:            "both-uuid",
+	withUnit1AvailableRes := resourceData{
+		UUID:            "with-unit-available-uuid",
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
-		Name:            "both",
-		UnitUUID:        s.constants.fakeUnitUUID1,
-		AddedAt:         now,
-		PolledAt:        now,
-		Type:            charmresource.TypeContainerImage,
-	}
-	anotherUnitRes := resourceData{
-		UUID:            "another-unit-uuid",
-		ApplicationUUID: s.constants.fakeApplicationUUID1,
-		Name:            "anotherUnit",
+		Name:            "with-unit",
 		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		UnitUUID:        s.constants.fakeUnitUUID1,
+	}
+	withUnit2AvailableRes := resourceData{
+		UUID:            "with-unit-available-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "with-unit",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
 		UnitUUID:        s.constants.fakeUnitUUID2,
-		AddedAt:         now,
-		Type:            charmresource.TypeFile,
 	}
+	withUnitPotentialRes := resourceData{
+		UUID:            "with-unit-potential-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "with-unit",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		State:           statePotential,
+	}
+	withUnitBisAvailableRes := resourceData{
+		UUID:            "with-unit-bis-available-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "with-unit-bis",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		UnitUUID:        s.constants.fakeUnitUUID1,
+	}
+
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		for _, input := range []resourceData{simpleRes, polledRes, unitRes, bothRes, anotherUnitRes} {
+		for _, input := range []resourceData{
+			noUnitAvailableRes,
+			noUnitPotentialRes,
+			withUnit1AvailableRes,
+			withUnit2AvailableRes,
+			withUnitPotentialRes,
+			withUnitBisAvailableRes} {
 			if err := input.insert(context.Background(), tx); err != nil {
 				return errors.Capture(err)
 			}
@@ -1860,30 +1883,30 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 		{
 			Name: unit.Name(s.constants.fakeUnitName1),
 			Resources: []coreresource.Resource{
-				unitRes.toResource(s),
-				bothRes.toResource(s),
+				withUnit1AvailableRes.toResource(s),
+				withUnitBisAvailableRes.toResource(s),
 			},
 		},
 		{
 			Name: unit.Name(s.constants.fakeUnitName2),
 			Resources: []coreresource.Resource{
-				anotherUnitRes.toResource(s),
+				withUnit2AvailableRes.toResource(s),
 			},
+		},
+		{
+			Name: unit.Name(s.constants.fakeUnitName3),
+			// No resources
 		},
 	})
 	c.Assert(results.Resources, gc.DeepEquals, []coreresource.Resource{
-		simpleRes.toResource(s),
-		polledRes.toResource(s),
-		unitRes.toResource(s),
-		bothRes.toResource(s),
-		anotherUnitRes.toResource(s),
+		noUnitAvailableRes.toResource(s),
+		withUnit1AvailableRes.toResource(s),
+		// withUnit2AvailableRes is the same resource as above on another unit
+		withUnitBisAvailableRes.toResource(s),
 	})
 	c.Assert(results.RepositoryResources, gc.DeepEquals, []charmresource.Resource{
-		{}, // not polled
-		polledRes.toCharmResource(),
-		{}, // not polled
-		bothRes.toCharmResource(),
-		{}, // not polled
+		noUnitPotentialRes.toCharmResource(),
+		withUnitPotentialRes.toCharmResource(),
 	})
 }
 
@@ -2216,6 +2239,11 @@ type resourceData struct {
 
 // toCharmResource converts a resourceData object to a charmresource.Resource object.
 func (d resourceData) toCharmResource() charmresource.Resource {
+	origin, err := charmresource.ParseOrigin(d.OriginType)
+	if err != nil {
+		// default case
+		origin = charmresource.OriginUpload
+	}
 	return charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        d.Name,
@@ -2223,7 +2251,7 @@ func (d resourceData) toCharmResource() charmresource.Resource {
 			Path:        d.Path,
 			Description: d.Description,
 		},
-		Origin:   charmresource.Origin(OriginTypeID(d.OriginType)),
+		Origin:   origin,
 		Revision: d.Revision,
 		// todo(gfouillet): deal with fingerprint & size
 		Fingerprint: charmresource.Fingerprint{},

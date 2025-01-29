@@ -80,30 +80,6 @@ func apiResult2ApplicationResources(apiResult params.ResourcesResult) (resource.
 	return result, nil
 }
 
-func ApplicationResources2APIResult(svcRes resource.ApplicationResources) params.ResourcesResult {
-	var result params.ResourcesResult
-	for _, res := range svcRes.Resources {
-		result.Resources = append(result.Resources, Resource2API(res))
-	}
-
-	for _, unitResources := range svcRes.UnitResources {
-		tag := names.NewUnitTag(unitResources.Name.String())
-		apiRes := params.UnitResources{
-			Entity: params.Entity{Tag: tag.String()},
-		}
-		for _, unitRes := range unitResources.Resources {
-			apiRes.Resources = append(apiRes.Resources, Resource2API(unitRes))
-		}
-		result.UnitResources = append(result.UnitResources, apiRes)
-	}
-
-	result.CharmStoreResources = make([]params.CharmResource, len(svcRes.RepositoryResources))
-	for i, chRes := range svcRes.RepositoryResources {
-		result.CharmStoreResources[i] = CharmResource2API(chRes)
-	}
-	return result
-}
-
 // API2Resource converts an API Resource struct into
 // a resource.Resource.
 func API2Resource(apiRes params.Resource) (resource.Resource, error) {
