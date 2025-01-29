@@ -47,11 +47,6 @@ func CookieURL(c Connection) *url.URL {
 	return c.(*state).cookieURL
 }
 
-// ServerRoot is exported so that we can test the built URL.
-func ServerRoot(c Connection) string {
-	return c.(*state).serverRoot()
-}
-
 // UnderlyingConn returns the underlying transport connection.
 func UnderlyingConn(c Connection) jsoncodec.JSONConn {
 	return c.(*state).conn
@@ -88,17 +83,16 @@ func NewTestingState(params TestingStateParams) Connection {
 		modelTag = t
 	}
 	st := &state{
-		client:            params.RPCConnection,
-		clock:             params.Clock,
-		addr:              params.Address,
-		modelTag:          modelTag,
-		hostPorts:         params.APIHostPorts,
-		facadeVersions:    params.FacadeVersions,
-		serverScheme:      params.ServerScheme,
-		serverRootAddress: params.ServerRoot,
-		broken:            params.Broken,
-		closed:            params.Closed,
-		proxier:           params.Proxier,
+		client:         params.RPCConnection,
+		clock:          params.Clock,
+		addr:           params.Address,
+		modelTag:       modelTag,
+		hostPorts:      params.APIHostPorts,
+		facadeVersions: params.FacadeVersions,
+		serverScheme:   params.ServerScheme,
+		broken:         params.Broken,
+		closed:         params.Closed,
+		proxier:        params.Proxier,
 	}
 	return st
 }

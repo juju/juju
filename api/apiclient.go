@@ -173,7 +173,6 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		cookieURL:           CookieURLFromHost(host),
 		pingerFacadeVersion: pingerFacadeVersions[len(pingerFacadeVersions)-1],
 		serverScheme:        "https",
-		serverRootAddress:   dialResult.addr,
 		// We keep the login provider around to provide auth headers
 		// when doing HTTP requests.
 		// If login fails, we discard the connection.
@@ -1236,12 +1235,6 @@ func (s *state) PublicDNSName() string {
 // reports to us, with the versions that our client knows how to use.
 func (s *state) BestFacadeVersion(facade string) int {
 	return facades.BestVersion(facadeVersions[facade], s.facadeVersions[facade])
-}
-
-// serverRoot returns the cached API server address and port used
-// to login, prefixed with "<URI scheme>://" (usually https).
-func (s *state) serverRoot() string {
-	return s.serverScheme + "://" + s.serverRootAddress
 }
 
 func (s *state) isLoggedIn() bool {

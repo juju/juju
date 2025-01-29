@@ -327,11 +327,6 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	st.Close()
 }
 
-func (s *apiclientSuite) TestServerRoot(c *gc.C) {
-	url := api.ServerRoot(s.APIState)
-	c.Assert(url, gc.Matches, "https://localhost:[0-9]+")
-}
-
 func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 	// Try to open the API with two addresses.
 	// Wait for connection attempts to both.

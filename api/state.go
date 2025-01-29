@@ -94,10 +94,6 @@ type state struct {
 	// loginProvider holds the provider used for login.
 	loginProvider LoginProvider
 
-	// serverRootAddress holds the cached API server address and port used
-	// to login.
-	serverRootAddress string
-
 	// serverScheme is the URI scheme of the API Server
 	serverScheme string
 
