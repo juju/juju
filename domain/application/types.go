@@ -254,3 +254,8 @@ type ApplicationConfig struct {
 	Type  domaincharm.OptionType
 	Value any
 }
+
+// ApplicationSettings contains the settings for an application.
+type ApplicationSettings struct {
+	Trust bool
+}

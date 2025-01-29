@@ -151,6 +151,7 @@ func (st *StateBase) RunAtomic(ctx context.Context, fn func(AtomicContext) error
 
 // AtomicStateBase is an interface that provides a method for executing a
 // closure within the scope of a transaction.
+// Deprecated: Use the StateBase struct directly.
 type AtomicStateBase interface {
 	// RunAtomic executes the closure function within the scope of a
 	// transaction. The closure is passed a AtomicContext that can be passed on
@@ -160,6 +161,7 @@ type AtomicStateBase interface {
 	// closure should only be used to perform state changes and must not be used
 	// to execute queries outside of the state scope. This includes performing
 	// goroutines or other async operations.
+	// Deprecated: Use the StateBase struct directly.
 	RunAtomic(ctx context.Context, fn func(AtomicContext) error) error
 }
 
@@ -168,6 +170,7 @@ type AtomicStateBase interface {
 // changes within the transaction scope. Any errors returned from the closure
 // are coerced into a standard error to prevent sqlair errors from being
 // returned to the Service layer.
+// Deprecated: Use state directly.
 func Run(ctx AtomicContext, fn func(context.Context, *sqlair.TX) error) error {
 	atomic, ok := ctx.(*atomicContext)
 	if !ok {

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	"github.com/juju/juju/core/config"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	corestorage "github.com/juju/juju/core/storage"
@@ -30,7 +31,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
-	domaincharm "github.com/juju/juju/domain/application/charm"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -77,19 +78,19 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 			},
 		},
 	}
-	ch := domaincharm.Charm{
-		Metadata: domaincharm.Metadata{
+	ch := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
 			Name:  "ubuntu",
 			RunAs: "default",
-			Resources: map[string]domaincharm.Resource{
-				"foo": {Name: "foo", Type: domaincharm.ResourceTypeFile},
-				"bar": {Name: "bar", Type: domaincharm.ResourceTypeContainerImage},
-				"baz": {Name: "baz", Type: domaincharm.ResourceTypeFile},
+			Resources: map[string]applicationcharm.Resource{
+				"foo": {Name: "foo", Type: applicationcharm.ResourceTypeFile},
+				"bar": {Name: "bar", Type: applicationcharm.ResourceTypeContainerImage},
+				"baz": {Name: "baz", Type: applicationcharm.ResourceTypeFile},
 			},
 		},
 		Manifest:        s.minimalManifest(c),
 		ReferenceName:   "ubuntu",
-		Source:          domaincharm.CharmHubSource,
+		Source:          applicationcharm.CharmHubSource,
 		Revision:        42,
 		Architecture:    architecture.ARM64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -102,8 +103,8 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 
 	app := application.AddApplicationArg{
 		Charm: ch,
-		CharmDownloadInfo: &domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		CharmDownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -165,8 +166,8 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
-		DownloadInfo: &domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -238,7 +239,7 @@ func (s *applicationServiceSuite) TestCreateApplicationWithInvalidReferenceName(
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "666",
-		DownloadInfo: &domaincharm.DownloadInfo{
+		DownloadInfo: &applicationcharm.DownloadInfo{
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -293,8 +294,8 @@ func (s *applicationServiceSuite) TestCreateApplicationWithNoArchitecture(c *gc.
 		Platform: corecharm.Platform{Channel: "24.04", OS: "ubuntu"},
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
-		DownloadInfo: &domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -423,8 +424,8 @@ func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
-		DownloadInfo: &domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -457,14 +458,14 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 			},
 		},
 	}
-	ch := domaincharm.Charm{
-		Metadata: domaincharm.Metadata{
+	ch := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
 			Name:  "foo",
 			RunAs: "default",
-			Storage: map[string]domaincharm.Storage{
+			Storage: map[string]applicationcharm.Storage{
 				"data": {
 					Name:        "data",
-					Type:        domaincharm.StorageBlock,
+					Type:        applicationcharm.StorageBlock,
 					Shared:      false,
 					CountMin:    1,
 					CountMax:    2,
@@ -474,7 +475,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 		},
 		Manifest:      s.minimalManifest(c),
 		ReferenceName: "foo",
-		Source:        domaincharm.LocalSource,
+		Source:        applicationcharm.LocalSource,
 		Revision:      42,
 		Architecture:  architecture.AMD64,
 	}
@@ -485,7 +486,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	}
 	app := application.AddApplicationArg{
 		Charm: ch,
-		CharmDownloadInfo: &domaincharm.DownloadInfo{
+		CharmDownloadInfo: &applicationcharm.DownloadInfo{
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -531,7 +532,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
-		DownloadInfo: &domaincharm.DownloadInfo{
+		DownloadInfo: &applicationcharm.DownloadInfo{
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -563,14 +564,14 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 			},
 		},
 	}
-	ch := domaincharm.Charm{
-		Metadata: domaincharm.Metadata{
+	ch := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
 			Name:  "foo",
 			RunAs: "default",
-			Storage: map[string]domaincharm.Storage{
+			Storage: map[string]applicationcharm.Storage{
 				"data": {
 					Name:        "data",
-					Type:        domaincharm.StorageBlock,
+					Type:        applicationcharm.StorageBlock,
 					Shared:      false,
 					CountMin:    1,
 					CountMax:    2,
@@ -580,7 +581,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 		},
 		Manifest:      s.minimalManifest(c),
 		ReferenceName: "foo",
-		Source:        domaincharm.CharmHubSource,
+		Source:        applicationcharm.CharmHubSource,
 		Revision:      42,
 		Architecture:  architecture.AMD64,
 	}
@@ -591,8 +592,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	}
 	app := application.AddApplicationArg{
 		Charm: ch,
-		CharmDownloadInfo: &domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		CharmDownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -638,8 +639,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
-		DownloadInfo: &domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -674,14 +675,14 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 			},
 		},
 	}
-	ch := domaincharm.Charm{
-		Metadata: domaincharm.Metadata{
+	ch := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
 			Name:  "foo",
 			RunAs: "default",
-			Storage: map[string]domaincharm.Storage{
+			Storage: map[string]applicationcharm.Storage{
 				"data": {
 					Name:        "data",
-					Type:        domaincharm.StorageFilesystem,
+					Type:        applicationcharm.StorageFilesystem,
 					Shared:      false,
 					CountMin:    1,
 					CountMax:    2,
@@ -691,7 +692,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 		},
 		Manifest:      s.minimalManifest(c),
 		ReferenceName: "foo",
-		Source:        domaincharm.CharmHubSource,
+		Source:        applicationcharm.CharmHubSource,
 		Revision:      42,
 		Architecture:  architecture.AMD64,
 	}
@@ -702,8 +703,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	}
 	app := application.AddApplicationArg{
 		Charm: ch,
-		CharmDownloadInfo: &domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		CharmDownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -749,8 +750,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
-		DownloadInfo: &domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -782,14 +783,14 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 			},
 		},
 	}
-	ch := domaincharm.Charm{
-		Metadata: domaincharm.Metadata{
+	ch := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
 			Name:  "foo",
 			RunAs: "default",
-			Storage: map[string]domaincharm.Storage{
+			Storage: map[string]applicationcharm.Storage{
 				"data": {
 					Name:        "data",
-					Type:        domaincharm.StorageFilesystem,
+					Type:        applicationcharm.StorageFilesystem,
 					Shared:      false,
 					CountMin:    1,
 					CountMax:    2,
@@ -799,7 +800,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 		},
 		Manifest:      s.minimalManifest(c),
 		ReferenceName: "foo",
-		Source:        domaincharm.CharmHubSource,
+		Source:        applicationcharm.CharmHubSource,
 		Revision:      42,
 		Architecture:  architecture.AMD64,
 	}
@@ -810,8 +811,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	}
 	app := application.AddApplicationArg{
 		Charm: ch,
-		CharmDownloadInfo: &domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		CharmDownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -857,8 +858,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
-		DownloadInfo: &domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -898,7 +899,7 @@ func (s *applicationServiceSuite) TestCreateWithSharedStorageMissingDirectives(c
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
-		DownloadInfo: &domaincharm.DownloadInfo{
+		DownloadInfo: &applicationcharm.DownloadInfo{
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -941,7 +942,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
 	}, AddApplicationArgs{
 		ReferenceName: "foo",
-		DownloadInfo: &domaincharm.DownloadInfo{
+		DownloadInfo: &applicationcharm.DownloadInfo{
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1245,8 +1246,8 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(domaincharm.Charm{
-		Metadata: domaincharm.Metadata{
+	s.state.EXPECT().GetCharmByApplicationID(gomock.Any(), id).Return(applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
 			Name: "foo",
 
 			// RunAs becomes mandatory when being persisted. Empty string is not
@@ -1255,7 +1256,7 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 		},
 		ReferenceName: "bar",
 		Revision:      42,
-		Source:        domaincharm.LocalSource,
+		Source:        applicationcharm.LocalSource,
 		Architecture:  architecture.AMD64,
 	}, nil)
 
@@ -1266,10 +1267,10 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 
 		// Notice that the RunAs field becomes empty string when being returned.
 	})
-	c.Check(locator, gc.DeepEquals, domaincharm.CharmLocator{
+	c.Check(locator, gc.DeepEquals, applicationcharm.CharmLocator{
 		Name:         "bar",
 		Revision:     42,
-		Source:       domaincharm.LocalSource,
+		Source:       applicationcharm.LocalSource,
 		Architecture: architecture.AMD64,
 	})
 }
@@ -1319,8 +1320,8 @@ func (s *applicationServiceSuite) TestGetAsyncCharmDownloadInfo(c *gc.C) {
 		CharmUUID: charmUUID,
 		Name:      "foo",
 		SHA256:    "hash",
-		DownloadInfo: domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1355,8 +1356,8 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *gc.C) {
 		CharmUUID: charmUUID,
 		Name:      "foo",
 		SHA256:    "hash-256",
-		DownloadInfo: domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1384,6 +1385,13 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *applicationServiceSuite) TestResolveCharmDownloadInvalidApplicationID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.ResolveCharmDownload(context.Background(), "!!!!", application.ResolveCharmDownload{})
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
 func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1394,8 +1402,8 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *gc
 		CharmUUID: charmUUID,
 		Name:      "foo",
 		SHA256:    "hash",
-		DownloadInfo: domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1422,8 +1430,8 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyResolved(c *gc.
 		CharmUUID: charmUUID,
 		Name:      "foo",
 		SHA256:    "hash",
-		DownloadInfo: domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1453,8 +1461,8 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadCharmUUIDMismatch(c *g
 		CharmUUID: "blah",
 		Name:      "foo",
 		SHA256:    "hash",
-		DownloadInfo: domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1484,8 +1492,8 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *gc.C) {
 		CharmUUID: charmUUID,
 		Name:      "foo",
 		SHA256:    "hash-256",
-		DownloadInfo: domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1526,8 +1534,8 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *gc.C)
 		CharmUUID: charmUUID,
 		Name:      "foo",
 		SHA256:    "hash-256",
-		DownloadInfo: domaincharm.DownloadInfo{
-			Provenance:         domaincharm.ProvenanceDownload,
+		DownloadInfo: applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
 			CharmhubIdentifier: "foo",
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
@@ -1569,6 +1577,265 @@ func (s *applicationServiceSuite) TestGetApplicationsForRevisionUpdater(c *gc.C)
 	results, err := s.service.GetApplicationsForRevisionUpdater(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, apps)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionString,
+			Value: "bar",
+		},
+	}, application.ApplicationSettings{
+		Trust: true,
+	}, nil)
+
+	results, err := s.service.GetApplicationConfig(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, config.ConfigAttributes{
+		"foo":   "bar",
+		"trust": true,
+	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigWithError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionString,
+			Value: "bar",
+		},
+	}, application.ApplicationSettings{
+		Trust: true,
+	}, errors.Errorf("boom"))
+
+	_, err := s.service.GetApplicationConfig(context.Background(), appUUID)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigNoConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
+		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{}, nil)
+
+	results, err := s.service.GetApplicationConfig(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, config.ConfigAttributes{
+		"trust": false,
+	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigNoConfigWithTrust(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).
+		Return(map[string]application.ApplicationConfig{}, application.ApplicationSettings{
+			Trust: true,
+		}, nil)
+
+	results, err := s.service.GetApplicationConfig(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, config.ConfigAttributes{
+		"trust": true,
+	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationConfigInvalidApplicationID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetApplicationConfig(context.Background(), "!!!")
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationTrustSetting(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationTrustSetting(gomock.Any(), appUUID).Return(true, nil)
+
+	results, err := s.service.GetApplicationTrustSetting(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, jc.IsTrue)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationTrustSettingInvalidApplicationID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetApplicationTrustSetting(context.Background(), "!!!")
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *applicationServiceSuite) TestUnsetApplicationConfigKeys(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().UnsetApplicationConfigKeys(gomock.Any(), appUUID, []string{"a", "b"}).Return(nil)
+
+	err := s.service.UnsetApplicationConfigKeys(context.Background(), appUUID, []string{"a", "b"})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestUnsetApplicationConfigKeysNoValues(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	err := s.service.UnsetApplicationConfigKeys(context.Background(), appUUID, []string{})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestUnsetApplicationConfigKeysInvalidApplicationID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.UnsetApplicationConfigKeys(context.Background(), "!!!", []string{"a", "b"})
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, applicationcharm.Config{
+		Options: map[string]applicationcharm.Option{
+			"foo": {
+				Type:    applicationcharm.OptionString,
+				Default: "baz",
+			},
+		},
+	}, nil)
+	s.state.EXPECT().SetApplicationConfigAndSettings(gomock.Any(), appUUID, charmUUID, map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionString,
+			Value: "bar",
+		},
+	}, application.ApplicationSettings{
+		Trust: true,
+	}).Return(nil)
+
+	err := s.service.SetApplicationConfig(context.Background(), appUUID, map[string]string{
+		"trust": "true",
+		"foo":   "bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationConfigNoCharmConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(
+		charmUUID,
+		applicationcharm.Config{},
+		applicationerrors.CharmNotFound,
+	)
+
+	err := s.service.SetApplicationConfig(context.Background(), appUUID, map[string]string{
+		"trust": "true",
+		"foo":   "bar",
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationConfigWithNoCharmConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, applicationcharm.Config{
+		Options: map[string]applicationcharm.Option{},
+	}, nil)
+
+	err := s.service.SetApplicationConfig(context.Background(), appUUID, map[string]string{
+		"trust": "true",
+		"foo":   "bar",
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidCharmConfig)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationConfigInvalidOptionType(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, applicationcharm.Config{
+		Options: map[string]applicationcharm.Option{
+			"foo": {
+				Type:    "blah",
+				Default: "baz",
+			},
+		},
+	}, nil)
+
+	err := s.service.SetApplicationConfig(context.Background(), appUUID, map[string]string{
+		"trust": "true",
+		"foo":   "bar",
+	})
+	c.Assert(err, gc.ErrorMatches, `.*unknown option type "blah"`)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationConfigInvalidTrustType(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, applicationcharm.Config{
+		Options: map[string]applicationcharm.Option{
+			"foo": {
+				Type:    "string",
+				Default: "baz",
+			},
+		},
+	}, nil)
+
+	err := s.service.SetApplicationConfig(context.Background(), appUUID, map[string]string{
+		"trust": "FOO",
+		"foo":   "bar",
+	})
+	c.Assert(err, gc.ErrorMatches, `.*parsing trust setting.*`)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationConfigNoConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, applicationcharm.Config{}, nil)
+	s.state.EXPECT().SetApplicationConfigAndSettings(
+		gomock.Any(), appUUID, charmUUID,
+		map[string]application.ApplicationConfig{},
+		application.ApplicationSettings{},
+	).Return(nil)
+
+	err := s.service.SetApplicationConfig(context.Background(), appUUID, map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationConfigInvalidApplicationID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetApplicationConfig(context.Background(), "!!!", nil)
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
 }
 
 type applicationWatcherServiceSuite struct {

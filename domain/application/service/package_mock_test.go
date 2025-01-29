@@ -255,6 +255,46 @@ func (c *MockStateDeleteUnitCall) DoAndReturn(f func(domain.AtomicContext, unit.
 	return c
 }
 
+// GetApplicationConfigAndSettings mocks base method.
+func (m *MockState) GetApplicationConfigAndSettings(arg0 context.Context, arg1 application.ID) (map[string]application0.ApplicationConfig, application0.ApplicationSettings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationConfigAndSettings", arg0, arg1)
+	ret0, _ := ret[0].(map[string]application0.ApplicationConfig)
+	ret1, _ := ret[1].(application0.ApplicationSettings)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetApplicationConfigAndSettings indicates an expected call of GetApplicationConfigAndSettings.
+func (mr *MockStateMockRecorder) GetApplicationConfigAndSettings(arg0, arg1 any) *MockStateGetApplicationConfigAndSettingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConfigAndSettings", reflect.TypeOf((*MockState)(nil).GetApplicationConfigAndSettings), arg0, arg1)
+	return &MockStateGetApplicationConfigAndSettingsCall{Call: call}
+}
+
+// MockStateGetApplicationConfigAndSettingsCall wrap *gomock.Call
+type MockStateGetApplicationConfigAndSettingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationConfigAndSettingsCall) Return(arg0 map[string]application0.ApplicationConfig, arg1 application0.ApplicationSettings, arg2 error) *MockStateGetApplicationConfigAndSettingsCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationConfigAndSettingsCall) Do(f func(context.Context, application.ID) (map[string]application0.ApplicationConfig, application0.ApplicationSettings, error)) *MockStateGetApplicationConfigAndSettingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationConfigAndSettingsCall) DoAndReturn(f func(context.Context, application.ID) (map[string]application0.ApplicationConfig, application0.ApplicationSettings, error)) *MockStateGetApplicationConfigAndSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationID mocks base method.
 func (m *MockState) GetApplicationID(arg0 domain.AtomicContext, arg1 string) (application.ID, error) {
 	m.ctrl.T.Helper()
@@ -290,6 +330,45 @@ func (c *MockStateGetApplicationIDCall) Do(f func(domain.AtomicContext, string) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetApplicationIDCall) DoAndReturn(f func(domain.AtomicContext, string) (application.ID, error)) *MockStateGetApplicationIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationIDByName mocks base method.
+func (m *MockState) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationIDByName", arg0, arg1)
+	ret0, _ := ret[0].(application.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationIDByName indicates an expected call of GetApplicationIDByName.
+func (mr *MockStateMockRecorder) GetApplicationIDByName(arg0, arg1 any) *MockStateGetApplicationIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByName", reflect.TypeOf((*MockState)(nil).GetApplicationIDByName), arg0, arg1)
+	return &MockStateGetApplicationIDByNameCall{Call: call}
+}
+
+// MockStateGetApplicationIDByNameCall wrap *gomock.Call
+type MockStateGetApplicationIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationIDByNameCall) Return(arg0 application.ID, arg1 error) *MockStateGetApplicationIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationIDByNameCall) Do(f func(context.Context, string) (application.ID, error)) *MockStateGetApplicationIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationIDByNameCall) DoAndReturn(f func(context.Context, string) (application.ID, error)) *MockStateGetApplicationIDByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -408,6 +487,45 @@ func (c *MockStateGetApplicationScaleStateCall) Do(f func(domain.AtomicContext, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetApplicationScaleStateCall) DoAndReturn(f func(domain.AtomicContext, application.ID) (application0.ScaleState, error)) *MockStateGetApplicationScaleStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationTrustSetting mocks base method.
+func (m *MockState) GetApplicationTrustSetting(arg0 context.Context, arg1 application.ID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationTrustSetting", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationTrustSetting indicates an expected call of GetApplicationTrustSetting.
+func (mr *MockStateMockRecorder) GetApplicationTrustSetting(arg0, arg1 any) *MockStateGetApplicationTrustSettingCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationTrustSetting", reflect.TypeOf((*MockState)(nil).GetApplicationTrustSetting), arg0, arg1)
+	return &MockStateGetApplicationTrustSettingCall{Call: call}
+}
+
+// MockStateGetApplicationTrustSettingCall wrap *gomock.Call
+type MockStateGetApplicationTrustSettingCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationTrustSettingCall) Return(arg0 bool, arg1 error) *MockStateGetApplicationTrustSettingCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationTrustSettingCall) Do(f func(context.Context, application.ID) (bool, error)) *MockStateGetApplicationTrustSettingCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationTrustSettingCall) DoAndReturn(f func(context.Context, application.ID) (bool, error)) *MockStateGetApplicationTrustSettingCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -844,6 +962,46 @@ func (c *MockStateGetCharmConfigCall) Do(f func(context.Context, charm.ID) (char
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetCharmConfigCall) DoAndReturn(f func(context.Context, charm.ID) (charm0.Config, error)) *MockStateGetCharmConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetCharmConfigByApplicationID mocks base method.
+func (m *MockState) GetCharmConfigByApplicationID(arg0 context.Context, arg1 application.ID) (charm.ID, charm0.Config, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmConfigByApplicationID", arg0, arg1)
+	ret0, _ := ret[0].(charm.ID)
+	ret1, _ := ret[1].(charm0.Config)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetCharmConfigByApplicationID indicates an expected call of GetCharmConfigByApplicationID.
+func (mr *MockStateMockRecorder) GetCharmConfigByApplicationID(arg0, arg1 any) *MockStateGetCharmConfigByApplicationIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmConfigByApplicationID", reflect.TypeOf((*MockState)(nil).GetCharmConfigByApplicationID), arg0, arg1)
+	return &MockStateGetCharmConfigByApplicationIDCall{Call: call}
+}
+
+// MockStateGetCharmConfigByApplicationIDCall wrap *gomock.Call
+type MockStateGetCharmConfigByApplicationIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetCharmConfigByApplicationIDCall) Return(arg0 charm.ID, arg1 charm0.Config, arg2 error) *MockStateGetCharmConfigByApplicationIDCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetCharmConfigByApplicationIDCall) Do(f func(context.Context, application.ID) (charm.ID, charm0.Config, error)) *MockStateGetCharmConfigByApplicationIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetCharmConfigByApplicationIDCall) DoAndReturn(f func(context.Context, application.ID) (charm.ID, charm0.Config, error)) *MockStateGetCharmConfigByApplicationIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2094,6 +2252,44 @@ func (c *MockStateRunAtomicCall) DoAndReturn(f func(context.Context, func(domain
 	return c
 }
 
+// SetApplicationConfigAndSettings mocks base method.
+func (m *MockState) SetApplicationConfigAndSettings(arg0 context.Context, arg1 application.ID, arg2 charm.ID, arg3 map[string]application0.ApplicationConfig, arg4 application0.ApplicationSettings) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetApplicationConfigAndSettings", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetApplicationConfigAndSettings indicates an expected call of SetApplicationConfigAndSettings.
+func (mr *MockStateMockRecorder) SetApplicationConfigAndSettings(arg0, arg1, arg2, arg3, arg4 any) *MockStateSetApplicationConfigAndSettingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationConfigAndSettings", reflect.TypeOf((*MockState)(nil).SetApplicationConfigAndSettings), arg0, arg1, arg2, arg3, arg4)
+	return &MockStateSetApplicationConfigAndSettingsCall{Call: call}
+}
+
+// MockStateSetApplicationConfigAndSettingsCall wrap *gomock.Call
+type MockStateSetApplicationConfigAndSettingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetApplicationConfigAndSettingsCall) Return(arg0 error) *MockStateSetApplicationConfigAndSettingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetApplicationConfigAndSettingsCall) Do(f func(context.Context, application.ID, charm.ID, map[string]application0.ApplicationConfig, application0.ApplicationSettings) error) *MockStateSetApplicationConfigAndSettingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetApplicationConfigAndSettingsCall) DoAndReturn(f func(context.Context, application.ID, charm.ID, map[string]application0.ApplicationConfig, application0.ApplicationSettings) error) *MockStateSetApplicationConfigAndSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetApplicationLife mocks base method.
 func (m *MockState) SetApplicationLife(arg0 domain.AtomicContext, arg1 application.ID, arg2 life.Life) error {
 	m.ctrl.T.Helper()
@@ -2550,6 +2746,44 @@ func (c *MockStateSupportsContainersCall) Do(f func(context.Context, charm.ID) (
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSupportsContainersCall) DoAndReturn(f func(context.Context, charm.ID) (bool, error)) *MockStateSupportsContainersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UnsetApplicationConfigKeys mocks base method.
+func (m *MockState) UnsetApplicationConfigKeys(arg0 context.Context, arg1 application.ID, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnsetApplicationConfigKeys", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UnsetApplicationConfigKeys indicates an expected call of UnsetApplicationConfigKeys.
+func (mr *MockStateMockRecorder) UnsetApplicationConfigKeys(arg0, arg1, arg2 any) *MockStateUnsetApplicationConfigKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsetApplicationConfigKeys", reflect.TypeOf((*MockState)(nil).UnsetApplicationConfigKeys), arg0, arg1, arg2)
+	return &MockStateUnsetApplicationConfigKeysCall{Call: call}
+}
+
+// MockStateUnsetApplicationConfigKeysCall wrap *gomock.Call
+type MockStateUnsetApplicationConfigKeysCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateUnsetApplicationConfigKeysCall) Return(arg0 error) *MockStateUnsetApplicationConfigKeysCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateUnsetApplicationConfigKeysCall) Do(f func(context.Context, application.ID, []string) error) *MockStateUnsetApplicationConfigKeysCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateUnsetApplicationConfigKeysCall) DoAndReturn(f func(context.Context, application.ID, []string) error) *MockStateUnsetApplicationConfigKeysCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

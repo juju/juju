@@ -14,6 +14,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const (
+	// ErrUnknownOption is returned when an unknown option is encountered.
+	ErrUnknownOption = errors.ConstError("unknown option")
+)
+
 // Settings is a group of charm config option names and values. A Settings
 // S is considered valid by the Config C if every key in S is an option in
 // C, and every value either has the correct type or is nil.
@@ -169,7 +174,7 @@ func (c *Config) option(name string) (Option, error) {
 	if option, ok := c.Options[name]; ok {
 		return option, nil
 	}
-	return Option{}, fmt.Errorf("unknown option %q", name)
+	return Option{}, fmt.Errorf("%w %q", ErrUnknownOption, name)
 }
 
 // DefaultSettings returns settings containing the default value of every
