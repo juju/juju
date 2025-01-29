@@ -284,7 +284,7 @@ func (s *WorkerSuite) TestFetch(c *gc.C) {
 		charmLocator: charmLocator,
 		timestamp:    s.now,
 		revision:     666,
-		appID:        "foo",
+		appName:      "foo",
 	}})
 }
 
@@ -338,7 +338,7 @@ func (s *WorkerSuite) TestFetchInfo(c *gc.C) {
 	id := ids[0]
 
 	apps := []appInfo{{
-		id: "foo",
+		name: "foo",
 		charmLocator: applicationcharm.CharmLocator{
 			Source:       applicationcharm.CharmHubSource,
 			Name:         "foo",
@@ -388,7 +388,7 @@ func (s *WorkerSuite) TestFetchInfo(c *gc.C) {
 		charmLocator: apps[0].charmLocator,
 		timestamp:    s.now,
 		revision:     666,
-		appID:        "foo",
+		appName:      "foo",
 	}})
 }
 
@@ -759,7 +759,7 @@ func (s *WorkerSuite) TestStoreNewRevisions(c *gc.C) {
 		},
 		timestamp: s.now,
 		revision:  43,
-		appID:     "foo",
+		appName:   "foo",
 	}}
 	essentialMetadata := latestCharmInfos[0].essentialMetadata
 

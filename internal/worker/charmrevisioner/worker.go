@@ -320,7 +320,7 @@ func (w *revisionUpdateWorker) fetch(ctx context.Context, client CharmhubClient)
 
 		charmhubIDs[i] = charmhubID
 		charmhubApps[i] = appInfo{
-			id:           app.Name,
+			name:         app.Name,
 			charmLocator: app.CharmLocator,
 			origin:       app.Origin,
 		}
@@ -417,7 +417,7 @@ func (w *revisionUpdateWorker) fetchInfo(ctx context.Context, client CharmhubCli
 			timestamp:         result.timestamp,
 			revision:          result.revision,
 			resources:         result.resources,
-			appID:             apps[i].id,
+			appName:           apps[i].name,
 		})
 	}
 
@@ -516,7 +516,7 @@ func (w *revisionUpdateWorker) storeNewRevision(ctx context.Context, info latest
 	} else if err != nil {
 		return internalerrors.Capture(err)
 	} else if len(warnings) > 0 {
-		w.config.Logger.Infof("reserving charm revision for %q: %v", info.appID, warnings)
+		w.config.Logger.Infof("reserving charm revision for %q: %v", info.appName, warnings)
 	}
 
 	return nil
@@ -735,7 +735,7 @@ func encodeRisk(r application.ChannelRisk) (string, error) {
 }
 
 type appInfo struct {
-	id           string
+	name         string
 	charmLocator applicationcharm.CharmLocator
 	origin       application.Origin
 }
@@ -762,7 +762,7 @@ type latestCharmInfo struct {
 	timestamp         time.Time
 	revision          int
 	resources         []resource.Resource
-	appID             string
+	appName           string
 }
 
 // charmhubResult is the type charmhubLatestCharmInfo returns: information
