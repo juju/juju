@@ -79,8 +79,37 @@ func (p k8sProvider) Initialise(*provider.ModelBackendConfig) error {
 	return nil
 }
 
-// CleanupModel is not used.
-func (p k8sProvider) CleanupModel(*provider.ModelBackendConfig) error {
+// CleanupModel removes any secrets / ACLs / resources
+// associated with the model config.
+func (p k8sProvider) CleanupModel(cfg *provider.ModelBackendConfig) error {
+	ctx := context.TODO()
+	selector := utils.LabelsToSelector(modelLabelForSearch(cfg.ModelUUID))
+
+	client, err := p.getBroker(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Only need to clean up namespace scoped resources if using an external namespace.
+	if client.namespace != cfg.ModelName {
+		if err := client.deleteSecrets(ctx, selector); err != nil {
+			return errors.Trace(err)
+		}
+		if err := client.deleteRoleBindings(ctx, selector); err != nil {
+			return errors.Trace(err)
+		}
+		if err := client.deleteRoles(ctx, selector); err != nil {
+			return errors.Trace(err)
+		}
+		if err := client.deleteServiceAccounts(ctx, selector); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := client.deleteClusterRoleBindings(ctx, selector); err != nil {
+		return errors.Trace(err)
+	}
+	if err := client.deleteClusterRoles(ctx, selector); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -338,6 +367,21 @@ func (k *kubernetesClient) deleteServiceAccount(ctx context.Context, name string
 	return errors.Trace(err)
 }
 
+func (k *kubernetesClient) deleteServiceAccounts(ctx context.Context, selector labels.Selector) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
+	err := k.client.CoreV1().ServiceAccounts(k.namespace).DeleteCollection(ctx, v1.DeleteOptions{
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
+	}, v1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
 func (k *kubernetesClient) listServiceAccount(ctx context.Context, labels map[string]string) ([]core.ServiceAccount, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
@@ -390,6 +434,21 @@ func (k *kubernetesClient) ensureServiceAccount(
 	return out, cleanups, errors.Trace(err)
 }
 
+func (k *kubernetesClient) deleteSecrets(ctx context.Context, selector labels.Selector) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
+	err := k.client.CoreV1().Secrets(k.namespace).DeleteCollection(ctx, v1.DeleteOptions{
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
+	}, v1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
 func (k *kubernetesClient) createRole(ctx context.Context, role *rbacv1.Role) (*rbacv1.Role, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
@@ -421,6 +480,36 @@ func (k *kubernetesClient) getRole(ctx context.Context, name string) (*rbacv1.Ro
 		return nil, errors.NotFoundf("role %q", name)
 	}
 	return out, errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteRoles(ctx context.Context, selector labels.Selector) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
+	err := k.client.RbacV1().Roles(k.namespace).DeleteCollection(ctx, v1.DeleteOptions{
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
+	}, v1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteRoleBindings(ctx context.Context, selector labels.Selector) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
+	err := k.client.RbacV1().RoleBindings(k.namespace).DeleteCollection(ctx, v1.DeleteOptions{
+		PropagationPolicy: constants.DefaultPropagationPolicy(),
+	}, v1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteRole(ctx context.Context, name string, uid types.UID) error {
@@ -664,6 +753,52 @@ func (k *kubernetesClient) deleteClusterRoleBinding(ctx context.Context, name st
 	return errors.Trace(err)
 }
 
+func (k *kubernetesClient) deleteClusterRoles(ctx context.Context, selector labels.Selector) error {
+	listOps := v1.ListOptions{
+		LabelSelector: selector.String(),
+	}
+	results, err := k.client.RbacV1().ClusterRoles().List(ctx, listOps)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, clusterRole := range results.Items {
+		if !strings.HasPrefix(clusterRole.Name, clusterResourcePrefix) {
+			continue
+		}
+		err := k.client.RbacV1().ClusterRoles().Delete(ctx, clusterRole.Name, v1.DeleteOptions{
+			PropagationPolicy: constants.DefaultPropagationPolicy(),
+		})
+		if err == nil || k8serrors.IsNotFound(err) {
+			continue
+		}
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (k *kubernetesClient) deleteClusterRoleBindings(ctx context.Context, selector labels.Selector) error {
+	listOps := v1.ListOptions{
+		LabelSelector: selector.String(),
+	}
+	results, err := k.client.RbacV1().ClusterRoleBindings().List(ctx, listOps)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, clusterRoleBinding := range results.Items {
+		if !strings.HasPrefix(clusterRoleBinding.Name, clusterResourcePrefix) {
+			continue
+		}
+		err := k.client.RbacV1().ClusterRoleBindings().Delete(ctx, clusterRoleBinding.Name, v1.DeleteOptions{
+			PropagationPolicy: constants.DefaultPropagationPolicy(),
+		})
+		if err == nil || k8serrors.IsNotFound(err) {
+			continue
+		}
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // ensureClusterBindingForSecretAccessToken creates the cluster role and role binding needed
 // to access the supplied secrets.
 // If a new cluster role is created, cleanups contain funcs than can be run to delete any new
@@ -856,18 +991,16 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRole(
 	if err != nil {
 		return nil, cleanups, errors.Trace(err)
 	}
-	if err == nil {
-		for _, clusterRole := range existing.Items {
-			if !strings.HasPrefix(clusterRole.Name, baseName+"-") {
-				continue
-			}
-			clusterRole.Rules = createRules(clusterRole.Rules)
-			result, err := k.updateClusterRole(ctx, &clusterRole)
-			if err != nil {
-				return nil, cleanups, errors.Trace(err)
-			}
-			return result, cleanups, nil
+	for _, clusterRole := range existing.Items {
+		if !strings.HasPrefix(clusterRole.Name, baseName+"-") {
+			continue
 		}
+		clusterRole.Rules = createRules(clusterRole.Rules)
+		result, err := k.updateClusterRole(ctx, &clusterRole)
+		if err != nil {
+			return nil, cleanups, errors.Trace(err)
+		}
+		return result, cleanups, nil
 	}
 
 	suffixLength := model.DefaultSuffixDigits
@@ -914,11 +1047,9 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
 	if err != nil {
 		return nil, cleanups, errors.Trace(err)
 	}
-	if err == nil {
-		for _, clusterRoleBinding := range existing.Items {
-			if strings.HasPrefix(clusterRoleBinding.Name, baseName+"-") {
-				return &clusterRoleBinding, cleanups, nil
-			}
+	for _, clusterRoleBinding := range existing.Items {
+		if strings.HasPrefix(clusterRoleBinding.Name, baseName+"-") {
+			return &clusterRoleBinding, cleanups, nil
 		}
 	}
 

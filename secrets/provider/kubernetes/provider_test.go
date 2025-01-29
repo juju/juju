@@ -383,6 +383,65 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
+func (s *providerSuite) TestCleanupModel(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	selector := "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d"
+	s.mockServiceAccounts.EXPECT().DeleteCollection(gomock.Any(), v1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	}, v1.ListOptions{
+		LabelSelector: selector,
+	})
+	s.mockRoles.EXPECT().DeleteCollection(gomock.Any(), v1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	}, v1.ListOptions{
+		LabelSelector: selector,
+	})
+	s.mockRoleBindings.EXPECT().DeleteCollection(gomock.Any(), v1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	}, v1.ListOptions{
+		LabelSelector: selector,
+	})
+	s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: selector,
+	}).Return(&rbacv1.ClusterRoleList{Items: []rbacv1.ClusterRole{{
+		ObjectMeta: v1.ObjectMeta{Name: "juju-secrets-role"},
+	}, {
+		ObjectMeta: v1.ObjectMeta{Name: "other-role"},
+	}}}, nil)
+	s.mockClusterRoles.EXPECT().Delete(gomock.Any(), "juju-secrets-role", v1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	})
+	s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: selector,
+	}).Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{{
+		ObjectMeta: v1.ObjectMeta{Name: "juju-secrets-rolebinding"},
+	}, {
+		ObjectMeta: v1.ObjectMeta{Name: "other-rolebinding"},
+	}}}, nil)
+	s.mockClusterRoleBindings.EXPECT().Delete(gomock.Any(), "juju-secrets-rolebinding", v1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	})
+	s.mockSecrets.EXPECT().DeleteCollection(gomock.Any(), v1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	}, v1.ListOptions{
+		LabelSelector: selector,
+	})
+
+	p, err := provider.Provider(kubernetes.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  s.backendConfig(),
+	}
+
+	err = p.CleanupModel(adminCfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
