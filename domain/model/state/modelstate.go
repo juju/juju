@@ -168,6 +168,11 @@ func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value
 		zones  []dbConstraintZone
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := s.getModelUUID(ctx, tx)
+		if err != nil {
+			return errors.Errorf("checking if model exists: %w", err)
+		}
+
 		cons, err = s.getModelConstraints(ctx, tx)
 		if err != nil {
 			return errors.Capture(err)
@@ -326,8 +331,6 @@ func (s *ModelState) deleteModelConstraints(
 // SetModelConstraints sets the model constraints to the new values removing
 // any previously set values.
 // The following error types can be expected:
-// - [coreerrors.NotValid]: When no container type has been set in the
-// constraints.
 // - [networkerrors.SpaceNotFound]: when a space constraint is set but the
 // space does not exist.
 // - [machineerrors.InvalidContainerType]: when the container type set on the

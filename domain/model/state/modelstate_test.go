@@ -15,6 +15,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -322,66 +323,16 @@ INSERT INTO space (uuid, name) VALUES
 	c.Check(getCons, jc.DeepEquals, cons)
 }
 
-func (s *modelSuite) TestSetModelConstraintFailedModelNotFound(c *gc.C) {
+// TestSetModelConstraintsOverwrites tests that after having set model
+// constraints another subsequent call overwrites what has previously been set.
+func (s *modelSuite) TestSetModelConstraintsOverwrites(c *gc.C) {
+	s.createTestModel(c)
+
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	err := state.SetModelConstraints(context.Background(), constraints.Value{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-	})
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-}
-
-func (s *modelSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *gc.C) {
-	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
-
-	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
-		UUID:            id,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "my-awesome-model",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       "ec2",
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
-	}
-	err := state.Create(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = state.SetModelConstraints(context.Background(), constraints.Value{
-		Container: ptr(instance.NONE),
-		Spaces:    ptr([]string{"space1"}),
-	})
-	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
-}
-
-func (s *modelSuite) TestGetModelConstraints(c *gc.C) {
-	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
-
-	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
-		UUID:            id,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "my-awesome-model",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       "ec2",
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
-	}
-	err := state.Create(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.DB().ExecContext(context.Background(), `
-INSERT INTO space (uuid, name) VALUES
+	_, err := s.DB().ExecContext(context.Background(), `
+INSERT INTO space (uuid, name) VALUES 
 	(?, ?),
 	(?, ?)`,
 		uuid.MustNewUUID().String(), "space1",
@@ -389,48 +340,9 @@ INSERT INTO space (uuid, name) VALUES
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Test the default container type.
-	consVal := constraints.Value{
-		Arch: ptr("arm64"),
-	}
-	err = state.SetModelConstraints(context.Background(), consVal)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cons, err := state.GetModelConstraints(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, consVal)
-
-	// Test setting all constraints.
-	consVal = constraints.Value{
+	cons := constraints.Value{
 		Arch:             ptr("amd64"),
-		CpuCores:         ptr(uint64(4)),
-		Mem:              ptr(uint64(1024)),
-		RootDisk:         ptr(uint64(1024)),
-		RootDiskSource:   ptr("root-disk-source"),
-		Tags:             ptr([]string{"tag1", "tag2"}),
-		InstanceRole:     ptr("instance-role"),
-		InstanceType:     ptr("instance-type"),
 		Container:        ptr(instance.LXD),
-		Spaces:           ptr([]string{"space1", "space2"}),
-		VirtType:         ptr("virt-type"),
-		Zones:            ptr([]string{"zone1", "zone2"}),
-		AllocatePublicIP: ptr(true),
-		ImageID:          ptr("image-id"),
-	}
-	err = state.SetModelConstraints(context.Background(), consVal)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cons, err = state.GetModelConstraints(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, consVal)
-}
-
-func (s *modelSuite) TestGetModelConstraintsFailedModelNotFound(c *gc.C) {
-	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
-
-	err := state.SetModelConstraints(context.Background(), constraints.Value{
-		Arch:             ptr("amd64"),
 		CpuCores:         ptr(uint64(4)),
 		Mem:              ptr(uint64(1024)),
 		RootDisk:         ptr(uint64(1024)),
@@ -443,38 +355,110 @@ func (s *modelSuite) TestGetModelConstraintsFailedModelNotFound(c *gc.C) {
 		Zones:            ptr([]string{"zone1", "zone2"}),
 		AllocatePublicIP: ptr(true),
 		ImageID:          ptr("image-id"),
+	}
+
+	err = state.SetModelConstraints(context.Background(), cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	getCons, err := state.GetModelConstraints(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(getCons, jc.DeepEquals, cons)
+
+	// This is the update that should overwrite anything previously set.
+	// We explicitly only setting zone as one of the external tables to
+	// constraints. This helps validates the internal implementation that
+	// previously set tags and spaces are removed correctly.
+	cons = constraints.Value{
+		Arch:    ptr("amd64"),
+		Zones:   ptr([]string{"zone2"}),
+		ImageID: ptr("image-id"),
+	}
+
+	err = state.SetModelConstraints(context.Background(), cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	getCons, err = state.GetModelConstraints(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(getCons, jc.DeepEquals, cons)
+}
+
+// TestSetModelConstraintsFailedModelNotFound is asserting that if we set model
+// constraints and the model does not exist we get back an error satisfying
+// [modelerrors.NotFound].
+func (s *modelSuite) TestSetModelConstraintFailedModelNotFound(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	err := state.SetModelConstraints(context.Background(), constraints.Value{
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
 	})
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-// TestGetModelConstraintsNoModelConstraintSet is a test that assert is no
-// constraints have been set for the model we get back an error satisfying
-// [modelerrors.ConstraintsNotFound]. This is asserted as the state layer should
-// not have an opinion about the constraints object that is returned when no
-// constraints have been persisted in the state layer. This is a concern of the
-// caller.
-func (s *modelSuite) TestGetModelConstraintsNoModelConstraintSet(c *gc.C) {
+// TestSetModelConstraintsInvalidContainerType asserts that if we set model
+// constraints with an unknown/invalid container type we get back an error
+// satisfying [machineerrors.InvalidContainerType] and no changes are made to
+// the database.
+func (s *modelSuite) TestSetModelConstraintsInvalidContainerType(c *gc.C) {
+	s.createTestModel(c)
+
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
-		UUID:            id,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "my-awesome-model",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudType:       "ec2",
-		CloudRegion:     "myregion",
-		CredentialOwner: usertesting.GenNewName(c, "myowner"),
-		CredentialName:  "mycredential",
+	cons := constraints.Value{
+		Container: ptr(instance.ContainerType("noexist")),
+		ImageID:   ptr("image-id"),
 	}
-	err := state.Create(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
+
+	err := state.SetModelConstraints(context.Background(), cons)
+	c.Check(err, jc.ErrorIs, machineerrors.InvalidContainerType)
 
 	_, err = state.GetModelConstraints(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.ConstraintsNotFound)
+}
+
+// TestSetModelConstraintFailedSpaceDoesNotExist asserts that if we set model
+// constraints for a space that doesn't exist we get back an error satisfying
+// [networkerrors.SpaceNotFound] and that no changes are made to the database.
+func (s *modelSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *gc.C) {
+	s.createTestModel(c)
+
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	err := state.SetModelConstraints(context.Background(), constraints.Value{
+		Spaces:  ptr([]string{"space1"}),
+		ImageID: ptr("image-id"),
+	})
+	c.Check(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+
+	_, err = state.GetModelConstraints(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.ConstraintsNotFound)
+}
+
+// TestGetModelConstraintsNotFound asserts that if we ask for model constraints
+// and they have not previously been set an error satisfying
+// [modelerrors.ConstraintsNotFound].
+func (s *modelSuite) TestGetModelConstraintsNotFound(c *gc.C) {
+	s.createTestModel(c)
+
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	_, err := state.GetModelConstraints(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.ConstraintsNotFound)
+}
+
+// TestGetModelConstraintsModelNotFound asserts that if we ask for model
+// constraints for a model that doesn't exist we get back an error satisfying
+// [modelerrors.NotFound].
+func (s *modelSuite) TestGetModelConstraintsModelNotFound(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	_, err := state.GetModelConstraints(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *modelSuite) TestGetModelCloudType(c *gc.C) {
