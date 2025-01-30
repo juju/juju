@@ -360,23 +360,6 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	st.Close()
 }
 
-func (s *apiclientSuite) TestServerRoot(c *gc.C) {
-	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
-		return &testRootAPI{}, nil
-	})
-	s.AddCleanup(func(_ *gc.C) { srv.Close() })
-	info := &api.Info{
-		Addrs:          srv.Addrs,
-		CACert:         jtesting.CACert,
-		ControllerUUID: jtesting.ControllerTag.Id(),
-		ModelTag:       jtesting.ModelTag,
-	}
-	conn, err := api.Open(context.Background(), info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	url := api.ServerRoot(conn)
-	c.Assert(url, gc.Matches, "https://127.0.0.1:[0-9]+")
-}
-
 func (s *apiclientSuite) TestDialWebsocketStopsOtherDialAttempts(c *gc.C) {
 	// Try to open the API with two addresses.
 	// Wait for connection attempts to both.

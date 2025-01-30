@@ -101,5 +101,5 @@ func (c *SimpleConnector) Connect(ctx context.Context, dialOptions ...api.DialOp
 	for _, f := range dialOptions {
 		f(&opts)
 	}
-	return api.Open(ctx, &c.info, c.defaultDialOpts)
+	return apiOpen(ctx, &c.info, opts)
 }

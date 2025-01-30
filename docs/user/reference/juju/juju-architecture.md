@@ -5,7 +5,7 @@
 (bootstrapping)=
 ## Bootstrapping
 
-In Juju, **bootstrapping** refers to the process whereby a Juju {ref}`client <juju-juju-client>` creates a {ref}`controller <controller>` on a specific {ref}`cloud <cloud-substrate>`. 
+In Juju, **bootstrapping** refers to the process whereby a Juju client creates a {ref}`controller <controller>` on a specific {ref}`cloud <cloud>`. 
 
 A controller is needed to perform any further Juju operations, such as deploying an application.
 
@@ -37,7 +37,7 @@ A controller is needed to perform any further Juju operations, such as deploying
 
 ![JujuOnMachinesBootstrapResult](juju-architecture-bootstrap-machines-result.png)
 
-<br> *Bootstrapping a controller on a machine cloud: The result. (Note: The machine, model, unit, and controller agent are actually all part of the same {ref}`jujud <binary-jujud>` process and refer in fact to trees of workers with machine, model, unit and, respectively, controller responsibility.)*<br>
+<br> *Bootstrapping a controller on a machine cloud: The result. (Note: The machine, model, unit, and controller agent are actually all part of the same {ref}`jujud <jujud>` process and refer in fact to trees of workers with machine, model, unit and, respectively, controller responsibility.)*<br>
 
 
 (deploying)=
@@ -69,7 +69,7 @@ Note: This diagram assumes a typical scenario with a single workload container (
 
 ![JujuOnMachinesDeployResult](juju-architecture-deploy-machines-result.png)
 
-<br> *Deploying an application on a machine cloud: The result. This diagram assumes a typical scenario where the unit is deployed on a new machine of its own. (Note: The machine, model, unit, and controller agent are actually all part of the same {ref}`jujud <binary-jujud>` process and refer in fact to trees of workers with machine, model, unit and, respectively, controller responsibility.)*
+<br> *Deploying an application on a machine cloud: The result. This diagram assumes a typical scenario where the unit is deployed on a new machine of its own. (Note: The machine, model, unit, and controller agent are actually all part of the same {ref}`jujud <jujud>` process and refer in fact to trees of workers with machine, model, unit and, respectively, controller responsibility.)*
 
 ```{important}
 
@@ -151,7 +151,7 @@ What, then, is stored in the controller database?
 * A charm's **stored state**; i.e. a key-value mapping. `StoredState` is the API offered by the `ops` library to read/write this storage at runtime, and that is pretty much the only reliable persistence layer charms 'natively' offer at present. 'Non-native' solutions to persisting charm state could include integrating with another charm or service providing an independent database.
 * **Leadership status**: which unit is leader.
 
-So the charm, at runtime, can read/write some data from the controller database (through {ref}`hook tool <hook-tool>` calls) and thereby access some configuration parameters to decide which codepath to execute and how to manage its workload.
+So the charm, at runtime, can read/write some data from the controller database (through {ref}`hook command <hook-command>` calls) and thereby access some configuration parameters to decide which codepath to execute and how to manage its workload.
 
 This is all there is to it!
 

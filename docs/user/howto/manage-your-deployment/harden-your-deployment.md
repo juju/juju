@@ -26,7 +26,7 @@ When you install Juju (= the `juju` CLI client + the Juju agent binaries) on Lin
 
 In a typical Juju workflow you allow your client to read your locally stored cloud credentials, then copy them to the controller, so that the controller can use them to authenticate with the cloud. However, for some clouds Juju now supports a workflow where your (client and) controller doesn't need to know your credentials directly -- you can just supply an instance profile (AWS) or a managed identity (Azure). One way to harden your controller is to take advantage of this workflow.
 
-> See more: {ref}`bootstrap-a-controller`, {ref}`the-amazon-ec2-cloud-and-juju`, {ref}`the-microsoft-azure-cloud-and-juju`
+> See more: {ref}`bootstrap-a-controller`, {ref}`cloud-aws`, {ref}`cloud-azure`
 
 (Like all the cloud resources provisioned through Juju,) the cloud resource(s) (machines or containers) that a controller is deployed on by default run the latest Ubuntu LTS.  This Ubuntu is *not* CIS- and DISA-STIG-compliant (see more: [Ubuntu | The Ubuntu Security Guide](https://ubuntu.com/security/certifications/docs/usg)). However, it is by default behind a firewall, inside a VPC, with only the following three ports opened -- as well as hardened (through security groups) -- by default:
 

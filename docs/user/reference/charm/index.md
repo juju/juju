@@ -10,7 +10,6 @@ charm-taxonomy
 charm-development-best-practices
 charm-naming-guidelines
 charm-maturity
-talking-to-a-workload-control-flow-from-a-to-z
 charm-environment-variables
 ```
 
@@ -22,9 +21,8 @@ on any [cloud](https://juju.is/docs/juju/cloud) using [Juju](https://juju.is/doc
 - business logic encapsulated in reusable software packages that automate every aspect of an [application](https://juju.is/docs/juju/application)'s life.
 -->
 
-> See more: [SDK | List of files in the charm project](https://juju.is/docs/sdk/list-of-files-in-the-charm-project), [SDK | The Juju execution flow for a charm](https://juju.is/docs/sdk/the-juju-execution-flow-for-a-charm)
 
-Charms are publicly available on {ref}`charmhub`.
+Charms are publicly available on Charmhub.
 
 Charms are currently of two kinds, depending on the target deployment substrate:
 
@@ -34,9 +32,11 @@ Charms are currently of two kinds, depending on the target deployment substrate:
     - [Charmhub | Kubernetes charms](https://charmhub.io/?base=kubernetes&type=all)
          - [Charmhub | example Kubernetes charm: PostgreSQL K8s](https://charmhub.io/postgresql-k8s)
 
-Charms are currently developed using {ref}`charmcraft` and {ref}`ops`.
-
 > See more: {ref}`charm-taxonomy`, {ref}`charms-vs-kubernetes-operators` 
+
+Charms are currently developed using Charmcraft and Ops.
+
+> See more: {ref}`build-a-charm`
 
 While the quality of individual charms may vary, charms are intended to implement a general and comprehensive approach for operating applications.
 

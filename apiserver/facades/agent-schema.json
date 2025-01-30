@@ -7954,7 +7954,7 @@
     {
         "Name": "SecretsManager",
         "Description": "",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "unit-agent"
         ],

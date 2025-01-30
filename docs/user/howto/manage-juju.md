@@ -1,7 +1,7 @@
 (manage-juju)=
 # How  manage the `juju` CLI client
 
-> See also: {ref}`client`
+> See also: {ref}`juju-cli`
 
 
 ## Install `juju`
@@ -240,7 +240,7 @@ Visit the project's [downloads](https://launchpad.net/juju/+download) page and s
 
 Use the `juju` CLI client reference and the Juju how-to guides to build up your deployment.
 
-> See more: {ref}`command-juju-help`, {ref}`juju-cli-commands`, {ref}`how-to-guides`
+> See more: {ref}`command-juju-help`, {ref}`list-of-juju-cli-commands`, {ref}`how-to-guides`
 
 
 ## Back up Juju

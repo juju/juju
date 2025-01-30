@@ -172,7 +172,6 @@ func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 		cookieURL:           CookieURLFromHost(host),
 		pingerFacadeVersion: pingerFacadeVersions[len(pingerFacadeVersions)-1],
 		serverScheme:        "https",
-		serverRootAddress:   dialResult.addr,
 		// We keep the login provider around to provide auth headers
 		// when doing HTTP requests.
 		// If login fails, we discard the connection.
@@ -1237,12 +1236,6 @@ func (c *conn) PublicDNSName() string {
 // reports to us, with the versions that our client knows how to use.
 func (c *conn) BestFacadeVersion(facade string) int {
 	return facades.BestVersion(facadeVersions[facade], c.facadeVersions[facade])
-}
-
-// serverRoot returns the cached API server address and port used
-// to login, prefixed with "<URI scheme>://" (usually https).
-func (c *conn) serverRoot() string {
-	return c.serverScheme + "://" + c.serverRootAddress
 }
 
 func (c *conn) isLoggedIn() bool {

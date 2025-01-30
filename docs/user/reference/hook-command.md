@@ -6,7 +6,7 @@
 
 In Juju, a **hook tool  (or 'hook command')** is a Bash script located in `/var/lib/juju/tools/unit-<app name>-<unit ID>` that a charm uses to communicate with its Juju unit agent in response to a {ref}`hook <hook>`. 
 
-In the charm SDK, in {ref}`Ops <ops-ops>`, hook tools are accessed through Ops constructs, specifically, those constructs designed to be used in the definition of the event handlers associated with the Ops events that translate Juju {ref}`hooks <hook>`. For example, when your charm calls `ops.Unit.is_leader`, in the background this calls `~/hooks/unit-name/leader-get`; its output is wrapped and returned as a Python `True/False` value.
+In the Juju ecosystem, in [Ops])(https://ops.readthedocs.io/en/latest/), hook tools are accessed through Ops constructs, specifically, those constructs designed to be used in the definition of the event handlers associated with the Ops events that translate Juju {ref}`hooks <hook>`. For example, when your charm calls `ops.Unit.is_leader`, in the background this calls `~/hooks/unit-name/leader-get`; its output is wrapped and returned as a Python `True/False` value.
 
 <!--
  They provide the most raw interface to a Juju model from the perspective of a charm, that is, the low-level `juju` system calls that provide the backend for  {ref}`Ops <ops-ops>`.

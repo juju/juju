@@ -26,9 +26,6 @@ agent
 application
 bundle
 charm/index
-charmcraft
-charmhub
-client
 cloud/index
 configuration/index
 constraint
@@ -48,17 +45,16 @@ log
 machine
 model
 offer
-ops
 pebble
 placement-directive
 plugin/index
-python-libjuju
 relation
 removing-things
 resource-charm
 resource-compute/index
 rockcraft
 scaling
+script
 secret
 space
 ssh-key
@@ -66,7 +62,6 @@ status
 storage
 subnet
 telemetry
-terraform-provider-juju
 unit
 upgrading-things
 user

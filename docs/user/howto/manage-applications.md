@@ -460,6 +460,23 @@ juju bind <application> new-default endpoint-1=space-1
 
 > See more: {ref}`command-juju-bind`
 
+<!-- Feels better suited for the upstream. As a matter of policy, we should only document charm solutions when pertaining to juju core material, e.g., the controller charm or the juju-dashboard charm.
+(observe-an-application)=
+## Observe an application
+
+To observe an application, on a separate Kubernetes model deploy the Canonical Observability Stack, then set up all the necessary cross-model relations. Alternatively, you can deploy only the charms pieces in the stack that you need immediately.
+
+
+> See more: [Charmhub | Canonical Observability Stack](https://charmhub.io/topics/canonical-observability-stack)
+-->
+
+(migrate-an-application)=
+## Migrate an application
+
+To migrate an application from one controller to another, migrate the model that it has been deployed to.
+
+> See more: {ref}`migrate-a-model`
+
 (upgrade-an-application)=
 ## Upgrade an application
 
@@ -467,26 +484,34 @@ To upgrade an application, update its charm.
 
 > See more: {ref}`update-a-charm`
 
-
+(remove-an-application)=
 ## Remove an application
 > See also: {ref}`removing-things`
 
 
 To remove an application, run the `remove-application` command followed by the name of the application. For example:
 
-```text
-juju remove-application apache2
+```{caution}
+Removing an application which has relations with another application will terminate that relation. This may adversely affect the other application. 
 ```
 
-It can take a while for the application to be completely removed but if juju status reveals that the application is listed as ‘dying’, but also reports an error state, then the removed application will not go away. See the section below for how to manage applications stuck in a dying state.
 
-This will remove all of the application's units. All associated resources will also be removed providing they are not hosting containers or another application's units.
+```text
+juju remove-application kafka
+```
 
-If persistent storage is in use by the application it will be detached and left in the model. However, the `--destroy-storage` option can be used to instruct Juju to destroy the storage once detached.
+This will issue a warning with a list of all the pieces to be removed and a request to confirm removal; once you've confirmed, this will remove all of the application's units. 
 
-Removing an application which has relations with another application will terminate that relation. This may adversely affect the other application. 
+All associated resources will also be removed, provided they are not hosting containers or another application's units. 
 
-As a last resort, use the `--force` option (in `v.2.6.1`).
+If persistent storage is in use by the application it will be detached and left in the model; however, if you wish to destroy that as well, you can use the `--destroy-storage` option.
+
+
+
+```{note}
+It it normal for application removal to take a while (you can inspect progress in the usual with `juju status`). However, if it gets stuck in an error state, it will require manual intervention. In that case, please run `juju resolved --no-retry <unit>` for each one of the application's units (e.g., `juju resolved --no-retry kafka/0`).
+```
+
 
 > See more: {ref}`command-juju-remove-application`
 

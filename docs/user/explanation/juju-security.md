@@ -89,4 +89,4 @@ Juju encourages developers to follow best practices in creating software operato
 
 Canonical releases updates and security patches for Juju to address vulnerabilities, improve performance, and add new features.
 
-> See more: {ref}`Roadmap & Releases <roadmap--releases>`
+> See more: {ref}`juju-roadmap-and-releases`

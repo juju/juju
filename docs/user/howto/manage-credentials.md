@@ -1,7 +1,7 @@
 (manage-credentials)=
 # How to manage credentials
 
-> See also: {ref}`Credential <credential`
+> See also: {ref}`Credential <credential>`
 
 This document shows how to manage credentials in Juju.
 

@@ -1,7 +1,7 @@
 (manage-spaces)=
 # How to manage spaces
+> See also: {ref}`space`
 
-> See also: {ref}`Space <space`
 Juju users are able to create, view, rename, or delete spaces.
 
 ```{caution}

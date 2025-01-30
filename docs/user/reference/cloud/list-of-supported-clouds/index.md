@@ -24,7 +24,7 @@ Microsoft Azure <the-microsoft-azure-cloud-and-juju>
 Microsoft AKS <the-microsoft-aks-cloud-and-juju>
 OpenStack <the-openstack-cloud-and-juju>
 Oracle OCI <the-oracle-oci-cloud-and-juju>
-VMware vSphere <the-vmware-vsphere-cloud-and-juju> 
+VMware vSphere <the-vmware-vsphere-cloud-and-juju>
 
 ```
 

@@ -26,7 +26,7 @@ A unit is always named on the pattern `<application>/<unit ID>`, where `<applica
 <!--CHECK AND ADD: An application unit is the smallest entity managed by Juju.-->
 
 (leader-unit)=
-# Leader unit
+## Leader unit
 
 <!--TODO: Rewrite to improve perspicuity.-->
 

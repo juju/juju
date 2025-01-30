@@ -664,7 +664,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 	c.Assert(result.ModelTag, gc.Equals, names.NewModelTag(s.ControllerModelUUID()).String())
 	c.Assert(result.Facades, jc.DeepEquals, []params.FacadeVersions{
 		{Name: "CrossModelRelations", Versions: []int{3}},
-		{Name: "CrossModelSecrets", Versions: []int{1}},
+		{Name: "CrossModelSecrets", Versions: []int{1, 2}},
 		{Name: "NotifyWatcher", Versions: []int{1}},
 		{Name: "OfferStatusWatcher", Versions: []int{1}},
 		{Name: "RelationStatusWatcher", Versions: []int{1}},

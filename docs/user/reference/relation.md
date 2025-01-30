@@ -30,7 +30,7 @@ A **non-peer** relation is a relation from one application to another, where the
 (non-subordinate-relation)=
 #### Non-subordinate
 
-A **non-subordinate** relation (aka 'regular') is a [non-peer](#heading--non-peer) relation where the applications are both principal. 
+A **non-subordinate** relation (aka 'regular') is a {ref}`non-peer-relation` relation where the applications are both principal. 
 
 ##### Same-model
 

@@ -4,7 +4,11 @@
 package connector
 
 import (
+	"context"
+	"time"
+
 	"github.com/juju/names/v6"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -99,4 +103,34 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 			c.Assert(connector.defaultDialOpts, gc.DeepEquals, expectedDefaultDialOpts)
 		}
 	}
+}
+
+func (s *simpleConnectorSuite) TestSimpleConnectorConnect(c *gc.C) {
+	connector, err := NewSimple(SimpleConfig{
+		Username:            "alice@canonical.com",
+		ControllerAddresses: []string{"localhost:17080"},
+	})
+	c.Assert(err, gc.IsNil)
+
+	var called bool
+
+	s.PatchValue(&apiOpen, func(_ context.Context, i *api.Info, do api.DialOpts) (api.Connection, error) {
+		called = true
+
+		// Zeros to false, ensure it is true after Connect dial opt.
+		c.Assert(do.InsecureSkipVerify, gc.Equals, true)
+
+		// Defaults to 10 * time.Minute, ensure it is overwritten after Connect dial opt.
+		c.Assert(do.Timeout, gc.Equals, 5*time.Minute)
+		return nil, nil
+	})
+
+	_, err = connector.Connect(context.Background(),
+		func(do *api.DialOpts) {
+			do.InsecureSkipVerify = true
+			do.Timeout = 5 * time.Minute
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(called, gc.Equals, true)
 }
