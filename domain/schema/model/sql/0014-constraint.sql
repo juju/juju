@@ -17,9 +17,9 @@ CREATE TABLE "constraint" (
     REFERENCES container_type (id)
 );
 
--- v_constraints represents a view of the constraints in the model with foreign
+-- v_constraint represents a view of the constraints in the model with foreign
 -- keys resolved for the viewer.
-CREATE VIEW v_constraints AS
+CREATE VIEW v_constraint AS
 SELECT
     c.uuid,
     c.arch,

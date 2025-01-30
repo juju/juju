@@ -22,7 +22,10 @@ CREATE TABLE model_constraint (
     REFERENCES "constraint" (uuid)
 );
 
-CREATE VIEW v_model_constraints AS
+-- v_model_constraint is a view to represent the current model constraints. If
+-- no constraints have been set then expect this view to be empty. There will
+-- also only ever be a maximum of 1 record in this view.
+CREATE VIEW v_model_constraint AS
 SELECT c.*
 FROM model_constraint mc
-INNER JOIN v_constraints c ON mc.constraint_uuid = c.uuid;
+INNER JOIN v_constraint c ON mc.constraint_uuid = c.uuid;
