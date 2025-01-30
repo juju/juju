@@ -761,6 +761,44 @@ WHERE name IN ($nameSelector[:]);
 	return decodeCharmLocators(results)
 }
 
+// GetCharmLocatorByCharmID returns a charm locator for the given charm ID.
+// The locator allows the reconstruction of the charm URL for the client
+// response.
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *State) GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (charm.CharmLocator, error) {
+	db, err := s.DB()
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Capture(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	query := `
+SELECT &charmLocator.*
+FROM v_charm_locator
+WHERE uuid = $charmID.uuid;
+`
+	stmt, err := s.Prepare(query, charmLocator{}, ident)
+	if err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("preparing query: %w", err)
+	}
+
+	var res charmLocator
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, ident).Get(&res)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.CharmNotFound
+		} else if err != nil {
+			return internalerrors.Errorf("getting charm locator by ID: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return charm.CharmLocator{}, internalerrors.Errorf("getting charm locator by ID: %w", err)
+	}
+
+	return decodeCharmLocator(res)
+}
+
 // GetCharmDownloadInfo returns the download info for the charm using the charm
 // ID. Returns [applicationerrors.CharmNotFound] if the charm is not found.
 func (s *State) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error) {

@@ -177,6 +177,12 @@ type CharmState interface {
 	// [applicationerrors.CharmNotFound]. If there are multiple charms, then the
 	// latest created at date is returned first.
 	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch architecture.Architecture) (charm.CharmLocator, error)
+
+	// GetCharmLocatorByCharmID returns a charm locator for the given charm ID.
+	// The locator allows the reconstruction of the charm URL for the client
+	// response.
+	// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+	GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (charm.CharmLocator, error)
 }
 
 // CharmStore defines the interface for storing and retrieving charms archive
@@ -298,6 +304,11 @@ func (s *Service) GetCharm(ctx context.Context, locator charm.CharmLocator) (int
 	}
 
 	return s.getCharmAndLocator(ctx, id)
+}
+
+func (s *Service) getCharmLocatorByID(ctx context.Context, charmID corecharm.ID) (charm.CharmLocator, error) {
+	locator, err := s.st.GetCharmLocatorByCharmID(ctx, charmID)
+	return locator, errors.Trace(err)
 }
 
 func (s *Service) getCharmAndLocator(ctx context.Context, charmID corecharm.ID) (internalcharm.Charm, charm.CharmLocator, bool, error) {

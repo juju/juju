@@ -1105,7 +1105,7 @@ func (s *Service) GetCharmLocatorByApplicationName(ctx context.Context, name str
 		return domaincharm.CharmLocator{}, errors.Trace(err)
 	}
 
-	_, locator, _, err := s.getCharmAndLocator(ctx, charmID)
+	locator, err := s.getCharmLocatorByID(ctx, charmID)
 	return locator, errors.Trace(err)
 }
 

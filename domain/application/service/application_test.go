@@ -1281,24 +1281,18 @@ func (s *applicationServiceSuite) TestGetCharmLocatorByApplicationName(c *gc.C) 
 	id := charmtesting.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
-	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
-		Metadata: domaincharm.Metadata{
-			Name: "foo",
+	s.state.EXPECT().GetCharmLocatorByCharmID(gomock.Any(), id).Return(applicationcharm.CharmLocator{
+		Name:         "bar",
+		Revision:     42,
+		Source:       applicationcharm.LocalSource,
+		Architecture: architecture.AMD64,
+	}, nil)
 
-			// RunAs becomes mandatory when being persisted. Empty string is not
-			// allowed.
-			RunAs: "default",
-		},
-		Source:        domaincharm.LocalSource,
-		Revision:      42,
-		Available:     true,
-		ReferenceName: "foo-charm",
-	}, nil, nil)
-
-	expectedLocator := domaincharm.CharmLocator{
-		Name:     "foo-charm",
-		Revision: 42,
-		Source:   domaincharm.LocalSource,
+	expectedLocator := applicationcharm.CharmLocator{
+		Name:         "bar",
+		Revision:     42,
+		Source:       applicationcharm.LocalSource,
+		Architecture: architecture.AMD64,
 	}
 	locator, err := s.service.GetCharmLocatorByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
