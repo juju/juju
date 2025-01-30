@@ -459,7 +459,7 @@ func (s *providerSuite) TestCleanupModel(c *gc.C) {
 		BackendConfig:  s.backendConfig(),
 	}
 
-	err = p.CleanupModel(adminCfg)
+	err = p.CleanupModel(context.Background(), adminCfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

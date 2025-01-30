@@ -109,19 +109,19 @@ func (u *UndertakerAPI) removeModelSecrets(ctx context.Context) error {
 		return errors.Annotate(err, "getting secrets backends config")
 	}
 	for _, cfg := range secretBackendCfg.Configs {
-		if err := u.removeModelSecretsForBackend(&cfg); err != nil {
+		if err := u.removeModelSecretsForBackend(ctx, &cfg); err != nil {
 			return errors.Annotatef(err, "cleaning model from inactive secrets provider %q", cfg.BackendType)
 		}
 	}
 	return nil
 }
 
-func (u *UndertakerAPI) removeModelSecretsForBackend(cfg *provider.ModelBackendConfig) error {
+func (u *UndertakerAPI) removeModelSecretsForBackend(ctx context.Context, cfg *provider.ModelBackendConfig) error {
 	p, err := GetProvider(cfg.BackendType)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return p.CleanupModel(cfg)
+	return p.CleanupModel(ctx, cfg)
 }
 
 func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {

@@ -84,7 +84,7 @@ func (p vaultProvider) Initialise(cfg *provider.ModelBackendConfig) error {
 }
 
 // CleanupModel deletes all secrets and policies associated with the model.
-func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) (err error) {
+func (p vaultProvider) CleanupModel(ctx context.Context, cfg *provider.ModelBackendConfig) (err error) {
 	defer func() {
 		if err != nil && strings.HasSuffix(err.Error(), "no route to host") {
 			// There is nothing we can do now, so just log the error and continue.
@@ -101,7 +101,6 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) (err error
 	sys := k.client.Sys()
 
 	// First remove any policies.
-	ctx := context.Background()
 	policies, err := sys.ListPoliciesWithContext(ctx)
 	if err != nil {
 		return errors.Trace(err)
