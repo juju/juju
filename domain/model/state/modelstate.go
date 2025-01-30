@@ -193,8 +193,8 @@ func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value
 }
 
 // getModelConstraintsUUID returns the constraint uuid that is active for the
-// model. If the currently does not have any constraints then an error
-// satisfying [modelerrors.ConstraintsNotFound] is returned.
+// model. If model does not have any constraints then an error satisfying
+// [modelerrors.ConstraintsNotFound] is returned.
 func (s *ModelState) getModelConstraintsUUID(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -221,8 +221,8 @@ func (s *ModelState) getModelConstraintsUUID(
 	return constraintUUID.UUID, nil
 }
 
-// getModelConstraints returns the values set in the constraints table that are
-// being referenced by the model specified. If no constraints are currently set
+// getModelConstraints returns the values set in the constraints table for the
+// current model. If no constraints are currently set
 // for the model an error satisfying [modelerrors.ConstraintsNotFound] will be
 // returned.
 func (s *ModelState) getModelConstraints(
@@ -244,7 +244,6 @@ func (s *ModelState) getModelConstraints(
 	if err != nil {
 		return dbConstraint{}, errors.Errorf("getting model constraints: %w", err)
 	}
-	s.logger.Criticalf("getModelConstraints : %#v", constraint)
 	return constraint, nil
 }
 
