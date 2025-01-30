@@ -267,6 +267,7 @@ func openEnviron(
 	*sender = azuretesting.Senders{
 		discoverAuthSender(),
 		makeResourceGroupNotFoundSender(fmt.Sprintf(".*/resourcegroups/juju-%s-model-deadbeef-.*", cfg.Name())),
+		makeSender(fmt.Sprintf(".*/resourcegroups/juju-%s-.*", cfg.Name()), makeResourceGroupResult()),
 	}
 	env, err := environs.Open(stdcontext.TODO(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
@@ -1052,7 +1053,6 @@ type assertStartInstanceRequestsParams struct {
 	withHypervisorGenRetry bool
 	withConflictRetry      bool
 	hasSpaceConstraints    bool
-	managedIdentity        string
 }
 
 func (s *environSuite) assertStartInstanceRequests(
@@ -1348,16 +1348,6 @@ func (s *environSuite) assertStartInstanceRequests(
 		},
 		DependsOn: vmDependsOn,
 	}
-	if args.managedIdentity != "" {
-		vmTemplate.Identity = &armcompute.VirtualMachineIdentity{
-			Type: to.Ptr(armcompute.ResourceIdentityTypeUserAssigned),
-			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
-				fmt.Sprintf(
-					"/subscriptions/%s/resourcegroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s",
-					fakeManagedSubscriptionId, resourceGroupName, args.managedIdentity): nil,
-			},
-		}
-	}
 	templateResources = append(templateResources, vmTemplate)
 	if args.vmExtension != nil {
 		templateResources = append(templateResources, armtemplates.Resource{
@@ -1371,7 +1361,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		})
 	}
 	templateMap := map[string]interface{}{
-		"$schema":        "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+		"$schema":        "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
 		"contentVersion": "1.0.0.0",
 		"resources":      templateResources,
 	}
@@ -1520,11 +1510,11 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:        testing.FakeControllerConfig(),
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("ubuntu"),
+			BootstrapSeries:          "jammy",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1554,11 +1544,11 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:        testing.FakeControllerConfig(),
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G allocate-public-ip=false"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("ubuntu"),
+			BootstrapSeries:          "jammy",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G allocate-public-ip=false"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1587,11 +1577,11 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:        testing.FakeControllerConfig(),
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("ubuntu"),
+			BootstrapSeries:          "jammy",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1623,11 +1613,11 @@ func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:        testing.FakeControllerConfig(),
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G instance-role=myidentity"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("ubuntu"),
+			BootstrapSeries:          "jammy",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G instance-role=myidentity"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1643,7 +1633,6 @@ func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *gc.C) {
 		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
 		publicIP:            true,
-		managedIdentity:     "myidentity",
 	})
 }
 
@@ -1660,11 +1649,11 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	_, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:        testing.FakeControllerConfig(),
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("ubuntu"),
+			BootstrapSeries:          "jammy",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, gc.NotNil)
@@ -1791,11 +1780,11 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	config["autocert-dns-name"] = "example.com"
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:        config,
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+			ControllerConfig:         config,
+			AvailableTools:           makeToolsList("ubuntu"),
+			BootstrapSeries:          "jammy",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1988,11 +1977,11 @@ func (s *environSuite) TestConstraintsValidatorVocabulary(c *gc.C) {
 	validator := s.constraintsValidator(c)
 	_, err := validator.Validate(constraints.MustParse("arch=s390x"))
 	c.Assert(err, gc.ErrorMatches,
-		"invalid constraint value: arch=s390x\nvalid values are: \\[amd64\\]",
+		"invalid constraint value: arch=s390x\nvalid values are: amd64",
 	)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t1.micro"))
 	c.Assert(err, gc.ErrorMatches,
-		"invalid constraint value: instance-type=t1.micro\nvalid values are: \\[A1 D1 D2 Standard_A1 Standard_D1 Standard_D2\\]",
+		"invalid constraint value: instance-type=t1.micro\nvalid values are: A1 D1 D2 Standard_A1 Standard_D1 Standard_D2",
 	)
 }
 
@@ -2113,17 +2102,14 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{
-		makeSender(".*/resourcegroups", result),                        // GET
-		makeSender(".*/resourcegroups/group[12]", nil),                 // DELETE
-		makeSender(".*/resourcegroups/group[12]", nil),                 // DELETE
-		makeSender(".*/roleDefinitions*", nil),                         // GET
-		makeSender(".*/roleAssignments*", nil),                         // GET
-		makeSender(".*/userAssignedIdentities/juju-controller-*", nil), // DELETE
+		makeSender(".*/resourcegroups", result),        // GET
+		makeSender(".*/resourcegroups", result),        // GET
+		makeSender(".*/resourcegroups/group[12]", nil), // DELETE
 	}
 	err := env.DestroyController(s.callCtx, s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 6)
+	c.Assert(s.requests, gc.HasLen, 3)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-controller-uuid' and tagValue eq '%s'",
@@ -2138,11 +2124,6 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		path.Base(s.requests[2].URL.Path),
 	}
 	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
-
-	c.Assert(s.requests[3].Method, gc.Equals, "GET")
-	c.Assert(s.requests[4].Method, gc.Equals, "GET")
-	c.Assert(s.requests[5].Method, gc.Equals, "DELETE")
-	c.Assert(path.Base(s.requests[5].URL.Path), gc.Equals, "juju-controller-"+testing.ControllerTag.Id())
 }
 
 func (s *environSuite) TestDestroyControllerWithInvalidCredential(c *gc.C) {
