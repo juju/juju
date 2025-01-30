@@ -580,7 +580,6 @@ type dbConstraintTag struct {
 type dbConstraintSpace struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 	Space          string `db:"space"`
-	Exclude        bool   `db:"exclude"`
 }
 
 type dbConstraintZone struct {
