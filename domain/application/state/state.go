@@ -1306,16 +1306,16 @@ WHERE name = $applicationDetails.name
 // returned.
 func (st *State) checkApplicationExists(ctx context.Context, tx *sqlair.TX, ident applicationID) error {
 	query := `
-SELECT &applicationIDAndLife.*
+SELECT &applicationLife.*
 FROM application
 WHERE uuid = $applicationID.uuid;
 `
-	stmt, err := st.Prepare(query, ident, applicationIDAndLife{})
+	stmt, err := st.Prepare(query, ident, applicationLife{})
 	if err != nil {
 		return internalerrors.Errorf("preparing query for application %q: %w", ident.ID, err)
 	}
 
-	var result applicationIDAndLife
+	var result applicationLife
 	err = tx.Query(ctx, stmt, ident).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
 		return applicationerrors.ApplicationNotFound
@@ -1323,16 +1323,12 @@ WHERE uuid = $applicationID.uuid;
 		return internalerrors.Errorf("checking application %q exists: %w", ident.ID, err)
 	}
 
-	// If we're not alive or dying, then the application is dead.
-	if result.LifeID > domainlife.Dying {
+	switch result.LifeID {
+	case domainlife.Dead:
 		return applicationerrors.ApplicationIsDead
+	default:
+		return nil
 	}
-
-	if err := result.ID.Validate(); err != nil {
-		return internalerrors.Errorf("invalid application ID %q: %w", result.ID, err)
-	}
-
-	return nil
 }
 
 func decodeCharmState(state charmState) (charm.Charm, error) {

@@ -26,15 +26,20 @@ type KeyValue struct {
 	Value string `db:"value"`
 }
 
-// applicationID is used to get the ID (and life) of an application.
+// applicationID is used to get the ID of an application.
 type applicationID struct {
 	ID coreapplication.ID `db:"uuid"`
 }
 
-// applicationIDAndLife is used to get the ID (and life) of an application.
+// applicationIDAndLife is used to get the ID and life of an application.
 type applicationIDAndLife struct {
 	ID     coreapplication.ID `db:"uuid"`
 	LifeID life.Life          `db:"life_id"`
+}
+
+// applicationLife is used to get the life of an application.
+type applicationLife struct {
+	LifeID life.Life `db:"life_id"`
 }
 
 type applicationChannel struct {
