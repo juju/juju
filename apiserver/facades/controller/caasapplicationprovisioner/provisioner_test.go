@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/model"
 	jujuresource "github.com/juju/juju/core/resource"
@@ -30,6 +29,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	envconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -154,10 +154,14 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 		charmURL: "ch:gitlab",
 	}
 
-	charmId := charmtesting.GenCharmID(c)
-	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "gitlab").Return(charmId, nil)
-	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), charmId).Return(true, nil)
-	s.applicationService.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmId).Return(map[string]charm.Storage{}, nil)
+	locator := applicationcharm.CharmLocator{
+		Name:     "gitlab",
+		Source:   applicationcharm.CharmHubSource,
+		Revision: -1,
+	}
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "gitlab").Return(locator, nil)
+	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(true, nil)
+	s.applicationService.EXPECT().GetCharmMetadataStorage(gomock.Any(), locator).Return(map[string]charm.Storage{}, nil)
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(s.fakeModelConfig())
@@ -198,9 +202,13 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 		life: state.Alive,
 	}
 
-	charmId := charmtesting.GenCharmID(c)
-	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "gitlab").Return(charmId, nil)
-	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), charmId).Return(false, nil)
+	locator := applicationcharm.CharmLocator{
+		Name:     "gitlab",
+		Source:   applicationcharm.CharmHubSource,
+		Revision: -1,
+	}
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "gitlab").Return(locator, nil)
+	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(false, nil)
 
 	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -351,9 +359,13 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 	)
 	s.resourceOpener.EXPECT().SetResourceUsed(gomock.Any(), "gitlab-image")
 
-	charmId := charmtesting.GenCharmID(c)
-	s.applicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "gitlab").Return(charmId, nil)
-	s.applicationService.EXPECT().GetCharmMetadataResources(gomock.Any(), charmId).Return(map[string]charmresource.Meta{
+	locator := applicationcharm.CharmLocator{
+		Name:     "gitlab",
+		Source:   applicationcharm.CharmHubSource,
+		Revision: -1,
+	}
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "gitlab").Return(locator, nil)
+	s.applicationService.EXPECT().GetCharmMetadataResources(gomock.Any(), locator).Return(map[string]charmresource.Meta{
 		"gitlab-image": {
 			Name: "gitlab-image",
 			Type: charmresource.TypeContainerImage,

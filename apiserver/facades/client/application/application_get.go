@@ -35,17 +35,17 @@ func (api *APIBase) getConfig(
 	// Once application service is refactored to return the merged config, this
 	// should be a single call.
 
-	charmID, err := api.getCharmIDByApplicationName(ctx, args.ApplicationName)
+	locator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, args.ApplicationName)
 	if err != nil {
 		return params.ApplicationGetResults{}, errors.Trace(err)
 	}
 
-	charmName, err := api.getCharmName(ctx, charmID)
+	charmName, err := api.getCharmName(ctx, locator)
 	if err != nil {
 		return params.ApplicationGetResults{}, errors.Trace(err)
 	}
 
-	charmConfig, err := api.getCharmConfig(ctx, charmID)
+	charmConfig, err := api.getCharmConfig(ctx, locator)
 	if err != nil {
 		return params.ApplicationGetResults{}, errors.Trace(err)
 	}
@@ -122,47 +122,20 @@ func (api *APIBase) getConfig(
 	}, nil
 }
 
-func (api *APIBase) getCharmID(ctx context.Context, charmURL string) (corecharm.ID, error) {
-	curl, err := charm.ParseURL(charmURL)
-	if err != nil {
-		return "", errors.Annotate(err, "parsing charm URL")
-	}
-
-	charmSource, err := applicationcharm.ParseCharmSchema(charm.Schema(curl.Schema))
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	charmID, err := api.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
-		Name:     curl.Name,
-		Revision: ptr(curl.Revision),
-		Source:   charmSource,
-	})
-	if errors.Is(err, applicationerrors.CharmNotFound) {
-		return "", errors.NotFoundf("charm %q", charmURL)
-	} else if errors.Is(err, applicationerrors.CharmNameNotValid) {
-		return "", errors.NotValidf("charm %q", charmURL)
-	} else if errors.Is(err, applicationerrors.CharmSourceNotValid) {
-		return "", errors.NotValidf("charm %q", charmURL)
-	} else if err != nil {
-		return "", errors.Annotate(err, "getting charm id")
-	}
-	return charmID, nil
-}
-
-func (api *APIBase) getCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
-	charmID, err := api.applicationService.GetCharmIDByApplicationName(ctx, name)
+func (api *APIBase) getCharmLocatorByApplicationName(ctx context.Context, name string) (applicationcharm.CharmLocator, error) {
+	locator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, name)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return "", errors.NotFoundf("application %q", name)
+		return applicationcharm.CharmLocator{}, errors.NotFoundf("application %q", name)
 	} else if errors.Is(err, applicationerrors.CharmNotFound) {
-		return "", errors.NotFoundf("charm for application %q", name)
+		return applicationcharm.CharmLocator{}, errors.NotFoundf("charm for application %q", name)
 	} else if err != nil {
-		return "", errors.Annotate(err, "getting charm id for application")
+		return applicationcharm.CharmLocator{}, errors.Annotate(err, "getting charm id for application")
 	}
-	return charmID, nil
+	return locator, nil
 }
 
-func (api *APIBase) getCharmName(ctx context.Context, charmID corecharm.ID) (string, error) {
-	name, err := api.applicationService.GetCharmMetadataName(ctx, charmID)
+func (api *APIBase) getCharmName(ctx context.Context, locator applicationcharm.CharmLocator) (string, error) {
+	name, err := api.applicationService.GetCharmMetadataName(ctx, locator)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return "", errors.NotFoundf("charm")
 	} else if err != nil {
@@ -171,15 +144,19 @@ func (api *APIBase) getCharmName(ctx context.Context, charmID corecharm.ID) (str
 	return name, nil
 }
 
-func (api *APIBase) getCharm(ctx context.Context, charmID corecharm.ID) (Charm, error) {
-	charm, locator, _, err := api.applicationService.GetCharm(ctx, charmID)
+func (api *APIBase) getCharm(ctx context.Context, locator applicationcharm.CharmLocator) (Charm, error) {
+	charm, resLocator, _, err := api.applicationService.GetCharm(ctx, locator)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
-		return nil, errors.NotFoundf("charm")
+		return nil, errors.NotFoundf("charm %q", locator.Name)
+	} else if errors.Is(err, applicationerrors.CharmNameNotValid) {
+		return nil, errors.NotValidf("charm %q", locator.Name)
+	} else if errors.Is(err, applicationerrors.CharmSourceNotValid) {
+		return nil, errors.NotValidf("charm %q", locator.Name)
 	} else if err != nil {
 		return nil, errors.Annotate(err, "getting charm for application")
 	}
 
-	available, err := api.applicationService.IsCharmAvailable(ctx, charmID)
+	available, err := api.applicationService.IsCharmAvailable(ctx, resLocator)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return nil, errors.NotFoundf("charm")
 	} else if err != nil {
@@ -188,13 +165,13 @@ func (api *APIBase) getCharm(ctx context.Context, charmID corecharm.ID) (Charm, 
 
 	return &domainCharm{
 		charm:     charm,
-		locator:   locator,
+		locator:   resLocator,
 		available: available,
 	}, nil
 }
 
-func (api *APIBase) getCharmMetadata(ctx context.Context, charmID corecharm.ID) (*charm.Meta, error) {
-	metadata, err := api.applicationService.GetCharmMetadata(ctx, charmID)
+func (api *APIBase) getCharmMetadata(ctx context.Context, locator applicationcharm.CharmLocator) (*charm.Meta, error) {
+	metadata, err := api.applicationService.GetCharmMetadata(ctx, locator)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return nil, errors.NotFoundf("charm")
 	} else if err != nil {
@@ -204,8 +181,8 @@ func (api *APIBase) getCharmMetadata(ctx context.Context, charmID corecharm.ID) 
 	return &metadata, nil
 }
 
-func (api *APIBase) getCharmConfig(ctx context.Context, charmID corecharm.ID) (*charm.Config, error) {
-	config, err := api.applicationService.GetCharmConfig(ctx, charmID)
+func (api *APIBase) getCharmConfig(ctx context.Context, locator applicationcharm.CharmLocator) (*charm.Config, error) {
+	config, err := api.applicationService.GetCharmConfig(ctx, locator)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return nil, errors.NotFoundf("charm")
 	} else if err != nil {
@@ -228,12 +205,12 @@ func (api *APIBase) getMergedAppAndCharmConfig(ctx context.Context, appName stri
 		return nil, err
 	}
 
-	charmID, err := api.getCharmIDByApplicationName(ctx, appName)
+	locator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	charmConfig, err := api.getCharmConfig(ctx, charmID)
+	charmConfig, err := api.getCharmConfig(ctx, locator)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

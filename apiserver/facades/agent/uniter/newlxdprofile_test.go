@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher/registry"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -115,17 +116,20 @@ func (s *newLxdProfileSuite) TestLXDProfileName(c *gc.C) {
 func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   applicationcharm.CharmHubSource,
 		Name:     "mysql",
-		Revision: ptr(1),
-	}).Return("0", nil)
+		Revision: 1,
+	}).
+		Return(charm.LXDProfile{
+			Config: map[string]string{"one": "two"},
+		}, 1, nil)
 
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   applicationcharm.CharmHubSource,
 		Name:     "testme",
-		Revision: ptr(3),
-	}).Return("", errors.NotFoundf("ch:testme-3"))
+		Revision: 3,
+	}).Return(charm.LXDProfile{}, 0, errors.NotFoundf("ch:testme-3"))
 
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{
@@ -139,10 +143,7 @@ func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
-			// TODO(nvinuesa): LXD Profiles are not yet implemented. In this case,
-			// we'll find the LXD profile for the given charm and return true if
-			// it's not empty.
-			{Result: false, Error: nil},
+			{Result: true, Error: nil},
 			{Result: false, Error: &params.Error{Message: "ch:testme-3 not found", Code: "not found"}},
 		},
 	})
@@ -301,8 +302,4 @@ func (s *newLxdProfileSuite) expectManual(manual bool) {
 
 func (s *newLxdProfileSuite) expectContainerType(cType instance.ContainerType) {
 	s.machine.EXPECT().ContainerType().Return(cType)
-}
-
-func ptr[T any](i T) *T {
-	return &i
 }

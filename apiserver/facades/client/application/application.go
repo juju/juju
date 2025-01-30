@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	corebase "github.com/juju/juju/core/base"
@@ -301,7 +302,7 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 	}
 
 	for i, arg := range args.Applications {
-		if err := common.ValidateCharmOrigin(arg.CharmOrigin); err != nil {
+		if err := apiservercharms.ValidateCharmOrigin(arg.CharmOrigin); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -480,12 +481,11 @@ func (api *APIBase) deployApplication(
 		return errors.Trace(err)
 	}
 
-	// Try to find the charm URL in state first.
-	charmID, err := api.getCharmID(ctx, args.CharmURL)
+	locator, err := apiservercharms.CharmLocatorFromURL(args.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ch, err := api.getCharm(ctx, charmID)
+	ch, err := api.getCharm(ctx, locator)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -811,12 +811,12 @@ func (api *APIBase) setConfig(
 	settingsYAML string,
 	settingsStrings map[string]string,
 ) error {
-	charmID, err := api.getCharmIDByApplicationName(ctx, app.Name())
+	locator, err := api.getCharmLocatorByApplicationName(ctx, app.Name())
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	charmConfig, err := api.getCharmConfig(ctx, charmID)
+	charmConfig, err := api.getCharmConfig(ctx, locator)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -864,7 +864,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		}
 	}
 
-	if err := common.ValidateCharmOrigin(args.CharmOrigin); err != nil {
+	if err := apiservercharms.ValidateCharmOrigin(args.CharmOrigin); err != nil {
 		return err
 	}
 
@@ -926,22 +926,21 @@ func (api *APIBase) setCharmWithAgentValidation(
 		return errors.Trace(err)
 	}
 
-	newCharmID, err := api.getCharmID(ctx, url)
+	newLocator, err := apiservercharms.CharmLocatorFromURL(url)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	newCharm, err := api.getCharm(ctx, newCharmID)
+	newCharm, err := api.getCharm(ctx, newLocator)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if api.modelInfo.Type == model.CAAS {
-		currentCharmID, err := api.getCharmIDByApplicationName(ctx, params.AppName)
+		locator, err := api.getCharmLocatorByApplicationName(ctx, params.AppName)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		currentMetadata, err := api.getCharmMetadata(ctx, currentCharmID)
+		currentMetadata, err := api.getCharmMetadata(ctx, locator)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1027,12 +1026,12 @@ func (api *APIBase) applicationSetCharm(
 	}
 
 	// Disallow downgrading from a v2 charm to a v1 charm.
-	oldCharmID, err := api.getCharmIDByApplicationName(ctx, params.AppName)
+	oldCharmLocator, err := api.getCharmLocatorByApplicationName(ctx, params.AppName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	oldCharm, err := api.getCharm(ctx, oldCharmID)
+	oldCharm, err := api.getCharm(ctx, oldCharmLocator)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1292,17 +1291,17 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 
 	// TODO(wallyworld) - enable-ha is how we add new controllers at the moment
 	// Remove this check before 3.0 when enable-ha is refactored.
-	charmID, err := api.getCharmIDByApplicationName(ctx, args.ApplicationName)
+	locator, err := api.getCharmLocatorByApplicationName(ctx, args.ApplicationName)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	charmName, err := api.getCharmName(ctx, charmID)
+	charmName, err := api.getCharmName(ctx, locator)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	} else if charmName == bootstrap.ControllerCharmName {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to the controller application")
 	}
-	charm, err := api.getCharm(ctx, charmID)
+	charm, err := api.getCharm(ctx, locator)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1407,11 +1406,11 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 		// moment Remove this check before 3.0 when enable-ha is refactored.
 		appName, _ := names.UnitApplication(unitTag.Id())
 
-		charmID, err := api.getCharmIDByApplicationName(ctx, appName)
+		locator, err := api.getCharmLocatorByApplicationName(ctx, appName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		charmName, err := api.getCharmName(ctx, charmID)
+		charmName, err := api.getCharmName(ctx, locator)
 		if err != nil {
 			return nil, errors.Trace(err)
 		} else if charmName == bootstrap.ControllerCharmName {
@@ -1496,12 +1495,12 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return nil, err
 		}
 
-		charmID, err := api.getCharmIDByApplicationName(ctx, tag.Id())
+		locator, err := api.getCharmLocatorByApplicationName(ctx, tag.Id())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		name, err := api.getCharmName(ctx, charmID)
+		name, err := api.getCharmName(ctx, locator)
 		if err != nil {
 			return nil, errors.Trace(err)
 		} else if name == bootstrap.ControllerCharmName {

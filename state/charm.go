@@ -21,18 +21,13 @@ import (
 
 // CharmService represents a service for retrieving charms.
 type CharmService interface {
-	// GetCharm returns the charm using the charm ID.
-	// Calling this method will return all the data associated with the charm.
-	// It is not expected to call this method for all calls, instead use the move
-	// focused and specific methods. That's because this method is very expensive
-	// to call. This is implemented for the cases where all the charm data is
-	// needed; model migration, charm export, etc.
-	GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, applicationcharm.CharmLocator, bool, error)
-	// GetCharmID returns a charm ID by name, source and revision. It returns an
-	// error if the charm can not be found.
-	// This can also be used as a cheap way to see if a charm exists without
-	// needing to load the charm metadata.
-	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
+	// GetCharm returns the charm by name, source and revision. Calling this method
+	// will return all the data associated with the charm. It is not expected to
+	// call this method for all calls, instead use the move focused and specific
+	// methods. That's because this method is very expensive to call. This is
+	// implemented for the cases where all the charm data is needed; model
+	// migration, charm export, etc.
+	GetCharm(ctx context.Context, locator applicationcharm.CharmLocator) (charm.Charm, applicationcharm.CharmLocator, bool, error)
 }
 
 // Channel identifies and describes completely a store channel.
@@ -217,20 +212,16 @@ func (st *State) findCharm(curl *charm.URL) (CharmRefFull, error) {
 		charmSource = applicationcharm.LocalSource
 	}
 	charmService := st.charmServiceGetter(coremodel.UUID(st.ModelUUID()))
-	charmID, err := charmService.GetCharmID(context.TODO(), applicationcharm.GetCharmArgs{
+	ch, _, _, err := charmService.GetCharm(context.TODO(), applicationcharm.CharmLocator{
 		Name:     curl.Name,
-		Revision: &curl.Revision,
+		Revision: curl.Revision,
 		Source:   charmSource,
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get charm ID for URL %q", curl)
-	}
-	ch, _, _, err := charmService.GetCharm(context.TODO(), charmID)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot retrieve charm with ID %q", charmID.String())
+		return nil, errors.Annotatef(err, "cannot retrieve charm %q", curl.Name)
 	}
 	return fromInternalCharm(ch, curl.String()), nil
 }

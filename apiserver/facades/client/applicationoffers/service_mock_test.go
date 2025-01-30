@@ -14,11 +14,11 @@ import (
 	reflect "reflect"
 
 	applicationoffers "github.com/juju/juju/apiserver/facades/client/applicationoffers"
-	charm "github.com/juju/juju/core/charm"
 	model "github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
 	access "github.com/juju/juju/domain/access"
+	charm "github.com/juju/juju/domain/application/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -300,47 +300,47 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
-// GetCharmIDByApplicationName mocks base method.
-func (m *MockApplicationService) GetCharmIDByApplicationName(arg0 context.Context, arg1 string) (charm.ID, error) {
+// GetCharmLocatorByApplicationName mocks base method.
+func (m *MockApplicationService) GetCharmLocatorByApplicationName(arg0 context.Context, arg1 string) (charm.CharmLocator, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmIDByApplicationName", arg0, arg1)
-	ret0, _ := ret[0].(charm.ID)
+	ret := m.ctrl.Call(m, "GetCharmLocatorByApplicationName", arg0, arg1)
+	ret0, _ := ret[0].(charm.CharmLocator)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetCharmIDByApplicationName indicates an expected call of GetCharmIDByApplicationName.
-func (mr *MockApplicationServiceMockRecorder) GetCharmIDByApplicationName(arg0, arg1 any) *MockApplicationServiceGetCharmIDByApplicationNameCall {
+// GetCharmLocatorByApplicationName indicates an expected call of GetCharmLocatorByApplicationName.
+func (mr *MockApplicationServiceMockRecorder) GetCharmLocatorByApplicationName(arg0, arg1 any) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmIDByApplicationName", reflect.TypeOf((*MockApplicationService)(nil).GetCharmIDByApplicationName), arg0, arg1)
-	return &MockApplicationServiceGetCharmIDByApplicationNameCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmLocatorByApplicationName", reflect.TypeOf((*MockApplicationService)(nil).GetCharmLocatorByApplicationName), arg0, arg1)
+	return &MockApplicationServiceGetCharmLocatorByApplicationNameCall{Call: call}
 }
 
-// MockApplicationServiceGetCharmIDByApplicationNameCall wrap *gomock.Call
-type MockApplicationServiceGetCharmIDByApplicationNameCall struct {
+// MockApplicationServiceGetCharmLocatorByApplicationNameCall wrap *gomock.Call
+type MockApplicationServiceGetCharmLocatorByApplicationNameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetCharmIDByApplicationNameCall) Return(arg0 charm.ID, arg1 error) *MockApplicationServiceGetCharmIDByApplicationNameCall {
+func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) Return(arg0 charm.CharmLocator, arg1 error) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetCharmIDByApplicationNameCall) Do(f func(context.Context, string) (charm.ID, error)) *MockApplicationServiceGetCharmIDByApplicationNameCall {
+func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) Do(f func(context.Context, string) (charm.CharmLocator, error)) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetCharmIDByApplicationNameCall) DoAndReturn(f func(context.Context, string) (charm.ID, error)) *MockApplicationServiceGetCharmIDByApplicationNameCall {
+func (c *MockApplicationServiceGetCharmLocatorByApplicationNameCall) DoAndReturn(f func(context.Context, string) (charm.CharmLocator, error)) *MockApplicationServiceGetCharmLocatorByApplicationNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetCharmMetadataDescription mocks base method.
-func (m *MockApplicationService) GetCharmMetadataDescription(arg0 context.Context, arg1 charm.ID) (string, error) {
+func (m *MockApplicationService) GetCharmMetadataDescription(arg0 context.Context, arg1 charm.CharmLocator) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCharmMetadataDescription", arg0, arg1)
 	ret0, _ := ret[0].(string)
@@ -367,13 +367,13 @@ func (c *MockApplicationServiceGetCharmMetadataDescriptionCall) Return(arg0 stri
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetCharmMetadataDescriptionCall) Do(f func(context.Context, charm.ID) (string, error)) *MockApplicationServiceGetCharmMetadataDescriptionCall {
+func (c *MockApplicationServiceGetCharmMetadataDescriptionCall) Do(f func(context.Context, charm.CharmLocator) (string, error)) *MockApplicationServiceGetCharmMetadataDescriptionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetCharmMetadataDescriptionCall) DoAndReturn(f func(context.Context, charm.ID) (string, error)) *MockApplicationServiceGetCharmMetadataDescriptionCall {
+func (c *MockApplicationServiceGetCharmMetadataDescriptionCall) DoAndReturn(f func(context.Context, charm.CharmLocator) (string, error)) *MockApplicationServiceGetCharmMetadataDescriptionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

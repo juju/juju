@@ -20,12 +20,12 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -108,9 +108,11 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 		s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
 		s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
-		id := charmtesting.GenCharmID(c)
-		s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(id, nil)
-		s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), id).Return("A pretty popular blog engine", nil)
+		locator := applicationcharm.CharmLocator{
+			Name: "wordpresssss",
+		}
+		s.mockApplicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), applicationName).Return(locator, nil)
+		s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), locator).Return("A pretty popular blog engine", nil)
 		// Expect the creator getting admin access on the offer.
 		s.mockAccessService.EXPECT().CreatePermission(gomock.Any(), permission.UserAccessSpec{
 			AccessSpec: offerAccessSpec("", permission.AdminAccess),
@@ -180,9 +182,11 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
 	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
-	chID := charmtesting.GenCharmID(c)
-	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, nil)
-	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), gomock.Any()).Return("A pretty popular blog engine", nil)
+	locator := applicationcharm.CharmLocator{
+		Name: "wordpresssss",
+	}
+	s.mockApplicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), applicationName).Return(locator, nil)
+	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), locator).Return("A pretty popular blog engine", nil)
 
 	errs, err := s.api.Offer(context.Background(), all)
 
@@ -258,9 +262,11 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
-	chID := charmtesting.GenCharmID(c)
-	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, nil)
-	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), gomock.Any()).Return("A pretty popular blog engine", nil)
+	locator := applicationcharm.CharmLocator{
+		Name: "wordpresssss",
+	}
+	s.mockApplicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), applicationName).Return(locator, nil)
+	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), locator).Return("A pretty popular blog engine", nil)
 
 	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -295,8 +301,10 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationError(c *gc.C) {
 	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
-	chID := charmtesting.GenCharmID(c)
-	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, applicationerrors.ApplicationNotFound)
+	locator := applicationcharm.CharmLocator{
+		Name: "wordpresssss",
+	}
+	s.mockApplicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), applicationName).Return(locator, applicationerrors.ApplicationNotFound)
 
 	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -331,9 +339,11 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationCharmError(c *gc.C) {
 	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
-	chID := charmtesting.GenCharmID(c)
-	s.mockApplicationService.EXPECT().GetCharmIDByApplicationName(gomock.Any(), applicationName).Return(chID, nil)
-	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), gomock.Any()).Return("", applicationerrors.CharmNotFound)
+	locator := applicationcharm.CharmLocator{
+		Name: "wordpresssss",
+	}
+	s.mockApplicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), applicationName).Return(locator, nil)
+	s.mockApplicationService.EXPECT().GetCharmMetadataDescription(gomock.Any(), locator).Return("", applicationerrors.CharmNotFound)
 
 	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)

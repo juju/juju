@@ -1275,16 +1275,28 @@ func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 	})
 }
 
-func (s *applicationServiceSuite) TestGetCharmIDByApplicationName(c *gc.C) {
+func (s *applicationServiceSuite) TestGetCharmLocatorByApplicationName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
+	s.state.EXPECT().GetCharmLocatorByCharmID(gomock.Any(), id).Return(applicationcharm.CharmLocator{
+		Name:         "bar",
+		Revision:     42,
+		Source:       applicationcharm.LocalSource,
+		Architecture: architecture.AMD64,
+	}, nil)
 
-	charmID, err := s.service.GetCharmIDByApplicationName(context.Background(), "foo")
+	expectedLocator := applicationcharm.CharmLocator{
+		Name:         "bar",
+		Revision:     42,
+		Source:       applicationcharm.LocalSource,
+		Architecture: architecture.AMD64,
+	}
+	locator, err := s.service.GetCharmLocatorByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(charmID, gc.DeepEquals, id)
+	c.Check(locator, gc.DeepEquals, expectedLocator)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationIDByUnitName(c *gc.C) {

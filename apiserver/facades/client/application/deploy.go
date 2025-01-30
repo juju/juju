@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/apiserver/internal/charms"
 	coreassumes "github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
@@ -170,16 +171,11 @@ func DeployApplication(
 
 		var downloadInfo *applicationcharm.DownloadInfo
 		if args.CharmOrigin.Source == corecharm.CharmHub {
-			charmID, err := applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
-				Source:   applicationcharm.CharmHubSource,
-				Name:     args.ApplicationName,
-				Revision: args.CharmOrigin.Revision,
-			})
+			locator, err := charms.CharmLocatorFromURL(args.Charm.URL())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-
-			downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, charmID)
+			downloadInfo, err = applicationService.GetCharmDownloadInfo(ctx, locator)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

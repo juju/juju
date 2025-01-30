@@ -390,9 +390,14 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) state.CharmRefFu
 				Provenance: applicationcharm.ProvenanceUpload,
 			},
 		}
-		charmID, _, err := factory.applicationService.SetCharm(context.Background(), args)
+		_, _, err := factory.applicationService.SetCharm(context.Background(), args)
 		c.Assert(err, jc.ErrorIsNil)
-		ch, _, _, err := factory.applicationService.GetCharm(context.TODO(), charmID)
+		locator := applicationcharm.CharmLocator{
+			Name:     args.ReferenceName,
+			Revision: args.Revision,
+			Source:   applicationcharm.CharmHubSource,
+		}
+		ch, _, _, err := factory.applicationService.GetCharm(context.TODO(), locator)
 		c.Assert(err, jc.ErrorIsNil)
 		return fromInternalCharm(ch, params.URL)
 	}

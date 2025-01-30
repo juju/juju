@@ -13,14 +13,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	"github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -339,26 +338,15 @@ func (u *LXDProfileAPIv2) LXDProfileRequired(ctx context.Context, args params.Ch
 }
 
 func (u *LXDProfileAPIv2) getOneLXDProfileRequired(ctx context.Context, curl string) (bool, error) {
-	parsedURL, err := charm.ParseURL(curl)
+	locator, err := charms.CharmLocatorFromURL(curl)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	lxdProfile, _, err := u.applicationService.GetCharmLXDProfile(ctx, locator)
 	if err != nil {
 		return false, err
 	}
-	parsedSource, err := applicationcharm.ParseCharmSchema(charm.Schema(parsedURL.Schema))
-	if err != nil {
-		return false, err
-	}
-	_, err = u.applicationService.GetCharmID(ctx, applicationcharm.GetCharmArgs{
-		Source:   parsedSource,
-		Name:     parsedURL.Name,
-		Revision: &parsedURL.Revision,
-	})
-	if err != nil {
-		return false, err
-	}
-	// TODO(nvinuesa): LXD Profiles are not yet implemented. In this case,
-	// we'll find the LXD profile for the given charm and return true if
-	// it's not empty.
-	return false, nil
+	return !lxdProfile.Empty(), nil
 }
 
 func (u *LXDProfileAPIv2) getLXDProfileMachineV2(tag names.Tag) (LXDProfileMachineV2, error) {

@@ -183,14 +183,14 @@ func (api *OffersAPIv5) makeAddOfferArgsFromParams(ctx context.Context, user nam
 		return result, nil
 	}
 
-	charmID, err := applicationService.GetCharmIDByApplicationName(context.Background(), result.ApplicationName)
+	locator, err := applicationService.GetCharmLocatorByApplicationName(context.Background(), result.ApplicationName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return result, errors.NotFoundf("getting offered application %q", result.ApplicationName)
 	} else if err != nil {
 		return result, errors.Annotatef(err, "getting charm ID for application %v", result.ApplicationName)
 	}
 
-	description, err := applicationService.GetCharmMetadataDescription(ctx, charmID)
+	description, err := applicationService.GetCharmMetadataDescription(ctx, locator)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return result, errors.NotFoundf("getting offered application %q", result.ApplicationName)
 	} else if errors.Is(err, applicationerrors.CharmNotFound) {

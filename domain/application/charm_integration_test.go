@@ -51,7 +51,7 @@ func (s *charmSuite) TestSetCharmWithArchitecture(c *gc.C) {
 		}},
 	}
 
-	id, _, err := service.SetCharm(context.Background(), charm.SetCharmArgs{
+	_, _, err := service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         internalcharm.NewCharmBase(&metadata, &manifest, nil, nil, nil),
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -63,7 +63,11 @@ func (s *charmSuite) TestSetCharmWithArchitecture(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, locator, _, err := service.GetCharm(context.Background(), id)
+	_, locator, _, err := service.GetCharm(context.Background(), charm.CharmLocator{
+		Name:     "foo",
+		Revision: 1,
+		Source:   charm.LocalSource,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(locator.Architecture, gc.Equals, architecture.ARM64)
@@ -88,7 +92,7 @@ func (s *charmSuite) TestSetCharmWithoutArchitecture(c *gc.C) {
 		}},
 	}
 
-	id, _, err := service.SetCharm(context.Background(), charm.SetCharmArgs{
+	_, _, err := service.SetCharm(context.Background(), charm.SetCharmArgs{
 		Charm:         internalcharm.NewCharmBase(&metadata, &manifest, nil, nil, nil),
 		Source:        corecharm.Local,
 		ReferenceName: "foo",
@@ -99,7 +103,11 @@ func (s *charmSuite) TestSetCharmWithoutArchitecture(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, locator, _, err := service.GetCharm(context.Background(), id)
+	_, locator, _, err := service.GetCharm(context.Background(), charm.CharmLocator{
+		Name:     "foo",
+		Revision: 1,
+		Source:   charm.LocalSource,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(locator.Architecture, gc.Equals, architecture.Unknown)

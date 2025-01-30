@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package caasfirewaller_test -destination common_service_mocks_test.go github.com/juju/juju/apiserver/common/charms CharmService
+//go:generate go run go.uber.org/mock/mockgen -typed -package caasfirewaller_test -destination common_service_mocks_test.go github.com/juju/juju/apiserver/internal/charms CharmService
 //go:generate go run go.uber.org/mock/mockgen -typed -package caasfirewaller_test -destination service_mocks_test.go github.com/juju/juju/apiserver/facades/controller/caasfirewaller ApplicationService
 
 func TestAll(t *testing.T) {

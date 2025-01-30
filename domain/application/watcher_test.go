@@ -62,7 +62,7 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	watcher, err := svc.WatchCharms()
 	c.Assert(err, jc.ErrorIsNil)
 
-	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Ensure that we get the charm created event.
 
@@ -82,18 +82,22 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](id.String()),
+			watchertest.StringSliceAssert(id.String()),
 		)
 	})
 
 	// Ensure that we get the charm deleted event.
 
 	harness.AddTest(func(c *gc.C) {
-		err := svc.DeleteCharm(context.Background(), id)
+		err := svc.DeleteCharm(context.Background(), charm.CharmLocator{
+			Name:     "test",
+			Revision: 1,
+			Source:   charm.CharmHubSource,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
-			watchertest.StringSliceAssert[string](id.String()),
+			watchertest.StringSliceAssert(id.String()),
 		)
 	})
 

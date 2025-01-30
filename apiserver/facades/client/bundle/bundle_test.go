@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -1181,36 +1180,36 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 
 	s.assertGetSpaces(c)
 
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
-		Name:   "wordpress",
-		Source: applicationcharm.CharmHubSource,
-	}).Return("abcd0001", nil)
 	wordpressCharm := NewMockCharm(ctrl)
-	s.applicationService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("abcd0001")).Return(wordpressCharm, applicationcharm.CharmLocator{}, true, nil)
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), applicationcharm.CharmLocator{
+		Name:     "wordpress",
+		Source:   applicationcharm.CharmHubSource,
+		Revision: -1,
+	}).Return(wordpressCharm, applicationcharm.CharmLocator{}, true, nil)
 	wordpressCharm.EXPECT().Config().Return(&charm.Config{
 		Options: map[string]charm.Option{
 			"foo": {Default: "bar"},
 		},
 	})
 
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
-		Name:   "mysql",
-		Source: applicationcharm.CharmHubSource,
-	}).Return("abcd0002", nil)
 	mysqlCharm := NewMockCharm(ctrl)
-	s.applicationService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("abcd0002")).Return(mysqlCharm, applicationcharm.CharmLocator{}, true, nil)
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), applicationcharm.CharmLocator{
+		Name:     "mysql",
+		Source:   applicationcharm.CharmHubSource,
+		Revision: -1,
+	}).Return(mysqlCharm, applicationcharm.CharmLocator{}, true, nil)
 	mysqlCharm.EXPECT().Config().Return(&charm.Config{
 		Options: map[string]charm.Option{
 			"foo": {Default: "bar"},
 		},
 	})
 
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
-		Name:   "mariadb",
-		Source: applicationcharm.CharmHubSource,
-	}).Return("abcd0003", nil)
 	mariadbCharm := NewMockCharm(ctrl)
-	s.applicationService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("abcd0003")).Return(mariadbCharm, applicationcharm.CharmLocator{}, true, nil)
+	s.applicationService.EXPECT().GetCharm(gomock.Any(), applicationcharm.CharmLocator{
+		Name:     "mariadb",
+		Source:   applicationcharm.CharmHubSource,
+		Revision: -1,
+	}).Return(mariadbCharm, applicationcharm.CharmLocator{}, true, nil)
 	mariadbCharm.EXPECT().Config().Return(&charm.Config{})
 
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{IncludeCharmDefaults: true})

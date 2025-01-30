@@ -1476,10 +1476,10 @@ func (c *MockStateGetCharmModifiedVersionCall) DoAndReturn(f func(context.Contex
 }
 
 // GetLatestPendingCharmhubCharm mocks base method.
-func (m *MockState) GetLatestPendingCharmhubCharm(arg0 context.Context, arg1 string, arg2 architecture.Architecture) (charm.ID, error) {
+func (m *MockState) GetLatestPendingCharmhubCharm(arg0 context.Context, arg1 string, arg2 architecture.Architecture) (charm0.CharmLocator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLatestPendingCharmhubCharm", arg0, arg1, arg2)
-	ret0, _ := ret[0].(charm.ID)
+	ret0, _ := ret[0].(charm0.CharmLocator)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1497,19 +1497,19 @@ type MockStateGetLatestPendingCharmhubCharmCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetLatestPendingCharmhubCharmCall) Return(arg0 charm.ID, arg1 error) *MockStateGetLatestPendingCharmhubCharmCall {
+func (c *MockStateGetLatestPendingCharmhubCharmCall) Return(arg0 charm0.CharmLocator, arg1 error) *MockStateGetLatestPendingCharmhubCharmCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetLatestPendingCharmhubCharmCall) Do(f func(context.Context, string, architecture.Architecture) (charm.ID, error)) *MockStateGetLatestPendingCharmhubCharmCall {
+func (c *MockStateGetLatestPendingCharmhubCharmCall) Do(f func(context.Context, string, architecture.Architecture) (charm0.CharmLocator, error)) *MockStateGetLatestPendingCharmhubCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetLatestPendingCharmhubCharmCall) DoAndReturn(f func(context.Context, string, architecture.Architecture) (charm.ID, error)) *MockStateGetLatestPendingCharmhubCharmCall {
+func (c *MockStateGetLatestPendingCharmhubCharmCall) DoAndReturn(f func(context.Context, string, architecture.Architecture) (charm0.CharmLocator, error)) *MockStateGetLatestPendingCharmhubCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

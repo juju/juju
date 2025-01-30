@@ -151,41 +151,40 @@ type ApplicationService interface {
 	// available for charms to use.
 	GetSupportedFeatures(context.Context) (assumes.FeatureSet, error)
 
-	// GetCharmID returns a charm ID by name. It returns an error if the charm
-	// can not be found by the name. This can also be used as a cheap way to see if
-	// a charm exists without needing to load the charm metadata.
-	GetCharmID(ctx context.Context, args applicationcharm.GetCharmArgs) (corecharm.ID, error)
-
-	// GetCharmIDByApplicationName returns a charm ID by application name. It
-	// returns an error if the charm can not be found by the name. This can also be
-	// used as a cheap way to see if a charm exists without needing to load the
+	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
+	// It returns an error if the charm can not be found by the name. This can also
+	// be used as a cheap way to see if a charm exists without needing to load the
 	// charm metadata.
-	GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error)
+	GetCharmLocatorByApplicationName(ctx context.Context, name string) (applicationcharm.CharmLocator, error)
 
-	// GetCharm returns the charm using the charm ID. Calling this method will
-	// return all the data associated with the charm. It is not expected to call
-	// this method for all calls, instead use the move focused and specific
+	// GetCharm returns the charm by name, source and revision. Calling this method
+	// will return all the data associated with the charm. It is not expected to
+	// call this method for all calls, instead use the move focused and specific
 	// methods. That's because this method is very expensive to call. This is
 	// implemented for the cases where all the charm data is needed; model
 	// migration, charm export, etc.
-	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, applicationcharm.CharmLocator, bool, error)
+	GetCharm(ctx context.Context, locator applicationcharm.CharmLocator) (internalcharm.Charm, applicationcharm.CharmLocator, bool, error)
 
-	// GetCharmMetadata returns the metadata for the charm using the charm ID.
-	GetCharmMetadata(ctx context.Context, id corecharm.ID) (internalcharm.Meta, error)
+	// GetCharmMetadata returns the metadata for the charm using the charm name,
+	// source and revision.
+	GetCharmMetadata(ctx context.Context, locator applicationcharm.CharmLocator) (internalcharm.Meta, error)
 
-	// GetCharmConfig returns the config for the charm using the charm ID.
-	GetCharmConfig(ctx context.Context, id corecharm.ID) (internalcharm.Config, error)
+	// GetCharmConfig returns the config for the charm using the charm name,
+	// source and revision.
+	GetCharmConfig(ctx context.Context, locator applicationcharm.CharmLocator) (internalcharm.Config, error)
 
 	// GetCharmMetadataName returns the name for the charm using the
-	// charm ID.
-	GetCharmMetadataName(ctx context.Context, id corecharm.ID) (string, error)
+	// charm name, source and revision.
+	GetCharmMetadataName(ctx context.Context, locator applicationcharm.CharmLocator) (string, error)
 
 	// GetCharmDownloadInfo returns the download info for the charm using the
-	// charm ID.
-	GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*applicationcharm.DownloadInfo, error)
+	// charm name, source and revision.
+	GetCharmDownloadInfo(ctx context.Context, locator applicationcharm.CharmLocator) (*applicationcharm.DownloadInfo, error)
 
-	// IsCharmAvailable returns whether the charm is available in the model.
-	IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error)
+	// IsCharmAvailable returns whether the charm is available for use. This
+	// indicates if the charm has been uploaded to the controller.
+	// This will return true if the charm is available, and false otherwise.
+	IsCharmAvailable(ctx context.Context, locator applicationcharm.CharmLocator) (bool, error)
 }
 
 // ModelConfigService provides access to the model configuration.

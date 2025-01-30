@@ -176,11 +176,12 @@ type CharmState interface {
 	// from the charmhub store. If there are no charms, returns is not found, as
 	// [applicationerrors.CharmNotFound]. If there are multiple charms, then the
 	// latest created at date is returned first.
-	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch architecture.Architecture) (corecharm.ID, error)
+	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch architecture.Architecture) (charm.CharmLocator, error)
 
-	// GetCharmLocatorByCharmID returns the charm locator for the charm using
-	// the charm ID. If the charm is not found, a
-	// [applicationerrors.CharmNotFound] error is returned.
+	// GetCharmLocatorByCharmID returns a charm locator for the given charm ID.
+	// The locator allows the reconstruction of the charm URL for the client
+	// response.
+	// If the charm does not exist, a [errors.CharmNotFound] error is returned.
 	GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (charm.CharmLocator, error)
 }
 
@@ -208,13 +209,9 @@ type CharmStore interface {
 	GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, error)
 }
 
-// GetCharmID returns a charm ID by name, source and revision. It returns an
-// error if the charm can not be found.
-// This can also be used as a cheap way to see if a charm exists without
-// needing to load the charm metadata.
-// Returns [applicationerrors.CharmNameNotValid] if the name is not valid, and
-// [applicationerrors.CharmNotFound] if the charm is not found.
-func (s *Service) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
+// Deprecated: This method is only here until we come back and use the charm
+// locator in the db queries everywhere. For now it's just scaffolding.
+func (s *Service) getCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
 	if !isValidCharmName(args.Name) {
 		return "", applicationerrors.CharmNameNotValid
 	}
@@ -232,11 +229,15 @@ func (s *Service) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (core
 }
 
 // IsControllerCharm returns whether the charm is a controller charm. This will
-// return true if the charm is a controller charm, and false otherwise. If the
-// charm does not exist, a [applicationerrors.CharmNotFound] error is returned.
-func (s *Service) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error) {
-	if err := id.Validate(); err != nil {
-		return false, fmt.Errorf("charm id: %w", err)
+// return true if the charm is a controller charm, and false otherwise.
+//
+// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
+// returned.
+func (s *Service) IsControllerCharm(ctx context.Context, locator charm.CharmLocator) (bool, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return false, errors.Trace(err)
 	}
 	b, err := s.st.IsControllerCharm(ctx, id)
 	if err != nil {
@@ -251,9 +252,11 @@ func (s *Service) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool,
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) SupportsContainers(ctx context.Context, id corecharm.ID) (bool, error) {
-	if err := id.Validate(); err != nil {
-		return false, fmt.Errorf("charm id: %w", err)
+func (s *Service) SupportsContainers(ctx context.Context, locator charm.CharmLocator) (bool, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return false, errors.Trace(err)
 	}
 	b, err := s.st.SupportsContainers(ctx, id)
 	if err != nil {
@@ -268,9 +271,11 @@ func (s *Service) SupportsContainers(ctx context.Context, id corecharm.ID) (bool
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool, error) {
-	if err := id.Validate(); err != nil {
-		return false, fmt.Errorf("charm id: %w", err)
+func (s *Service) IsSubordinateCharm(ctx context.Context, locator charm.CharmLocator) (bool, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return false, errors.Trace(err)
 	}
 	b, err := s.st.IsSubordinateCharm(ctx, id)
 	if err != nil {
@@ -279,21 +284,35 @@ func (s *Service) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool
 	return b, nil
 }
 
-// GetCharm returns the charm using the charm ID. Calling this method will
-// return all the data associated with the charm. It is not expected to call
-// this method for all calls, instead use the move focused and specific methods.
-// That's because this method is very expensive to call. This is implemented for
-// the cases where all the charm data is needed; model migration, charm export,
-// etc.
+// GetCharm returns the charm by name, source and revision. Calling this method
+// will return all the data associated with the charm. It is not expected to
+// call this method for all calls, instead use the move focused and specific
+// methods. That's because this method is very expensive to call. This is
+// implemented for the cases where all the charm data is needed; model
+// migration, charm export, etc.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, bool, error) {
-	if err := id.Validate(); err != nil {
-		return nil, charm.CharmLocator{}, false, fmt.Errorf("charm id: %w", err)
+func (s *Service) GetCharm(ctx context.Context, locator charm.CharmLocator) (internalcharm.Charm, charm.CharmLocator, bool, error) {
+	// We stil retrieve the ID from state, in the future we should move
+	// this to the state GetCharm method so it runs under the same
+	// transaction.
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return nil, charm.CharmLocator{}, false, errors.Trace(err)
 	}
 
-	ch, _, err := s.st.GetCharm(ctx, id)
+	return s.getCharmAndLocator(ctx, id)
+}
+
+func (s *Service) getCharmLocatorByID(ctx context.Context, charmID corecharm.ID) (charm.CharmLocator, error) {
+	locator, err := s.st.GetCharmLocatorByCharmID(ctx, charmID)
+	return locator, errors.Trace(err)
+}
+
+func (s *Service) getCharmAndLocator(ctx context.Context, charmID corecharm.ID) (internalcharm.Charm, charm.CharmLocator, bool, error) {
+	ch, _, err := s.st.GetCharm(ctx, charmID)
 	if err != nil {
 		return nil, charm.CharmLocator{}, false, errors.Trace(err)
 	}
@@ -325,7 +344,7 @@ func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.
 		return nil, charm.CharmLocator{}, false, errors.Trace(err)
 	}
 
-	locator := charm.CharmLocator{
+	returnedLocator := charm.CharmLocator{
 		Name:         ch.ReferenceName,
 		Revision:     ch.Revision,
 		Source:       ch.Source,
@@ -341,18 +360,20 @@ func (s *Service) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.
 	)
 	charmBase.SetVersion(ch.Version)
 
-	return charmBase, locator, ch.Available, nil
+	return charmBase, returnedLocator, ch.Available, nil
 }
 
-// GetCharmMetadata returns the metadata for the charm using the charm ID.
+// GetCharmMetadata returns the metadata for the charm using the charm name,
+// source and revision.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmMetadata(ctx context.Context, id corecharm.ID) (internalcharm.Meta, error) {
-	if err := id.Validate(); err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("charm id: %w", err)
+func (s *Service) GetCharmMetadata(ctx context.Context, locator charm.CharmLocator) (internalcharm.Meta, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return internalcharm.Meta{}, errors.Trace(err)
 	}
-
 	metadata, err := s.st.GetCharmMetadata(ctx, id)
 	if err != nil {
 		return internalcharm.Meta{}, errors.Trace(err)
@@ -366,15 +387,16 @@ func (s *Service) GetCharmMetadata(ctx context.Context, id corecharm.ID) (intern
 }
 
 // GetCharmMetadataName returns the name for the charm using the
-// charm ID.
+// charm name, source and revision.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmMetadataName(ctx context.Context, id corecharm.ID) (string, error) {
-	if err := id.Validate(); err != nil {
-		return "", fmt.Errorf("charm id: %w", err)
+func (s *Service) GetCharmMetadataName(ctx context.Context, locator charm.CharmLocator) (string, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-
 	name, err := s.st.GetCharmMetadataName(ctx, id)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -383,15 +405,16 @@ func (s *Service) GetCharmMetadataName(ctx context.Context, id corecharm.ID) (st
 }
 
 // GetCharmMetadataDescription returns the description for the charm using the
-// charm ID.
+// charm name, source and revision.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error) {
-	if err := id.Validate(); err != nil {
-		return "", fmt.Errorf("charm id: %w", err)
+func (s *Service) GetCharmMetadataDescription(ctx context.Context, locator charm.CharmLocator) (string, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-
 	description, err := s.st.GetCharmMetadataDescription(ctx, id)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -400,15 +423,16 @@ func (s *Service) GetCharmMetadataDescription(ctx context.Context, id corecharm.
 }
 
 // GetCharmMetadataStorage returns the storage specification for the charm using
-// the charm ID.
+// the charm name, source and revision.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmMetadataStorage(ctx context.Context, id corecharm.ID) (map[string]internalcharm.Storage, error) {
-	if err := id.Validate(); err != nil {
-		return nil, fmt.Errorf("charm id: %w", err)
+func (s *Service) GetCharmMetadataStorage(ctx context.Context, locator charm.CharmLocator) (map[string]internalcharm.Storage, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
 	storage, err := s.st.GetCharmMetadataStorage(ctx, id)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -422,15 +446,16 @@ func (s *Service) GetCharmMetadataStorage(ctx context.Context, id corecharm.ID) 
 }
 
 // GetCharmMetadataResources returns the specifications for the resources for the
-// charm using the charm ID.
+// charm using the charm name, source and revision.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmMetadataResources(ctx context.Context, id corecharm.ID) (map[string]resource.Meta, error) {
-	if err := id.Validate(); err != nil {
-		return nil, fmt.Errorf("charm id: %w", err)
+func (s *Service) GetCharmMetadataResources(ctx context.Context, locator charm.CharmLocator) (map[string]resource.Meta, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
 	resources, err := s.st.GetCharmMetadataResources(ctx, id)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -443,15 +468,17 @@ func (s *Service) GetCharmMetadataResources(ctx context.Context, id corecharm.ID
 	return decoded, nil
 }
 
-// GetCharmManifest returns the manifest for the charm using the charm ID.
+// GetCharmManifest returns the manifest for the charm using the charm name,
+// source and revision.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmManifest(ctx context.Context, id corecharm.ID) (internalcharm.Manifest, error) {
-	if err := id.Validate(); err != nil {
-		return internalcharm.Manifest{}, fmt.Errorf("charm id: %w", err)
+func (s *Service) GetCharmManifest(ctx context.Context, locator charm.CharmLocator) (internalcharm.Manifest, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return internalcharm.Manifest{}, errors.Trace(err)
 	}
-
 	manifest, err := s.st.GetCharmManifest(ctx, id)
 	if err != nil {
 		return internalcharm.Manifest{}, errors.Trace(err)
@@ -464,15 +491,17 @@ func (s *Service) GetCharmManifest(ctx context.Context, id corecharm.ID) (intern
 	return decoded, nil
 }
 
-// GetCharmActions returns the actions for the charm using the charm ID.
+// GetCharmActions returns the actions for the charm using the charm name,
+// source and revision.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmActions(ctx context.Context, id corecharm.ID) (internalcharm.Actions, error) {
-	if err := id.Validate(); err != nil {
-		return internalcharm.Actions{}, fmt.Errorf("charm id: %w", err)
+func (s *Service) GetCharmActions(ctx context.Context, locator charm.CharmLocator) (internalcharm.Actions, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return internalcharm.Actions{}, errors.Trace(err)
 	}
-
 	actions, err := s.st.GetCharmActions(ctx, id)
 	if err != nil {
 		return internalcharm.Actions{}, errors.Trace(err)
@@ -485,15 +514,17 @@ func (s *Service) GetCharmActions(ctx context.Context, id corecharm.ID) (interna
 	return decoded, nil
 }
 
-// GetCharmConfig returns the config for the charm using the charm ID.
+// GetCharmConfig returns the config for the charm using the charm name,
+// source and revision.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmConfig(ctx context.Context, id corecharm.ID) (internalcharm.Config, error) {
-	if err := id.Validate(); err != nil {
-		return internalcharm.Config{}, fmt.Errorf("charm id: %w", err)
+func (s *Service) GetCharmConfig(ctx context.Context, locator charm.CharmLocator) (internalcharm.Config, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return internalcharm.Config{}, errors.Trace(err)
 	}
-
 	config, err := s.st.GetCharmConfig(ctx, id)
 	if err != nil {
 		return internalcharm.Config{}, errors.Trace(err)
@@ -507,15 +538,16 @@ func (s *Service) GetCharmConfig(ctx context.Context, id corecharm.ID) (internal
 }
 
 // GetCharmLXDProfile returns the LXD profile along with the revision of the
-// charm using the charm ID. The revision
+// charm using the charm name, source and revision.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (internalcharm.LXDProfile, charm.Revision, error) {
-	if err := id.Validate(); err != nil {
+func (s *Service) GetCharmLXDProfile(ctx context.Context, locator charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
 		return internalcharm.LXDProfile{}, -1, fmt.Errorf("charm id: %w", err)
 	}
-
 	profile, revision, err := s.st.GetCharmLXDProfile(ctx, id)
 	if err != nil {
 		return internalcharm.LXDProfile{}, -1, errors.Trace(err)
@@ -529,15 +561,16 @@ func (s *Service) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (inte
 }
 
 // GetCharmArchivePath returns the archive storage path for the charm using the
-// charm ID.
+// charm name, source and revision.
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
-	if err := id.Validate(); err != nil {
+func (s *Service) GetCharmArchivePath(ctx context.Context, locator charm.CharmLocator) (string, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
 		return "", internalerrors.Errorf("charm id: %w", err)
 	}
-
 	path, err := s.st.GetCharmArchivePath(ctx, id)
 	if err != nil {
 		return "", internalerrors.Errorf("getting charm archive path: %w", err)
@@ -551,11 +584,12 @@ func (s *Service) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (str
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) GetCharmArchive(ctx context.Context, id corecharm.ID) (io.ReadCloser, string, error) {
-	if err := id.Validate(); err != nil {
+func (s *Service) GetCharmArchive(ctx context.Context, locator charm.CharmLocator) (io.ReadCloser, string, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
 		return nil, "", internalerrors.Errorf("charm id: %w", err)
 	}
-
 	archivePath, hash, err := s.st.GetCharmArchiveMetadata(ctx, id)
 	if err != nil {
 		return nil, "", internalerrors.Errorf("getting charm archive metadata: %w", err)
@@ -593,8 +627,10 @@ func (s *Service) GetCharmArchiveBySHA256Prefix(ctx context.Context, sha256Prefi
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error) {
-	if err := id.Validate(); err != nil {
+func (s *Service) IsCharmAvailable(ctx context.Context, locator charm.CharmLocator) (bool, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
 		return false, fmt.Errorf("charm id: %w", err)
 	}
 	b, err := s.st.IsCharmAvailable(ctx, id)
@@ -608,11 +644,12 @@ func (s *Service) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, 
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *Service) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
-	if err := id.Validate(); err != nil {
+func (s *Service) SetCharmAvailable(ctx context.Context, locator charm.CharmLocator) error {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
 		return fmt.Errorf("charm id: %w", err)
 	}
-
 	return errors.Trace(s.st.SetCharmAvailable(ctx, id))
 }
 
@@ -633,8 +670,10 @@ func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corech
 
 // DeleteCharm removes the charm from the state.
 // Returns an error if the charm does not exist.
-func (s *Service) DeleteCharm(ctx context.Context, id corecharm.ID) error {
-	if err := id.Validate(); err != nil {
+func (s *Service) DeleteCharm(ctx context.Context, locator charm.CharmLocator) error {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
 		return fmt.Errorf("charm id: %w", err)
 	}
 	return s.st.DeleteCharm(ctx, id)
@@ -652,20 +691,24 @@ func (s *Service) ListCharmLocators(ctx context.Context, names ...string) ([]cha
 }
 
 // GetCharmDownloadInfo returns the download info for the charm using the
-// charm ID.
-func (s *Service) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*charm.DownloadInfo, error) {
-	if err := id.Validate(); err != nil {
-		return nil, fmt.Errorf("charm id: %w", err)
+// charm name, source and revision.
+func (s *Service) GetCharmDownloadInfo(ctx context.Context, locator charm.CharmLocator) (*charm.DownloadInfo, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return s.st.GetCharmDownloadInfo(ctx, id)
 }
 
 // GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm archive
-// for the given charm id. If the charm is not available,
+// for the given charm name, source and revision. If the charm is not available,
 // [applicationerrors.CharmNotResolved] is returned.
-func (s *Service) GetAvailableCharmArchiveSHA256(ctx context.Context, id corecharm.ID) (string, error) {
-	if err := id.Validate(); err != nil {
-		return "", fmt.Errorf("charm id: %w", err)
+func (s *Service) GetAvailableCharmArchiveSHA256(ctx context.Context, locator charm.CharmLocator) (string, error) {
+	args := argsFromLocator(locator)
+	id, err := s.getCharmID(ctx, args)
+	if err != nil {
+		return "", errors.Trace(err)
 	}
 	return s.st.GetAvailableCharmArchiveSHA256(ctx, id)
 }
@@ -783,7 +826,7 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 	}
 
 	// Locale the existing charm.
-	charmID, err := s.GetCharmID(ctx, charm.GetCharmArgs{
+	charmID, err := s.getCharmID(ctx, charm.GetCharmArgs{
 		Source:   source,
 		Name:     args.Name,
 		Revision: ptr(args.Revision),
@@ -929,24 +972,13 @@ func (s *Service) ReserveCharmRevision(ctx context.Context, args charm.ReserveCh
 // [applicationerrors.CharmNotFound].
 // If there are multiple charms, then the latest created at date is returned
 // first.
-func (s *Service) GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (corecharm.ID, error) {
+func (s *Service) GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (charm.CharmLocator, error) {
 	if !isValidCharmName(name) {
-		return "", applicationerrors.CharmNameNotValid
+		return charm.CharmLocator{}, applicationerrors.CharmNameNotValid
 	}
 
 	a := encodeArchitecture(arch)
 	return s.st.GetLatestPendingCharmhubCharm(ctx, name, a)
-}
-
-// GetCharmLocatorByCharmID returns the charm locator for the charm using the
-// charm ID. If the charm is not found, a [applicationerrors.CharmNotFound] error
-// is returned.
-func (s *Service) GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (charm.CharmLocator, error) {
-	if err := id.Validate(); err != nil {
-		return charm.CharmLocator{}, fmt.Errorf("charm id: %w", err)
-	}
-
-	return s.st.GetCharmLocatorByCharmID(ctx, id)
 }
 
 // WatchCharms returns a watcher that observes changes to charms.
@@ -1009,4 +1041,12 @@ func encodeCharm(ch internalcharm.Charm) (charm.Charm, []string, error) {
 // isValidCharmName returns whether name is a valid charm name.
 func isValidCharmName(name string) bool {
 	return charmNameRegExp.MatchString(name)
+}
+
+func argsFromLocator(locator charm.CharmLocator) charm.GetCharmArgs {
+	return charm.GetCharmArgs{
+		Name:     locator.Name,
+		Revision: ptr(locator.Revision),
+		Source:   locator.Source,
+	}
 }

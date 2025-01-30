@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/juju/apiserver/facade"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -51,18 +51,15 @@ type AccessService interface {
 }
 
 type ApplicationService interface {
-	// GetCharmIDByApplicationName returns a charm ID by name. It returns an
-	// error if the charm can not be found by the name. This can also be used as
-	// a cheap way to see if a charm exists without needing to load the charm
-	// metadata.
-	GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error)
+	// GetCharmLocatorByApplicationName returns a CharmLocator by application name.
+	// It returns an error if the charm can not be found by the name. This can also
+	// be used as a cheap way to see if a charm exists without needing to load the
+	// charm metadata.
+	GetCharmLocatorByApplicationName(ctx context.Context, name string) (applicationcharm.CharmLocator, error)
 
-	// GetCharmMetadataDescription returns the description for the charm using
-	// the charm ID.
-	//
-	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
-	// returned.
-	GetCharmMetadataDescription(ctx context.Context, id corecharm.ID) (string, error)
+	// GetCharmMetadataDescription returns the description for the charm using the
+	// charm name, source and revision.
+	GetCharmMetadataDescription(ctx context.Context, locator applicationcharm.CharmLocator) (string, error)
 }
 
 // ModelDomainServices is an interface that provides a way to get model

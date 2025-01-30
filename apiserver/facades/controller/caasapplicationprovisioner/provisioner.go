@@ -18,15 +18,14 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
@@ -38,6 +37,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -440,7 +440,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		return nil, errors.Trace(err)
 	}
 
-	charmId, err := a.applicationService.GetCharmIDByApplicationName(ctx, appName)
+	locator, err := a.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %s", appName)
 	} else if errors.Is(err, applicationerrors.CharmNotFound) {
@@ -449,9 +449,9 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		return nil, errors.Trace(err)
 	}
 
-	isAvailable, err := a.applicationService.IsCharmAvailable(ctx, charmId)
+	isAvailable, err := a.applicationService.IsCharmAvailable(ctx, locator)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
-		return nil, errors.NotFoundf("charm %s", charmId)
+		return nil, errors.NotFoundf("charm %s", locator)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else if !isAvailable {
@@ -473,7 +473,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		return nil, errors.Trace(err)
 	}
 
-	filesystemParams, err := a.applicationFilesystemParams(ctx, app, appName, charmId, cfg, modelConfig, modelInfo.UUID)
+	filesystemParams, err := a.applicationFilesystemParams(ctx, app, appName, locator, cfg, modelConfig, modelInfo.UUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -730,7 +730,7 @@ func (a *API) applicationFilesystemParams(
 	ctx context.Context,
 	app Application,
 	appName string,
-	charmId charm.ID,
+	locator applicationcharm.CharmLocator,
 	controllerConfig controller.Config,
 	modelConfig *config.Config,
 	modelUUID model.UUID,
@@ -740,9 +740,9 @@ func (a *API) applicationFilesystemParams(
 		return nil, errors.Trace(err)
 	}
 
-	charmStorage, err := a.applicationService.GetCharmMetadataStorage(ctx, charmId)
+	charmStorage, err := a.applicationService.GetCharmMetadataStorage(ctx, locator)
 	if errors.Is(err, applicationerrors.CharmNotFound) {
-		return nil, errors.NotFoundf("charm %s", charmId)
+		return nil, errors.NotFoundf("charm %s", locator)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -847,7 +847,7 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 			continue
 		}
 		appName := appTag.Id()
-		charmId, err := a.applicationService.GetCharmIDByApplicationName(ctx, appName)
+		locator, err := a.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			err = errors.NotFoundf("application %s", appName)
 			res.Results[i].Error = apiservererrors.ServerError(err)
@@ -861,9 +861,9 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 			continue
 		}
 
-		charmResources, err := a.applicationService.GetCharmMetadataResources(ctx, charmId)
+		charmResources, err := a.applicationService.GetCharmMetadataResources(ctx, locator)
 		if errors.Is(err, applicationerrors.CharmNotFound) {
-			err = errors.NotFoundf("charm %s", charmId)
+			err = errors.NotFoundf("charm %s", locator)
 			res.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		} else if err != nil {

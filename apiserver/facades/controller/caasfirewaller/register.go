@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facade"
+	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 )
 
 // Register is called to expose a package of facades onto a given registry.

@@ -1207,13 +1207,13 @@ func (h *containerProfileHandler) ProcessOneContainer(
 		}
 
 		appName := app.Name()
-		uuid, err := h.applicationService.GetCharmIDByApplicationName(ctx, appName)
+		locator, err := h.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
 		if err != nil {
 			h.SetError(idx, err)
 			return errors.Trace(err)
 		}
 
-		profile, revision, err := h.applicationService.GetCharmLXDProfile(ctx, uuid)
+		profile, revision, err := h.applicationService.GetCharmLXDProfile(ctx, locator)
 		if err != nil {
 			h.SetError(idx, err)
 			return errors.Trace(err)

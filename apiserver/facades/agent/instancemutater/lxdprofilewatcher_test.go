@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
-	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -359,13 +358,13 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeCharmURLN
 	s.machine0.EXPECT().Units().Return(nil, nil)
 
 	s.setupPrincipalUnit()
-	curl := "ch:name-me"
+	curl := "ch:name-me-42"
 	s.unit.EXPECT().CharmURL().Return(&curl)
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   applicationcharm.CharmHubSource,
 		Name:     "name-me",
-		Revision: ptr(-1),
-	}).Return(charm.ID(""), applicationerrors.CharmNotFound)
+		Revision: 42,
+	}).Return(internalcharm.LXDProfile{}, 42, applicationerrors.CharmNotFound)
 
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
@@ -441,11 +440,11 @@ func (s *lxdProfileWatcherSuite) assertCharmNotFound(c *gc.C, chURLStr string) {
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,
 		Name:     "name-me",
-		Revision: ptr(curl.Revision),
-	}).Return(charm.ID(""), applicationerrors.CharmNotFound)
+		Revision: curl.Revision,
+	}).Return(internalcharm.LXDProfile{}, 0, applicationerrors.CharmNotFound)
 }
 
 func (s *lxdProfileWatcherSuite) assertCharmWithLXDProfile(c *gc.C, chURLStr string) {
@@ -454,15 +453,13 @@ func (s *lxdProfileWatcherSuite) assertCharmWithLXDProfile(c *gc.C, chURLStr str
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,
 		Name:     curl.Name,
-		Revision: ptr(curl.Revision),
-	}).Return(charm.ID("foo"), nil)
-	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charm.ID("foo")).
-		Return(internalcharm.LXDProfile{
-			Config: map[string]string{"key1": "value1"},
-		}, 0, nil)
+		Revision: curl.Revision,
+	}).Return(internalcharm.LXDProfile{
+		Config: map[string]string{"key1": "value1"},
+	}, 0, nil)
 }
 
 func (s *lxdProfileWatcherSuite) assertCharmWithoutLXDProfile(c *gc.C, chURLStr string) {
@@ -471,13 +468,11 @@ func (s *lxdProfileWatcherSuite) assertCharmWithoutLXDProfile(c *gc.C, chURLStr 
 	source, err := applicationcharm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.applicationService.EXPECT().GetCharmID(gomock.Any(), applicationcharm.GetCharmArgs{
+	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), applicationcharm.CharmLocator{
 		Source:   source,
 		Name:     curl.Name,
-		Revision: ptr(curl.Revision),
-	}).Return(charm.ID("foo"), nil)
-	s.applicationService.EXPECT().GetCharmLXDProfile(gomock.Any(), charm.ID("foo")).
-		Return(internalcharm.LXDProfile{}, 0, nil)
+		Revision: curl.Revision,
+	}).Return(internalcharm.LXDProfile{}, 0, nil)
 }
 
 func (s *lxdProfileWatcherSuite) setupScenarioNoProfile(c *gc.C) {

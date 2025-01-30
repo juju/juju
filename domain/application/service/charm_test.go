@@ -39,7 +39,7 @@ var _ = gc.Suite(&charmServiceSuite{})
 func (s *charmServiceSuite) TestGetCharmIDWithoutRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
+	_, err := s.service.getCharmID(context.Background(), charm.GetCharmArgs{
 		Name:   "foo",
 		Source: charm.CharmHubSource,
 	})
@@ -49,7 +49,7 @@ func (s *charmServiceSuite) TestGetCharmIDWithoutRevision(c *gc.C) {
 func (s *charmServiceSuite) TestGetCharmIDWithoutSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
+	_, err := s.service.getCharmID(context.Background(), charm.GetCharmArgs{
 		Name:     "foo",
 		Revision: ptr(42),
 	})
@@ -59,7 +59,7 @@ func (s *charmServiceSuite) TestGetCharmIDWithoutSource(c *gc.C) {
 func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
+	_, err := s.service.getCharmID(context.Background(), charm.GetCharmArgs{
 		Name: "Foo",
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
@@ -68,7 +68,7 @@ func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 func (s *charmServiceSuite) TestGetCharmIDInvalidSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
+	_, err := s.service.getCharmID(context.Background(), charm.GetCharmArgs{
 		Name:     "foo",
 		Revision: ptr(42),
 		Source:   "wrong-source",
@@ -85,7 +85,7 @@ func (s *charmServiceSuite) TestGetCharmID(c *gc.C) {
 
 	s.state.EXPECT().GetCharmID(gomock.Any(), "foo", rev, charm.LocalSource).Return(id, nil)
 
-	result, err := s.service.GetCharmID(context.Background(), charm.GetCharmArgs{
+	result, err := s.service.getCharmID(context.Background(), charm.GetCharmArgs{
 		Name:     "foo",
 		Revision: &rev,
 		Source:   charm.LocalSource,
@@ -99,9 +99,15 @@ func (s *charmServiceSuite) TestIsControllerCharm(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().IsControllerCharm(gomock.Any(), id).Return(true, nil)
 
-	result, err := s.service.IsControllerCharm(context.Background(), id)
+	result, err := s.service.IsControllerCharm(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.IsTrue)
 }
@@ -111,17 +117,16 @@ func (s *charmServiceSuite) TestIsControllerCharmCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().IsControllerCharm(gomock.Any(), id).Return(false, applicationerrors.CharmNotFound)
 
-	_, err := s.service.IsControllerCharm(context.Background(), id)
+	_, err := s.service.IsControllerCharm(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
-}
-
-func (s *charmServiceSuite) TestIsControllerCharmInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.IsControllerCharm(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestIsCharmAvailable(c *gc.C) {
@@ -129,9 +134,15 @@ func (s *charmServiceSuite) TestIsCharmAvailable(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(true, nil)
 
-	result, err := s.service.IsCharmAvailable(context.Background(), id)
+	result, err := s.service.IsCharmAvailable(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.IsTrue)
 }
@@ -141,17 +152,16 @@ func (s *charmServiceSuite) TestIsCharmAvailableCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(false, applicationerrors.CharmNotFound)
 
-	_, err := s.service.IsCharmAvailable(context.Background(), id)
+	_, err := s.service.IsCharmAvailable(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
-}
-
-func (s *charmServiceSuite) TestIsCharmAvailableInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.IsCharmAvailable(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestSupportsContainers(c *gc.C) {
@@ -159,9 +169,15 @@ func (s *charmServiceSuite) TestSupportsContainers(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().SupportsContainers(gomock.Any(), id).Return(true, nil)
 
-	result, err := s.service.SupportsContainers(context.Background(), id)
+	result, err := s.service.SupportsContainers(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.IsTrue)
 }
@@ -171,17 +187,16 @@ func (s *charmServiceSuite) TestSupportsContainersCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().SupportsContainers(gomock.Any(), id).Return(false, applicationerrors.CharmNotFound)
 
-	_, err := s.service.SupportsContainers(context.Background(), id)
+	_, err := s.service.SupportsContainers(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
-}
-
-func (s *charmServiceSuite) TestSupportsContainersInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.SupportsContainers(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
@@ -191,6 +206,7 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	s.state.EXPECT().GetCharmID(gomock.Any(), "foo", 42, charm.LocalSource).Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(charm.Charm{
 		Metadata: charm.Metadata{
 			Name: "foo",
@@ -204,7 +220,11 @@ func (s *charmServiceSuite) TestGetCharm(c *gc.C) {
 		Available: true,
 	}, nil, nil)
 
-	metadata, locator, isAvailable, err := s.service.GetCharm(context.Background(), id)
+	metadata, locator, isAvailable, err := s.service.GetCharm(context.Background(), charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.LocalSource,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata.Meta(), gc.DeepEquals, &internalcharm.Meta{
 		Name: "foo",
@@ -223,17 +243,15 @@ func (s *charmServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(charm.Charm{}, nil, applicationerrors.CharmNotFound)
+	s.state.EXPECT().GetCharmID(gomock.Any(), "foo", 42, charm.LocalSource).Return(id, applicationerrors.CharmNotFound)
 
-	_, _, _, err := s.service.GetCharm(context.Background(), id)
+	_, _, _, err := s.service.GetCharm(context.Background(), charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.LocalSource,
+	})
+
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
-}
-
-func (s *charmServiceSuite) TestGetCharmInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, _, _, err := s.service.GetCharm(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestGetCharmMetadata(c *gc.C) {
@@ -243,6 +261,12 @@ func (s *charmServiceSuite) TestGetCharmMetadata(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmMetadata(gomock.Any(), id).Return(charm.Metadata{
 		Name: "foo",
 
@@ -251,7 +275,7 @@ func (s *charmServiceSuite) TestGetCharmMetadata(c *gc.C) {
 		RunAs: "default",
 	}, nil)
 
-	metadata, err := s.service.GetCharmMetadata(context.Background(), id)
+	metadata, err := s.service.GetCharmMetadata(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata, gc.DeepEquals, internalcharm.Meta{
 		Name: "foo",
@@ -265,17 +289,16 @@ func (s *charmServiceSuite) TestGetCharmMetadataCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmMetadata(gomock.Any(), id).Return(charm.Metadata{}, applicationerrors.CharmNotFound)
 
-	_, err := s.service.GetCharmMetadata(context.Background(), id)
+	_, err := s.service.GetCharmMetadata(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
-}
-
-func (s *charmServiceSuite) TestGetCharmMetadataInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetCharmMetadata(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestGetCharmLXDProfile(c *gc.C) {
@@ -283,9 +306,15 @@ func (s *charmServiceSuite) TestGetCharmLXDProfile(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmLXDProfile(gomock.Any(), id).Return([]byte(`{"config": {"foo":"bar"}, "description": "description", "devices": {"gpu":{"baz": "x"}}}`), 42, nil)
 
-	profile, revision, err := s.service.GetCharmLXDProfile(context.Background(), id)
+	profile, revision, err := s.service.GetCharmLXDProfile(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(profile, gc.DeepEquals, internalcharm.LXDProfile{
 		Config: map[string]string{
@@ -306,17 +335,16 @@ func (s *charmServiceSuite) TestGetCharmLXDProfileCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmLXDProfile(gomock.Any(), id).Return(nil, -1, applicationerrors.CharmNotFound)
 
-	_, _, err := s.service.GetCharmLXDProfile(context.Background(), id)
+	_, _, err := s.service.GetCharmLXDProfile(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
-}
-
-func (s *charmServiceSuite) TestGetCharmLXDProfileInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, _, err := s.service.GetCharmLXDProfile(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestGetCharmMetadataName(c *gc.C) {
@@ -324,9 +352,15 @@ func (s *charmServiceSuite) TestGetCharmMetadataName(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmMetadataName(gomock.Any(), id).Return("name for a charm", nil)
 
-	name, err := s.service.GetCharmMetadataName(context.Background(), id)
+	name, err := s.service.GetCharmMetadataName(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(name, gc.Equals, "name for a charm")
 }
@@ -336,17 +370,16 @@ func (s *charmServiceSuite) TestGetCharmMetadataNameCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmMetadataName(gomock.Any(), id).Return("", applicationerrors.CharmNotFound)
 
-	_, err := s.service.GetCharmMetadataName(context.Background(), id)
+	_, err := s.service.GetCharmMetadataName(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
-}
-
-func (s *charmServiceSuite) TestGetCharmMetadataNameInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetCharmMetadataName(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestGetCharmMetadataDescription(c *gc.C) {
@@ -354,9 +387,15 @@ func (s *charmServiceSuite) TestGetCharmMetadataDescription(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmMetadataDescription(gomock.Any(), id).Return("description for a charm", nil)
 
-	description, err := s.service.GetCharmMetadataDescription(context.Background(), id)
+	description, err := s.service.GetCharmMetadataDescription(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(description, gc.Equals, "description for a charm")
 }
@@ -366,17 +405,16 @@ func (s *charmServiceSuite) TestGetCharmMetadataDescriptionCharmNotFound(c *gc.C
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmMetadataDescription(gomock.Any(), id).Return("", applicationerrors.CharmNotFound)
 
-	_, err := s.service.GetCharmMetadataDescription(context.Background(), id)
+	_, err := s.service.GetCharmMetadataDescription(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
-}
-
-func (s *charmServiceSuite) TestGetCharmMetadataDescriptionInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetCharmMetadataDescription(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestGetCharmMetadataStorage(c *gc.C) {
@@ -384,6 +422,12 @@ func (s *charmServiceSuite) TestGetCharmMetadataStorage(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), id).Return(map[string]charm.Storage{
 		"foo": {
 			Name:        "foo",
@@ -393,7 +437,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataStorage(c *gc.C) {
 		},
 	}, nil)
 
-	storage, err := s.service.GetCharmMetadataStorage(context.Background(), id)
+	storage, err := s.service.GetCharmMetadataStorage(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(storage, gc.DeepEquals, map[string]internalcharm.Storage{
 		"foo": {
@@ -410,9 +454,15 @@ func (s *charmServiceSuite) TestGetCharmMetadataStorageCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), id).Return(nil, applicationerrors.CharmNotFound)
 
-	_, err := s.service.GetCharmMetadataStorage(context.Background(), id)
+	_, err := s.service.GetCharmMetadataStorage(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
@@ -421,6 +471,12 @@ func (s *charmServiceSuite) TestGetCharmMetadataResources(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmMetadataResources(gomock.Any(), id).Return(map[string]charm.Resource{
 		"foo": {
 			Name:        "foo",
@@ -430,7 +486,7 @@ func (s *charmServiceSuite) TestGetCharmMetadataResources(c *gc.C) {
 		},
 	}, nil)
 
-	resources, err := s.service.GetCharmMetadataResources(context.Background(), id)
+	resources, err := s.service.GetCharmMetadataResources(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resources, gc.DeepEquals, map[string]resource.Meta{
 		"foo": {
@@ -447,9 +503,15 @@ func (s *charmServiceSuite) TestGetCharmMetadataResourcesCharmNotFound(c *gc.C) 
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmMetadataResources(gomock.Any(), id).Return(nil, applicationerrors.CharmNotFound)
 
-	_, err := s.service.GetCharmMetadataResources(context.Background(), id)
+	_, err := s.service.GetCharmMetadataResources(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
@@ -458,9 +520,15 @@ func (s *charmServiceSuite) TestCharmManifest(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmManifest(gomock.Any(), id).Return(s.minimalManifest(c), nil)
 
-	manifest, err := s.service.GetCharmManifest(context.Background(), id)
+	manifest, err := s.service.GetCharmManifest(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(manifest, gc.DeepEquals, internalcharm.Manifest{
 		Bases: []internalcharm.Base{{
@@ -476,19 +544,18 @@ func (s *charmServiceSuite) TestCharmManifestInvalid(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmManifest(gomock.Any(), id).Return(charm.Manifest{
 		Bases: []charm.Base{{}},
 	}, nil)
 
-	_, err := s.service.GetCharmManifest(context.Background(), id)
+	_, err := s.service.GetCharmManifest(context.Background(), locator)
 	c.Assert(err, gc.ErrorMatches, "decode bases.*")
-}
-
-func (s *charmServiceSuite) TestCharmManifestInvalidID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetCharmManifest(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestGetCharmActions(c *gc.C) {
@@ -496,6 +563,12 @@ func (s *charmServiceSuite) TestGetCharmActions(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmActions(gomock.Any(), id).Return(charm.Actions{
 		Actions: map[string]charm.Action{
 			"foo": {
@@ -504,7 +577,7 @@ func (s *charmServiceSuite) TestGetCharmActions(c *gc.C) {
 		},
 	}, nil)
 
-	actions, err := s.service.GetCharmActions(context.Background(), id)
+	actions, err := s.service.GetCharmActions(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(actions, gc.DeepEquals, internalcharm.Actions{
 		ActionSpecs: map[string]internalcharm.ActionSpec{
@@ -515,18 +588,17 @@ func (s *charmServiceSuite) TestGetCharmActions(c *gc.C) {
 	})
 }
 
-func (s *charmServiceSuite) TestGetCharmActionsInvalidID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetCharmActions(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-}
-
 func (s *charmServiceSuite) TestGetCharmConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmConfig(gomock.Any(), id).Return(charm.Config{
 		Options: map[string]charm.Option{
 			"foo": {
@@ -535,7 +607,7 @@ func (s *charmServiceSuite) TestGetCharmConfig(c *gc.C) {
 		},
 	}, nil)
 
-	config, err := s.service.GetCharmConfig(context.Background(), id)
+	config, err := s.service.GetCharmConfig(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(config, gc.DeepEquals, internalcharm.Config{
 		Options: map[string]internalcharm.Option{
@@ -546,21 +618,20 @@ func (s *charmServiceSuite) TestGetCharmConfig(c *gc.C) {
 	})
 }
 
-func (s *charmServiceSuite) TestGetCharmManifestInvalidID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetCharmConfig(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-}
-
 func (s *charmServiceSuite) TestGetCharmArchivePath(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmArchivePath(gomock.Any(), id).Return("archive-path", nil)
 
-	path, err := s.service.GetCharmArchivePath(context.Background(), id)
+	path, err := s.service.GetCharmArchivePath(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(path, gc.Equals, "archive-path")
 }
@@ -570,17 +641,16 @@ func (s *charmServiceSuite) TestGetCharmArchivePathCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmArchivePath(gomock.Any(), id).Return("archive-path", applicationerrors.CharmNotFound)
 
-	_, err := s.service.GetCharmArchivePath(context.Background(), id)
+	_, err := s.service.GetCharmArchivePath(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
-}
-
-func (s *charmServiceSuite) TestGetCharmArchivePathInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetCharmArchivePath(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestGetCharmArchive(c *gc.C) {
@@ -589,10 +659,16 @@ func (s *charmServiceSuite) TestGetCharmArchive(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 	archive := io.NopCloser(strings.NewReader("archive-content"))
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmArchiveMetadata(gomock.Any(), id).Return("archive-path", "hash", nil)
 	s.charmStore.EXPECT().Get(gomock.Any(), "archive-path").Return(archive, nil)
 
-	reader, hash, err := s.service.GetCharmArchive(context.Background(), id)
+	reader, hash, err := s.service.GetCharmArchive(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(hash, gc.Equals, "hash")
 
@@ -621,9 +697,15 @@ func (s *charmServiceSuite) TestGetCharmArchiveCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmArchiveMetadata(gomock.Any(), id).Return("", "", applicationerrors.CharmNotFound)
 
-	_, _, err := s.service.GetCharmArchive(context.Background(), id)
+	_, _, err := s.service.GetCharmArchive(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
@@ -632,9 +714,15 @@ func (s *charmServiceSuite) TestSetCharmAvailable(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().SetCharmAvailable(gomock.Any(), id).Return(nil)
 
-	err := s.service.SetCharmAvailable(context.Background(), id)
+	err := s.service.SetCharmAvailable(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -643,17 +731,16 @@ func (s *charmServiceSuite) TestSetCharmAvailableCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().SetCharmAvailable(gomock.Any(), id).Return(applicationerrors.CharmNotFound)
 
-	err := s.service.SetCharmAvailable(context.Background(), id)
+	err := s.service.SetCharmAvailable(context.Background(), locator)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
-}
-
-func (s *charmServiceSuite) TestSetCharmAvailableInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	err := s.service.SetCharmAvailable(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestSetCharm(c *gc.C) {
@@ -1232,9 +1319,15 @@ func (s *charmServiceSuite) TestDeleteCharm(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().DeleteCharm(gomock.Any(), id).Return(nil)
 
-	err := s.service.DeleteCharm(context.Background(), id)
+	err := s.service.DeleteCharm(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1288,18 +1381,17 @@ func (s *charmServiceSuite) TestGetCharmDownloadInfo(c *gc.C) {
 		DownloadSize:       42,
 	}
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetCharmDownloadInfo(gomock.Any(), id).Return(expected, nil)
 
-	result, err := s.service.GetCharmDownloadInfo(context.Background(), id)
+	result, err := s.service.GetCharmDownloadInfo(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.DeepEquals, expected)
-}
-
-func (s *charmServiceSuite) TestGetCharmDownloadInfoInvalidID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetCharmDownloadInfo(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestGetAvailableCharmArchiveSHA256(c *gc.C) {
@@ -1307,18 +1399,17 @@ func (s *charmServiceSuite) TestGetAvailableCharmArchiveSHA256(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	locator := charm.CharmLocator{
+		Name:     "foo",
+		Revision: 42,
+		Source:   charm.CharmHubSource,
+	}
+	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
 	s.state.EXPECT().GetAvailableCharmArchiveSHA256(gomock.Any(), id).Return("hash", nil)
 
-	result, err := s.service.GetAvailableCharmArchiveSHA256(context.Background(), id)
+	result, err := s.service.GetAvailableCharmArchiveSHA256(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.DeepEquals, "hash")
-}
-
-func (s *charmServiceSuite) TestGetAvailableCharmArchiveSHA256InvalidID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetAvailableCharmArchiveSHA256(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmServiceSuite) TestResolveUploadCharmInvalid(c *gc.C) {
@@ -1710,13 +1801,17 @@ func (s *charmServiceSuite) TestReserveCharmRevision(c *gc.C) {
 func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expected := charmtesting.GenCharmID(c)
-
-	s.state.EXPECT().GetLatestPendingCharmhubCharm(gomock.Any(), "foo", architecture.AMD64).Return(expected, nil)
+	expectedLocator := charm.CharmLocator{
+		Name:         "foo",
+		Revision:     42,
+		Source:       charm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}
+	s.state.EXPECT().GetLatestPendingCharmhubCharm(gomock.Any(), "foo", architecture.AMD64).Return(expectedLocator, nil)
 
 	result, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "foo", arch.AMD64)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, expected)
+	c.Check(result, gc.DeepEquals, expectedLocator)
 }
 
 func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharmInvalidName(c *gc.C) {
@@ -1724,32 +1819,6 @@ func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharmInvalidName(c *gc.C
 
 	_, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "!!!foo", arch.AMD64)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
-}
-
-func (s *charmServiceSuite) TestGetCharmLocatorByCharmID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := charmtesting.GenCharmID(c)
-
-	locator := charm.CharmLocator{
-		Name:         "foo",
-		Revision:     1,
-		Source:       charm.CharmHubSource,
-		Architecture: architecture.AMD64,
-	}
-
-	s.state.EXPECT().GetCharmLocatorByCharmID(gomock.Any(), id).Return(locator, nil)
-
-	result, err := s.service.GetCharmLocatorByCharmID(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, locator)
-}
-
-func (s *charmServiceSuite) TestGetCharmLocatorByCharmIDInvalidID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetCharmLocatorByCharmID(context.Background(), "!!!id")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 type watchableServiceSuite struct {
