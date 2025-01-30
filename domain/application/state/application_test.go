@@ -1546,6 +1546,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
 
 func (s *applicationStateSuite) TestSetApplicationLife(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
+	ctx := context.Background()
 
 	checkResult := func(want life.Life) {
 		var gotLife life.Life
@@ -1558,22 +1559,16 @@ func (s *applicationStateSuite) TestSetApplicationLife(c *gc.C) {
 		c.Assert(gotLife, jc.DeepEquals, want)
 	}
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetApplicationLife(ctx, appID, life.Dying)
-	})
+	err := s.state.SetApplicationLife(ctx, appID, life.Dying)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(life.Dying)
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetApplicationLife(ctx, appID, life.Dead)
-	})
+	err = s.state.SetApplicationLife(ctx, appID, life.Dead)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(life.Dead)
 
 	// Can't go backwards.
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetApplicationLife(ctx, appID, life.Dying)
-	})
+	err = s.state.SetApplicationLife(ctx, appID, life.Dying)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(life.Dead)
 }

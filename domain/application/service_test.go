@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/ipaddress"
+	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/schema/testing"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secretstate "github.com/juju/juju/domain/secret/state"
@@ -181,16 +182,16 @@ func (s *serviceSuite) TestDeleteApplicationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *serviceSuite) TestEnsureApplicationDead(c *gc.C) {
+func (s *serviceSuite) TestMarkApplicationDead(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	s.createApplication(c, "foo")
 
-	err := s.svc.EnsureApplicationDead(context.Background(), "foo")
+	err := s.svc.MarkApplicationDead(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	var gotLife int
+	var gotLife domainlife.Life
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT life_id FROM application WHERE name = ?", "foo").
 			Scan(&gotLife)
@@ -200,15 +201,15 @@ func (s *serviceSuite) TestEnsureApplicationDead(c *gc.C) {
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotLife, gc.Equals, 2)
+	c.Assert(gotLife, gc.Equals, domainlife.Dead)
 }
 
-func (s *serviceSuite) TestEnsureApplicationDeadNotFound(c *gc.C) {
+func (s *serviceSuite) TestMarkApplicationDeadNotFound(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	err := s.svc.EnsureApplicationDead(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	err := s.svc.MarkApplicationDead(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *serviceSuite) TestGetUnitLife(c *gc.C) {

@@ -102,9 +102,6 @@ type AtomicApplicationState interface {
 	// found.
 	GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error)
 
-	// SetApplicationLife sets the life of the specified application.
-	SetApplicationLife(domain.AtomicContext, coreapplication.ID, life.Life) error
-
 	// GetApplicationScaleState looks up the scale state of the specified
 	// application, returning an error satisfying
 	// [applicationerrors.ApplicationNotFound] if the application is not found.
@@ -201,6 +198,9 @@ type ApplicationState interface {
 	// the given application. The supplied ids may belong to a different
 	// application; the application name is used to filter.
 	GetApplicationUnitLife(ctx context.Context, appName string, unitUUIDs ...coreunit.UUID) (map[coreunit.UUID]life.Life, error)
+
+	// SetApplicationLife sets the life of the specified application.
+	SetApplicationLife(context.Context, coreapplication.ID, life.Life) error
 
 	// GetCharmByApplicationID returns the charm, charm origin and charm
 	// platform for the specified application ID.
@@ -1027,35 +1027,33 @@ func (s *Service) deleteApplication(ctx domain.AtomicContext, name string) ([]fu
 // returning an error  satisfying [applicationerrors.ApplicationNotFoundError]
 // if the application doesn't exist.
 func (s *Service) DestroyApplication(ctx context.Context, appName string) error {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil
+	} else if err != nil {
+		return internalerrors.Errorf("getting application ID: %w", err)
+	}
 	// For now, all we do is advance the application's life to Dying.
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, appName)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			return nil
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return s.st.SetApplicationLife(ctx, appID, life.Dying)
-	})
-	return errors.Annotatef(err, "destroying application %q", appName)
+	err = s.st.SetApplicationLife(ctx, appID, life.Dying)
+	if err != nil {
+		return internalerrors.Errorf("destroying application %q: %w", appName, err)
+	}
+	return nil
 }
 
-// EnsureApplicationDead is called by the cleanup worker if a mongo
+// MarkApplicationDead is called by the cleanup worker if a mongo
 // destroy operation sets the application to dead.
 // TODO(units): remove when everything is in dqlite.
-func (s *Service) EnsureApplicationDead(ctx context.Context, appName string) error {
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, appName)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			return nil
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return s.st.SetApplicationLife(ctx, appID, life.Dead)
-	})
-	return errors.Annotatef(err, "setting application %q life to Dead", appName)
+func (s *Service) MarkApplicationDead(ctx context.Context, appName string) error {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return internalerrors.Errorf("getting application ID: %w", err)
+	}
+	err = s.st.SetApplicationLife(ctx, appID, life.Dead)
+	if err != nil {
+		return internalerrors.Errorf("setting application %q life to Dead: %w", appName, err)
+	}
+	return nil
 }
 
 // UpdateApplicationCharm sets a new charm for the application, validating that aspects such
