@@ -46,9 +46,9 @@ const (
 	BackendType = "kubernetes"
 )
 
-const (
-	controllerIdLabel = "controller.juju.is/id"
-	modelIdLabel      = "model.juju.is/id"
+var (
+	controllerIdKey = utils.AnnotationControllerUUIDKey(false)
+	modelIdKey      = utils.AnnotationModelUUIDKey(false)
 )
 
 // These are patched for testing.
@@ -83,31 +83,34 @@ func (p k8sProvider) Initialise(*provider.ModelBackendConfig) error {
 // associated with the model config.
 func (p k8sProvider) CleanupModel(cfg *provider.ModelBackendConfig) error {
 	ctx := context.TODO()
-	selector := utils.LabelsToSelector(modelLabelForSearch(cfg.ModelUUID))
 
 	client, err := p.getBroker(cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// Only need to clean up namespace scoped resources if using an external namespace.
-	if client.namespace != cfg.ModelName {
-		if err := client.deleteSecrets(ctx, selector); err != nil {
-			return errors.Trace(err)
-		}
-		if err := client.deleteRoleBindings(ctx, selector); err != nil {
-			return errors.Trace(err)
-		}
-		if err := client.deleteRoles(ctx, selector); err != nil {
-			return errors.Trace(err)
-		}
-		if err := client.deleteServiceAccounts(ctx, selector); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	if err := client.deleteClusterRoleBindings(ctx, selector); err != nil {
+	isExternal, err := client.isExternalNamespace()
+	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := client.deleteClusterRoles(ctx, selector); err != nil {
+	if isExternal {
+		if err := client.deleteSecrets(ctx); err != nil {
+			return errors.Trace(err)
+		}
+		if err := client.deleteRoleBindings(ctx); err != nil {
+			return errors.Trace(err)
+		}
+		if err := client.deleteRoles(ctx); err != nil {
+			return errors.Trace(err)
+		}
+		if err := client.deleteServiceAccounts(ctx); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if err := client.deleteClusterRoleBindings(ctx); err != nil {
+		return errors.Trace(err)
+	}
+	if err := client.deleteClusterRoles(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -127,6 +130,9 @@ func (p k8sProvider) getBroker(cfg *provider.ModelBackendConfig) (*kubernetesCli
 		return nil, errors.Trace(err)
 	}
 	broker := &kubernetesClient{
+		controllerUUID:    cfg.ControllerUUID,
+		modelUUID:         cfg.ModelUUID,
+		modelName:         cfg.ModelName,
 		namespace:         validCfg.namespace(),
 		serviceAccount:    validCfg.serviceAccount(),
 		isControllerModel: cfg.ModelName == bootstrap.ControllerModelName,
@@ -183,8 +189,7 @@ func (p k8sProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = broker.ensureSecretAccessToken(
-		context.TODO(), cfg.ControllerUUID, cfg.ModelUUID, cfg.ModelName, tag, nil, nil, removed.RevisionIDs())
+	_, err = broker.ensureSecretAccessToken(context.TODO(), tag, nil, nil, removed.RevisionIDs())
 	return errors.Trace(err)
 }
 
@@ -268,8 +273,7 @@ func (p k8sProvider) RestrictedConfig(
 		return nil, errors.Trace(err)
 	}
 	ctx := context.TODO()
-	token, err := broker.ensureSecretAccessToken(
-		ctx, adminCfg.ControllerUUID, adminCfg.ModelUUID, adminCfg.ModelName, consumer, owned.RevisionIDs(), read.RevisionIDs(), nil)
+	token, err := broker.ensureSecretAccessToken(ctx, consumer, owned.RevisionIDs(), read.RevisionIDs(), nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -314,9 +318,32 @@ func (p k8sProvider) RestrictedConfig(
 type kubernetesClient struct {
 	client kubernetes.Interface
 
+	controllerUUID string
+	modelUUID      string
+	modelName      string
+
 	serviceAccount    string
 	namespace         string
 	isControllerModel bool
+}
+
+// isExternalNamespace returns true if the specified namespace is not used to
+// hold the model's resources.
+func (k *kubernetesClient) isExternalNamespace() (bool, error) {
+	// We will need to revisit this optimisation if we ever support models being
+	// able to use a namespace which is different to their name.
+	if !k.isControllerModel && k.modelName != k.namespace {
+		return true, nil
+	}
+	ns, err := k.client.CoreV1().Namespaces().Get(context.TODO(), k.namespace, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+	isExternal := ns.Annotations[modelIdKey] != k.modelUUID ||
+		ns.Labels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager
+	return isExternal, nil
 }
 
 // TODO: make this configurable.
@@ -327,18 +354,18 @@ func (k *kubernetesClient) createServiceAccount(ctx context.Context, sa *core.Se
 		return nil, errNoNamespace
 	}
 
-	out, err := k.client.CoreV1().ServiceAccounts(k.namespace).Create(ctx, sa, v1.CreateOptions{FieldManager: resources.JujuFieldManager})
+	api := k.client.CoreV1().ServiceAccounts(k.namespace)
+	out, err := api.Create(ctx, sa, v1.CreateOptions{FieldManager: resources.JujuFieldManager})
 	if k8serrors.IsAlreadyExists(err) {
 		// Ensure that an existing service account hasn't been created
 		// by something other than Juju.
-		if _, err = k.listServiceAccount(ctx, map[string]string{
-			constants.LabelKubernetesAppManaged: resources.JujuFieldManager,
-		}); err != nil {
-			if errors.Is(err, errors.NotFound) {
-				// sa.Name is already used for an existing service account.
-				return nil, errors.Errorf("service account %q exists and is not managed by Juju", sa.GetName())
-			}
+		existing, err := api.Get(ctx, sa.Name, v1.GetOptions{})
+		if err != nil {
 			return nil, errors.Trace(err)
+		}
+		if existing.Labels[constants.LabelKubernetesAppManaged] != resources.JujuFieldManager {
+			// sa.Name is already used for an existing service account.
+			return nil, errors.Errorf("service account %q exists and is not managed by Juju", sa.GetName())
 		}
 		return nil, errors.AlreadyExistsf("service account %q", sa.GetName())
 	}
@@ -367,55 +394,51 @@ func (k *kubernetesClient) deleteServiceAccount(ctx context.Context, name string
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteServiceAccounts(ctx context.Context, selector labels.Selector) error {
+func (k *kubernetesClient) deleteServiceAccounts(ctx context.Context) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	err := k.client.CoreV1().ServiceAccounts(k.namespace).DeleteCollection(ctx, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
-	}, v1.ListOptions{
-		LabelSelector: selector.String(),
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) listServiceAccount(ctx context.Context, labels map[string]string) ([]core.ServiceAccount, error) {
-	if k.namespace == "" {
-		return nil, errNoNamespace
-	}
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(labels).String(),
+		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
 	}
-	saList, err := k.client.CoreV1().ServiceAccounts(k.namespace).List(ctx, listOps)
+	api := k.client.CoreV1().ServiceAccounts(k.namespace)
+	results, err := api.List(ctx, listOps)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	if len(saList.Items) == 0 {
-		return nil, errors.NotFoundf("service account with labels %v", labels)
+	for _, sa := range results.Items {
+		if sa.Annotations[modelIdKey] != k.modelUUID {
+			continue
+		}
+		err := api.Delete(ctx, sa.Name, v1.DeleteOptions{
+			PropagationPolicy: constants.DefaultPropagationPolicy(),
+		})
+		if err == nil || k8serrors.IsNotFound(err) {
+			continue
+		}
+		return errors.Trace(err)
 	}
-	return saList.Items, nil
+	return nil
 }
 
 // ensureServiceAccount creates or updates a service account, disambiguating the name if necessary.
 // If a new service account is created, cleanups contain funcs than can be run to delete any new
 // resources on error.
 func (k *kubernetesClient) ensureServiceAccount(
-	ctx context.Context, serviceAccountName string, labels labels.Set, modelUUID string, disambiguateName bool,
+	ctx context.Context, serviceAccountName string, labels labels.Set, annotations map[string]string, disambiguateName bool,
 ) (out *core.ServiceAccount, cleanups []func(), err error) {
 	automountServiceAccountToken := true
 	sa := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      serviceAccountName,
-			Labels:    labels,
-			Namespace: k.namespace,
+			Name:        serviceAccountName,
+			Labels:      labels,
+			Annotations: annotations,
+			Namespace:   k.namespace,
 		},
 		AutomountServiceAccountToken: &automountServiceAccountToken,
 	}
 	if disambiguateName {
-		out, err = k.createDisambiguatedServiceAccount(ctx, sa, modelUUID)
+		out, err = k.createDisambiguatedServiceAccount(ctx, sa)
 	} else {
 		out, err = k.createServiceAccount(ctx, sa)
 		if err != nil && !errors.Is(err, errors.AlreadyExists) {
@@ -434,19 +457,31 @@ func (k *kubernetesClient) ensureServiceAccount(
 	return out, cleanups, errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteSecrets(ctx context.Context, selector labels.Selector) error {
+func (k *kubernetesClient) deleteSecrets(ctx context.Context) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	err := k.client.CoreV1().Secrets(k.namespace).DeleteCollection(ctx, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
-	}, v1.ListOptions{
-		LabelSelector: selector.String(),
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
+	listOps := v1.ListOptions{
+		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
 	}
-	return errors.Trace(err)
+	api := k.client.CoreV1().Secrets(k.namespace)
+	results, err := api.List(ctx, listOps)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, secret := range results.Items {
+		if secret.Annotations[modelIdKey] != k.modelUUID {
+			continue
+		}
+		err := api.Delete(ctx, secret.Name, v1.DeleteOptions{
+			PropagationPolicy: constants.DefaultPropagationPolicy(),
+		})
+		if err == nil || k8serrors.IsNotFound(err) {
+			continue
+		}
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (k *kubernetesClient) createRole(ctx context.Context, role *rbacv1.Role) (*rbacv1.Role, error) {
@@ -482,34 +517,58 @@ func (k *kubernetesClient) getRole(ctx context.Context, name string) (*rbacv1.Ro
 	return out, errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteRoles(ctx context.Context, selector labels.Selector) error {
+func (k *kubernetesClient) deleteRoles(ctx context.Context) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	err := k.client.RbacV1().Roles(k.namespace).DeleteCollection(ctx, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
-	}, v1.ListOptions{
-		LabelSelector: selector.String(),
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
+	listOps := v1.ListOptions{
+		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
 	}
-	return errors.Trace(err)
+	api := k.client.RbacV1().Roles(k.namespace)
+	results, err := api.List(ctx, listOps)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, role := range results.Items {
+		if role.Annotations[modelIdKey] != k.modelUUID {
+			continue
+		}
+		err := api.Delete(ctx, role.Name, v1.DeleteOptions{
+			PropagationPolicy: constants.DefaultPropagationPolicy(),
+		})
+		if err == nil || k8serrors.IsNotFound(err) {
+			continue
+		}
+		return errors.Trace(err)
+	}
+	return nil
 }
 
-func (k *kubernetesClient) deleteRoleBindings(ctx context.Context, selector labels.Selector) error {
+func (k *kubernetesClient) deleteRoleBindings(ctx context.Context) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	err := k.client.RbacV1().RoleBindings(k.namespace).DeleteCollection(ctx, v1.DeleteOptions{
-		PropagationPolicy: constants.DefaultPropagationPolicy(),
-	}, v1.ListOptions{
-		LabelSelector: selector.String(),
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
+	listOps := v1.ListOptions{
+		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
 	}
-	return errors.Trace(err)
+	api := k.client.RbacV1().RoleBindings(k.namespace)
+	results, err := api.List(ctx, listOps)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, roleBinding := range results.Items {
+		if roleBinding.Annotations[modelIdKey] != k.modelUUID {
+			continue
+		}
+		err := api.Delete(ctx, roleBinding.Name, v1.DeleteOptions{
+			PropagationPolicy: constants.DefaultPropagationPolicy(),
+		})
+		if err == nil || k8serrors.IsNotFound(err) {
+			continue
+		}
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (k *kubernetesClient) deleteRole(ctx context.Context, name string, uid types.UID) error {
@@ -652,9 +711,10 @@ func (k *kubernetesClient) ensureBindingForSecretAccessToken(
 		_, err = k.createRole(ctx,
 			&rbacv1.Role{
 				ObjectMeta: v1.ObjectMeta{
-					Name:      sa.Name,
-					Namespace: k.namespace,
-					Labels:    sa.Labels,
+					Name:        sa.Name,
+					Namespace:   k.namespace,
+					Labels:      sa.Labels,
+					Annotations: sa.Annotations,
 				},
 				Rules: rulesForSecretAccess(k.namespace, false, nil, owned, read, removed),
 			},
@@ -671,9 +731,10 @@ func (k *kubernetesClient) ensureBindingForSecretAccessToken(
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      sa.Name,
-			Namespace: k.namespace,
-			Labels:    sa.Labels,
+			Name:        sa.Name,
+			Namespace:   k.namespace,
+			Labels:      sa.Labels,
+			Annotations: sa.Annotations,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
@@ -753,16 +814,16 @@ func (k *kubernetesClient) deleteClusterRoleBinding(ctx context.Context, name st
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteClusterRoles(ctx context.Context, selector labels.Selector) error {
+func (k *kubernetesClient) deleteClusterRoles(ctx context.Context) error {
 	listOps := v1.ListOptions{
-		LabelSelector: selector.String(),
+		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
 	}
 	results, err := k.client.RbacV1().ClusterRoles().List(ctx, listOps)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, clusterRole := range results.Items {
-		if !strings.HasPrefix(clusterRole.Name, clusterResourcePrefix) {
+		if clusterRole.Annotations[modelIdKey] != k.modelUUID {
 			continue
 		}
 		err := k.client.RbacV1().ClusterRoles().Delete(ctx, clusterRole.Name, v1.DeleteOptions{
@@ -776,16 +837,16 @@ func (k *kubernetesClient) deleteClusterRoles(ctx context.Context, selector labe
 	return nil
 }
 
-func (k *kubernetesClient) deleteClusterRoleBindings(ctx context.Context, selector labels.Selector) error {
+func (k *kubernetesClient) deleteClusterRoleBindings(ctx context.Context) error {
 	listOps := v1.ListOptions{
-		LabelSelector: selector.String(),
+		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
 	}
 	results, err := k.client.RbacV1().ClusterRoleBindings().List(ctx, listOps)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, clusterRoleBinding := range results.Items {
-		if !strings.HasPrefix(clusterRoleBinding.Name, clusterResourcePrefix) {
+		if clusterRoleBinding.Annotations[modelIdKey] != k.modelUUID {
 			continue
 		}
 		err := k.client.RbacV1().ClusterRoleBindings().Delete(ctx, clusterRoleBinding.Name, v1.DeleteOptions{
@@ -804,19 +865,19 @@ func (k *kubernetesClient) deleteClusterRoleBindings(ctx context.Context, select
 // If a new cluster role is created, cleanups contain funcs than can be run to delete any new
 // resources on error.
 func (k *kubernetesClient) ensureClusterBindingForSecretAccessToken(
-	ctx context.Context, saName, baseName string, labels labels.Set, modelUUID string, owned, read, removed []string,
+	ctx context.Context, saName, baseName string, labels labels.Set, annotations map[string]string, owned, read, removed []string,
 ) (cleanups []func(), _ error) {
 	createRules := func(existing []rbacv1.PolicyRule) []rbacv1.PolicyRule {
 		return rulesForSecretAccess(k.namespace, true, existing, owned, read, removed)
 	}
-	clusterRole, crCleanups, err := k.ensureDisambiguatedClusterRole(ctx, baseName, modelUUID, labels, createRules)
+	clusterRole, crCleanups, err := k.ensureDisambiguatedClusterRole(ctx, baseName, labels, annotations, createRules)
 	if err == nil {
 		cleanups = append(cleanups, crCleanups...)
 	} else {
 		return cleanups, errors.Annotatef(err, "disambiguating cluster role name %q", baseName)
 	}
 
-	clusterRoleBinding, crbCleanups, err := k.ensureDisambiguatedClusterRoleBinding(ctx, saName, baseName, modelUUID, clusterRole.Name, labels)
+	clusterRoleBinding, crbCleanups, err := k.ensureDisambiguatedClusterRoleBinding(ctx, saName, baseName, clusterRole.Name, labels, annotations)
 	if err == nil {
 		cleanups = append(cleanups, crbCleanups...)
 	} else {
@@ -849,13 +910,14 @@ const (
 )
 
 func (k *kubernetesClient) ensureSecretAccessToken(
-	ctx context.Context, controllerUUID, modelUUID, modelName string, consumer names.Tag, owned, read, removed []string,
+	ctx context.Context, consumer names.Tag, owned, read, removed []string,
 ) (_ string, err error) {
 	var cleanups []func()
 	defer func() {
 		if err == nil {
 			return
 		}
+		logger.Warningf("error ensuring secret service account for %q: %v", consumer, err)
 		for _, f := range cleanups {
 			f()
 		}
@@ -864,10 +926,12 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 	labels := utils.LabelsMerge(
 		utils.LabelsJuju,
 		map[string]string{
-			controllerIdLabel:            controllerUUID,
-			modelIdLabel:                 modelUUID,
-			constants.LabelJujuModelName: modelName,
+			constants.LabelJujuModelName: k.modelName,
 		})
+	annotations := map[string]string{
+		controllerIdKey: k.controllerUUID,
+		modelIdKey:      k.modelUUID,
+	}
 
 	if consumer.Kind() != names.ModelTagKind {
 		appName := consumer.Id()
@@ -885,7 +949,7 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 	// the UUID will be used to disambiguate anyway if needed.
 	baseResourceName := consumer.String()
 	if consumer.Kind() == names.ModelTagKind {
-		baseResourceName = fmt.Sprintf("model-%s", modelName)
+		baseResourceName = fmt.Sprintf("model-%s", k.modelName)
 	}
 	serviceAccountName := baseResourceName
 	// For the controller model, the resources are cluster scoped so
@@ -895,16 +959,19 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 	}
 	// If the resources are going to a namespace other than that of the host model,
 	// disambiguate the name.
-	disambiguateName := k.namespace != modelName
+	disambiguateName, err := k.isExternalNamespace()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 
-	sa, saCleanups, err := k.ensureServiceAccount(ctx, serviceAccountName, labels, modelUUID, disambiguateName)
+	sa, saCleanups, err := k.ensureServiceAccount(ctx, serviceAccountName, labels, annotations, disambiguateName)
 	cleanups = append(cleanups, saCleanups...)
 	if err != nil {
-		return "", errors.Annotatef(err, "cannot ensure service account %q", sa.GetName())
+		return "", errors.Annotatef(err, "cannot ensure service account %q", serviceAccountName)
 	}
 
 	if k.isControllerModel {
-		cbCleanups, err := k.ensureClusterBindingForSecretAccessToken(ctx, sa.Name, baseResourceName, labels, modelUUID, owned, read, removed)
+		cbCleanups, err := k.ensureClusterBindingForSecretAccessToken(ctx, sa.Name, baseResourceName, labels, annotations, owned, read, removed)
 		cleanups = append(cleanups, cbCleanups...)
 		if err != nil {
 			return "", errors.Trace(err)
@@ -934,29 +1001,32 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 	return tr.Status.Token, nil
 }
 
-func modelLabelForSearch(modelUUID string) map[string]string {
+func modelLabelForSearch(modelName string) map[string]string {
 	return map[string]string{
-		modelIdLabel: modelUUID,
+		constants.LabelJujuModelName: modelName,
 	}
 }
 
 // createDisambiguatedServiceAccount creates a service account with a disambiguated name.
 func (k *kubernetesClient) createDisambiguatedServiceAccount(
-	ctx context.Context, sa *core.ServiceAccount, modelUUID string,
+	ctx context.Context, sa *core.ServiceAccount,
 ) (*core.ServiceAccount, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
 
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(modelUUID)).String(),
+		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
 	}
 	existing, err := k.client.CoreV1().ServiceAccounts(k.namespace).List(ctx, listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err == nil && len(existing.Items) > 0 {
-		return &existing.Items[0], nil
+
+	for _, existingServiceAccount := range existing.Items {
+		if existingServiceAccount.Annotations[modelIdKey] == k.modelUUID {
+			return &existingServiceAccount, nil
+		}
 	}
 
 	suffixLength := model.DefaultSuffixDigits
@@ -964,7 +1034,7 @@ func (k *kubernetesClient) createDisambiguatedServiceAccount(
 
 	for {
 		if proposedName, err = model.DisambiguateResourceNameWithSuffixLength(
-			modelUUID, sa.Name, maxResourceNameLength, suffixLength); err != nil {
+			k.modelUUID, sa.Name, maxResourceNameLength, suffixLength); err != nil {
 			return nil, errors.Annotatef(err, "disambiguating service account name %q", sa.Name)
 		}
 		_, err = k.client.CoreV1().ServiceAccounts(k.namespace).Get(ctx, proposedName, v1.GetOptions{})
@@ -982,17 +1052,17 @@ func (k *kubernetesClient) createDisambiguatedServiceAccount(
 // ensureDisambiguatedClusterRole creates a cluster role with a disambiguated name.
 // cleanups contain funcs than can be run to delete any new resources on error.
 func (k *kubernetesClient) ensureDisambiguatedClusterRole(
-	ctx context.Context, baseName, modelUUID string, roleLabels labels.Set, createRules func(existing []rbacv1.PolicyRule) []rbacv1.PolicyRule,
+	ctx context.Context, baseName string, labels labels.Set, annotations map[string]string, createRules func(existing []rbacv1.PolicyRule) []rbacv1.PolicyRule,
 ) (_ *rbacv1.ClusterRole, cleanups []func(), _ error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(modelUUID)).String(),
+		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
 	}
 	existing, err := k.client.RbacV1().ClusterRoles().List(ctx, listOps)
 	if err != nil {
 		return nil, cleanups, errors.Trace(err)
 	}
 	for _, clusterRole := range existing.Items {
-		if !strings.HasPrefix(clusterRole.Name, baseName+"-") {
+		if clusterRole.Annotations[modelIdKey] != k.modelUUID {
 			continue
 		}
 		clusterRole.Rules = createRules(clusterRole.Rules)
@@ -1008,7 +1078,7 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRole(
 
 	for {
 		if proposedName, err = model.DisambiguateResourceNameWithSuffixLength(
-			modelUUID, baseName, maxResourceNameLength, suffixLength); err != nil {
+			k.modelUUID, baseName, maxResourceNameLength, suffixLength); err != nil {
 			return nil, cleanups, errors.Annotatef(err, "disambiguating cluster role name %q", baseName)
 		}
 		_, err = k.client.RbacV1().ClusterRoles().Get(ctx, proposedName, v1.GetOptions{})
@@ -1021,8 +1091,9 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRole(
 		result, err := k.createClusterRole(ctx,
 			&rbacv1.ClusterRole{
 				ObjectMeta: v1.ObjectMeta{
-					Name:   proposedName,
-					Labels: roleLabels,
+					Name:        proposedName,
+					Labels:      labels,
+					Annotations: annotations,
 				},
 				Rules: createRules(nil),
 			},
@@ -1038,17 +1109,17 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRole(
 // disambiguated name exists.
 // cleanups contain funcs than can be run to delete any new resources on error.
 func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
-	ctx context.Context, saName, baseName, modelUUID, roleName string, roleBindingLabels labels.Set,
+	ctx context.Context, saName, baseName, roleName string, labels labels.Set, annotations map[string]string,
 ) (_ *rbacv1.ClusterRoleBinding, cleanups []func(), _ error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(modelUUID)).String(),
+		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
 	}
 	existing, err := k.client.RbacV1().ClusterRoleBindings().List(ctx, listOps)
 	if err != nil {
 		return nil, cleanups, errors.Trace(err)
 	}
 	for _, clusterRoleBinding := range existing.Items {
-		if strings.HasPrefix(clusterRoleBinding.Name, baseName+"-") {
+		if clusterRoleBinding.Annotations[modelIdKey] == k.modelUUID {
 			return &clusterRoleBinding, cleanups, nil
 		}
 	}
@@ -1058,7 +1129,7 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
 
 	for {
 		if proposedName, err = model.DisambiguateResourceNameWithSuffixLength(
-			modelUUID, baseName, maxResourceNameLength, suffixLength); err != nil {
+			k.modelUUID, baseName, maxResourceNameLength, suffixLength); err != nil {
 			return nil, cleanups, errors.Annotatef(err, "disambiguating cluster role name %q", baseName)
 		}
 		_, err = k.client.RbacV1().ClusterRoleBindings().Get(ctx, proposedName, v1.GetOptions{})
@@ -1071,8 +1142,9 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
 		result, err := k.createClusterRoleBinding(ctx,
 			&rbacv1.ClusterRoleBinding{
 				ObjectMeta: v1.ObjectMeta{
-					Name:   proposedName,
-					Labels: roleBindingLabels,
+					Name:        proposedName,
+					Labels:      labels,
+					Annotations: annotations,
 				},
 				RoleRef: rbacv1.RoleRef{
 					APIGroup: "rbac.authorization.k8s.io",
