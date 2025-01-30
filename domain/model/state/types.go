@@ -438,9 +438,8 @@ type dbModelConstraint struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 }
 
-// dbConstraint represents a single row with
+// dbConstraint represents a single row within the v_constraint view.
 type dbConstraint struct {
-	UUID             string         `db:"uuid"`
 	Arch             sql.NullString `db:"arch"`
 	CPUCores         sql.NullInt64  `db:"cpu_cores"`
 	CPUPower         sql.NullInt64  `db:"cpu_power"`

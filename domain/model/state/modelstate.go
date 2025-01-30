@@ -179,10 +179,6 @@ WHERE c.uuid = $dbConstraint.uuid`, dbConstraintZone{}, dbConstraint{})
 		if err != nil {
 			return errors.Capture(err)
 		}
-		if cons.UUID == "" {
-			// No constraint exists for the model, no furhter queries are needed.
-			return nil
-		}
 		err = tx.Query(ctx, selectTagStmt, cons).GetAll(&tags)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting constraint tags: %w", err)
