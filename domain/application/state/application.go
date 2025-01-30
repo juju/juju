@@ -73,7 +73,7 @@ func (st *State) CreateApplication(
 	ctx context.Context,
 	name string,
 	args application.AddApplicationArg,
-	units ...application.AddUnitArg,
+	units []application.AddUnitArg,
 ) (coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -1346,29 +1346,6 @@ func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domains
 		return domainstorage.StoragePoolDetails{}, jujuerrors.Trace(err)
 	}
 	return storagestate.GetStoragePoolByName(ctx, db, name)
-}
-
-// GetApplicationID returns the ID for the named application, returning an error
-// satisfying [applicationerrors.ApplicationNotFound] if the application is not
-// found.
-//
-// Deprecated: AtomicContext is deprecated, use GetApplicationIDByName
-// instead. Once this is removed, we could rename GetApplicationIDByName to
-// GetApplicationID.
-func (st *State) GetApplicationID(ctx domain.AtomicContext, name string) (coreapplication.ID, error) {
-	var appUUID coreapplication.ID
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		appUUID, err = st.lookupApplication(ctx, tx, name)
-		if err != nil {
-			return fmt.Errorf("looking up application %q: %w", name, err)
-		}
-		return nil
-	})
-	if err != nil {
-		return "", errors.Errorf("getting ID for %q: %w", name, err)
-	}
-	return appUUID, nil
 }
 
 // GetUnitLife looks up the life of the specified unit, returning an error

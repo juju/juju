@@ -53,10 +53,10 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	unitArg := application.AddUnitArg{UnitName: "app/0"}
+	unitArgs := []application.AddUnitArg{{UnitName: "app/0"}}
 
 	ctx := context.Background()
-	_, err := appState.CreateApplication(ctx, "app", appArg, unitArg)
+	_, err := appState.CreateApplication(ctx, "app", appArg, unitArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {

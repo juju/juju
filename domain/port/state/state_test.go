@@ -88,7 +88,7 @@ func (s *baseSuite) createApplicationWithRelations(c *gc.C, appName string, rela
 			Revision:      1,
 			Source:        charm.LocalSource,
 		},
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return appUUID
 }

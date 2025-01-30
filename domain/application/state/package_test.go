@@ -158,7 +158,7 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 			DownloadSize:       42,
 		},
 		Scale: len(units),
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, u := range units {
@@ -224,7 +224,7 @@ func (s *baseSuite) createScalingApplication(c *gc.C, name string, l life.Life, 
 			DownloadSize:       42,
 		},
 		Scale: scale,
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {

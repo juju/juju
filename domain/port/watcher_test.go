@@ -106,7 +106,7 @@ func (s *watcherSuite) createApplicationWithRelations(c *gc.C, appName string, r
 			Revision:      1,
 			Source:        charm.LocalSource,
 		},
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return appUUID
 }

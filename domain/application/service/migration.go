@@ -210,7 +210,7 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		unitArgs[i] = arg
 	}
 
-	appID, err := s.st.CreateApplication(ctx, name, appArg)
+	appID, err := s.st.CreateApplication(ctx, name, appArg, nil)
 	if err != nil {
 		return errors.Annotatef(err, "creating application %q", name)
 	}

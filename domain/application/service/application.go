@@ -49,12 +49,6 @@ import (
 type AtomicApplicationState interface {
 	domain.AtomicStateBase
 
-	// GetApplicationID returns the ID for the named application, returning an
-	// error satisfying [applicationerrors.ApplicationNotFound] if the
-	// application is not found.
-	// Deprecated: use GetApplicationIDByName instead.
-	GetApplicationID(ctx domain.AtomicContext, name string) (coreapplication.ID, error)
-
 	// GetUnitUUID returns the UUID for the named unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (coreunit.UUID, error)
@@ -147,7 +141,7 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationAlreadyExists] if the application already
 	// exists. If returns as error satisfying [applicationerrors.CharmNotFound]
 	// if the charm for the application is not found.
-	CreateApplication(context.Context, string, application.AddApplicationArg, ...application.AddUnitArg) (coreapplication.ID, error)
+	CreateApplication(context.Context, string, application.AddApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
 
 	// AddUnits adds the specified units to the application.
 	AddUnits(context.Context, coreapplication.ID, ...application.AddUnitArg) error
@@ -355,7 +349,7 @@ func (s *Service) CreateApplication(
 		unitArgs[i] = arg
 	}
 
-	appID, err := s.st.CreateApplication(ctx, name, appArg, unitArgs...)
+	appID, err := s.st.CreateApplication(ctx, name, appArg, unitArgs)
 	if err != nil {
 		return "", errors.Annotatef(err, "creating application %q", name)
 	}
@@ -1030,16 +1024,11 @@ func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (core
 		return "", applicationerrors.ApplicationNameNotValid
 	}
 
-	var id coreapplication.ID
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, name)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		id = appID
-		return nil
-	})
-	return id, errors.Trace(err)
+	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return appID, nil
 }
 
 // GetCharmLocatorByApplicationName returns a CharmLocator by application name.
@@ -1174,12 +1163,12 @@ func (s *Service) CAASUnitTerminating(ctx context.Context, appName string, unitN
 		if err != nil {
 			return false, errors.Trace(err)
 		}
+		appID, err := s.st.GetApplicationIDByName(ctx, appName)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
 		var scaleInfo application.ScaleState
 		err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-			appID, err := s.st.GetApplicationID(ctx, appName)
-			if err != nil {
-				return errors.Trace(err)
-			}
 			scaleInfo, err = s.st.GetApplicationScaleState(ctx, appID)
 			return errors.Trace(err)
 		})
@@ -1218,11 +1207,11 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	if scale < 0 {
 		return fmt.Errorf("application scale %d not valid%w", scale, errors.Hide(applicationerrors.ScaleChangeInvalid))
 	}
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appScale, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return errors.Annotatef(err, "getting application scale state for app %q", appID)
@@ -1244,16 +1233,13 @@ func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int,
 }
 
 func (s *Service) getApplicationScaleAndID(ctx context.Context, appName string) (coreapplication.ID, int, error) {
-	var (
-		scaleState application.ScaleState
-		appID      coreapplication.ID
-	)
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return "", -1, errors.Trace(err)
+	}
+	var scaleState application.ScaleState
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
-		appID, err = s.st.GetApplicationID(ctx, appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
 
 		scaleState, err = s.st.GetApplicationScaleState(ctx, appID)
 		return errors.Annotatef(err, "getting scaling state for %q", appName)
@@ -1266,12 +1252,12 @@ func (s *Service) getApplicationScaleAndID(ctx context.Context, appName string) 
 // doesn't exist.
 // This is used on CAAS models.
 func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, scaleChange int) (int, error) {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
 	var newScale int
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return errors.Annotatef(err, "getting current scale state for %q", appName)
@@ -1328,12 +1314,12 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 // returning an error satisfying [applicationerrors.ApplicationNotFoundError] if
 // the application doesn't exist. This is used on CAAS models.
 func (s *Service) GetApplicationScalingState(ctx context.Context, appName string) (ScalingState, error) {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return ScalingState{}, errors.Trace(err)
+	}
 	var scaleState application.ScaleState
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		scaleState, err = s.st.GetApplicationScaleState(ctx, appID)
 		return errors.Annotatef(err, "getting scaling state for %q", appName)
 	})

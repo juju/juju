@@ -55,7 +55,7 @@ var addApplicationArg = application.AddApplicationArg{
 func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.AddUnitArg{UnitName: "foo/0"})
+	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, []application.AddUnitArg{{UnitName: "foo/0"}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
@@ -89,7 +89,7 @@ func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
 func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.AddUnitArg{UnitName: "foo/0"})
+	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, []application.AddUnitArg{{UnitName: "foo/0"}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{
@@ -101,7 +101,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesMachineNotFound(c *gc.C) {
 func (s *stubSuite) TestAssignUnitsToMachinesUnitNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.AddUnitArg{UnitName: "foo/0"})
+	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, []application.AddUnitArg{{UnitName: "foo/0"}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
@@ -121,10 +121,10 @@ func (s *stubSuite) TestAssignUnitsToMachinesUnitNotFound(c *gc.C) {
 func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg,
-		application.AddUnitArg{UnitName: "foo/0"},
-		application.AddUnitArg{UnitName: "foo/1"},
-	)
+	_, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, []application.AddUnitArg{
+		{UnitName: "foo/0"},
+		{UnitName: "foo/1"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
@@ -165,7 +165,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
 func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, application.AddUnitArg{UnitName: "foo/0"})
+	appID, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, []application.AddUnitArg{{UnitName: "foo/0"}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")

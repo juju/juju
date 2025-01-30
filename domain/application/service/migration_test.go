@@ -455,7 +455,7 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 			Trust: true,
 		},
 	}
-	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", args).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", args, nil).Return(id, nil)
 
 	unitArg := ImportUnitArg{
 		UnitName:     "ubuntu/666",

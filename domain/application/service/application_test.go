@@ -60,7 +60,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
-	u := application.AddUnitArg{
+	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: application.UnitAgentStatusInfo{
@@ -77,7 +77,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 				},
 			},
 		},
-	}
+	}}
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
 			Name:  "ubuntu",
@@ -132,7 +132,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app, u).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app, us).Return(id, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -405,7 +405,7 @@ func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
 	rErr := errors.New("boom")
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", gomock.Any()).Return(id, rErr)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", gomock.Any(), []application.AddUnitArg{}).Return(id, rErr)
 
 	s.charm.EXPECT().Meta().Return(&charm.Meta{
 		Name: "foo",
@@ -439,7 +439,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	u := application.AddUnitArg{
+	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: application.UnitAgentStatusInfo{
@@ -456,7 +456,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 				},
 			},
 		},
-	}
+	}}
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
 			Name:  "foo",
@@ -495,7 +495,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, u).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, us).Return(id, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -544,7 +544,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	u := application.AddUnitArg{
+	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: application.UnitAgentStatusInfo{
@@ -561,7 +561,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 				},
 			},
 		},
-	}
+	}}
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
 			Name:  "foo",
@@ -601,7 +601,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultBlockSource: ptr("fast")}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, u).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, us).Return(id, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -654,7 +654,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	u := application.AddUnitArg{
+	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: application.UnitAgentStatusInfo{
@@ -671,7 +671,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 				},
 			},
 		},
-	}
+	}}
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
 			Name:  "foo",
@@ -711,7 +711,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, u).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, us).Return(id, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -761,7 +761,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	u := application.AddUnitArg{
+	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: application.UnitAgentStatusInfo{
@@ -778,7 +778,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 				},
 			},
 		},
-	}
+	}}
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
 			Name:  "foo",
@@ -818,7 +818,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultFilesystemSource: ptr("fast")}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, u).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "foo", app, us).Return(id, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})

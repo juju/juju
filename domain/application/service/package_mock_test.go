@@ -102,23 +102,18 @@ func (c *MockStateAddUnitsCall) DoAndReturn(f func(context.Context, application.
 }
 
 // CreateApplication mocks base method.
-func (m *MockState) CreateApplication(arg0 context.Context, arg1 string, arg2 application0.AddApplicationArg, arg3 ...application0.AddUnitArg) (application.ID, error) {
+func (m *MockState) CreateApplication(arg0 context.Context, arg1 string, arg2 application0.AddApplicationArg, arg3 []application0.AddUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "CreateApplication", varargs...)
+	ret := m.ctrl.Call(m, "CreateApplication", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(application.ID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateApplication indicates an expected call of CreateApplication.
-func (mr *MockStateMockRecorder) CreateApplication(arg0, arg1, arg2 any, arg3 ...any) *MockStateCreateApplicationCall {
+func (mr *MockStateMockRecorder) CreateApplication(arg0, arg1, arg2, arg3 any) *MockStateCreateApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplication", reflect.TypeOf((*MockState)(nil).CreateApplication), varargs...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplication", reflect.TypeOf((*MockState)(nil).CreateApplication), arg0, arg1, arg2, arg3)
 	return &MockStateCreateApplicationCall{Call: call}
 }
 
@@ -134,13 +129,13 @@ func (c *MockStateCreateApplicationCall) Return(arg0 application.ID, arg1 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateApplicationCall) Do(f func(context.Context, string, application0.AddApplicationArg, ...application0.AddUnitArg) (application.ID, error)) *MockStateCreateApplicationCall {
+func (c *MockStateCreateApplicationCall) Do(f func(context.Context, string, application0.AddApplicationArg, []application0.AddUnitArg) (application.ID, error)) *MockStateCreateApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateApplicationCall) DoAndReturn(f func(context.Context, string, application0.AddApplicationArg, ...application0.AddUnitArg) (application.ID, error)) *MockStateCreateApplicationCall {
+func (c *MockStateCreateApplicationCall) DoAndReturn(f func(context.Context, string, application0.AddApplicationArg, []application0.AddUnitArg) (application.ID, error)) *MockStateCreateApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -296,45 +291,6 @@ func (c *MockStateGetApplicationConfigAndSettingsCall) Do(f func(context.Context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetApplicationConfigAndSettingsCall) DoAndReturn(f func(context.Context, application.ID) (map[string]application0.ApplicationConfig, application0.ApplicationSettings, error)) *MockStateGetApplicationConfigAndSettingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetApplicationID mocks base method.
-func (m *MockState) GetApplicationID(arg0 domain.AtomicContext, arg1 string) (application.ID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationID", arg0, arg1)
-	ret0, _ := ret[0].(application.ID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetApplicationID indicates an expected call of GetApplicationID.
-func (mr *MockStateMockRecorder) GetApplicationID(arg0, arg1 any) *MockStateGetApplicationIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationID", reflect.TypeOf((*MockState)(nil).GetApplicationID), arg0, arg1)
-	return &MockStateGetApplicationIDCall{Call: call}
-}
-
-// MockStateGetApplicationIDCall wrap *gomock.Call
-type MockStateGetApplicationIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationIDCall) Return(arg0 application.ID, arg1 error) *MockStateGetApplicationIDCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationIDCall) Do(f func(domain.AtomicContext, string) (application.ID, error)) *MockStateGetApplicationIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationIDCall) DoAndReturn(f func(domain.AtomicContext, string) (application.ID, error)) *MockStateGetApplicationIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

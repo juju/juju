@@ -105,7 +105,7 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 		},
 		Scale:   1,
 		Channel: channel,
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
@@ -157,7 +157,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *gc
 		Settings: application.ApplicationSettings{
 			Trust: true,
 		},
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
@@ -204,7 +204,7 @@ func (s *applicationStateSuite) TesatCreateApplicationWithUnits(c *gc.C) {
 		Scale:   1,
 		Channel: channel,
 	}
-	u := application.AddUnitArg{
+	us := []application.AddUnitArg{{
 		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
 			AgentStatus: application.UnitAgentStatusInfo{
@@ -224,10 +224,10 @@ func (s *applicationStateSuite) TesatCreateApplicationWithUnits(c *gc.C) {
 				},
 			},
 		},
-	}
+	}}
 	ctx := context.Background()
 
-	_, err := s.state.CreateApplication(ctx, "666", a, u)
+	_, err := s.state.CreateApplication(ctx, "666", a, us)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
@@ -256,7 +256,7 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 			Revision:     42,
 			Architecture: architecture.ARM64,
 		},
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.CreateApplication(ctx, "foo2", application.AddApplicationArg{
@@ -269,7 +269,7 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 			Revision:     42,
 			Architecture: architecture.ARM64,
 		},
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	scale := application.ScaleState{}
@@ -297,7 +297,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *gc.C) {
 			Revision:      42,
 		},
 		Scale: 1,
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, nil, scale, false)
@@ -321,7 +321,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *gc.C) {
 			Revision: 42,
 		},
 		Scale: 1,
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
@@ -347,7 +347,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithCharmStoragePath(c *gc.
 			Available:   true,
 		},
 		Scale: 1,
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, true)
@@ -386,7 +386,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithResources(c *gc.C) {
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
-		charmResources, addResourcesArgs))
+		charmResources, addResourcesArgs), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check expected resources are added
 	assertTxn := func(comment string, do func(ctx context.Context, tx *sql.Tx) error) {
@@ -475,11 +475,11 @@ func (s *applicationStateSuite) TestCreateApplicationWithExistingCharmWithResour
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
-		charmResources, addResourcesArgs))
+		charmResources, addResourcesArgs), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.CreateApplication(ctx, "667", s.addApplicationArgForResources(c, "666",
-		charmResources, addResourcesArgs))
+		charmResources, addResourcesArgs), nil)
 	c.Check(err, jc.ErrorIsNil, gc.Commentf("Failed to create second "+
 		"application. Maybe the charm UUID is not properly fetched to pass to "+
 		"resources ?"))
@@ -513,7 +513,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesMissingResourc
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
-		charmResources, addResourceArgs))
+		charmResources, addResourceArgs), nil)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s",
 		errors.ErrorStack(err)))
 }
@@ -548,7 +548,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
-		charmResources, addResourcesArgs))
+		charmResources, addResourcesArgs), nil)
 	c.Assert(err, gc.ErrorMatches,
 		`.*inserting resource "my-image": FOREIGN KEY constraint failed.*`,
 		gc.Commentf("(Assert) unexpected error: %s",
@@ -2157,7 +2157,7 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *gc.C) {
 			Branch: "branch",
 		},
 		Platform: platform,
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch, err := s.state.GetCharmByApplicationID(context.Background(), appID)
@@ -2247,7 +2247,7 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 			Architecture: architecture.AMD64,
 			Channel:      "22.04",
 		},
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch, err := s.state.GetCharmByApplicationID(context.Background(), appID)
@@ -2281,7 +2281,7 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 			Manifest: s.minimalManifest(c),
 			Source:   charm.LocalSource,
 		},
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -2543,7 +2543,7 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *gc.C)
 			Source:        charm.LocalSource,
 			Revision:      42,
 		},
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.GetAsyncCharmDownloadInfo(context.Background(), appID)
