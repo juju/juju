@@ -50,6 +50,10 @@ prepare_k8s() {
 		--resource=namespaces,secrets,serviceaccounts,serviceaccounts/token,clusterroles,clusterrolebindings --dry-run=client -o yaml | microk8s.kubectl apply -f -
 	microk8s.kubectl create --save-config clusterrolebinding juju-secrets --clusterrole=juju-secrets \
 		--serviceaccount=${namespace}:${serviceaccount} --dry-run=client -o yaml | microk8s.kubectl apply -f -
+	microk8s.kubectl create --save-config role juju-secrets --namespace=${namespace} --verb='*' \
+		--resource=secrets,serviceaccounts,serviceaccounts/token,roles,rolebindings --dry-run=client -o yaml | microk8s.kubectl apply -f -
+	microk8s.kubectl create --save-config rolebinding juju-secrets --namespace=${namespace} --role=juju-secrets \
+		--serviceaccount=${namespace}:${serviceaccount} --dry-run=client -o yaml | microk8s.kubectl apply -f -
 	token=$(microk8s.kubectl create token ${serviceaccount} --namespace ${namespace})
 
 	cat >"${TEST_DIR}/k8sconfig.yaml" <<EOF

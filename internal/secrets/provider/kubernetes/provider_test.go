@@ -41,6 +41,7 @@ type providerSuite struct {
 	mockDiscovery           *mocks.MockDiscoveryInterface
 	mockSecrets             *mocks.MockSecretInterface
 	mockRbacV1              *mocks.MockRbacV1Interface
+	mockNamespaces          *mocks.MockNamespaceInterface
 	mockServiceAccounts     *mocks.MockServiceAccountInterface
 	mockRoles               *mocks.MockRoleInterface
 	mockClusterRoles        *mocks.MockClusterRoleInterface
@@ -69,6 +70,8 @@ func (s *providerSuite) setupController(c *gc.C) *gomock.Controller {
 
 	mockCoreV1 := mocks.NewMockCoreV1Interface(ctrl)
 	s.k8sClient.EXPECT().CoreV1().AnyTimes().Return(mockCoreV1)
+	s.mockNamespaces = mocks.NewMockNamespaceInterface(ctrl)
+	mockCoreV1.EXPECT().Namespaces().AnyTimes().Return(s.mockNamespaces)
 
 	s.mockServiceAccounts = mocks.NewMockServiceAccountInterface(ctrl)
 	mockCoreV1.EXPECT().ServiceAccounts(s.namespace).AnyTimes().Return(s.mockServiceAccounts)
@@ -111,9 +114,14 @@ func (s *providerSuite) expectEnsureSecretAccessToken(unit string, owned, read [
 	objMeta := v1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
-			"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab",
-			"model.juju.is/name": "fred",
-			"model.juju.is/id":   coretesting.ModelTag.Id(), "controller.juju.is/id": coretesting.ControllerTag.Id()},
+			"app.kubernetes.io/managed-by": "juju",
+			"app.kubernetes.io/name":       "gitlab",
+			"model.juju.is/name":           "fred",
+		},
+		Annotations: map[string]string{
+			"model.juju.is/id":      coretesting.ModelTag.Id(),
+			"controller.juju.is/id": coretesting.ControllerTag.Id(),
+		},
 		Namespace: s.namespace,
 	}
 
@@ -179,7 +187,7 @@ func (s *providerSuite) expectEnsureSecretAccessToken(unit string, owned, read [
 
 	gomock.InOrder(
 		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{
-			LabelSelector: "model.juju.is/id=" + coretesting.ModelTag.Id(),
+			LabelSelector: "model.juju.is/name=fred",
 		}).Return(&core.ServiceAccountList{}, nil),
 		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), "unit-gitlab-0-06f00d", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -200,9 +208,14 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 	objMeta := v1.ObjectMeta{
 		Name: unit + "-06f00d",
 		Labels: map[string]string{
-			"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab",
-			"model.juju.is/name": "controller",
-			"model.juju.is/id":   coretesting.ModelTag.Id(), "controller.juju.is/id": coretesting.ControllerTag.Id()},
+			"app.kubernetes.io/managed-by": "juju",
+			"app.kubernetes.io/name":       "gitlab",
+			"model.juju.is/name":           "controller",
+		},
+		Annotations: map[string]string{
+			"model.juju.is/id":      coretesting.ModelTag.Id(),
+			"controller.juju.is/id": coretesting.ControllerTag.Id(),
+		},
 		Namespace: s.namespace,
 	}
 	automountServiceAccountToken := true
@@ -268,8 +281,11 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 		},
 	}
 	args := []any{
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.namespace, v1.GetOptions{}).Return(&core.Namespace{
+			ObjectMeta: v1.ObjectMeta{Name: s.namespace},
+		}, nil),
 		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{
-			LabelSelector: "model.juju.is/id=" + coretesting.ModelTag.Id(),
+			LabelSelector: "model.juju.is/name=controller",
 		}).Return(&core.ServiceAccountList{}, nil),
 		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), sa.Name, v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -279,14 +295,14 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 	if roleAlreadyExists {
 		args = append(args,
 			s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{
-				LabelSelector: "model.juju.is/id=" + coretesting.ModelTag.Id(),
+				LabelSelector: "model.juju.is/name=controller",
 			}).Return(&rbacv1.ClusterRoleList{Items: []rbacv1.ClusterRole{*clusterRole}}, nil),
 			s.mockClusterRoles.EXPECT().Update(gomock.Any(), clusterRole, v1.UpdateOptions{}).Return(clusterRole, nil),
 		)
 	} else {
 		args = append(args,
 			s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{
-				LabelSelector: "model.juju.is/id=" + coretesting.ModelTag.Id(),
+				LabelSelector: "model.juju.is/name=controller",
 			}).Return(&rbacv1.ClusterRoleList{}, nil),
 			s.mockClusterRoles.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 			s.mockClusterRoles.EXPECT().Create(gomock.Any(), clusterRole, v1.CreateOptions{FieldManager: "juju"}).Return(clusterRole, nil),
@@ -294,7 +310,7 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 	}
 	args = append(args,
 		s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{
-			LabelSelector: "model.juju.is/id=" + coretesting.ModelTag.Id(),
+			LabelSelector: "model.juju.is/name=controller",
 		}).Return(&rbacv1.ClusterRoleBindingList{}, nil),
 		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), clusterRoleBinding, v1.CreateOptions{FieldManager: "juju"}).Return(clusterRoleBinding, nil),
@@ -385,6 +401,68 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
+func (s *providerSuite) TestCleanupModel(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	selector := "model.juju.is/name=fred"
+	s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: selector,
+	}).Return(&core.ServiceAccountList{}, nil)
+	s.mockRoles.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: selector,
+	}).Return(&rbacv1.RoleList{}, nil)
+	s.mockRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: selector,
+	}).Return(&rbacv1.RoleBindingList{}, nil)
+	s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: selector,
+	}).Return(&rbacv1.ClusterRoleList{Items: []rbacv1.ClusterRole{{
+		ObjectMeta: v1.ObjectMeta{Name: "juju-secrets-role", Annotations: map[string]string{
+			"model.juju.is/id": coretesting.ModelTag.Id(),
+		}},
+	}, {
+		ObjectMeta: v1.ObjectMeta{Name: "other-role"},
+	}}}, nil)
+	s.mockClusterRoles.EXPECT().Delete(gomock.Any(), "juju-secrets-role", v1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	})
+	s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: selector,
+	}).Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{{
+		ObjectMeta: v1.ObjectMeta{Name: "juju-secrets-rolebinding", Annotations: map[string]string{
+			"model.juju.is/id": coretesting.ModelTag.Id(),
+		}},
+	}, {
+		ObjectMeta: v1.ObjectMeta{Name: "other-rolebinding"},
+	}}}, nil)
+	s.mockClusterRoleBindings.EXPECT().Delete(gomock.Any(), "juju-secrets-rolebinding", v1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	})
+	s.mockSecrets.EXPECT().List(gomock.Any(), v1.ListOptions{
+		LabelSelector: selector,
+	}).Return(&core.SecretList{Items: []core.Secret{{
+		ObjectMeta: v1.ObjectMeta{Name: "some-secret", Annotations: map[string]string{
+			"model.juju.is/id": coretesting.ModelTag.Id(),
+		}},
+	}}}, nil)
+	s.mockSecrets.EXPECT().Delete(gomock.Any(), "some-secret", v1.DeleteOptions{
+		PropagationPolicy: k8sconstants.DefaultPropagationPolicy(),
+	})
+
+	p, err := provider.Provider(kubernetes.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  s.backendConfig(),
+	}
+
+	err = p.CleanupModel(adminCfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
@@ -471,9 +549,14 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
 	objMeta := v1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
-			"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "gitlab",
-			"model.juju.is/name": "fred",
-			"model.juju.is/id":   coretesting.ModelTag.Id(), "controller.juju.is/id": coretesting.ControllerTag.Id()},
+			"app.kubernetes.io/managed-by": "juju",
+			"app.kubernetes.io/name":       "gitlab",
+			"model.juju.is/name":           "fred",
+		},
+		Annotations: map[string]string{
+			"model.juju.is/id":      coretesting.ModelTag.Id(),
+			"controller.juju.is/id": coretesting.ControllerTag.Id(),
+		},
 		Namespace: s.namespace,
 	}
 	automountServiceAccountToken := true
@@ -520,7 +603,7 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
 	}
 	gomock.InOrder(
 		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{
-			LabelSelector: "model.juju.is/id=" + coretesting.ModelTag.Id(),
+			LabelSelector: "model.juju.is/name=fred",
 		}).Return(&core.ServiceAccountList{}, nil),
 		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
