@@ -21,7 +21,7 @@ import (
 // in production code.
 func DumpTable(c *gc.C, db *sql.DB, table string, extraTables ...string) {
 	for _, t := range append([]string{table}, extraTables...) {
-		rows, err := db.Query("SELECT * FROM " + t)
+		rows, err := db.Query(fmt.Sprintf("SELECT * FROM %q", t))
 		c.Assert(err, jc.ErrorIsNil)
 		defer rows.Close()
 
