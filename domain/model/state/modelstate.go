@@ -247,9 +247,9 @@ func (s *ModelState) getModelConstraints(
 	return constraint, nil
 }
 
-// deleteModelConstraint deletes all constraints that are set for the provided
-// model uuid. If no constraints are set for the model uuid or the model uuid
-// does not exist no error is raised.
+// deleteModelConstraint deletes all constraints currently set on the current
+// model. If no constraints are set for the current model or no model exists
+// then no error is raised.
 func (s *ModelState) deleteModelConstraint(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -272,9 +272,9 @@ func (s *ModelState) deleteModelConstraint(
 
 	dbConstraintUUID := dbConstraintUUID{UUID: constraintUUID}
 
-	stmt, err = s.Prepare(`
-DELETE FROM constraint_tag 
-WHERE constraint_uuid = $dbConstraintUUID.uuid`, dbConstraintUUID,
+	stmt, err = s.Prepare(
+		"DELETE FROM constraint_tag WHERE constraint_uuid = $dbConstraintUUID.uuid",
+		dbConstraintUUID,
 	)
 	if err != nil {
 		return errors.Capture(err)
@@ -285,9 +285,9 @@ WHERE constraint_uuid = $dbConstraintUUID.uuid`, dbConstraintUUID,
 		return errors.Errorf("deleting model constraint %q tags: %w", constraintUUID, err)
 	}
 
-	stmt, err = s.Prepare(`
-DELETE FROM constraint_space
-WHERE constraint_uuid = $dbConstraintUUID.uuid`, dbConstraintUUID,
+	stmt, err = s.Prepare(
+		"DELETE FROM constraint_space WHERE constraint_uuid = $dbConstraintUUID.uuid",
+		dbConstraintUUID,
 	)
 	if err != nil {
 		return errors.Capture(err)
@@ -297,9 +297,9 @@ WHERE constraint_uuid = $dbConstraintUUID.uuid`, dbConstraintUUID,
 		return errors.Errorf("deleting model constraint %q spaces: %w", constraintUUID, err)
 	}
 
-	stmt, err = s.Prepare(`
-DELETE FROM constraint_zone
-WHERE constraint_uuid = $dbConstraintUUID.uuid`, dbConstraintUUID,
+	stmt, err = s.Prepare(
+		"DELETE FROM constraint_zone WHERE constraint_uuid = $dbConstraintUUID.uuid",
+		dbConstraintUUID,
 	)
 	if err != nil {
 		return errors.Capture(err)
@@ -309,8 +309,9 @@ WHERE constraint_uuid = $dbConstraintUUID.uuid`, dbConstraintUUID,
 		return errors.Errorf("deleting model constraint %q zones: %w", constraintUUID, err)
 	}
 
-	stmt, err = s.Prepare(`
-DELETE FROM "constraint" WHERE uuid = $dbConstraintUUID.uuid`, dbConstraintUUID,
+	stmt, err = s.Prepare(
+		`DELETE FROM "constraint" WHERE uuid = $dbConstraintUUID.uuid`,
+		dbConstraintUUID,
 	)
 	if err != nil {
 		return errors.Capture(err)
