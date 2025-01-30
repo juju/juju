@@ -6,6 +6,7 @@ package modelconfig
 import (
 	"context"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/environs/config"
 )
@@ -17,6 +18,26 @@ type ModelConfigService interface {
 	ModelConfigValues(context.Context) (config.ConfigValues, error)
 	// UpdateModelConfig updates the model configuration values.
 	UpdateModelConfig(context.Context, map[string]any, []string, ...config.Validator) error
+}
+
+// ModelService is a subset of the model domain service methods.
+type ModelService interface {
+	// GetModelConstraints returns the current model constraints.
+	// It returns an error satisfying [modelerrors.NotFound] if the model does not
+	// exist.
+	// It returns an empty Value if the model does not have any constraints
+	// configured.
+	GetModelConstraints(ctx context.Context) (constraints.Value, error)
+	// SetModelConstraints sets the model constraints to the new values removing
+	// any previously set constraints.
+	//
+	// The following error types can be expected:
+	// - [modelerrors.NotFound]: when the model does not exist
+	// - [github.com/juju/juju/domain/network/errors.SpaceNotFound]: when the space
+	// being set in the model constraint doesn't exist.
+	// - [github.com/juju/juju/domain/machine/errors.InvalidContainerType]: when
+	// the container type being set in the model constraint isn't valid.
+	SetModelConstraints(ctx context.Context, cons constraints.Value) error
 }
 
 // ModelSecretBackendService is an interface for interacting with model secret backend service.
