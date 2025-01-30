@@ -247,10 +247,10 @@ func (s *ModelState) getModelConstraints(
 	return constraint, nil
 }
 
-// deleteModelConstraint deletes all constraints currently set on the current
+// deleteModelConstraints deletes all constraints currently set on the current
 // model. If no constraints are set for the current model or no model exists
 // then no error is raised.
-func (s *ModelState) deleteModelConstraint(
+func (s *ModelState) deleteModelConstraints(
 	ctx context.Context,
 	tx *sqlair.TX,
 ) error {
@@ -324,9 +324,7 @@ func (s *ModelState) deleteModelConstraint(
 }
 
 // SetModelConstraints sets the model constraints to the new values removing
-// any previously set values. If the constraints container type is not set an
-// error will be returned (see below). This value must be set before calling
-// this method.
+// any previously set values.
 // The following error types can be expected:
 // - [coreerrors.NotValid]: When no container type has been set in the
 // constraints.
@@ -395,22 +393,26 @@ func (s *ModelState) SetModelConstraints(ctx context.Context, consValue constrai
 	}
 
 	selectContainerTypeStmt, err := s.Prepare(`
-SELECT &dbContainerTypeId.* FROM container_type WHERE value = $dbContainerTypeValue.value
+SELECT &dbContainerTypeId.*
+FROM container_type
+WHERE value = $dbContainerTypeValue.value
 `, dbContainerTypeId{}, dbContainerTypeValue{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	insertModelConstraintStmt, err := s.Prepare(`
-INSERT INTO model_constraint (*)
-VALUES ($dbModelConstraint.*)`, dbModelConstraint{})
+	insertModelConstraintStmt, err := s.Prepare(
+		"INSERT INTO model_constraint (*) VALUES ($dbModelConstraint.*)",
+		dbModelConstraint{},
+	)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	insertConstraintStmt, err := s.Prepare(`
-INSERT INTO "constraint" (*) VALUES($dbConstraintInsert.*)
-`, constraintInsertValues)
+	insertConstraintStmt, err := s.Prepare(
+		`INSERT INTO "constraint" (*) VALUES($dbConstraintInsert.*)`,
+		constraintInsertValues,
+	)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -421,7 +423,7 @@ INSERT INTO "constraint" (*) VALUES($dbConstraintInsert.*)
 			return errors.Errorf("getting model uuid: %w", err)
 		}
 
-		err = s.deleteModelConstraint(ctx, tx)
+		err = s.deleteModelConstraints(ctx, tx)
 		if err != nil {
 			return errors.Errorf("deleting existing model constraints: %w", err)
 		}
@@ -434,12 +436,12 @@ INSERT INTO "constraint" (*) VALUES($dbConstraintInsert.*)
 
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf(
-					"setting new constraints for model, container type %q is not valid",
+					"container type %q is not valid",
 					*consValue.Container,
 				).Add(machineerrors.InvalidContainerType)
 			} else if err != nil {
 				return errors.Errorf(
-					"setting new constraints for model when finding container type %q id: %w",
+					"finding container type %q id: %w",
 					string(*consValue.Container), err,
 				)
 			}
@@ -497,9 +499,10 @@ func (s *ModelState) insertConstraintTags(
 	constraintUUID uuid.UUID,
 	tags []string,
 ) error {
-	insertConstraintTagStmt, err := s.Prepare(`
-INSERT INTO constraint_tag (*)
-VALUES ($dbConstraintTag.*)`, dbConstraintTag{})
+	insertConstraintTagStmt, err := s.Prepare(
+		"INSERT INTO constraint_tag (*) VALUES ($dbConstraintTag.*)",
+		dbConstraintTag{},
+	)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -535,9 +538,10 @@ func (s *ModelState) insertContraintSpaces(
 	constraintUUID uuid.UUID,
 	spaces []string,
 ) error {
-	insertConstraintSpaceStmt, err := s.Prepare(`
-INSERT INTO constraint_space (*)
-VALUES ($dbConstraintSpace.*)`, dbConstraintSpace{})
+	insertConstraintSpaceStmt, err := s.Prepare(
+		"INSERT INTO constraint_space (*) VALUES ($dbConstraintSpace.*)",
+		dbConstraintSpace{},
+	)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -553,16 +557,17 @@ VALUES ($dbConstraintSpace.*)`, dbConstraintSpace{})
 			Space:          space,
 		})
 	}
+
 	err = tx.Query(ctx, insertConstraintSpaceStmt, data).Run()
 	if internaldatabase.IsErrConstraintForeignKey(err) {
 		return errors.Errorf(
 			"inserting constraints %q spaces, space(s) %v does not exist",
-			constraintUUID,
+			constraintUUID, spaces,
 		).Add(networkerrors.SpaceNotFound)
+	} else if err != nil {
+		return errors.Errorf("inserting constraint %q space(s): %w", constraintUUID, err)
 	}
-	if err != nil {
-		return errors.Errorf("inserting constraint %q space(s): %w", err)
-	}
+
 	return nil
 }
 
@@ -576,9 +581,10 @@ func (s *ModelState) insertContraintZones(
 	constraintUUID uuid.UUID,
 	zones []string,
 ) error {
-	insertConstraintZoneStmt, err := s.Prepare(`
-INSERT INTO constraint_zone (*)
-VALUES ($dbConstraintZone.*)`, dbConstraintZone{})
+	insertConstraintZoneStmt, err := s.Prepare(
+		"INSERT INTO constraint_zone (*) VALUES ($dbConstraintZone.*)",
+		dbConstraintZone{},
+	)
 	if err != nil {
 		return errors.Capture(err)
 	}
