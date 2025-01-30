@@ -1798,6 +1798,74 @@ func (s *charmServiceSuite) TestReserveCharmRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *charmServiceSuite) TestReserveCharmRevisionAlreadyExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	metadata := &internalcharm.Meta{
+		Name: "foo",
+	}
+	manifest := &internalcharm.Manifest{
+		Bases: []internalcharm.Base{{
+			Name:          "ubuntu",
+			Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+			Architectures: []string{"arm64"},
+		}},
+	}
+	config := &internalcharm.Config{}
+	actions := &internalcharm.Actions{}
+	lxdProfile := &internalcharm.LXDProfile{}
+
+	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
+
+	// We don't check the expected, we only care about the result
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("id", charm.CharmLocator{},
+		applicationerrors.CharmAlreadyExists)
+	s.state.EXPECT().GetCharmID(gomock.Any(), charmBase.Meta().Name, 42, charm.LocalSource).Return("id", nil)
+
+	id, _, err := s.service.ReserveCharmRevision(context.Background(), charm.ReserveCharmRevisionArgs{
+		// We only define required fields to pass code before SetCharm call
+		Charm:         charmBase,
+		Source:        corecharm.Local,
+		ReferenceName: "foo",
+		Revision:      42,
+	})
+	c.Assert(id, gc.Equals, corecharm.ID("id"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *charmServiceSuite) TestReserveCharmRevisionAlreadyExistsGetCharmIdError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	metadata := &internalcharm.Meta{
+		Name: "foo",
+	}
+	manifest := &internalcharm.Manifest{
+		Bases: []internalcharm.Base{{
+			Name:          "ubuntu",
+			Channel:       internalcharm.Channel{Risk: internalcharm.Beta},
+			Architectures: []string{"arm64"},
+		}},
+	}
+	config := &internalcharm.Config{}
+	actions := &internalcharm.Actions{}
+	lxdProfile := &internalcharm.LXDProfile{}
+
+	charmBase := internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile)
+	expectedError := errors.New("boom")
+
+	// We don't check the expected, we only care about the result
+	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("id", charm.CharmLocator{},
+		applicationerrors.CharmAlreadyExists)
+	s.state.EXPECT().GetCharmID(gomock.Any(), charmBase.Meta().Name, 42, charm.LocalSource).Return("", expectedError)
+
+	_, _, err := s.service.ReserveCharmRevision(context.Background(), charm.ReserveCharmRevisionArgs{
+		// We only define required fields to pass code before SetCharm call
+		Charm:         charmBase,
+		Source:        corecharm.Local,
+		ReferenceName: "foo",
+		Revision:      42,
+	})
+	c.Assert(err, jc.ErrorIs, expectedError)
+}
+
 func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

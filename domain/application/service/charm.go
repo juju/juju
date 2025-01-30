@@ -932,14 +932,10 @@ func (s *Service) setCharm(ctx context.Context, args charm.SetCharmArgs) (setCha
 	ch.Architecture = architecture
 
 	charmID, locator, err := s.st.SetCharm(ctx, ch, args.DownloadInfo, args.RequiresSequencing)
-	if err != nil {
-		return setCharmResult{}, warnings, errors.Trace(err)
-	}
-
 	return setCharmResult{
 		ID:      charmID,
 		Locator: locator,
-	}, warnings, nil
+	}, warnings, errors.Trace(err)
 }
 
 // ReserveCharmRevision creates a new charm revision placeholder in state. This
@@ -951,6 +947,9 @@ func (s *Service) setCharm(ctx context.Context, args charm.SetCharmArgs) (setCha
 //
 // If there are any non-blocking issues with the charm metadata, actions, config
 // or manifest, a set of warnings will be returned.
+//
+// If the placeholder already exists, it is a noop but still return the
+// corresponding charm ID.
 func (s *Service) ReserveCharmRevision(ctx context.Context, args charm.ReserveCharmRevisionArgs) (corecharm.ID, []string, error) {
 	result, warnings, err := s.setCharm(ctx, charm.SetCharmArgs{
 		Charm:         args.Charm,
@@ -961,10 +960,21 @@ func (s *Service) ReserveCharmRevision(ctx context.Context, args charm.ReserveCh
 		Architecture:  args.Architecture,
 		DownloadInfo:  args.DownloadInfo,
 	})
-	if err != nil {
-		return "", nil, errors.Trace(err)
+	if errors.Is(err, applicationerrors.CharmAlreadyExists) {
+		var charmSource charm.CharmSource
+		switch args.Source {
+		case corecharm.CharmHub:
+			charmSource = charm.CharmHubSource
+		case corecharm.Local:
+			charmSource = charm.LocalSource
+		default:
+			return "", nil, applicationerrors.CharmSourceNotValid
+		}
+
+		// retrieve the charm ID
+		result.ID, err = s.st.GetCharmID(ctx, args.ReferenceName, args.Revision, charmSource)
 	}
-	return result.ID, warnings, nil
+	return result.ID, warnings, errors.Trace(err)
 }
 
 // GetLatestPendingCharmhubCharm returns the latest charm that is pending from
