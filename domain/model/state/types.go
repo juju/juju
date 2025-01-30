@@ -471,12 +471,6 @@ type dbConstraintInsert struct {
 	ImageID          sql.NullString `db:"image_id"`
 }
 
-// dbConstraintsUUID represents a single constraints record uuid in the
-// database.
-type dbConstraintsUUID struct {
-	UUID string `db:"uuid"`
-}
-
 func ptr[T any](i T) *T {
 	return &i
 }
