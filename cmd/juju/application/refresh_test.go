@@ -1341,6 +1341,10 @@ func (m *mockAPIConnection) Addr() *url.URL {
 	}
 }
 
+func (m *mockAPIConnection) IsProxied() bool {
+	return false
+}
+
 func (m *mockAPIConnection) IPAddr() string {
 	return "0.1.2.3:1234"
 }
@@ -1355,7 +1359,7 @@ func (m *mockAPIConnection) PublicDNSName() string {
 
 func (m *mockAPIConnection) APIHostPorts() []network.MachineHostPorts {
 	url := m.Addr()
-	hp, _ := network.ParseMachineHostPort(url.String())
+	hp, _ := network.ParseMachineHostPort(url.Host)
 	return []network.MachineHostPorts{{*hp}}
 }
 

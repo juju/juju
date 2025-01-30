@@ -773,11 +773,91 @@ func (s *NewAPIClientSuite) TestProcessAccountDetails(c *gc.C) {
 
 }
 
+func (s *NewAPIClientSuite) TestUpdateControllerDetailsFromLogin(c *gc.C) {
+	// These tests currently focus solely focus on asserting the
+	// controller's API endpoints are correctly updated.
+	tests := []struct {
+		description                 string
+		controllerName              string
+		updateDetails               juju.UpdateControllerParams
+		expectedControllerEndpoints []string
+	}{{
+		description:    "Empty connected address",
+		controllerName: "test-controller",
+		updateDetails: juju.UpdateControllerParams{
+			CurrentHostPorts: []network.MachineHostPorts{
+				network.NewMachineHostPorts(1234, "31.0.0.1"),
+			},
+		},
+		expectedControllerEndpoints: []string{"31.0.0.1:1234"},
+	}, {
+		description:    "Populated connected address",
+		controllerName: "test-controller",
+		updateDetails: juju.UpdateControllerParams{
+			CurrentHostPorts: []network.MachineHostPorts{
+				network.NewMachineHostPorts(1234, "31.0.0.1"),
+			},
+			CurrentConnection: juju.CurrentConnection{
+				Proxied: false,
+				Address: &url.URL{
+					Host: "mycontroller:5432",
+				},
+				IPAddress: "31.1.1.1:1234",
+			},
+		},
+		expectedControllerEndpoints: []string{"mycontroller:5432", "31.0.0.1:1234"},
+	}, {
+		description:    "Populated connected address that is proxied",
+		controllerName: "test-controller",
+		updateDetails: juju.UpdateControllerParams{
+			CurrentHostPorts: []network.MachineHostPorts{
+				network.NewMachineHostPorts(1234, "31.0.0.1"),
+			},
+			CurrentConnection: juju.CurrentConnection{
+				Proxied: true,
+				Address: &url.URL{
+					Host: "mycontroller:5432",
+				},
+				IPAddress: "10.1.2.3",
+			},
+		},
+		expectedControllerEndpoints: []string{"31.0.0.1:1234"},
+	}, {
+		description:    "Duplicate and local IP addresses are removed",
+		controllerName: "test-controller",
+		updateDetails: juju.UpdateControllerParams{
+			CurrentHostPorts: []network.MachineHostPorts{
+				network.NewMachineHostPorts(1234, "31.0.0.1"),
+				network.NewMachineHostPorts(1234, "31.0.0.1"),
+				network.NewMachineHostPorts(1234, "127.0.0.1"),
+			},
+		},
+		expectedControllerEndpoints: []string{"31.0.0.1:1234"},
+	}}
+
+	for i, test := range tests {
+		c.Logf("running test case %d", i)
+		store := &testClientStore{
+			controllerDetails: map[string]*jujuclient.ControllerDetails{
+				test.controllerName: {},
+			},
+		}
+
+		err := juju.UpdateControllerDetailsFromLogin(store, test.controllerName, test.updateDetails)
+		c.Assert(err, gc.IsNil)
+
+		controller := store.controllerDetails[test.controllerName]
+		c.Assert(controller.APIEndpoints, gc.DeepEquals, test.expectedControllerEndpoints)
+	}
+
+}
+
 type testClientStore struct {
 	jujuclient.ClientStore
 
-	mu             sync.RWMutex
-	accountDetails map[string]*jujuclient.AccountDetails
+	mu                sync.RWMutex
+	accountDetails    map[string]*jujuclient.AccountDetails
+	controllerDetails map[string]*jujuclient.ControllerDetails
 }
 
 func (s *testClientStore) AccountDetails(controllerName string) (*jujuclient.AccountDetails, error) {
@@ -798,5 +878,26 @@ func (s *testClientStore) UpdateAccount(controllerName string, accountDetails ju
 		return errors.NotImplemented
 	}
 	s.accountDetails[controllerName] = &accountDetails
+	return nil
+}
+
+func (s *testClientStore) ControllerByName(controllerName string) (*jujuclient.ControllerDetails, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.controllerDetails[controllerName] == nil {
+		return nil, errors.NotFound
+	}
+	return s.controllerDetails[controllerName], nil
+}
+
+func (s *testClientStore) UpdateController(controllerName string, details jujuclient.ControllerDetails) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.controllerDetails == nil {
+		return errors.NotImplemented
+	}
+	s.controllerDetails[controllerName] = &details
 	return nil
 }

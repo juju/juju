@@ -142,7 +142,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 		AgentVersion:     agentVersion,
 		CurrentHostPorts: hostPorts,
 		DNSCache:         dnsCache,
-		CurrentConnection: connInfo{
+		CurrentConnection: currentConnection{
 			Proxied:   st.IsProxied(),
 			Address:   st.Addr(),
 			IPAddress: st.IPAddr(),
@@ -292,9 +292,9 @@ func addrsChanged(a, b []string) (bool, bool) {
 	return outOfOrder, false
 }
 
-// connInfo represents information about a
-// recently established connection.
-type connInfo struct {
+// currentConnection represents information
+// about a recently established connection.
+type currentConnection struct {
 	// Proxied indicates if the connection was proxied.
 	Proxied bool
 
@@ -318,7 +318,7 @@ type UpdateControllerParams struct {
 
 	// CurrentConnection provides information on the address
 	// we are connected to.
-	CurrentConnection connInfo
+	CurrentConnection currentConnection
 
 	// Proxier
 	Proxier proxy.Proxier
@@ -421,7 +421,7 @@ func makeUsableAddresses(params *UpdateControllerParams) []string {
 	// Ignore the currently connected address if the connection is proxied.
 	// or if there is no currently connected address.
 	if params.CurrentConnection.Proxied || params.CurrentConnection.Address == nil {
-		return addresses
+		return trimScheme(addresses)
 	}
 
 	// Make a copy to avoid modifying the provided address.
@@ -439,7 +439,7 @@ func makeUsableAddresses(params *UpdateControllerParams) []string {
 	// so that it will be the first address dialed.
 	ipHost, _, err := net.SplitHostPort(params.CurrentConnection.IPAddress)
 	if err == nil {
-		host := params.CurrentConnection.Address.Hostname()
+		host := connectedUrl.Hostname()
 		moveToFront(ipHost, params.DNSCache[host])
 	}
 	return trimScheme(addresses)

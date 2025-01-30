@@ -103,3 +103,28 @@ func (s *APIHelperSuite) TestAddrsChanged(c *gc.C) {
 				test.source, test.target, differentSet, test.setDiff))
 	}
 }
+
+var trimSchemeTests = []struct {
+	description string
+	urls        []string
+	expect      []string
+}{
+	{
+		description: "With scheme",
+		urls:        []string{"http://mydomain.com/foo"},
+		expect:      []string{"mydomain.com/foo"},
+	},
+	{
+		description: "Without scheme",
+		urls:        []string{"mydomain.com/foo"},
+		expect:      []string{"mydomain.com/foo"},
+	},
+}
+
+func (s *APIHelperSuite) TestTrimScheme(c *gc.C) {
+	for i, test := range trimSchemeTests {
+		c.Logf("test %d: trimScheme %v %v", i, test.description)
+		got := trimScheme(test.urls)
+		c.Assert(got, gc.DeepEquals, test.expect)
+	}
+}
