@@ -355,6 +355,9 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 		return nil, internalerrors.Errorf("getting ID of application %s: %w", name, err)
 	}
 
+	// sha256 is the current config hash for the application. This will
+	// be filled in by the initial query. If it's empty after the initial
+	// query, then a new config hash will be generated on the first change.
 	var sha256 string
 
 	table, query := s.st.InitialWatchStatementApplicationConfigHash(name)
@@ -366,6 +369,7 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+
 			if num := len(initialResults); num > 1 {
 				return nil, internalerrors.Errorf("too many config hashes for application %q", name)
 			} else if num == 1 {
@@ -375,28 +379,50 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 			return initialResults, nil
 		},
 		func(ctx context.Context, _ database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			// If there are no changes, return no changes.
+			if len(changes) == 0 {
+				return nil, nil
+			}
+
 			currentSHA256, err := s.st.GetApplicationConfigHash(ctx, appID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			// If the hash hasn't changed, return no changes.
+			// If the hash hasn't changed, return no changes. The first sha256
+			// might be empty, so if that's the case the currentSHA256 will not
+			// be empty. Either way we'll only return changes if the hash has
+			// changed.
 			if currentSHA256 == sha256 {
 				return nil, nil
 			}
 			sha256 = currentSHA256
 
-			// All the changes are for the same application, so in theory, we
-			// could just group these changes as one. However, we would need
-			// to verify that the consumer isn't concerned about each individual
-			// event type. For now, we'll just return all the changes.
-			return changes, nil
+			// There can be only one.
+			// Select the last change event, which will be naturally ordered
+			// by the grouping of the query (CREATE, UPDATE, DELETE).
+			change := changes[len(changes)-1]
+
+			return []changestream.ChangeEvent{
+				newMaskedChangeIDEvent(change, sha256),
+			}, nil
 		},
 	)
 }
 
-type watchApplicationConfigHashMapperState struct {
-	appID  coreapplication.ID
-	sha256 string
+type maskedChangeIDEvent struct {
+	changestream.ChangeEvent
+	id string
+}
+
+func newMaskedChangeIDEvent(change changestream.ChangeEvent, id string) changestream.ChangeEvent {
+	return maskedChangeIDEvent{
+		ChangeEvent: change,
+		id:          id,
+	}
+}
+
+func (m maskedChangeIDEvent) Changed() string {
+	return m.id
 }
 
 // isValidApplicationName returns whether name is a valid application name.

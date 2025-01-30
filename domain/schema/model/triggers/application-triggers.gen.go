@@ -53,6 +53,42 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForApplicationConfigHash generates the triggers for the
+// application_config_hash table.
+func ChangeLogTriggersForApplicationConfigHash(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ApplicationConfigHash
+INSERT INTO change_log_namespace VALUES (%[2]d, 'application_config_hash', 'ApplicationConfigHash changes based on %[1]s');
+
+-- insert trigger for ApplicationConfigHash
+CREATE TRIGGER trg_log_application_config_hash_insert
+AFTER INSERT ON application_config_hash FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for ApplicationConfigHash
+CREATE TRIGGER trg_log_application_config_hash_update
+AFTER UPDATE ON application_config_hash FOR EACH ROW
+WHEN 
+	NEW.application_uuid != OLD.application_uuid OR
+	NEW.sha256 != OLD.sha256 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for ApplicationConfigHash
+CREATE TRIGGER trg_log_application_config_hash_delete
+AFTER DELETE ON application_config_hash FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForApplicationScale generates the triggers for the
 // application_scale table.
 func ChangeLogTriggersForApplicationScale(columnName string, namespaceID int) func() schema.Patch {
