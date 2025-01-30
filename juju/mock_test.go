@@ -60,7 +60,7 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 		apiHostPorts:  apiHostPorts,
 		modelTag:      modelTag,
 		controllerTag: testing.ControllerTag.Id(),
-		addr:          &url.URL{},
+		addr:          nil,
 		authTag:       names.NewUserTag("admin"),
 	}
 }
@@ -81,8 +81,15 @@ func (s *mockAPIState) IPAddr() string {
 }
 
 func (s *mockAPIState) Addr() *url.URL {
+	if s.addr == nil {
+		return nil
+	}
 	copy := *s.addr
 	return &copy
+}
+
+func (s *mockAPIState) IsProxied() bool {
+	return false
 }
 
 func (s *mockAPIState) PublicDNSName() string {
