@@ -141,29 +141,22 @@ func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value
 		return constraints.Value{}, errors.Capture(err)
 	}
 
-	selectTagStmt, err := s.Prepare(`
-SELECT (ct.*) AS (&dbConstraintTag.*)
-FROM constraint_tag ct
-    JOIN "constraint" c ON ct.constraint_uuid = c.uuid
-WHERE c.uuid = $dbConstraint.uuid`, dbConstraintTag{}, dbConstraint{})
+	selectTagStmt, err := s.Prepare(
+		"SELECT &dbConstraintTag.* FROM v_model_constraint_tag", dbConstraintTag{},
+	)
 	if err != nil {
 		return constraints.Value{}, errors.Capture(err)
 	}
 
-	selectSpaceStmt, err := s.Prepare(`
-SELECT (cs.*) AS (&dbConstraintSpace.*)
-FROM constraint_space cs
-    JOIN "constraint" c ON cs.constraint_uuid = c.uuid
-WHERE c.uuid = $dbConstraint.uuid`, dbConstraintSpace{}, dbConstraint{})
+	selectSpaceStmt, err := s.Prepare(
+		"SELECT &dbConstraintSpace.* FROM v_model_constraint_space cs", dbConstraintSpace{},
+	)
 	if err != nil {
 		return constraints.Value{}, errors.Capture(err)
 	}
 
-	selectZoneStmt, err := s.Prepare(`
-SELECT (cz.*) AS (&dbConstraintZone.*)
-FROM constraint_zone cz
-    JOIN "constraint" c ON cz.constraint_uuid = c.uuid
-WHERE c.uuid = $dbConstraint.uuid`, dbConstraintZone{}, dbConstraint{})
+	selectZoneStmt, err := s.Prepare(
+		"SELECT &dbConstraintZone.* FROM v_model_constraint_zone cz", dbConstraintZone{})
 	if err != nil {
 		return constraints.Value{}, errors.Capture(err)
 	}
@@ -179,15 +172,15 @@ WHERE c.uuid = $dbConstraint.uuid`, dbConstraintZone{}, dbConstraint{})
 		if err != nil {
 			return errors.Capture(err)
 		}
-		err = tx.Query(ctx, selectTagStmt, cons).GetAll(&tags)
+		err = tx.Query(ctx, selectTagStmt).GetAll(&tags)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting constraint tags: %w", err)
 		}
-		err = tx.Query(ctx, selectSpaceStmt, cons).GetAll(&spaces)
+		err = tx.Query(ctx, selectSpaceStmt).GetAll(&spaces)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting constraint spaces: %w", err)
 		}
-		err = tx.Query(ctx, selectZoneStmt, cons).GetAll(&zones)
+		err = tx.Query(ctx, selectZoneStmt).GetAll(&zones)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting constraint zones: %w", err)
 		}
@@ -236,11 +229,6 @@ func (s *ModelState) getModelConstraints(
 	ctx context.Context,
 	tx *sqlair.TX,
 ) (dbConstraint, error) {
-	modelUUID, err := s.getModelUUID(ctx, tx)
-	if err != nil {
-		return dbConstraint{}, errors.Errorf("getting model uuid: %w", err)
-	}
-
 	stmt, err := s.Prepare("SELECT &dbConstraint.* FROM v_model_constraint", dbConstraint{})
 	if err != nil {
 		return dbConstraint{}, errors.Capture(err)
@@ -249,12 +237,12 @@ func (s *ModelState) getModelConstraints(
 	var constraint dbConstraint
 	err = tx.Query(ctx, stmt).Get(&constraint)
 	if errors.Is(err, sql.ErrNoRows) {
-		return dbConstraint{}, errors.Errorf(
-			"no constraints set for model %q", modelUUID,
+		return dbConstraint{}, errors.New(
+			"no constraints set for model",
 		).Add(modelerrors.ConstraintsNotFound)
 	}
 	if err != nil {
-		return dbConstraint{}, errors.Errorf("getting model %q constraints: %w", modelUUID, err)
+		return dbConstraint{}, errors.Errorf("getting model constraints: %w", err)
 	}
 	s.logger.Criticalf("getModelConstraints : %#v", constraint)
 	return constraint, nil

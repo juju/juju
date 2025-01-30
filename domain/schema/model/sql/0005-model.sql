@@ -29,3 +29,27 @@ CREATE VIEW v_model_constraint AS
 SELECT c.*
 FROM model_constraint mc
 INNER JOIN v_constraint c ON mc.constraint_uuid = c.uuid;
+
+-- v_model_constraint_tag is a view of all the constraint tags set for the
+-- current model. It is expected that this view can be empty.
+CREATE VIEW v_model_constraint_tag AS
+SELECT ct.*
+FROM constraint_tag ct
+JOIN "constraint" c on ct.constraint_uuid = c.uuid
+JOIN model_constraint mc on mc.constraint_uuid = c.uuid;
+
+-- v_model_constraint_space is a view of all the constraint spaces set for the
+-- current model. It is expected that this view can be empty.
+CREATE VIEW v_model_constraint_space AS
+SELECT cs.*
+FROM constraint_space cs
+JOIN "constraint" c on cs.constraint_uuid = c.uuid
+JOIN model_constraint mc on mc.constraint_uuid = c.uuid;
+
+-- v_model_constraint_zone is a view of all the constraint zones set for the
+-- current model. It is expected that this view can be empty.
+CREATE VIEW v_model_constraint_zone AS
+SELECT cz.*
+FROM constraint_zone cz
+JOIN "constraint" c on cz.constraint_uuid = c.uuid
+JOIN model_constraint mc on mc.constraint_uuid = c.uuid;
