@@ -521,6 +521,80 @@ func (s *watcherSuite) TestWatchApplicationBadName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *watcherSuite) TestWatchApplicationConfig(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash")
+
+	svc := s.setupService(c, factory)
+
+	appName := "foo"
+	appUUID := s.createApplication(c, svc, appName)
+
+	ctx := context.Background()
+	watcher, err := svc.WatchApplicationConfig(ctx, appName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	harness := watchertest.NewHarness[struct{}](s, watchertest.NewWatcherC[struct{}](c, watcher))
+
+	// Assert that a change to the config triggers the watcher.
+	harness.AddTest(func(c *gc.C) {
+		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+			"foo": "baz",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert the same change doesn't trigger a change.
+	harness.AddTest(func(c *gc.C) {
+		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+			"foo": "baz",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Assert multiple changes to the config triggers the watcher.
+	harness.AddTest(func(c *gc.C) {
+		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+			"foo": "baz",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		err = svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+			"foo": "blah",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that the trust also triggers the watcher.
+	harness.AddTest(func(c *gc.C) {
+		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+			"trust": "true",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that nothing changes if nothing happens.
+	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchApplicationConfigBadName(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash")
+	svc := s.setupService(c, factory)
+
+	_, err := svc.WatchApplicationConfig(context.Background(), "bad-name")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash")
 
@@ -575,6 +649,18 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
 		w.Check(watchertest.StringSliceAssert(hash))
 	})
 
+	// Assert that the trust also triggers the watcher.
+	harness.AddTest(func(c *gc.C) {
+		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+			"trust": "true",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// We should only see one hash change.
+		hash := s.getApplicationConfigHash(c, db, appUUID)
+		w.Check(watchertest.StringSliceAssert(hash))
+	})
+
 	// Assert that nothing changes if nothing happens.
 	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -582,6 +668,14 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
 
 	hash := s.getApplicationConfigHash(c, db, appUUID)
 	harness.Run(c, []string{hash})
+}
+
+func (s *watcherSuite) TestWatchApplicationConfigHashBadName(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "application_config_hash")
+	svc := s.setupService(c, factory)
+
+	_, err := svc.WatchApplicationConfigHash(context.Background(), "bad-name")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *watcherSuite) getApplicationConfigHash(c *gc.C, db changestream.WatchableDB, appUUID coreapplication.ID) string {

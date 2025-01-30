@@ -335,6 +335,8 @@ type indexedChanged struct {
 
 // WatchApplication watches for changes to the specified application in the
 // application table.
+// If the application does not exist an error satisfying
+// [applicationerrors.NotFound] will be returned.
 func (s *WatchableService) WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
 	uuid, err := s.GetApplicationIDByName(ctx, name)
 	if err != nil {
@@ -347,8 +349,23 @@ func (s *WatchableService) WatchApplication(ctx context.Context, name string) (w
 	)
 }
 
+// WatchApplicationConfig watches for changes to the specified application's
+// config.
+// If the application does not exist an error satisfying
+// [applicationerrors.NotFound] will be returned.
+func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
+	uuid, err := s.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting ID of application %s: %w", name, err)
+	}
+
+	return s.watcherFactory.NewValueWatcher("application_config_hash", uuid.String(), changestream.All)
+}
+
 // WatchApplicationConfigHash watches for changes to the specified application's
 // config hash.
+// If the application does not exist an error satisfying
+// [applicationerrors.NotFound] will be returned.
 func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name string) (watcher.StringsWatcher, error) {
 	appID, err := s.GetApplicationIDByName(ctx, name)
 	if err != nil {
