@@ -19,14 +19,14 @@ type ConfigAttributes map[string]interface{}
 
 // Config encapsulates config for an entity.
 type Config struct {
-	attributes map[string]interface{}
+	attributes ConfigAttributes
 	schema     configschema.Fields
 	defaults   schema.Defaults
 }
 
 // NewConfig returns a new config instance with the given attributes and
 // allowing for the extra provider attributes.
-func NewConfig(attrs map[string]interface{}, schema configschema.Fields, defaults schema.Defaults) (*Config, error) {
+func NewConfig(attrs ConfigAttributes, schema configschema.Fields, defaults schema.Defaults) (*Config, error) {
 	cfg := &Config{schema: schema, defaults: defaults}
 	if err := cfg.setAttributes(attrs); err != nil {
 		return nil, errors.Trace(err)
@@ -34,12 +34,12 @@ func NewConfig(attrs map[string]interface{}, schema configschema.Fields, default
 	return cfg, nil
 }
 
-func (c *Config) setAttributes(attrs map[string]interface{}) error {
+func (c *Config) setAttributes(attrs ConfigAttributes) error {
 	checker, err := c.schemaChecker()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	m := make(map[string]interface{})
+	m := make(ConfigAttributes)
 	for k, v := range attrs {
 		m[k] = v
 		field, ok := c.schema[k]
@@ -61,7 +61,18 @@ func (c *Config) setAttributes(attrs map[string]interface{}) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.attributes = result.(map[string]interface{})
+
+	// Ensure that the underlying map is of the correct type, otherwise
+	// this can panic.
+	switch result := result.(type) {
+	case map[string]interface{}:
+		c.attributes = result
+	case ConfigAttributes:
+		c.attributes = result
+	default:
+		return errors.Errorf("unexpected result type %T", result)
+	}
+
 	return nil
 }
 

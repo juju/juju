@@ -12,10 +12,13 @@ import (
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
@@ -50,6 +53,15 @@ type ExportService interface {
 	// It returns an error.CharmNotFound if the charm can not be found by the
 	// ID.
 	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, error)
+
+	// GetApplicationConfigAndSettings returns the application config and
+	// settings for the specified application. This will return the application
+	// config and the settings in one config.ConfigAttributes object.
+	//
+	// If the application does not exist, a
+	// [applicationerrors.ApplicationNotFound] error is returned. If no config
+	// is set for the application, an empty config is returned.
+	GetApplicationConfigAndSettings(ctx context.Context, name string) (config.ConfigAttributes, application.ApplicationSettings, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -93,11 +105,20 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		// This will still be required in the future, it'll just be done in
 		// one step.
 
-		metadata := app.CharmMetadata()
-		if metadata != nil {
-			// The application already has a charm, nothing to do.
-			continue
+		// This is temporary until we switch over to using dqlite as the
+		// source of applications.
+		config, settings, err := e.service.GetApplicationConfigAndSettings(ctx, app.Name())
+		if err != nil {
+			return fmt.Errorf("getting application config for %q: %v", app.Name(), err)
 		}
+
+		// The naming of these methods are esoteric, essentially the charm
+		// config is the application config overlaid from the charm config. The
+		// application config, is the application settings.
+		app.SetCharmConfig(config)
+		app.SetApplicationConfig(map[string]any{
+			coreapplication.TrustConfigOptionName: settings.Trust,
+		})
 
 		// TODO(stickupkid): To locate a charm, we currently need to know the
 		// charm URL of the application. This is not going to work like this in
@@ -105,12 +126,12 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 
 		curl, err := internalcharm.ParseURL(app.CharmURL())
 		if err != nil {
-			return fmt.Errorf("cannot parse charm URL %q: %v", app.CharmURL(), err)
+			return fmt.Errorf("parsing charm URL %q: %v", app.CharmURL(), err)
 		}
 
 		source, err := charm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
 		if err != nil {
-			return fmt.Errorf("cannot parse charm source %q: %v", curl.Schema, err)
+			return fmt.Errorf("parsing charm source %q: %v", curl.Schema, err)
 		}
 		charmID, err := e.service.GetCharmID(ctx, charm.GetCharmArgs{
 			Name:     curl.Name,
@@ -118,12 +139,12 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			Source:   source,
 		})
 		if err != nil {
-			return fmt.Errorf("cannot get charm ID for %q: %v", app.CharmURL(), err)
+			return fmt.Errorf("getting charm ID for %q: %v", app.CharmURL(), err)
 		}
 
 		charm, _, err := e.service.GetCharm(ctx, charmID)
 		if err != nil {
-			return fmt.Errorf("cannot get charm %q: %v", charmID, err)
+			return fmt.Errorf("getting charm %q: %v", charmID, err)
 		}
 
 		if err := e.exportCharm(ctx, app, charm); err != nil {

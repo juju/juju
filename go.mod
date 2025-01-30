@@ -49,7 +49,7 @@ require (
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/clock v1.1.1
 	github.com/juju/collections v1.0.4
-	github.com/juju/description/v8 v8.0.0-20250123080652-ce9b0c894e3f
+	github.com/juju/description/v8 v8.0.0-20250127170535-f69ec52791f6
 	github.com/juju/errors v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0

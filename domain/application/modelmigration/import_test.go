@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/description/v8"
@@ -16,9 +17,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
@@ -53,7 +54,60 @@ type importSuite struct {
 
 var _ = gc.Suite(&importSuite{})
 
+func (s *importSuite) TestRollback(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	appArgs := description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("prometheus"),
+		CharmURL: "ch:prometheus-1",
+	}
+	model.AddApplication(appArgs)
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	s.importService.EXPECT().RemoveImportedApplication(gomock.Any(), "prometheus").Return(nil)
+
+	err := importOp.Rollback(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *importSuite) TestRollbackForMultipleApplicationsRollbacksAll(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	appArgs0 := description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("prometheus"),
+		CharmURL: "ch:prometheus-1",
+	}
+	model.AddApplication(appArgs0)
+
+	appArgs1 := description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("grafana"),
+		CharmURL: "ch:grafana-1",
+	}
+	model.AddApplication(appArgs1)
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	gomock.InOrder(
+		s.importService.EXPECT().RemoveImportedApplication(gomock.Any(), "prometheus").Return(fmt.Errorf("boom")),
+		s.importService.EXPECT().RemoveImportedApplication(gomock.Any(), "grafana").Return(nil),
+	)
+
+	err := importOp.Rollback(context.Background(), model)
+	c.Assert(err, gc.ErrorMatches, "rollback failed: boom")
+}
+
 func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	model := description.NewModel(description.ModelArgs{})
 
 	updatedAt := time.Now().UTC()
@@ -108,36 +162,13 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 		Platform: "arm64/ubuntu/24.04",
 	})
 
-	defer s.setupMocks(c).Finish()
-
-	rev := 1
 	s.importService.EXPECT().ImportApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
-		corecharm.Origin{
-			Source:   "charm-hub",
-			Type:     "charm",
-			ID:       "1234",
-			Hash:     "deadbeef",
-			Revision: &rev,
-			Channel: &internalcharm.Channel{
-				Track: "666",
-				Risk:  "stable",
-			},
-			Platform: corecharm.Platform{
-				Architecture: "arm64",
-				OS:           "ubuntu",
-				Channel:      "24.04",
-			},
-		},
-		service.AddApplicationArgs{
-			ReferenceName: "prometheus",
-			DownloadInfo: &charm.DownloadInfo{
-				Provenance: charm.ProvenanceMigration,
-			},
-		},
-		[]service.ImportUnitArg{{
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
+		c.Assert(args.Units, gc.DeepEquals, []service.ImportUnitArg{{
 			UnitName:     "prometheus/0",
 			PasswordHash: ptr("passwordhash"),
 			CloudContainer: ptr(service.CloudContainerParams{
@@ -165,16 +196,77 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 				Data:    map[string]any{"foo": "bar"},
 				Since:   ptr(updatedAt),
 			},
-		}},
-	).DoAndReturn(func(_ context.Context, _ string, ch internalcharm.Charm, _ corecharm.Origin, _ service.AddApplicationArgs, _ ...service.ImportUnitArg) error {
-		c.Assert(ch.Meta().Name, gc.Equals, "prometheus")
+		}})
 		return nil
 	})
 
 	importOp := importOperation{
-		service:      s.importService,
-		logger:       loggertesting.WrapCheckLog(c),
-		charmOrigins: make(map[string]*corecharm.Origin),
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	appArgs := description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("prometheus"),
+		CharmURL: "ch:prometheus-1",
+		CharmConfig: map[string]interface{}{
+			"foo": "bar",
+		},
+		ApplicationConfig: map[string]interface{}{
+			"trust": true,
+		},
+	}
+	app := model.AddApplication(appArgs)
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmConfigs(description.CharmConfigsArgs{
+		Configs: map[string]description.CharmConfig{
+			"foo": charmConfig{ConfigType: "string", DefaultValue: "baz"},
+		},
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	s.importService.EXPECT().ImportApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
+		c.Check(args.ApplicationConfig, jc.DeepEquals, config.ConfigAttributes{
+			"foo": "bar",
+		})
+		c.Check(args.ApplicationSettings, jc.DeepEquals, application.ApplicationSettings{
+			Trust: true,
+		})
+		return nil
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
 	}
 
 	err := importOp.Execute(context.Background(), model)
@@ -905,4 +997,22 @@ func (s *importSuite) expectCharmActionsNested() {
 	exp.Actions().Return(map[string]description.CharmAction{
 		"foo": s.charmAction,
 	})
+}
+
+type charmConfig struct {
+	ConfigType       string
+	DefaultValue     any
+	CharmDescription string
+}
+
+func (c charmConfig) Type() string {
+	return c.ConfigType
+}
+
+func (c charmConfig) Default() any {
+	return c.DefaultValue
+}
+
+func (c charmConfig) Description() string {
+	return c.CharmDescription
 }

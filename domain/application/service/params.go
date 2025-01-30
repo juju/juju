@@ -6,10 +6,13 @@ package service
 import (
 	"time"
 
+	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	apperrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
@@ -49,6 +52,12 @@ type AddApplicationArgs struct {
 	// ResolvedResources contains a list of ResolvedResource instances,
 	// which allows to define a revision and an origin for each resource.
 	ResolvedResources ResolvedResources
+
+	// ApplicationConfig contains the application config.
+	ApplicationConfig config.ConfigAttributes
+
+	// ApplicationSettings contains the application settings.
+	ApplicationSettings application.ApplicationSettings
 }
 
 // CloudContainerParams contains parameters for a unit cloud container.
@@ -180,4 +189,43 @@ func (r ResolvedResources) Validate() error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// ImportApplicationArgs contains arguments for importing an application to the
+// model.
+type ImportApplicationArgs struct {
+	// Charm is the charm to import.
+	Charm charm.Charm
+
+	// CharmOrigin is the origin of the charm.
+	CharmOrigin corecharm.Origin
+
+	// ReferenceName is the given name of the charm that is stored in the
+	// persistent storage. The proxy name should either be the application
+	// name or the charm metadata name.
+	//
+	// The name of a charm can differ from the charm name stored in the metadata
+	// in the cases where the application name is selected by the user.
+	// In order to select that charm again via the name, we need to use the
+	// proxy name to locate it. You can't go via the application and select it
+	// via the application name, as no application might be referencing it at
+	// that specific revision. The only way to then locate the charm directly
+	// via the name is use the proxy name.
+	ReferenceName string
+
+	// DownloadInfo contains the download information for the charm.
+	DownloadInfo *domaincharm.DownloadInfo
+
+	// ApplicationConfig contains the application config.
+	ApplicationConfig config.ConfigAttributes
+
+	// ApplicationSettings contains the application settings.
+	ApplicationSettings application.ApplicationSettings
+
+	// ResolvedResources contains a list of ResolvedResource instances,
+	// TODO (stickupkid): This isn't currently wired up.
+	ResolvedResources ResolvedResources
+
+	// Units contains the units to import.
+	Units []ImportUnitArg
 }
