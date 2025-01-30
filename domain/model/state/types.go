@@ -472,6 +472,12 @@ type dbConstraintInsert struct {
 	ImageID          sql.NullString `db:"image_id"`
 }
 
+// dbConstraintsUUID represents a single constraints record uuid in the
+// database.
+type dbConstraintsUUID struct {
+	UUID string `db:"uuid"`
+}
+
 func ptr[T any](i T) *T {
 	return &i
 }
@@ -483,63 +489,6 @@ func deref[T any](i *T) T {
 		return *new(T)
 	}
 	return *i
-}
-
-// toDBConstraint is responsible for transforming a [constraints.Value]
-// representation of model constraints into a [dbConstraints] value that can be
-// used for persistence into the underlying database.
-func toDBConstraint(uuid string, constraints constraints.Value) dbConstraint {
-	return dbConstraint{
-		UUID: uuid,
-		Arch: sql.NullString{
-			String: deref(constraints.Arch),
-			Valid:  constraints.Arch != nil,
-		},
-		CPUCores: sql.NullInt64{
-			Int64: int64(deref(constraints.CpuCores)),
-			Valid: constraints.CpuCores != nil,
-		},
-		CPUPower: sql.NullInt64{
-			Int64: int64(deref(constraints.CpuPower)),
-			Valid: constraints.CpuPower != nil,
-		},
-		Mem: sql.NullInt64{
-			Int64: int64(deref(constraints.Mem)),
-			Valid: constraints.Mem != nil,
-		},
-		RootDisk: sql.NullInt64{
-			Int64: int64(deref(constraints.RootDisk)),
-			Valid: constraints.RootDisk != nil,
-		},
-		RootDiskSource: sql.NullString{
-			String: deref(constraints.RootDiskSource),
-			Valid:  constraints.RootDiskSource != nil,
-		},
-		InstanceRole: sql.NullString{
-			String: deref(constraints.InstanceRole),
-			Valid:  constraints.InstanceRole != nil,
-		},
-		InstanceType: sql.NullString{
-			String: deref(constraints.InstanceType),
-			Valid:  constraints.InstanceType != nil,
-		},
-		ContainerType: sql.NullString{
-			String: string(deref(constraints.Container)),
-			Valid:  constraints.Container != nil,
-		},
-		VirtType: sql.NullString{
-			String: deref(constraints.VirtType),
-			Valid:  constraints.VirtType != nil,
-		},
-		AllocatePublicIP: sql.NullBool{
-			Bool:  deref(constraints.AllocatePublicIP),
-			Valid: constraints.VirtType != nil,
-		},
-		ImageID: sql.NullString{
-			String: deref(constraints.ImageID),
-			Valid:  constraints.ImageID != nil,
-		},
-	}
 }
 
 func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace, zones []dbConstraintZone) (constraints.Value, error) {
@@ -636,8 +585,7 @@ type dbConstraintZone struct {
 	Zone           string `db:"zone"`
 }
 
-// dbConstraintUUID represents a constraint uuid within the database as
-// referenced by an external table.
+// dbConstraintUUID represents a constraint uuid within the database.
 type dbConstraintUUID struct {
-	UUID string `db:"constraint_uuid"`
+	UUID string `db:"uuid"`
 }

@@ -203,37 +203,33 @@ WHERE c.uuid = $dbConstraint.uuid`, dbConstraintZone{}, dbConstraint{})
 	return cons.toValue(tags, spaces, zones)
 }
 
-// getConstraintUUID returns the constraint uuid that is active for the model.
-// If the currently does not have any constraints then an error satisfying
-// [modelerrors.ConstraintsNotFound] is returned.
-func (s *ModelState) getConstrainUUID(
+// getModelConstraintsUUID returns the constraint uuid that is active for the
+// model. If the currently does not have any constraints then an error
+// satisfying [modelerrors.ConstraintsNotFound] is returned.
+func (s *ModelState) getModelConstraintsUUID(
 	ctx context.Context,
 	tx *sqlair.TX,
 ) (string, error) {
-	modelUUID, err := s.getModelUUID(ctx, tx)
+	var constraintUUID dbConstraintUUID
 
-	modelConstraint := dbModelConstraint{
-		ModelUUID: modelUUID.String(),
-	}
-
-	stmt, err := s.Prepare(`
-SELECT constraint_uuid AS &dbModelConstraint.constraint_uuid
-FROM   model_constraint
-WHERE  model_uuid = $dbModelConstraint.model_uuid`, modelConstraint)
+	stmt, err := s.Prepare(
+		"SELECT &dbConstraintUUID.* FROM v_model_constraint",
+		constraintUUID,
+	)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, stmt, modelConstraint).Get(&modelConstraint)
+	err = tx.Query(ctx, stmt).Get(&constraintUUID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", errors.Errorf(
-			"no constraints set for model %q", modelUUID,
+		return "", errors.New(
+			"no constraints set for model",
 		).Add(modelerrors.ConstraintsNotFound)
 	} else if err != nil {
-		return "", errors.Errorf("getting constraint UUID for model %q: %w", modelUUID, err)
+		return "", errors.Errorf("getting constraint UUID for model: %w", err)
 	}
 
-	return modelConstraint.ConstraintUUID, nil
+	return constraintUUID.UUID, nil
 }
 
 // getModelConstraints returns the values set in the constraints table that are
@@ -249,10 +245,7 @@ func (s *ModelState) getModelConstraints(
 		return dbConstraint{}, errors.Errorf("getting model uuid: %w", err)
 	}
 
-	stmt, err := s.Prepare(`
-SELECT &dbConstraint.*
-FROM v_model_constraints
-`, dbConstraint{})
+	stmt, err := s.Prepare("SELECT &dbConstraint.* FROM v_model_constraint", dbConstraint{})
 	if err != nil {
 		return dbConstraint{}, errors.Capture(err)
 	}
@@ -278,11 +271,11 @@ func (s *ModelState) deleteModelConstraint(
 	ctx context.Context,
 	tx *sqlair.TX,
 ) error {
-	constraintUUID, err := s.getConstrainUUID(ctx, tx)
+	constraintUUID, err := s.getModelConstraintsUUID(ctx, tx)
 	if errors.Is(err, modelerrors.ConstraintsNotFound) {
 		return nil
 	} else if err != nil {
-		return errors.Errorf("deleting existing model constraints: %w", err)
+		return errors.Errorf("getting constraints uuid for model: %w", err)
 	}
 
 	stmt, err := s.Prepare(`DELETE FROM model_constraint`)
@@ -298,7 +291,7 @@ func (s *ModelState) deleteModelConstraint(
 
 	stmt, err = s.Prepare(`
 DELETE FROM constraint_tag 
-WHERE constraint_uuid = $dbConstraintUUID.constraint_uuid`, dbConstraintUUID,
+WHERE constraint_uuid = $dbConstraintUUID.uuid`, dbConstraintUUID,
 	)
 	if err != nil {
 		return errors.Capture(err)
@@ -311,7 +304,7 @@ WHERE constraint_uuid = $dbConstraintUUID.constraint_uuid`, dbConstraintUUID,
 
 	stmt, err = s.Prepare(`
 DELETE FROM constraint_space
-WHERE constraint_uuid = $dbConstraintUUID.constraint_uuid`, dbConstraintUUID,
+WHERE constraint_uuid = $dbConstraintUUID.uuid`, dbConstraintUUID,
 	)
 	if err != nil {
 		return errors.Capture(err)
@@ -323,7 +316,7 @@ WHERE constraint_uuid = $dbConstraintUUID.constraint_uuid`, dbConstraintUUID,
 
 	stmt, err = s.Prepare(`
 DELETE FROM constraint_zone
-WHERE constraint_uuid = $dbConstraintUUID.constraint_uuid`, dbConstraintUUID,
+WHERE constraint_uuid = $dbConstraintUUID.uuid`, dbConstraintUUID,
 	)
 	if err != nil {
 		return errors.Capture(err)
@@ -334,7 +327,7 @@ WHERE constraint_uuid = $dbConstraintUUID.constraint_uuid`, dbConstraintUUID,
 	}
 
 	stmt, err = s.Prepare(`
-DELETE FROM "constraint" WHERE uuid = $dbConstraintUUID.constraint_uuid`, dbConstraintUUID,
+DELETE FROM "constraint" WHERE uuid = $dbConstraintUUID.uuid`, dbConstraintUUID,
 	)
 	if err != nil {
 		return errors.Capture(err)
