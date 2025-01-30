@@ -560,10 +560,14 @@ func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace
 	return consVal, nil
 }
 
+// dbContainerTypeId represents the id of a container type as found in the
+// container_type table.
 type dbContainerTypeId struct {
 	Id int64 `db:"id"`
 }
 
+// dbContainerTypeValue represents a container type value from the
+// container_type table.
 type dbContainerTypeValue struct {
 	Value string `db:"value"`
 }
