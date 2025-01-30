@@ -3,6 +3,21 @@
 
 This document shows various ways in which you may interact with a charm or a bundle.
 
+(build-a-charm)=
+## Build a charm
+
+See [Charmcraft docs](https://canonical-charmcraft.readthedocs-hosted.com/en/stable/) for how to initialize, pack, and publish a charm on Charmhub. 
+
+
+See [Ops docs](https://ops.readthedocs.io/en/latest/) for how to develop and test a charm.
+
+<!--
+> See more: {ref}`charming-history`
+-->
+
+```{tip}
+For certain types of applications (Django, FastAPI, Flask, and Go), Charmcraft also takes care of all the code for you, provided you use the relevant Charmcraft extension.
+```
 
 ## Query Charmhub for available charms / bundles
 

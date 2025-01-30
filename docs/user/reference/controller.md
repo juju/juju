@@ -66,5 +66,5 @@ In software design, a **controller** is an architectural component responsible f
     - [`juju-controller`](https://charmhub.io/juju-controller) charm code, 
     - a {ref}`controller agent <controller-agent>` (running, among other things, the Juju API server), and 
     - a copy of [`juju-db`](https://snapcraft.io/juju-db), Juju's internal database. <p>
-- It is responsible for implementing all the changes defined by a Juju {ref}`user <user>` via a Juju {ref}`client <client>` post-bootstrap.
+- It is responsible for implementing all the changes defined by a Juju {ref}`user <user>` via a Juju client post-bootstrap.
 - It stores state in an internal MongoDB database.

@@ -1060,7 +1060,7 @@ func (m *Machine) SetProvisioned(
 		{
 			C:      machinesC,
 			Id:     m.doc.DocID,
-			Assert: append(isAliveDoc, bson.DocElem{Name: "nonce", Value: ""}),
+			Assert: append(notDeadDoc, bson.DocElem{Name: "nonce", Value: ""}),
 			Update: bson.D{{"$set", bson.D{{"nonce", nonce}}}},
 		},
 	}
@@ -1070,10 +1070,10 @@ func (m *Machine) SetProvisioned(
 		return nil
 	} else if err != txn.ErrAborted {
 		return err
-	} else if alive, err := isAlive(m.st, machinesC, m.doc.DocID); err != nil {
+	} else if aliveOrDying, err := isNotDead(m.st, machinesC, m.doc.DocID); err != nil {
 		return err
-	} else if !alive {
-		return machineNotAliveErr
+	} else if !aliveOrDying {
+		return errDeadOrGone
 	}
 	return fmt.Errorf("already set")
 }

@@ -80,7 +80,7 @@ func (c *MockSecretBackendProviderCleanupModelCall) DoAndReturn(f func(*provider
 }
 
 // CleanupSecrets mocks base method.
-func (m *MockSecretBackendProvider) CleanupSecrets(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2 string, arg3 provider.SecretRevisions) error {
+func (m *MockSecretBackendProvider) CleanupSecrets(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2 secrets.Accessor, arg3 provider.SecretRevisions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CleanupSecrets", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -106,13 +106,13 @@ func (c *MockSecretBackendProviderCleanupSecretsCall) Return(arg0 error) *MockSe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretBackendProviderCleanupSecretsCall) Do(f func(context.Context, *provider.ModelBackendConfig, string, provider.SecretRevisions) error) *MockSecretBackendProviderCleanupSecretsCall {
+func (c *MockSecretBackendProviderCleanupSecretsCall) Do(f func(context.Context, *provider.ModelBackendConfig, secrets.Accessor, provider.SecretRevisions) error) *MockSecretBackendProviderCleanupSecretsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretBackendProviderCleanupSecretsCall) DoAndReturn(f func(context.Context, *provider.ModelBackendConfig, string, provider.SecretRevisions) error) *MockSecretBackendProviderCleanupSecretsCall {
+func (c *MockSecretBackendProviderCleanupSecretsCall) DoAndReturn(f func(context.Context, *provider.ModelBackendConfig, secrets.Accessor, provider.SecretRevisions) error) *MockSecretBackendProviderCleanupSecretsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

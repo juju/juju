@@ -5,6 +5,7 @@ package crossmodelsecrets
 
 import (
 	stdcontext "context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -17,6 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
+	"github.com/juju/juju/cloud"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
@@ -25,10 +28,16 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/rpc/params"
 )
 
 type secretServiceGetter func(modelUUID model.UUID) SecretService
+
+// CrossModelSecretsAPIV1 provides access to the CrossModelSecrets API V1 facade.
+type CrossModelSecretsAPIV1 struct {
+	*CrossModelSecretsAPI
+}
 
 // CrossModelSecretsAPI provides access to the CrossModelSecrets API facade.
 type CrossModelSecretsAPI struct {
@@ -143,6 +152,51 @@ func (s *CrossModelSecretsAPI) checkRelationMacaroons(ctx stdcontext.Context, co
 	// it is scoped to is accessible by the supplied macaroon.
 	auth := s.authCtxt.Authenticator()
 	return auth.CheckRelationMacaroons(ctx, s.modelID, offerUUID, names.NewRelationTag(relKey), mac, version)
+}
+
+// marshallLegacyBackendConfig converts the supplied backend config
+// so it is suitable for older juju agents.
+func marshallLegacyBackendConfig(cfg params.SecretBackendConfig) error {
+	if cfg.BackendType != kubernetes.BackendType {
+		return nil
+	}
+	if _, ok := cfg.Params["credential"]; ok {
+		return nil
+	}
+	token, ok := cfg.Params["token"].(string)
+	if !ok {
+		return nil
+	}
+	delete(cfg.Params, "token")
+	delete(cfg.Params, "namespace")
+	delete(cfg.Params, "prefer-incluster-address")
+
+	cred := cloud.NewCredential(cloud.OAuth2AuthType, map[string]string{k8scloud.CredAttrToken: token})
+	credData, err := json.Marshal(cred)
+	if err != nil {
+		return errors.Annotatef(err, "error marshalling backend config")
+	}
+	cfg.Params["credential"] = string(credData)
+	cfg.Params["is-controller-cloud"] = false
+	return nil
+}
+
+// GetSecretContentInfo returns the secret values for the specified secrets.
+func (s *CrossModelSecretsAPIV1) GetSecretContentInfo(ctx stdcontext.Context, args params.GetRemoteSecretContentArgs) (params.SecretContentResults, error) {
+	results, err := s.CrossModelSecretsAPI.GetSecretContentInfo(ctx, args)
+	if err != nil {
+		return params.SecretContentResults{}, errors.Trace(err)
+	}
+	for i, cfg := range results.Results {
+		if cfg.BackendConfig == nil {
+			continue
+		}
+		if err := marshallLegacyBackendConfig(cfg.BackendConfig.Config); err != nil {
+			return params.SecretContentResults{}, errors.Annotatef(err, "marshalling legacy backend config")
+		}
+		results.Results[i] = cfg
+	}
+	return results, nil
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.

@@ -58,7 +58,7 @@ func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*core.Se
 	secret, err := k.client.CoreV1().Secrets(k.namespace).Get(ctx, secretName, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil, fmt.Errorf("secret revision %q not found%w", secretName, errors.Hide(secreterrors.SecretRevisionNotFound))
+			return nil, fmt.Errorf("secret %q not found%w", secretName, errors.Hide(secreterrors.SecretRevisionNotFound))
 		} else if k8serrors.IsForbidden(err) {
 			return nil, errors.Unauthorizedf("cannot access %q", secretName)
 		}
@@ -68,7 +68,11 @@ func (k *k8sBackend) getSecret(ctx context.Context, secretName string) (*core.Se
 }
 
 // GetContent implements SecretBackend.
-func (k *k8sBackend) GetContent(ctx context.Context, revisionId string) (secrets.SecretValue, error) {
+func (k *k8sBackend) GetContent(ctx context.Context, revisionId string) (_ secrets.SecretValue, err error) {
+	defer func() {
+		err = maybePermissionDenied(err)
+	}()
+
 	// revisionId is the secret name.
 	secret, err := k.getSecret(ctx, revisionId)
 	if err != nil {
@@ -84,6 +88,10 @@ func (k *k8sBackend) GetContent(ctx context.Context, revisionId string) (secrets
 
 // SaveContent implements SecretBackend.
 func (k *k8sBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (_ string, err error) {
+	defer func() {
+		err = maybePermissionDenied(err)
+	}()
+
 	name := uri.Name(revision)
 	labels := utils.LabelsMerge(
 		utils.LabelsForModel(k.model, false),
@@ -105,7 +113,11 @@ func (k *k8sBackend) SaveContent(ctx context.Context, uri *secrets.URI, revision
 }
 
 // DeleteContent implements SecretBackend.
-func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) error {
+func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) (err error) {
+	defer func() {
+		err = maybePermissionDenied(err)
+	}()
+
 	// revisionId is the secret name.
 	secret, err := k.getSecret(ctx, revisionId)
 	if err != nil {

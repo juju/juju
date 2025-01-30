@@ -1,7 +1,7 @@
 (manage-charm-resources)=
 # How to manage charm resources
 
-> See also: {ref}`resource`
+> See also: {ref}`charm-resource`
 
 When you deploy / update an application from a charm, that automatically deploys / updates any charm resources, using the defaults specified by the charm author. However, you can also specify resources manually (e.g., to try a resource released only to `edge` or to specify a non-Charmhub resource). This document shows you how.
 
@@ -44,7 +44,7 @@ juju deploy <charm name> --resources <resource name>=<resource>
 
 > See more: {ref}`command-juju-deploy`
 
-- To specify a  resource after deployment, run the `attach-resource` command followed by the name of the deployed charm (= [application](/t/5471)) and a key-value pair consisting of the resource name and the resource revision number of the local path to the resource file:
+- To specify a  resource after deployment, run the `attach-resource` command followed by the name of the deployed charm (= {ref}`application <application>`) and a key-value pair consisting of the resource name and the resource revision number of the local path to the resource file:
 
 ```text
 juju attach-resource <charm name> <resource name>=<resource>

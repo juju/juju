@@ -14,7 +14,7 @@ In Juju, a **configuration** is a rule or a set of rules that define the behavio
 (controller-configuration)=
 ## Controller configuration
 
-Controller configuration affects the operation of the controller as a whole.  
+Controller configuration affects the operation of the controller as a whole.
 
 > See more:  {ref}`configure-a-controller`, {ref}`list-of-controller-configuration-keys`
 
@@ -22,7 +22,7 @@ Controller configuration affects the operation of the controller as a whole.
 ## Model configuration
 
 Model configuration affects behavior of a model, including the `controller` model.
-> See more: {ref}`configure-a-model`, {ref}`list-of-model-configuration-keys`  
+> See more: {ref}`configure-a-model`, {ref}`list-of-model-configuration-keys`
 
 (application-configuration)=
 ## Application configuration

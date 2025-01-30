@@ -111,21 +111,21 @@ In Juju, a **storage provider** refers to the technology used to make storage av
 
 
 
-## Generic storage providers
+### List of generic storage providers
 
 There are several cloud-independent storage providers, which are available to all types of models:
 
-### `loop`
+#### `loop`
 > See also: [Wikipedia | Loop device](https://en.wikipedia.org/wiki/Loop_device)
 
 *    Block-type, creates a file on the unit's root filesystem, associates a loop device with it. The loop device is provided to the charm.
 
-### `rootfs`
+#### `rootfs`
 > See also: [The Linux Kernel Archives | ramfs, rootfs and initramfs](https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt)
 
 *   Filesystem-type, creates a sub-directory on the unit's root filesystem for the unit/charmed operator to use. Works with Kubernetes models.
 
-### `tmpfs`
+#### `tmpfs`
 > See also: [Wikipedia | Tmpfs](https://en.wikipedia.org/wiki/Tmpfs)
 
 *   Filesystem-type, creates a temporary file storage facility that appears as a mounted file system but is stored in volatile memory. Works with Kubernetes models.
@@ -139,10 +139,10 @@ Loop devices require extra configuration to be used within LXD. For that, please
 Providers 'rootfs' and 'tmpfs' are used, respectively, to map storage of a virtualisation host to the root disk or to an in-memory filesystem.
 -->
 
-## Cloud-specific storage providers
+### List of cloud-specific storage providers
 
 (storage-provider-azure)=
-### `azure`
+#### `azure`
 
 Azure-based models have access to the 'azure' storage provider.
 
@@ -151,14 +151,14 @@ The 'azure' storage provider has an 'account-type' configuration option that acc
 Newly-created models configured in this way use "Azure Managed Disks". See [Azure Managed Disks Overview](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/managed-disks-overview) for information on what this entails (in particular, what the difference is between standard and premium disk types).
 
 (storage-provider-cinder)=
-### `cinder`
+#### `cinder`
 
 OpenStack-based models have access to the 'cinder' storage provider.
 
 The 'cinder' storage provider has a 'volume-type' configuration option whose value is the name of any volume type registered with Cinder.
 
 (storage-provider-ebs)=
-### `ebs`
+#### `ebs`
 
 AWS-based models have access to the 'ebs' storage provider, which supports the following pool attributes:
 
@@ -198,12 +198,12 @@ For detailed information regarding EBS volume types, see the [AWS EBS documentat
 
 ```
 (storage-provider-gce)=
-### `gce`
+#### `gce`
 
 Google-based models have access to the 'gce' storage provider. The GCE provider does not currently have any specific configuration options.
 
 (storage-provider-kubernetes)=
-### `kubernetes`
+#### `kubernetes`
 > See also: [Persistent storage and Kubernetes](https://discourse.charmhub.io/t/topic/1078)
 
 Kubernetes-based models have access to the 'kubernetes' storage provider, which supports the following pool attributes:
@@ -233,7 +233,7 @@ Kubernetes-based models have access to the 'kubernetes' storage provider, which 
 
 
 (storage-provider-lxd)=
-### `lxd`
+#### `lxd`
 
 ```{note}
 
@@ -293,11 +293,11 @@ To deploy an application, refer to the pool as usual. Here we deploy PostgreSQL 
 juju deploy postgresql --storage pgdata=lxd,8G
 ```
 
-See {ref}`the-lxd-cloud-and-juju`` for how to use LXD in conjunction with Juju, including the use of ZFS as an alternative filesystem.
+See {ref}`cloud-lxd` for how to use LXD in conjunction with Juju, including the use of ZFS as an alternative filesystem.
 
 
 (loop-devices-and-lxd)=
-#### Loop devices and LXD
+##### Loop devices and LXD
 
 LXD (localhost) does not officially support attaching loopback devices for storage out of the box. However, with some configuration you can make this work.
 
@@ -648,7 +648,7 @@ There's 2 ways to configure the Kubernetes cluster to provide persistent storage
 
 In both cases, you use a Juju storage pool and can configure it to supply extra Kubernetes specific configuration if needed.
 
-#### Manual Persistent Volumes
+#### Manual persistent volumes
 
 This approach is mainly intended for testing/prototyping.
 

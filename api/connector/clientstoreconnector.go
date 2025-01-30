@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+var apiOpen = api.Open
+
 var ErrEmptyControllerName = errors.New("empty controller name")
 
 // A Connector can provie api.Connection instances based on a ClientStore
@@ -88,7 +90,7 @@ func (c *ClientStoreConnector) Connect(ctx context.Context, dialOptions ...api.D
 	return juju.NewAPIConnection(ctx, juju.NewAPIConnectionParams{
 		ControllerName: c.config.ControllerName,
 		Store:          c.config.ClientStore,
-		OpenAPI:        api.Open,
+		OpenAPI:        apiOpen,
 		DialOpts:       opts,
 		AccountDetails: c.config.AccountDetails,
 		ModelUUID:      c.config.ModelUUID,

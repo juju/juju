@@ -42,9 +42,7 @@ When you use the bootstrap command in this way (non-interactively), you can also
 
 > See more: {ref}`command-juju-bootstrap`
 
-```{tip}
-
-**Tips for production:**
+```{dropdown} Tips for production
 
 **- Machines:** Make sure to bootstrap with no less than 50 GB disk, 2 CPUs, and 4 GB RAM (e.g., 
  `juju bootstrap aws/us-east-1 mymachinecontroller --bootstrap-constraints "root-disk=50G cores=2  mem=4G"`). Bootstrapping a controller like this allows you to manage a few hundred units. However, if your needs go beyond this, consider making the controller highly available.
@@ -57,7 +55,7 @@ When you use the bootstrap command in this way (non-interactively), you can also
   
 ```
 
-````{note}
+````{dropdown} Tips for troubleshooting
 - **Machines:**
 
 Bootstrap on machines consists of the following steps:
@@ -71,7 +69,7 @@ For failure at any point, retry the `bootstrap` command with the `--debug`, `--v
 ```text
 juju bootstrap <cloud> <controller> --debug --verbose --keep-broken
 ```
-````
+
 
 > See more: {ref}`command-juju-bootstrap`
 
@@ -220,7 +218,7 @@ The procedure for how to share a controller with other users depends on whether 
 
 2. Send the users the information they need to register your controller with their client and to set up their login information for the controller.
 
-> See more: {ref}`register-a-private-controller`
+> See more: {ref}`register-a-controller`
 
 **Share a public controller.**
 
@@ -378,6 +376,7 @@ If the removal of a controller will result in an **odd** number of systems then 
 
 > See more: {ref}`command-juju-enable-ha`
 
+(collect-metrics-about-a-controller)=
 ## Collect metrics about a controller
 
 Each controller provides an HTTPS endpoint to expose Prometheus metrics. To feed these metrics into Prometheus, configure Prometheus to scrape the controller's metrics. You can do that automatically via Juju relations or manually.
@@ -686,7 +685,7 @@ See `upgrade-your-deployment for a full demo!
 
 > See more: 
 > - {ref}`back-up-a-controller`
-> - {ref}`migrate-a-workload-model-to-another-controller`
+> - {ref}`migrate-a-model`
 > - {ref}`manage-a-users-login-details`
 
 ## Remove a controller

@@ -15,7 +15,7 @@ In all cases you'll want to understand what's causing the error so you can figur
 > See more: 
 > 
 > - The troubleshooting box at the end of {ref}`bootstrap-a-controller`
-> - The troubleshooting box at the end of {ref}`migrate-a-workload-model-to-another-controller`
+> - The troubleshooting box at the end of {ref}`migrate-a-model`
 > - ...
 
 - For (1)-(2) you can also retry the command with the global flags `--debug` and `--verbose` (best used together; for `bootstrap`, also use `--keep-broken` -- if a machine is provisioned, this will ensure that it is not destroyed upon bootstrap fail, which will enable you to examine the logs). 

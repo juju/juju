@@ -26,13 +26,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("SecretsManager", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+	registry.MustRegister("SecretsManager", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewSecretManagerAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
-func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*SecretsManagerAPI, error) {
+func NewSecretManagerAPI(_ context.Context, ctx facade.ModelContext) (*SecretsManagerAPI, error) {
 	if !ctx.Auth().AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
