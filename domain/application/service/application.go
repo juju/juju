@@ -49,10 +49,6 @@ import (
 type AtomicApplicationState interface {
 	domain.AtomicStateBase
 
-	// GetUnitUUID returns the UUID for the named unit, returning an error
-	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (coreunit.UUID, error)
-
 	// UpdateUnitContainer updates the cloud container for specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFoundError]
 	// if the unit doesn't exist.
@@ -168,15 +164,10 @@ type ApplicationState interface {
 	// doesn't exist.
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
 
-	// GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if any of the units
-	// don't exist.
-	GetUnitUUIDs(context.Context, []coreunit.Name) ([]coreunit.UUID, error)
-
-	// GetUnitNames gets in bulk the names for the specified unit UUIDs,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if any
-	// units are not found.
-	GetUnitNames(context.Context, []coreunit.UUID) ([]coreunit.Name, error)
+	// GetUnitUUIDByName returns the UUID for the named unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+	// exist.
+	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 
 	// UpsertCloudService updates the cloud service for the specified
 	// application, returning an error satisfying
@@ -582,34 +573,14 @@ func (s *Service) GetApplicationIDByUnitName(
 	return id, nil
 }
 
-// GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an error
-// satisfying [applicationerrors.UnitNotFound] if any of the units don't exist.
-func (s *Service) GetUnitUUIDs(ctx context.Context, unitNames []coreunit.Name) ([]coreunit.UUID, error) {
-	uuids, err := s.st.GetUnitUUIDs(ctx, unitNames)
-	if err != nil {
-		return nil, internalerrors.Errorf("failed to get unit UUIDs: %w", err)
-	}
-	return uuids, nil
-}
-
 // GetUnitUUID returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
-	uuids, err := s.GetUnitUUIDs(ctx, []coreunit.Name{unitName})
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
-		return "", err
+		return "", internalerrors.Errorf("getting UUID of unit %q: %w", unitName, err)
 	}
-	return uuids[0], nil
-}
-
-// GetUnitNames gets in bulk the names for the specified unit UUIDs, returning an
-// error satisfying [applicationerrors.UnitNotFound] if any units are not found.
-func (s *Service) GetUnitNames(ctx context.Context, unitUUIDs []coreunit.UUID) ([]coreunit.Name, error) {
-	names, err := s.st.GetUnitNames(ctx, unitUUIDs)
-	if err != nil {
-		return nil, internalerrors.Errorf("failed to get unit names: %w", err)
-	}
-	return names, nil
+	return unitUUID, nil
 }
 
 // GetUnitLife looks up the life of the specified unit, returning an error
@@ -850,6 +821,11 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// We want to transition to using unit UUID instead of name.
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		_, appLife, err := s.st.GetApplicationLife(ctx, appName)
 		if err != nil {
@@ -863,11 +839,6 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 			if err := s.st.UpdateUnitContainer(ctx, unitName, cloudContainer); err != nil {
 				return errors.Annotatef(err, "updating cloud container %q", unitName)
 			}
-		}
-		// We want to transition to using unit UUID instead of name.
-		unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
-		if err != nil {
-			return errors.Trace(err)
 		}
 		now := time.Now()
 		since := func(in *time.Time) time.Time {
@@ -923,11 +894,11 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 // SetUnitPassword updates the password for the specified unit, returning an error
 // satisfying [applicationerrors.NotNotFound] if the unit doesn't exist.
 func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, password string) error {
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		return s.st.SetUnitPassword(ctx, unitUUID, application.PasswordInfo{
 			PasswordHash:  password,
 			HashAlgorithm: application.HashAlgorithmSHA256,
