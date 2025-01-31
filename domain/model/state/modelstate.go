@@ -116,15 +116,15 @@ func (s *ModelState) getModelUUID(ctx context.Context, tx *sqlair.TX) (coremodel
 	var modelUUID dbUUID
 	stmt, err := s.Prepare(`SELECT &dbUUID.uuid FROM model;`, dbUUID{})
 	if err != nil {
-		return coremodel.UUID(""), errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	err = tx.Query(ctx, stmt).Get(&modelUUID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return coremodel.UUID(""), errors.New("model does not exist").Add(modelerrors.NotFound)
+		return "", errors.New("model does not exist").Add(modelerrors.NotFound)
 	}
 	if err != nil {
-		return coremodel.UUID(""), errors.Errorf("getting model uuid: %w", err)
+		return "", errors.Errorf("getting model uuid: %w", err)
 	}
 
 	return coremodel.UUID(modelUUID.UUID), nil
