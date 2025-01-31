@@ -25,6 +25,7 @@ import (
 const (
 	// States which report the state of the worker.
 	stateStarted = "started"
+	stateChanged = "changed"
 )
 
 // WorkerConfig defines the configuration values that the pubsub worker needs
@@ -219,6 +220,8 @@ func (w *remoteWorker) loop() error {
 			w.mu.Lock()
 			w.apiRemotes = slices.Collect(maps.Values(required))
 			w.mu.Unlock()
+
+			w.reportInternalState(stateChanged)
 		}
 	}
 }

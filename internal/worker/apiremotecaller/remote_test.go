@@ -67,7 +67,11 @@ func (s *RemoteSuite) TestConnect(c *gc.C) {
 		c.Fatalf("timed out waiting for API connect")
 	}
 
-	c.Assert(w.Connection().Addr(), jc.DeepEquals, addrs[0])
+	s.ensureChanged(c)
+
+	conn := w.Connection()
+	c.Assert(conn, gc.NotNil)
+	c.Check(conn.Addr(), jc.DeepEquals, addrs[0])
 
 	workertest.CleanKill(c, w)
 }
@@ -118,7 +122,11 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 		c.Fatalf("timed out waiting for API connect")
 	}
 
-	c.Assert(w.Connection().Addr(), jc.DeepEquals, addrs1[0])
+	s.ensureChanged(c)
+
+	conn := w.Connection()
+	c.Assert(conn, gc.NotNil)
+	c.Check(conn.Addr(), jc.DeepEquals, addrs1[0])
 
 	workertest.CleanKill(c, w)
 }

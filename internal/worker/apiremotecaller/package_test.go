@@ -61,3 +61,12 @@ func (s *baseSuite) ensureStartup(c *gc.C) {
 		c.Fatalf("timed out waiting for startup")
 	}
 }
+
+func (s *baseSuite) ensureChanged(c *gc.C) {
+	select {
+	case state := <-s.states:
+		c.Assert(state, gc.Equals, stateChanged)
+	case <-time.After(jujutesting.ShortWait * 10):
+		c.Fatalf("timed out waiting for startup")
+	}
+}
