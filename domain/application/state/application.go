@@ -1946,7 +1946,7 @@ WHERE a.name = $applicationName.name
 			return jujuerrors.Trace(err)
 		})
 		if err != nil {
-			return nil, jujuerrors.Annotatef(err, "querying unit IDs for %q", appName)
+			return nil, internalerrors.Errorf("querying unit IDs for %q: %w", appName, err)
 		}
 		hashes := make([]string, len(result))
 		for i, r := range result {
