@@ -1789,7 +1789,6 @@ type applicationWatcherServiceSuite struct {
 
 	state          *MockState
 	charm          *MockCharm
-	secret         *MockDeleteSecretState
 	clock          *testclock.Clock
 	watcherFactory *MockWatcherFactory
 }
@@ -1972,7 +1971,6 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 
 	s.state = NewMockState(ctrl)
 	s.charm = NewMockCharm(ctrl)
-	s.secret = NewMockDeleteSecretState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
 
 	registry := corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
@@ -1987,7 +1985,6 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewWatchableService(
 		s.state,
-		s.secret,
 		registry,
 		modelUUID,
 		s.watcherFactory,

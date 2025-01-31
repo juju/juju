@@ -253,6 +253,20 @@ WHERE application_uuid = $applicationDetails.uuid
 		return jujuerrors.Trace(err)
 	}
 
+	// NOTE: This is a work around because teardown is not implemented yet. Ideally,
+	// our workflow will mean that by the time the application is dead and we are
+	// ready to delete it, a worker will have already cleaned up all dependencies.
+	// However, this is not the case yet. Remove the secret owner for the unit,
+	// leaving the secret orphaned, to ensure we don't get a foreign key violation.
+	deleteSecretOwner := `
+DELETE FROM secret_application_owner
+WHERE application_uuid = $applicationDetails.uuid
+`
+	deleteSecretOwnerStmt, err := st.Prepare(deleteSecretOwner, app)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
 	deleteApplicationStmt, err := st.Prepare(`DELETE FROM application WHERE name = $applicationDetails.name`, app)
 	if err != nil {
 		return jujuerrors.Trace(err)
@@ -272,6 +286,10 @@ WHERE application_uuid = $applicationDetails.uuid
 	}
 	if numUnits := result.Count; numUnits > 0 {
 		return errors.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, jujuerrors.Hide(applicationerrors.ApplicationHasUnits))
+	}
+
+	if err := tx.Query(ctx, deleteSecretOwnerStmt, app).Run(); err != nil {
+		return errors.Errorf("deleting secret owner for application %q: %w", name, err)
 	}
 
 	if err := st.deleteCloudServices(ctx, tx, appUUID); err != nil {
@@ -1014,6 +1032,20 @@ func (st *State) deleteUnit(ctx context.Context, tx *sqlair.TX, unitName coreuni
 		return jujuerrors.Trace(err)
 	}
 
+	// NOTE: This is a work around because teardown is not implemented yet. Ideally,
+	// our workflow will mean that by the time the unit is dead and we are ready to
+	// delete it, a worker will have already cleaned up all dependencies. However,
+	// this is not the case yet. Remove the secret owner for the unit, leaving the
+	// secret orphaned, to ensure we don't get a foreign key violation.
+	deleteSecretOwner := `
+DELETE FROM secret_unit_owner
+WHERE unit_uuid = $minimalUnit.uuid
+`
+	deleteSecretOwnerStmt, err := st.Prepare(deleteSecretOwner, unit)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
 	deleteUnit := `DELETE FROM unit WHERE name = $minimalUnit.name`
 	deleteUnitStmt, err := st.Prepare(deleteUnit, unit)
 	if err != nil {
@@ -1037,6 +1069,11 @@ DELETE FROM net_node WHERE uuid = (
 	}
 	if err != nil {
 		return errors.Errorf("looking up UUID for unit %q: %w", unitName, err)
+	}
+
+	err = tx.Query(ctx, deleteSecretOwnerStmt, unit).Run()
+	if err != nil {
+		return errors.Errorf("deleting secret owner for unit %q: %w", unitName, err)
 	}
 
 	if err := st.deleteCloudContainer(ctx, tx, unit.UUID, unit.NetNodeID); err != nil {

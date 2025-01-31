@@ -58,9 +58,6 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.secretState = secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c))
 	s.svc = service.NewService(
 		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, clock.WallClock, loggertesting.WrapCheckLog(c)),
-		secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil },
-			loggertesting.WrapCheckLog(c),
-		),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
@@ -158,16 +155,7 @@ func (s *serviceSuite) TestDeleteApplication(c *gc.C) {
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE name = ?", "foo").
 			Scan(&gotAppCount)
-		if err != nil {
-			return err
-		}
-		err = tx.QueryRowContext(ctx,
-			"SELECT count(*) FROM secret_metadata sm JOIN secret_application_owner so ON sm.secret_id = so.secret_id WHERE application_uuid = ?", appUUID).
-			Scan(&gotSecretCount)
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotAppCount, gc.Equals, 0)
@@ -315,16 +303,7 @@ func (s *serviceSuite) TestDeleteUnit(c *gc.C) {
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name = ?", u.UnitName).
 			Scan(&gotUnitCount)
-		if err != nil {
-			return err
-		}
-		err = tx.QueryRowContext(ctx,
-			"SELECT count(*) FROM secret_metadata sm JOIN secret_unit_owner so ON sm.secret_id = so.secret_id JOIN unit u ON so.unit_uuid = u.uuid WHERE u.name = ?", u.UnitName).
-			Scan(&gotSecretCount)
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotUnitCount, gc.Equals, 0)

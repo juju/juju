@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
-	secretstate "github.com/juju/juju/domain/secret/state"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -120,7 +119,6 @@ func (s *charmSuite) setupService(c *gc.C) *service.Service {
 
 	return service.NewService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
-		secretstate.NewState(modelDB, loggertesting.WrapCheckLog(c)),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),

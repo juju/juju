@@ -281,13 +281,6 @@ type ApplicationState interface {
 	InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery)
 }
 
-// DeleteSecretState describes methods used by the secret deleter plugin.
-type DeleteSecretState interface {
-	// DeleteSecret deletes the specified secret revisions.
-	// If revisions is nil the last remaining revisions are removed.
-	DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) error
-}
-
 // CreateApplication creates the specified application and units if required,
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
@@ -609,25 +602,11 @@ func (s *Service) DeleteUnit(ctx context.Context, unitName coreunit.Name) error 
 }
 
 func (s *Service) deleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) error {
-	// Get unit owned secrets.
-	uris, err := s.st.GetSecretsForUnit(ctx, unitName)
-	if err != nil {
-		return errors.Annotatef(err, "getting unit owned secrets for %q", unitName)
-	}
-	// Delete unit owned secrets.
-	for _, uri := range uris {
-		s.logger.Debugf("deleting unit %q secret: %s", unitName, uri.ID)
-		err := s.secretDeleter.DeleteSecret(ctx, uri, nil)
-		if err != nil {
-			return errors.Annotatef(err, "deleting secret %q", uri)
-		}
-	}
-
 	// TODO(units) - check for subordinates and storage attachments
 	// For IAAS units, we need to do additional checks - these are still done in mongo.
 	// If a unit still has subordinates, return applicationerrors.UnitHasSubordinates.
 	// If a unit still has storage attachments, return applicationerrors.UnitHasStorageAttachments.
-	err = s.st.SetUnitLife(ctx, unitName, life.Dead)
+	err := s.st.SetUnitLife(ctx, unitName, life.Dead)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil
 	}
@@ -925,21 +904,7 @@ func (s *Service) DeleteApplication(ctx context.Context, name string) error {
 }
 
 func (s *Service) deleteApplication(ctx domain.AtomicContext, name string) ([]func(context.Context), error) {
-	// Get app owned secrets.
-	uris, err := s.st.GetSecretsForApplication(ctx, name)
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting application owned secrets for %q", name)
-	}
-	// Delete app owned secrets.
-	for _, uri := range uris {
-		s.logger.Debugf("deleting application %q secret: %s", name, uri.ID)
-		err := s.secretDeleter.DeleteSecret(ctx, uri, nil)
-		if err != nil {
-			return nil, errors.Annotatef(err, "deleting secret %q", uri)
-		}
-	}
-
-	err = s.st.DeleteApplication(ctx, name)
+	err := s.st.DeleteApplication(ctx, name)
 	return nil, errors.Annotatef(err, "deleting application %q", name)
 }
 
