@@ -18,6 +18,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // dbModel represents the state of a model.
@@ -469,6 +470,60 @@ type dbConstraintInsert struct {
 	VirtType         sql.NullString `db:"virt_type"`
 	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
 	ImageID          sql.NullString `db:"image_id"`
+}
+
+// constraintsToDBInsert is responsible for taking a constraints value and
+// transforming the values into a [dbConstraintInsert] object.
+func constraintsToDBInsert(
+	uuid uuid.UUID,
+	consValue constraints.Value) dbConstraintInsert {
+	return dbConstraintInsert{
+		UUID: uuid.String(),
+		Arch: sql.NullString{
+			String: deref(consValue.Arch),
+			Valid:  consValue.Arch != nil,
+		},
+		CPUCores: sql.NullInt64{
+			Int64: int64(deref(consValue.CpuCores)),
+			Valid: consValue.CpuCores != nil,
+		},
+		CPUPower: sql.NullInt64{
+			Int64: int64(deref(consValue.CpuPower)),
+			Valid: consValue.CpuPower != nil,
+		},
+		Mem: sql.NullInt64{
+			Int64: int64(deref(consValue.Mem)),
+			Valid: consValue.Mem != nil,
+		},
+		RootDisk: sql.NullInt64{
+			Int64: int64(deref(consValue.RootDisk)),
+			Valid: consValue.RootDisk != nil,
+		},
+		RootDiskSource: sql.NullString{
+			String: deref(consValue.RootDiskSource),
+			Valid:  consValue.RootDiskSource != nil,
+		},
+		InstanceRole: sql.NullString{
+			String: deref(consValue.InstanceRole),
+			Valid:  consValue.InstanceRole != nil,
+		},
+		InstanceType: sql.NullString{
+			String: deref(consValue.InstanceType),
+			Valid:  consValue.InstanceType != nil,
+		},
+		VirtType: sql.NullString{
+			String: deref(consValue.VirtType),
+			Valid:  consValue.VirtType != nil,
+		},
+		AllocatePublicIP: sql.NullBool{
+			Bool:  deref(consValue.AllocatePublicIP),
+			Valid: consValue.VirtType != nil,
+		},
+		ImageID: sql.NullString{
+			String: deref(consValue.ImageID),
+			Valid:  consValue.ImageID != nil,
+		},
+	}
 }
 
 func ptr[T any](i T) *T {

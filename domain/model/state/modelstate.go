@@ -347,53 +347,7 @@ func (s *ModelState) SetModelConstraints(ctx context.Context, consValue constrai
 		return errors.Errorf("generating new model constraint uuid: %w", err)
 	}
 
-	constraintInsertValues := dbConstraintInsert{
-		UUID: constraintsUUID.String(),
-		Arch: sql.NullString{
-			String: deref(consValue.Arch),
-			Valid:  consValue.Arch != nil,
-		},
-		CPUCores: sql.NullInt64{
-			Int64: int64(deref(consValue.CpuCores)),
-			Valid: consValue.CpuCores != nil,
-		},
-		CPUPower: sql.NullInt64{
-			Int64: int64(deref(consValue.CpuPower)),
-			Valid: consValue.CpuPower != nil,
-		},
-		Mem: sql.NullInt64{
-			Int64: int64(deref(consValue.Mem)),
-			Valid: consValue.Mem != nil,
-		},
-		RootDisk: sql.NullInt64{
-			Int64: int64(deref(consValue.RootDisk)),
-			Valid: consValue.RootDisk != nil,
-		},
-		RootDiskSource: sql.NullString{
-			String: deref(consValue.RootDiskSource),
-			Valid:  consValue.RootDiskSource != nil,
-		},
-		InstanceRole: sql.NullString{
-			String: deref(consValue.InstanceRole),
-			Valid:  consValue.InstanceRole != nil,
-		},
-		InstanceType: sql.NullString{
-			String: deref(consValue.InstanceType),
-			Valid:  consValue.InstanceType != nil,
-		},
-		VirtType: sql.NullString{
-			String: deref(consValue.VirtType),
-			Valid:  consValue.VirtType != nil,
-		},
-		AllocatePublicIP: sql.NullBool{
-			Bool:  deref(consValue.AllocatePublicIP),
-			Valid: consValue.VirtType != nil,
-		},
-		ImageID: sql.NullString{
-			String: deref(consValue.ImageID),
-			Valid:  consValue.ImageID != nil,
-		},
-	}
+	constraintInsertValues := constraintsToDBInsert(constraintsUUID, consValue)
 
 	selectContainerTypeStmt, err := s.Prepare(`
 SELECT &dbContainerTypeId.*
