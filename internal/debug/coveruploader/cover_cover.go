@@ -24,8 +24,13 @@ import (
 // uploaded coverage profile.
 var putURL string
 
+// Enable the coveruploader for this process. Periodically and on process
+// exit, cover profiles are uploaded via a HTTP PUT to the URL set on putURL.
+// The putURL could be a pre-signed URL to an S3 bucket with versioning
+// enabled.
 func Enable() {
 	if putURL == "" {
+		log.Printf("cover: cover profiles are enabled but no putURL supplied at build")
 		return
 	}
 	ticker := time.NewTicker(10 * time.Second)

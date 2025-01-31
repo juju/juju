@@ -5,4 +5,5 @@
 
 package coveruploader
 
+// Enable is a no-op without the cover build tag.
 func Enable() {}
