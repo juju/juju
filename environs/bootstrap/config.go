@@ -187,9 +187,6 @@ func (c Config) Validate() error {
 	if _, err := tls.X509KeyPair([]byte(c.CACert), []byte(c.CAPrivateKey)); err != nil {
 		return errors.Annotatef(err, "validating %s and %s", CACertKey, CAPrivateKeyKey)
 	}
-	if _, err := ssh.ParsePrivateKey([]byte(c.SSHServerHostKey)); err != nil {
-		return errors.Annotatef(err, "validating %s", SSHServerHostKeyKey)
-	}
 	if c.BootstrapTimeout <= 0 {
 		return errors.NotValidf("%s of %s", BootstrapTimeoutKey, c.BootstrapTimeout)
 	}
@@ -206,6 +203,14 @@ func (c Config) Validate() error {
 	}
 	if len(c.ControllerExternalIPs) > 1 && c.ControllerServiceType == string(caas.ServiceLoadBalancer) {
 		return errors.NewNotValid(nil, fmt.Sprintf("only 1 external IP is allowed with service type %q", caas.ServiceLoadBalancer))
+	}
+	if c.SSHServerHostKey != "" {
+		// The errors given by this can be kind of misleading, if the key is not
+		// of the correct format, it will say "no key found", which is not very
+		// helpful. What it really means is "no valid key found".
+		if _, err := ssh.ParsePrivateKey([]byte(c.SSHServerHostKey)); err != nil {
+			return errors.Annotatef(err, "validating %s", SSHServerHostKeyKey)
+		}
 	}
 	return nil
 }

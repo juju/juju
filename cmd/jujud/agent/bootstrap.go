@@ -6,6 +6,9 @@ package agent
 import (
 	"bytes"
 	stdcontext "context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +16,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	cryptossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -276,7 +281,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if !ok {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
-	if err := ensureKeys(isCAAS, args, &info, newConfigAttrs); err != nil {
+	if err := ensureKeys(isCAAS, &args, &info, newConfigAttrs); err != nil {
 		return errors.Trace(err)
 	}
 	addrs, err := getAddressesForMongo(isCAAS, env, callCtx, args)
@@ -430,7 +435,7 @@ func getAddressesForMongo(
 
 func ensureKeys(
 	isCAAS bool,
-	args instancecfg.StateInitializationParams,
+	args *instancecfg.StateInitializationParams,
 	info *controller.StateServingInfo,
 	newConfigAttrs map[string]interface{},
 ) error {
@@ -455,7 +460,31 @@ func ensureKeys(
 		return errors.Trace(err)
 	}
 	info.SharedSecret = sharedSecret
+
+	// Generate the embedded SSH server host key and store it within StateInitializationParams.
+	hostKey, err := generateED25519KeyString()
+	if err != nil {
+		return errors.Annotatef(err, "failed to ensure ssh server host key")
+	}
+	args.SSHServerHostKey = hostKey
+
 	return nil
+}
+
+func generateED25519KeyString() (string, error) {
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+
+		return "", errors.Annotate(err, "failed to generate ED25519 key")
+	}
+
+	pemKey, err := cryptossh.MarshalPrivateKey(privateKey, "")
+	if err != nil {
+		return "", errors.Annotate(err, "failed to marshal private key")
+	}
+
+	pemString := string(pem.EncodeToMemory(pemKey))
+	return pemString, nil
 }
 
 func (c *BootstrapCommand) startMongo(ctx stdcontext.Context, isCAAS bool, addrs network.ProviderAddresses, agentConfig agent.Config) error {

@@ -613,6 +613,9 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
+	// Set SSHServerHostKey if provided by the user.
+	instanceConfig.Bootstrap.StateInitializationParams.SSHServerHostKey = args.SSHServerHostKey
+
 	matchingTools, err := bootstrapParams.AvailableTools.Match(coretools.Filter{
 		Arch:   result.Arch,
 		OSType: result.Base.OS,

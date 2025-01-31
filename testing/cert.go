@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"crypto/ed25519"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -13,6 +14,7 @@ import (
 
 	mgotesting "github.com/juju/mgo/v3/testing"
 	utilscert "github.com/juju/utils/v3/cert"
+	cryptossh "golang.org/x/crypto/ssh"
 )
 
 // CACert and CAKey make up a CA key pair.
@@ -34,7 +36,7 @@ var (
 	OtherCACertX509, OtherCAKeyRSA = mustParseCertAndKey(OtherCACert, OtherCAKey)
 
 	// SSHServerHostKey for testing
-	SSHServerHostKey = mustGenerateRSAPrivateKey()
+	SSHServerHostKey = mustGenerateSSHServerHostKey()
 )
 
 func chooseGeneratedCA() (string, string, string, string) {
@@ -84,17 +86,18 @@ func serverCerts() *mgotesting.Certs {
 	}
 }
 
-func mustGenerateRSAPrivateKey() string {
-	privateKey, err := rsa.GenerateKey(cryptorand.Reader, 2048)
+func mustGenerateSSHServerHostKey() string {
+	_, privateKey, err := ed25519.GenerateKey(cryptorand.Reader)
 	if err != nil {
-		panic(err)
+
+		panic("failed to generate ED25519 key")
 	}
 
-	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
-	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: privateKeyBytes,
-	})
+	pemKey, err := cryptossh.MarshalPrivateKey(privateKey, "")
+	if err != nil {
+		panic("failed to marshal private key")
+	}
 
-	return string(privateKeyPEM)
+	pemString := string(pem.EncodeToMemory(pemKey))
+	return pemString
 }

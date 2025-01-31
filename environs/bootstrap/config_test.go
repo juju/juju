@@ -192,6 +192,12 @@ func (*ConfigSuite) TestValidateExternalIpsAndLoadBalancer(c *gc.C) {
 	c.Assert(cfg.Validate(), gc.ErrorMatches, `only 1 external IP is allowed with service type "loadbalancer"`)
 }
 
+func (*ConfigSuite) TestValidateSSHServerHostKey(c *gc.C) {
+	cfg := validConfig()
+	cfg.SSHServerHostKey = "bad key"
+	c.Assert(cfg.Validate(), gc.ErrorMatches, "validating ssh-server-host-key: ssh: no key found")
+}
+
 func validConfig() bootstrap.Config {
 	return bootstrap.Config{
 		AdminSecret:             "sekrit",
