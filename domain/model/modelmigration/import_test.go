@@ -13,6 +13,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -54,7 +55,7 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 // config for model name and uuid we get back an error that satisfies
 // [errors.NotValid]
 func (i *importSuite) TestModelMetadataInvalid(c *gc.C) {
-	importOp := importOperation{}
+	importOp := importModelOperation{}
 
 	// model name not defined
 	model := description.NewModel(description.ModelArgs{
@@ -101,7 +102,7 @@ func (i *importSuite) TestModelOwnerNoExist(c *gc.C) {
 	defer i.setupMocks(c).Finish()
 	i.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "tlm")).Return(coreuser.User{}, usererrors.UserNotFound)
 
-	importOp := importOperation{
+	importOp := importModelOperation{
 		modelImportService: i.modelImportService,
 		userService:        i.userService,
 	}
@@ -179,7 +180,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		Name:  "my-credential",
 	})
 
-	importOp := &importOperation{
+	importOp := &importModelOperation{
 		userService:             i.userService,
 		modelImportService:      i.modelImportService,
 		controllerConfigService: i.controllerConfigService,
@@ -263,7 +264,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		Name:  "my-credential",
 	})
 
-	importOp := &importOperation{
+	importOp := &importModelOperation{
 		userService:             i.userService,
 		modelImportService:      i.modelImportService,
 		controllerConfigService: i.controllerConfigService,
@@ -343,7 +344,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 		Name:  "my-credential",
 	})
 
-	importOp := &importOperation{
+	importOp := &importModelOperation{
 		userService:             i.userService,
 		modelImportService:      i.modelImportService,
 		controllerConfigService: i.controllerConfigService,
@@ -423,7 +424,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 		Name:  "my-credential",
 	})
 
-	importOp := &importOperation{
+	importOp := &importModelOperation{
 		userService:             i.userService,
 		modelImportService:      i.modelImportService,
 		controllerConfigService: i.controllerConfigService,
@@ -440,4 +441,68 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	// TODO (stickupkid): This is incorrect until the model info is
 	// correctly saved.
 	c.Check(activated, jc.IsTrue)
+}
+
+// TestImportModelConstraintsNoOperations asserts that if no constraints are set
+// on the model's description we don't try and subsequently set constraints for
+// the model on the service.
+func (i *importSuite) TestImportModelConstraintsNoOperations(c *gc.C) {
+	defer i.setupMocks(c).Finish()
+
+	newUUID := modeltesting.GenModelUUID(c)
+	importOp := importModelConstraintsOperation{
+		modelDetailServiceFunc: func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
+	}
+
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]interface{}{
+			"uuid": newUUID.String(),
+		},
+	})
+	err := importOp.Execute(context.Background(), model)
+	c.Check(err, jc.ErrorIsNil)
+
+	model = description.NewModel(description.ModelArgs{
+		Config: map[string]interface{}{
+			"uuid": newUUID.String(),
+		},
+	})
+	model.SetConstraints(description.ConstraintsArgs{})
+	err = importOp.Execute(context.Background(), model)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// ptr returns a pointer to the value t passed in.
+func ptr[T any](t T) *T {
+	return &t
+}
+
+// TestImportModelConstraints is asserting the happy path of setting constraints
+// from the description package on to the imported model via the service.
+func (i *importSuite) TestImportModelConstraints(c *gc.C) {
+	defer i.setupMocks(c).Finish()
+
+	newUUID := modeltesting.GenModelUUID(c)
+	importOp := importModelConstraintsOperation{
+		modelDetailServiceFunc: func(_ coremodel.UUID) ModelDetailService { return i.modelDetailService },
+	}
+
+	i.modelDetailService.EXPECT().SetModelConstraints(gomock.Any(), coreconstraints.Value{
+		Arch:             ptr("arm64"),
+		AllocatePublicIP: ptr(true),
+		Spaces:           ptr([]string{"space1", "space2"}),
+	})
+
+	model := description.NewModel(description.ModelArgs{
+		Config: map[string]interface{}{
+			"uuid": newUUID.String(),
+		},
+	})
+	model.SetConstraints(description.ConstraintsArgs{
+		Architecture:     "arm64",
+		AllocatePublicIP: true,
+		Spaces:           []string{"space1", "space2"},
+	})
+	err := importOp.Execute(context.Background(), model)
+	c.Check(err, jc.ErrorIsNil)
 }

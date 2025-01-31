@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	constraints "github.com/juju/juju/core/constraints"
 	model "github.com/juju/juju/core/model"
 	user "github.com/juju/juju/core/user"
 	model0 "github.com/juju/juju/domain/model"
@@ -221,6 +222,44 @@ func (c *MockModelDetailServiceDeleteModelCall) Do(f func(context.Context) error
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelDetailServiceDeleteModelCall) DoAndReturn(f func(context.Context) error) *MockModelDetailServiceDeleteModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetModelConstraints mocks base method.
+func (m *MockModelDetailService) SetModelConstraints(arg0 context.Context, arg1 constraints.Value) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetModelConstraints", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModelConstraints indicates an expected call of SetModelConstraints.
+func (mr *MockModelDetailServiceMockRecorder) SetModelConstraints(arg0, arg1 any) *MockModelDetailServiceSetModelConstraintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelConstraints", reflect.TypeOf((*MockModelDetailService)(nil).SetModelConstraints), arg0, arg1)
+	return &MockModelDetailServiceSetModelConstraintsCall{Call: call}
+}
+
+// MockModelDetailServiceSetModelConstraintsCall wrap *gomock.Call
+type MockModelDetailServiceSetModelConstraintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDetailServiceSetModelConstraintsCall) Return(arg0 error) *MockModelDetailServiceSetModelConstraintsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDetailServiceSetModelConstraintsCall) Do(f func(context.Context, constraints.Value) error) *MockModelDetailServiceSetModelConstraintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDetailServiceSetModelConstraintsCall) DoAndReturn(f func(context.Context, constraints.Value) error) *MockModelDetailServiceSetModelConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
