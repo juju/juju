@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
@@ -102,8 +101,7 @@ func (s *bootstrapSuite) TestUUIDIsRespected(c *gc.C) {
 	fn := CreateGlobalModelRecord(
 		modeltesting.GenModelUUID(c),
 		model.GlobalModelCreationArgs{
-			AgentVersion: jujuversion.Current,
-			Cloud:        s.cloudName,
+			Cloud: s.cloudName,
 			Credential: credential.Key{
 				Cloud: s.cloudName,
 				Name:  s.credentialName,
@@ -129,13 +127,12 @@ func (s *modelBootstrapSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 }
 
-func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
+func (s *modelBootstrapSuite) TestCreateModelDetails(c *gc.C) {
 	controllerUUID := uuid.MustNewUUID()
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	args := model.GlobalModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        s.cloudName,
+		Cloud: s.cloudName,
 		Credential: credential.Key{
 			Cloud: s.cloudName,
 			Name:  s.credentialName,
@@ -150,7 +147,7 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateReadOnlyModel(modelUUID, controllerUUID)
+	fn = CreateModelDBModelRecord(modelUUID, controllerUUID, jujuversion.Current)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -167,28 +164,17 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	c.Check(m.ControllerUUID, gc.Equals, controllerUUID.String())
 	c.Check(m.Name, gc.Equals, args.Name)
 	c.Check(m.IsControllerModel, gc.Equals, true)
-}
 
-func (s *modelBootstrapSuite) TestCreateModelWithDifferingBuildNumber(c *gc.C) {
-	v := jujuversion.Current
-	v.Build++
-
-	args := model.GlobalModelCreationArgs{
-		AgentVersion: v,
-		Cloud:        s.cloudName,
-		Credential: credential.Key{
-			Cloud: s.cloudName,
-			Name:  s.credentialName,
-			Owner: coreuser.AdminUserName,
-		},
-		Name:  "test",
-		Owner: s.adminUserUUID,
-	}
-
-	// Create a model and then create a read-only model from it.
-	fn := CreateGlobalModelRecord(modeltesting.GenModelUUID(c), args)
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
+	v := sqlair.M{}
+	stmt, err = sqlair.Prepare(`SELECT &M.target_version FROM agent_version`, v)
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.ModelTxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).Get(&v)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(v["target_version"], gc.DeepEquals, jujuversion.Current.String())
 }
 
 type dbReadOnlyModel struct {
