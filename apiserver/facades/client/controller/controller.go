@@ -39,7 +39,6 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/blockcommand"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/pubsub/controller"
@@ -234,145 +233,16 @@ func (c *ControllerAPI) MongoVersion(ctx context.Context) (params.StringResult, 
 	return result, nil
 }
 
-// dashboardConnectionInforForCAAS returns a dashboard connection for a Juju
-// dashboard deployed on CAAS.
-func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
-	ctx context.Context,
-	applicationName string,
-) (*params.Proxy, error) {
-	dashboardApp, err := c.state.Application(applicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg, err := dashboardApp.CharmConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	port, ok := cfg["port"]
-	if !ok {
-		return nil, errors.NotFoundf("dashboard port in charm config")
-	}
-
-	proxier, err := c.proxyService.GetProxyToApplication(ctx, applicationName, fmt.Sprint(port))
-	if err != nil {
-		return nil, err
-	}
-
-	return params.NewProxy(proxier)
-}
-
-// dashboardConnectionInforForIAAS returns a dashboard connection for a Juju
-// dashboard deployed on IAAS.
-func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
-	ctx context.Context,
-	appName string,
-	appSettings map[string]interface{},
-) (*params.DashboardConnectionSSHTunnel, error) {
-	addr, ok := appSettings["dashboard-ingress"]
-	if !ok {
-		return nil, errors.NotFoundf("dashboard address in relation data")
-	}
-
-	// TODO: support cross-model relations
-	// If the dashboard app is in a different model, this will try to look in
-	// the controller model, returning `application "dashboard" not found`
-	dashboardApp, err := c.state.Application(appName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg, err := dashboardApp.CharmConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	port, ok := cfg["port"]
-	if !ok {
-		return nil, errors.NotFoundf("dashboard port in charm config")
-	}
-
-	model, err := c.state.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelName := model.Name()
-	ctrCfg, err := c.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controllerName := ctrCfg.ControllerName()
-
-	return &params.DashboardConnectionSSHTunnel{
-		Model:  fmt.Sprintf("%s:%s", controllerName, modelName),
-		Entity: fmt.Sprintf("%s/leader", appName),
-		Host:   fmt.Sprintf("%s", addr),
-		Port:   fmt.Sprintf("%d", port),
-	}, nil
-}
-
 // DashboardConnectionInfo returns the connection information for a client to
 // connect to the Juju Dashboard including any proxying information.
-func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.DashboardConnectionInfo, error) {
-	getDashboardInfo := func() (params.DashboardConnectionInfo, error) {
-		rval := params.DashboardConnectionInfo{}
-		controllerApp, err := c.state.Application(bootstrap.ControllerApplicationName)
-		if err != nil {
-			return rval, errors.Trace(err)
-		}
-
-		rels, err := controllerApp.Relations()
-		if err != nil {
-			return rval, errors.Trace(err)
-		}
-
-		for _, rel := range rels {
-			ep, err := rel.Endpoint(controllerApp.Name())
-			if err != nil {
-				return rval, errors.Trace(err)
-			}
-			if ep.Name != "dashboard" {
-				continue
-			}
-
-			model, ph, err := c.statePool.GetModel(rel.ModelUUID())
-			if err != nil {
-				return rval, errors.Trace(err)
-			}
-			defer ph.Release()
-
-			relatedEps, err := rel.RelatedEndpoints(controllerApp.Name())
-			if err != nil {
-				return rval, errors.Trace(err)
-			}
-			related := relatedEps[0]
-
-			appSettings, err := rel.ApplicationSettings(related.ApplicationName)
-			if err != nil {
-				return rval, errors.Trace(err)
-			}
-
-			if model.Type() != state.ModelTypeCAAS {
-				sshConnection, err := c.dashboardConnectionInfoForIAAS(
-					ctx,
-					related.ApplicationName,
-					appSettings)
-				rval.SSHConnection = sshConnection
-				return rval, err
-			}
-
-			proxyConnection, err := c.dashboardConnectionInfoForCAAS(ctx, related.ApplicationName)
-			rval.ProxyConnection = proxyConnection
-			return rval, err
-		}
-
-		return rval, errors.NotFoundf("dashboard")
-	}
-	conInfo, err := getDashboardInfo()
-
-	if conInfo.ProxyConnection != nil && conInfo.SSHConnection != nil {
-		return params.DashboardConnectionInfo{},
-			errors.New("cannot set both proxy and ssh connection for dashboard connection info")
-	}
-	conInfo.Error = apiservererrors.ServerError(err)
-	return conInfo, nil
+func (c *ControllerAPI) DashboardConnectionInfo(_ context.Context) (params.DashboardConnectionInfo, error) {
+	// TODO 27-01-2025 (hmlanigan)
+	// Reimplement the functionality in the controller charm.
+	// The most recent implementation used mongodb state, thus the method will
+	// now return Not Implemented rather than a temporary implementation with
+	// dqlite.
+	return params.DashboardConnectionInfo{}, errors.NotImplementedf(
+		"functionality moving to the controller charm in the future, for now dashboard connection info")
 }
 
 // AllModels allows controller administrators to get the list of all the

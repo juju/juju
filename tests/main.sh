@@ -55,6 +55,7 @@ TEST_NAMES="actions \
             coslite \
             credential \
             ck \
+            dashboard \
             deploy \
             deploy_aks \
             deploy_caas \
