@@ -300,7 +300,7 @@ func (s *Service) CreateApplication(
 	args AddApplicationArgs,
 	units ...AddUnitArg,
 ) (coreapplication.ID, error) {
-	if err := validateCreateApplicationParams(
+	if err := validateCharmAndApplicationParams(
 		name,
 		args.ReferenceName,
 		charm,
@@ -346,7 +346,7 @@ func (s *Service) CreateApplication(
 	return appID, nil
 }
 
-func validateCreateApplicationParams(
+func validateCharmAndApplicationParams(
 	name, referenceName string,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
