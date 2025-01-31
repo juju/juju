@@ -164,11 +164,13 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 		c.Fatalf("timed out waiting for worker to finish")
 	}
 
+	s.ensureChanged(c)
+
 	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
 
 	remotes := w.GetAPIRemotes()
 	c.Assert(remotes, gc.HasLen, 1)
-	c.Assert(remotes[0].Connection().Addr(), gc.Equals, "192.168.0.17")
+	c.Check(remotes[0].Connection().Addr(), gc.Equals, "192.168.0.17")
 
 	workertest.CleanKill(c, w)
 }
@@ -207,6 +209,8 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesNonInternalAddress(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
+
+	s.ensureChanged(c)
 
 	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"1"})
 
@@ -294,6 +298,8 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for worker to finish")
 	}
+
+	s.ensureChanged(c)
 
 	c.Check(w.runner.WorkerNames(), gc.DeepEquals, []string{"2"})
 	c.Check(s.called, jc.DeepEquals, map[string]int{

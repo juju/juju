@@ -219,6 +219,8 @@ func (w *remoteServer) loop() error {
 			w.info.Addrs = addresses
 			connected = true
 
+			w.reportInternalState(stateChanged)
+
 		case <-monitor:
 			// If the connection is lost, force the worker to restart. We
 			// won't attempt to reconnect here, just make the worker die.
