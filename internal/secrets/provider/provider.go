@@ -78,7 +78,7 @@ type SecretBackendProvider interface {
 
 	// CleanupModel removes any secrets / ACLs / resources
 	// associated with the model config.
-	CleanupModel(cfg *ModelBackendConfig) error
+	CleanupModel(ctx context.Context, cfg *ModelBackendConfig) error
 
 	// RestrictedConfig returns the config needed to create a
 	// secrets backend client restricted to manage the specified

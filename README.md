@@ -37,7 +37,7 @@ sudo snap install multipass
 Use Multipass to launch an Ubuntu VM with the `charm-dev` blueprint: 
 
 ```
-multipass launch --cpus 4 --memory 8G --disk 30G --name tutorial-vm charm-dev 
+multipass launch --cpus 4 --memory 8G --disk 50G --name tutorial-vm charm-dev 
 ```
 
 Open a shell into the VM:

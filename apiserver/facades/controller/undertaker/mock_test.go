@@ -181,7 +181,7 @@ type mockSecrets struct {
 	cleanedUUID string
 }
 
-func (m *mockSecrets) CleanupModel(cfg *provider.ModelBackendConfig) error {
+func (m *mockSecrets) CleanupModel(_ context.Context, cfg *provider.ModelBackendConfig) error {
 	if cfg.BackendType != "some-backend" {
 		return errors.New("unknown backend " + cfg.BackendType)
 	}
