@@ -979,21 +979,13 @@ func (s *applicationStateSuite) TestGetUnitLife(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u)
 
-	var unitLife life.Life
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		unitLife, err = s.state.GetUnitLife(ctx, "foo/666")
-		return err
-	})
+	unitLife, err := s.state.GetUnitLife(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitLife, gc.Equals, life.Alive)
 }
 
 func (s *applicationStateSuite) TestGetUnitLifeNotFound(c *gc.C) {
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.GetUnitLife(ctx, "foo/666")
-		return err
-	})
+	_, err := s.state.GetUnitLife(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 

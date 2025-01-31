@@ -1632,7 +1632,7 @@ func (c *MockStateGetStoragePoolByNameCall) DoAndReturn(f func(context.Context, 
 }
 
 // GetUnitLife mocks base method.
-func (m *MockState) GetUnitLife(arg0 domain.AtomicContext, arg1 unit.Name) (life.Life, error) {
+func (m *MockState) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Life, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
 	ret0, _ := ret[0].(life.Life)
@@ -1659,13 +1659,13 @@ func (c *MockStateGetUnitLifeCall) Return(arg0 life.Life, arg1 error) *MockState
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitLifeCall) Do(f func(domain.AtomicContext, unit.Name) (life.Life, error)) *MockStateGetUnitLifeCall {
+func (c *MockStateGetUnitLifeCall) Do(f func(context.Context, unit.Name) (life.Life, error)) *MockStateGetUnitLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitLifeCall) DoAndReturn(f func(domain.AtomicContext, unit.Name) (life.Life, error)) *MockStateGetUnitLifeCall {
+func (c *MockStateGetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name) (life.Life, error)) *MockStateGetUnitLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

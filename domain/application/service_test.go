@@ -286,7 +286,7 @@ func (s *serviceSuite) TestEnsureUnitDeadNotFound(c *gc.C) {
 	revoker := application.NewMockRevoker(ctrl)
 
 	err := s.svc.EnsureUnitDead(context.Background(), coreunit.Name("foo/666"), revoker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestDeleteUnit(c *gc.C) {
