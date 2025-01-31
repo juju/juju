@@ -26,7 +26,7 @@ import (
 type resourcesMigrationUploadHandler struct {
 	applicationServiceGetter ApplicationServiceGetter
 	resourceServiceGetter    ResourceServiceGetter
-	validator                Validator
+	validator                Downloader
 	logger                   logger.Logger
 }
 
@@ -35,7 +35,7 @@ type resourcesMigrationUploadHandler struct {
 func NewResourceMigrationUploadHandler(
 	applicationServiceGetter ApplicationServiceGetter,
 	resourceServiceGetter ResourceServiceGetter,
-	validator Validator,
+	validator Downloader,
 	logger logger.Logger,
 ) *resourcesMigrationUploadHandler {
 	return &resourcesMigrationUploadHandler{
@@ -148,7 +148,7 @@ func (h *resourcesMigrationUploadHandler) processPost(
 			return empty, internalerrors.Errorf("extracting resource details from request: %w", err)
 		}
 
-		reader, err := h.validator.ValidateAndStoreReader(r.Body, details.fingerprint.String(), details.size)
+		reader, err := h.validator.Download(r.Body, details.fingerprint.String(), details.size)
 		if err != nil {
 			return empty, internalerrors.Errorf("validating resource size and hash: %w", err)
 		}

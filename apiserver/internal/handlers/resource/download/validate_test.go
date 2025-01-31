@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package validate_test
+package download_test
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/internal/handlers/resource/validate"
+	"github.com/juju/juju/apiserver/internal/handlers/resource/download"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -46,7 +46,7 @@ func (s *ValidateSuite) TestValidateResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	hash := hex.EncodeToString(hasher.Sum(nil))
 
-	validator := validate.NewValidator(
+	downloader := download.NewDownloader(
 		loggertesting.WrapCheckLog(c),
 		s.fileSystem,
 	)
@@ -62,7 +62,7 @@ func (s *ValidateSuite) TestValidateResource(c *gc.C) {
 	s.fileSystem.EXPECT().Remove(f.Name())
 
 	// Act:
-	reader, err := validator.ValidateAndStoreReader(
+	reader, err := downloader.Download(
 		io.NopCloser(bytes.NewBuffer(resourceContent)),
 		hash,
 		size,
@@ -87,7 +87,7 @@ func (s *ValidateSuite) TestGetResourceUnexpectedSize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	hash := hex.EncodeToString(hasher.Sum(nil))
 
-	validator := validate.NewValidator(
+	downloader := download.NewDownloader(
 		loggertesting.WrapCheckLog(c),
 		s.fileSystem,
 	)
@@ -98,14 +98,14 @@ func (s *ValidateSuite) TestGetResourceUnexpectedSize(c *gc.C) {
 	s.fileSystem.EXPECT().Remove(f.Name())
 
 	// Act:
-	reader, err := validator.ValidateAndStoreReader(
+	reader, err := downloader.Download(
 		io.NopCloser(bytes.NewBuffer(resourceContent)),
 		hash,
 		666,
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, validate.ErrUnexpectedSize)
+	c.Assert(err, jc.ErrorIs, download.ErrUnexpectedSize)
 	c.Assert(reader, gc.IsNil)
 }
 
@@ -116,7 +116,7 @@ func (s *ValidateSuite) TestGetResourceUnexpectedHash(c *gc.C) {
 	resourceContent := []byte("resource blob content")
 	size := int64(len(resourceContent))
 
-	validator := validate.NewValidator(
+	downloader := download.NewDownloader(
 		loggertesting.WrapCheckLog(c),
 		s.fileSystem,
 	)
@@ -127,14 +127,14 @@ func (s *ValidateSuite) TestGetResourceUnexpectedHash(c *gc.C) {
 	s.fileSystem.EXPECT().Remove(f.Name())
 
 	// Act:
-	reader, err := validator.ValidateAndStoreReader(
+	reader, err := downloader.Download(
 		io.NopCloser(bytes.NewBuffer(resourceContent)),
 		"bad-hash",
 		size,
 	)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, validate.ErrUnexpectedHash)
+	c.Assert(err, jc.ErrorIs, download.ErrUnexpectedHash)
 	c.Assert(reader, gc.IsNil)
 }
 

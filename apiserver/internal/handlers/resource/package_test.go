@@ -10,7 +10,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package resource -destination resource_opener_mock_test.go github.com/juju/juju/core/resource Opener
-//go:generate go run go.uber.org/mock/mockgen -typed -package resource -destination service_mock_test.go github.com/juju/juju/apiserver/internal/handlers/resource ResourceServiceGetter,ApplicationServiceGetter,ApplicationService,ResourceService,ResourceOpenerGetter,Validator
+//go:generate go run go.uber.org/mock/mockgen -typed -package resource -destination service_mock_test.go github.com/juju/juju/apiserver/internal/handlers/resource ResourceServiceGetter,ApplicationServiceGetter,ApplicationService,ResourceService,ResourceOpenerGetter,Downloader
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

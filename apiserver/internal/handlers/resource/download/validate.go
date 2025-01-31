@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package validate
+package download
 
 import (
 	"crypto/sha512"
@@ -37,30 +37,30 @@ type FileSystem interface {
 	Remove(name string) error
 }
 
-// Validator validates a resource blob.
-type Validator struct {
+// Downloader validates a resource blob.
+type Downloader struct {
 	logger     logger.Logger
 	fileSystem FileSystem
 }
 
-// NewValidator returns a new resource blob validator.
-func NewValidator(logger logger.Logger, fileSystem FileSystem) *Validator {
-	return &Validator{
+// NewDownloader returns a new resource blob validator.
+func NewDownloader(logger logger.Logger, fileSystem FileSystem) *Downloader {
+	return &Downloader{
 		logger:     logger,
 		fileSystem: fileSystem,
 	}
 }
 
-// ValidateAndStoreReader takes a ReadCloser containing a resource blob and
+// Download takes a request body ReadCloser containing a resource blob and
 // checks that the size and hash match the expected values. It downloads the
-// blob to a temporary file and returns a ReadCloser that deletes the temporary
-// file on closure.
+// blob to a temporary file and returns a ReadCloser that deletes the
+// temporary file on closure.
 //
 // Returns [ErrUnexpectedHash] if the hash of the downloaded resource does not
 // match the expected hash.
 // Returns [ErrUnexpectedSize] if the size of the downloaded resource does not
 // match the expected size.
-func (v *Validator) ValidateAndStoreReader(
+func (v *Downloader) Download(
 	reader io.ReadCloser,
 	expectedSHA384 string,
 	expectedSize int64,
@@ -125,7 +125,7 @@ func (v *Validator) ValidateAndStoreReader(
 	return tmpFileReader, nil
 }
 
-func (v *Validator) newTmpFileReader(file string) (*tmpFileReader, error) {
+func (v *Downloader) newTmpFileReader(file string) (*tmpFileReader, error) {
 	f, err := v.fileSystem.Open(file)
 	if err != nil {
 		return nil, err

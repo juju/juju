@@ -27,13 +27,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// Validator validates downloaded resource blobs.
-type Validator interface {
-	// ValidateAndStoreReader takes a ReadCloser containing a resource blob and
+// Downloader downloads and validates resource blobs.
+type Downloader interface {
+	// Download takes a request body ReadCloser containing a resource blob and
 	// checks that the size and hash match the expected values. It downloads the
-	// blob to a temporary file and returns a ReadCloser that deletes the temporary
-	// file on closure.
-	ValidateAndStoreReader(
+	// blob to a temporary file and returns a ReadCloser that deletes the
+	// temporary file on closure.
+	Download(
 		reader io.ReadCloser,
 		expectedSHA384 string,
 		expectedSize int64,
@@ -47,7 +47,7 @@ type ResourceHandler struct {
 	authFunc              func(*http.Request, ...string) (names.Tag, error)
 	changeAllowedFunc     func(context.Context) error
 	resourceServiceGetter ResourceServiceGetter
-	validator             Validator
+	downloader            Downloader
 }
 
 // NewResourceHandler returns a new HTTP client resource handler.
@@ -56,14 +56,14 @@ func NewResourceHandler(
 	authFunc func(*http.Request, ...string) (names.Tag, error),
 	changeAllowedFunc func(context.Context) error,
 	resourceServiceGetter ResourceServiceGetter,
-	validator Validator,
+	validator Downloader,
 ) *ResourceHandler {
 	return &ResourceHandler{
 		logger:                logger,
 		authFunc:              authFunc,
 		changeAllowedFunc:     changeAllowedFunc,
 		resourceServiceGetter: resourceServiceGetter,
-		validator:             validator,
+		downloader:            validator,
 	}
 }
 
@@ -258,7 +258,7 @@ func (h *ResourceHandler) getUploadedResource(resourceService ResourceService, r
 		}
 	}
 
-	reader, err := h.validator.ValidateAndStoreReader(req.Body, uReq.Fingerprint.String(), uReq.Size)
+	reader, err := h.downloader.Download(req.Body, uReq.Fingerprint.String(), uReq.Size)
 	if err != nil {
 		return nil, nil, errors.Errorf("validating resource size and hash: %w", err)
 	}

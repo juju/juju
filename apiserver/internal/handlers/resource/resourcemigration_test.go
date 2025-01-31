@@ -35,7 +35,7 @@ type resourcesUploadSuite struct {
 	resourceServiceGetter    *MockResourceServiceGetter
 	applicationsService      *MockApplicationService
 	resourceService          *MockResourceService
-	validator                *MockValidator
+	downloader               *MockDownloader
 
 	mux *apiserverhttp.Mux
 	srv *httptest.Server
@@ -269,7 +269,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *g
 	_, _, _, _ = s.setQueryHeaders(c, query)
 
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
-	s.validator.EXPECT().ValidateAndStoreReader(gomock.Any(), gomock.Any(), gomock.Any())
+	s.downloader.EXPECT().Download(gomock.Any(), gomock.Any(), gomock.Any())
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(errors.New("cannot store resource"))
 
 	// Act
@@ -294,7 +294,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *gc.
 	_, _, _, _ = s.setQueryHeaders(c, query)
 
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
-	s.validator.EXPECT().ValidateAndStoreReader(gomock.Any(), gomock.Any(), gomock.Any())
+	s.downloader.EXPECT().Download(gomock.Any(), gomock.Any(), gomock.Any())
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(coreresource.Resource{}, errors.New(
 		"cannot get resource"))
@@ -363,7 +363,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 		ApplicationID: "testapp-id",
 		Name:          "test",
 	}).Return("res-uuid", nil)
-	s.validator.EXPECT().ValidateAndStoreReader(
+	s.downloader.EXPECT().Download(
 		http.NoBody,
 		fp.String(),
 		size,
@@ -462,7 +462,7 @@ func (s *resourcesUploadSuite) TestServeUploadUnit(c *gc.C) {
 	}).Return("res-uuid", nil)
 	s.resourceService.EXPECT().SetUnitResource(gomock.Any(), coreresource.UUID("res-uuid"),
 		unit.UUID("testunit-id")).Return(nil)
-	s.validator.EXPECT().ValidateAndStoreReader(
+	s.downloader.EXPECT().Download(
 		http.NoBody,
 		fp.String(),
 		size,
@@ -557,7 +557,7 @@ func (s *resourcesUploadSuite) setupHandler(c *gc.C) Finisher {
 	handler := NewResourceMigrationUploadHandler(
 		s.applicationServiceGetter,
 		s.resourceServiceGetter,
-		s.validator,
+		s.downloader,
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -591,7 +591,7 @@ func (s *resourcesUploadSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.applicationServiceGetter = NewMockApplicationServiceGetter(ctrl)
 	s.resourceServiceGetter = NewMockResourceServiceGetter(ctrl)
 	s.resourceService = NewMockResourceService(ctrl)
-	s.validator = NewMockValidator(ctrl)
+	s.downloader = NewMockDownloader(ctrl)
 
 	return ctrl
 }

@@ -49,7 +49,7 @@ type ResourcesHandlerSuite struct {
 
 	resourceService       *MockResourceService
 	resourceServiceGetter *MockResourceServiceGetter
-	validator             *MockValidator
+	downloader            *MockDownloader
 }
 
 var _ = gc.Suite(&ResourcesHandlerSuite{})
@@ -93,14 +93,14 @@ func (s *ResourcesHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.resourceService = NewMockResourceService(ctrl)
 	s.resourceServiceGetter = NewMockResourceServiceGetter(ctrl)
-	s.validator = NewMockValidator(ctrl)
+	s.downloader = NewMockDownloader(ctrl)
 
 	s.handler = NewResourceHandler(
 		loggertesting.WrapCheckLog(c),
 		s.authFunc,
 		func(context.Context) error { return nil },
 		s.resourceServiceGetter,
-		s.validator,
+		s.downloader,
 	)
 
 	return ctrl
@@ -138,7 +138,7 @@ func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
 		authFunc,
 		func(context.Context) error { return nil },
 		s.resourceServiceGetter,
-		s.validator,
+		s.downloader,
 	)
 
 	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
@@ -248,7 +248,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
 		s.resource, nil,
 	)
 
-	s.validator.EXPECT().ValidateAndStoreReader(
+	s.downloader.EXPECT().Download(
 		s.resourceReader,
 		s.resource.Fingerprint.String(),
 		s.resource.Size,
@@ -302,7 +302,7 @@ func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
 		s.authFunc,
 		changeAllowedFunc,
 		s.resourceServiceGetter,
-		s.validator,
+		s.downloader,
 	)
 
 	req := s.newUploadRequest(c)
@@ -332,7 +332,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
 		res, nil,
 	)
 
-	s.validator.EXPECT().ValidateAndStoreReader(
+	s.downloader.EXPECT().Download(
 		s.resourceReader,
 		s.resource.Fingerprint.String(),
 		s.resource.Size,
@@ -417,7 +417,7 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
 		s.resource, nil,
 	)
 
-	s.validator.EXPECT().ValidateAndStoreReader(
+	s.downloader.EXPECT().Download(
 		s.resourceReader,
 		s.resource.Fingerprint.String(),
 		s.resource.Size,
