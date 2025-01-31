@@ -6,6 +6,9 @@ package agentbootstrap
 import (
 	"context"
 	"fmt"
+	jujuversion "github.com/juju/juju/core/version"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -226,12 +229,11 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	)
 
 	controllerModelArgs := modeldomain.GlobalModelCreationArgs{
-		AgentVersion: stateParams.AgentVersion,
-		Name:         stateParams.ControllerModelConfig.Name(),
-		Owner:        adminUserUUID,
-		Cloud:        stateParams.ControllerCloud.Name,
-		CloudRegion:  stateParams.ControllerCloudRegion,
-		Credential:   credential.KeyFromTag(cloudCredTag),
+		Name:        stateParams.ControllerModelConfig.Name(),
+		Owner:       adminUserUUID,
+		Cloud:       stateParams.ControllerCloud.Name,
+		CloudRegion: stateParams.ControllerCloudRegion,
+		Credential:  credential.KeyFromTag(cloudCredTag),
 	}
 	controllerModelCreateFunc := modelbootstrap.CreateGlobalModelRecord(controllerModelUUID, controllerModelArgs)
 
@@ -247,6 +249,14 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		modelType = state.ModelTypeCAAS
 	}
 
+	agentVersion := stateParams.AgentVersion
+	if agentVersion == version.Zero {
+		agentVersion = jujuversion.Current
+	}
+	if agentVersion.Major != jujuversion.Current.Major || agentVersion.Minor != jujuversion.Current.Minor {
+		return nil, fmt.Errorf("%w %q during bootstrap", modelerrors.AgentVersionNotSupported, agentVersion)
+	}
+
 	databaseBootstrapOptions := []database.BootstrapOpt{
 		// The controller config needs to be inserted before the admin users
 		// because the admin users permissions require the controller UUID.
@@ -259,16 +269,18 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		modeldefaultsbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 		secretbackendbootstrap.CreateDefaultBackends(model.ModelType(modelType)),
 		controllerModelCreateFunc,
-		modelbootstrap.CreateReadOnlyModel(controllerModelUUID, controllerUUID),
+		modelbootstrap.CreateModelDBModelRecord(controllerModelUUID, controllerUUID, agentVersion),
 		modelbootstrap.SetModelConstraints(stateParams.ModelConstraints),
-		modelconfigbootstrap.SetModelConfig(controllerModelUUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),
+		modelconfigbootstrap.SetModelConfig(
+			controllerModelUUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),
 	}
 	if !isCAAS {
 		databaseBootstrapOptions = append(databaseBootstrapOptions,
 			// TODO(wallyworld) - this is just a placeholder for now
 			machinebootstrap.InsertMachine(agent.BootstrapControllerId),
 
-			cloudimagemetadatabootstrap.AddCustomImageMetadata(clock.WallClock, stateParams.ControllerModelConfig.ImageStream(), stateParams.CustomImageMetadata),
+			cloudimagemetadatabootstrap.AddCustomImageMetadata(
+				clock.WallClock, stateParams.ControllerModelConfig.ImageStream(), stateParams.CustomImageMetadata),
 		)
 	}
 
