@@ -1295,9 +1295,14 @@ func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domains
 
 // GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
-func (st *State) GetUnitLife(ctx domain.AtomicContext, unitName coreunit.Name) (life.Life, error) {
+func (st *State) GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return -1, jujuerrors.Trace(err)
+	}
+
 	var life life.Life
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		life, err = st.getUnitLife(ctx, tx, unitName)
 		return err
