@@ -380,11 +380,6 @@ type dbPermission struct {
 
 // dbModelAgent represents a row from the controller model_agent table.
 type dbModelAgent struct {
-	// UUID is the models unique identifier.
-	UUID string `db:"model_uuid"`
-	// PreviousVersion describes the agent version that was in use before the
-	// current TargetVersion.
-	PreviousVersion string `db:"previous_version"`
 	// TargetVersion describes the desired agent version that should be
 	// being run in this model. It should not be considered "the" version that
 	// is being run for every agent as each agent needs to upgrade to this
