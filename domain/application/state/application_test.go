@@ -85,31 +85,27 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 		Risk:   "risk",
 		Branch: "branch",
 	}
+	ctx := context.Background()
 
-	var id coreapplication.ID
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		id, err = s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
-			Platform: platform,
-			Charm: charm.Charm{
-				Metadata:      s.minimalMetadata(c, "666"),
-				Manifest:      s.minimalManifest(c),
-				Source:        charm.CharmHubSource,
-				ReferenceName: "666",
-				Revision:      42,
-				Architecture:  architecture.ARM64,
-			},
-			CharmDownloadInfo: &charm.DownloadInfo{
-				Provenance:         charm.ProvenanceDownload,
-				CharmhubIdentifier: "ident-1",
-				DownloadURL:        "http://example.com/charm",
-				DownloadSize:       666,
-			},
-			Scale:   1,
-			Channel: channel,
-		})
-		return err
-	})
+	id, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata:      s.minimalMetadata(c, "666"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: "666",
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		CharmDownloadInfo: &charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident-1",
+			DownloadURL:        "http://example.com/charm",
+			DownloadSize:       666,
+		},
+		Scale:   1,
+		Channel: channel,
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
@@ -132,40 +128,36 @@ func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *gc
 		Risk:   "risk",
 		Branch: "branch",
 	}
+	ctx := context.Background()
 
-	var id coreapplication.ID
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		id, err = s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
-			Platform: platform,
-			Charm: charm.Charm{
-				Metadata:      s.minimalMetadata(c, "666"),
-				Manifest:      s.minimalManifest(c),
-				Source:        charm.CharmHubSource,
-				ReferenceName: "666",
-				Revision:      42,
-				Architecture:  architecture.ARM64,
+	id, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata:      s.minimalMetadata(c, "666"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: "666",
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		CharmDownloadInfo: &charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident-1",
+			DownloadURL:        "http://example.com/charm",
+			DownloadSize:       666,
+		},
+		Scale:   1,
+		Channel: channel,
+		Config: map[string]application.ApplicationConfig{
+			"foo": {
+				Value: "bar",
+				Type:  charm.OptionString,
 			},
-			CharmDownloadInfo: &charm.DownloadInfo{
-				Provenance:         charm.ProvenanceDownload,
-				CharmhubIdentifier: "ident-1",
-				DownloadURL:        "http://example.com/charm",
-				DownloadSize:       666,
-			},
-			Scale:   1,
-			Channel: channel,
-			Config: map[string]application.ApplicationConfig{
-				"foo": {
-					Value: "bar",
-					Type:  charm.OptionString,
-				},
-			},
-			Settings: application.ApplicationSettings{
-				Trust: true,
-			},
-		})
-		return err
-	})
+		},
+		Settings: application.ApplicationSettings{
+			Trust: true,
+		},
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
@@ -182,6 +174,65 @@ func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *gc
 	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{Trust: true})
 }
 
+func (s *applicationStateSuite) TesatCreateApplicationWithUnits(c *gc.C) {
+	platform := application.Platform{
+		Channel:      "666",
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &application.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+	a := application.AddApplicationArg{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata:      s.minimalMetadata(c, "666"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: "666",
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		CharmDownloadInfo: &charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident-1",
+			DownloadURL:        "http://example.com/charm",
+			DownloadSize:       666,
+		},
+		Scale:   1,
+		Channel: channel,
+	}
+	us := []application.AddUnitArg{{
+		UnitName: "foo/666",
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: application.UnitAgentStatusInfo{
+				StatusID: application.UnitAgentStatusExecuting,
+				StatusInfo: application.StatusInfo{
+					Message: "test",
+					Data:    map[string]string{"foo": "bar"},
+					Since:   time.Now(),
+				},
+			},
+			WorkloadStatus: application.UnitWorkloadStatusInfo{
+				StatusID: application.UnitWorkloadStatusActive,
+				StatusInfo: application.StatusInfo{
+					Message: "test",
+					Data:    map[string]string{"foo": "bar"},
+					Since:   time.Now(),
+				},
+			},
+		},
+	}}
+	ctx := context.Background()
+
+	_, err := s.state.CreateApplication(ctx, "666", a, us)
+	c.Assert(err, jc.ErrorIsNil)
+	scale := application.ScaleState{Scale: 1}
+	s.assertApplication(c, "666", platform, channel, scale, false)
+}
+
 func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 	platform := application.Platform{
 		Channel:      "666",
@@ -193,35 +244,32 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 		Risk:   "stable",
 		Branch: "branch",
 	}
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.CreateApplication(ctx, "foo1", application.AddApplicationArg{
-			Platform: platform,
-			Channel:  channel,
-			Charm: charm.Charm{
-				Metadata:     s.minimalMetadata(c, "foo"),
-				Manifest:     s.minimalManifest(c),
-				Source:       charm.LocalSource,
-				Revision:     42,
-				Architecture: architecture.ARM64,
-			},
-		})
-		if err != nil {
-			return err
-		}
+	ctx := context.Background()
 
-		_, err = s.state.CreateApplication(ctx, "foo2", application.AddApplicationArg{
-			Platform: platform,
-			Channel:  channel,
-			Charm: charm.Charm{
-				Metadata:     s.minimalMetadata(c, "foo"),
-				Manifest:     s.minimalManifest(c),
-				Source:       charm.LocalSource,
-				Revision:     42,
-				Architecture: architecture.ARM64,
-			},
-		})
-		return err
-	})
+	_, err := s.state.CreateApplication(ctx, "foo1", application.AddApplicationArg{
+		Platform: platform,
+		Channel:  channel,
+		Charm: charm.Charm{
+			Metadata:     s.minimalMetadata(c, "foo"),
+			Manifest:     s.minimalManifest(c),
+			Source:       charm.LocalSource,
+			Revision:     42,
+			Architecture: architecture.ARM64,
+		},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.CreateApplication(ctx, "foo2", application.AddApplicationArg{
+		Platform: platform,
+		Channel:  channel,
+		Charm: charm.Charm{
+			Metadata:     s.minimalMetadata(c, "foo"),
+			Manifest:     s.minimalManifest(c),
+			Source:       charm.LocalSource,
+			Revision:     42,
+			Architecture: architecture.ARM64,
+		},
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	scale := application.ScaleState{}
@@ -235,22 +283,21 @@ func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *gc.C) {
 		OSType:       application.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
-			Platform: platform,
-			Charm: charm.Charm{
-				Metadata: charm.Metadata{
-					Name: "666",
-				},
-				Manifest:      s.minimalManifest(c),
-				Source:        charm.LocalSource,
-				ReferenceName: "666",
-				Revision:      42,
+	ctx := context.Background()
+
+	_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata: charm.Metadata{
+				Name: "666",
 			},
-			Scale: 1,
-		})
-		return err
-	})
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.LocalSource,
+			ReferenceName: "666",
+			Revision:      42,
+		},
+		Scale: 1,
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, nil, scale, false)
@@ -263,19 +310,18 @@ func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *gc.C) {
 		Architecture: architecture.ARM64,
 	}
 	channel := &application.Channel{}
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
-			Platform: platform,
-			Charm: charm.Charm{
-				Metadata: s.minimalMetadata(c, "666"),
-				Manifest: s.minimalManifest(c),
-				Source:   charm.LocalSource,
-				Revision: 42,
-			},
-			Scale: 1,
-		})
-		return err
-	})
+	ctx := context.Background()
+
+	_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata: s.minimalMetadata(c, "666"),
+			Manifest: s.minimalManifest(c),
+			Source:   charm.LocalSource,
+			Revision: 42,
+		},
+		Scale: 1,
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
@@ -288,21 +334,20 @@ func (s *applicationStateSuite) TestCreateApplicationWithCharmStoragePath(c *gc.
 		Architecture: architecture.ARM64,
 	}
 	channel := &application.Channel{}
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
-			Platform: platform,
-			Charm: charm.Charm{
-				Metadata:    s.minimalMetadata(c, "666"),
-				Manifest:    s.minimalManifest(c),
-				Source:      charm.LocalSource,
-				Revision:    42,
-				ArchivePath: "/some/path",
-				Available:   true,
-			},
-			Scale: 1,
-		})
-		return err
-	})
+	ctx := context.Background()
+
+	_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata:    s.minimalMetadata(c, "666"),
+			Manifest:    s.minimalManifest(c),
+			Source:      charm.LocalSource,
+			Revision:    42,
+			ArchivePath: "/some/path",
+			Available:   true,
+		},
+		Scale: 1,
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, true)
@@ -338,12 +383,10 @@ func (s *applicationStateSuite) TestCreateApplicationWithResources(c *gc.C) {
 			Origin:   charmresource.OriginStore,
 		},
 	}
+	ctx := context.Background()
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
-			charmResources, addResourcesArgs))
-		return err
-	})
+	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+		charmResources, addResourcesArgs), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check expected resources are added
 	assertTxn := func(comment string, do func(ctx context.Context, tx *sql.Tx) error) {
@@ -429,19 +472,14 @@ func (s *applicationStateSuite) TestCreateApplicationWithExistingCharmWithResour
 			Origin: charmresource.OriginUpload,
 		},
 	}
+	ctx := context.Background()
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
-			charmResources, addResourcesArgs))
-		return err
-	})
+	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+		charmResources, addResourcesArgs), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.CreateApplication(ctx, "667", s.addApplicationArgForResources(c, "666",
-			charmResources, addResourcesArgs))
-		return err
-	})
+	_, err = s.state.CreateApplication(ctx, "667", s.addApplicationArgForResources(c, "666",
+		charmResources, addResourcesArgs), nil)
 	c.Check(err, jc.ErrorIsNil, gc.Commentf("Failed to create second "+
 		"application. Maybe the charm UUID is not properly fetched to pass to "+
 		"resources ?"))
@@ -451,8 +489,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithExistingCharmWithResour
 // handling during app creation.
 // If a resource is missing from argument, it is added anyway from charm
 // resources and is assumed to be of origin store with no revision.
-func (s *applicationStateSuite) TestCreateApplicationWithResourcesMissingResourceArg(c *gc.
-	C) {
+func (s *applicationStateSuite) TestCreateApplicationWithResourcesMissingResourceArg(c *gc.C) {
 	charmResources := map[string]charm.Resource{
 		"some-file": {
 			Name:        "foo-file",
@@ -473,11 +510,10 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesMissingResourc
 		},
 		// Missing some-image
 	}
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
-			charmResources, addResourceArgs))
-		return err
-	})
+	ctx := context.Background()
+
+	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+		charmResources, addResourceArgs), nil)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s",
 		errors.ErrorStack(err)))
 }
@@ -509,12 +545,10 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 			Origin:   charmresource.OriginStore,
 		},
 	}
+	ctx := context.Background()
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
-			charmResources, addResourcesArgs))
-		return err
-	})
+	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForResources(c, "666",
+		charmResources, addResourcesArgs), nil)
 	c.Assert(err, gc.ErrorMatches,
 		`.*inserting resource "my-image": FOREIGN KEY constraint failed.*`,
 		gc.Commentf("(Assert) unexpected error: %s",
@@ -632,10 +666,10 @@ func (s *applicationStateSuite) TestInsertUnitCloudContainer(c *gc.C) {
 			}),
 		},
 	}
+	ctx := context.Background()
+
 	appID := s.createApplication(c, "foo", life.Alive)
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.InsertUnit(ctx, appID, u)
-	})
+	err := s.state.InsertUnit(ctx, appID, u)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertContainerAddressValues(c, "foo/666", "some-id", "10.6.6.6",
 		ipaddress.AddressTypeIPv4, ipaddress.OriginHost, ipaddress.ScopeMachineLocal, ipaddress.ConfigTypeDHCP)
@@ -644,7 +678,6 @@ func (s *applicationStateSuite) TestInsertUnitCloudContainer(c *gc.C) {
 }
 
 func (s *applicationStateSuite) assertContainerAddressValues(
-
 	c *gc.C,
 	unitName, providerID, addressValue string,
 	addressType ipaddress.AddressType,
@@ -804,21 +837,17 @@ func (s *applicationStateSuite) TestInsertUnit(c *gc.C) {
 			ProviderId: "some-id",
 		},
 	}
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.InsertUnit(ctx, appID, u)
-	})
+	ctx := context.Background()
+
+	err := s.state.InsertUnit(ctx, appID, u)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var (
-		providerId string
-	)
+	var providerId string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err = tx.QueryRowContext(ctx, `
-
 SELECT provider_id FROM cloud_container cc
 JOIN unit u ON cc.unit_uuid = u.uuid
 WHERE u.name=?`,
-
 			"foo/666").Scan(&providerId)
 		if err != nil {
 			return err
@@ -828,10 +857,86 @@ WHERE u.name=?`,
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(providerId, gc.Equals, "some-id")
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.InsertUnit(ctx, appID, u)
-	})
+	err = s.state.InsertUnit(ctx, appID, u)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
+}
+
+func (s *applicationStateSuite) TestInsertCAASUnit(c *gc.C) {
+	appUUID := s.createScalingApplication(c, "foo", life.Alive, 1)
+
+	unitName := coreunit.Name("foo/666")
+
+	p := application.RegisterCAASUnitArg{
+		UnitName:     unitName,
+		PasswordHash: "passwordhash",
+		ProviderId:   "some-id",
+		Address:      ptr("10.6.6.6"),
+		Ports:        ptr([]string{"666"}),
+		OrderedScale: true,
+		OrderedId:    0,
+	}
+	err := s.state.InsertCAASUnit(context.Background(), appUUID, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var providerId string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = tx.QueryRowContext(ctx, `
+SELECT provider_id FROM cloud_container cc
+JOIN unit u ON cc.unit_uuid = u.uuid
+WHERE u.name=?`,
+			"foo/666").Scan(&providerId)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(providerId, gc.Equals, "some-id")
+}
+
+func (s *applicationStateSuite) TestInsertCAASUnitAlreadyExists(c *gc.C) {
+	unitName := coreunit.Name("foo/0")
+
+	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: unitName,
+	})
+
+	p := application.RegisterCAASUnitArg{
+		UnitName:     unitName,
+		PasswordHash: "passwordhash",
+		ProviderId:   "some-id",
+		Address:      ptr("10.6.6.6"),
+		Ports:        ptr([]string{"666"}),
+		OrderedScale: true,
+		OrderedId:    0,
+	}
+	err := s.state.InsertCAASUnit(context.Background(), "foo", p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		providerId   string
+		passwordHash string
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err = tx.QueryRowContext(ctx, `
+SELECT provider_id FROM cloud_container cc
+JOIN unit u ON cc.unit_uuid = u.uuid
+WHERE u.name=?`,
+			"foo/0").Scan(&providerId)
+		if err != nil {
+			return err
+		}
+
+		err = tx.QueryRowContext(ctx, `
+SELECT password_hash FROM unit
+WHERE unit.name=?`,
+			"foo/0").Scan(&passwordHash)
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(providerId, gc.Equals, "some-id")
+	c.Assert(passwordHash, gc.Equals, "passwordhash")
 }
 
 func (s *applicationStateSuite) TestSetUnitPassword(c *gc.C) {
@@ -1489,8 +1594,8 @@ func (s *applicationStateSuite) TestSetUnitAgentStatus(c *gc.C) {
 	c.Assert(unitUUIDs, gc.HasLen, 1)
 	unitUUID := unitUUIDs[0]
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetUnitAgentStatus(ctx, unitUUID, status)
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setUnitAgentStatus(ctx, tx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
@@ -1517,8 +1622,8 @@ func (s *applicationStateSuite) TestSetUnitWorkloadStatus(c *gc.C) {
 	c.Assert(unitUUIDs, gc.HasLen, 1)
 	unitUUID := unitUUIDs[0]
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetUnitWorkloadStatus(ctx, unitUUID, status)
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setUnitWorkloadStatus(ctx, tx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
@@ -1787,9 +1892,9 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 			},
 		},
 	}
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.AddUnits(ctx, appID, u)
-	})
+	ctx := context.Background()
+
+	err := s.state.AddUnits(ctx, appID, u)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -2028,36 +2133,31 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *gc.C) {
 		},
 	}
 	expectedLXDProfile := []byte("[{}]")
-
 	platform := application.Platform{
 		OSType:       application.Ubuntu,
 		Architecture: architecture.AMD64,
 		Channel:      "22.04",
 	}
+	ctx := context.Background()
 
-	var appID coreapplication.ID
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		appID, err = s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
-			Charm: charm.Charm{
-				Metadata:     expectedMetadata,
-				Manifest:     expectedManifest,
-				Actions:      expectedActions,
-				Config:       expectedConfig,
-				LXDProfile:   expectedLXDProfile,
-				Source:       charm.LocalSource,
-				Revision:     42,
-				Architecture: architecture.AMD64,
-			},
-			Channel: &application.Channel{
-				Track:  "track",
-				Risk:   "stable",
-				Branch: "branch",
-			},
-			Platform: platform,
-		})
-		return err
-	})
+	appID, err := s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
+		Charm: charm.Charm{
+			Metadata:     expectedMetadata,
+			Manifest:     expectedManifest,
+			Actions:      expectedActions,
+			Config:       expectedConfig,
+			LXDProfile:   expectedLXDProfile,
+			Source:       charm.LocalSource,
+			Revision:     42,
+			Architecture: architecture.AMD64,
+		},
+		Channel: &application.Channel{
+			Track:  "track",
+			Risk:   "stable",
+			Branch: "branch",
+		},
+		Platform: platform,
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch, err := s.state.GetCharmByApplicationID(context.Background(), appID)
@@ -2130,28 +2230,24 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 			},
 		},
 	}
+	ctx := context.Background()
 
-	var appID coreapplication.ID
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		appID, err = s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
-			Charm: charm.Charm{
-				Metadata:     expectedMetadata,
-				Manifest:     expectedManifest,
-				Actions:      expectedActions,
-				Config:       expectedConfig,
-				Revision:     42,
-				Source:       charm.LocalSource,
-				Architecture: architecture.AMD64,
-			},
-			Platform: application.Platform{
-				OSType:       application.Ubuntu,
-				Architecture: architecture.AMD64,
-				Channel:      "22.04",
-			},
-		})
-		return err
-	})
+	appID, err := s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
+		Charm: charm.Charm{
+			Metadata:     expectedMetadata,
+			Manifest:     expectedManifest,
+			Actions:      expectedActions,
+			Config:       expectedConfig,
+			Revision:     42,
+			Source:       charm.LocalSource,
+			Architecture: architecture.AMD64,
+		},
+		Platform: application.Platform{
+			OSType:       application.Ubuntu,
+			Architecture: architecture.AMD64,
+			Channel:      "22.04",
+		},
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch, err := s.state.GetCharmByApplicationID(context.Background(), appID)
@@ -2177,17 +2273,15 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 		MinJujuVersion: version.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
+	ctx := context.Background()
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
-			Charm: charm.Charm{
-				Metadata: expectedMetadata,
-				Manifest: s.minimalManifest(c),
-				Source:   charm.LocalSource,
-			},
-		})
-		return err
-	})
+	_, err := s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
+		Charm: charm.Charm{
+			Metadata: expectedMetadata,
+			Manifest: s.minimalManifest(c),
+			Source:   charm.LocalSource,
+		},
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -2435,27 +2529,21 @@ func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *gc.C)
 	channel := &application.Channel{
 		Risk: application.RiskStable,
 	}
-	var appID coreapplication.ID
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		appID, err = s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
-			Platform: platform,
-			Channel:  channel,
-			Charm: charm.Charm{
-				Metadata: charm.Metadata{
-					Name: "foo",
-				},
-				Manifest:      s.minimalManifest(c),
-				ReferenceName: "foo",
-				Source:        charm.LocalSource,
-				Revision:      42,
+	ctx := context.Background()
+
+	appID, err := s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
+		Platform: platform,
+		Channel:  channel,
+		Charm: charm.Charm{
+			Metadata: charm.Metadata{
+				Name: "foo",
 			},
-		})
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+			Manifest:      s.minimalManifest(c),
+			ReferenceName: "foo",
+			Source:        charm.LocalSource,
+			Revision:      42,
+		},
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.GetAsyncCharmDownloadInfo(context.Background(), appID)
@@ -3097,9 +3185,7 @@ func (s *applicationStateSuite) addCharmModifiedVersion(c *gc.C, appID coreappli
 }
 
 func (s *applicationStateSuite) addUnit(c *gc.C, appID coreapplication.ID, u application.InsertUnitArg) coreunit.UUID {
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.InsertUnit(ctx, appID, u)
-	})
+	err := s.state.InsertUnit(context.Background(), appID, u)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var unitUUID string

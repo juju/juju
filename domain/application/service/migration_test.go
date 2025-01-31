@@ -20,7 +20,6 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
-	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -416,7 +415,7 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().InsertUnit(domaintesting.IsAtomicContextChecker, id, u)
+	s.state.EXPECT().InsertUnit(gomock.Any(), id, u)
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{
 		Options: map[string]charm.Option{
@@ -456,7 +455,7 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 			Trust: true,
 		},
 	}
-	s.state.EXPECT().CreateApplication(domaintesting.IsAtomicContextChecker, "ubuntu", args).Return(id, nil)
+	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", args, nil).Return(id, nil)
 
 	unitArg := ImportUnitArg{
 		UnitName:     "ubuntu/666",

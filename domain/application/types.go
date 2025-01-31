@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
@@ -175,6 +176,18 @@ type InsertUnitArg struct {
 	UnitStatusArg
 }
 
+// RegisterCAASUnitArg contains parameters for introducing
+// a k8s unit representing a new pod to the model.
+type RegisterCAASUnitArg struct {
+	UnitName     coreunit.Name
+	PasswordHash string
+	ProviderId   string
+	Address      *string
+	Ports        *[]string
+	OrderedScale bool
+	OrderedId    int
+}
+
 // UnitStatusArg contains parameters for updating a unit status in state.
 type UnitStatusArg struct {
 	AgentStatus    UnitAgentStatusInfo
@@ -186,6 +199,14 @@ type StatusInfo struct {
 	Message string
 	Data    map[string]string
 	Since   time.Time
+}
+
+// CloudContainerParams contains parameters for a unit cloud container.
+type CloudContainerParams struct {
+	ProviderId    string
+	Address       *network.SpaceAddress
+	AddressOrigin *network.Origin
+	Ports         *[]string
 }
 
 // CloudContainerStatusStatusInfo holds a cloud container status

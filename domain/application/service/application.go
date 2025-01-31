@@ -49,29 +49,9 @@ import (
 type AtomicApplicationState interface {
 	domain.AtomicStateBase
 
-	// GetApplicationID returns the ID for the named application, returning an
-	// error satisfying [applicationerrors.ApplicationNotFound] if the
-	// application is not found.
-	// Deprecated: use GetApplicationIDByName instead.
-	GetApplicationID(ctx domain.AtomicContext, name string) (coreapplication.ID, error)
-
 	// GetUnitUUID returns the UUID for the named unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (coreunit.UUID, error)
-
-	// CreateApplication creates an application, returning an error satisfying
-	// [applicationerrors.ApplicationAlreadyExists] if the application already
-	// exists. If returns as error satisfying [applicationerrors.CharmNotFound]
-	// if the charm for the application is not found.
-	CreateApplication(domain.AtomicContext, string, application.AddApplicationArg) (coreapplication.ID, error)
-
-	// AddUnits adds the specified units to the application.
-	AddUnits(domain.AtomicContext, coreapplication.ID, ...application.AddUnitArg) error
-
-	// InsertUnit insert the specified application unit, returning an error
-	// satisfying [applicationerrors.UnitAlreadyExists]
-	// if the unit exists.
-	InsertUnit(domain.AtomicContext, coreapplication.ID, application.InsertUnitArg) error
 
 	// UpdateUnitContainer updates the cloud container for specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFoundError]
@@ -89,12 +69,12 @@ type AtomicApplicationState interface {
 	// SetUnitAgentStatus saves the given unit agent status, overwriting any
 	// current status data. If returns an error satisfying
 	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetUnitAgentStatus(domain.AtomicContext, coreunit.UUID, application.UnitAgentStatusInfo) error
+	SetUnitAgentStatusAtomic(domain.AtomicContext, coreunit.UUID, application.UnitAgentStatusInfo) error
 
 	// SetUnitWorkloadStatus saves the given unit workload status, overwriting
 	// any current status data. If returns an error satisfying
 	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetUnitWorkloadStatus(domain.AtomicContext, coreunit.UUID, application.UnitWorkloadStatusInfo) error
+	SetUnitWorkloadStatusAtomic(domain.AtomicContext, coreunit.UUID, application.UnitWorkloadStatusInfo) error
 
 	// GetApplicationLife looks up the life of the specified application,
 	// returning an error satisfying
@@ -121,14 +101,6 @@ type AtomicApplicationState interface {
 
 	// SetUnitLife sets the life of the specified unit.
 	SetUnitLife(domain.AtomicContext, coreunit.Name, life.Life) error
-
-	// InitialWatchStatementUnitLife returns the initial namespace query for the
-	// application unit life watcher.
-	InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery)
-
-	// InitialWatchStatementApplicationsWithPendingCharms returns the initial
-	// namespace query for the applications with pending charms watcher.
-	InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery)
 
 	// DeleteApplication deletes the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the
@@ -164,6 +136,24 @@ type ApplicationState interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
+	// CreateApplication creates an application, returning an error satisfying
+	// [applicationerrors.ApplicationAlreadyExists] if the application already
+	// exists. If returns as error satisfying [applicationerrors.CharmNotFound]
+	// if the charm for the application is not found.
+	CreateApplication(context.Context, string, application.AddApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
+
+	// AddUnits adds the specified units to the application.
+	AddUnits(context.Context, coreapplication.ID, ...application.AddUnitArg) error
+
+	// InsertCAASUnit inserts the specified CAAS application unit, returning an
+	// error satisfying [applicationerrors.UnitAlreadyExists] if the unit exists.
+	InsertCAASUnit(context.Context, coreapplication.ID, application.RegisterCAASUnitArg) error
+
+	// InsertUnit insert the specified application unit, returning an error
+	// satisfying [applicationerrors.UnitAlreadyExists]
+	// if the unit exists.
+	InsertUnit(context.Context, coreapplication.ID, application.InsertUnitArg) error
 
 	// GetModelType returns the model type for the underlying model. If the
 	// model does not exist then an error satisfying [modelerrors.NotFound] will
@@ -290,6 +280,14 @@ type ApplicationState interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error
+
+	// InitialWatchStatementUnitLife returns the initial namespace query for the
+	// application unit life watcher.
+	InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery)
+
+	// InitialWatchStatementApplicationsWithPendingCharms returns the initial
+	// namespace query for the applications with pending charms watcher.
+	InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery)
 }
 
 // DeleteSecretState describes methods used by the secret deleter plugin.
@@ -351,15 +349,11 @@ func (s *Service) CreateApplication(
 		unitArgs[i] = arg
 	}
 
-	var appID coreapplication.ID
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err = s.st.CreateApplication(ctx, name, appArg)
-		if err != nil {
-			return errors.Annotatef(err, "creating application %q", name)
-		}
-		return s.st.AddUnits(ctx, appID, unitArgs...)
-	})
-	return appID, err
+	appID, err := s.st.CreateApplication(ctx, name, appArg, unitArgs)
+	if err != nil {
+		return "", errors.Annotatef(err, "creating application %q", name)
+	}
+	return appID, nil
 }
 
 func validateCreateApplicationParams(
@@ -547,7 +541,7 @@ func (s *Service) addNewUnitStatusToArg(arg *application.UnitStatusArg, modelTyp
 
 // AddUnits adds the specified units to the application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-func (s *Service) AddUnits(ctx context.Context, name string, units ...AddUnitArg) error {
+func (s *Service) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "getting model type")
@@ -562,14 +556,16 @@ func (s *Service) AddUnits(ctx context.Context, name string, units ...AddUnitArg
 		args[i] = arg
 	}
 
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, name)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return s.st.AddUnits(ctx, appID, args...)
-	})
-	return errors.Annotatef(err, "adding units to application %q", name)
+	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return internalerrors.Errorf("getting application %q id: %w", appName, err)
+	}
+
+	err = s.st.AddUnits(ctx, appUUID, args...)
+	if err != nil {
+		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
+	}
+	return nil
 }
 
 // GetApplicationIDByUnitName returns the application ID for the named unit,
@@ -758,7 +754,7 @@ func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leader
 	return nil
 }
 
-func makeCloudContainerArg(unitName coreunit.Name, cloudContainer CloudContainerParams) *application.CloudContainer {
+func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
 	result := &application.CloudContainer{
 		ProviderId: cloudContainer.ProviderId,
 		Ports:      cloudContainer.Ports,
@@ -807,7 +803,7 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 // returning an error satisfying [applicationerrors.ApplicationNotFoundError]
 // if the application doesn't exist. If the unit life is Dead, an error
 // satisfying [applicationerrors.UnitAlreadyExists] is returned.
-func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args RegisterCAASUnitParams) error {
+func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args application.RegisterCAASUnitArg) error {
 	if args.PasswordHash == "" {
 		return errors.NotValidf("password hash")
 	}
@@ -821,68 +817,15 @@ func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args Reg
 		return errors.NotValidf("missing unit name")
 	}
 
-	cloudContainerParams := CloudContainerParams{
-		ProviderId: args.ProviderId,
-		Ports:      args.Ports,
-	}
-	if args.Address != nil {
-		addr := network.NewSpaceAddress(*args.Address, network.WithScope(network.ScopeMachineLocal))
-		cloudContainerParams.Address = &addr
-		origin := network.OriginProvider
-		cloudContainerParams.AddressOrigin = &origin
-	}
-
-	cloudContainer := makeCloudContainerArg(args.UnitName, cloudContainerParams)
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		unitLife, err := s.st.GetUnitLife(ctx, args.UnitName)
-		if errors.Is(err, applicationerrors.UnitNotFound) {
-			arg := application.InsertUnitArg{
-				UnitName: args.UnitName,
-				Password: &application.PasswordInfo{
-					PasswordHash:  args.PasswordHash,
-					HashAlgorithm: application.HashAlgorithmSHA256,
-				},
-				CloudContainer: cloudContainer,
-			}
-			s.addNewUnitStatusToArg(&arg.UnitStatusArg, coremodel.CAAS)
-			return s.insertCAASUnit(ctx, appID, args.OrderedId, arg)
-		}
-		if unitLife == life.Dead {
-			return fmt.Errorf("dead unit %q already exists%w", args.UnitName, errors.Hide(applicationerrors.UnitAlreadyExists))
-		}
-		if err := s.st.UpdateUnitContainer(ctx, args.UnitName, cloudContainer); err != nil {
-			return errors.Annotatef(err, "updating unit %q", args.UnitName)
-		}
-
-		// We want to transition to using unit UUID instead of name.
-		unitUUID, err := s.st.GetUnitUUID(ctx, args.UnitName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return s.st.SetUnitPassword(ctx, unitUUID, application.PasswordInfo{
-			PasswordHash:  args.PasswordHash,
-			HashAlgorithm: application.HashAlgorithmSHA256,
-		})
-	})
-	return errors.Annotatef(err, "saving caas unit %q", args.UnitName)
-}
-
-func (s *Service) insertCAASUnit(
-	ctx domain.AtomicContext, appID coreapplication.ID, orderedID int, arg application.InsertUnitArg,
-) error {
-	appScale, err := s.st.GetApplicationScaleState(ctx, appID)
+	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return errors.Annotatef(err, "getting application scale state for app %q", appID)
+		return internalerrors.Errorf("getting application ID: %w", err)
 	}
-	if orderedID >= appScale.Scale ||
-		(appScale.Scaling && orderedID >= appScale.ScaleTarget) {
-		return fmt.Errorf("unrequired unit %s is not assigned%w", arg.UnitName, errors.Hide(applicationerrors.UnitNotAssigned))
+	err = s.st.InsertCAASUnit(ctx, appUUID, args)
+	if err != nil {
+		return internalerrors.Errorf("saving caas unit %q: %w", args.UnitName, err)
 	}
-	return s.st.InsertUnit(ctx, appID, arg)
+	return nil
 }
 
 // UpdateCAASUnit updates the specified CAAS unit, returning an error
@@ -891,7 +834,7 @@ func (s *Service) insertCAASUnit(
 func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params UpdateCAASUnitParams) error {
 	var cloudContainer *application.CloudContainer
 	if params.ProviderId != nil {
-		cloudContainerParams := CloudContainerParams{
+		cloudContainerParams := application.CloudContainerParams{
 			ProviderId: *params.ProviderId,
 			Ports:      params.Ports,
 		}
@@ -934,7 +877,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 			return now
 		}
 		if params.AgentStatus != nil {
-			if err := s.st.SetUnitAgentStatus(ctx, unitUUID, application.UnitAgentStatusInfo{
+			if err := s.st.SetUnitAgentStatusAtomic(ctx, unitUUID, application.UnitAgentStatusInfo{
 				StatusID: application.MarshallUnitAgentStatus(params.AgentStatus.Status),
 				StatusInfo: application.StatusInfo{
 					Message: params.AgentStatus.Message,
@@ -947,7 +890,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 			}
 		}
 		if params.WorkloadStatus != nil {
-			if err := s.st.SetUnitWorkloadStatus(ctx, unitUUID, application.UnitWorkloadStatusInfo{
+			if err := s.st.SetUnitWorkloadStatusAtomic(ctx, unitUUID, application.UnitWorkloadStatusInfo{
 				StatusID: application.MarshallUnitWorkloadStatus(params.WorkloadStatus.Status),
 				StatusInfo: application.StatusInfo{
 					Message: params.WorkloadStatus.Message,
@@ -1081,16 +1024,11 @@ func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (core
 		return "", applicationerrors.ApplicationNameNotValid
 	}
 
-	var id coreapplication.ID
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, name)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		id = appID
-		return nil
-	})
-	return id, errors.Trace(err)
+	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return appID, nil
 }
 
 // GetCharmLocatorByApplicationName returns a CharmLocator by application name.
@@ -1225,12 +1163,12 @@ func (s *Service) CAASUnitTerminating(ctx context.Context, appName string, unitN
 		if err != nil {
 			return false, errors.Trace(err)
 		}
+		appID, err := s.st.GetApplicationIDByName(ctx, appName)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
 		var scaleInfo application.ScaleState
 		err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-			appID, err := s.st.GetApplicationID(ctx, appName)
-			if err != nil {
-				return errors.Trace(err)
-			}
 			scaleInfo, err = s.st.GetApplicationScaleState(ctx, appID)
 			return errors.Trace(err)
 		})
@@ -1269,11 +1207,11 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	if scale < 0 {
 		return fmt.Errorf("application scale %d not valid%w", scale, errors.Hide(applicationerrors.ScaleChangeInvalid))
 	}
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		appScale, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return errors.Annotatef(err, "getting application scale state for app %q", appID)
@@ -1295,16 +1233,13 @@ func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int,
 }
 
 func (s *Service) getApplicationScaleAndID(ctx context.Context, appName string) (coreapplication.ID, int, error) {
-	var (
-		scaleState application.ScaleState
-		appID      coreapplication.ID
-	)
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return "", -1, errors.Trace(err)
+	}
+	var scaleState application.ScaleState
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
-		appID, err = s.st.GetApplicationID(ctx, appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
 
 		scaleState, err = s.st.GetApplicationScaleState(ctx, appID)
 		return errors.Annotatef(err, "getting scaling state for %q", appName)
@@ -1317,12 +1252,12 @@ func (s *Service) getApplicationScaleAndID(ctx context.Context, appName string) 
 // doesn't exist.
 // This is used on CAAS models.
 func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, scaleChange int) (int, error) {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
 	var newScale int
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return errors.Annotatef(err, "getting current scale state for %q", appName)
@@ -1379,12 +1314,12 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 // returning an error satisfying [applicationerrors.ApplicationNotFoundError] if
 // the application doesn't exist. This is used on CAAS models.
 func (s *Service) GetApplicationScalingState(ctx context.Context, appName string) (ScalingState, error) {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return ScalingState{}, errors.Trace(err)
+	}
 	var scaleState application.ScaleState
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.GetApplicationID(ctx, appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		scaleState, err = s.st.GetApplicationScaleState(ctx, appID)
 		return errors.Annotatef(err, "getting scaling state for %q", appName)
 	})

@@ -171,7 +171,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 		c.Assert(args.Units, gc.DeepEquals, []service.ImportUnitArg{{
 			UnitName:     "prometheus/0",
 			PasswordHash: ptr("passwordhash"),
-			CloudContainer: ptr(service.CloudContainerParams{
+			CloudContainer: ptr(application.CloudContainerParams{
 				ProviderId: "provider-id",
 				Address: ptr(network.SpaceAddress{
 					MachineAddress: network.MachineAddress{

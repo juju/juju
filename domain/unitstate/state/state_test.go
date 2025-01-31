@@ -53,16 +53,10 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	unitArg := application.AddUnitArg{UnitName: "app/0"}
+	unitArgs := []application.AddUnitArg{{UnitName: "app/0"}}
 
 	ctx := context.Background()
-	err := appState.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := appState.CreateApplication(ctx, "app", appArg)
-		if err != nil {
-			return err
-		}
-		return appState.AddUnits(ctx, appID, unitArg)
-	})
+	_, err := appState.CreateApplication(ctx, "app", appArg, unitArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {

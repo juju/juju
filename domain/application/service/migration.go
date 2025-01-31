@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -211,19 +210,16 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		unitArgs[i] = arg
 	}
 
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, err := s.st.CreateApplication(ctx, name, appArg)
-		if err != nil {
-			return errors.Annotatef(err, "creating application %q", name)
+	appID, err := s.st.CreateApplication(ctx, name, appArg, nil)
+	if err != nil {
+		return errors.Annotatef(err, "creating application %q", name)
+	}
+	for _, arg := range unitArgs {
+		if err := s.st.InsertUnit(ctx, appID, arg); err != nil {
+			return errors.Annotatef(err, "inserting unit %q", arg.UnitName)
 		}
-		for _, arg := range unitArgs {
-			if err := s.st.InsertUnit(ctx, appID, arg); err != nil {
-				return errors.Annotatef(err, "inserting unit %q", arg.UnitName)
-			}
-		}
-		return nil
-	})
-	return err
+	}
+	return nil
 }
 
 // RemoveImportedApplication removes an application that was imported. The

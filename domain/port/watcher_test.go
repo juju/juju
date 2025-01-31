@@ -88,30 +88,25 @@ func (s *watcherSuite) createApplicationWithRelations(c *gc.C, appName string, r
 	}
 
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
-	var appUUID coreapplication.ID
-	err := applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		appUUID, err = applicationSt.CreateApplication(ctx, appName, application.AddApplicationArg{
-			Charm: charm.Charm{
-				Metadata: charm.Metadata{
-					Name:     appName,
-					Requires: relationsMap,
-				},
-				Manifest: charm.Manifest{
-					Bases: []charm.Base{{
-						Name:          "ubuntu",
-						Channel:       charm.Channel{Risk: charm.RiskStable},
-						Architectures: []string{"amd64"},
-					}},
-				},
-				ReferenceName: appName,
-				Architecture:  architecture.AMD64,
-				Revision:      1,
-				Source:        charm.LocalSource,
+	appUUID, err := applicationSt.CreateApplication(context.Background(), appName, application.AddApplicationArg{
+		Charm: charm.Charm{
+			Metadata: charm.Metadata{
+				Name:     appName,
+				Requires: relationsMap,
 			},
-		})
-		return err
-	})
+			Manifest: charm.Manifest{
+				Bases: []charm.Base{{
+					Name:          "ubuntu",
+					Channel:       charm.Channel{Risk: charm.RiskStable},
+					Architectures: []string{"amd64"},
+				}},
+			},
+			ReferenceName: appName,
+			Architecture:  architecture.AMD64,
+			Revision:      1,
+			Source:        charm.LocalSource,
+		},
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return appUUID
 }
@@ -122,19 +117,14 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit
 	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
 	unitName, err := coreunit.NewNameFromParts(appName, s.unitCount)
 	c.Assert(err, jc.ErrorIsNil)
-	err = applicationSt.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		appID, err := applicationSt.GetApplicationID(ctx, appName)
-		if err != nil {
-			return err
-		}
-		err = applicationSt.AddUnits(ctx, appID, application.AddUnitArg{UnitName: unitName})
-		if err != nil {
-			return err
-		}
-		s.unitCount++
-		return nil
-	})
+	ctx := context.Background()
+
+	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = applicationSt.AddUnits(ctx, appID, application.AddUnitArg{UnitName: unitName})
+	c.Assert(err, jc.ErrorIsNil)
+	s.unitCount++
 
 	var unitUUID coreunit.UUID
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {

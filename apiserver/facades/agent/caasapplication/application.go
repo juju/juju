@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/password"
@@ -39,7 +40,7 @@ type ControllerConfigService interface {
 
 // ApplicationService instances implement an application service.
 type ApplicationService interface {
-	RegisterCAASUnit(ctx context.Context, appName string, unit applicationservice.RegisterCAASUnitParams) error
+	RegisterCAASUnit(ctx context.Context, appName string, unit application.RegisterCAASUnitArg) error
 	CAASUnitTerminating(ctx context.Context, appName string, unitNum int, broker applicationservice.Broker) (bool, error)
 	GetApplicationLife(ctx context.Context, appName string) (life.Value, error)
 	GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error)
@@ -205,7 +206,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	passwordHash := password.AgentPasswordHash(pass)
 	upsert.PasswordHash = &passwordHash
 
-	if err := f.applicationService.RegisterCAASUnit(ctx, appName, applicationservice.RegisterCAASUnitParams{
+	if err := f.applicationService.RegisterCAASUnit(ctx, appName, application.RegisterCAASUnitArg{
 		UnitName:     unitName,
 		ProviderId:   containerID,
 		PasswordHash: passwordHash,
