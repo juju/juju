@@ -1029,6 +1029,7 @@ func (s *applicationStateSuite) TestSetUnitLife(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
+	ctx := context.Background()
 	s.createApplication(c, "foo", life.Alive, u)
 
 	checkResult := func(want life.Life) {
@@ -1042,30 +1043,22 @@ func (s *applicationStateSuite) TestSetUnitLife(c *gc.C) {
 		c.Assert(gotLife, jc.DeepEquals, want)
 	}
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetUnitLife(ctx, "foo/666", life.Dying)
-	})
+	err := s.state.SetUnitLife(ctx, "foo/666", life.Dying)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(life.Dying)
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetUnitLife(ctx, "foo/666", life.Dead)
-	})
+	err = s.state.SetUnitLife(ctx, "foo/666", life.Dead)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(life.Dead)
 
 	// Can't go backwards.
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetUnitLife(ctx, "foo/666", life.Dying)
-	})
+	err = s.state.SetUnitLife(ctx, "foo/666", life.Dying)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(life.Dead)
 }
 
 func (s *applicationStateSuite) TestSetUnitLifeNotFound(c *gc.C) {
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetUnitLife(ctx, "foo/666", life.Dying)
-	})
+	err := s.state.SetUnitLife(context.Background(), "foo/666", life.Dying)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -1158,12 +1151,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	}, network.GroupedPortRanges{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var gotIsLast bool
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotIsLast, err = s.state.DeleteUnit(ctx, "foo/666")
-		return err
-	})
+	gotIsLast, err := s.state.DeleteUnit(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotIsLast, jc.IsFalse)
 
@@ -1243,12 +1231,7 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnitAppAlive(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var gotIsLast bool
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotIsLast, err = s.state.DeleteUnit(ctx, "foo/666")
-		return err
-	})
+	gotIsLast, err := s.state.DeleteUnit(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotIsLast, jc.IsFalse)
 
@@ -1357,12 +1340,7 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var gotIsLast bool
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotIsLast, err = s.state.DeleteUnit(ctx, "foo/666")
-		return err
-	})
+	gotIsLast, err := s.state.DeleteUnit(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotIsLast, jc.IsTrue)
 
@@ -1676,11 +1654,10 @@ func (s *applicationStateSuite) TestSetApplicationLife(c *gc.C) {
 
 func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
 	// TODO(units) - add references to constraints, storage etc when those are fully cooked
+	ctx := context.Background()
 	s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err := s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -1744,42 +1721,35 @@ WHERE a.name=?`,
 }
 
 func (s *applicationStateSuite) TestDeleteApplicationTwice(c *gc.C) {
+	ctx := context.Background()
 	s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err := s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err = s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestDeleteDeadApplication(c *gc.C) {
+	ctx := context.Background()
 	s.createApplication(c, "foo", life.Dead)
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err := s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err = s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
+	ctx := context.Background()
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u)
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err := s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationHasUnits)
 	c.Assert(err, gc.ErrorMatches, `.*cannot delete application "foo" as it still has 1 unit\(s\)`)
 

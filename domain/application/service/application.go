@@ -91,22 +91,6 @@ type AtomicApplicationState interface {
 	// application.
 	SetDesiredApplicationScale(domain.AtomicContext, coreapplication.ID, int) error
 
-	// SetUnitLife sets the life of the specified unit.
-	SetUnitLife(domain.AtomicContext, coreunit.Name, life.Life) error
-
-	// DeleteApplication deletes the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the
-	// application doesn't exist. If the application still has units, as error
-	// satisfying [applicationerrors.ApplicationHasUnits] is returned.
-	DeleteApplication(domain.AtomicContext, string) error
-
-	// DeleteUnit deletes the specified unit.
-	// If the unit's application is Dying and no
-	// other references to it exist, true is returned to
-	// indicate the application could be safely deleted.
-	// It will fail if the unit is not Dead.
-	DeleteUnit(domain.AtomicContext, coreunit.Name) (bool, error)
-
 	// GetSecretsForUnit returns the secrets owned by the specified unit.
 	GetSecretsForUnit(
 		ctx domain.AtomicContext, unitName coreunit.Name,
@@ -147,6 +131,13 @@ type ApplicationState interface {
 	// if the unit exists.
 	InsertUnit(context.Context, coreapplication.ID, application.InsertUnitArg) error
 
+	// DeleteUnit deletes the specified unit.
+	// If the unit's application is Dying and no
+	// other references to it exist, true is returned to
+	// indicate the application could be safely deleted.
+	// It will fail if the unit is not Dead.
+	DeleteUnit(context.Context, coreunit.Name) (bool, error)
+
 	// GetModelType returns the model type for the underlying model. If the
 	// model does not exist then an error satisfying [modelerrors.NotFound] will
 	// be returned.
@@ -178,6 +169,12 @@ type ApplicationState interface {
 
 	// SetApplicationLife sets the life of the specified application.
 	SetApplicationLife(context.Context, coreapplication.ID, life.Life) error
+
+	// DeleteApplication deletes the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application doesn't exist. If the application still has units, as error
+	// satisfying [applicationerrors.ApplicationHasUnits] is returned.
+	DeleteApplication(context.Context, string) error
 
 	// GetCharmByApplicationID returns the charm, charm origin and charm
 	// platform for the specified application ID.
@@ -271,6 +268,9 @@ type ApplicationState interface {
 	// GetUnitLife looks up the life of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 	GetUnitLife(context.Context, coreunit.Name) (life.Life, error)
+
+	// SetUnitLife sets the life of the specified unit.
+	SetUnitLife(context.Context, coreunit.Name, life.Life) error
 
 	// InitialWatchStatementUnitLife returns the initial namespace query for the
 	// application unit life watcher.
@@ -592,30 +592,10 @@ func (s *Service) GetUnitLife(ctx context.Context, unitName coreunit.Name) (core
 // has been removed from mongo. The mongo calls are
 // DestroyMaybeRemove, DestroyWithForce, RemoveWithForce.
 func (s *Service) DeleteUnit(ctx context.Context, unitName coreunit.Name) error {
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return s.deleteUnit(ctx, unitName)
-	})
-	if err != nil {
-		return errors.Annotatef(err, "deleting unit %q", unitName)
-	}
-	return nil
-}
-
-func (s *Service) deleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) error {
-	// TODO(units) - check for subordinates and storage attachments
-	// For IAAS units, we need to do additional checks - these are still done in mongo.
-	// If a unit still has subordinates, return applicationerrors.UnitHasSubordinates.
-	// If a unit still has storage attachments, return applicationerrors.UnitHasStorageAttachments.
-	err := s.st.SetUnitLife(ctx, unitName, life.Dead)
+	isLast, err := s.st.DeleteUnit(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	isLast, err := s.st.DeleteUnit(ctx, unitName)
-	if err != nil {
+	} else if err != nil {
 		return errors.Annotatef(err, "deleting unit %q", unitName)
 	}
 	if isLast {
@@ -630,10 +610,11 @@ func (s *Service) deleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) e
 // if the unit doesn't exist.
 func (s *Service) DestroyUnit(ctx context.Context, unitName coreunit.Name) error {
 	// For now, all we do is advance the unit's life to Dying.
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return s.st.SetUnitLife(ctx, unitName, life.Dying)
-	})
-	return errors.Annotatef(err, "destroying unit %q", unitName)
+	err := s.st.SetUnitLife(ctx, unitName, life.Dying)
+	if err != nil {
+		return internalerrors.Errorf("destroying unit %q: %w", unitName, err)
+	}
+	return nil
 }
 
 // EnsureUnitDead is called by the unit agent just before it terminates.
@@ -652,24 +633,17 @@ func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, le
 	if unitLife == life.Dead {
 		return nil
 	}
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		// TODO(units) - check for subordinates and storage attachments
-		// For IAAS units, we need to do additional checks - these are still done in mongo.
-		// If a unit still has subordinates, return applicationerrors.UnitHasSubordinates.
-		// If a unit still has storage attachments, return applicationerrors.UnitHasStorageAttachments.
-		err = s.st.SetUnitLife(ctx, unitName, life.Dead)
-		return errors.Annotatef(err, "marking unit %q is dead", unitName)
-	})
+	err = s.st.SetUnitLife(ctx, unitName, life.Dead)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil
+	} else if err != nil {
+		return errors.Annotatef(err, "marking unit %q is dead", unitName)
 	}
-	if err == nil {
-		appName, _ := names.UnitApplication(unitName.String())
-		if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-			s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
-		}
+	appName, _ := names.UnitApplication(unitName.String())
+	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
+		s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
 	}
-	return errors.Annotatef(err, "ensuring unit %q is dead", unitName)
+	return nil
 }
 
 // RemoveUnit is called by the deployer worker and caas application provisioner worker to
@@ -688,10 +662,7 @@ func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leader
 	if unitLife == life.Alive {
 		return fmt.Errorf("cannot remove unit %q: %w", unitName, applicationerrors.UnitIsAlive)
 	}
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		err = s.deleteUnit(ctx, unitName)
-		return errors.Annotatef(err, "deleting unit %q", unitName)
-	})
+	_, err = s.st.DeleteUnit(ctx, unitName)
 	if err != nil {
 		return errors.Annotatef(err, "removing unit %q", unitName)
 	}
@@ -888,24 +859,11 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, p
 // If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
 // is returned.
 func (s *Service) DeleteApplication(ctx context.Context, name string) error {
-	var cleanups []func(context.Context)
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		var err error
-		cleanups, err = s.deleteApplication(ctx, name)
-		return errors.Trace(err)
-	})
+	err := s.st.DeleteApplication(ctx, name)
 	if err != nil {
 		return errors.Annotatef(err, "deleting application %q", name)
 	}
-	for _, cleanup := range cleanups {
-		cleanup(ctx)
-	}
 	return nil
-}
-
-func (s *Service) deleteApplication(ctx domain.AtomicContext, name string) ([]func(context.Context), error) {
-	err := s.st.DeleteApplication(ctx, name)
-	return nil, errors.Annotatef(err, "deleting application %q", name)
 }
 
 // DestroyApplication prepares an application for removal from the model

@@ -232,8 +232,13 @@ func (st *State) CreateApplication(
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
 // is returned.
-func (st *State) DeleteApplication(ctx domain.AtomicContext, name string) error {
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+func (st *State) DeleteApplication(ctx context.Context, name string) error {
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.deleteApplication(ctx, tx, name)
 	})
 	if err != nil {
@@ -977,7 +982,12 @@ DO NOTHING
 // other references to it exist, true is returned to
 // indicate the application could be safely deleted.
 // It will fail if the unit is not Dead.
-func (st *State) DeleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) (bool, error) {
+func (st *State) DeleteUnit(ctx context.Context, unitName coreunit.Name) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, jujuerrors.Trace(err)
+	}
+
 	unit := minimalUnit{Name: unitName}
 	peerCountQuery := `
 SELECT a.life_id as &unitCount.app_life_id, u.life_id AS &unitCount.unit_life_id, count(peer.uuid) AS &unitCount.count
@@ -991,7 +1001,11 @@ WHERE u.name = $minimalUnit.name
 		return false, jujuerrors.Trace(err)
 	}
 	canRemoveApplication := false
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.setUnitLife(ctx, tx, unitName, life.Dead)
+		if err != nil {
+			return errors.Errorf("setting unit %q to Dead: %w", unitName, err)
+		}
 		// Count the number of units besides this one
 		// belonging to the same application.
 		var count unitCount
@@ -1379,7 +1393,26 @@ WHERE name = $minimalUnit.name
 
 // SetUnitLife sets the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
-func (st *State) SetUnitLife(ctx domain.AtomicContext, unitName coreunit.Name, l life.Life) error {
+func (st *State) SetUnitLife(ctx context.Context, unitName coreunit.Name, l life.Life) error {
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setUnitLife(ctx, tx, unitName, l)
+	})
+	if err != nil {
+		return errors.Errorf("updating unit life for %q: %w", unitName, err)
+	}
+	return nil
+}
+
+// TODO(units) - check for subordinates and storage attachments
+// For IAAS units, we need to do additional checks - these are still done in mongo.
+// If a unit still has subordinates, return applicationerrors.UnitHasSubordinates.
+// If a unit still has storage attachments, return applicationerrors.UnitHasStorageAttachments.
+func (st *State) setUnitLife(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, l life.Life) error {
 	unit := minimalUnit{Name: unitName, LifeID: l}
 	query := `
 SELECT &minimalUnit.uuid
@@ -1404,19 +1437,14 @@ AND life_id < $minimalUnit.life_id
 		return jujuerrors.Trace(err)
 	}
 
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, unit).Get(&unit)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("unit %q not found%w", unitName, jujuerrors.Hide(applicationerrors.UnitNotFound))
-		} else if err != nil {
-			return errors.Errorf("querying unit %q: %w", unitName, err)
-		}
-		return tx.Query(ctx, updateLifeStmt, unit).Run()
-	})
-	if err != nil {
-		return errors.Errorf("updating unit life for %q: %w", unitName, err)
+	err = tx.Query(ctx, stmt, unit).Get(&unit)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return fmt.Errorf("unit %q not found%w", unitName, jujuerrors.Hide(applicationerrors.UnitNotFound))
+	} else if err != nil {
+		return errors.Errorf("querying unit %q: %w", unitName, err)
 	}
-	return nil
+	return tx.Query(ctx, updateLifeStmt, unit).Run()
+
 }
 
 // GetApplicationScaleState looks up the scale state of the specified application, returning an error
