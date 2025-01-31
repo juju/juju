@@ -4,9 +4,11 @@
 package testing
 
 import (
+	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"math/rand"
 
 	mgotesting "github.com/juju/mgo/v3/testing"
@@ -30,6 +32,9 @@ var (
 	// Other valid test certs different from the default.
 	OtherCACert, OtherCAKey        = chooseGeneratedOtherCA()
 	OtherCACertX509, OtherCAKeyRSA = mustParseCertAndKey(OtherCACert, OtherCAKey)
+
+	// SSHServerHostKey for testing
+	SSHServerHostKey = mustGenerateRSAPrivateKey()
 )
 
 func chooseGeneratedCA() (string, string, string, string) {
@@ -77,4 +82,19 @@ func serverCerts() *mgotesting.Certs {
 		ServerCert: serverCert,
 		ServerKey:  serverKey,
 	}
+}
+
+func mustGenerateRSAPrivateKey() string {
+	privateKey, err := rsa.GenerateKey(cryptorand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+
+	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privateKeyBytes,
+	})
+
+	return string(privateKeyPEM)
 }

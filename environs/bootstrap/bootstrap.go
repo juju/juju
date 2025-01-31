@@ -135,6 +135,9 @@ type BootstrapParams struct {
 	// AdminSecret contains the administrator password.
 	AdminSecret string
 
+	// SSHServerHostKey is the controller's SSH server host key.
+	SSHServerHostKey string
+
 	// CAPrivateKey is the controller's CA certificate private key.
 	CAPrivateKey string
 

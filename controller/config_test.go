@@ -396,6 +396,33 @@ var newConfigTests = []struct {
 		controller.ControllerName: "is_invalid",
 	},
 	expectError: `controller-name value must be a valid controller name.*`,
+}, {
+	about: "invalid ssh port",
+	config: controller.Config{
+		controller.SSHServerPort: 0,
+	},
+	expectError: `non-positive integer for ssh-server-port not valid`,
+}, {
+	about: "SSH port equals api server port",
+	config: controller.Config{
+		controller.APIPort:       17070,
+		controller.SSHServerPort: 17070,
+	},
+	expectError: `ssh-server-port matching api-port not valid`,
+}, {
+	about: "SSH port equals state port",
+	config: controller.Config{
+		controller.StatePort:     17075,
+		controller.SSHServerPort: 17075,
+	},
+	expectError: `ssh-server-port matching state-port not valid`,
+}, {
+	about: "SSH port equals controller api port",
+	config: controller.Config{
+		controller.ControllerAPIPort: 17078,
+		controller.SSHServerPort:     17078,
+	},
+	expectError: `ssh-server-port matching controller-api-port not valid`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
@@ -789,6 +816,8 @@ func (s *ConfigSuite) TestDefaults(c *gc.C) {
 	c.Assert(cfg.ControllerResourceDownloadLimit(), gc.Equals, controller.DefaultControllerResourceDownloadLimit)
 	c.Assert(cfg.QueryTracingEnabled(), gc.Equals, controller.DefaultQueryTracingEnabled)
 	c.Assert(cfg.QueryTracingThreshold(), gc.Equals, controller.DefaultQueryTracingThreshold)
+	c.Assert(cfg.SSHServerPort(), gc.Equals, controller.DefaultSSHServerPort)
+	c.Assert(cfg.SSHMaxConcurrentConnections(), gc.Equals, controller.DefaultSSHMaxConcurrentConnections)
 }
 
 func (s *ConfigSuite) TestAgentLogfile(c *gc.C) {
@@ -933,4 +962,28 @@ func (s *ConfigSuite) TestQueryTraceThreshold(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cfg2.QueryTracingThreshold(), gc.Equals, time.Second*10)
+}
+
+func (s *ConfigSuite) TestSSHServerPort(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.SSHServerPort: 10,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.SSHServerPort(), gc.Equals, 10)
+}
+
+func (s *ConfigSuite) TestSSHServerConcurrentConnections(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.SSHMaxConcurrentConnections: 10,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.SSHMaxConcurrentConnections(), gc.Equals, 10)
 }

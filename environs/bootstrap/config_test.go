@@ -26,10 +26,11 @@ func (*ConfigSuite) TestDefaultConfig(c *gc.C) {
 	cfg, err := bootstrap.NewConfig(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// These three things are generated.
+	// These four things are generated.
 	c.Assert(cfg.AdminSecret, gc.Not(gc.HasLen), 0)
 	c.Assert(cfg.CACert, gc.Not(gc.HasLen), 0)
 	c.Assert(cfg.CAPrivateKey, gc.Not(gc.HasLen), 0)
+	c.Assert(cfg.SSHServerHostKey, gc.Not(gc.HasLen), 0)
 
 	c.Assert(cfg.BootstrapTimeout, gc.Equals, time.Second*1200)
 	c.Assert(cfg.BootstrapRetryDelay, gc.Equals, time.Second*5)
@@ -46,6 +47,7 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
 			"admin-secret":              "sekrit",
 			"ca-cert":                   testing.CACert,
 			"ca-private-key":            testing.CAKey,
+			"ssh-server-host-key":       testing.SSHServerHostKey,
 			"bootstrap-timeout":         1,
 			"bootstrap-retry-delay":     2,
 			"bootstrap-addresses-delay": 3,
@@ -59,6 +61,7 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
 			AdminSecret:             "sekrit",
 			CACert:                  testing.CACert,
 			CAPrivateKey:            testing.CAKey,
+			SSHServerHostKey:        testing.SSHServerHostKey,
 			BootstrapTimeout:        time.Second * 1,
 			BootstrapRetryDelay:     time.Second * 2,
 			BootstrapAddressesDelay: time.Second * 3,
@@ -194,6 +197,7 @@ func validConfig() bootstrap.Config {
 		AdminSecret:             "sekrit",
 		CACert:                  testing.CACert,
 		CAPrivateKey:            testing.CAKey,
+		SSHServerHostKey:        testing.SSHServerHostKey,
 		BootstrapTimeout:        time.Second * 1,
 		BootstrapRetryDelay:     time.Second * 2,
 		BootstrapAddressesDelay: time.Second * 3,

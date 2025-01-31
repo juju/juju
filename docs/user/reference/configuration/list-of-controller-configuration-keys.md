@@ -593,6 +593,29 @@ controller policy turned on.
 **Can be changed after bootstrap:** no
 
 
+<a href="#heading--ssh-max-concurrent-connections"><h2 id="heading--ssh-max-concurrent-connections"><code>ssh-max-concurrent-connections</code></h2></a>
+
+`ssh-max-concurrent-connections` is the maximum number of concurrent SSH
+connections to the controller.
+
+**Type:** integer
+
+**Default value:** 100
+
+**Can be changed after bootstrap:** yes
+
+
+<a href="#heading--ssh-server-port"><h2 id="heading--ssh-server-port"><code>ssh-server-port</code></h2></a>
+
+`ssh-server-port` is the port used for the embedded SSH server.
+
+**Type:** integer
+
+**Default value:** 17022
+
+**Can be changed after bootstrap:** yes
+
+
 <a href="#heading--state-port"><h2 id="heading--state-port"><code>state-port</code></h2></a>
 
 `state-port` is the port used for mongo connections.
