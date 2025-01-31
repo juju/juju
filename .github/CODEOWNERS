@@ -15,13 +15,8 @@
 /internal/worker/dbrepl/**                    @manadart @SimonRichardson @jack-w-shaw
 /internal/worker/dbreplaccessor/**            @manadart @SimonRichardson @jack-w-shaw
 
-# Charm
-/core/charm/**                                @SimonRichardson
-/domain/application/**                        @SimonRichardson
-/internal/worker/asynccharmdownloader/**      @SimonRichardson
-
 # Charmhub
-/internal/charmhub/**                         @hmlanigan @SimonRichardson
+/internal/charmhub/**                         @hmlanigan @SimonRichardson @nvinuesa @jack-w-shaw
 
 # Model domain packages
 /core/model/**                                @tlm
@@ -34,3 +29,15 @@
 
 # Juju controller
 /cmd/jujud-controller/**                      @manadart @SimonRichardson
+
+# Application (and charm) domain packages
+/core/charm/**                                @SimonRichardson @nvinuesa @jack-w-shaw
+/internal/charm/**                            @SimonRichardson @nvinuesa @jack-w-shaw
+/domain/application/**                        @SimonRichardson @nvinuesa @jack-w-shaw
+/internal/worker/asynccharmdownloader/**      @SimonRichardson
+
+# Network domain packages
+/domain/network/**                            @manadart @nvinuesa
+
+# External controller domain packages
+/domain/externalcontroller/**                 @manadart @nvinuesa
