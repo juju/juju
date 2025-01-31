@@ -66,12 +66,9 @@ func (p environProvider) ModelConfigDefaults(_ context.Context) (map[string]any,
 	}, nil
 }
 
-// PrepareConfig implements environs.EnvironProvider.
-func (p environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
-	return configWithDefaults(args.Config)
+// ValidateCloud is specified in the EnvironProvider interface.
+func (environProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+	return errors.Annotate(validateCloudSpec(spec), "validating cloud spec")
 }
 
 func validateCloudSpec(spec environscloudspec.CloudSpec) error {
@@ -108,18 +105,6 @@ func (p environProvider) ConfigSchema() schema.Fields {
 // provider specific config attributes.
 func (p environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
-}
-
-func configWithDefaults(cfg *config.Config) (*config.Config, error) {
-	defaults := make(map[string]interface{})
-	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
-		// Set the default block source.
-		defaults[config.StorageDefaultBlockSourceKey] = storageProviderType
-	}
-	if len(defaults) == 0 {
-		return cfg, nil
-	}
-	return cfg.Apply(defaults)
 }
 
 // Validate implements environs.EnvironProvider.Validate.

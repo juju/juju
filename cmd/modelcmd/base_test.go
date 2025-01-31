@@ -255,9 +255,9 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
 		clientStore,
 		&registry,
 	)
-	_, params, err := f("foo")
+	_, spec, _, err := f("foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(params.Cloud.Credential.Label, gc.Equals, "finalized")
+	c.Assert(spec.Credential.Label, gc.Equals, "finalized")
 }
 
 func (NewGetBootstrapConfigParamsFuncSuite) TestCloudCACert(c *gc.C) {
@@ -283,10 +283,10 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestCloudCACert(c *gc.C) {
 		clientStore,
 		&registry,
 	)
-	_, params, err := f("foo")
+	_, spec, _, err := f("foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(params.Cloud.CACertificates, jc.SameContents, []string{fakeCert})
-	c.Assert(params.Cloud.SkipTLSVerify, jc.IsTrue)
+	c.Assert(spec.CACertificates, jc.SameContents, []string{fakeCert})
+	c.Assert(spec.SkipTLSVerify, jc.IsTrue)
 }
 
 type mockProviderRegistry struct {

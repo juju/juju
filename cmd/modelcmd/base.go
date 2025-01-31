@@ -653,7 +653,7 @@ func NewGetBootstrapConfigParamsFunc(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,
 	providerRegistry environs.ProviderRegistry,
-) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
+) func(string) (*jujuclient.BootstrapConfig, *environscloudspec.CloudSpec, *config.Config, error) {
 	return bootstrapConfigGetter{ctx, store, providerRegistry}.getBootstrapConfigParams
 }
 
@@ -663,14 +663,14 @@ type bootstrapConfigGetter struct {
 	registry environs.ProviderRegistry
 }
 
-func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
+func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environscloudspec.CloudSpec, *config.Config, error) {
 	controllerDetails, err := g.store.ControllerByName(controllerName)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "resolving controller name")
+		return nil, nil, nil, errors.Annotate(err, "resolving controller name")
 	}
 	bootstrapConfig, err := g.store.BootstrapConfigForController(controllerName)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting bootstrap config")
+		return nil, nil, nil, errors.Annotate(err, "getting bootstrap config")
 	}
 
 	var credential *cloud.Credential
@@ -697,17 +697,17 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 			},
 		)
 		if err != nil {
-			return nil, nil, errors.Trace(err)
+			return nil, nil, nil, errors.Trace(err)
 		}
 	} else {
 		// The credential was auto-detected; run auto-detection again.
 		provider, err := g.registry.Provider(bootstrapConfig.CloudType)
 		if err != nil {
-			return nil, nil, errors.Trace(err)
+			return nil, nil, nil, errors.Trace(err)
 		}
 		cloudCredential, err := DetectCredential(bootstrapConfig.Cloud, provider)
 		if err != nil {
-			return nil, nil, errors.Trace(err)
+			return nil, nil, nil, errors.Trace(err)
 		}
 		// DetectCredential ensures that there is only one credential
 		// to choose from. It's still in a map, though, hence for..range.
@@ -720,7 +720,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		}
 		credential, err = FinalizeFileContent(credential, provider)
 		if err != nil {
-			return nil, nil, AnnotateWithFinalizationError(err, credentialName, bootstrapCloud.Name)
+			return nil, nil, nil, AnnotateWithFinalizationError(err, credentialName, bootstrapCloud.Name)
 		}
 		credential, err = provider.FinalizeCredential(
 			g.ctx, environs.FinalizeCredentialParams{
@@ -732,7 +732,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 			},
 		)
 		if err != nil {
-			return nil, nil, errors.Trace(err)
+			return nil, nil, nil, errors.Trace(err)
 		}
 	}
 
@@ -740,10 +740,9 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	bootstrapConfig.Config[config.UUIDKey] = bootstrapConfig.ControllerModelUUID
 	cfg, err := config.New(config.NoDefaults, bootstrapConfig.Config)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
-	return bootstrapConfig, &environs.PrepareConfigParams{
-		Cloud: environscloudspec.CloudSpec{
+	return bootstrapConfig, &environscloudspec.CloudSpec{
 			Type:              bootstrapConfig.CloudType,
 			Name:              bootstrapConfig.Cloud,
 			Region:            bootstrapConfig.CloudRegion,
@@ -755,8 +754,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 			SkipTLSVerify:     bootstrapConfig.SkipTLSVerify,
 			IsControllerCloud: bootstrapConfig.Cloud == controllerDetails.Cloud,
 		},
-		Config: cfg,
-	}, nil
+		cfg, nil
 }
 
 // TODO(axw) this is now in three places: change-password,

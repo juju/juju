@@ -195,13 +195,9 @@ func (e EnvironProvider) ModelConfigDefaults(_ context.Context) (map[string]any,
 	return nil, nil
 }
 
-// PrepareConfig implements environs.EnvironProvider.
-func (e EnvironProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
-	// TODO(gsamfira): Set default block storage backend
-	return args.Config, nil
+// ValidateCloud is specified in the EnvironProvider interface.
+func (e EnvironProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+	return errors.Annotate(validateCloudSpec(spec), "validating cloud spec")
 }
 
 // Open implements environs.EnvironProvider.

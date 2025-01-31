@@ -16,6 +16,7 @@ import (
 	jsonschema "github.com/juju/jsonschema"
 	cloud "github.com/juju/juju/cloud"
 	environs "github.com/juju/juju/environs"
+	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	gomock "go.uber.org/mock/gomock"
@@ -236,45 +237,6 @@ func (c *MockTestCloudProviderPingCall) DoAndReturn(f func(envcontext.ProviderCa
 	return c
 }
 
-// PrepareConfig mocks base method.
-func (m *MockTestCloudProvider) PrepareConfig(arg0 context.Context, arg1 environs.PrepareConfigParams) (*config.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareConfig", arg0, arg1)
-	ret0, _ := ret[0].(*config.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareConfig indicates an expected call of PrepareConfig.
-func (mr *MockTestCloudProviderMockRecorder) PrepareConfig(arg0, arg1 any) *MockTestCloudProviderPrepareConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareConfig", reflect.TypeOf((*MockTestCloudProvider)(nil).PrepareConfig), arg0, arg1)
-	return &MockTestCloudProviderPrepareConfigCall{Call: call}
-}
-
-// MockTestCloudProviderPrepareConfigCall wrap *gomock.Call
-type MockTestCloudProviderPrepareConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockTestCloudProviderPrepareConfigCall) Return(arg0 *config.Config, arg1 error) *MockTestCloudProviderPrepareConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockTestCloudProviderPrepareConfigCall) Do(f func(context.Context, environs.PrepareConfigParams) (*config.Config, error)) *MockTestCloudProviderPrepareConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockTestCloudProviderPrepareConfigCall) DoAndReturn(f func(context.Context, environs.PrepareConfigParams) (*config.Config, error)) *MockTestCloudProviderPrepareConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // RegisterCredentials mocks base method.
 func (m *MockTestCloudProvider) RegisterCredentials(arg0 cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
 	m.ctrl.T.Helper()
@@ -349,6 +311,44 @@ func (c *MockTestCloudProviderValidateCall) Do(f func(context.Context, *config.C
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockTestCloudProviderValidateCall) DoAndReturn(f func(context.Context, *config.Config, *config.Config) (*config.Config, error)) *MockTestCloudProviderValidateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ValidateCloud mocks base method.
+func (m *MockTestCloudProvider) ValidateCloud(arg0 context.Context, arg1 cloudspec.CloudSpec) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateCloud", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateCloud indicates an expected call of ValidateCloud.
+func (mr *MockTestCloudProviderMockRecorder) ValidateCloud(arg0, arg1 any) *MockTestCloudProviderValidateCloudCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateCloud", reflect.TypeOf((*MockTestCloudProvider)(nil).ValidateCloud), arg0, arg1)
+	return &MockTestCloudProviderValidateCloudCall{Call: call}
+}
+
+// MockTestCloudProviderValidateCloudCall wrap *gomock.Call
+type MockTestCloudProviderValidateCloudCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockTestCloudProviderValidateCloudCall) Return(arg0 error) *MockTestCloudProviderValidateCloudCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockTestCloudProviderValidateCloudCall) Do(f func(context.Context, cloudspec.CloudSpec) error) *MockTestCloudProviderValidateCloudCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockTestCloudProviderValidateCloudCall) DoAndReturn(f func(context.Context, cloudspec.CloudSpec) error) *MockTestCloudProviderValidateCloudCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

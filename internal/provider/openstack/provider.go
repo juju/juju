@@ -258,23 +258,9 @@ func newGooseClient(endpoint string) client.AuthenticatingClient {
 	return client.NewNonValidatingClient(&identity.Credentials{URL: endpoint}, 0, nil)
 }
 
-// PrepareConfig is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
-
-	// Set the default block-storage source.
-	attrs := make(map[string]interface{})
-	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
-		attrs[config.StorageDefaultBlockSourceKey] = CinderProviderType
-	}
-
-	cfg, err := args.Config.Apply(attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return cfg, nil
+// ValidateCloud is specified in the EnvironProvider interface.
+func (p EnvironProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+	return errors.Annotate(validateCloudSpec(spec), "validating cloud spec")
 }
 
 // AgentMetadataLookupParams returns parameters which are used to query agent metadata to

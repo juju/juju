@@ -559,58 +559,45 @@ func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
 	c.Check(envConfig.Name(), gc.Equals, "testmodel")
 }
 
-func (s *ProviderFunctionalSuite) TestPrepareConfig(c *gc.C) {
-	cfg, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Cloud:  lxdCloudSpec(),
-		Config: s.Config,
-	})
+func (s *ProviderFunctionalSuite) TestValidateCloud(c *gc.C) {
+	err := s.provider.ValidateCloud(context.Background(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg, gc.NotNil)
 }
 
-func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedEndpointScheme(c *gc.C) {
+func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedEndpointScheme(c *gc.C) {
 	cloudSpec := lxdCloudSpec()
 	cloudSpec.Endpoint = "unix://foo"
-	_, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Cloud:  cloudSpec,
-		Config: s.Config,
-	})
+	err := s.provider.ValidateCloud(context.Background(), cloudSpec)
 	c.Assert(err, gc.ErrorMatches, `validating cloud spec: invalid URL "unix://foo": only HTTPS is supported`)
 }
 
-func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) {
+func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedAuthType(c *gc.C) {
 	cred := cloud.NewCredential("foo", nil)
-	_, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Cloud: environscloudspec.CloudSpec{
-			Type:       "lxd",
-			Name:       "remotehost",
-			Credential: &cred,
-		},
+	err := s.provider.ValidateCloud(context.Background(), environscloudspec.CloudSpec{
+		Type:       "lxd",
+		Name:       "remotehost",
+		Credential: &cred,
 	})
 	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "foo" auth-type not supported`)
 }
 
-func (s *ProviderFunctionalSuite) TestPrepareConfigInvalidCertificateAttrs(c *gc.C) {
+func (s *ProviderFunctionalSuite) TestValidateCloudInvalidCertificateAttrs(c *gc.C) {
 	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{})
-	_, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Cloud: environscloudspec.CloudSpec{
-			Type:       "lxd",
-			Name:       "remotehost",
-			Credential: &cred,
-		},
+	err := s.provider.ValidateCloud(context.Background(), environscloudspec.CloudSpec{
+		Type:       "lxd",
+		Name:       "remotehost",
+		Credential: &cred,
 	})
 	c.Assert(err, gc.ErrorMatches, `validating cloud spec: certificate credentials not valid`)
 }
 
-func (s *ProviderFunctionalSuite) TestPrepareConfigEmptyAuthNonLocal(c *gc.C) {
+func (s *ProviderFunctionalSuite) TestValidateCloudEmptyAuthNonLocal(c *gc.C) {
 	cred := cloud.NewEmptyCredential()
-	_, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Cloud: environscloudspec.CloudSpec{
-			Type:       "lxd",
-			Name:       "remotehost",
-			Endpoint:   "8.8.8.8",
-			Credential: &cred,
-		},
+	err := s.provider.ValidateCloud(context.Background(), environscloudspec.CloudSpec{
+		Type:       "lxd",
+		Name:       "remotehost",
+		Endpoint:   "8.8.8.8",
+		Credential: &cred,
 	})
 	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "empty" auth-type not supported`)
 }

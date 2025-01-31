@@ -9,9 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/testing"
 )
@@ -260,40 +257,6 @@ func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
 	for _, attr := range []string{"default-image-id", "default-instance-type"} {
 		_, ok := allAttrs[attr]
 		c.Assert(ok, jc.IsFalse)
-	}
-}
-
-func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type": "openstack",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	_, ok := cfg.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsFalse)
-
-	cfg, err = providerInstance.PrepareConfig(context.Background(), prepareConfigParams(cfg))
-	c.Assert(err, jc.ErrorIsNil)
-	source, ok := cfg.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(source, gc.Equals, "cinder")
-}
-
-func prepareConfigParams(cfg *config.Config) environs.PrepareConfigParams {
-	credential := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
-		"username":    "user",
-		"password":    "secret",
-		"tenant-name": "sometenant",
-	})
-	return environs.PrepareConfigParams{
-		Config: cfg,
-		Cloud: environscloudspec.CloudSpec{
-			Type:       "openstack",
-			Name:       "canonistack",
-			Region:     "region",
-			Endpoint:   "http://auth",
-			Credential: &credential,
-		},
 	}
 }
 

@@ -72,20 +72,9 @@ func (p environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint strin
 	return errors.NotImplementedf("Ping")
 }
 
-// PrepareConfig is specified in the EnvironProvider interface.
-func (p environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
-	// Set the default block-storage source.
-	attrs := make(map[string]interface{})
-	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
-		attrs[config.StorageDefaultBlockSourceKey] = EBS_ProviderType
-	}
-	if len(attrs) == 0 {
-		return args.Config, nil
-	}
-	return args.Config.Apply(attrs)
+// ValidateCloud is specified in the EnvironProvider interface.
+func (environProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+	return errors.Annotate(validateCloudSpec(spec), "validating cloud spec")
 }
 
 func validateCloudSpec(c environscloudspec.CloudSpec) error {

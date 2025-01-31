@@ -53,12 +53,10 @@ type EnvironProvider interface {
 	// Ping tests the connection to the cloud, to verify the endpoint is valid.
 	Ping(ctx envcontext.ProviderCallContext, endpoint string) error
 
-	// PrepareConfig prepares the configuration for a new model, based on
-	// the provided arguments. PrepareConfig is expected to produce a
-	// deterministic output. Any unique values should be based on the
-	// "uuid" attribute of the base configuration. This is called for the
-	// controller model during bootstrap, and also for new hosted models.
-	PrepareConfig(context.Context, PrepareConfigParams) (*config.Config, error)
+	// ValidateCloud returns an error if the supplied cloud spec is not
+	// valid for use by the provider. This is called for the controller
+	// model during bootstrap, and also for new hosted models.
+	ValidateCloud(context.Context, environscloudspec.CloudSpec) error
 }
 
 // ModelConfigProvider represents an interface that a [EnvironProvider] can
@@ -111,16 +109,6 @@ type ProviderSchema interface {
 	// include all fields defined in environs/config, conventionally
 	// by calling config.Schema.
 	Schema() configschema.Fields
-}
-
-// PrepareConfigParams contains the parameters for EnvironProvider.PrepareConfig.
-type PrepareConfigParams struct {
-	// Cloud is the cloud specification to use to connect to the cloud.
-	Cloud environscloudspec.CloudSpec
-
-	// Config is the base configuration for the provider. This should
-	// be updated with the region, endpoint and credentials.
-	Config *config.Config
 }
 
 // ProviderCredentials is an interface that an EnvironProvider implements

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
@@ -153,20 +152,9 @@ func (p azureEnvironProvider) Ping(ctx envcontext.ProviderCallContext, endpoint 
 	return errors.NotImplementedf("Ping")
 }
 
-// PrepareConfig is part of the EnvironProvider interface.
-func (prov *azureEnvironProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
-	// Set the default block-storage source.
-	attrs := make(map[string]interface{})
-	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
-		attrs[config.StorageDefaultBlockSourceKey] = azureStorageProviderType
-	}
-	if len(attrs) == 0 {
-		return args.Config, nil
-	}
-	return args.Config.Apply(attrs)
+// ValidateCloud is specified in the EnvironProvider interface.
+func (azureEnvironProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+	return errors.Annotate(validateCloudSpec(spec), "validating cloud spec")
 }
 
 func validateCloudSpec(spec environscloudspec.CloudSpec) error {

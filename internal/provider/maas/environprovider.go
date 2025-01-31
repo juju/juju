@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -107,21 +106,9 @@ func (p EnvironProvider) checkMaas(endpoint, ver string) error {
 	return errors.Trace(err)
 }
 
-// PrepareConfig is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
-	var attrs map[string]interface{}
-	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
-		attrs = map[string]interface{}{
-			config.StorageDefaultBlockSourceKey: maasStorageProviderType,
-		}
-	}
-	if len(attrs) == 0 {
-		return args.Config, nil
-	}
-	return args.Config.Apply(attrs)
+// ValidateCloud is specified in the EnvironProvider interface.
+func (EnvironProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+	return errors.Annotate(validateCloudSpec(spec), "validating cloud spec")
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.

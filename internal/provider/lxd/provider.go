@@ -196,21 +196,9 @@ func (p *environProvider) ModelConfigDefaults(_ context.Context) (map[string]any
 	}, nil
 }
 
-// PrepareConfig implements environs.EnvironProvider.
-func (p *environProvider) PrepareConfig(ctx stdcontext.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := p.validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
-	// Set the default filesystem-storage source.
-	attrs := make(map[string]interface{})
-	if _, ok := args.Config.StorageDefaultFilesystemSource(); !ok {
-		attrs[config.StorageDefaultFilesystemSourceKey] = lxdStorageProviderType
-	}
-	if len(attrs) == 0 {
-		return args.Config, nil
-	}
-	cfg, err := args.Config.Apply(attrs)
-	return cfg, errors.Trace(err)
+// ValidateCloud is specified in the EnvironProvider interface.
+func (p *environProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+	return errors.Annotate(p.validateCloudSpec(spec), "validating cloud spec")
 }
 
 // Validate implements environs.EnvironProvider.

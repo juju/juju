@@ -329,12 +329,9 @@ func (p *environProvider) ModelConfigDefaults(_ context.Context) (map[string]any
 	return nil, nil
 }
 
-// PrepareConfig is specified in the EnvironProvider interface.
-func (p *environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	if _, err := dummy.newConfig(ctx, args.Config); err != nil {
-		return nil, err
-	}
-	return args.Config, nil
+// ValidateCloud is specified in the EnvironProvider interface.
+func (p *environProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+	return nil
 }
 
 func (e *environ) ecfg() *environConfig {
