@@ -95,7 +95,7 @@ func (hps HostPorts) PrioritizedForScope(getMatcher ScopeMatchFunc) []string {
 }
 
 // CanonicalURL returns a URL value for the input HostPort,
-// that includes the the provided scheme.
+// that includes the provided scheme.
 func CanonicalURL(a HostPort, scheme string) *url.URL {
 	hostPort := net.JoinHostPort(a.Host(), strconv.Itoa(a.Port()))
 	u := url.URL{

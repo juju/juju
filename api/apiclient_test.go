@@ -264,8 +264,7 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	addr := st.Addr()
-	c.Assert(addr.String(), gc.Equals, "wss://"+info.Addrs[0])
+	c.Assert(st.Addr().String(), gc.Equals, "wss://"+info.Addrs[0])
 	modelTag, ok := st.ModelTag()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(modelTag, gc.Equals, s.Model.ModelTag())
@@ -841,8 +840,7 @@ func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
-	addr := conn.Addr()
-	c.Assert(addr.String(), gc.Equals, "wss://0.1.2.3:1234")
+	c.Assert(conn.Addr().String(), gc.Equals, "wss://0.1.2.3:1234")
 	c.Assert(conn.IPAddr(), gc.Equals, "0.1.2.3:1234")
 	c.Assert(dnsCache, gc.HasLen, 0)
 }
@@ -908,8 +906,7 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 	r := <-openc
 	c.Assert(r.err, jc.ErrorIsNil)
 	c.Assert(r.conn, gc.NotNil)
-	addr := r.conn.Addr()
-	c.Assert(addr.String(), gc.Equals, "wss://place1.example:1234")
+	c.Assert(r.conn.Addr().String(), gc.Equals, "wss://place1.example:1234")
 	c.Assert(r.conn.IPAddr(), gc.Equals, "0.2.2.2:1234")
 	c.Assert(dialed, jc.DeepEquals, map[string]bool{
 		"0.2.2.2:1234": true,

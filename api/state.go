@@ -6,8 +6,8 @@ package api
 import (
 	"context"
 	"crypto/tls"
+	"net"
 	"net/url"
-	"path"
 	"strconv"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -153,7 +153,7 @@ func (st *state) setLoginResult(p *LoginResultParams) error {
 	// it can't be added to host ports as it will lose the path so skip the
 	// address in scenarios where we connect through a load-balancer.
 	if !st.IsProxied() && st.addr.Path == "" {
-		hostPorts, err = addAddress(p.servers, st.addr)
+		hostPorts, err = addAddress(p.servers, st.addr.Host)
 		if err != nil {
 			if clerr := st.Close(); clerr != nil {
 				err = errors.Annotatef(err, "error closing state: %v", clerr)
@@ -210,25 +210,25 @@ func slideAddressToFront(servers []network.MachineHostPorts, serverIndex, addrIn
 // addAddress appends a new server derived from the given
 // address to servers if the address is not already found
 // there.
-func addAddress(servers []network.MachineHostPorts, addr *url.URL) ([]network.MachineHostPorts, error) {
+func addAddress(servers []network.MachineHostPorts, addr string) ([]network.MachineHostPorts, error) {
 	for i, server := range servers {
 		for j, hostPort := range server {
-			u := network.CanonicalURL(hostPort, addr.Scheme)
-			if u.String() == addr.String() {
+			if network.DialAddress(hostPort) == addr {
 				slideAddressToFront(servers, i, j)
 				return servers, nil
 			}
 		}
 	}
-
-	port, err := strconv.Atoi(addr.Port())
+	host, portString, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.Atoi(portString)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]network.MachineHostPorts, 0, len(servers)+1)
-	// Ensure we don't pass in a port value in the addresses of NewMachineHostPorts, i.e. use addr.Hostname()
-	// since the function accepts URLs in a unique way (see docstring for NewMachineHostPorts)
-	result = append(result, network.NewMachineHostPorts(port, path.Join(addr.Hostname(), addr.Path)))
+	result = append(result, network.NewMachineHostPorts(port, host))
 	result = append(result, servers...)
 	return result, nil
 }
