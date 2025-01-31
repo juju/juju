@@ -149,14 +149,14 @@ func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value
 	}
 
 	selectSpaceStmt, err := s.Prepare(
-		"SELECT &dbConstraintSpace.* FROM v_model_constraint_space cs", dbConstraintSpace{},
+		"SELECT &dbConstraintSpace.* FROM v_model_constraint_space", dbConstraintSpace{},
 	)
 	if err != nil {
 		return constraints.Value{}, errors.Capture(err)
 	}
 
 	selectZoneStmt, err := s.Prepare(
-		"SELECT &dbConstraintZone.* FROM v_model_constraint_zone cz", dbConstraintZone{})
+		"SELECT &dbConstraintZone.* FROM v_model_constraint_zone", dbConstraintZone{})
 	if err != nil {
 		return constraints.Value{}, errors.Capture(err)
 	}
