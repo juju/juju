@@ -4,6 +4,7 @@
 package logger
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -112,27 +113,27 @@ func (c Config) String() string {
 // Logger is an interface that provides logging methods.
 type Logger interface {
 	// Critical logs a message at the critical level.
-	Criticalf(msg string, args ...any)
+	Criticalf(ctx context.Context, msg string, args ...any)
 
 	// Error logs a message at the error level.
-	Errorf(msg string, args ...any)
+	Errorf(ctx context.Context, msg string, args ...any)
 
 	// Warning logs a message at the warning level.
-	Warningf(msg string, args ...any)
+	Warningf(ctx context.Context, msg string, args ...any)
 
 	// Info logs a message at the info level.
-	Infof(msg string, args ...any)
+	Infof(ctx context.Context, msg string, args ...any)
 
 	// Debug logs a message at the debug level.
-	Debugf(msg string, args ...any)
+	Debugf(ctx context.Context, msg string, args ...any)
 
 	// Trace logs a message at the trace level.
-	Tracef(msg string, args ...any)
+	Tracef(ctx context.Context, msg string, args ...any)
 
 	// Log logs some information into the test error output.
 	// The provided arguments are assembled together into a string with
 	// fmt.Sprintf.
-	Logf(level Level, format string, args ...any)
+	Logf(ctx context.Context, level Level, format string, args ...any)
 
 	// IsLevelEnabled returns true if the given level is enabled for the logger.
 	IsLevelEnabled(Level) bool

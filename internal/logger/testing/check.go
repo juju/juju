@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/loggo/v2"
@@ -45,31 +46,31 @@ func formatMsg(level, name, msg string) string {
 	return fmt.Sprintf("%s: %s ", level, name) + msg
 }
 
-func (c checkLogger) Criticalf(msg string, args ...any) {
+func (c checkLogger) Criticalf(ctx context.Context, msg string, args ...any) {
 	c.log.Logf(formatMsg("CRITICAL", c.name, msg), args...)
 }
 
-func (c checkLogger) Errorf(msg string, args ...any) {
+func (c checkLogger) Errorf(ctx context.Context, msg string, args ...any) {
 	c.log.Logf(formatMsg("ERROR", c.name, msg), args...)
 }
 
-func (c checkLogger) Warningf(msg string, args ...any) {
+func (c checkLogger) Warningf(ctx context.Context, msg string, args ...any) {
 	c.log.Logf(formatMsg("WARNING", c.name, msg), args...)
 }
 
-func (c checkLogger) Infof(msg string, args ...any) {
+func (c checkLogger) Infof(ctx context.Context, msg string, args ...any) {
 	c.log.Logf(formatMsg("INFO", c.name, msg), args...)
 }
 
-func (c checkLogger) Debugf(msg string, args ...any) {
+func (c checkLogger) Debugf(ctx context.Context, msg string, args ...any) {
 	c.log.Logf(formatMsg("DEBUG", c.name, msg), args...)
 }
 
-func (c checkLogger) Tracef(msg string, args ...any) {
+func (c checkLogger) Tracef(ctx context.Context, msg string, args ...any) {
 	c.log.Logf(formatMsg("TRACE", c.name, msg), args...)
 }
 
-func (c checkLogger) Logf(level logger.Level, msg string, args ...any) {
+func (c checkLogger) Logf(ctx context.Context, level logger.Level, msg string, args ...any) {
 	if !c.IsLevelEnabled(level) {
 		return
 	}
