@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -1351,113 +1350,19 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {
 	c.Assert(unitCount, gc.Equals, 0)
 }
 
-func (s *applicationStateSuite) TestGetUnitUUIDs(c *gc.C) {
+func (s *applicationStateSuite) TestGetUnitUUIDByName(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	u2 := application.InsertUnitArg{
-		UnitName: "foo/667",
-	}
-	s.createApplication(c, "foo", life.Alive, u1, u2)
+	_ = s.createApplication(c, "foo", life.Alive, u1)
 
-	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{u1.UnitName, u2.UnitName})
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
-
-	var gotUUIDs []coreunit.UUID
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT uuid FROM unit WHERE name IN (?, ?)", u1.UnitName, u2.UnitName)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var uuid coreunit.UUID
-			if err := rows.Scan(&uuid); err != nil {
-				return err
-			}
-			gotUUIDs = append(gotUUIDs, uuid)
-		}
-		return rows.Err()
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotUUIDs, jc.SameContents, unitUUIDs)
+	c.Assert(unitUUID, gc.NotNil)
 }
 
-func (s *applicationStateSuite) TestGetUnitUUIDsNotFound(c *gc.C) {
-	_, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{coreunit.Name("foo/666")})
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
-}
-
-func (s *applicationStateSuite) TestGetUnitUUIDsOneNotFound(c *gc.C) {
-	u1 := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	s.createApplication(c, "foo", life.Alive, u1)
-
-	_, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{u1.UnitName, coreunit.Name("foo/667")})
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
-}
-
-func (s *applicationStateSuite) TestGetUnitNames(c *gc.C) {
-	u1 := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	u2 := application.InsertUnitArg{
-		UnitName: "foo/667",
-	}
-	s.createApplication(c, "foo", life.Alive, u1, u2)
-
-	var unitUUIDs []coreunit.UUID
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT uuid FROM unit WHERE name IN (?, ?)", u1.UnitName, u2.UnitName)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = rows.Close() }()
-
-		for rows.Next() {
-			var uuid coreunit.UUID
-			if err := rows.Scan(&uuid); err != nil {
-				return err
-			}
-			unitUUIDs = append(unitUUIDs, uuid)
-		}
-		return rows.Err()
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	unitNames, err := s.state.GetUnitNames(context.Background(), unitUUIDs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitNames, gc.HasLen, 2)
-	c.Assert(unitNames, jc.SameContents, []coreunit.Name{u1.UnitName, u2.UnitName})
-}
-
-func (s *applicationStateSuite) TestGetUnitNamesNotFound(c *gc.C) {
-	uuid := unittesting.GenUnitUUID(c)
-	_, err := s.state.GetUnitNames(context.Background(), []coreunit.UUID{uuid})
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
-}
-
-func (s *applicationStateSuite) TestGetUnitNamesOneNotFound(c *gc.C) {
-	u1 := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	s.createApplication(c, "foo", life.Alive, u1)
-
-	var existingUUID coreunit.UUID
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", u1.UnitName).
-			Scan(&existingUUID); err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	missingUUID := unittesting.GenUnitUUID(c)
-
-	_, err = s.state.GetUnitNames(context.Background(), []coreunit.UUID{existingUUID, missingUUID})
+func (s *applicationStateSuite) TestGetUnitUUIDByNameNotFound(c *gc.C) {
+	_, err := s.state.GetUnitUUIDByName(context.Background(), "failme")
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -1561,10 +1466,8 @@ func (s *applicationStateSuite) TestSetCloudContainerStatus(c *gc.C) {
 		},
 	}
 
-	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{u1.UnitName})
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitUUIDs, gc.HasLen, 1)
-	unitUUID := unitUUIDs[0]
 
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		return s.state.SetCloudContainerStatus(ctx, unitUUID, status)
@@ -1589,10 +1492,8 @@ func (s *applicationStateSuite) TestSetUnitAgentStatus(c *gc.C) {
 		},
 	}
 
-	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{u1.UnitName})
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitUUIDs, gc.HasLen, 1)
-	unitUUID := unitUUIDs[0]
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return s.state.setUnitAgentStatus(ctx, tx, unitUUID, status)
@@ -1617,10 +1518,8 @@ func (s *applicationStateSuite) TestSetUnitWorkloadStatus(c *gc.C) {
 		},
 	}
 
-	unitUUIDs, err := s.state.GetUnitUUIDs(context.Background(), []coreunit.Name{u1.UnitName})
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitUUIDs, gc.HasLen, 1)
-	unitUUID := unitUUIDs[0]
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return s.state.setUnitWorkloadStatus(ctx, tx, unitUUID, status)

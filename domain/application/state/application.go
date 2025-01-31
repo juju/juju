@@ -412,92 +412,37 @@ func (st *State) getUnitUUID(ctx context.Context, tx *sqlair.TX, unitName coreun
 	return unit.UnitUUID, nil
 }
 
-// GetUnitUUIDs returns the UUIDs for the named units in bulk, returning an error
-// satisfying [applicationerrors.UnitNotFound] if any of the units don't exist.
-func (st *State) GetUnitUUIDs(ctx context.Context, names []coreunit.Name) ([]coreunit.UUID, error) {
+// GetUnitUUIDByName returns the UUID for the named unit, returning an error
+// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, jujuerrors.Trace(err)
+		return "", jujuerrors.Trace(err)
 	}
-	unitNames := unitNames(names)
+	unitName := unitName{Name: name}
 
 	query, err := st.Prepare(`
-SELECT &unitNameAndUUID.*
+SELECT &unitUUID.*
 FROM unit
-WHERE name IN ($unitNames[:])
-`, unitNameAndUUID{}, unitNames)
+WHERE name = $unitName.name
+`, unitUUID{}, unitName)
 	if err != nil {
-		return nil, errors.Errorf("preparing query: %w", err)
+		return "", errors.Errorf("preparing query: %w", err)
 	}
 
-	uuidsAndNames := []unitNameAndUUID{}
+	unitUUID := unitUUID{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, query, unitNames).GetAll(&uuidsAndNames)
+		err = tx.Query(ctx, query, unitName).Get(&unitUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
+			return errors.Errorf("unit %q not found%w", name, jujuerrors.Hide(applicationerrors.UnitNotFound))
 		}
 		return err
 	})
 	if err != nil {
-		return nil, errors.Errorf("querying unit names: %w", err)
+		return "", errors.Errorf("querying unit name: %w", err)
 	}
 
-	nameToUUID := make(map[coreunit.Name]coreunit.UUID, len(uuidsAndNames))
-	for _, u := range uuidsAndNames {
-		nameToUUID[u.Name] = u.UnitUUID
-	}
-
-	return transform.SliceOrErr(names, func(name coreunit.Name) (coreunit.UUID, error) {
-		uuid, ok := nameToUUID[name]
-		if !ok {
-			return "", errors.Errorf("unit %q not found%w", name, jujuerrors.Hide(applicationerrors.UnitNotFound))
-		}
-		return uuid, nil
-	})
-}
-
-// GetUnitNames gets in bulk the names for the specified unit UUIDs, returning an error
-// satisfying [applicationerrors.UnitNotFound] if any units are not found.
-func (st *State) GetUnitNames(ctx context.Context, uuids []coreunit.UUID) ([]coreunit.Name, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, jujuerrors.Trace(err)
-	}
-	unitUUIDs := unitUUIDs(uuids)
-
-	query, err := st.Prepare(`
-SELECT &unitNameAndUUID.*
-FROM unit
-WHERE uuid IN ($unitUUIDs[:])
-`, unitNameAndUUID{}, unitUUIDs)
-	if err != nil {
-		return nil, errors.Errorf("preparing query: %w", err)
-	}
-
-	uuidsAndNames := []unitNameAndUUID{}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, query, unitUUIDs).GetAll(&uuidsAndNames)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
-		return err
-	})
-	if err != nil {
-		return nil, errors.Errorf("querying unit names: %w", err)
-	}
-
-	uuidToName := make(map[coreunit.UUID]coreunit.Name, len(uuidsAndNames))
-	for _, u := range uuidsAndNames {
-		uuidToName[u.UnitUUID] = u.Name
-	}
-
-	return transform.SliceOrErr(uuids, func(uuid coreunit.UUID) (coreunit.Name, error) {
-		name, ok := uuidToName[uuid]
-		if !ok {
-			return "", errors.Errorf("unit %q not found%w", uuid, jujuerrors.Hide(applicationerrors.UnitNotFound))
-		}
-		return name, nil
-	})
+	return unitUUID.UnitUUID, nil
 }
 
 func (st *State) getUnit(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (*unitDetails, error) {

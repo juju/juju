@@ -83,6 +83,14 @@ func (as applicationScale) toScaleState() application.ScaleState {
 	}
 }
 
+type unitUUID struct {
+	UnitUUID coreunit.UUID `db:"uuid"`
+}
+
+type unitName struct {
+	Name coreunit.Name `db:"name"`
+}
+
 type unitDetails struct {
 	UnitUUID                coreunit.UUID      `db:"uuid"`
 	NetNodeID               string             `db:"net_node_uuid"`
@@ -104,8 +112,6 @@ type unitNameAndUUID struct {
 	UnitUUID coreunit.UUID `db:"uuid"`
 	Name     coreunit.Name `db:"name"`
 }
-
-type unitNames []coreunit.Name
 
 type unitUUIDs []coreunit.UUID
 
