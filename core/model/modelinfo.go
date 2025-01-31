@@ -4,6 +4,8 @@
 package model
 
 import (
+	"github.com/juju/version/v2"
+
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -40,6 +42,9 @@ type ModelInfo struct {
 	// IsControllerModel is a boolean value that indicates if the model is the
 	// controller model.
 	IsControllerModel bool
+
+	// AgentVersion is the Juju version for agent binaries in this model.
+	AgentVersion version.Number
 }
 
 // ModelMetrics represents the metrics information set in the database.
