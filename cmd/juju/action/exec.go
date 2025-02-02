@@ -50,7 +50,6 @@ func newExecCommand(store jujuclient.ClientStore, logMessageHandler func(*cmd.Co
 type execCommand struct {
 	runCommandBase
 	all            bool
-	operator       bool
 	machines       []string
 	applications   []string
 	units          []string
@@ -80,7 +79,7 @@ Some options are shortened for usabilty purpose in CLI
 --application can also be specified as --app and -a
 --unit can also be specified as -u
 
-Valid unit identifiers are: 
+Valid unit identifiers are:
   a standard unit ID, such as mysql/0 or;
   leader syntax of the form <application>/leader, such as mysql/leader.
 
@@ -90,9 +89,6 @@ had two units, "mysql/0" and "mysql/1", then
   --application mysql
 is equivalent to
   --unit mysql/0,mysql/1
-
-If --operator is provided on k8s models, commands are executed on the operator
-instead of the workload. On IAAS models, --operator has no effect.
 
 Commands run for applications or units are executed in a 'hook context' for
 the unit.
@@ -112,7 +108,7 @@ in the model.  If you specify --all you cannot provide additional
 targets.
 
 Since juju exec creates tasks, you can query for the status of commands
-started with juju run by calling 
+started with juju run by calling
 "juju operations --machines <id>,... --actions juju-exec".
 
 If you need to pass options to the command being run, you must precede the
@@ -162,7 +158,6 @@ func (c *execCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
-	f.BoolVar(&c.operator, "operator", false, "Run the commands on the operator (k8s-only)")
 	f.BoolVar(&c.parallel, "parallel", true, "Run the commands in parallel without first acquiring a lock")
 	f.StringVar(&c.executionGroup, "execution-group", "", "Commands in the same execution group are run sequentially")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
@@ -266,14 +261,6 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 			Units:          c.units,
 			Parallel:       &c.parallel,
 			ExecutionGroup: &c.executionGroup,
-		}
-		if c.operator {
-			if modelType != model.CAAS {
-				return errors.Errorf("only k8s models support the --operator flag")
-			}
-		}
-		if modelType == model.CAAS {
-			runParams.WorkloadContext = !c.operator
 		}
 		runResults, err = c.api.Run(ctx, runParams)
 	}
