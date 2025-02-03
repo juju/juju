@@ -12,67 +12,87 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/core/resource"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
+
+type ResourceOpenerGetter interface {
+	Opener(*http.Request, ...string) (coreresource.Opener, error)
+}
 
 // UnitResourcesHandler is the HTTP handler for unit agent downloads of
 // resources.
 type UnitResourcesHandler struct {
-	NewOpener func(*http.Request, ...string) (resource.Opener, state.PoolHelper, error)
+	resourceOpenerGetter ResourceOpenerGetter
+}
+
+// NewUnitResourcesHandler returns a new HTTP handler for unit agent downloads
+// of resources.
+func NewUnitResourcesHandler(
+	resourceOpenerGetter ResourceOpenerGetter,
+) *UnitResourcesHandler {
+	return &UnitResourcesHandler{
+		resourceOpenerGetter: resourceOpenerGetter,
+	}
 }
 
 // ServeHTTP implements http.Handler.
 func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case "GET":
-		opener, ph, err := h.NewOpener(req, names.UnitTagKind, names.ApplicationTagKind)
-		if err != nil {
+		if err := h.serveGet(resp, req); err != nil {
 			if err := sendError(resp, err); err != nil {
 				logger.Errorf(context.TODO(), "%v", err)
 			}
-			return
-		}
-		defer ph.Release()
-
-		name := req.URL.Query().Get(":resource")
-		opened, err := opener.OpenResource(req.Context(), name)
-		if err != nil {
-			if errors.Is(err, errors.NotFound) {
-				// non internal errors is not real errors.
-				logger.Warningf(context.TODO(), "cannot fetch resource reader: %v", err)
-			} else {
-				logger.Errorf(context.TODO(), "cannot fetch resource reader: %v", err)
-			}
-			if err := sendError(resp, err); err != nil {
-				logger.Errorf(context.TODO(), "%v", err)
-			}
-			return
-		}
-		defer opened.Close()
-
-		hdr := resp.Header()
-		hdr.Set("Content-Type", params.ContentTypeRaw)
-		hdr.Set("Content-Length", fmt.Sprint(opened.Size))
-		hdr.Set("Content-Sha384", opened.Fingerprint.String())
-
-		resp.WriteHeader(http.StatusOK)
-		if _, err := io.Copy(resp, opened); err != nil {
-			// We cannot use SendHTTPError here, so we log the error
-			// and move on.
-			logger.Errorf(context.TODO(), "unable to complete stream for resource: %v", err)
-			return
-		}
-
-		// Mark the downloaded resource as in use on the unit.
-		err = opener.SetResourceUsed(req.Context(), name)
-		if err != nil {
-			logger.Errorf(context.TODO(), "setting resource %s as in use: %w", name, err)
 		}
 	default:
-		if err := sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
+		if err := sendError(
+			resp,
+			errors.MethodNotAllowedf("unsupported method: %q", req.Method),
+		); err != nil {
 			logger.Errorf(context.TODO(), "%v", err)
 		}
 	}
+}
+
+func (h *UnitResourcesHandler) serveGet(resp http.ResponseWriter, req *http.Request) error {
+	opener, err := h.resourceOpenerGetter.Opener(req, names.UnitTagKind, names.ApplicationTagKind)
+	if err != nil {
+		return err
+	}
+
+	name := req.URL.Query().Get(":resource")
+	opened, err := opener.OpenResource(req.Context(), name)
+	if err != nil {
+		logger.Errorf(context.TODO(), "cannot fetch resource reader: %v", err)
+		return err
+	}
+	defer opened.Close()
+
+	hdr := resp.Header()
+	hdr.Set("Content-Type", params.ContentTypeRaw)
+	hdr.Set("Content-Length", fmt.Sprint(opened.Size))
+	hdr.Set("Content-Sha384", opened.Fingerprint.String())
+
+	resp.WriteHeader(http.StatusOK)
+	var bytesWritten int64
+	if bytesWritten, err = io.Copy(resp, opened); err != nil {
+		// We cannot use SendHTTPError here, so we log the error and move on.
+		logger.Warningf(context.TODO(), "unable to complete stream for resource, %d bytes streamed: %v out of %v",
+			bytesWritten, opened.Size, err)
+		return nil
+	}
+
+	if bytesWritten != opened.Size {
+		logger.Warningf(context.TODO(), "resource streamed to unit had unexpected size: got %v, expected %v",
+			bytesWritten, opened.Size)
+	}
+
+	// Mark the downloaded resource as in use on the unit.
+	err = opener.SetResourceUsed(req.Context(), name)
+	if err != nil {
+		logger.Warningf(context.TODO(), "setting resource %s as in use: %w", name, err)
+	}
+
+	return nil
 }

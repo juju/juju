@@ -13,10 +13,9 @@ import (
 
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/resource"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
-	domainresource "github.com/juju/juju/domain/resource"
+	"github.com/juju/juju/domain/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -43,19 +42,66 @@ type ApplicationService interface {
 
 // ResourceService defines operations related to managing application resources.
 type ResourceService interface {
-	// GetApplicationResourceID returns the ID of the application resource
-	// specified by natural key of application and resource name.
-	GetApplicationResourceID(ctx context.Context, args domainresource.GetApplicationResourceIDArgs) (resource.UUID, error)
-
-	// SetUnitResource sets the resource metadata for a specific unit.
-	SetUnitResource(ctx context.Context, resourceUUID resource.UUID, unitUUID coreunit.UUID) error
-
-	// StoreResource adds the application resource to blob storage and updates
-	// the metadata. It also sets the retrival information for the resource.
-	StoreResource(ctx context.Context, args domainresource.StoreResourceArgs) error
+	// GetResourceUUIDByApplicationAndResourceName returns the ID of the application
+	// resource specified by natural key of application and resource Name.
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if the specified resource does not
+	//     exist.
+	//   - [resourceerrors.ApplicationNotFound] if the specified application
+	//     does not exist.
+	GetResourceUUIDByApplicationAndResourceName(
+		ctx context.Context,
+		appName string,
+		resName string,
+	) (coreresource.UUID, error)
 
 	// GetResource returns the identified application resource.
-	GetResource(ctx context.Context, resourceUUID resource.UUID) (coreresource.Resource, error)
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if the specified resource does not
+	//     exist.
+	GetResource(
+		ctx context.Context,
+		resourceUUID coreresource.UUID,
+	) (coreresource.Resource, error)
+
+	// OpenResource returns the details of and a reader for the resource.
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if the specified resource does not
+	//     exist.
+	//   - [resourceerrors.StoredResourceNotFound] if the specified resource is
+	//     not in the resource store.
+	OpenResource(
+		ctx context.Context,
+		resourceUUID coreresource.UUID,
+	) (coreresource.Resource, io.ReadCloser, error)
+
+	// StoreResource adds the application resource to blob storage and updates the
+	// metadata. It also sets the retrival information for the resource.
+	StoreResource(
+		ctx context.Context,
+		args resource.StoreResourceArgs,
+	) error
+
+	// StoreResourceAndIncrementCharmModifiedVersion adds the application resource to blob storage and updates the
+	// metadata. It also sets the retrival information for the resource.
+	StoreResourceAndIncrementCharmModifiedVersion(
+		ctx context.Context,
+		args resource.StoreResourceArgs,
+	) error
+
+	// GetApplicationResourceID returns the ID of the application resource
+	// specified by natural key of application and resource Name.
+	GetApplicationResourceID(
+		ctx context.Context,
+		args resource.GetApplicationResourceIDArgs,
+	) (coreresource.UUID, error)
+
+	// SetUnitResource sets the resource metadata for a specific unit.
+	SetUnitResource(
+		ctx context.Context,
+		resourceUUID coreresource.UUID,
+		unitUUID coreunit.UUID,
+	) error
 }
 
 // ResourceServiceGetter is an interface for retrieving a ResourceService
@@ -69,8 +115,8 @@ type ResourceServiceGetter interface {
 // Resources represents the methods required to migrate a
 // resource blob.
 type Resources interface {
-	SetUnitResource(string, string, charmresource.Resource) (resource.Resource, error)
-	SetResource(string, string, charmresource.Resource, io.Reader, bool) (resource.Resource, error)
+	SetUnitResource(string, string, charmresource.Resource) (coreresource.Resource, error)
+	SetResource(string, string, charmresource.Resource, io.Reader, bool) (coreresource.Resource, error)
 }
 
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
@@ -145,7 +191,7 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	}
 
 	resUUID, err := resourceService.GetApplicationResourceID(ctx,
-		domainresource.GetApplicationResourceIDArgs{
+		resource.GetApplicationResourceIDArgs{
 			ApplicationID: target.appID,
 			Name:          target.name,
 		})
@@ -175,7 +221,7 @@ func (h *resourcesMigrationUploadHandler) processPost(
 			retrievedByType = coreresource.Application
 		}
 
-		err := resourceService.StoreResource(ctx, domainresource.StoreResourceArgs{
+		err := resourceService.StoreResource(ctx, resource.StoreResourceArgs{
 			ResourceUUID:    resUUID,
 			Reader:          r.Body,
 			RetrievedBy:     retrievedBy,

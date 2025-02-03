@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package apiserver
 
 import (
 	"context"
@@ -12,37 +12,42 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	api "github.com/juju/juju/api/client/resources"
-	"github.com/juju/juju/apiserver"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/resource"
-	resourcetesting "github.com/juju/juju/core/resource/testing"
+	coreresource "github.com/juju/juju/core/resource"
+	coreresourcetesting "github.com/juju/juju/core/resource/testing"
+	domainresource "github.com/juju/juju/domain/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
-
-const content = "stuff"
 
 type ResourcesHandlerSuite struct {
 	testing.IsolationSuite
 
-	stateAuthErr error
-	backend      *fakeBackend
-	username     string
-	req          *http.Request
-	recorder     *httptest.ResponseRecorder
-	handler      *apiserver.ResourcesHandler
+	authErr  error
+	username string
+	recorder *httptest.ResponseRecorder
+	handler  *ResourceHandler
+
+	resourceUUID    coreresource.UUID
+	resourceName    string
+	resourceContent string
+	resource        coreresource.Resource
+	resourceReader  io.ReadCloser
+	applicationName string
+
+	resourceService       *MockResourceService
+	resourceServiceGetter *MockResourceServiceGetter
 }
 
 var _ = gc.Suite(&ResourcesHandlerSuite{})
@@ -50,269 +55,440 @@ var _ = gc.Suite(&ResourcesHandlerSuite{})
 func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stateAuthErr = nil
-	s.backend = new(fakeBackend)
+	s.authErr = nil
 	s.username = "youknowwho"
 
-	method := "..."
-	urlStr := "..."
-	body := strings.NewReader("...")
-	req, err := http.NewRequest(method, urlStr, body)
+	s.resourceUUID = coreresourcetesting.GenResourceUUID(c)
+
+	s.resourceName = "foo"
+	s.applicationName = "app"
+
+	s.resourceContent = "stuff"
+	s.resourceReader = io.NopCloser(strings.NewReader(s.resourceContent))
+
+	// Generating the fingerprint exhausts the reader so a new one is used.
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(s.resourceContent))
 	c.Assert(err, jc.ErrorIsNil)
-	s.req = req
-	s.recorder = httptest.NewRecorder()
-	s.handler = &apiserver.ResourcesHandler{
-		StateAuthFunc:     s.authState,
-		ChangeAllowedFunc: func(context.Context) error { return nil },
+	s.resource = coreresource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: s.resourceName,
+				Type: charmresource.TypeFile,
+				Path: "foo.tgz",
+			},
+			Fingerprint: fp,
+			Size:        int64(len(s.resourceContent)),
+		},
+		UUID:        s.resourceUUID,
+		RetrievedBy: s.username,
 	}
+
+	s.recorder = httptest.NewRecorder()
 }
 
-func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string) (
-	apiserver.ResourcesBackend, state.PoolHelper, names.Tag, error,
+func (s *ResourcesHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.resourceService = NewMockResourceService(ctrl)
+	s.resourceServiceGetter = NewMockResourceServiceGetter(ctrl)
+
+	s.handler = NewResourceHandler(
+		s.authFunc,
+		func(context.Context) error { return nil },
+		s.resourceServiceGetter,
+	)
+
+	return ctrl
+}
+
+func (s *ResourcesHandlerSuite) serveHTTP(req *http.Request) {
+	s.resourceServiceGetter.EXPECT().Resource(gomock.Any()).Return(s.resourceService, nil)
+	s.handler.ServeHTTP(s.recorder, req)
+}
+
+func (s *ResourcesHandlerSuite) authFunc(_ *http.Request, _ ...string) (
+	names.Tag, error,
 ) {
-	if s.stateAuthErr != nil {
-		return nil, nil, nil, errors.Trace(s.stateAuthErr)
+	if s.authErr != nil {
+		return nil, errors.Trace(s.authErr)
 	}
 
-	ph := apiservertesting.StubPoolHelper{StubRelease: func() bool { return false }}
 	tag := names.NewUserTag(s.username)
-	return s.backend, ph, tag, nil
+	return tag, nil
 }
 
 func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
-	expectedTags := set.NewStrings(names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
+	defer s.setupMocks(c).Finish()
 
-	s.handler.StateAuthFunc = func(req *http.Request, tagKinds ...string) (apiserver.ResourcesBackend, state.PoolHelper, names.Tag, error) {
-		gotTags := set.NewStrings(tagKinds...)
-		if gotTags.Difference(expectedTags).Size() != 0 || expectedTags.Difference(gotTags).Size() != 0 {
-			c.Fatalf("unexpected tag kinds %v", tagKinds)
-			return nil, nil, nil, errors.NotValidf("tag kinds %v", tagKinds)
-		}
-		ph := apiservertesting.StubPoolHelper{StubRelease: func() bool { return false }}
+	// Arrange: Create auth function that checks the expected tags.
+	expectedTags := set.NewStrings(names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
+	authFunc := func(req *http.Request, tagKinds ...string) (names.Tag, error) {
+		c.Assert(tagKinds, jc.SameContents, expectedTags.Values())
 		tag := names.NewUserTag(s.username)
-		return s.backend, ph, tag, nil
+		return tag, nil
 	}
-	s.req.Method = "GET"
-	s.handler.ServeHTTP(s.recorder, s.req)
-	s.checkResp(c, http.StatusOK, "application/octet-stream", resourceBody)
+
+	s.handler = NewResourceHandler(
+		authFunc,
+		func(context.Context) error { return nil },
+		s.resourceServiceGetter,
+	)
+
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		s.applicationName,
+		s.resourceName,
+	).Return(s.resourceUUID, nil)
+
+	s.resourceService.EXPECT().OpenResource(
+		gomock.Any(),
+		s.resourceUUID,
+	).Return(s.resource, s.resourceReader, nil)
+
+	req := s.newDownloadRequest(c)
+
+	// Act:
+	s.serveHTTP(req)
+
+	// Assert:
+	s.checkResp(c, http.StatusOK, "application/octet-stream", s.resourceContent)
 }
 
-func (s *ResourcesHandlerSuite) TestStateAuthFailure(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestAuthFailure(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
 	failure, expected := apiFailure("<failure>", "")
-	s.stateAuthErr = failure
+	s.authErr = failure
 
-	s.handler.ServeHTTP(s.recorder, s.req)
+	req := s.newDownloadRequest(c)
 
+	// Act:
+	s.handler.ServeHTTP(s.recorder, req)
+
+	// Assert:
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
 func (s *ResourcesHandlerSuite) TestUnsupportedMethod(c *gc.C) {
-	s.req.Method = "POST"
+	defer s.setupMocks(c).Finish()
 
-	s.handler.ServeHTTP(s.recorder, s.req)
+	// Arrange:
+	req, err := http.NewRequest("POST", s.requestURL(), nil)
+	c.Assert(err, jc.ErrorIsNil)
 
+	// Act:
+	s.serveHTTP(req)
+
+	// Assert:
 	_, expected := apiFailure(`unsupported method: "POST"`, params.CodeMethodNotAllowed)
 	s.checkResp(c, http.StatusMethodNotAllowed, "application/json", expected)
 }
 
 func (s *ResourcesHandlerSuite) TestGetSuccess(c *gc.C) {
-	s.req.Method = "GET"
-	s.handler.ServeHTTP(s.recorder, s.req)
-	s.checkResp(c, http.StatusOK, "application/octet-stream", resourceBody)
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	req := s.newDownloadRequest(c)
+
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		s.applicationName,
+		s.resourceName,
+	).Return(s.resourceUUID, nil)
+
+	s.resourceService.EXPECT().OpenResource(
+		gomock.Any(),
+		s.resourceUUID,
+	).Return(s.resource, s.resourceReader, nil)
+
+	// Act:
+	s.serveHTTP(req)
+
+	// Assert:
+	s.checkResp(c, http.StatusOK, "application/octet-stream", s.resourceContent)
+}
+
+func (s *ResourcesHandlerSuite) TestGetNotFoundError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange:
+	req := s.newDownloadRequest(c)
+
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		s.applicationName,
+		s.resourceName,
+	).Return("", resourceerrors.ResourceNotFound)
+
+	// Act:
+	s.serveHTTP(req)
+
+	// Assert:
+	s.checkErrResp(c, http.StatusNotFound, "application/json")
 }
 
 func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
-	uploadContent := "<some data>"
-	res, _ := newResource(c, "spam", "a-user", content)
-	stored, _ := newResource(c, "spam", "", "")
-	s.backend.ReturnGetResource = stored
-	s.backend.ReturnSetResource = res
+	defer s.setupMocks(c).Finish()
+	// Arrange:
 
-	req, _ := newUploadRequest(c, "spam", "a-application", uploadContent)
-	s.handler.ServeHTTP(s.recorder, req)
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		s.applicationName,
+		s.resourceName,
+	).Return(s.resourceUUID, nil)
 
+	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+		s.resource, nil,
+	)
+
+	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
+		ResourceUUID:    s.resourceUUID,
+		Reader:          s.resourceReader,
+		RetrievedBy:     s.username,
+		RetrievedByType: coreresource.User,
+		Size:            s.resource.Size,
+		Fingerprint:     s.resource.Fingerprint,
+		Origin:          charmresource.OriginUpload,
+		Revision:        -1,
+	})
+
+	// Second call to GetResource gets resource details after upload.
+	expectedResource := s.resource
+	expectedResource.Origin = charmresource.OriginUpload
+	expectedResource.Revision = -1
+	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+		expectedResource, nil,
+	)
+
+	req := s.newUploadRequest(c)
+
+	// Act:
+	s.serveHTTP(req)
+
+	// Assert: Check that the uploaded resources details are returned:
 	expected := mustMarshalJSON(&params.UploadResult{
-		Resource: api.Resource2API(res),
+		Resource: params.Resource{
+			CharmResource: api.CharmResource2API(expectedResource.Resource),
+			UUID:          expectedResource.UUID.String(),
+			Username:      expectedResource.RetrievedBy,
+			Timestamp:     expectedResource.Timestamp,
+		},
 	})
 	s.checkResp(c, http.StatusOK, "application/json", string(expected))
 }
 
 func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
-	uploadContent := "<some data>"
-	res, _ := newResource(c, "spam", "a-user", content)
-	stored, _ := newResource(c, "spam", "", "")
-	s.backend.ReturnGetResource = stored
-	s.backend.ReturnSetResource = res
-
+	defer s.setupMocks(c).Finish()
+	// Arrange: Construct change allowed func and put it in resource handler.
 	expectedError := apiservererrors.OperationBlockedError("test block")
-	s.handler.ChangeAllowedFunc = func(context.Context) error {
+	changeAllowedFunc := func(context.Context) error {
 		return expectedError
 	}
+	s.handler = NewResourceHandler(
+		s.authFunc,
+		changeAllowedFunc,
+		s.resourceServiceGetter,
+	)
 
-	req, _ := newUploadRequest(c, "spam", "a-application", uploadContent)
-	s.handler.ServeHTTP(s.recorder, req)
+	req := s.newUploadRequest(c)
 
+	// Act:
+	s.serveHTTP(req)
+
+	// Assert:
 	expected := mustMarshalJSON(&params.ErrorResult{apiservererrors.ServerError(expectedError)})
 	s.checkResp(c, http.StatusBadRequest, "application/json", string(expected))
 }
 
 func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
-	uploadContent := "<some data>"
-	res := newDockerResource(c, "spam", "a-user", content)
-	stored := newDockerResource(c, "spam", "", "")
-	s.backend.ReturnGetResource = stored
-	s.backend.ReturnSetResource = res
+	defer s.setupMocks(c).Finish()
+	// Arrange:
+	req := s.newUploadRequest(c)
 
-	req, _ := newUploadRequest(c, "spam", "a-application", uploadContent)
-	s.handler.ServeHTTP(s.recorder, req)
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		s.applicationName,
+		s.resourceName,
+	).Return(s.resourceUUID, nil)
 
+	res := s.resource
+	res.Type = charmresource.TypeContainerImage
+	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+		res, nil,
+	)
+
+	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
+		ResourceUUID:    s.resourceUUID,
+		Reader:          s.resourceReader,
+		RetrievedBy:     s.username,
+		RetrievedByType: coreresource.User,
+		Size:            s.resource.Size,
+		Fingerprint:     s.resource.Fingerprint,
+		Origin:          charmresource.OriginUpload,
+		Revision:        -1,
+	})
+
+	// Second call to GetResource gets resource details after upload.
+	expectedResource := res
+	expectedResource.Origin = charmresource.OriginUpload
+	expectedResource.Revision = -1
+	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+		expectedResource, nil,
+	)
+
+	// Act:
+	s.serveHTTP(req)
+
+	// Assert:
 	expected := mustMarshalJSON(&params.UploadResult{
-		Resource: api.Resource2API(res),
+		Resource: params.Resource{
+			CharmResource: api.CharmResource2API(expectedResource.Resource),
+			UUID:          expectedResource.UUID.String(),
+			Username:      expectedResource.RetrievedBy,
+			Timestamp:     expectedResource.Timestamp,
+		},
 	})
 	s.checkResp(c, http.StatusOK, "application/json", string(expected))
 }
 
 func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
-	content := "<some data>"
+	defer s.setupMocks(c).Finish()
 
-	// newResource returns a resource with a Path = name + ".tgz"
-	res, _ := newResource(c, "spam", "a-user", content)
-	stored, _ := newResource(c, "spam", "", "")
-	s.backend.ReturnGetResource = stored
-	s.backend.ReturnSetResource = res
-
-	req, _ := newUploadRequest(c, "spam", "a-application", content)
+	// Arrange:
+	req := s.newUploadRequest(c)
 	req.Header.Set("Content-Disposition", "form-data; filename=different.ext")
-	s.handler.ServeHTTP(s.recorder, req)
 
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		s.applicationName,
+		s.resourceName,
+	).Return(s.resourceUUID, nil)
+
+	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+		s.resource, nil,
+	)
+
+	// Act:
+	s.serveHTTP(req)
+
+	// Assert:
 	_, expected := apiFailure(`incorrect extension on resource upload "different.ext", expected ".tgz"`,
 		"")
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
-func (s *ResourcesHandlerSuite) TestPutSetResourceFailure(c *gc.C) {
-	content := "<some data>"
-	stored, _ := newResource(c, "spam", "", "")
-	s.backend.ReturnGetResource = stored
-	failure, expected := apiFailure("boom", "")
-	s.backend.SetResourceErr = failure
+// TestPutWithPending checks that clients can still upload resources marked as
+// pending, though this concept is deprecated and no longer used by the
+// controller.
+func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange:
+	req := s.newUploadRequest(c)
+	req.URL.RawQuery += "&pendingid=some-unique-id"
 
-	req, _ := newUploadRequest(c, "spam", "a-application", content)
-	s.handler.ServeHTTP(s.recorder, req)
-	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		s.applicationName,
+		s.resourceName,
+	).Return(s.resourceUUID, nil)
+
+	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+		s.resource, nil,
+	)
+
+	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
+		ResourceUUID:    s.resourceUUID,
+		Reader:          s.resourceReader,
+		RetrievedBy:     s.username,
+		RetrievedByType: coreresource.User,
+		Size:            s.resource.Size,
+		Fingerprint:     s.resource.Fingerprint,
+		Origin:          charmresource.OriginUpload,
+		Revision:        -1,
+	})
+
+	// Second call to GetResource gets resource details after upload.
+	expectedResource := s.resource
+	expectedResource.Origin = charmresource.OriginUpload
+	expectedResource.Revision = -1
+	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+		expectedResource, nil,
+	)
+
+	// Act:
+	s.serveHTTP(req)
+
+	// Assert: Check that the uploaded resources details are returned:
+	expected := mustMarshalJSON(&params.UploadResult{
+		Resource: params.Resource{
+			CharmResource: api.CharmResource2API(expectedResource.Resource),
+			UUID:          expectedResource.UUID.String(),
+			Username:      expectedResource.RetrievedBy,
+			Timestamp:     expectedResource.Timestamp,
+		},
+	})
+	s.checkResp(c, http.StatusOK, "application/json", string(expected))
+}
+
+func (s *ResourcesHandlerSuite) TestPutNotFoundError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange:
+	req := s.newUploadRequest(c)
+
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		s.applicationName,
+		s.resourceName,
+	).Return("", resourceerrors.ResourceNotFound)
+
+	// Act:
+	s.serveHTTP(req)
+
+	// Assert:
+	s.checkErrResp(c, http.StatusNotFound, "application/json")
 }
 
 func (s *ResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body string) {
-	checkHTTPResp(c, s.recorder, status, ctype, body)
-}
-
-func checkHTTPResp(c *gc.C, recorder *httptest.ResponseRecorder, status int, ctype, body string) {
-	c.Assert(recorder.Code, gc.Equals, status)
-	hdr := recorder.Header()
+	c.Assert(s.recorder.Code, gc.Equals, status)
+	hdr := s.recorder.Header()
 	c.Check(hdr.Get("Content-Type"), gc.Equals, ctype)
 	c.Check(hdr.Get("Content-Length"), gc.Equals, strconv.Itoa(len(body)))
 
-	actualBody, err := io.ReadAll(recorder.Body)
+	actualBody, err := io.ReadAll(s.recorder.Body)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(actualBody), gc.Equals, body)
 }
 
-type fakeBackend struct {
-	ReturnGetResource           resource.Resource
-	ReturnGetPendingResource    resource.Resource
-	ReturnSetResource           resource.Resource
-	SetResourceErr              error
-	ReturnUpdatePendingResource resource.Resource
+func (s *ResourcesHandlerSuite) checkErrResp(c *gc.C, status int, ctype string) {
+	c.Assert(s.recorder.Code, gc.Equals, status)
+	hdr := s.recorder.Header()
+	c.Check(hdr.Get("Content-Type"), gc.Equals, ctype)
 }
 
-const resourceBody = "body"
-
-func (s *fakeBackend) OpenResource(application, name string) (resource.Resource, io.ReadCloser, error) {
-	res := resource.Resource{}
-	res.Size = int64(len(resourceBody))
-	reader := io.NopCloser(strings.NewReader(resourceBody))
-	return res, reader, nil
-}
-
-func (s *fakeBackend) GetResource(service, name string) (resource.Resource, error) {
-	return s.ReturnGetResource, nil
-}
-
-func (s *fakeBackend) GetPendingResource(service, name, pendingID string) (resource.Resource, error) {
-	return s.ReturnGetPendingResource, nil
-}
-
-func (s *fakeBackend) SetResource(
-	applicationID, userID string,
-	res charmresource.Resource, r io.Reader,
-	incrementCharmModifiedVersion bool,
-) (resource.Resource, error) {
-	if s.SetResourceErr != nil {
-		return resource.Resource{}, s.SetResourceErr
-	}
-	return s.ReturnSetResource, nil
-}
-
-func (s *fakeBackend) UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
-	return s.ReturnUpdatePendingResource, nil
-}
-
-func newDockerResource(c *gc.C, name, username, data string) resource.Resource {
-	opened := resourcetesting.NewDockerResource(c, nil, name, "a-application", data)
-	res := opened.Resource
-	res.RetrievedBy = username
-	if username == "" {
-		res.Timestamp = time.Time{}
-	}
-	return res
-}
-
-func newResource(c *gc.C, name, username, data string) (resource.Resource, params.Resource) {
-	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
-	res := opened.Resource
-	res.RetrievedBy = username
-	if username == "" {
-		res.Timestamp = time.Time{}
-	}
-
-	apiRes := params.Resource{
-		CharmResource: params.CharmResource{
-			Name:        name,
-			Description: name + " description",
-			Type:        "file",
-			Path:        res.Path,
-			Origin:      "upload",
-			Revision:    0,
-			Fingerprint: res.Fingerprint.Bytes(),
-			Size:        res.Size,
-		},
-		UUID:            res.UUID.String(),
-		ApplicationName: res.ApplicationName,
-		Username:        username,
-		Timestamp:       res.Timestamp,
-	}
-
-	return res, apiRes
-}
-
-func newUploadRequest(c *gc.C, name, service, content string) (*http.Request, io.Reader) {
-	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
+func (s *ResourcesHandlerSuite) newDownloadRequest(c *gc.C) *http.Request {
+	req, err := http.NewRequest("GET", s.requestURL(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	method := "PUT"
-	urlStr := "https://api:17017/applications/%s/resources/%s"
-	urlStr += "?:application=%s&:resource=%s" // ...added by the mux.
-	urlStr = fmt.Sprintf(urlStr, service, name, service, name)
-	body := strings.NewReader(content)
-	req, err := http.NewRequest(method, urlStr, body)
+	return req
+}
+
+func (s *ResourcesHandlerSuite) newUploadRequest(c *gc.C) *http.Request {
+	req, err := http.NewRequest("PUT", s.requestURL(), s.resourceReader)
 	c.Assert(err, jc.ErrorIsNil)
 
 	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("Content-Length", fmt.Sprint(len(content)))
-	req.Header.Set("Content-SHA384", fp.String())
-	req.Header.Set("Content-Disposition", "form-data; filename="+name+".tgz")
+	req.Header.Set("Content-Length", fmt.Sprint(s.resource.Size))
+	req.Header.Set("Content-SHA384", s.resource.Fingerprint.String())
+	req.Header.Set("Content-Disposition", "form-data; filename="+s.resource.Path)
 
-	return req, body
+	return req
+}
+
+func (s *ResourcesHandlerSuite) requestURL() string {
+	urlStr := "https://api:17017/applications/%s/resources/%s?:application=%s&:resource=%s"
+	urlStr = fmt.Sprintf(urlStr, s.applicationName, s.resourceName, s.applicationName, s.resourceName)
+
+	return urlStr
 }
 
 func apiFailure(msg, code string) (error, string) {
