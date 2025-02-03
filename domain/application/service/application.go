@@ -71,11 +71,6 @@ type AtomicApplicationState interface {
 	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	SetUnitWorkloadStatusAtomic(domain.AtomicContext, coreunit.UUID, application.UnitWorkloadStatusInfo) error
 
-	// GetApplicationScaleState looks up the scale state of the specified
-	// application, returning an error satisfying
-	// [applicationerrors.ApplicationNotFound] if the application is not found.
-	GetApplicationScaleState(domain.AtomicContext, coreapplication.ID) (application.ScaleState, error)
-
 	// SetApplicationScalingState sets the scaling details for the given caas
 	// application Scale is optional and is only set if not nil.
 	SetApplicationScalingState(ctx domain.AtomicContext, appID coreapplication.ID, scale *int, targetScale int, scaling bool) error
@@ -143,6 +138,11 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFoundError] if the application doesn't
 	// exist.
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
+
+	// GetApplicationScaleState looks up the scale state of the specified
+	// application, returning an error satisfying
+	// [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationScaleState(context.Context, coreapplication.ID) (application.ScaleState, error)
 
 	// GetApplicationUnitLife returns the life values for the specified units of
 	// the given application. The supplied ids may belong to a different
@@ -1049,11 +1049,7 @@ func (s *Service) CAASUnitTerminating(ctx context.Context, appName string, unitN
 		if err != nil {
 			return false, errors.Trace(err)
 		}
-		var scaleInfo application.ScaleState
-		err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-			scaleInfo, err = s.st.GetApplicationScaleState(ctx, appID)
-			return errors.Trace(err)
-		})
+		scaleInfo, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -1092,14 +1088,14 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	if err != nil {
 		return errors.Trace(err)
 	}
+	appScale, err := s.st.GetApplicationScaleState(ctx, appID)
+	if err != nil {
+		return errors.Annotatef(err, "getting application scale state for app %q", appID)
+	}
+	s.logger.Tracef(
+		"SetScale DesiredScale %v -> %v", appScale.Scale, scale,
+	)
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appScale, err := s.st.GetApplicationScaleState(ctx, appID)
-		if err != nil {
-			return errors.Annotatef(err, "getting application scale state for app %q", appID)
-		}
-		s.logger.Tracef(
-			"SetScale DesiredScale %v -> %v", appScale.Scale, scale,
-		)
 		return s.st.SetDesiredApplicationScale(ctx, appID, scale)
 	})
 	return errors.Annotatef(err, "setting scale for application %q", appName)
@@ -1113,13 +1109,11 @@ func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int,
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
-	var scaleState application.ScaleState
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		var err error
-		scaleState, err = s.st.GetApplicationScaleState(ctx, appID)
-		return errors.Annotatef(err, "getting scaling state for %q", appName)
-	})
-	return scaleState.Scale, errors.Trace(err)
+	scaleState, err := s.st.GetApplicationScaleState(ctx, appID)
+	if err != nil {
+		return -1, errors.Annotatef(err, "getting scaling state for %q", appName)
+	}
+	return scaleState.Scale, nil
 }
 
 // ChangeApplicationScale alters the existing scale by the provided change amount, returning the new amount.
@@ -1131,20 +1125,19 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
-	var newScale int
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
-		if err != nil {
-			return errors.Annotatef(err, "getting current scale state for %q", appName)
-		}
+	currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
+	if err != nil {
+		return -1, errors.Annotatef(err, "getting current scale state for %q", appName)
+	}
+	newScale := currentScaleState.Scale + scaleChange
+	s.logger.Tracef("ChangeScale DesiredScale %v, scaleChange %v, newScale %v", currentScaleState.Scale, scaleChange, newScale)
+	if newScale < 0 {
+		newScale = currentScaleState.Scale
+		return -1, internalerrors.Errorf(
+			"%w: cannot remove more units than currently exist", applicationerrors.ScaleChangeInvalid)
+	}
 
-		newScale = currentScaleState.Scale + scaleChange
-		s.logger.Tracef("ChangeScale DesiredScale %v, scaleChange %v, newScale %v", currentScaleState.Scale, scaleChange, newScale)
-		if newScale < 0 {
-			newScale = currentScaleState.Scale
-			return fmt.Errorf(
-				"%w: cannot remove more units than currently exist", applicationerrors.ScaleChangeInvalid)
-		}
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		err = s.st.SetDesiredApplicationScale(ctx, appID, newScale)
 		return errors.Annotatef(err, "changing scaling state for %q", appName)
 	})
@@ -1159,25 +1152,26 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 	if err != nil {
 		return errors.Annotatef(err, "getting life for %q", appName)
 	}
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
-		if err != nil {
-			return errors.Annotatef(err, "getting current scale state for %q", appName)
-		}
+	currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
+	if err != nil {
+		return errors.Annotatef(err, "getting current scale state for %q", appName)
+	}
 
-		var scale *int
-		if scaling {
-			switch appLife {
-			case life.Alive:
-				// if starting a scale, ensure we are scaling to the same target.
-				if !currentScaleState.Scaling && currentScaleState.Scale != scaleTarget {
-					return applicationerrors.ScalingStateInconsistent
-				}
-			case life.Dying, life.Dead:
-				// force scale to the scale target when dying/dead.
-				scale = &scaleTarget
+	var scale *int
+	if scaling {
+		switch appLife {
+		case life.Alive:
+			// if starting a scale, ensure we are scaling to the same target.
+			if !currentScaleState.Scaling && currentScaleState.Scale != scaleTarget {
+				return applicationerrors.ScalingStateInconsistent
 			}
+		case life.Dying, life.Dead:
+			// force scale to the scale target when dying/dead.
+			scale = &scaleTarget
 		}
+	}
+
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		err = s.st.SetApplicationScalingState(ctx, appID, scale, scaleTarget, scaling)
 		return errors.Annotatef(err, "updating scaling state for %q", appName)
 	})
@@ -1193,15 +1187,14 @@ func (s *Service) GetApplicationScalingState(ctx context.Context, appName string
 	if err != nil {
 		return ScalingState{}, errors.Trace(err)
 	}
-	var scaleState application.ScaleState
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		scaleState, err = s.st.GetApplicationScaleState(ctx, appID)
-		return errors.Annotatef(err, "getting scaling state for %q", appName)
-	})
+	scaleState, err := s.st.GetApplicationScaleState(ctx, appID)
+	if err != nil {
+		return ScalingState{}, errors.Annotatef(err, "getting scaling state for %q", appName)
+	}
 	return ScalingState{
 		ScaleTarget: scaleState.ScaleTarget,
 		Scaling:     scaleState.Scaling,
-	}, errors.Trace(err)
+	}, nil
 }
 
 // GetApplicationsWithPendingCharmsFromUUIDs returns the application UUIDs that

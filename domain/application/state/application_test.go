@@ -1447,12 +1447,7 @@ func (s *applicationStateSuite) TestGetApplicationScaleState(c *gc.C) {
 	}
 	appID := s.createApplication(c, "foo", life.Alive, u)
 
-	var scaleState application.ScaleState
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		scaleState, err = s.state.GetApplicationScaleState(ctx, appID)
-		return err
-	})
+	scaleState, err := s.state.GetApplicationScaleState(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(scaleState, jc.DeepEquals, application.ScaleState{
 		Scale: 1,
@@ -1460,10 +1455,7 @@ func (s *applicationStateSuite) TestGetApplicationScaleState(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationScaleStateNotFound(c *gc.C) {
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.GetApplicationScaleState(ctx, coreapplication.ID(uuid.MustNewUUID().String()))
-		return err
-	})
+	_, err := s.state.GetApplicationScaleState(context.Background(), coreapplication.ID(uuid.MustNewUUID().String()))
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

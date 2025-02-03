@@ -1380,9 +1380,14 @@ AND life_id < $minimalUnit.life_id
 
 // GetApplicationScaleState looks up the scale state of the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
-func (st *State) GetApplicationScaleState(ctx domain.AtomicContext, appUUID coreapplication.ID) (application.ScaleState, error) {
+func (st *State) GetApplicationScaleState(ctx context.Context, appUUID coreapplication.ID) (application.ScaleState, error) {
+	db, err := st.DB()
+	if err != nil {
+		return application.ScaleState{}, jujuerrors.Trace(err)
+	}
+
 	var appScale application.ScaleState
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		appScale, err = st.getApplicationScaleState(ctx, tx, appUUID)
 		return err

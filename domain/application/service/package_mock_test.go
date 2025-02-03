@@ -413,7 +413,7 @@ func (c *MockStateGetApplicationLifeCall) DoAndReturn(f func(context.Context, st
 }
 
 // GetApplicationScaleState mocks base method.
-func (m *MockState) GetApplicationScaleState(arg0 domain.AtomicContext, arg1 application.ID) (application0.ScaleState, error) {
+func (m *MockState) GetApplicationScaleState(arg0 context.Context, arg1 application.ID) (application0.ScaleState, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationScaleState", arg0, arg1)
 	ret0, _ := ret[0].(application0.ScaleState)
@@ -440,13 +440,13 @@ func (c *MockStateGetApplicationScaleStateCall) Return(arg0 application0.ScaleSt
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationScaleStateCall) Do(f func(domain.AtomicContext, application.ID) (application0.ScaleState, error)) *MockStateGetApplicationScaleStateCall {
+func (c *MockStateGetApplicationScaleStateCall) Do(f func(context.Context, application.ID) (application0.ScaleState, error)) *MockStateGetApplicationScaleStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationScaleStateCall) DoAndReturn(f func(domain.AtomicContext, application.ID) (application0.ScaleState, error)) *MockStateGetApplicationScaleStateCall {
+func (c *MockStateGetApplicationScaleStateCall) DoAndReturn(f func(context.Context, application.ID) (application0.ScaleState, error)) *MockStateGetApplicationScaleStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

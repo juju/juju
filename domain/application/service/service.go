@@ -229,20 +229,19 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var scaleState application.ScaleState
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		var err error
-		scaleState, err = s.st.GetApplicationScaleState(ctx, appID)
-		return errors.Annotatef(err, "getting scaling state for %q", appName)
-	})
+	scaleState, err := s.st.GetApplicationScaleState(ctx, appID)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting scaling state for %q: %w", appName, err)
+	}
 	currentScale := scaleState.Scale
 
 	mask := changestream.Create | changestream.Update
 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-		newScale, err := s.GetApplicationScale(ctx, appName)
+		newScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		newScale := newScaleState.Scale
 		// Only dispatch if the scale has changed.
 		if newScale != currentScale {
 			currentScale = newScale
