@@ -87,6 +87,7 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 		}, nil,
 	)
 
+	s.expectNewUnitResourceOpener(c)
 	opened, err := s.newUnitResourceOpener(
 		c,
 		0,
@@ -136,6 +137,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 	for i := 0; i < numConcurrentRequests; i++ {
 		start.Add(1)
 		finished.Add(1)
+		s.expectNewUnitResourceOpener(c)
 		go func() {
 			defer finished.Done()
 			start.Done()
@@ -383,6 +385,7 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	s.limiter.EXPECT().Acquire(gomock.Any(), "uuid:postgresql").Return(nil)
 	s.limiter.EXPECT().Release("uuid:postgresql")
 
+	s.expectNewUnitResourceOpener(c)
 	opened, err := s.newUnitResourceOpener(
 		c,
 		-1,
@@ -405,6 +408,7 @@ func (s *OpenerSuite) TestSetResourceUsedUnit(c *gc.C) {
 		s.resourceUUID,
 		s.unitUUID,
 	)
+	s.expectNewUnitResourceOpener(c)
 	err := s.newUnitResourceOpener(c, 0).SetResourceUsed(
 		context.Background(),
 		"wal-e",
@@ -428,6 +432,7 @@ func (s *OpenerSuite) TestSetResourceUsedUnitError(c *gc.C) {
 		s.unitUUID,
 	).Return(expectedErr)
 
+	s.expectNewUnitResourceOpener(c)
 	err := s.newUnitResourceOpener(c, 0).SetResourceUsed(
 		context.Background(),
 		"wal-e",
@@ -478,21 +483,7 @@ func (s *OpenerSuite) TestSetResourceUsedApplicationError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, expectedErr)
 }
 
-func (s *OpenerSuite) newUnitResourceOpener(
-	c *gc.C,
-	maxRequests int,
-) coreresource.Opener {
-	var (
-		limiter ResourceDownloadLock
-		err     error
-	)
-	if maxRequests < 0 {
-		limiter = s.limiter
-	} else {
-		limiter, err = NewResourceDownloadLimiter(maxRequests, 0)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
+func (s *OpenerSuite) expectNewUnitResourceOpener(c *gc.C) {
 	// Service calls in NewResourceOpenerForUnit.
 	s.applicationService.EXPECT().GetApplicationIDByUnitName(
 		gomock.Any(),
@@ -510,6 +501,22 @@ func (s *OpenerSuite) newUnitResourceOpener(
 	s.stateUnit.EXPECT().CharmURL().Return(ptr(s.charmURL.String()))
 	s.state.EXPECT().ModelUUID().Return("uuid")
 	s.stateApplication.EXPECT().CharmOrigin().Return(&s.charmOrigin)
+}
+
+func (s *OpenerSuite) newUnitResourceOpener(
+	c *gc.C,
+	maxRequests int,
+) coreresource.Opener {
+	var (
+		limiter ResourceDownloadLock
+		err     error
+	)
+	if maxRequests < 0 {
+		limiter = s.limiter
+	} else {
+		limiter, err = NewResourceDownloadLimiter(maxRequests, 0)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	opener, err := newResourceOpenerForUnit(
 		context.Background(),
