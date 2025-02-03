@@ -1077,7 +1077,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 	appID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
 	unitName := coreunit.Name("foo/666")
-	s.state.EXPECT().GetApplicationLife(domaintesting.IsAtomicContextChecker, "foo").Return(appID, life.Alive, nil)
+	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(appID, life.Alive, nil)
 	s.state.EXPECT().UpdateUnitContainer(domaintesting.IsAtomicContextChecker, unitName, &application.CloudContainer{
 		ProviderId: "provider-id",
 		Address: &application.ContainerAddress{
@@ -1152,8 +1152,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnitNotAlive(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return("", nil)
-	s.state.EXPECT().GetApplicationLife(domaintesting.IsAtomicContextChecker, "foo").Return(id, life.Dying, nil)
+	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(id, life.Dying, nil)
 
 	err := s.service.UpdateCAASUnit(context.Background(), coreunit.Name("foo/666"), UpdateCAASUnitParams{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
@@ -1789,7 +1788,6 @@ type applicationWatcherServiceSuite struct {
 
 	state          *MockState
 	charm          *MockCharm
-	secret         *MockDeleteSecretState
 	clock          *testclock.Clock
 	watcherFactory *MockWatcherFactory
 }
@@ -1972,7 +1970,6 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 
 	s.state = NewMockState(ctrl)
 	s.charm = NewMockCharm(ctrl)
-	s.secret = NewMockDeleteSecretState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
 
 	registry := corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
@@ -1987,7 +1984,6 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewWatchableService(
 		s.state,
-		s.secret,
 		registry,
 		modelUUID,
 		s.watcherFactory,

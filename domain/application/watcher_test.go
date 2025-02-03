@@ -25,7 +25,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
-	secretstate "github.com/juju/juju/domain/secret/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -529,7 +528,6 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 
 	return service.NewWatchableService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
-		secretstate.NewState(modelDB, loggertesting.WrapCheckLog(c)),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),

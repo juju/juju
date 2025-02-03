@@ -22,7 +22,6 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
@@ -34,8 +33,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
 	portstate "github.com/juju/juju/domain/port/state"
-	domainsecret "github.com/juju/juju/domain/secret"
-	secretstate "github.com/juju/juju/domain/secret/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -592,25 +589,14 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 
 func (s *applicationStateSuite) TestGetApplicationLife(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Dying)
-	var (
-		appLife life.Life
-		gotID   coreapplication.ID
-	)
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotID, appLife, err = s.state.GetApplicationLife(ctx, "foo")
-		return err
-	})
+	gotID, appLife, err := s.state.GetApplicationLife(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotID, gc.Equals, appID)
 	c.Assert(appLife, gc.Equals, life.Dying)
 }
 
 func (s *applicationStateSuite) TestGetApplicationLifeNotFound(c *gc.C) {
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, _, err := s.state.GetApplicationLife(ctx, "foo")
-		return err
-	})
+	_, _, err := s.state.GetApplicationLife(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1029,6 +1015,7 @@ func (s *applicationStateSuite) TestSetUnitLife(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
+	ctx := context.Background()
 	s.createApplication(c, "foo", life.Alive, u)
 
 	checkResult := func(want life.Life) {
@@ -1042,30 +1029,22 @@ func (s *applicationStateSuite) TestSetUnitLife(c *gc.C) {
 		c.Assert(gotLife, jc.DeepEquals, want)
 	}
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetUnitLife(ctx, "foo/666", life.Dying)
-	})
+	err := s.state.SetUnitLife(ctx, "foo/666", life.Dying)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(life.Dying)
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetUnitLife(ctx, "foo/666", life.Dead)
-	})
+	err = s.state.SetUnitLife(ctx, "foo/666", life.Dead)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(life.Dead)
 
 	// Can't go backwards.
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetUnitLife(ctx, "foo/666", life.Dying)
-	})
+	err = s.state.SetUnitLife(ctx, "foo/666", life.Dying)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(life.Dead)
 }
 
 func (s *applicationStateSuite) TestSetUnitLifeNotFound(c *gc.C) {
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetUnitLife(ctx, "foo/666", life.Dying)
-	})
+	err := s.state.SetUnitLife(context.Background(), "foo/666", life.Dying)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -1158,12 +1137,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	}, network.GroupedPortRanges{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var gotIsLast bool
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotIsLast, err = s.state.DeleteUnit(ctx, "foo/666")
-		return err
-	})
+	gotIsLast, err := s.state.DeleteUnit(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotIsLast, jc.IsFalse)
 
@@ -1243,12 +1217,7 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnitAppAlive(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var gotIsLast bool
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotIsLast, err = s.state.DeleteUnit(ctx, "foo/666")
-		return err
-	})
+	gotIsLast, err := s.state.DeleteUnit(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotIsLast, jc.IsFalse)
 
@@ -1264,86 +1233,6 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnitAppAlive(c *gc.C) {
 	c.Assert(unitCount, gc.Equals, 0)
 }
 
-func (s *applicationStateSuite) createOwnedSecrets(c *gc.C) (appSecretURI *secrets.URI, unitSecretURI *secrets.URI) {
-	mysqlID := s.createApplication(c, "mysql", life.Alive,
-		application.InsertUnitArg{UnitName: "mysql/0"},
-		application.InsertUnitArg{UnitName: "mysql/1"},
-	)
-	s.createApplication(c, "mariadb", life.Alive,
-		application.InsertUnitArg{UnitName: "mariadb/0"},
-		application.InsertUnitArg{UnitName: "mariadb/1"},
-	)
-	var mysqlUnitUUID coreunit.UUID
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "mysql/1").
-			Scan(&mysqlUnitUUID); err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	st := secretstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	ctx := context.Background()
-	uri1 := secrets.NewURI()
-	uri2 := secrets.NewURI()
-
-	sp := domainsecret.UpsertSecretParams{
-		Data:       secrets.SecretData{"foo": "bar"},
-		RevisionID: ptr(uuid.MustNewUUID().String()),
-	}
-	err = s.state.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		err := st.CreateCharmApplicationSecret(ctx, 1, uri1, mysqlID, sp)
-		if err != nil {
-			return err
-		}
-
-		sp2 := domainsecret.UpsertSecretParams{
-			Data:       secrets.SecretData{"foo": "bar"},
-			RevisionID: ptr(uuid.MustNewUUID().String()),
-		}
-		return st.CreateCharmUnitSecret(ctx, 1, uri2, mysqlUnitUUID, sp2)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return uri1, uri2
-}
-
-func (s *applicationStateSuite) TestGetSecretsForApplication(c *gc.C) {
-	uri1, _ := s.createOwnedSecrets(c)
-	var gotURIs []*secrets.URI
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotURIs, err = s.state.GetSecretsForApplication(ctx, "mysql")
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotURIs, jc.SameContents, []*secrets.URI{uri1})
-}
-
-func (s *applicationStateSuite) TestGetSecretsForUnit(c *gc.C) {
-	_, uri2 := s.createOwnedSecrets(c)
-	var gotURIs []*secrets.URI
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotURIs, err = s.state.GetSecretsForUnit(ctx, "mysql/1")
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotURIs, jc.SameContents, []*secrets.URI{uri2})
-}
-
-func (s *applicationStateSuite) TestGetSecretsNone(c *gc.C) {
-	s.createOwnedSecrets(c)
-	var gotURIs []*secrets.URI
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotURIs, err = s.state.GetSecretsForUnit(ctx, "mariadb/1")
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotURIs, gc.HasLen, 0)
-}
-
 func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
@@ -1357,12 +1246,7 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var gotIsLast bool
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotIsLast, err = s.state.DeleteUnit(ctx, "foo/666")
-		return err
-	})
+	gotIsLast, err := s.state.DeleteUnit(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotIsLast, jc.IsTrue)
 
@@ -1563,12 +1447,7 @@ func (s *applicationStateSuite) TestGetApplicationScaleState(c *gc.C) {
 	}
 	appID := s.createApplication(c, "foo", life.Alive, u)
 
-	var scaleState application.ScaleState
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		scaleState, err = s.state.GetApplicationScaleState(ctx, appID)
-		return err
-	})
+	scaleState, err := s.state.GetApplicationScaleState(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(scaleState, jc.DeepEquals, application.ScaleState{
 		Scale: 1,
@@ -1576,10 +1455,7 @@ func (s *applicationStateSuite) TestGetApplicationScaleState(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestGetApplicationScaleStateNotFound(c *gc.C) {
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, err := s.state.GetApplicationScaleState(ctx, coreapplication.ID(uuid.MustNewUUID().String()))
-		return err
-	})
+	_, err := s.state.GetApplicationScaleState(context.Background(), coreapplication.ID(uuid.MustNewUUID().String()))
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1676,11 +1552,10 @@ func (s *applicationStateSuite) TestSetApplicationLife(c *gc.C) {
 
 func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
 	// TODO(units) - add references to constraints, storage etc when those are fully cooked
+	ctx := context.Background()
 	s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err := s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -1744,42 +1619,35 @@ WHERE a.name=?`,
 }
 
 func (s *applicationStateSuite) TestDeleteApplicationTwice(c *gc.C) {
+	ctx := context.Background()
 	s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err := s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err = s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestDeleteDeadApplication(c *gc.C) {
+	ctx := context.Background()
 	s.createApplication(c, "foo", life.Dead)
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err := s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err = s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
+	ctx := context.Background()
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u)
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.DeleteApplication(ctx, "foo")
-	})
+	err := s.state.DeleteApplication(ctx, "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationHasUnits)
 	c.Assert(err, gc.ErrorMatches, `.*cannot delete application "foo" as it still has 1 unit\(s\)`)
 

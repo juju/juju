@@ -853,7 +853,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	logger := loggertesting.WrapCheckLog(c)
 	st := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger)
-	svc := applicationservice.NewService(st, nil,
+	svc := applicationservice.NewService(st,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),

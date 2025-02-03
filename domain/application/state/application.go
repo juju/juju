@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	coresecrets "github.com/juju/juju/core/secrets"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -232,8 +231,13 @@ func (st *State) CreateApplication(
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
 // is returned.
-func (st *State) DeleteApplication(ctx domain.AtomicContext, name string) error {
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+func (st *State) DeleteApplication(ctx context.Context, name string) error {
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.deleteApplication(ctx, tx, name)
 	})
 	if err != nil {
@@ -249,6 +253,20 @@ SELECT count(*) AS &countResult.count
 FROM unit
 WHERE application_uuid = $applicationDetails.uuid
 `, countResult{}, app)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	// NOTE: This is a work around because teardown is not implemented yet. Ideally,
+	// our workflow will mean that by the time the application is dead and we are
+	// ready to delete it, a worker will have already cleaned up all dependencies.
+	// However, this is not the case yet. Remove the secret owner for the unit,
+	// leaving the secret orphaned, to ensure we don't get a foreign key violation.
+	deleteSecretOwner := `
+DELETE FROM secret_application_owner
+WHERE application_uuid = $applicationDetails.uuid
+`
+	deleteSecretOwnerStmt, err := st.Prepare(deleteSecretOwner, app)
 	if err != nil {
 		return jujuerrors.Trace(err)
 	}
@@ -272,6 +290,10 @@ WHERE application_uuid = $applicationDetails.uuid
 	}
 	if numUnits := result.Count; numUnits > 0 {
 		return errors.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, jujuerrors.Hide(applicationerrors.ApplicationHasUnits))
+	}
+
+	if err := tx.Query(ctx, deleteSecretOwnerStmt, app).Run(); err != nil {
+		return errors.Errorf("deleting secret owner for application %q: %w", name, err)
 	}
 
 	if err := st.deleteCloudServices(ctx, tx, appUUID); err != nil {
@@ -959,7 +981,12 @@ DO NOTHING
 // other references to it exist, true is returned to
 // indicate the application could be safely deleted.
 // It will fail if the unit is not Dead.
-func (st *State) DeleteUnit(ctx domain.AtomicContext, unitName coreunit.Name) (bool, error) {
+func (st *State) DeleteUnit(ctx context.Context, unitName coreunit.Name) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, jujuerrors.Trace(err)
+	}
+
 	unit := minimalUnit{Name: unitName}
 	peerCountQuery := `
 SELECT a.life_id as &unitCount.app_life_id, u.life_id AS &unitCount.unit_life_id, count(peer.uuid) AS &unitCount.count
@@ -973,7 +1000,11 @@ WHERE u.name = $minimalUnit.name
 		return false, jujuerrors.Trace(err)
 	}
 	canRemoveApplication := false
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.setUnitLife(ctx, tx, unitName, life.Dead)
+		if err != nil {
+			return errors.Errorf("setting unit %q to Dead: %w", unitName, err)
+		}
 		// Count the number of units besides this one
 		// belonging to the same application.
 		var count unitCount
@@ -1014,6 +1045,20 @@ func (st *State) deleteUnit(ctx context.Context, tx *sqlair.TX, unitName coreuni
 		return jujuerrors.Trace(err)
 	}
 
+	// NOTE: This is a work around because teardown is not implemented yet. Ideally,
+	// our workflow will mean that by the time the unit is dead and we are ready to
+	// delete it, a worker will have already cleaned up all dependencies. However,
+	// this is not the case yet. Remove the secret owner for the unit, leaving the
+	// secret orphaned, to ensure we don't get a foreign key violation.
+	deleteSecretOwner := `
+DELETE FROM secret_unit_owner
+WHERE unit_uuid = $minimalUnit.uuid
+`
+	deleteSecretOwnerStmt, err := st.Prepare(deleteSecretOwner, unit)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
 	deleteUnit := `DELETE FROM unit WHERE name = $minimalUnit.name`
 	deleteUnitStmt, err := st.Prepare(deleteUnit, unit)
 	if err != nil {
@@ -1037,6 +1082,11 @@ DELETE FROM net_node WHERE uuid = (
 	}
 	if err != nil {
 		return errors.Errorf("looking up UUID for unit %q: %w", unitName, err)
+	}
+
+	err = tx.Query(ctx, deleteSecretOwnerStmt, unit).Run()
+	if err != nil {
+		return errors.Errorf("deleting secret owner for unit %q: %w", unitName, err)
 	}
 
 	if err := st.deleteCloudContainer(ctx, tx, unit.UUID, unit.NetNodeID); err != nil {
@@ -1178,74 +1228,6 @@ func (st *State) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, 
 	return nil
 }
 
-// GetSecretsForApplication returns the secrets owned by the specified application.
-func (st *State) GetSecretsForApplication(
-	ctx domain.AtomicContext, appName string,
-) ([]*coresecrets.URI, error) {
-	app := applicationName{Name: appName}
-	queryStmt, err := st.Prepare(`
-SELECT sm.secret_id AS &secretID.id
-FROM secret_metadata sm
-JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
-JOIN application a ON a.uuid = sao.application_uuid
-WHERE a.name = $applicationName.name
-`, app, secretID{})
-	if err != nil {
-		return nil, jujuerrors.Trace(err)
-	}
-
-	var (
-		dbSecrets secretIDs
-		uris      []*coresecrets.URI
-	)
-	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryStmt, app).GetAll(&dbSecrets)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-				return fmt.Errorf("getting secrets for application %q: %w", appName, err)
-			}
-		}
-		uris, err = dbSecrets.toSecretURIs()
-		return err
-	}); err != nil {
-		return nil, jujuerrors.Trace(err)
-	}
-	return uris, nil
-}
-
-// GetSecretsForUnit returns the secrets owned by the specified unit.
-func (st *State) GetSecretsForUnit(
-	ctx domain.AtomicContext, unitName coreunit.Name,
-) ([]*coresecrets.URI, error) {
-	unit := unitNameAndUUID{Name: unitName}
-	queryStmt, err := st.Prepare(`
-SELECT sm.secret_id AS &secretID.id
-FROM secret_metadata sm
-JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
-JOIN unit u ON u.uuid = suo.unit_uuid
-WHERE u.name = $unitNameAndUUID.name
-`, unit, secretID{})
-	if err != nil {
-		return nil, jujuerrors.Trace(err)
-	}
-
-	var (
-		dbSecrets secretIDs
-		uris      []*coresecrets.URI
-	)
-	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryStmt, unit).GetAll(&dbSecrets)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("getting secrets for unit %q: %w", unitName, err)
-		}
-		uris, err = dbSecrets.toSecretURIs()
-		return err
-	}); err != nil {
-		return nil, jujuerrors.Trace(err)
-	}
-	return uris, nil
-}
-
 // StorageDefaults returns the default storage sources for a model.
 func (st *State) StorageDefaults(ctx context.Context) (domainstorage.StorageDefaults, error) {
 	rval := domainstorage.StorageDefaults{}
@@ -1342,7 +1324,26 @@ WHERE name = $minimalUnit.name
 
 // SetUnitLife sets the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit is not found.
-func (st *State) SetUnitLife(ctx domain.AtomicContext, unitName coreunit.Name, l life.Life) error {
+func (st *State) SetUnitLife(ctx context.Context, unitName coreunit.Name, l life.Life) error {
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setUnitLife(ctx, tx, unitName, l)
+	})
+	if err != nil {
+		return errors.Errorf("updating unit life for %q: %w", unitName, err)
+	}
+	return nil
+}
+
+// TODO(units) - check for subordinates and storage attachments
+// For IAAS units, we need to do additional checks - these are still done in mongo.
+// If a unit still has subordinates, return applicationerrors.UnitHasSubordinates.
+// If a unit still has storage attachments, return applicationerrors.UnitHasStorageAttachments.
+func (st *State) setUnitLife(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name, l life.Life) error {
 	unit := minimalUnit{Name: unitName, LifeID: l}
 	query := `
 SELECT &minimalUnit.uuid
@@ -1367,26 +1368,26 @@ AND life_id < $minimalUnit.life_id
 		return jujuerrors.Trace(err)
 	}
 
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, unit).Get(&unit)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("unit %q not found%w", unitName, jujuerrors.Hide(applicationerrors.UnitNotFound))
-		} else if err != nil {
-			return errors.Errorf("querying unit %q: %w", unitName, err)
-		}
-		return tx.Query(ctx, updateLifeStmt, unit).Run()
-	})
-	if err != nil {
-		return errors.Errorf("updating unit life for %q: %w", unitName, err)
+	err = tx.Query(ctx, stmt, unit).Get(&unit)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return fmt.Errorf("unit %q not found%w", unitName, jujuerrors.Hide(applicationerrors.UnitNotFound))
+	} else if err != nil {
+		return errors.Errorf("querying unit %q: %w", unitName, err)
 	}
-	return nil
+	return tx.Query(ctx, updateLifeStmt, unit).Run()
+
 }
 
 // GetApplicationScaleState looks up the scale state of the specified application, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application is not found.
-func (st *State) GetApplicationScaleState(ctx domain.AtomicContext, appUUID coreapplication.ID) (application.ScaleState, error) {
+func (st *State) GetApplicationScaleState(ctx context.Context, appUUID coreapplication.ID) (application.ScaleState, error) {
+	db, err := st.DB()
+	if err != nil {
+		return application.ScaleState{}, jujuerrors.Trace(err)
+	}
+
 	var appScale application.ScaleState
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		appScale, err = st.getApplicationScaleState(ctx, tx, appUUID)
 		return err
@@ -1422,7 +1423,12 @@ WHERE application_uuid = $applicationScale.application_uuid
 // GetApplicationLife looks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
-func (st *State) GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error) {
+func (st *State) GetApplicationLife(ctx context.Context, appName string) (coreapplication.ID, life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", -1, jujuerrors.Trace(err)
+	}
+
 	app := applicationDetails{Name: appName}
 	query := `
 SELECT &applicationDetails.*
@@ -1434,7 +1440,7 @@ WHERE name = $applicationDetails.name
 		return "", -1, jujuerrors.Trace(err)
 	}
 
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, app).Get(&app); err != nil {
 			if !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("querying life for application %q: %w", appName, err)

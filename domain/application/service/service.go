@@ -63,14 +63,12 @@ type Service struct {
 	clock  clock.Clock
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
-	secretDeleter         DeleteSecretState
 	charmStore            CharmStore
 }
 
 // NewService returns a new service reference wrapping the input state.
 func NewService(
 	st State,
-	deleteSecretState DeleteSecretState,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	charmStore CharmStore,
 	clock clock.Clock,
@@ -81,7 +79,6 @@ func NewService(
 		logger:                logger,
 		clock:                 clock,
 		storageRegistryGetter: storageRegistryGetter,
-		secretDeleter:         deleteSecretState,
 		charmStore:            charmStore,
 	}
 }
@@ -113,7 +110,6 @@ type ProviderService struct {
 // NewProviderService returns a new Service for interacting with a models state.
 func NewProviderService(
 	st State,
-	deleteSecretState DeleteSecretState,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
@@ -125,7 +121,6 @@ func NewProviderService(
 	return &ProviderService{
 		Service: NewService(
 			st,
-			deleteSecretState,
 			storageRegistryGetter,
 			charmStore,
 			clock,
@@ -181,7 +176,6 @@ type WatchableService struct {
 // NewWatchableService returns a new service reference wrapping the input state.
 func NewWatchableService(
 	st State,
-	deleteSecretState DeleteSecretState,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	modelID coremodel.UUID,
 	watcherFactory WatcherFactory,
@@ -194,7 +188,6 @@ func NewWatchableService(
 	return &WatchableService{
 		ProviderService: NewProviderService(
 			st,
-			deleteSecretState,
 			storageRegistryGetter,
 			modelID,
 			agentVersionGetter,
@@ -232,17 +225,23 @@ func (s *WatchableService) WatchApplicationUnitLife(appName string) (watcher.Str
 
 // WatchApplicationScale returns a watcher that observes changes to an application's scale.
 func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
-	appID, currentScale, err := s.getApplicationScaleAndID(ctx, appName)
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	scaleState, err := s.st.GetApplicationScaleState(ctx, appID)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting scaling state for %q: %w", appName, err)
+	}
+	currentScale := scaleState.Scale
 
 	mask := changestream.Create | changestream.Update
 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-		newScale, err := s.GetApplicationScale(ctx, appName)
+		newScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		newScale := newScaleState.Scale
 		// Only dispatch if the scale has changed.
 		if newScale != currentScale {
 			currentScale = newScale

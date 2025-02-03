@@ -18,7 +18,6 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/domain"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
@@ -125,7 +124,6 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 
 	appService := applicationservice.NewService(
 		st,
-		noopSecretDeleter{},
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
@@ -162,10 +160,4 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return uri
-}
-
-type noopSecretDeleter struct{}
-
-func (noopSecretDeleter) DeleteSecret(ctx domain.AtomicContext, uri *coresecrets.URI, revs []int) error {
-	return nil
 }
