@@ -157,6 +157,7 @@ Limit the use of shell scripts and commands as much as possible in favour of wri
 * Extracting data from a machine or container which can't be obtained through Python
 * Issuing commands to applications that do not have Python bindings (e.g., starting a process on a machine)
 
+(documentation-conventions)=
 ## Documentation
 
 Documentation should be considered the user’s handbook for using a charmed application safely and successfully.
@@ -551,4 +552,3 @@ The following items from https://github.com/canonical/is-charms-contributing-gui
 * https://github.com/canonical/is-charms-contributing-guide/blob/main/CONTRIBUTING.md#handling-typing-issues-with-python-libjuju: perhaps it is better to change the behaviour of python-libjuju than include these in the official juju style guide
 
 -->
-
