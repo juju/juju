@@ -114,7 +114,7 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 
 func (s *ModelState) getModelUUID(ctx context.Context, tx *sqlair.TX) (coremodel.UUID, error) {
 	var modelUUID dbUUID
-	stmt, err := s.Prepare(`SELECT &dbUUID.uuid FROM model;`, dbUUID{})
+	stmt, err := s.Prepare(`SELECT &dbUUID.uuid FROM model;`, modelUUID)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -234,12 +234,13 @@ func (s *ModelState) getModelConstraints(
 	ctx context.Context,
 	tx *sqlair.TX,
 ) (dbConstraint, error) {
-	stmt, err := s.Prepare("SELECT &dbConstraint.* FROM v_model_constraint", dbConstraint{})
+	var constraint dbConstraint
+
+	stmt, err := s.Prepare("SELECT &dbConstraint.* FROM v_model_constraint", constraint)
 	if err != nil {
 		return dbConstraint{}, errors.Capture(err)
 	}
 
-	var constraint dbConstraint
 	err = tx.Query(ctx, stmt).Get(&constraint)
 	if errors.Is(err, sql.ErrNoRows) {
 		return dbConstraint{}, errors.New(
@@ -456,16 +457,16 @@ func (s *ModelState) insertConstraintTags(
 	constraintUUID uuid.UUID,
 	tags []string,
 ) error {
+	if len(tags) == 0 {
+		return nil
+	}
+
 	insertConstraintTagStmt, err := s.Prepare(
 		"INSERT INTO constraint_tag (*) VALUES ($dbConstraintTag.*)",
 		dbConstraintTag{},
 	)
 	if err != nil {
 		return errors.Capture(err)
-	}
-
-	if len(tags) == 0 {
-		return nil
 	}
 
 	data := make([]dbConstraintTag, 0, len(tags))
@@ -495,16 +496,16 @@ func (s *ModelState) insertContraintSpaces(
 	constraintUUID uuid.UUID,
 	spaces []string,
 ) error {
+	if len(spaces) == 0 {
+		return nil
+	}
+
 	insertConstraintSpaceStmt, err := s.Prepare(
 		"INSERT INTO constraint_space (*) VALUES ($dbConstraintSpace.*)",
 		dbConstraintSpace{},
 	)
 	if err != nil {
 		return errors.Capture(err)
-	}
-
-	if len(spaces) == 0 {
-		return nil
 	}
 
 	data := make([]dbConstraintSpace, 0, len(spaces))
@@ -538,16 +539,16 @@ func (s *ModelState) insertContraintZones(
 	constraintUUID uuid.UUID,
 	zones []string,
 ) error {
+	if len(zones) == 0 {
+		return nil
+	}
+
 	insertConstraintZoneStmt, err := s.Prepare(
 		"INSERT INTO constraint_zone (*) VALUES ($dbConstraintZone.*)",
 		dbConstraintZone{},
 	)
 	if err != nil {
 		return errors.Capture(err)
-	}
-
-	if len(zones) == 0 {
-		return nil
 	}
 
 	data := make([]dbConstraintZone, 0, len(zones))
