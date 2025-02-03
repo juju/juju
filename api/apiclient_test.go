@@ -1149,7 +1149,7 @@ func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *gc.C) {
 
 func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
 	clock := &fakeClock{}
-	conn := api.NewTestingState(api.TestingStateParams{
+	conn := api.NewTestingState(c, api.TestingStateParams{
 		RPCConnection: newRPCConnection(),
 		Clock:         clock,
 	})
@@ -1161,7 +1161,7 @@ func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
 
 func (s *apiclientSuite) TestAPICallErrorBadRequest(c *gc.C) {
 	clock := &fakeClock{}
-	conn := api.NewTestingState(api.TestingStateParams{
+	conn := api.NewTestingState(c, api.TestingStateParams{
 		RPCConnection: newRPCConnection(errors.BadRequestf("boom")),
 		Clock:         clock,
 	})
@@ -1174,7 +1174,7 @@ func (s *apiclientSuite) TestAPICallErrorBadRequest(c *gc.C) {
 
 func (s *apiclientSuite) TestAPICallErrorNotImplemented(c *gc.C) {
 	clock := &fakeClock{}
-	conn := api.NewTestingState(api.TestingStateParams{
+	conn := api.NewTestingState(c, api.TestingStateParams{
 		RPCConnection: newRPCConnection(apiservererrors.ServerError(errors.NotImplementedf("boom"))),
 		Clock:         clock,
 	})
@@ -1185,7 +1185,7 @@ func (s *apiclientSuite) TestAPICallErrorNotImplemented(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
-	conn := api.NewTestingState(api.TestingStateParams{
+	conn := api.NewTestingState(c, api.TestingStateParams{
 		RPCConnection: newRPCConnection(),
 		Clock:         new(fakeClock),
 	})
@@ -1195,7 +1195,7 @@ func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
 func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
 	broken := make(chan struct{})
 	close(broken)
-	conn := api.NewTestingState(api.TestingStateParams{
+	conn := api.NewTestingState(c, api.TestingStateParams{
 		RPCConnection: newRPCConnection(),
 		Clock:         new(fakeClock),
 		Broken:        broken,
@@ -1204,7 +1204,7 @@ func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
-	conn := api.NewTestingState(api.TestingStateParams{
+	conn := api.NewTestingState(c, api.TestingStateParams{
 		RPCConnection: newRPCConnection(errors.New("no biscuit")),
 		Clock:         new(fakeClock),
 	})
@@ -1225,7 +1225,7 @@ func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
 	// (because there's no monitor running).
 	broken := make(chan struct{})
 	close(broken)
-	testState := api.NewTestingState(api.TestingStateParams{
+	testState := api.NewTestingState(c, api.TestingStateParams{
 		RPCConnection: conn,
 		Clock:         &fakeClock{},
 		Address:       "wss://localhost:1234",

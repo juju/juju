@@ -471,8 +471,9 @@ type dialResult struct {
 	// controllerRootAddr represents the controller's root address.
 	// E.g. wss://controller.com/foo
 	controllerRootAddr *url.URL
-	// dialAddr is the full URL (with no DNS resolution) that was actually dialed.
-	// E.g. wss://controller.com/foo/api
+	// dialAddr is the full URL (with no DNS resolution) that was actually dialed
+	// e.g. wss://controller.com/foo/api for the controller endpoint
+	// or wss://controller.com/foo/model/<uuid>/api for model endpoints.
 	dialAddr *url.URL
 	// ipAddr represents the IP address that was dialed.
 	ipAddr    string
@@ -1264,8 +1265,8 @@ func (s *state) ControllerTag() names.ControllerTag {
 }
 
 // APIHostPorts returns addresses that may be used to connect
-// to the API server, conditionally including the address used
-// to connect when the address does not include a path segment.
+// to the API server. It includes the address used to connect
+// when the address does not include a path segment.
 //
 // The addresses are scoped (public, cloud-internal, etc.), so
 // the client may choose which addresses to attempt. For the

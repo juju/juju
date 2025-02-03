@@ -108,7 +108,7 @@ func (s *stateSuite) TestAPIHostPortsExcludesAddressesWithPath(c *gc.C) {
 
 	broken := make(chan struct{})
 	close(broken)
-	testState := api.NewTestingState(api.TestingStateParams{
+	testState := api.NewTestingState(c, api.TestingStateParams{
 		RPCConnection: conn,
 		Clock:         &fakeClock{},
 		Address:       "wss://localhost:1234/foo",
@@ -146,7 +146,7 @@ func (s *stateSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
 
 	broken := make(chan struct{})
 	close(broken)
-	testState := api.NewTestingState(api.TestingStateParams{
+	testState := api.NewTestingState(c, api.TestingStateParams{
 		RPCConnection: conn,
 		Clock:         &fakeClock{},
 		Address:       "wss://localhost:1234",

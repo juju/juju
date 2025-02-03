@@ -836,7 +836,7 @@ func (s *NewAPIClientSuite) TestUpdateControllerDetailsFromLogin(c *gc.C) {
 	}}
 
 	for i, test := range tests {
-		c.Logf("running test case %d", i)
+		c.Logf("running test case %d - %s", i, test.description)
 		store := &testClientStore{
 			controllerDetails: map[string]*jujuclient.ControllerDetails{
 				test.controllerName: {},

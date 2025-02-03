@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"reflect"
 	"slices"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -391,41 +392,29 @@ func updateControllerDetailsFromLogin(
 	return errors.Trace(err)
 }
 
-func trimScheme(urls []*url.URL) []string {
-	res := make([]string, len(urls))
-	for i, url := range urls {
-		res[i] = url.Host + url.RequestURI()
-	}
-	return res
-}
-
 // makeUsableAddresses returns a list of controller addresses
 // in a format appropriate for persisting in the Juju client store.
 // The addresses will be a URL but omit any scheme i.e. <domain>:<port>/<path>
 // The addresses are filtered to only those unique and usable.
 // Finally, the params.DNSCache will be updated.
 func makeUsableAddresses(params *UpdateControllerParams) []string {
-	// Use a defaultScheme local to this function for comparisons
-	// between the list of HostPorts and the connectedURL.
-	defaultScheme := "scheme"
-
-	// HostPorts don't have a scheme, so for comparisons use the default.
-	addresses := usableHostPorts(params.CurrentHostPorts).CanonicalURLs(defaultScheme)
+	addresses := usableHostPorts(params.CurrentHostPorts).Strings()
 
 	// Ignore the currently connected address if there is no current
 	// connection (during bootstrap) or if the connection is proxied.
-	if params.CurrentConnection == nil || params.CurrentConnection.Proxied {
-		return trimScheme(addresses)
+	if params.CurrentConnection == nil ||
+		params.CurrentConnection.Address == nil ||
+		params.CurrentConnection.Proxied {
+		return addresses
 	}
 
-	// Make a copy to avoid modifying the provided address.
-	connectedUrl := &url.URL{}
-	*connectedUrl = *params.CurrentConnection.Address
-	connectedUrl.Scheme = defaultScheme
+	connectedUrl := params.CurrentConnection.Address
+	urlWithoutScheme := connectedUrl.Host + connectedUrl.RequestURI()
+	urlWithoutScheme, _ = strings.CutSuffix(urlWithoutScheme, "/")
 
 	// Move the connected-to host to the front of the address list.
-	if !slices.ContainsFunc(addresses, func(u *url.URL) bool { return u.String() == connectedUrl.String() }) {
-		addresses = slices.Insert(addresses, 0, connectedUrl)
+	if !slices.Contains(addresses, urlWithoutScheme) {
+		addresses = slices.Insert(addresses, 0, urlWithoutScheme)
 	}
 
 	// Move the IP address used to the front of the DNS cache entry
@@ -435,7 +424,7 @@ func makeUsableAddresses(params *UpdateControllerParams) []string {
 		host := connectedUrl.Hostname()
 		moveToFront(ipHost, params.DNSCache[host])
 	}
-	return trimScheme(addresses)
+	return addresses
 }
 
 // dnsCacheMap implements api.DNSCache by
