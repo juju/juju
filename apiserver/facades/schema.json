@@ -490,9 +490,6 @@
                             "items": {
                                 "type": "string"
                             }
-                        },
-                        "workload-context": {
-                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
