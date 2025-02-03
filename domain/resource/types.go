@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -25,6 +26,8 @@ type GetApplicationResourceIDArgs struct {
 type SetRepositoryResourcesArgs struct {
 	// ApplicationID is the id of the application having these resources.
 	ApplicationID application.ID
+	// CharmID is the unique identifier for a charm to update resources.
+	CharmID corecharm.ID
 	// Info is a slice of resource data received from the repository.
 	Info []charmresource.Resource
 	// LastPolled indicates when the resource data was last polled.

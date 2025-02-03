@@ -1239,9 +1239,13 @@ AND           unit_uuid = $unitResource.unit_uuid
 	return nil
 }
 
-// SetRepositoryResources sets the "polled" resources for the
-// application to the provided values. The current data for this
-// application/resource combination will be overwritten.
+// SetRepositoryResources updates the "potential" resources as the last
+// revision from charm repository. The current data for this
+// application/resource  combination with "potential" state will be overwritten.
+// If the resource doesn't exist, a log is generated.
+//
+// "Potential" resources should be created at the creation of the application
+// for repository charm, with undefined `revision` and `last_polled` fields.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ApplicationNotFound] if the application id doesn't belong
@@ -1273,9 +1277,10 @@ WHERE uuid = $applicationNameAndID.uuid
 	// Prepare statement to get impacted resources UUID.
 	fetchResIdentity := resourceIdentity{ApplicationUUID: config.ApplicationID.String()}
 	fetchUUIDsQuery := `
-SELECT uuid as &resourceIdentity.uuid
+SELECT &resourceIdentity.*
 FROM v_application_resource
 WHERE  application_uuid = $resourceIdentity.application_uuid
+AND state = 'potential'
 AND name IN ($resourceNames[:])
 `
 	fetchUUIDsStmt, err := st.Prepare(fetchUUIDsQuery, fetchResIdentity, resourceNames{})
@@ -1283,24 +1288,30 @@ AND name IN ($resourceNames[:])
 		return errors.Capture(err)
 	}
 
-	// Prepare statement to update lastPolled value.
-	type lastPolledResource struct {
+	// Prepare statement to update resources.
+	type updatePotentialResource struct {
 		UUID       string    `db:"uuid"`
 		LastPolled time.Time `db:"last_polled"`
+		Revision   int       `db:"revision"`
+		CharmUUID  string    `db:"charm_uuid"`
 	}
 	updateLastPolledQuery := `
 UPDATE resource 
-SET last_polled=$lastPolledResource.last_polled
-WHERE uuid = $lastPolledResource.uuid
+SET last_polled=$updatePotentialResource.last_polled,
+    revision=$updatePotentialResource.revision,
+    charm_uuid=$updatePotentialResource.charm_uuid
+WHERE uuid = $updatePotentialResource.uuid
 `
-	updateLastPolledStmt, err := st.Prepare(updateLastPolledQuery, lastPolledResource{})
+	updateLastPolledStmt, err := st.Prepare(updateLastPolledQuery, updatePotentialResource{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
+	revisionByName := make(map[string]int, len(config.Info))
 	names := make([]string, 0, len(config.Info))
 	for _, info := range config.Info {
 		names = append(names, info.Name)
+		revisionByName[info.Name] = info.Revision
 	}
 	var resIdentities []resourceIdentity
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1330,15 +1341,16 @@ WHERE uuid = $lastPolledResource.uuid
 
 		// Update last polled resources.
 		for _, res := range resIdentities {
-			err := tx.Query(ctx, updateLastPolledStmt, lastPolledResource{
+			err := tx.Query(ctx, updateLastPolledStmt, updatePotentialResource{
 				UUID:       res.UUID,
+				CharmUUID:  config.CharmID.String(),
 				LastPolled: config.LastPolled,
+				Revision:   revisionByName[res.Name],
 			}).Run()
 			if err != nil {
 				return errors.Capture(err)
 			}
 		}
-
 		return nil
 	})
 	return errors.Capture(err)

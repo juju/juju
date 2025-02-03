@@ -404,8 +404,9 @@ FROM application
 WHERE name=?`, "666").Scan(&appUUID, &charmUUID)
 	})
 	var (
-		foundCharmResources []charm.Resource
-		foundAppResources   []application.AddApplicationResourceArg
+		foundCharmResources        []charm.Resource
+		foundAppAvailableResources []application.AddApplicationResourceArg
+		foundAppPotentialResources []application.AddApplicationResourceArg
 	)
 	assertTxn("Fetch charm resources", func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
@@ -426,11 +427,12 @@ WHERE charm_uuid=?`, charmUUID)
 		}
 		return nil
 	})
-	assertTxn("Fetch application resources", func(ctx context.Context, tx *sql.Tx) error {
+	assertTxn("Fetch application available resources", func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT vr.name, revision, origin_type
 FROM v_resource vr
-WHERE application_uuid = ?`, appUUID)
+WHERE application_uuid = ?
+AND state = 'available'`, appUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -444,14 +446,48 @@ WHERE application_uuid = ?`, appUUID)
 			if res.Origin, err = charmresource.ParseOrigin(originName); err != nil {
 				return errors.Capture(err)
 			}
-			foundAppResources = append(foundAppResources, res)
+			foundAppAvailableResources = append(foundAppAvailableResources, res)
+		}
+		return nil
+	})
+
+	assertTxn("Fetch application potential resources", func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT vr.name, revision, origin_type
+FROM v_resource vr
+WHERE application_uuid = ?
+AND state = 'potential'`, appUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var res application.AddApplicationResourceArg
+			var originName string
+			if err := rows.Scan(&res.Name, &res.Revision, &originName); err != nil {
+				return errors.Capture(err)
+			}
+			if res.Origin, err = charmresource.ParseOrigin(originName); err != nil {
+				return errors.Capture(err)
+			}
+			foundAppPotentialResources = append(foundAppPotentialResources, res)
 		}
 		return nil
 	})
 	c.Check(foundCharmResources, jc.SameContents, slices.Collect(maps.Values(charmResources)),
 		gc.Commentf("(Assert) mismatch between charm resources and inserted resources"))
-	c.Check(foundAppResources, jc.SameContents, addResourcesArgs,
-		gc.Commentf("(Assert) mismatch between app resources and inserted resources"))
+	c.Check(foundAppAvailableResources, jc.SameContents, addResourcesArgs,
+		gc.Commentf("(Assert) mismatch between app available app resources and inserted resources"))
+	expectedPotentialResources := make([]application.AddApplicationResourceArg, 0, len(addResourcesArgs))
+	for _, res := range addResourcesArgs {
+		expectedPotentialResources = append(expectedPotentialResources, application.AddApplicationResourceArg{
+			Name:     res.Name,
+			Revision: nil,                       // nil revision
+			Origin:   charmresource.OriginStore, // origin should always be store
+		})
+	}
+	c.Check(foundAppPotentialResources, jc.SameContents, expectedPotentialResources,
+		gc.Commentf("(Assert) mismatch between potential app resources and inserted resources"))
 }
 
 // TestCreateApplicationWithExistingCharmWithResources ensures that two

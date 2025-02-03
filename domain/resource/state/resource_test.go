@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreresource "github.com/juju/juju/core/resource"
@@ -657,6 +658,7 @@ func (s *resourceSuite) TestSetRepositoryResource(c *gc.C) {
 		CreatedAt:       now,
 		RetrievedByType: "user",
 		RetrievedByName: "John Doe",
+		State:           statePotential,
 	}
 	notPolled := []resourceData{
 		defaultResource.DeepCopy(),
@@ -676,9 +678,30 @@ func (s *resourceSuite) TestSetRepositoryResource(c *gc.C) {
 	alreadyPolled[1].Name = "polled-2"
 	for i := range alreadyPolled {
 		alreadyPolled[i].PolledAt = previousPoll
+		alreadyPolled[i].Revision = 1
 	}
 
+	newCharmUUID := "new-charm-uuid"
+
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		// add the new charm
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO charm (uuid, reference_name, architecture_id, revision) VALUES (?, 'app',0, 1)
+`, newCharmUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		// populate charm resources table for existing resources
+		for _, d := range append(notPolled, alreadyPolled...) {
+			_, err = tx.Exec(`
+INSERT INTO charm_resource (charm_uuid, name, kind_id, path, description) 
+VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
+				newCharmUUID, d.Name, TypeID(d.Type), nilZero(d.Path), nilZero(d.Description))
+			if err != nil {
+				return errors.Capture(err)
+			}
+		}
+
 		for _, input := range append(notPolled, alreadyPolled...) {
 			if err := input.insert(context.Background(), tx); err != nil {
 				return errors.Capture(err)
@@ -691,14 +714,17 @@ func (s *resourceSuite) TestSetRepositoryResource(c *gc.C) {
 	// Act: update resource 1 and 2 (not 3)
 	err = s.state.SetRepositoryResources(context.Background(), resource.SetRepositoryResourcesArgs{
 		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
+		CharmID:       charm.ID(newCharmUUID),
 		Info: []charmresource.Resource{{
 			Meta: charmresource.Meta{
 				Name: "not-polled-1",
 			},
+			Revision: 2,
 		}, {
 			Meta: charmresource.Meta{
 				Name: "polled-1",
 			},
+			Revision: 2,
 		}},
 		LastPolled: now,
 	})
@@ -707,19 +733,25 @@ func (s *resourceSuite) TestSetRepositoryResource(c *gc.C) {
 	// Assert
 	type obtainedRow struct {
 		ResourceUUID string
+		Revision     int
+		CharmID      string
 		LastPolled   *time.Time
 	}
 	var obtained []obtainedRow
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.Query(`SELECT uuid, last_polled FROM resource`)
+		rows, err := tx.Query(`SELECT uuid, revision, charm_uuid, last_polled FROM resource WHERE state_id = 1`)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var row obtainedRow
-			if err := rows.Scan(&row.ResourceUUID, &row.LastPolled); err != nil {
+			var revision *int
+			if err := rows.Scan(&row.ResourceUUID, &revision, &row.CharmID, &row.LastPolled); err != nil {
 				return err
+			}
+			if revision != nil {
+				row.Revision = *revision
 			}
 			obtained = append(obtained, row)
 		}
@@ -730,18 +762,25 @@ func (s *resourceSuite) TestSetRepositoryResource(c *gc.C) {
 		{
 			ResourceUUID: "polled-id-1", // updated
 			LastPolled:   &now,
+			CharmID:      newCharmUUID,
+			Revision:     2,
 		},
 		{
 			ResourceUUID: "polled-id-2",
+			Revision:     1,
+			CharmID:      fakeCharmUUID,
 			LastPolled:   &previousPoll, // not updated
 		},
 		{
 			ResourceUUID: "not-polled-id-1", // created
 			LastPolled:   &now,
+			CharmID:      newCharmUUID,
+			Revision:     2,
 		},
 		{
 			ResourceUUID: "not-polled-id-2", // not polled
 			LastPolled:   nil,
+			CharmID:      fakeCharmUUID,
 		},
 	})
 }

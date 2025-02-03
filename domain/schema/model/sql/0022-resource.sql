@@ -162,9 +162,11 @@ SELECT
     r.uuid,
     ar.application_uuid,
     r.charm_resource_name AS name,
-    r.last_polled
+    r.last_polled,
+    rs.name AS state
 FROM resource AS r
-INNER JOIN application_resource AS ar ON r.uuid = ar.resource_uuid;
+INNER JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
+INNER JOIN resource_state AS rs ON r.state_id = rs.id;
 
 CREATE VIEW v_resource AS
 SELECT

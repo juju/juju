@@ -67,6 +67,13 @@ WHERE uuid = $charmID.uuid;
 	return nil
 }
 
+// checkCharmReferenceExists checks if a charm with the given reference name and
+// revision exists in the database.
+//
+//   - If the charm doesn't exists, it returns an empty id and no error
+//   - If the charm exists, it returns the id and the error
+//     [applicationerrors.CharmAlreadyExists]
+//   - Any other error are returned if the check fails
 func (s *State) checkCharmReferenceExists(ctx context.Context, tx *sqlair.TX, referenceName string, revision int) (corecharm.ID, error) {
 	selectQuery := `
 SELECT &charmID.*

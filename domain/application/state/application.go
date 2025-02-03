@@ -184,7 +184,12 @@ func (st *State) CreateApplication(
 		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
 			return errors.Errorf("inserting scale row for application %q: %w", name, err)
 		}
-		if err := st.insertResources(ctx, tx, appDetails, args.Resources); err != nil {
+		if err := st.insertResources(ctx, tx, insertResourcesArgs{
+			appID:        appDetails.UUID,
+			charmUUID:    appDetails.CharmID,
+			charmSource:  args.Charm.Source,
+			appResources: args.Resources,
+		}); err != nil {
 			return errors.Errorf("inserting resources for application %q: %w", name, err)
 		}
 		if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {

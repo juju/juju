@@ -27,6 +27,8 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainresource "github.com/juju/juju/domain/resource"
 	config "github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
@@ -45,6 +47,7 @@ type WorkerSuite struct {
 	modelConfigService *MockModelConfigService
 	applicationService *MockApplicationService
 	modelService       *MockModelService
+	resourceService    *MockResourceService
 	charmhubClient     *MockCharmhubClient
 	httpClient         *MockHTTPClient
 	httpClientGetter   *MockHTTPClientGetter
@@ -284,7 +287,7 @@ func (s *WorkerSuite) TestFetch(c *gc.C) {
 		charmLocator: charmLocator,
 		timestamp:    s.now,
 		revision:     666,
-		appID:        "foo",
+		appName:      "foo",
 	}})
 }
 
@@ -338,7 +341,7 @@ func (s *WorkerSuite) TestFetchInfo(c *gc.C) {
 	id := ids[0]
 
 	apps := []appInfo{{
-		id: "foo",
+		name: "foo",
 		charmLocator: applicationcharm.CharmLocator{
 			Source:       applicationcharm.CharmHubSource,
 			Name:         "foo",
@@ -388,7 +391,7 @@ func (s *WorkerSuite) TestFetchInfo(c *gc.C) {
 		charmLocator: apps[0].charmLocator,
 		timestamp:    s.now,
 		revision:     666,
-		appID:        "foo",
+		appName:      "foo",
 	}})
 }
 
@@ -725,7 +728,7 @@ func (s *WorkerSuite) TestStoreNewRevisionsNoUpdates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) TestStoreNewRevisions(c *gc.C) {
+func (s *WorkerSuite) TestStoreNewCharmRevisionsNoResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -759,7 +762,7 @@ func (s *WorkerSuite) TestStoreNewRevisions(c *gc.C) {
 		},
 		timestamp: s.now,
 		revision:  43,
-		appID:     "foo",
+		appName:   "foo",
 	}}
 	essentialMetadata := latestCharmInfos[0].essentialMetadata
 
@@ -793,7 +796,7 @@ func (s *WorkerSuite) TestStoreNewRevisions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) TestStoreNewRevisionsError(c *gc.C) {
+func (s *WorkerSuite) TestStoreNewCharmRevisionsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectWatcher(c)
@@ -817,6 +820,182 @@ func (s *WorkerSuite) TestStoreNewRevisionsError(c *gc.C) {
 
 	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *WorkerSuite) TestStoreNewResourceRevisions(c *gc.C) {
+	// Arrange: create two application with new resources from charm
+	defer s.setupMocks(c).Finish()
+
+	s.expectWatcher(c)
+	s.expectModelConfig(c)
+
+	latestCharmInfos := []latestCharmInfo{{
+		appName: "foo",
+		resources: []resource.Resource{{
+			Meta:     resource.Meta{Name: "foo"},
+			Origin:   resource.OriginStore,
+			Revision: 42,
+		}},
+	}, {
+		appName: "bar",
+		resources: []resource.Resource{{
+			Meta:     resource.Meta{Name: "bar-1"},
+			Origin:   resource.OriginStore,
+			Revision: 42,
+		}, {
+			Meta:     resource.Meta{Name: "bar-2"},
+			Origin:   resource.OriginStore,
+			Revision: 24,
+		}},
+	}}
+
+	// This function is called but won't contribute to the revisions storage
+	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), gomock.Any()).Return("foo-charm-id", nil, nil).AnyTimes()
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("foo-id", nil)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "bar").Return("bar-id", nil)
+	s.resourceService.EXPECT().SetRepositoryResources(gomock.Any(), domainresource.SetRepositoryResourcesArgs{
+		ApplicationID: "foo-id",
+		CharmID:       "foo-charm-id",
+		Info:          latestCharmInfos[0].resources,
+		LastPolled:    s.now,
+	}).Return(nil)
+	s.resourceService.EXPECT().SetRepositoryResources(gomock.Any(), domainresource.SetRepositoryResourcesArgs{
+		ApplicationID: "bar-id",
+		CharmID:       "foo-charm-id",
+		Info:          latestCharmInfos[1].resources,
+		LastPolled:    s.now,
+	}).Return(nil)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	// Act: run worker function
+	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+
+	// Assert: real assertion are done in what as been called in the mock
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *WorkerSuite) TestStoreNewResourceRevisionsWithApplicationNotFound(c *gc.C) {
+	// Arrange: create two application with new resources from charm
+	defer s.setupMocks(c).Finish()
+
+	s.expectWatcher(c)
+	s.expectModelConfig(c)
+
+	latestCharmInfos := []latestCharmInfo{
+		{
+			appName: "not-found",
+			// Resources need to not be empty: if empty, SetRepositoryResources
+			// won't be triggered
+			resources: []resource.Resource{{}},
+		},
+		{
+			appName: "foo",
+			resources: []resource.Resource{{
+				Meta:     resource.Meta{Name: "foo"},
+				Origin:   resource.OriginStore,
+				Revision: 42,
+			}},
+		}}
+
+	// This function is called but won't contribute to the revisions storage
+	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), gomock.Any()).Return("foo-charm-id", nil,
+		nil).AnyTimes()
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "not-found").Return("",
+		applicationerrors.ApplicationNotFound)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("foo-id", nil)
+	s.resourceService.EXPECT().SetRepositoryResources(gomock.Any(), domainresource.SetRepositoryResourcesArgs{
+		ApplicationID: "foo-id",
+		CharmID:       "foo-charm-id",
+		Info:          latestCharmInfos[1].resources,
+		LastPolled:    s.now,
+	}).Return(nil)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	// Act: run worker function
+	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+
+	// Assert: check everything ok through mocks, but also that a log as been
+	// generated for the unknown application.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(c.GetTestLog(), jc.Contains, `failed to get application ID for "not-found"`)
+}
+
+func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorGetApplicationID(c *gc.C) {
+	// Arrange: create two application with new resources from charm
+	defer s.setupMocks(c).Finish()
+
+	s.expectWatcher(c)
+	s.expectModelConfig(c)
+
+	latestCharmInfos := []latestCharmInfo{
+		{
+			appName: "foo",
+			// Resources need to not be empty: if empty, SetRepositoryResources
+			// won't be triggered
+			resources: []resource.Resource{{}},
+		}}
+	expectedError := errors.New("boom")
+
+	// This function is called but won't contribute to the revisions storage
+	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), gomock.Any()).Return("foo", nil, nil).AnyTimes()
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("",
+		expectedError)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	// Act: run worker function
+	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+
+	// Assert: Check the error is returned
+	c.Assert(err, jc.ErrorIs, expectedError)
+}
+
+func (s *WorkerSuite) TestStoreNewResourceRevisionsErrorStoreRepositoryResources(c *gc.C) {
+	// Arrange: create two application with new resources from charm
+	defer s.setupMocks(c).Finish()
+
+	s.expectWatcher(c)
+	s.expectModelConfig(c)
+
+	latestCharmInfos := []latestCharmInfo{
+		{
+			appName: "foo",
+			// Resources need to not be empty: if empty, SetRepositoryResources
+			// won't be triggered
+			resources: []resource.Resource{{}},
+		}}
+	expectedError := errors.New("boom")
+
+	// This function is called but won't contribute to the revisions storage
+	s.applicationService.EXPECT().ReserveCharmRevision(gomock.Any(), gomock.Any()).Return("foo", nil, nil).AnyTimes()
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("foo-id", nil)
+	s.resourceService.EXPECT().SetRepositoryResources(gomock.Any(), gomock.Any()).Return(expectedError)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	// Act: run worker function
+	err := w.storeNewRevisions(context.Background(), latestCharmInfos)
+
+	// Assert: Check the error is returned
+	c.Assert(err, jc.ErrorIs, expectedError)
 }
 
 func (s *WorkerSuite) TestEncodeCharmID(c *gc.C) {
@@ -1000,6 +1179,7 @@ func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.modelService = NewMockModelService(ctrl)
+	s.resourceService = NewMockResourceService(ctrl)
 	s.charmhubClient = NewMockCharmhubClient(ctrl)
 
 	s.now = time.Now()
@@ -1017,6 +1197,7 @@ func (s *WorkerSuite) newWorker(c *gc.C) *revisionUpdateWorker {
 		ModelConfigService: s.modelConfigService,
 		ApplicationService: s.applicationService,
 		ModelService:       s.modelService,
+		ResourceService:    s.resourceService,
 		ModelTag:           s.modelTag,
 		NewHTTPClient: func(context.Context, http.HTTPClientGetter) (http.HTTPClient, error) {
 			return s.httpClient, nil

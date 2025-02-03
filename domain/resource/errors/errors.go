@@ -16,6 +16,10 @@ const (
 	// being operated on does not exist.
 	ApplicationNotFound = errors.ConstError("application not found")
 
+	// CharmIDNotValid describes an error when the charm ID is
+	// not valid.
+	CharmIDNotValid = errors.ConstError("charm ID not valid")
+
 	// ArgumentNotValid describes an error that occurs when an argument to
 	// the service is invalid.
 	ArgumentNotValid = errors.ConstError("argument not valid")

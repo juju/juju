@@ -113,6 +113,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				ModelConfigService: domainServices.Config(),
 				ApplicationService: domainServices.Application(),
 				ModelService:       domainServices.ModelInfo(),
+				ResourceService:    domainServices.Resource(),
 				ModelTag:           cfg.ModelTag,
 				HTTPClientGetter:   httpClientGetter,
 				NewHTTPClient:      cfg.NewHTTPClient,

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainresource "github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -61,6 +63,13 @@ type ModelConfigService interface {
 
 // ApplicationService provides access to applications.
 type ApplicationService interface {
+
+	// GetApplicationIDByName returns an application ID by application name. It
+	// returns an error if the application can not be found by the name.
+	//
+	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
 	// GetApplicationsForRevisionUpdater returns the applications that should be
 	// used by the revision updater.
 	GetApplicationsForRevisionUpdater(context.Context) ([]application.RevisionUpdaterApplication, error)
@@ -69,6 +78,14 @@ type ApplicationService interface {
 	// If there are any non-blocking issues with the charm metadata, actions,
 	// config or manifest, a set of warnings will be returned.
 	ReserveCharmRevision(ctx context.Context, args applicationcharm.ReserveCharmRevisionArgs) (corecharm.ID, []string, error)
+}
+
+// ResourceService defines the interface for managing resources associated with
+// applications.
+type ResourceService interface {
+	// SetRepositoryResources updates the last available revision of resources
+	// from charm repository for a specific application.
+	SetRepositoryResources(ctx context.Context, args domainresource.SetRepositoryResourcesArgs) error
 }
 
 // ModelService provides access to the model.
@@ -88,6 +105,9 @@ type Config struct {
 
 	// ModelService is the service used to access the model.
 	ModelService ModelService
+
+	// ResourceService is the service for managing resources
+	ResourceService ResourceService
 
 	// ModelTag is the tag of the model the worker is running in.
 	ModelTag names.ModelTag
@@ -122,6 +142,9 @@ func (config Config) Validate() error {
 	}
 	if config.ModelService == nil {
 		return errors.NotValidf("nil ModelService")
+	}
+	if config.ResourceService == nil {
+		return errors.NotValidf("nil ResourceService")
 	}
 	if config.HTTPClientGetter == nil {
 		return errors.NotValidf("nil HTTPClientGetter")
@@ -320,7 +343,7 @@ func (w *revisionUpdateWorker) fetch(ctx context.Context, client CharmhubClient)
 
 		charmhubIDs[i] = charmhubID
 		charmhubApps[i] = appInfo{
-			id:           app.Name,
+			name:         app.Name,
 			charmLocator: app.CharmLocator,
 			origin:       app.Origin,
 		}
@@ -417,7 +440,7 @@ func (w *revisionUpdateWorker) fetchInfo(ctx context.Context, client CharmhubCli
 			timestamp:         result.timestamp,
 			revision:          result.revision,
 			resources:         result.resources,
-			appID:             apps[i].id,
+			appName:           apps[i].name,
 		})
 	}
 
@@ -473,14 +496,14 @@ func (w *revisionUpdateWorker) request(ctx context.Context, client CharmhubClien
 
 func (w *revisionUpdateWorker) storeNewRevisions(ctx context.Context, latestInfo []latestCharmInfo) error {
 	for _, info := range latestInfo {
-		if err := w.storeNewRevision(ctx, info); err != nil {
+		if err := w.storeNewCharmRevision(ctx, info); err != nil {
 			return internalerrors.Capture(err)
 		}
 	}
 	return nil
 }
 
-func (w *revisionUpdateWorker) storeNewRevision(ctx context.Context, info latestCharmInfo) error {
+func (w *revisionUpdateWorker) storeNewCharmRevision(ctx context.Context, info latestCharmInfo) error {
 	// Insert the new charm revision into the model.
 	service := w.config.ApplicationService
 
@@ -488,7 +511,7 @@ func (w *revisionUpdateWorker) storeNewRevision(ctx context.Context, info latest
 	downloadInfo := essentialMetadata.DownloadInfo
 	origin := essentialMetadata.ResolvedOrigin
 
-	_, warnings, err := service.ReserveCharmRevision(ctx, applicationcharm.ReserveCharmRevisionArgs{
+	charmID, warnings, err := service.ReserveCharmRevision(ctx, applicationcharm.ReserveCharmRevisionArgs{
 		Charm: internalcharm.NewCharmBase(
 			essentialMetadata.Meta,
 			essentialMetadata.Manifest,
@@ -511,15 +534,38 @@ func (w *revisionUpdateWorker) storeNewRevision(ctx context.Context, info latest
 		Hash:         origin.Hash,
 		Architecture: origin.Platform.Architecture,
 	})
-	if errors.Is(err, applicationerrors.CharmAlreadyExists) {
-		return nil
-	} else if err != nil {
+	if err != nil {
 		return internalerrors.Capture(err)
 	} else if len(warnings) > 0 {
-		w.config.Logger.Infof("reserving charm revision for %q: %v", info.appID, warnings)
+		w.config.Logger.Infof("reserving charm revision for %q: %v", info.appName, warnings)
 	}
 
-	return nil
+	return w.storeNewResourcesRevision(ctx, charmID, info)
+}
+
+func (w *revisionUpdateWorker) storeNewResourcesRevision(ctx context.Context,
+	charmID corecharm.ID, info latestCharmInfo) error {
+	// Skip updates resources revision if there is none.
+	if len(info.resources) == 0 {
+		return nil
+	}
+
+	// Store resources revision.
+	appID, err := w.config.ApplicationService.GetApplicationIDByName(ctx, info.appName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		// Maybe the application has been removed in the meantime. In this case,
+		// that's not a real issue. Log it as a warning and continue.
+		w.config.Logger.Warningf("failed to get application ID for %q: %v", info.appName, err)
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	return w.config.ResourceService.SetRepositoryResources(ctx, domainresource.SetRepositoryResourcesArgs{
+		ApplicationID: appID,
+		CharmID:       charmID,
+		Info:          info.resources,
+		LastPolled:    w.config.Clock.Now(),
+	})
 }
 
 func (w *revisionUpdateWorker) getCharmhubClient(ctx context.Context) (CharmhubClient, error) {
@@ -735,7 +781,7 @@ func encodeRisk(r application.ChannelRisk) (string, error) {
 }
 
 type appInfo struct {
-	id           string
+	name         string
 	charmLocator applicationcharm.CharmLocator
 	origin       application.Origin
 }
@@ -762,7 +808,7 @@ type latestCharmInfo struct {
 	timestamp         time.Time
 	revision          int
 	resources         []resource.Resource
-	appID             string
+	appName           string
 }
 
 // charmhubResult is the type charmhubLatestCharmInfo returns: information
