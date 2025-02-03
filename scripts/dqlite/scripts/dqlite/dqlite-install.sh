@@ -8,8 +8,10 @@ check_dependencies sha256sum
 
 sha() {
 	case ${BUILD_ARCH} in
-		amd64) echo "28d35a2c524f96df872ef2bb70e537170fac43985e6d260439c8cbcc80aa728b" ;;
-		arm64) echo "d68a758d0d4c6f514d35ea6190f14f3e41b6f67564e1f579ccb0a63f13e1a220" ;;
+		amd64) echo "73c9a1f318013b746ce530489586cc94c8bc0c0323bf1ad59aa68c4ba301e71b" ;;
+		arm64) echo "a73841c17c3b312ad62f4b55c7493549728bcff5e803fdbac060961ae1ac487c" ;;
+
+		# s390x and ppc64le are failing to build, so are stuck on v1.18.0
 		s390x) echo "8561238d7cdc2036fee321b7f8f1b563500325b4b1ed172002a56aca79ddb936" ;;
 		ppc64le) echo "950f55a4aa10a7209ede86cf4c023ec1dc79a31317f9e6d5378d7897beb26b35" ;;
 		*) { echo "Unsupported arch ${BUILD_ARCH}."; exit 1; } ;;
