@@ -777,7 +777,7 @@ WHERE u.name=?`,
 	c.Assert(gotPorts, jc.SameContents, ports)
 }
 
-func (s *applicationStateSuite) TestUpdateUnitContainer(c *gc.C) {
+func (s *applicationStateSuite) TestUpdateCAASUnitCloudContainer(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
@@ -799,30 +799,15 @@ func (s *applicationStateSuite) TestUpdateUnitContainer(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u)
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.UpdateCAASUnit(ctx, "foo/667", &application.CloudContainer{})
-	})
+	err := s.state.UpdateCAASUnit(context.Background(), "foo/667", application.UpdateCAASUnitParams{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 
-	cc := &application.CloudContainer{
-		ProviderId: "another-id",
+	cc := application.UpdateCAASUnitParams{
+		ProviderId: ptr("another-id"),
 		Ports:      ptr([]string{"666", "667"}),
-		Address: ptr(application.ContainerAddress{
-			Device: application.ContainerDevice{
-				Name:              "placeholder",
-				DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
-				VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
-			},
-			Value:       "2001:db8::1",
-			AddressType: ipaddress.AddressTypeIPv6,
-			ConfigType:  ipaddress.ConfigTypeDHCP,
-			Scope:       ipaddress.ScopeCloudLocal,
-			Origin:      ipaddress.OriginProvider,
-		}),
+		Address:    ptr("2001:db8::1"),
 	}
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.UpdateCAASUnit(ctx, "foo/666", cc)
-	})
+	err = s.state.UpdateCAASUnit(context.Background(), "foo/666", cc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -845,8 +830,67 @@ WHERE u.name=?`,
 	c.Assert(providerId, gc.Equals, "another-id")
 
 	s.assertContainerAddressValues(c, "foo/666", "another-id", "2001:db8::1",
-		ipaddress.AddressTypeIPv6, ipaddress.OriginProvider, ipaddress.ScopeCloudLocal, ipaddress.ConfigTypeDHCP)
+		ipaddress.AddressTypeIPv6, ipaddress.OriginProvider, ipaddress.ScopeMachineLocal, ipaddress.ConfigTypeDHCP)
 	s.assertContainerPortValues(c, "foo/666", []string{"666", "667"})
+}
+
+func (s *applicationStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+		CloudContainer: &application.CloudContainer{
+			ProviderId: "some-id",
+			Ports:      ptr([]string{"666", "668"}),
+			Address: ptr(application.ContainerAddress{
+				Device: application.ContainerDevice{
+					Name:              "placeholder",
+					DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
+					VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+				},
+				Value:       "10.6.6.6",
+				AddressType: ipaddress.AddressTypeIPv4,
+				ConfigType:  ipaddress.ConfigTypeDHCP,
+				Scope:       ipaddress.ScopeMachineLocal,
+				Origin:      ipaddress.OriginHost,
+			}),
+		},
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	now := time.Now()
+	params := application.UpdateCAASUnitParams{
+		AgentStatus: ptr(application.StatusParams{
+			Status:  "idle",
+			Message: "agent status",
+			Data:    map[string]any{"foo": "bar"},
+			Since:   ptr(now),
+		}),
+		WorkloadStatus: ptr(application.StatusParams{
+			Status:  "waiting",
+			Message: "workload status",
+			Data:    map[string]any{"foo": "bar"},
+			Since:   ptr(now),
+		}),
+		CloudContainerStatus: ptr(application.StatusParams{
+			Status:  "running",
+			Message: "container status",
+			Data:    map[string]any{"foo": "bar"},
+			Since:   ptr(now),
+		}),
+	}
+	err = s.state.UpdateCAASUnit(context.Background(), "foo/666", params)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUnitStatus(
+		c, "unit_agent", unitUUID, int(application.UnitAgentStatusIdle), "agent status", now, map[string]string{"foo": "bar"},
+	)
+	s.assertUnitStatus(
+		c, "unit_workload", unitUUID, int(application.UnitWorkloadStatusWaiting), "workload status", now, map[string]string{"foo": "bar"},
+	)
+	s.assertUnitStatus(
+		c, "cloud_container", unitUUID, int(application.CloudContainerStatusRunning), "container status", now, map[string]string{"foo": "bar"},
+	)
 }
 
 func (s *applicationStateSuite) TestInsertUnit(c *gc.C) {
@@ -1110,8 +1154,8 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		if err := s.state.SetCloudContainerStatus(ctx, unitUUID, application.CloudContainerStatusStatusInfo{
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		if err := s.state.setCloudContainerStatus(ctx, tx, unitUUID, application.CloudContainerStatusStatusInfo{
 			StatusID: application.CloudContainerStatusBlocked,
 			StatusInfo: application.StatusInfo{
 				Message: "test",
@@ -1381,8 +1425,8 @@ func (s *applicationStateSuite) TestSetCloudContainerStatus(c *gc.C) {
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetCloudContainerStatus(ctx, unitUUID, status)
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(

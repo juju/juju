@@ -1075,54 +1075,10 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appID := applicationtesting.GenApplicationUUID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
 	unitName := coreunit.Name("foo/666")
-	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(appID, life.Alive, nil)
-	s.state.EXPECT().UpdateCAASUnit(domaintesting.IsAtomicContextChecker, unitName, &application.CloudContainer{
-		ProviderId: "provider-id",
-		Address: &application.ContainerAddress{
-			Device: application.ContainerDevice{
-				Name:              `placeholder for "foo/666" cloud container`,
-				DeviceTypeID:      0,
-				VirtualPortTypeID: 0,
-			},
-			Value:       "10.6.6.6",
-			AddressType: 0,
-			Scope:       3,
-			Origin:      1,
-			ConfigType:  1,
-		},
-		Ports: ptr([]string{"666"}),
-	})
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
-
 	now := time.Now()
-	s.state.EXPECT().SetUnitAgentStatusAtomic(domaintesting.IsAtomicContextChecker, unitUUID, application.UnitAgentStatusInfo{
-		StatusID: application.UnitAgentStatusIdle,
-		StatusInfo: application.StatusInfo{
-			Message: "agent status",
-			Data:    map[string]string{"foo": "bar"},
-			Since:   now,
-		},
-	})
-	s.state.EXPECT().SetUnitWorkloadStatusAtomic(domaintesting.IsAtomicContextChecker, unitUUID, application.UnitWorkloadStatusInfo{
-		StatusID: application.UnitWorkloadStatusWaiting,
-		StatusInfo: application.StatusInfo{
-			Message: "workload status",
-			Data:    map[string]string{"foo": "bar"},
-			Since:   now,
-		},
-	})
-	s.state.EXPECT().SetCloudContainerStatus(domaintesting.IsAtomicContextChecker, unitUUID, application.CloudContainerStatusStatusInfo{
-		StatusID: application.CloudContainerStatusRunning,
-		StatusInfo: application.StatusInfo{
-			Message: "container status",
-			Data:    map[string]string{"foo": "bar"},
-			Since:   now,
-		},
-	})
 
-	err := s.service.UpdateCAASUnit(context.Background(), unitName, application.UpdateCAASUnitParams{
+	params := application.UpdateCAASUnitParams{
 		ProviderId: ptr("provider-id"),
 		Address:    ptr("10.6.6.6"),
 		Ports:      ptr([]string{"666"}),
@@ -1144,7 +1100,12 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 			Data:    map[string]any{"foo": "bar"},
 			Since:   ptr(now),
 		}),
-	})
+	}
+
+	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(appID, life.Alive, nil)
+	s.state.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, params)
+
+	err := s.service.UpdateCAASUnit(context.Background(), unitName, params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

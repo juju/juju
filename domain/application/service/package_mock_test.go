@@ -2364,44 +2364,6 @@ func (c *MockStateSetCharmAvailableCall) DoAndReturn(f func(context.Context, cha
 	return c
 }
 
-// SetCloudContainerStatus mocks base method.
-func (m *MockState) SetCloudContainerStatus(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 application0.CloudContainerStatusStatusInfo) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCloudContainerStatus", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetCloudContainerStatus indicates an expected call of SetCloudContainerStatus.
-func (mr *MockStateMockRecorder) SetCloudContainerStatus(arg0, arg1, arg2 any) *MockStateSetCloudContainerStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCloudContainerStatus", reflect.TypeOf((*MockState)(nil).SetCloudContainerStatus), arg0, arg1, arg2)
-	return &MockStateSetCloudContainerStatusCall{Call: call}
-}
-
-// MockStateSetCloudContainerStatusCall wrap *gomock.Call
-type MockStateSetCloudContainerStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateSetCloudContainerStatusCall) Return(arg0 error) *MockStateSetCloudContainerStatusCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateSetCloudContainerStatusCall) Do(f func(domain.AtomicContext, unit.UUID, application0.CloudContainerStatusStatusInfo) error) *MockStateSetCloudContainerStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetCloudContainerStatusCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, application0.CloudContainerStatusStatusInfo) error) *MockStateSetCloudContainerStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetDesiredApplicationScale mocks base method.
 func (m *MockState) SetDesiredApplicationScale(arg0 domain.AtomicContext, arg1 application.ID, arg2 int) error {
 	m.ctrl.T.Helper()
@@ -2436,44 +2398,6 @@ func (c *MockStateSetDesiredApplicationScaleCall) Do(f func(domain.AtomicContext
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetDesiredApplicationScaleCall) DoAndReturn(f func(domain.AtomicContext, application.ID, int) error) *MockStateSetDesiredApplicationScaleCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetUnitAgentStatusAtomic mocks base method.
-func (m *MockState) SetUnitAgentStatusAtomic(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 application0.UnitAgentStatusInfo) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUnitAgentStatusAtomic", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetUnitAgentStatusAtomic indicates an expected call of SetUnitAgentStatusAtomic.
-func (mr *MockStateMockRecorder) SetUnitAgentStatusAtomic(arg0, arg1, arg2 any) *MockStateSetUnitAgentStatusAtomicCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitAgentStatusAtomic", reflect.TypeOf((*MockState)(nil).SetUnitAgentStatusAtomic), arg0, arg1, arg2)
-	return &MockStateSetUnitAgentStatusAtomicCall{Call: call}
-}
-
-// MockStateSetUnitAgentStatusAtomicCall wrap *gomock.Call
-type MockStateSetUnitAgentStatusAtomicCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateSetUnitAgentStatusAtomicCall) Return(arg0 error) *MockStateSetUnitAgentStatusAtomicCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitAgentStatusAtomicCall) Do(f func(domain.AtomicContext, unit.UUID, application0.UnitAgentStatusInfo) error) *MockStateSetUnitAgentStatusAtomicCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitAgentStatusAtomicCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, application0.UnitAgentStatusInfo) error) *MockStateSetUnitAgentStatusAtomicCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2550,44 +2474,6 @@ func (c *MockStateSetUnitPasswordCall) Do(f func(domain.AtomicContext, unit.UUID
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetUnitPasswordCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, application0.PasswordInfo) error) *MockStateSetUnitPasswordCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetUnitWorkloadStatusAtomic mocks base method.
-func (m *MockState) SetUnitWorkloadStatusAtomic(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 application0.UnitWorkloadStatusInfo) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUnitWorkloadStatusAtomic", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetUnitWorkloadStatusAtomic indicates an expected call of SetUnitWorkloadStatusAtomic.
-func (mr *MockStateMockRecorder) SetUnitWorkloadStatusAtomic(arg0, arg1, arg2 any) *MockStateSetUnitWorkloadStatusAtomicCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitWorkloadStatusAtomic", reflect.TypeOf((*MockState)(nil).SetUnitWorkloadStatusAtomic), arg0, arg1, arg2)
-	return &MockStateSetUnitWorkloadStatusAtomicCall{Call: call}
-}
-
-// MockStateSetUnitWorkloadStatusAtomicCall wrap *gomock.Call
-type MockStateSetUnitWorkloadStatusAtomicCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateSetUnitWorkloadStatusAtomicCall) Return(arg0 error) *MockStateSetUnitWorkloadStatusAtomicCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitWorkloadStatusAtomicCall) Do(f func(domain.AtomicContext, unit.UUID, application0.UnitWorkloadStatusInfo) error) *MockStateSetUnitWorkloadStatusAtomicCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitWorkloadStatusAtomicCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, application0.UnitWorkloadStatusInfo) error) *MockStateSetUnitWorkloadStatusAtomicCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2709,7 +2595,7 @@ func (c *MockStateUnsetApplicationConfigKeysCall) DoAndReturn(f func(context.Con
 }
 
 // UpdateCAASUnit mocks base method.
-func (m *MockState) UpdateCAASUnit(arg0 domain.AtomicContext, arg1 unit.Name, arg2 *application0.CloudContainer) error {
+func (m *MockState) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 application0.UpdateCAASUnitParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCAASUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -2735,13 +2621,13 @@ func (c *MockStateUpdateCAASUnitCall) Return(arg0 error) *MockStateUpdateCAASUni
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateCAASUnitCall) Do(f func(domain.AtomicContext, unit.Name, *application0.CloudContainer) error) *MockStateUpdateCAASUnitCall {
+func (c *MockStateUpdateCAASUnitCall) Do(f func(context.Context, unit.Name, application0.UpdateCAASUnitParams) error) *MockStateUpdateCAASUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateCAASUnitCall) DoAndReturn(f func(domain.AtomicContext, unit.Name, *application0.CloudContainer) error) *MockStateUpdateCAASUnitCall {
+func (c *MockStateUpdateCAASUnitCall) DoAndReturn(f func(context.Context, unit.Name, application0.UpdateCAASUnitParams) error) *MockStateUpdateCAASUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

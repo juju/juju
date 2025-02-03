@@ -7,10 +7,8 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -32,9 +30,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/linklayerdevice"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -48,28 +44,8 @@ import (
 type AtomicApplicationState interface {
 	domain.AtomicStateBase
 
-	// UpdateCAASUnit updates the cloud container for specified unit,
-	// returning an error satisfying [applicationerrors.UnitNotFoundError]
-	// if the unit doesn't exist.
-	UpdateCAASUnit(domain.AtomicContext, coreunit.Name, *application.CloudContainer) error
-
 	// SetUnitPassword updates the password for the specified unit UUID.
 	SetUnitPassword(domain.AtomicContext, coreunit.UUID, application.PasswordInfo) error
-
-	// SetCloudContainerStatus saves the given cloud container status,
-	// overwriting any current status data. If returns an error satisfying
-	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetCloudContainerStatus(domain.AtomicContext, coreunit.UUID, application.CloudContainerStatusStatusInfo) error
-
-	// SetUnitAgentStatus saves the given unit agent status, overwriting any
-	// current status data. If returns an error satisfying
-	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetUnitAgentStatusAtomic(domain.AtomicContext, coreunit.UUID, application.UnitAgentStatusInfo) error
-
-	// SetUnitWorkloadStatus saves the given unit workload status, overwriting
-	// any current status data. If returns an error satisfying
-	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetUnitWorkloadStatusAtomic(domain.AtomicContext, coreunit.UUID, application.UnitWorkloadStatusInfo) error
 
 	// SetApplicationScalingState sets the scaling details for the given caas
 	// application Scale is optional and is only set if not nil.
@@ -102,6 +78,11 @@ type ApplicationState interface {
 	// InsertCAASUnit inserts the specified CAAS application unit, returning an
 	// error satisfying [applicationerrors.UnitAlreadyExists] if the unit exists.
 	InsertCAASUnit(context.Context, coreapplication.ID, application.RegisterCAASUnitArg) error
+
+	// UpdateCAASUnit updates the cloud container for specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFoundError]
+	// if the unit doesn't exist.
+	UpdateCAASUnit(context.Context, coreunit.Name, application.UpdateCAASUnitParams) error
 
 	// InsertUnit insert the specified application unit, returning an error
 	// satisfying [applicationerrors.UnitAlreadyExists]
@@ -671,38 +652,6 @@ func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leader
 	return nil
 }
 
-func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
-	result := &application.CloudContainer{
-		ProviderId: cloudContainer.ProviderId,
-		Ports:      cloudContainer.Ports,
-	}
-	if cloudContainer.Address != nil {
-		// TODO(units) - handle the cloudContainer.Address space ID
-		// For k8s we'll initially create a /32 subnet off the container address
-		// and add that to the default space.
-		result.Address = &application.ContainerAddress{
-			// For cloud containers, the device is a placeholder without
-			// a MAC address and once inserted, not updated. It just exists
-			// to tie the address to the net node corresponding to the
-			// cloud container.
-			Device: application.ContainerDevice{
-				Name:              fmt.Sprintf("placeholder for %q cloud container", unitName),
-				DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
-				VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
-			},
-			Value:       cloudContainer.Address.Value,
-			AddressType: ipaddress.MarshallAddressType(cloudContainer.Address.AddressType()),
-			Scope:       ipaddress.MarshallScope(cloudContainer.Address.Scope),
-			Origin:      ipaddress.MarshallOrigin(network.OriginProvider),
-			ConfigType:  ipaddress.MarshallConfigType(network.ConfigDHCP),
-		}
-		if cloudContainer.AddressOrigin != nil {
-			result.Address.Origin = ipaddress.MarshallOrigin(*cloudContainer.AddressOrigin)
-		}
-	}
-	return result
-}
-
 // makeResourcesArgs creates a slice of AddApplicationResourceArg from ResolvedResources.
 func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApplicationResourceArg {
 	var result []application.AddApplicationResourceArg
@@ -749,21 +698,6 @@ func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args app
 // satisfying applicationerrors.ApplicationNotAlive if the unit's
 // application is not alive.
 func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params application.UpdateCAASUnitParams) error {
-	var cloudContainer *application.CloudContainer
-	if params.ProviderId != nil {
-		cloudContainerParams := application.CloudContainerParams{
-			ProviderId: *params.ProviderId,
-			Ports:      params.Ports,
-		}
-		if params.Address != nil {
-			addr := network.NewSpaceAddress(*params.Address, network.WithScope(network.ScopeMachineLocal))
-			cloudContainerParams.Address = &addr
-			origin := network.OriginProvider
-			cloudContainerParams.AddressOrigin = &origin
-		}
-		cloudContainer = makeCloudContainerArg(unitName, cloudContainerParams)
-	}
-
 	appName, err := names.UnitApplication(unitName.String())
 	if err != nil {
 		return errors.Trace(err)
@@ -776,67 +710,10 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 		return internalerrors.Errorf("application %q is not alive%w", appName, errors.Hide(applicationerrors.ApplicationNotAlive))
 	}
 
-	// We want to transition to using unit UUID instead of name.
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return errors.Trace(err)
+	if err := s.st.UpdateCAASUnit(ctx, unitName, params); err != nil {
+		return internalerrors.Errorf("updating caas unit %q: %w", unitName, err)
 	}
-
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		if cloudContainer != nil {
-			if err := s.st.UpdateCAASUnit(ctx, unitName, cloudContainer); err != nil {
-				return errors.Annotatef(err, "updating cloud container %q", unitName)
-			}
-		}
-		now := time.Now()
-		since := func(in *time.Time) time.Time {
-			if in != nil {
-				return *in
-			}
-			return now
-		}
-		if params.AgentStatus != nil {
-			if err := s.st.SetUnitAgentStatusAtomic(ctx, unitUUID, application.UnitAgentStatusInfo{
-				StatusID: application.MarshallUnitAgentStatus(params.AgentStatus.Status),
-				StatusInfo: application.StatusInfo{
-					Message: params.AgentStatus.Message,
-					Data: transform.Map(
-						params.AgentStatus.Data, func(k string, v any) (string, string) { return k, fmt.Sprint(v) }),
-					Since: since(params.AgentStatus.Since),
-				},
-			}); err != nil {
-				return errors.Annotatef(err, "saving unit %q agent status ", unitName)
-			}
-		}
-		if params.WorkloadStatus != nil {
-			if err := s.st.SetUnitWorkloadStatusAtomic(ctx, unitUUID, application.UnitWorkloadStatusInfo{
-				StatusID: application.MarshallUnitWorkloadStatus(params.WorkloadStatus.Status),
-				StatusInfo: application.StatusInfo{
-					Message: params.WorkloadStatus.Message,
-					Data: transform.Map(
-						params.WorkloadStatus.Data, func(k string, v any) (string, string) { return k, fmt.Sprint(v) }),
-					Since: since(params.WorkloadStatus.Since),
-				},
-			}); err != nil {
-				return errors.Annotatef(err, "saving unit %q workload status ", unitName)
-			}
-		}
-		if params.CloudContainerStatus != nil {
-			if err := s.st.SetCloudContainerStatus(ctx, unitUUID, application.CloudContainerStatusStatusInfo{
-				StatusID: application.MarshallCloudContainerStatus(params.CloudContainerStatus.Status),
-				StatusInfo: application.StatusInfo{
-					Message: params.CloudContainerStatus.Message,
-					Data: transform.Map(
-						params.CloudContainerStatus.Data, func(k string, v any) (string, string) { return k, fmt.Sprint(v) }),
-					Since: since(params.CloudContainerStatus.Since),
-				},
-			}); err != nil {
-				return errors.Annotatef(err, "saving unit %q cloud container status ", unitName)
-			}
-		}
-		return nil
-	})
-	return errors.Annotatef(err, "updating caas unit %q", unitName)
+	return nil
 }
 
 // SetUnitPassword updates the password for the specified unit, returning an error
