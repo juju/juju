@@ -609,6 +609,12 @@ func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace
 	return consVal, nil
 }
 
+// dbAggregateCount is a type to store the result for counting the number of
+// rows returned by a select query.
+type dbAggregateCount struct {
+	Count int `db:"count"`
+}
+
 // dbContainerTypeId represents the id of a container type as found in the
 // container_type table.
 type dbContainerTypeId struct {

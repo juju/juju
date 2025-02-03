@@ -496,6 +496,36 @@ func (s *ModelState) insertContraintSpaces(
 		return nil
 	}
 
+	spaceVals := make(sqlair.S, 0, len(spaces))
+	for _, space := range spaces {
+		spaceVals = append(spaceVals, space)
+	}
+	spaceCount := dbAggregateCount{}
+
+	spacesExistStmt, err := s.Prepare(`
+SELECT count(name) AS &dbAggregateCount.count
+FROM space
+WHERE name in ($S[:])
+`, spaceCount, spaceVals)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, spacesExistStmt, spaceVals).Get(&spaceCount)
+	if err != nil {
+		return errors.Errorf(
+			"checking that spaces for constraint %q exist: %w",
+			constraintUUID, err,
+		)
+	}
+
+	if spaceCount.Count != len(spaceVals) {
+		return errors.Errorf(
+			"inserting constraints %q spaces, space(s) %v does not exist",
+			constraintUUID, spaces,
+		).Add(networkerrors.SpaceNotFound)
+	}
+
 	insertConstraintSpaceStmt, err := s.Prepare(
 		"INSERT INTO constraint_space (*) VALUES ($dbConstraintSpace.*)",
 		dbConstraintSpace{},
@@ -513,12 +543,7 @@ func (s *ModelState) insertContraintSpaces(
 	}
 
 	err = tx.Query(ctx, insertConstraintSpaceStmt, data).Run()
-	if internaldatabase.IsErrConstraintForeignKey(err) {
-		return errors.Errorf(
-			"inserting constraints %q spaces, space(s) %v does not exist",
-			constraintUUID, spaces,
-		).Add(networkerrors.SpaceNotFound)
-	} else if err != nil {
+	if err != nil {
 		return errors.Errorf("inserting constraint %q space(s): %w", constraintUUID, err)
 	}
 
