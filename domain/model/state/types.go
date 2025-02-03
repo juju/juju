@@ -517,7 +517,7 @@ func constraintsToDBInsert(
 		},
 		AllocatePublicIP: sql.NullBool{
 			Bool:  deref(consValue.AllocatePublicIP),
-			Valid: consValue.VirtType != nil,
+			Valid: consValue.AllocatePublicIP != nil,
 		},
 		ImageID: sql.NullString{
 			String: deref(consValue.ImageID),
