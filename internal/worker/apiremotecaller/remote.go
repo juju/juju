@@ -133,20 +133,21 @@ func (w *remoteServer) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	// When we receive a new change, we want to be able to cancel the current
-	// connection attempt. The current setup is that it will dial indefinitely
-	// until it has connected. The cancelling of the connection should not
-	// affect the current connection, it should always remain in the same
-	// state.
-	var canceler context.CancelCauseFunc
-	defer func() {
-		if canceler != nil {
-			canceler(nil)
-		}
-	}()
-
 	requests := make(chan request)
 	w.tomb.Go(func() error {
+		// When we receive a new change, we want to be able to cancel the current
+		// connection attempt. The current setup is that it will dial indefinitely
+		// until it has connected. The cancelling of the connection should not
+		// affect the current connection, it should always remain in the same
+		// state.
+		var canceler context.CancelCauseFunc
+		defer func() {
+			// Clean up the canceler if it exists.
+			if canceler != nil {
+				canceler(context.Canceled)
+			}
+		}()
+
 		// If the worker is dying, we need to cancel the current connection
 		// attempt.
 		// Note: do not use context.Done() here, as it will cause the worker
@@ -154,6 +155,11 @@ func (w *remoteServer) loop() error {
 		for {
 			select {
 			case <-w.tomb.Dying():
+				// There is no guarantee that we'll have a context to cancel,
+				// to avoid panics, we need to check if the canceler is nil.
+				if canceler != nil {
+					canceler(context.Canceled)
+				}
 				return tomb.ErrDying
 			case addresses := <-w.changes:
 				// Cancel the current connection attempt and then proxy the
@@ -170,6 +176,8 @@ func (w *remoteServer) loop() error {
 				// period of time, to avoid sending too many changes at once.
 				select {
 				case <-w.tomb.Dying():
+					// We'll always have a canceler if we're dying, so we can
+					// safely call it here.
 					canceler(context.Canceled)
 					return tomb.ErrDying
 				case requests <- request{
@@ -209,7 +217,14 @@ func (w *remoteServer) loop() error {
 			if errors.Is(err, newChangeRequestError) {
 				continue
 			} else if err != nil {
-				return err
+				// If we're dying we don't want to return an error, we just want
+				// to die.
+				select {
+				case <-w.tomb.Dying():
+					return tomb.ErrDying
+				default:
+					return err
+				}
 			}
 
 			w.logger.Debugf("connected to %s with addresses: %v", w.controllerID, addresses)
