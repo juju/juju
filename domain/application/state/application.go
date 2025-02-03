@@ -762,10 +762,10 @@ func (st *State) insertUnit(
 	return unitUUID.String(), nil
 }
 
-// UpdateUnitContainer updates the cloud container for specified unit,
+// UpdateCAASUnit updates the cloud container for specified unit,
 // returning an error satisfying [applicationerrors.UnitNotFoundError]
 // if the unit doesn't exist.
-func (st *State) UpdateUnitContainer(
+func (st *State) UpdateCAASUnit(
 	ctx domain.AtomicContext, unitName coreunit.Name, container *application.CloudContainer,
 ) error {
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {

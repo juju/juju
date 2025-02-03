@@ -231,7 +231,7 @@ func (s *MigrationService) RemoveImportedApplication(context.Context, string) er
 	return nil
 }
 
-func (s *MigrationService) makeUnitStatus(in StatusParams) application.StatusInfo {
+func (s *MigrationService) makeUnitStatus(in application.StatusParams) application.StatusInfo {
 	si := application.StatusInfo{
 		Message: in.Message,
 		Since:   s.clock.Now(),

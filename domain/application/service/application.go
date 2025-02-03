@@ -48,10 +48,10 @@ import (
 type AtomicApplicationState interface {
 	domain.AtomicStateBase
 
-	// UpdateUnitContainer updates the cloud container for specified unit,
+	// UpdateCAASUnit updates the cloud container for specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFoundError]
 	// if the unit doesn't exist.
-	UpdateUnitContainer(domain.AtomicContext, coreunit.Name, *application.CloudContainer) error
+	UpdateCAASUnit(domain.AtomicContext, coreunit.Name, *application.CloudContainer) error
 
 	// SetUnitPassword updates the password for the specified unit UUID.
 	SetUnitPassword(domain.AtomicContext, coreunit.UUID, application.PasswordInfo) error
@@ -748,7 +748,7 @@ func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args app
 // UpdateCAASUnit updates the specified CAAS unit, returning an error
 // satisfying applicationerrors.ApplicationNotAlive if the unit's
 // application is not alive.
-func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params UpdateCAASUnitParams) error {
+func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params application.UpdateCAASUnitParams) error {
 	var cloudContainer *application.CloudContainer
 	if params.ProviderId != nil {
 		cloudContainerParams := application.CloudContainerParams{
@@ -784,7 +784,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		if cloudContainer != nil {
-			if err := s.st.UpdateUnitContainer(ctx, unitName, cloudContainer); err != nil {
+			if err := s.st.UpdateCAASUnit(ctx, unitName, cloudContainer); err != nil {
 				return errors.Annotatef(err, "updating cloud container %q", unitName)
 			}
 		}

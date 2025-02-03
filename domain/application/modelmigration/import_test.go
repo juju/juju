@@ -184,13 +184,13 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 				AddressOrigin: ptr(network.OriginProvider),
 				Ports:         ptr([]string{"6666"}),
 			}),
-			AgentStatus: service.StatusParams{
+			AgentStatus: application.StatusParams{
 				Status:  "idle",
 				Message: "agent status",
 				Data:    map[string]any{"foo": "bar"},
 				Since:   ptr(updatedAt),
 			},
-			WorkloadStatus: service.StatusParams{
+			WorkloadStatus: application.StatusParams{
 				Status:  "waiting",
 				Message: "workload status",
 				Data:    map[string]any{"foo": "bar"},

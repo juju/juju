@@ -41,7 +41,7 @@ type ApplicationService interface {
 	) (application.ResolvedControllerCharmDownload, error)
 
 	// UpdateApplication updates the application with the given name.
-	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params applicationservice.UpdateCAASUnitParams) error
+	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params application.UpdateCAASUnitParams) error
 
 	// SetUnitPassword sets the password for the given unit.
 	SetUnitPassword(ctx context.Context, unitName unit.Name, passwordHash string) error

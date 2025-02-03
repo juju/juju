@@ -1078,7 +1078,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	unitName := coreunit.Name("foo/666")
 	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(appID, life.Alive, nil)
-	s.state.EXPECT().UpdateUnitContainer(domaintesting.IsAtomicContextChecker, unitName, &application.CloudContainer{
+	s.state.EXPECT().UpdateCAASUnit(domaintesting.IsAtomicContextChecker, unitName, &application.CloudContainer{
 		ProviderId: "provider-id",
 		Address: &application.ContainerAddress{
 			Device: application.ContainerDevice{
@@ -1122,23 +1122,23 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 		},
 	})
 
-	err := s.service.UpdateCAASUnit(context.Background(), unitName, UpdateCAASUnitParams{
+	err := s.service.UpdateCAASUnit(context.Background(), unitName, application.UpdateCAASUnitParams{
 		ProviderId: ptr("provider-id"),
 		Address:    ptr("10.6.6.6"),
 		Ports:      ptr([]string{"666"}),
-		AgentStatus: ptr(StatusParams{
+		AgentStatus: ptr(application.StatusParams{
 			Status:  "idle",
 			Message: "agent status",
 			Data:    map[string]any{"foo": "bar"},
 			Since:   ptr(now),
 		}),
-		WorkloadStatus: ptr(StatusParams{
+		WorkloadStatus: ptr(application.StatusParams{
 			Status:  "waiting",
 			Message: "workload status",
 			Data:    map[string]any{"foo": "bar"},
 			Since:   ptr(now),
 		}),
-		CloudContainerStatus: ptr(StatusParams{
+		CloudContainerStatus: ptr(application.StatusParams{
 			Status:  "running",
 			Message: "container status",
 			Data:    map[string]any{"foo": "bar"},
@@ -1154,7 +1154,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnitNotAlive(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(id, life.Dying, nil)
 
-	err := s.service.UpdateCAASUnit(context.Background(), coreunit.Name("foo/666"), UpdateCAASUnitParams{})
+	err := s.service.UpdateCAASUnit(context.Background(), coreunit.Name("foo/666"), application.UpdateCAASUnitParams{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 

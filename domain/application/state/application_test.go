@@ -800,7 +800,7 @@ func (s *applicationStateSuite) TestUpdateUnitContainer(c *gc.C) {
 	s.createApplication(c, "foo", life.Alive, u)
 
 	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.UpdateUnitContainer(ctx, "foo/667", &application.CloudContainer{})
+		return s.state.UpdateCAASUnit(ctx, "foo/667", &application.CloudContainer{})
 	})
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 
@@ -821,7 +821,7 @@ func (s *applicationStateSuite) TestUpdateUnitContainer(c *gc.C) {
 		}),
 	}
 	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.UpdateUnitContainer(ctx, "foo/666", cc)
+		return s.state.UpdateCAASUnit(ctx, "foo/666", cc)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

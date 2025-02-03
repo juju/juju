@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -199,6 +200,24 @@ type StatusInfo struct {
 	Message string
 	Data    map[string]string
 	Since   time.Time
+}
+
+// StatusParams contains parameters for setting unit status.
+type StatusParams struct {
+	Status  corestatus.Status
+	Message string
+	Data    map[string]any
+	Since   *time.Time
+}
+
+// UpdateCAASUnitParams contains parameters for updating a CAAS unit.
+type UpdateCAASUnitParams struct {
+	ProviderId           *string
+	Address              *string
+	Ports                *[]string
+	AgentStatus          *StatusParams
+	WorkloadStatus       *StatusParams
+	CloudContainerStatus *StatusParams
 }
 
 // CloudContainerParams contains parameters for a unit cloud container.
