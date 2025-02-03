@@ -28,12 +28,11 @@ func (c *Client) RunOnAllMachines(ctx context.Context, commands string, timeout 
 // provided in the machines, applications and units slices.
 func (c *Client) Run(ctx context.Context, run RunParams) (EnqueuedActions, error) {
 	args := params.RunParams{
-		Commands:        run.Commands,
-		Timeout:         run.Timeout,
-		Machines:        run.Machines,
-		Applications:    run.Applications,
-		Units:           run.Units,
-		WorkloadContext: run.WorkloadContext,
+		Commands:     run.Commands,
+		Timeout:      run.Timeout,
+		Machines:     run.Machines,
+		Applications: run.Applications,
+		Units:        run.Units,
 	}
 	var results params.EnqueuedActions
 	err := c.facade.FacadeCall(ctx, "Run", args, &results)

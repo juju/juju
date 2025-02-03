@@ -301,17 +301,6 @@ func (s *BaseHookContextSuite) AssertNotRelationContext(c *gc.C, ctx *runnercont
 	c.Assert(err, gc.ErrorMatches, ".*")
 }
 
-func (s *BaseHookContextSuite) AssertWorkloadContext(c *gc.C, ctx *runnercontext.HookContext, workloadName string) {
-	actualWorkloadName, _ := ctx.WorkloadName()
-	c.Assert(actualWorkloadName, gc.Equals, workloadName)
-}
-
-func (s *BaseHookContextSuite) AssertNotWorkloadContext(c *gc.C, ctx *runnercontext.HookContext) {
-	workloadName, err := ctx.WorkloadName()
-	c.Assert(err, gc.NotNil)
-	c.Assert(workloadName, gc.Equals, "")
-}
-
 func (s *BaseHookContextSuite) AssertSecretContext(c *gc.C, ctx *runnercontext.HookContext, secretURI, label string, revision int) {
 	uri, _ := ctx.SecretURI()
 	c.Assert(uri, gc.Equals, secretURI)
