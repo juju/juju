@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	coresecrets "github.com/juju/juju/core/secrets"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -1227,74 +1226,6 @@ func (st *State) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, 
 		}
 	}
 	return nil
-}
-
-// GetSecretsForApplication returns the secrets owned by the specified application.
-func (st *State) GetSecretsForApplication(
-	ctx domain.AtomicContext, appName string,
-) ([]*coresecrets.URI, error) {
-	app := applicationName{Name: appName}
-	queryStmt, err := st.Prepare(`
-SELECT sm.secret_id AS &secretID.id
-FROM secret_metadata sm
-JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
-JOIN application a ON a.uuid = sao.application_uuid
-WHERE a.name = $applicationName.name
-`, app, secretID{})
-	if err != nil {
-		return nil, jujuerrors.Trace(err)
-	}
-
-	var (
-		dbSecrets secretIDs
-		uris      []*coresecrets.URI
-	)
-	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryStmt, app).GetAll(&dbSecrets)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-				return fmt.Errorf("getting secrets for application %q: %w", appName, err)
-			}
-		}
-		uris, err = dbSecrets.toSecretURIs()
-		return err
-	}); err != nil {
-		return nil, jujuerrors.Trace(err)
-	}
-	return uris, nil
-}
-
-// GetSecretsForUnit returns the secrets owned by the specified unit.
-func (st *State) GetSecretsForUnit(
-	ctx domain.AtomicContext, unitName coreunit.Name,
-) ([]*coresecrets.URI, error) {
-	unit := unitNameAndUUID{Name: unitName}
-	queryStmt, err := st.Prepare(`
-SELECT sm.secret_id AS &secretID.id
-FROM secret_metadata sm
-JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
-JOIN unit u ON u.uuid = suo.unit_uuid
-WHERE u.name = $unitNameAndUUID.name
-`, unit, secretID{})
-	if err != nil {
-		return nil, jujuerrors.Trace(err)
-	}
-
-	var (
-		dbSecrets secretIDs
-		uris      []*coresecrets.URI
-	)
-	if err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, queryStmt, unit).GetAll(&dbSecrets)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("getting secrets for unit %q: %w", unitName, err)
-		}
-		uris, err = dbSecrets.toSecretURIs()
-		return err
-	}); err != nil {
-		return nil, jujuerrors.Trace(err)
-	}
-	return uris, nil
 }
 
 // StorageDefaults returns the default storage sources for a model.

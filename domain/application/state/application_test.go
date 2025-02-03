@@ -22,7 +22,6 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
@@ -34,8 +33,6 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
 	portstate "github.com/juju/juju/domain/port/state"
-	domainsecret "github.com/juju/juju/domain/secret"
-	secretstate "github.com/juju/juju/domain/secret/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -1234,86 +1231,6 @@ func (s *applicationStateSuite) TestDeleteUnitLastUnitAppAlive(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitCount, gc.Equals, 0)
-}
-
-func (s *applicationStateSuite) createOwnedSecrets(c *gc.C) (appSecretURI *secrets.URI, unitSecretURI *secrets.URI) {
-	mysqlID := s.createApplication(c, "mysql", life.Alive,
-		application.InsertUnitArg{UnitName: "mysql/0"},
-		application.InsertUnitArg{UnitName: "mysql/1"},
-	)
-	s.createApplication(c, "mariadb", life.Alive,
-		application.InsertUnitArg{UnitName: "mariadb/0"},
-		application.InsertUnitArg{UnitName: "mariadb/1"},
-	)
-	var mysqlUnitUUID coreunit.UUID
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name=?", "mysql/1").
-			Scan(&mysqlUnitUUID); err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	st := secretstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	ctx := context.Background()
-	uri1 := secrets.NewURI()
-	uri2 := secrets.NewURI()
-
-	sp := domainsecret.UpsertSecretParams{
-		Data:       secrets.SecretData{"foo": "bar"},
-		RevisionID: ptr(uuid.MustNewUUID().String()),
-	}
-	err = s.state.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		err := st.CreateCharmApplicationSecret(ctx, 1, uri1, mysqlID, sp)
-		if err != nil {
-			return err
-		}
-
-		sp2 := domainsecret.UpsertSecretParams{
-			Data:       secrets.SecretData{"foo": "bar"},
-			RevisionID: ptr(uuid.MustNewUUID().String()),
-		}
-		return st.CreateCharmUnitSecret(ctx, 1, uri2, mysqlUnitUUID, sp2)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return uri1, uri2
-}
-
-func (s *applicationStateSuite) TestGetSecretsForApplication(c *gc.C) {
-	uri1, _ := s.createOwnedSecrets(c)
-	var gotURIs []*secrets.URI
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotURIs, err = s.state.GetSecretsForApplication(ctx, "mysql")
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotURIs, jc.SameContents, []*secrets.URI{uri1})
-}
-
-func (s *applicationStateSuite) TestGetSecretsForUnit(c *gc.C) {
-	_, uri2 := s.createOwnedSecrets(c)
-	var gotURIs []*secrets.URI
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotURIs, err = s.state.GetSecretsForUnit(ctx, "mysql/1")
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotURIs, jc.SameContents, []*secrets.URI{uri2})
-}
-
-func (s *applicationStateSuite) TestGetSecretsNone(c *gc.C) {
-	s.createOwnedSecrets(c)
-	var gotURIs []*secrets.URI
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotURIs, err = s.state.GetSecretsForUnit(ctx, "mariadb/1")
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotURIs, gc.HasLen, 0)
 }
 
 func (s *applicationStateSuite) TestDeleteUnitLastUnit(c *gc.C) {

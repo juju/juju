@@ -20,7 +20,6 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
-	secrets "github.com/juju/juju/core/secrets"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
@@ -1510,84 +1509,6 @@ func (c *MockStateGetModelTypeCall) Do(f func(context.Context) (model.ModelType,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetModelTypeCall) DoAndReturn(f func(context.Context) (model.ModelType, error)) *MockStateGetModelTypeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetSecretsForApplication mocks base method.
-func (m *MockState) GetSecretsForApplication(arg0 domain.AtomicContext, arg1 string) ([]*secrets.URI, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretsForApplication", arg0, arg1)
-	ret0, _ := ret[0].([]*secrets.URI)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSecretsForApplication indicates an expected call of GetSecretsForApplication.
-func (mr *MockStateMockRecorder) GetSecretsForApplication(arg0, arg1 any) *MockStateGetSecretsForApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretsForApplication", reflect.TypeOf((*MockState)(nil).GetSecretsForApplication), arg0, arg1)
-	return &MockStateGetSecretsForApplicationCall{Call: call}
-}
-
-// MockStateGetSecretsForApplicationCall wrap *gomock.Call
-type MockStateGetSecretsForApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetSecretsForApplicationCall) Return(arg0 []*secrets.URI, arg1 error) *MockStateGetSecretsForApplicationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetSecretsForApplicationCall) Do(f func(domain.AtomicContext, string) ([]*secrets.URI, error)) *MockStateGetSecretsForApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetSecretsForApplicationCall) DoAndReturn(f func(domain.AtomicContext, string) ([]*secrets.URI, error)) *MockStateGetSecretsForApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetSecretsForUnit mocks base method.
-func (m *MockState) GetSecretsForUnit(arg0 domain.AtomicContext, arg1 unit.Name) ([]*secrets.URI, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretsForUnit", arg0, arg1)
-	ret0, _ := ret[0].([]*secrets.URI)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSecretsForUnit indicates an expected call of GetSecretsForUnit.
-func (mr *MockStateMockRecorder) GetSecretsForUnit(arg0, arg1 any) *MockStateGetSecretsForUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretsForUnit", reflect.TypeOf((*MockState)(nil).GetSecretsForUnit), arg0, arg1)
-	return &MockStateGetSecretsForUnitCall{Call: call}
-}
-
-// MockStateGetSecretsForUnitCall wrap *gomock.Call
-type MockStateGetSecretsForUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetSecretsForUnitCall) Return(arg0 []*secrets.URI, arg1 error) *MockStateGetSecretsForUnitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetSecretsForUnitCall) Do(f func(domain.AtomicContext, unit.Name) ([]*secrets.URI, error)) *MockStateGetSecretsForUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetSecretsForUnitCall) DoAndReturn(f func(domain.AtomicContext, unit.Name) ([]*secrets.URI, error)) *MockStateGetSecretsForUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

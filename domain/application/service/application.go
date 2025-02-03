@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	coresecrets "github.com/juju/juju/core/secrets"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -84,17 +83,6 @@ type AtomicApplicationState interface {
 	// SetDesiredApplicationScale updates the desired scale of the specified
 	// application.
 	SetDesiredApplicationScale(domain.AtomicContext, coreapplication.ID, int) error
-
-	// GetSecretsForUnit returns the secrets owned by the specified unit.
-	GetSecretsForUnit(
-		ctx domain.AtomicContext, unitName coreunit.Name,
-	) ([]*coresecrets.URI, error)
-
-	// GetSecretsForApplication returns the secrets owned by the specified
-	// application.
-	GetSecretsForApplication(
-		ctx domain.AtomicContext, applicationName string,
-	) ([]*coresecrets.URI, error)
 }
 
 // ApplicationState describes retrieval and persistence methods for
