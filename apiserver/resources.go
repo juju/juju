@@ -17,6 +17,7 @@ import (
 	"github.com/juju/names/v6"
 
 	api "github.com/juju/juju/api/client/resources"
+	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
@@ -114,7 +115,7 @@ func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request
 			}
 			return
 		}
-		if err := sendStatusAndJSON(resp, http.StatusOK, &response); err != nil {
+		if err := internalhttp.SendStatusAndJSON(resp, http.StatusOK, &response); err != nil {
 			logger.Errorf("%v", err)
 		}
 	default:

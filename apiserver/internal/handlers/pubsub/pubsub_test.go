@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package pubsub_test
 
 import (
 	"context"
@@ -18,7 +18,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -54,7 +53,7 @@ func (s *pubsubSuite) SetUpTest(c *gc.C) {
 	})
 	s.machineTag = m.Tag()
 	s.password = password
-	s.hub = apiserver.CentralHub(s.Server)
+	s.hub = s.Server.GetCentralHub()
 
 	pubsubURL := s.URL(fmt.Sprintf("/model/%s/pubsub", s.ControllerModelUUID()), url.Values{})
 	pubsubURL.Scheme = "wss"

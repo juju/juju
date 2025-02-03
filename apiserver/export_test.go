@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	gc "gopkg.in/check.v1"
@@ -295,11 +294,6 @@ func SetAllowModelAccess(server *Server, allow bool) {
 // DataDir exposes the server data dir.
 func DataDir(server *Server) string {
 	return server.dataDir
-}
-
-// CentralHub exposes the server central hub.
-func CentralHub(server *Server) *pubsub.StructuredHub {
-	return server.shared.centralHub.(*pubsub.StructuredHub)
 }
 
 // Patcher defines an interface that matches the PatchValue method on

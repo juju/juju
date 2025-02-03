@@ -5,10 +5,8 @@ package apiserver
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -17,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
+	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -204,44 +203,12 @@ func (ctxt *httpContext) stop() <-chan struct{} {
 	return ctxt.srv.tomb.Dying()
 }
 
-// sendStatusAndHeadersAndJSON send an HTTP status code, custom headers
-// and a JSON-encoded response to a client
-func sendStatusAndHeadersAndJSON(w http.ResponseWriter, statusCode int, headers map[string]string, response interface{}) error {
-	for k, v := range headers {
-		if !strings.HasPrefix(k, "Juju-") {
-			return errors.Errorf(`Custom header %q must be prefixed with "Juju-"`, k)
-		}
-		w.Header().Set(k, v)
-	}
-	return sendStatusAndJSON(w, statusCode, response)
-}
-
-// sendStatusAndJSON sends an HTTP status code and
-// a JSON-encoded response to a client.
-func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) error {
-	body, err := json.Marshal(response)
-	if err != nil {
-		return errors.Errorf("cannot marshal JSON result %#v: %v", response, err)
-	}
-
-	if statusCode == http.StatusUnauthorized {
-		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	}
-	w.Header().Set("Content-Type", params.ContentTypeJSON)
-	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
-	w.WriteHeader(statusCode)
-	if _, err := w.Write(body); err != nil {
-		return errors.Annotate(err, "cannot write response")
-	}
-	return nil
-}
-
 // sendError sends a JSON-encoded error response
 // for errors encountered during processing.
 func sendError(w http.ResponseWriter, errToSend error) error {
 	paramsErr, statusCode := apiservererrors.ServerErrorAndStatus(errToSend)
 	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
-	return errors.Trace(sendStatusAndJSON(w, statusCode, &params.ErrorResult{
+	return errors.Trace(internalhttp.SendStatusAndJSON(w, statusCode, &params.ErrorResult{
 		Error: paramsErr,
 	}))
 }

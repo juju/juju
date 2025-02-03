@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package objects
 
 import (
 	"context"
@@ -22,6 +22,10 @@ import (
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+)
+
+const (
+	charmsObjectsRoutePrefix = "/model-:modeluuid/charms/:object"
 )
 
 type objectsCharmHandlerSuite struct {
@@ -51,7 +55,7 @@ func (s *objectsCharmHandlerSuite) TearDownTest(c *gc.C) {
 func (s *objectsCharmHandlerSuite) TestServeMethodNotSupported(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	handlers := &objectsCharmHTTPHandler{
+	handlers := &ObjectsCharmHTTPHandler{
 		applicationServiceGetter: s.applicationsServiceGetter,
 	}
 
@@ -77,7 +81,7 @@ func (s *objectsCharmHandlerSuite) TestServeGet(c *gc.C) {
 
 	s.applicationsService.EXPECT().GetCharmArchiveBySHA256Prefix(gomock.Any(), "01abcdef").Return(io.NopCloser(strings.NewReader("charm-content")), nil)
 
-	handlers := &objectsCharmHTTPHandler{
+	handlers := &ObjectsCharmHTTPHandler{
 		applicationServiceGetter: s.applicationsServiceGetter,
 	}
 
@@ -104,7 +108,7 @@ func (s *objectsCharmHandlerSuite) TestServeGetNotFound(c *gc.C) {
 
 	s.applicationsService.EXPECT().GetCharmArchiveBySHA256Prefix(gomock.Any(), "01abcdef").Return(nil, applicationerrors.CharmNotFound)
 
-	handlers := &objectsCharmHTTPHandler{
+	handlers := &ObjectsCharmHTTPHandler{
 		applicationServiceGetter: s.applicationsServiceGetter,
 	}
 
@@ -124,7 +128,7 @@ func (s *objectsCharmHandlerSuite) TestServeGetNotFound(c *gc.C) {
 func (s *objectsCharmHandlerSuite) TestServePutIncorrectEncoding(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	handlers := &objectsCharmHTTPHandler{
+	handlers := &ObjectsCharmHTTPHandler{
 		applicationServiceGetter: s.applicationsServiceGetter,
 	}
 
@@ -149,7 +153,7 @@ func (s *objectsCharmHandlerSuite) TestServePutIncorrectEncoding(c *gc.C) {
 func (s *objectsCharmHandlerSuite) TestServePutNoJujuCharmURL(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	handlers := &objectsCharmHTTPHandler{
+	handlers := &ObjectsCharmHTTPHandler{
 		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
 		makeCharmURL:             CharmURLFromLocator,
@@ -179,7 +183,7 @@ func (s *objectsCharmHandlerSuite) TestServePutNoJujuCharmURL(c *gc.C) {
 func (s *objectsCharmHandlerSuite) TestServePutInvalidSHA256Prefix(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	handlers := &objectsCharmHTTPHandler{
+	handlers := &ObjectsCharmHTTPHandler{
 		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
 		makeCharmURL:             CharmURLFromLocator,
@@ -210,7 +214,7 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidSHA256Prefix(c *gc.C) {
 func (s *objectsCharmHandlerSuite) TestServePutInvalidCharmURL(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	handlers := &objectsCharmHTTPHandler{
+	handlers := &ObjectsCharmHTTPHandler{
 		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
 		makeCharmURL:             CharmURLFromLocator,
@@ -241,7 +245,7 @@ func (s *objectsCharmHandlerSuite) TestServePutInvalidCharmURL(c *gc.C) {
 func (s *objectsCharmHandlerSuite) TestServePut(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	handlers := &objectsCharmHTTPHandler{
+	handlers := &ObjectsCharmHTTPHandler{
 		stateGetter:              s.stateGetter,
 		applicationServiceGetter: s.applicationsServiceGetter,
 		makeCharmURL:             CharmURLFromLocator,

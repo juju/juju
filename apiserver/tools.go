@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
+	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
@@ -129,7 +130,7 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-		if err := sendStatusAndJSON(w, http.StatusOK, &params.ToolsResult{
+		if err := internalhttp.SendStatusAndJSON(w, http.StatusOK, &params.ToolsResult{
 			ToolsList: tools.List{agentTools},
 		}); err != nil {
 			logger.Errorf("%v", err)
