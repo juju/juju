@@ -525,11 +525,7 @@ func (env *azureEnviron) findInstanceSpec(
 	instanceTypesMap map[string]instances.InstanceType,
 	constraint *instances.InstanceConstraint,
 	imageStream string,
-	preferGen1Image bool,
 ) (*instances.InstanceSpec, error) {
-	if !constraint.Constraints.HasArch() && constraint.Arch != "" {
-		constraint.Constraints.Arch = &constraint.Arch
-	}
 
 	if constraint.Arch != arch.AMD64 {
 		// Azure only supports AMD64.
@@ -540,7 +536,7 @@ func (env *azureEnviron) findInstanceSpec(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	image, err := imageutils.BaseImage(ctx, constraint.Base, imageStream, constraint.Region, client, preferGen1Image)
+	image, err := imageutils.BaseImage(ctx, constraint.Base, imageStream, constraint.Region, client)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
