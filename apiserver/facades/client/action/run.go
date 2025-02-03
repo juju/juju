@@ -43,7 +43,7 @@ func (a *ActionAPI) Run(ctx context.Context, run params.RunParams) (results para
 		machines[i] = names.NewMachineTag(machineId)
 	}
 
-	actionParams, err := a.createRunActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext, run.Parallel, run.ExecutionGroup)
+	actionParams, err := a.createRunActionsParams(append(units, machines...), run.Commands, run.Timeout, run.Parallel, run.ExecutionGroup)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -77,7 +77,7 @@ func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) 
 		machineTags[i] = machine.Tag()
 	}
 
-	actionParams, err := a.createRunActionsParams(machineTags, run.Commands, run.Timeout, false, run.Parallel, run.ExecutionGroup)
+	actionParams, err := a.createRunActionsParams(machineTags, run.Commands, run.Timeout, run.Parallel, run.ExecutionGroup)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -88,7 +88,6 @@ func (a *ActionAPI) createRunActionsParams(
 	actionReceiverTags []names.Tag,
 	quotedCommands string,
 	timeout time.Duration,
-	workloadContext bool,
 	parallel *bool,
 	executionGroup *string,
 ) (params.Actions, error) {
@@ -101,7 +100,6 @@ func (a *ActionAPI) createRunActionsParams(
 	actionParams := map[string]interface{}{}
 	actionParams["command"] = quotedCommands
 	actionParams["timeout"] = timeout.Nanoseconds()
-	actionParams["workload-context"] = workloadContext
 
 	for _, tag := range actionReceiverTags {
 		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
