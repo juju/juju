@@ -1487,7 +1487,12 @@ WHERE application_uuid = $applicationScale.application_uuid
 // GetApplicationLife looks up the life of the specified application, returning
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
-func (st *State) GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error) {
+func (st *State) GetApplicationLife(ctx context.Context, appName string) (coreapplication.ID, life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", -1, jujuerrors.Trace(err)
+	}
+
 	app := applicationDetails{Name: appName}
 	query := `
 SELECT &applicationDetails.*
@@ -1499,7 +1504,7 @@ WHERE name = $applicationDetails.name
 		return "", -1, jujuerrors.Trace(err)
 	}
 
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, app).Get(&app); err != nil {
 			if !errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("querying life for application %q: %w", appName, err)

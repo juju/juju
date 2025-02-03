@@ -592,25 +592,14 @@ func (s *applicationStateSuite) TestCreateApplicationWithResourcesTooMuchResourc
 
 func (s *applicationStateSuite) TestGetApplicationLife(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Dying)
-	var (
-		appLife life.Life
-		gotID   coreapplication.ID
-	)
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		var err error
-		gotID, appLife, err = s.state.GetApplicationLife(ctx, "foo")
-		return err
-	})
+	gotID, appLife, err := s.state.GetApplicationLife(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotID, gc.Equals, appID)
 	c.Assert(appLife, gc.Equals, life.Dying)
 }
 
 func (s *applicationStateSuite) TestGetApplicationLifeNotFound(c *gc.C) {
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		_, _, err := s.state.GetApplicationLife(ctx, "foo")
-		return err
-	})
+	_, _, err := s.state.GetApplicationLife(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

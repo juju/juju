@@ -72,12 +72,6 @@ type AtomicApplicationState interface {
 	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	SetUnitWorkloadStatusAtomic(domain.AtomicContext, coreunit.UUID, application.UnitWorkloadStatusInfo) error
 
-	// GetApplicationLife looks up the life of the specified application,
-	// returning an error satisfying
-	// [applicationerrors.ApplicationNotFoundError] if the application is not
-	// found.
-	GetApplicationLife(ctx domain.AtomicContext, appName string) (coreapplication.ID, life.Life, error)
-
 	// GetApplicationScaleState looks up the scale state of the specified
 	// application, returning an error satisfying
 	// [applicationerrors.ApplicationNotFound] if the application is not found.
@@ -166,6 +160,12 @@ type ApplicationState interface {
 	// the given application. The supplied ids may belong to a different
 	// application; the application name is used to filter.
 	GetApplicationUnitLife(ctx context.Context, appName string, unitUUIDs ...coreunit.UUID) (map[coreunit.UUID]life.Life, error)
+
+	// GetApplicationLife looks up the life of the specified application,
+	// returning an error satisfying
+	// [applicationerrors.ApplicationNotFoundError] if the application is not
+	// found.
+	GetApplicationLife(ctx context.Context, appName string) (coreapplication.ID, life.Life, error)
 
 	// SetApplicationLife sets the life of the specified application.
 	SetApplicationLife(context.Context, coreapplication.ID, life.Life) error
@@ -765,24 +765,26 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 		}
 		cloudContainer = makeCloudContainerArg(unitName, cloudContainerParams)
 	}
+
 	appName, err := names.UnitApplication(unitName.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
+	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
+	if err != nil {
+		return internalerrors.Errorf("getting application %q life: %w", appName, err)
+	}
+	if appLife != life.Alive {
+		return internalerrors.Errorf("application %q is not alive%w", appName, errors.Hide(applicationerrors.ApplicationNotAlive))
+	}
+
 	// We want to transition to using unit UUID instead of name.
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		_, appLife, err := s.st.GetApplicationLife(ctx, appName)
-		if err != nil {
-			return fmt.Errorf("getting application %q life: %w", appName, err)
-		}
-		if appLife != life.Alive {
-			return fmt.Errorf("application %q is not alive%w", appName, errors.Hide(applicationerrors.ApplicationNotAlive))
-		}
 
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		if cloudContainer != nil {
 			if err := s.st.UpdateUnitContainer(ctx, unitName, cloudContainer); err != nil {
 				return errors.Annotatef(err, "updating cloud container %q", unitName)
@@ -1083,12 +1085,11 @@ func (s *Service) CAASUnitTerminating(ctx context.Context, appName string, unitN
 // an error satisfying [applicationerrors.ApplicationNotFoundError] if the
 // application is not found.
 func (s *Service) GetApplicationLife(ctx context.Context, appName string) (corelife.Value, error) {
-	var result corelife.Value
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		_, appLife, err := s.st.GetApplicationLife(ctx, appName)
-		result = appLife.Value()
-		return errors.Annotatef(err, "getting life for %q", appName)
-	})
+	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
+	if err != nil {
+		return "", internalerrors.Errorf("getting life for %q: %w", appName, err)
+	}
+	result := appLife.Value()
 	return result, errors.Trace(err)
 }
 
@@ -1120,23 +1121,17 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // This is used on CAAS models.
 func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int, error) {
-	_, scale, err := s.getApplicationScaleAndID(ctx, appName)
-	return scale, errors.Trace(err)
-}
-
-func (s *Service) getApplicationScaleAndID(ctx context.Context, appName string) (coreapplication.ID, int, error) {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return "", -1, errors.Trace(err)
+		return -1, errors.Trace(err)
 	}
 	var scaleState application.ScaleState
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
-
 		scaleState, err = s.st.GetApplicationScaleState(ctx, appID)
 		return errors.Annotatef(err, "getting scaling state for %q", appName)
 	})
-	return appID, scaleState.Scale, errors.Trace(err)
+	return scaleState.Scale, errors.Trace(err)
 }
 
 // ChangeApplicationScale alters the existing scale by the provided change amount, returning the new amount.
@@ -1172,11 +1167,11 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // This is used on CAAS models.
 func (s *Service) SetApplicationScalingState(ctx context.Context, appName string, scaleTarget int, scaling bool) error {
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		appID, appLife, err := s.st.GetApplicationLife(ctx, appName)
-		if err != nil {
-			return errors.Annotatef(err, "getting life for %q", appName)
-		}
+	appID, appLife, err := s.st.GetApplicationLife(ctx, appName)
+	if err != nil {
+		return errors.Annotatef(err, "getting life for %q", appName)
+	}
+	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
 			return errors.Annotatef(err, "getting current scale state for %q", appName)
