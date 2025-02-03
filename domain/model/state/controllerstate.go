@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
@@ -1583,6 +1584,72 @@ func (s *State) UpdateCredential(
 	})
 }
 
+// CloudSupportsAuthType allows the caller to ask if a given auth type is
+// currently supported by the cloud named by cloudName. If no cloud is found for
+// the provided name an error matching [clouderrors.NotFound] is returned.
+func CloudSupportsAuthType(
+	ctx context.Context,
+	tx *sqlair.TX,
+	cloudName string,
+	authType cloud.AuthType,
+) (bool, error) {
+
+	cloudID := cloudID{
+		Name: cloudName,
+	}
+
+	cloudStmt := `
+SELECT &cloudID.uuid
+FROM cloud
+WHERE cloud.name = $cloudID.name
+`
+	selectCloudStmt, err := sqlair.Prepare(cloudStmt, cloudID)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	err = tx.Query(ctx, selectCloudStmt, cloudID).Get(&cloudID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, fmt.Errorf("%w %q", clouderrors.NotFound, cloudName)
+	} else if err != nil {
+		return false, fmt.Errorf(
+			"determining if cloud %q supports auth type %q: %w",
+			cloudName, authType.String(), err,
+		)
+	}
+
+	authTypeStmt := `
+SELECT auth_type.type AS &M.supports
+FROM cloud
+INNER JOIN cloud_auth_type
+ON cloud.uuid = cloud_auth_type.cloud_uuid
+INNER JOIN auth_type
+ON cloud_auth_type.auth_type_id = auth_type.id
+WHERE cloud.uuid = $M.cloudUUID
+AND auth_type.type = $M.authType
+`
+	selectCloudAuthTypeStmt, err := sqlair.Prepare(authTypeStmt, sqlair.M{})
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	m := sqlair.M{
+		"cloudUUID": cloudID.UUID,
+		"authType":  authType.String(),
+	}
+	err = tx.Query(ctx, selectCloudAuthTypeStmt, m).Get(&m)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf(
+			"determining if cloud %q supports auth type %q: %w",
+			cloudName, authType.String(), err,
+		)
+	}
+
+	return true, nil
+}
+
 // updateCredential is responsible for updating the cloud credential in use
 // by model. If the cloud credential is not found an error that satisfies
 // errors.NotFound is returned.
@@ -1595,6 +1662,11 @@ func updateCredential(
 	uuid coremodel.UUID,
 	key credential.Key,
 ) error {
+
+	if key.IsZero() {
+
+	}
+
 	selectArgs := dbCredKey{
 		CloudName:           key.Cloud,
 		OwnerName:           key.Owner.Name(),

@@ -55,6 +55,15 @@ type stateSuite struct {
 
 var _ = gc.Suite(&stateSuite{})
 
+// insertÇloud is a helper method to create new cloud's in the database during
+// testing.
+func (m *stateSuite) insertCloud(c *gc.C, cloud cloud.Cloud) {
+	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
+	cloudUUID := uuid.MustNewUUID()
+	err := cloudSt.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID.String(), cloud)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (m *stateSuite) SetUpTest(c *gc.C) {
 	m.ControllerSuite.SetUpTest(c)
 
@@ -1625,4 +1634,93 @@ func (m *stateSuite) createTestModel(c *gc.C, modelSt *State, name string, creat
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelSt.Activate(context.Background(), modelUUID), jc.ErrorIsNil)
 	return modelUUID
+}
+
+// TestCloudSupportsAuthTypeTrue is asserting the happy path that for a valid
+// cloud and supported auth type we get back true with no errors.
+func (s *stateSuite) TestCloudSupportsAuthTypeTrue(c *gc.C) {
+	fakeCloud := cloud.Cloud{
+		Name:             "fluffy",
+		Type:             "ec2",
+		AuthTypes:        []cloud.AuthType{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		Endpoint:         "https://endpoint",
+		IdentityEndpoint: "https://identity-endpoint",
+		StorageEndpoint:  "https://storage-endpoint",
+		Regions: []cloud.Region{{
+			Name:             "region1",
+			Endpoint:         "http://region-endpoint1",
+			IdentityEndpoint: "http://region-identity-endpoint1",
+			StorageEndpoint:  "http://region-identity-endpoint1",
+		}, {
+			Name:             "region2",
+			Endpoint:         "http://region-endpoint2",
+			IdentityEndpoint: "http://region-identity-endpoint2",
+			StorageEndpoint:  "http://region-identity-endpoint2",
+		}},
+		CACertificates:    []string{"cert1", "cert2"},
+		SkipTLSVerify:     true,
+		IsControllerCloud: false,
+	}
+	s.insertCloud(c, fakeCloud)
+
+	var supports bool
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		s, err := CloudSupportsAuthType(context.Background(), tx, fakeCloud.Name, cloud.UserPassAuthType)
+		supports = s
+		return err
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(supports, jc.IsTrue)
+}
+
+// TestCloudSupportsAuthTypeFalse is asserting the happy path that for a valid
+// cloud and a non supported auth type we get back false with no errors.
+func (s *stateSuite) TestCloudSupportsAuthTypeFalse(c *gc.C) {
+	fakeCloud := cloud.Cloud{
+		Name:             "fluffy",
+		Type:             "ec2",
+		AuthTypes:        []cloud.AuthType{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		Endpoint:         "https://endpoint",
+		IdentityEndpoint: "https://identity-endpoint",
+		StorageEndpoint:  "https://storage-endpoint",
+		Regions: []cloud.Region{{
+			Name:             "region1",
+			Endpoint:         "http://region-endpoint1",
+			IdentityEndpoint: "http://region-identity-endpoint1",
+			StorageEndpoint:  "http://region-identity-endpoint1",
+		}, {
+			Name:             "region2",
+			Endpoint:         "http://region-endpoint2",
+			IdentityEndpoint: "http://region-identity-endpoint2",
+			StorageEndpoint:  "http://region-identity-endpoint2",
+		}},
+		CACertificates:    []string{"cert1", "cert2"},
+		SkipTLSVerify:     true,
+		IsControllerCloud: false,
+	}
+	s.insertCloud(c, fakeCloud)
+
+	var supports bool
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		s, err := CloudSupportsAuthType(context.Background(), tx, fakeCloud.Name, cloud.ClientCertificateAuthType)
+		supports = s
+		return err
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(supports, jc.IsFalse)
+}
+
+// TestCloudSupportsAuthTypeCloudNotFound is checking to that if we ask if a
+// cloud supports an auth type and the cloud doesn't exist we get back a
+// [clouderrors.NotFound] error.
+func (s *stateSuite) TestCloudSupportsAuthTypeCloudNotFound(c *gc.C) {
+	var supports bool
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		s, err := CloudSupportsAuthType(context.Background(), tx, "no-exist", cloud.AuthType("no-exist"))
+		supports = s
+		return err
+	})
+
+	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
+	c.Check(supports, jc.IsFalse)
 }
