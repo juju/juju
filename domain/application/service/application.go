@@ -25,7 +25,6 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -38,29 +37,9 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-// AtomicApplicationState describes retrieval and persistence methods for
-// applications that require atomic transactions.
-// Deprecated: use ApplicationState instead.
-type AtomicApplicationState interface {
-	domain.AtomicStateBase
-
-	// SetUnitPassword updates the password for the specified unit UUID.
-	SetUnitPassword(domain.AtomicContext, coreunit.UUID, application.PasswordInfo) error
-
-	// SetApplicationScalingState sets the scaling details for the given caas
-	// application Scale is optional and is only set if not nil.
-	SetApplicationScalingState(ctx domain.AtomicContext, appID coreapplication.ID, scale *int, targetScale int, scaling bool) error
-
-	// SetDesiredApplicationScale updates the desired scale of the specified
-	// application.
-	SetDesiredApplicationScale(domain.AtomicContext, coreapplication.ID, int) error
-}
-
 // ApplicationState describes retrieval and persistence methods for
 // applications.
 type ApplicationState interface {
-	AtomicApplicationState
-
 	// GetApplicationIDByName returns the application ID for the named application.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
@@ -88,6 +67,9 @@ type ApplicationState interface {
 	// satisfying [applicationerrors.UnitAlreadyExists]
 	// if the unit exists.
 	InsertUnit(context.Context, coreapplication.ID, application.InsertUnitArg) error
+
+	// SetUnitPassword updates the password for the specified unit UUID.
+	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
 
 	// DeleteUnit deletes the specified unit.
 	// If the unit's application is Dying and no
@@ -138,6 +120,14 @@ type ApplicationState interface {
 
 	// SetApplicationLife sets the life of the specified application.
 	SetApplicationLife(context.Context, coreapplication.ID, life.Life) error
+
+	// SetApplicationScalingState sets the scaling details for the given caas
+	// application Scale is optional and is only set if not nil.
+	SetApplicationScalingState(ctx context.Context, appID coreapplication.ID, scale *int, targetScale int, scaling bool) error
+
+	// SetDesiredApplicationScale updates the desired scale of the specified
+	// application.
+	SetDesiredApplicationScale(context.Context, coreapplication.ID, int) error
 
 	// DeleteApplication deletes the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the
@@ -723,11 +713,9 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, p
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return s.st.SetUnitPassword(ctx, unitUUID, application.PasswordInfo{
-			PasswordHash:  password,
-			HashAlgorithm: application.HashAlgorithmSHA256,
-		})
+	return s.st.SetUnitPassword(ctx, unitUUID, application.PasswordInfo{
+		PasswordHash:  password,
+		HashAlgorithm: application.HashAlgorithmSHA256,
 	})
 }
 
@@ -982,10 +970,11 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	s.logger.Tracef(
 		"SetScale DesiredScale %v -> %v", appScale.Scale, scale,
 	)
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return s.st.SetDesiredApplicationScale(ctx, appID, scale)
-	})
-	return errors.Annotatef(err, "setting scale for application %q", appName)
+	err = s.st.SetDesiredApplicationScale(ctx, appID, scale)
+	if err != nil {
+		return internalerrors.Errorf("setting scale for application %q: %w", appName, err)
+	}
+	return nil
 }
 
 // GetApplicationScale returns the desired scale of an application, returning an error
@@ -1019,16 +1008,15 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 	newScale := currentScaleState.Scale + scaleChange
 	s.logger.Tracef("ChangeScale DesiredScale %v, scaleChange %v, newScale %v", currentScaleState.Scale, scaleChange, newScale)
 	if newScale < 0 {
-		newScale = currentScaleState.Scale
 		return -1, internalerrors.Errorf(
 			"%w: cannot remove more units than currently exist", applicationerrors.ScaleChangeInvalid)
 	}
 
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		err = s.st.SetDesiredApplicationScale(ctx, appID, newScale)
-		return errors.Annotatef(err, "changing scaling state for %q", appName)
-	})
-	return newScale, errors.Annotatef(err, "changing scale for %q", appName)
+	err = s.st.SetDesiredApplicationScale(ctx, appID, newScale)
+	if err != nil {
+		return -1, internalerrors.Errorf("changing scaling state for %q: %w", appName, err)
+	}
+	return newScale, nil
 }
 
 // SetApplicationScalingState updates the scale state of an application, returning an error
@@ -1058,12 +1046,11 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 		}
 	}
 
-	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		err = s.st.SetApplicationScalingState(ctx, appID, scale, scaleTarget, scaling)
-		return errors.Annotatef(err, "updating scaling state for %q", appName)
-	})
-	return errors.Annotatef(err, "setting scale for %q", appName)
-
+	err = s.st.SetApplicationScalingState(ctx, appID, scale, scaleTarget, scaling)
+	if err != nil {
+		return internalerrors.Errorf("updating scaling state for %q: %w", appName, err)
+	}
+	return nil
 }
 
 // GetApplicationScalingState returns the scale state of an application,

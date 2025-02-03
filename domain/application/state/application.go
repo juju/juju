@@ -504,10 +504,19 @@ func (st *State) getUnit(ctx context.Context, tx *sqlair.TX, unitName coreunit.N
 }
 
 // SetUnitPassword updates the password for the specified unit UUID.
-func (st *State) SetUnitPassword(ctx domain.AtomicContext, unitUUID coreunit.UUID, password application.PasswordInfo) error {
-	return domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+func (st *State) SetUnitPassword(ctx context.Context, unitUUID coreunit.UUID, password application.PasswordInfo) error {
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.setUnitPassword(ctx, tx, unitUUID, password)
 	})
+	if err != nil {
+		return errors.Errorf("setting password for unit %q: %w", unitUUID, err)
+	}
+	return nil
 }
 
 func (st *State) setUnitPassword(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, password application.PasswordInfo) error {
@@ -1571,7 +1580,12 @@ AND life_id <= $applicationIDAndLife.life_id
 
 // SetDesiredApplicationScale updates the desired scale of the specified
 // application.
-func (st *State) SetDesiredApplicationScale(ctx domain.AtomicContext, appUUID coreapplication.ID, scale int) error {
+func (st *State) SetDesiredApplicationScale(ctx context.Context, appUUID coreapplication.ID, scale int) error {
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
 	scaleDetails := applicationScale{
 		ApplicationID: appUUID,
 		Scale:         scale,
@@ -1585,7 +1599,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 	if err != nil {
 		return jujuerrors.Trace(err)
 	}
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, upsertStmt, scaleDetails).Run()
 	})
 	return jujuerrors.Trace(err)
@@ -1593,7 +1607,12 @@ WHERE application_uuid = $applicationScale.application_uuid
 
 // SetApplicationScalingState sets the scaling details for the given caas
 // application Scale is optional and is only set if not nil.
-func (st *State) SetApplicationScalingState(ctx domain.AtomicContext, appUUID coreapplication.ID, scale *int, targetScale int, scaling bool) error {
+func (st *State) SetApplicationScalingState(ctx context.Context, appUUID coreapplication.ID, scale *int, targetScale int, scaling bool) error {
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
 	scaleDetails := applicationScale{
 		ApplicationID: appUUID,
 		Scaling:       scaling,
@@ -1617,7 +1636,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 	if err != nil {
 		return jujuerrors.Trace(err)
 	}
-	err = domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, upsertStmt, scaleDetails).Run()
 	})
 	return jujuerrors.Trace(err)

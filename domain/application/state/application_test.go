@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -1011,10 +1010,8 @@ func (s *applicationStateSuite) TestSetUnitPassword(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	unitUUID := s.addUnit(c, appID, u)
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetUnitPassword(ctx, unitUUID, application.PasswordInfo{
-			PasswordHash: "secret",
-		})
+	err := s.state.SetUnitPassword(context.Background(), unitUUID, application.PasswordInfo{
+		PasswordHash: "secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1506,9 +1503,7 @@ func (s *applicationStateSuite) TestGetApplicationScaleStateNotFound(c *gc.C) {
 func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetDesiredApplicationScale(ctx, appID, 666)
-	})
+	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var gotScale int
@@ -1528,9 +1523,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive, u)
 
 	// Set up the initial scale value.
-	err := s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetDesiredApplicationScale(ctx, appID, 666)
-	})
+	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkResult := func(want application.ScaleState) {
@@ -1544,9 +1537,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
 		c.Assert(got, jc.DeepEquals, want)
 	}
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetApplicationScalingState(ctx, appID, nil, 668, true)
-	})
+	err = s.state.SetApplicationScalingState(context.Background(), appID, nil, 668, true)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:       666,
@@ -1554,9 +1545,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
 		Scaling:     true,
 	})
 
-	err = s.state.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		return s.state.SetApplicationScalingState(ctx, appID, ptr(667), 668, true)
-	})
+	err = s.state.SetApplicationScalingState(context.Background(), appID, ptr(667), 668, true)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:       667,
