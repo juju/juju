@@ -42,7 +42,7 @@ func (s *modelSuite) createTestModel(c *gc.C) coremodel.UUID {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
+	args := model.ModelDetailArgs{
 		UUID:            id,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
