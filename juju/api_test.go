@@ -797,7 +797,7 @@ func (s *NewAPIClientSuite) TestUpdateControllerDetailsFromLogin(c *gc.C) {
 			CurrentHostPorts: []network.MachineHostPorts{
 				network.NewMachineHostPorts(1234, "31.0.0.1"),
 			},
-			CurrentConnection: juju.CurrentConnection{
+			CurrentConnection: &juju.CurrentConnection{
 				Proxied: false,
 				Address: &url.URL{
 					Host: "mycontroller:5432",
@@ -813,7 +813,7 @@ func (s *NewAPIClientSuite) TestUpdateControllerDetailsFromLogin(c *gc.C) {
 			CurrentHostPorts: []network.MachineHostPorts{
 				network.NewMachineHostPorts(1234, "31.0.0.1"),
 			},
-			CurrentConnection: juju.CurrentConnection{
+			CurrentConnection: &juju.CurrentConnection{
 				Proxied: true,
 				Address: &url.URL{
 					Host: "mycontroller:5432",

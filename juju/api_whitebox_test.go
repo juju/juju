@@ -4,6 +4,8 @@
 package juju
 
 import (
+	"net/url"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -106,17 +108,17 @@ func (s *APIHelperSuite) TestAddrsChanged(c *gc.C) {
 
 var trimSchemeTests = []struct {
 	description string
-	urls        []string
+	urls        []*url.URL
 	expect      []string
 }{
 	{
 		description: "With scheme",
-		urls:        []string{"http://mydomain.com/foo"},
+		urls:        []*url.URL{mustParseURL("http://mydomain.com/foo")},
 		expect:      []string{"mydomain.com/foo"},
 	},
 	{
 		description: "Without scheme",
-		urls:        []string{"mydomain.com/foo"},
+		urls:        []*url.URL{mustParseURL("mydomain.com/foo")},
 		expect:      []string{"mydomain.com/foo"},
 	},
 }
@@ -127,4 +129,12 @@ func (s *APIHelperSuite) TestTrimScheme(c *gc.C) {
 		got := trimScheme(test.urls)
 		c.Assert(got, gc.DeepEquals, test.expect)
 	}
+}
+
+func mustParseURL(s string) *url.URL {
+	u, err := url.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
 }

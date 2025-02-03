@@ -147,7 +147,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		fallback: http.DefaultTransport,
 	}
 
-	host := PerferredHost(info)
+	host := PreferredHost(info)
 	if host == "" {
 		host = dialResult.controllerRootAddr.Host
 	}
@@ -219,7 +219,7 @@ func CookieURLFromHost(host string) *url.URL {
 
 // PreferredHost returns the SNI hostname or controller name for the cookie URL
 // so that it is stable when used with a HA controller cluster.
-func PerferredHost(info *Info) string {
+func PreferredHost(info *Info) string {
 	if info == nil {
 		return ""
 	}

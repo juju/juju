@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"reflect"
 	"slices"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -142,7 +141,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 		AgentVersion:     agentVersion,
 		CurrentHostPorts: hostPorts,
 		DNSCache:         dnsCache,
-		CurrentConnection: currentConnection{
+		CurrentConnection: &currentConnection{
 			Proxied:   st.IsProxied(),
 			Address:   st.Addr(),
 			IPAddress: st.IPAddr(),
@@ -318,7 +317,7 @@ type UpdateControllerParams struct {
 
 	// CurrentConnection provides information on the address
 	// we are connected to.
-	CurrentConnection currentConnection
+	CurrentConnection *currentConnection
 
 	// Proxier
 	Proxier proxy.Proxier
@@ -392,17 +391,10 @@ func updateControllerDetailsFromLogin(
 	return errors.Trace(err)
 }
 
-func trimScheme(urls []string) []string {
+func trimScheme(urls []*url.URL) []string {
 	res := make([]string, len(urls))
 	for i, url := range urls {
-		before, after, found := strings.Cut(url, "://")
-		// Handle cases where there was no scheme, so
-		// `before` will be set to the original string.
-		if found {
-			res[i] = after
-		} else {
-			res[i] = before
-		}
+		res[i] = url.Host + url.RequestURI()
 	}
 	return res
 }
@@ -413,14 +405,16 @@ func trimScheme(urls []string) []string {
 // The addresses are filtered to only those unique and usable.
 // Finally, the params.DNSCache will be updated.
 func makeUsableAddresses(params *UpdateControllerParams) []string {
+	// Use a defaultScheme local to this function for comparisons
+	// between the list of HostPorts and the connectedURL.
 	defaultScheme := "scheme"
 
 	// HostPorts don't have a scheme, so for comparisons use the default.
 	addresses := usableHostPorts(params.CurrentHostPorts).CanonicalURLs(defaultScheme)
 
-	// Ignore the currently connected address if the connection is proxied.
-	// or if there is no currently connected address.
-	if params.CurrentConnection.Proxied || params.CurrentConnection.Address == nil {
+	// Ignore the currently connected address if there is no current
+	// connection (during bootstrap) or if the connection is proxied.
+	if params.CurrentConnection == nil || params.CurrentConnection.Proxied {
 		return trimScheme(addresses)
 	}
 
@@ -430,9 +424,8 @@ func makeUsableAddresses(params *UpdateControllerParams) []string {
 	connectedUrl.Scheme = defaultScheme
 
 	// Move the connected-to host to the front of the address list.
-	url := connectedUrl.String()
-	if !slices.Contains(addresses, url) {
-		addresses = slices.Insert(addresses, 0, url)
+	if !slices.ContainsFunc(addresses, func(u *url.URL) bool { return u.String() == connectedUrl.String() }) {
+		addresses = slices.Insert(addresses, 0, connectedUrl)
 	}
 
 	// Move the IP address used to the front of the DNS cache entry

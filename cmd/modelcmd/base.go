@@ -635,7 +635,7 @@ func OpenAPIFuncWithMacaroons(apiOpen api.OpenFunc, store jujuclient.ClientStore
 				return nil, errors.Trace(err)
 			}
 
-			cookieURL := api.CookieURLFromHost(api.PerferredHost(info))
+			cookieURL := api.CookieURLFromHost(api.PreferredHost(info))
 			info.Macaroons = httpbakery.MacaroonsForURL(cookieJar, cookieURL)
 		}
 

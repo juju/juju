@@ -48,17 +48,12 @@ func (hps HostPorts) Strings() []string {
 	return result
 }
 
-// CanonicalURLs returns the HostPorts as a slice of strings
+// CanonicalURLs returns the HostPorts as a slice of URLs
 // after converting them to their full canonical URL form.
-// An empty scheme will result in URLs without a scheme
-// e.g. "host:port/path" as opposed to "scheme://host:port/path".
-func (hps HostPorts) CanonicalURLs(scheme string) []string {
-	result := make([]string, len(hps))
+func (hps HostPorts) CanonicalURLs(scheme string) []*url.URL {
+	result := make([]*url.URL, len(hps))
 	for i, addr := range hps {
-		res := CanonicalURL(addr, scheme).String()
-		if scheme == "" {
-			res = strings.TrimPrefix(res, "//")
-		}
+		res := CanonicalURL(addr, scheme)
 		result[i] = res
 	}
 	return result
