@@ -351,6 +351,10 @@ func (s *WatchableService) WatchApplication(ctx context.Context, name string) (w
 
 // WatchApplicationConfig watches for changes to the specified application's
 // config.
+// This notifies on any changes to the application's config, which is driven
+// of the application config hash. It is up to the caller to determine if the
+// config value they're interested in has changed.
+//
 // If the application does not exist an error satisfying
 // [applicationerrors.NotFound] will be returned.
 func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
@@ -364,6 +368,12 @@ func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name stri
 
 // WatchApplicationConfigHash watches for changes to the specified application's
 // config hash.
+// This notifies on any changes to the application's config hash, which is
+// driven of the application config hash. It is up to the caller to determine
+// if the config value they're interested in has changed. This watcher is
+// the backing for the uniter's remote state. We should be attempting to
+// remove this in the future.
+//
 // If the application does not exist an error satisfying
 // [applicationerrors.NotFound] will be returned.
 func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name string) (watcher.StringsWatcher, error) {
