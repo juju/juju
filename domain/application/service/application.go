@@ -436,20 +436,19 @@ func makeCreateApplicationArgs(
 ) (application.AddApplicationArg, error) {
 	// TODO (stickupkid): These should be done either in the application
 	// state in one transaction, or be operating on the domain/charm types.
-	//TODO(storage) - insert storage directive for app
 
-	cons := make(map[string]storage.Directive)
+	storageDirectives := make(map[string]storage.Directive)
 	for n, sc := range args.Storage {
-		cons[n] = sc
+		storageDirectives[n] = sc
 	}
 
 	meta := charm.Meta()
 
 	var err error
-	if cons, err = addDefaultStorageDirectives(ctx, state, modelType, cons, meta.Storage); err != nil {
+	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
 		return application.AddApplicationArg{}, errors.Annotate(err, "adding default storage directives")
 	}
-	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, cons, meta); err != nil {
+	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
 		return application.AddApplicationArg{}, errors.Annotate(err, "invalid storage directives")
 	}
 
@@ -505,6 +504,7 @@ func makeCreateApplicationArgs(
 		Platform:          platformArg,
 		Channel:           channelArg,
 		Resources:         makeResourcesArgs(args.ResolvedResources),
+		Storage:           makeStorageArgs(storageDirectives),
 		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,
 	}, nil
@@ -763,6 +763,20 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 			Name:     res.Name,
 			Revision: res.Revision,
 			Origin:   res.Origin,
+		})
+	}
+	return result
+}
+
+// makeStorageArgs creates a slice of AddApplicationStorageArg from a map of storage directives.
+func makeStorageArgs(storage map[string]storage.Directive) []application.AddApplicationStorageArg {
+	var result []application.AddApplicationStorageArg
+	for name, stor := range storage {
+		result = append(result, application.AddApplicationStorageArg{
+			Name:  name,
+			Pool:  stor.Pool,
+			Size:  stor.Size,
+			Count: stor.Count,
 		})
 	}
 	return result

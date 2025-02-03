@@ -36,6 +36,9 @@ type AddApplicationArg struct {
 	// Resources defines the list of resources to add to an application.
 	// They should match all the resources defined in the Charm.
 	Resources []AddApplicationResourceArg
+	// Storage defines the list of storage directives to add to an application.
+	// The Name values should match the storage defined in the Charm.
+	Storage []AddApplicationStorageArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
 	Config map[string]ApplicationConfig
@@ -51,6 +54,14 @@ type AddApplicationResourceArg struct {
 	Name     string
 	Revision *int
 	Origin   charmresource.Origin
+}
+
+// AddApplicationStorageArg defines the arguments required to add storage to an application.
+type AddApplicationStorageArg struct {
+	Name  string
+	Pool  string
+	Size  uint64
+	Count uint64
 }
 
 // Channel represents the channel of a application charm.

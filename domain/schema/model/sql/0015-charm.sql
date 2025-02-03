@@ -373,8 +373,7 @@ INSERT INTO charm_storage_kind VALUES
 
 CREATE TABLE charm_storage (
     charm_uuid TEXT NOT NULL,
-    "key" TEXT NOT NULL,
-    name TEXT,
+    name TEXT NOT NULL,
     description TEXT,
     storage_kind_id INT NOT NULL,
     shared BOOLEAN,
@@ -389,13 +388,12 @@ CREATE TABLE charm_storage (
     CONSTRAINT fk_charm_storage_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, "key")
+    PRIMARY KEY (charm_uuid, name)
 );
 
 CREATE VIEW v_charm_storage AS
 SELECT
     cs.charm_uuid,
-    cs."key",
     cs.name,
     cs.description,
     csk.name AS kind,
@@ -409,23 +407,23 @@ SELECT
     csp.value AS property
 FROM charm_storage AS cs
 LEFT JOIN charm_storage_kind AS csk ON cs.storage_kind_id = csk.id
-LEFT JOIN charm_storage_property AS csp ON cs.charm_uuid = csp.charm_uuid AND cs."key" = csp.charm_storage_key;
+LEFT JOIN charm_storage_property AS csp ON cs.charm_uuid = csp.charm_uuid AND cs.name = csp.charm_storage_name;
 
 CREATE INDEX idx_charm_storage_charm
 ON charm_storage (charm_uuid);
 
 CREATE TABLE charm_storage_property (
     charm_uuid TEXT NOT NULL,
-    charm_storage_key TEXT NOT NULL,
+    charm_storage_name TEXT NOT NULL,
     array_index INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_storage_property_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
     CONSTRAINT fk_charm_storage_property_charm_storage
-    FOREIGN KEY (charm_uuid, charm_storage_key)
-    REFERENCES charm_storage (charm_uuid, "key"),
-    PRIMARY KEY (charm_uuid, charm_storage_key, array_index, value)
+    FOREIGN KEY (charm_uuid, charm_storage_name)
+    REFERENCES charm_storage (charm_uuid, name),
+    PRIMARY KEY (charm_uuid, charm_storage_name, array_index, value)
 );
 
 CREATE INDEX idx_charm_storage_property_charm

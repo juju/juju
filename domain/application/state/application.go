@@ -187,6 +187,9 @@ func (st *State) CreateApplication(
 		if err := st.insertResources(ctx, tx, appDetails, args.Resources); err != nil {
 			return errors.Errorf("inserting resources for application %q: %w", name, err)
 		}
+		if err := st.insertStorage(ctx, tx, appDetails, args.Storage); err != nil {
+			return errors.Errorf("inserting storage for application %q: %w", name, err)
+		}
 		if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
 			return errors.Errorf("inserting config for application %q: %w", name, err)
 		}

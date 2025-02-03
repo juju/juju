@@ -851,7 +851,6 @@ func (s *charmStateSuite) TestGetCharmMetadataWithStorageWithNoProperties(c *gc.
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_storage (
     charm_uuid,
-    key,
     name,
     description,
     storage_kind_id,
@@ -862,8 +861,8 @@ INSERT INTO charm_storage (
     minimum_size_mib,
     location
 ) VALUES
-    (?, 'foo', 'bar', 'description 1', 1, true, true, 1, 2, 3, '/tmp'),
-    (?, 'fred', 'baz', 'description 2', 0, false, false, 4, 5, 6, '/var/mount');`,
+    (?, 'foo', 'description 1', 1, true, true, 1, 2, 3, '/tmp'),
+    (?, 'fred', 'description 2', 0, false, false, 4, 5, 6, '/var/mount');`,
 			uuid, uuid)
 		if err != nil {
 			return errors.Trace(err)
@@ -875,7 +874,7 @@ INSERT INTO charm_storage (
 
 	expectedStorage := map[string]charm.Storage{
 		"foo": {
-			Name:        "bar",
+			Name:        "foo",
 			Type:        charm.StorageFilesystem,
 			Description: "description 1",
 			Shared:      true,
@@ -886,7 +885,7 @@ INSERT INTO charm_storage (
 			Location:    "/tmp",
 		},
 		"fred": {
-			Name:        "baz",
+			Name:        "fred",
 			Type:        charm.StorageBlock,
 			Description: "description 2",
 			Shared:      false,
@@ -929,7 +928,6 @@ func (s *charmStateSuite) TestGetCharmMetadataWithStorageWithProperties(c *gc.C)
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_storage (
     charm_uuid,
-    key,
     name,
     description,
     storage_kind_id,
@@ -940,8 +938,8 @@ INSERT INTO charm_storage (
     minimum_size_mib,
     location
 ) VALUES
-    (?, 'foo', 'bar', 'description 1', 1, true, true, 1, 2, 3, '/tmp'),
-    (?, 'fred', 'baz', 'description 2', 0, false, false, 4, 5, 6, '/var/mount');`,
+    (?, 'foo', 'description 1', 1, true, true, 1, 2, 3, '/tmp'),
+    (?, 'fred', 'description 2', 0, false, false, 4, 5, 6, '/var/mount');`,
 			uuid, uuid)
 		if err != nil {
 			return errors.Trace(err)
@@ -950,7 +948,7 @@ INSERT INTO charm_storage (
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_storage_property (
     charm_uuid,
-    charm_storage_key,
+    charm_storage_name,
     array_index,
     value
 ) VALUES
@@ -968,7 +966,7 @@ INSERT INTO charm_storage_property (
 
 	expectedStorage := map[string]charm.Storage{
 		"foo": {
-			Name:        "bar",
+			Name:        "foo",
 			Type:        charm.StorageFilesystem,
 			Description: "description 1",
 			Shared:      true,
@@ -980,7 +978,7 @@ INSERT INTO charm_storage_property (
 			Properties:  []string{"alpha", "beta", "beta"},
 		},
 		"fred": {
-			Name:        "baz",
+			Name:        "fred",
 			Type:        charm.StorageBlock,
 			Description: "description 2",
 			Shared:      false,
@@ -2027,7 +2025,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoPrope
 		Assumes:        []byte("null"),
 		Storage: map[string]charm.Storage{
 			"foo": {
-				Name:        "bar",
+				Name:        "foo",
 				Type:        charm.StorageFilesystem,
 				Description: "description 1",
 				Shared:      true,
@@ -2038,7 +2036,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoPrope
 				Location:    "/tmp",
 			},
 			"fred": {
-				Name:        "baz",
+				Name:        "fred",
 				Type:        charm.StorageBlock,
 				Description: "description 2",
 				Shared:      false,
@@ -2087,7 +2085,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithPropert
 		Assumes:        []byte("null"),
 		Storage: map[string]charm.Storage{
 			"foo": {
-				Name:        "bar",
+				Name:        "foo",
 				Type:        charm.StorageFilesystem,
 				Description: "description 1",
 				Shared:      true,
@@ -2099,7 +2097,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithPropert
 				Properties:  []string{"alpha", "beta", "beta"},
 			},
 			"fred": {
-				Name:        "baz",
+				Name:        "fred",
 				Type:        charm.StorageBlock,
 				Description: "description 2",
 				Shared:      false,

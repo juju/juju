@@ -216,8 +216,7 @@ var metadataDecodeTestCases = [...]struct {
 		inputArgs: decodeMetadataArgs{
 			storage: []charmStorage{
 				{
-					Key:         "foo",
-					Name:        "name1",
+					Name:        "foo",
 					Description: "description1",
 					Kind:        "block",
 					Shared:      true,
@@ -229,8 +228,7 @@ var metadataDecodeTestCases = [...]struct {
 					Property:    "property1",
 				},
 				{
-					Key:         "foo",
-					Name:        "name1",
+					Name:        "foo",
 					Description: "description1",
 					Kind:        "block",
 					Shared:      true,
@@ -242,8 +240,7 @@ var metadataDecodeTestCases = [...]struct {
 					Property:    "property2",
 				},
 				{
-					Key:         "bar",
-					Name:        "name2",
+					Name:        "bar",
 					Description: "description2",
 					Kind:        "block",
 					Shared:      true,
@@ -260,7 +257,7 @@ var metadataDecodeTestCases = [...]struct {
 			RunAs: charm.RunAsDefault,
 			Storage: map[string]charm.Storage{
 				"foo": {
-					Name:        "name1",
+					Name:        "foo",
 					Description: "description1",
 					Type:        charm.StorageBlock,
 					Shared:      true,
@@ -272,7 +269,7 @@ var metadataDecodeTestCases = [...]struct {
 					Properties:  []string{"property1", "property2"},
 				},
 				"bar": {
-					Name:        "name2",
+					Name:        "bar",
 					Description: "description2",
 					Type:        charm.StorageBlock,
 					Shared:      true,
