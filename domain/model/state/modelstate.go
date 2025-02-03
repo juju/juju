@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
@@ -26,9 +25,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
-
-// NONEContainerType is the default container type.
-var NONEContainerType = instance.NONE
 
 // ModelState represents a type for interacting with the underlying model
 // database state.
