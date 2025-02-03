@@ -74,13 +74,18 @@ OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 # Build tags passed to go install/build.
 # Passing no-dqlite will disable building with dqlite.
 # Example: BUILD_TAGS="minimal provider_kubernetes"
-BUILD_TAGS ?= 
+BUILD_TAGS ?=
 
 # EXTRA_BUILD_TAGS is not passed in, but built up from context.
 EXTRA_BUILD_TAGS =
 ifeq (,$(findstring no-dqlite,$(BUILD_TAGS)))
-EXTRA_BUILD_TAGS += libsqlite3
-EXTRA_BUILD_TAGS += dqlite
+    EXTRA_BUILD_TAGS += libsqlite3
+    EXTRA_BUILD_TAGS += dqlite
+endif
+
+# Enable coverage collection.
+ifneq ($(COVERAGE_COLLECT_URL),)
+    EXTRA_BUILD_TAGS += cover
 endif
 
 # FINAL_BUILD_TAGS is the final list of build tags.
@@ -144,54 +149,58 @@ endef
 
 # Windows doesn't support the agent binaries
 ifeq ($(GOOS), windows)
-	INSTALL_TARGETS = juju \
+    INSTALL_TARGETS = juju \
                       juju-metadata
 endif
 
 # We only add pebble to the list of install targets if we are building for linux
 ifeq ($(GOOS), linux)
-	INSTALL_TARGETS += pebble
+    INSTALL_TARGETS += pebble
 endif
 
 # Allow the tests to take longer on restricted platforms.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(arm|arm64|ppc64le|ppc64|s390x).*/golang/'), golang)
-	TEST_TIMEOUT ?= 5400s
+    TEST_TIMEOUT ?= 5400s
 else
-	TEST_TIMEOUT ?= 2700s
+    TEST_TIMEOUT ?= 2700s
 endif
 TEST_TIMEOUT := $(TEST_TIMEOUT)
 
 TEST_ARGS ?=
 # Limit concurrency on s390x.
 ifeq ($(shell echo "${GOARCH}" | sed -E 's/.*(s390x).*/golang/'), golang)
-	TEST_ARGS += -p 4
-endif
-
-# Enable coverage testing.
-ifeq ($(COVERAGE_CHECK), 1)
-	TEST_ARGS += -coverprofile=coverage.txt -covermode=atomic
+    TEST_ARGS += -p 4
 endif
 
 # Enable verbose testing for reporting.
 ifeq ($(VERBOSE_CHECK), 1)
-	CHECK_ARGS = -v
+    CHECK_ARGS = -v
 endif
 
 define link_flags_version
 -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) \
 -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) \
 -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER) \
--X $(PROJECT)/version.GoBuildTags=$(FINAL_BUILD_TAGS)
+-X $(PROJECT)/version.GoBuildTags=$(FINAL_BUILD_TAGS) \
+-X $(PROJECT)/internal/debug/coveruploader.putURL=$(COVERAGE_COLLECT_URL)
 endef
+
+# Enable coverage collection.
+ifneq ($(COVERAGE_COLLECT_URL),)
+    COVER_COMPILE_FLAGS = -cover -covermode=atomic
+    COVER_LINK_FLAGS = -checklinkname=0
+    COVER_CGO_LINK_FLAGS = -checklinkname=0
+endif
 
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
-    COMPILE_FLAGS = -gcflags "all=-N -l"
-    LINK_FLAGS =  "$(link_flags_version)"
-	CGO_LINK_FLAGS = "-linkmode 'external' -extldflags '-static' $(link_flags_version)"
+    COMPILE_FLAGS = $(COVER_COMPILE_FLAGS) -gcflags "all=-N -l"
+    LINK_FLAGS = "$(COVER_LINK_FLAGS) $(link_flags_version)"
+    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -linkmode 'external' -extldflags '-static' $(link_flags_version)"
 else
-    LINK_FLAGS = "-s -w -extldflags '-static' $(link_flags_version)"
-	CGO_LINK_FLAGS = "-s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
+    COMPILE_FLAGS = $(COVER_COMPILE_FLAGS)
+    LINK_FLAGS = "$(COVER_LINK_FLAGS) -s -w -extldflags '-static' $(link_flags_version)"
+    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
 endif
 
 define DEPENDENCIES
@@ -410,6 +419,10 @@ race-test:
 ## race-test: Verify Juju code using unit tests with the race detector enabled
 	+make run-tests TEST_ARGS="$(TEST_ARGS) -race"
 
+.PHONY: cover-test
+cover-test:
+	+make run-tests TEST_ARGS="$(TEST_ARGS) -cover -covermode=atomic" TEST_EXTRA_ARGS="$(TEST_EXTRA_ARGS) -test.gocoverdir=${GOCOVERDIR}"
+
 .PHONY: run-tests run-go-tests go-test-alias
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
 run-tests: musl-install-if-missing dqlite-install-if-missing
@@ -419,7 +432,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
 	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v'
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v $(TEST_EXTRA_ARGS)'
 	@TMPDIR=$(TMP) \
 		PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
@@ -428,7 +441,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v
+		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) $(TEST_PACKAGES) -check.v $(TEST_EXTRA_ARGS)
 	@rm -r $(TMP)
 
 run-go-tests: musl-install-if-missing dqlite-install-if-missing
@@ -438,7 +451,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TEST_PACKAGES ?= "./...")
 	$(eval TEST_FILTER ?= "")
-	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER)'
+	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v -check.f $(TEST_FILTER) $(TEST_EXTRA_ARGS)'
 	@PATH="${MUSL_BIN_PATH}:${PATH}" \
 		CC="musl-gcc" \
 		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
@@ -446,7 +459,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER)
+		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER) $(TEST_EXTRA_ARGS)
 
 go-test-alias: musl-install-if-missing dqlite-install-if-missing
 ## go-test-alias: Prints out an alias command for easy running of tests.
@@ -497,12 +510,12 @@ rebuild-schema:
 	@echo "Generating facade schema..."
 # GOOS and GOARCH environment variables are cleared in case the user is trying to cross architecture compilation.
 ifdef SCHEMA_PATH
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=client "$(SCHEMA_PATH)/schema.json"
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent "$(SCHEMA_PATH)/agent-schema.json"
+	@env GOOS= GOARCH= go run $(PROJECT)/generate/schemagen -admin-facades -facade-group=client "$(SCHEMA_PATH)/schema.json"
+	@env GOOS= GOARCH= go run $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent "$(SCHEMA_PATH)/agent-schema.json"
 else
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=client \
+	@env GOOS= GOARCH= go run $(PROJECT)/generate/schemagen -admin-facades -facade-group=client \
 		./apiserver/facades/schema.json
-	@env GOOS= GOARCH= go run $(COMPILE_FLAGS) $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent \
+	@env GOOS= GOARCH= go run $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent \
 		./apiserver/facades/agent-schema.json
 endif
 
@@ -713,5 +726,3 @@ docs-%:
 ## docs-run: Build and serve the documentation
 ## docs-clean: Clean the docs build artifacts
 	cd docs && $(MAKE) -f Makefile.sp sp-$* ALLFILES='*.md **/*.md'
-
-
