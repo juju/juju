@@ -19,6 +19,7 @@ import (
 	user "github.com/juju/juju/core/user"
 	model0 "github.com/juju/juju/domain/model"
 	uuid "github.com/juju/juju/internal/uuid"
+	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -314,17 +315,17 @@ func (m *MockModelDetailService) EXPECT() *MockModelDetailServiceMockRecorder {
 }
 
 // CreateModel mocks base method.
-func (m *MockModelDetailService) CreateModel(arg0 context.Context, arg1 uuid.UUID) error {
+func (m *MockModelDetailService) CreateModel(arg0 context.Context, arg1 uuid.UUID, arg2 version.Number) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateModel indicates an expected call of CreateModel.
-func (mr *MockModelDetailServiceMockRecorder) CreateModel(arg0, arg1 any) *MockModelDetailServiceCreateModelCall {
+func (mr *MockModelDetailServiceMockRecorder) CreateModel(arg0, arg1, arg2 any) *MockModelDetailServiceCreateModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModel", reflect.TypeOf((*MockModelDetailService)(nil).CreateModel), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModel", reflect.TypeOf((*MockModelDetailService)(nil).CreateModel), arg0, arg1, arg2)
 	return &MockModelDetailServiceCreateModelCall{Call: call}
 }
 
@@ -340,13 +341,13 @@ func (c *MockModelDetailServiceCreateModelCall) Return(arg0 error) *MockModelDet
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDetailServiceCreateModelCall) Do(f func(context.Context, uuid.UUID) error) *MockModelDetailServiceCreateModelCall {
+func (c *MockModelDetailServiceCreateModelCall) Do(f func(context.Context, uuid.UUID, version.Number) error) *MockModelDetailServiceCreateModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDetailServiceCreateModelCall) DoAndReturn(f func(context.Context, uuid.UUID) error) *MockModelDetailServiceCreateModelCall {
+func (c *MockModelDetailServiceCreateModelCall) DoAndReturn(f func(context.Context, uuid.UUID, version.Number) error) *MockModelDetailServiceCreateModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
