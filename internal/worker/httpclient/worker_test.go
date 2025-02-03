@@ -153,6 +153,11 @@ func (s *workerSuite) TestGetHTTPClientConcurrently(c *gc.C) {
 
 	s.expectClock()
 
+	s.newHTTPClient = func() *internalhttp.Client {
+		atomic.AddInt64(&s.called, 1)
+		return internalhttp.NewClient()
+	}
+
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -174,11 +179,6 @@ func (s *workerSuite) TestGetHTTPClientConcurrently(c *gc.C) {
 			defer wg.Done()
 
 			name := fmt.Sprintf("anything-%d", i)
-
-			s.newHTTPClient = func() *internalhttp.Client {
-				atomic.AddInt64(&s.called, 1)
-				return internalhttp.NewClient()
-			}
 
 			_, err := worker.GetHTTPClient(context.Background(), corehttp.Purpose(name))
 			c.Assert(err, jc.ErrorIsNil)
