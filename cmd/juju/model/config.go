@@ -445,7 +445,7 @@ func (c *configCommand) verifyKnownKeys(ctx context.Context, client configComman
 		// Check if the key exists in the known config
 		// and warn the user if the key is not defined.
 		if _, exists := known[key]; !exists {
-			logger.Warningf(
+			logger.Warningf(context.TODO(),
 				"key %q is not defined in the current model configuration: possible misspelling", key)
 		}
 	}

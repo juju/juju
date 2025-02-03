@@ -5,8 +5,10 @@
 
 package exec
 
+import "context"
+
 // TODO: implement window resizing for windows.
 func newSizeQueue() sizeQueueInterface {
-	logger.Warningf("terminal window resizing does not support on windows")
+	logger.Warningf(context.TODO(), "terminal window resizing does not support on windows")
 	return nil
 }

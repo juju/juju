@@ -4,6 +4,8 @@
 package lxd
 
 import (
+	"context"
+
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 )
@@ -82,6 +84,6 @@ func (s *Server) EnsureDefaultStorage(profile *api.Profile, eTag string) error {
 	if err := s.UpdateProfile(profile.Name, profile.Writable(), eTag); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("created new disk device \"root\" in profile %q", profile.Name)
+	logger.Debugf(context.TODO(), "created new disk device \"root\" in profile %q", profile.Name)
 	return nil
 }

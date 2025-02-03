@@ -88,7 +88,7 @@ func NewDeployFromRepositoryAPI(
 }
 
 func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
-	api.logger.Tracef("deployOneFromRepository(%s)", pretty.Sprint(arg))
+	api.logger.Tracef(context.TODO(), "deployOneFromRepository(%s)", pretty.Sprint(arg))
 	// Validate the args.
 	dt, errs := api.validator.ValidateArg(ctx, arg)
 
@@ -405,7 +405,7 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	dt.downloadInfo = charmResult.DownloadInfo
 
 	if v.logger.IsLevelEnabled(corelogger.TRACE) {
-		v.logger.Tracef("validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
+		v.logger.Tracef(context.TODO(), "validateDeployFromRepositoryArgs returning: %s", pretty.Sprint(dt))
 	}
 	return dt, errs
 }
@@ -484,7 +484,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}
-		v.logger.Warningf("proceeding with deployment of application even though the charm feature requirements could not be met as --force was specified")
+		v.logger.Warningf(context.TODO(), "proceeding with deployment of application even though the charm feature requirements could not be met as --force was specified")
 	}
 
 	dt := deployTemplate{
@@ -663,7 +663,7 @@ func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg 
 
 	// No base args provided. Use the placement platform to deploy.
 	if argBase == nil {
-		v.logger.Tracef("using placement platform %q to deploy", placementPlatform.String())
+		v.logger.Tracef(context.TODO(), "using placement platform %q to deploy", placementPlatform.String())
 		return *placementPlatform, usedModelDefaultBase, nil
 	}
 
@@ -730,7 +730,7 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(ctx context.Contex
 
 	if machineScopeCnt == 0 {
 		// Not all placements refer to actual machines, no need to continue.
-		v.logger.Tracef("no machine scoped directives found in placements")
+		v.logger.Tracef(context.TODO(), "no machine scoped directives found in placements")
 		return nil, false, nil
 	}
 
@@ -764,7 +764,7 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(ctx context.Contex
 		platStrings.Add(p.String())
 	}
 	if platStrings.Size() != 1 {
-		v.logger.Errorf("mismatched platforms for machine scoped placements %s", platStrings.SortedValues())
+		v.logger.Errorf(context.TODO(), "mismatched platforms for machine scoped placements %s", platStrings.SortedValues())
 	}
 
 	return &platform, platStrings.Size() == 1, nil
@@ -850,7 +850,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 	} else if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
-	v.logger.Tracef("Using base %q from %v to deploy %v", base, supportedBases, curl)
+	v.logger.Tracef(context.TODO(), "Using base %q from %v to deploy %v", base, supportedBases, curl)
 
 	resolvedOrigin.Platform.OS = base.OS
 	// Avoid using Channel.String() here instead of Channel.Track for the Platform.Channel,
@@ -874,7 +874,7 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 	if err != nil {
 		return charmResult{}, errors.Trace(err)
 	}
-	v.logger.Tracef("from createOrigin: %s, %s", initialCurl, pretty.Sprint(requestedOrigin))
+	v.logger.Tracef(context.TODO(), "from createOrigin: %s, %s", initialCurl, pretty.Sprint(requestedOrigin))
 
 	// Fetch the essential metadata that we require to deploy the charm
 	// without downloading the full archive. The remaining metadata will
@@ -885,7 +885,7 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 	}
 	essentialMetadata := resolvedData.EssentialMetadata
 	resolvedOrigin := essentialMetadata.ResolvedOrigin
-	v.logger.Tracef("from resolveCharm: %s, %s", resolvedData.URL, pretty.Sprint(resolvedOrigin))
+	v.logger.Tracef(context.TODO(), "from resolveCharm: %s, %s", resolvedData.URL, pretty.Sprint(resolvedOrigin))
 	if resolvedOrigin.Type != "charm" {
 		return charmResult{}, errors.BadRequestf("%q is not a charm", arg.CharmName)
 	}

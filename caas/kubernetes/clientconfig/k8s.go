@@ -4,7 +4,7 @@
 package clientconfig
 
 import (
-	"context"
+	stdcontext "context"
 	"fmt"
 	"io"
 	"os"
@@ -27,7 +27,7 @@ var logger = internallogger.GetLogger("juju.caas.kubernetes.clientconfig")
 type K8sCredentialResolver func(string, *clientcmdapi.Config, string) (*clientcmdapi.Config, error)
 
 // GetJujuAdminServiceAccountResolver returns a function for ensuring juju admin service account created with admin cluster role binding setup.
-func GetJujuAdminServiceAccountResolver(ctx context.Context, clock jujuclock.Clock) K8sCredentialResolver {
+func GetJujuAdminServiceAccountResolver(ctx stdcontext.Context, clock jujuclock.Clock) K8sCredentialResolver {
 	return func(credentialUID string, config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error) {
 		clientset, err := newK8sClientSet(config, contextName)
 		if err != nil {
@@ -108,7 +108,7 @@ func NewK8sClientConfig(
 		}
 	} else if contextName != "" {
 		context = contexts[contextName]
-		logger.Debugf("no cluster name specified, so use current context %q", config.CurrentContext)
+		logger.Debugf(stdcontext.TODO(), "no cluster name specified, so use current context %q", config.CurrentContext)
 	}
 
 	if contextName == "" || context.isEmpty() {
@@ -132,7 +132,7 @@ func NewK8sClientConfig(
 			return nil, errors.Annotatef(err, "ensuring k8s credential %q with RBAC setup", credentialUID)
 		}
 	}
-	logger.Debugf("get credentials from kubeconfig")
+	logger.Debugf(stdcontext.TODO(), "get credentials from kubeconfig")
 	credential, err := k8scloud.CredentialFromKubeConfig(context.CredentialName, config)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read credentials from kubernetes config")
@@ -247,6 +247,6 @@ func GetKubeConfigPath() string {
 		}
 		return configPath
 	}
-	logger.Debugf("The kubeconfig file path is %s", envFiles[0])
+	logger.Debugf(stdcontext.TODO(), "The kubeconfig file path is %s", envFiles[0])
 	return envFiles[0]
 }

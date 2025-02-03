@@ -4,6 +4,7 @@
 package jujuc
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -42,7 +43,7 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 		args = "[<name>]"
 		doc = fmt.Sprintf("Current default endpoint name is %q.", r.Name())
 	} else if !errors.Is(err, errors.NotFound) {
-		logger.Errorf("Could not retrieve hook relation: %v", err)
+		logger.Errorf(context.TODO(), "Could not retrieve hook relation: %v", err)
 	}
 	doc += `
 relation-ids outputs a list of the related applications with a relation name.

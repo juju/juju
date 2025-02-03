@@ -66,7 +66,7 @@ func (rc *runCommands) Prepare(ctx stdcontext.Context, state State) (*State, err
 // state change.
 // Execute is part of the Operation interface.
 func (rc *runCommands) Execute(ctx stdcontext.Context, state State) (*State, error) {
-	rc.logger.Tracef("run commands: %s", rc)
+	rc.logger.Tracef(stdcontext.TODO(), "run commands: %s", rc)
 	if err := rc.callbacks.SetExecutingStatus(ctx, "running commands"); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -74,7 +74,7 @@ func (rc *runCommands) Execute(ctx stdcontext.Context, state State) (*State, err
 	response, err := rc.runner.RunCommands(ctx, rc.args.Commands)
 	switch err {
 	case context.ErrRequeueAndReboot:
-		rc.logger.Warningf("cannot requeue external commands")
+		rc.logger.Warningf(stdcontext.TODO(), "cannot requeue external commands")
 		fallthrough
 	case context.ErrReboot:
 		rc.sendResponse(response, nil)

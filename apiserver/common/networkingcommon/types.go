@@ -4,6 +4,8 @@
 package networkingcommon
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 
@@ -73,16 +75,16 @@ func NetworkInterfacesToStateArgs(devs network.InterfaceInfos) (
 	var devicesArgs []state.LinkLayerDeviceArgs
 	var devicesAddrs []state.LinkLayerDeviceAddress
 
-	logger.Tracef("transforming network interface list to state args: %+v", devs)
+	logger.Tracef(context.TODO(), "transforming network interface list to state args: %+v", devs)
 	seenDeviceNames := set.NewStrings()
 	for _, dev := range devs {
-		logger.Tracef("transforming device %q", dev.InterfaceName)
+		logger.Tracef(context.TODO(), "transforming device %q", dev.InterfaceName)
 		if !seenDeviceNames.Contains(dev.InterfaceName) {
 			// First time we see this, add it to devicesArgs.
 			seenDeviceNames.Add(dev.InterfaceName)
 
 			args := networkDeviceToStateArgs(dev)
-			logger.Tracef("state device args for device: %+v", args)
+			logger.Tracef(context.TODO(), "state device args for device: %+v", args)
 			devicesArgs = append(devicesArgs, args)
 		}
 
@@ -91,8 +93,8 @@ func NetworkInterfacesToStateArgs(devs network.InterfaceInfos) (
 		}
 		devicesAddrs = append(devicesAddrs, networkAddressesToStateArgs(dev, dev.Addresses)...)
 	}
-	logger.Tracef("seen devices: %+v", seenDeviceNames.SortedValues())
-	logger.Tracef("network interface list transformed to state args:\n%+v\n%+v", devicesArgs, devicesAddrs)
+	logger.Tracef(context.TODO(), "seen devices: %+v", seenDeviceNames.SortedValues())
+	logger.Tracef(context.TODO(), "network interface list transformed to state args:\n%+v\n%+v", devicesArgs, devicesAddrs)
 	return devicesArgs, devicesAddrs
 }
 
@@ -141,7 +143,7 @@ func networkAddressesToStateArgs(
 	for _, addr := range addrs {
 		cidrAddress, err := addr.ValueWithMask()
 		if err != nil {
-			logger.Infof("ignoring address %q for device %q: %v", addr.Value, dev.InterfaceName, err)
+			logger.Infof(context.TODO(), "ignoring address %q for device %q: %v", addr.Value, dev.InterfaceName, err)
 			continue
 		}
 

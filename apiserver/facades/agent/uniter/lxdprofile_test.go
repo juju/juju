@@ -4,7 +4,6 @@
 package uniter_test
 
 import (
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/lxdprofile"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -49,7 +49,7 @@ func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*uniter.LXDP
 
 	api := uniter.NewLXDProfileAPI(
 		mockBackend, resources, authorizer, unitAuthFunc,
-		loggo.GetLogger("juju.apiserver.facades.agent.uniter"),
+		internallogger.GetLogger("juju.apiserver.facades.agent.uniter"),
 	)
 	return api, ctrl, mockBackend
 }

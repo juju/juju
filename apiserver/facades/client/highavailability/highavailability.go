@@ -208,7 +208,7 @@ func getReferenceController(st *state.State, controllerIds []string, logger core
 	for _, id := range controllerIds {
 		idNum, err := strconv.Atoi(id)
 		if err != nil {
-			logger.Warningf("ignoring non numeric controller id %v", id)
+			logger.Warningf(context.TODO(), "ignoring non numeric controller id %v", id)
 			continue
 		}
 		controllerNumbers = append(controllerNumbers, idNum)

@@ -115,7 +115,7 @@ func (f *Facade) ApplicationsScale(ctx context.Context, args params.Entities) (p
 		}
 		results.Results[i].Result = scale
 	}
-	f.logger.Debugf("application scale result: %#v", results)
+	f.logger.Debugf(context.TODO(), "application scale result: %#v", results)
 	return results, nil
 }
 
@@ -144,7 +144,7 @@ func (f *Facade) ApplicationsTrust(ctx context.Context, args params.Entities) (p
 		}
 		results.Results[i].Result = trust
 	}
-	f.logger.Debugf("application trust result: %#v", results)
+	f.logger.Debugf(context.TODO(), "application trust result: %#v", results)
 	return results, nil
 }
 

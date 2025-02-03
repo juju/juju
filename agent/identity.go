@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	"os"
 
 	"github.com/juju/errors"
@@ -19,13 +20,13 @@ func WriteSystemIdentityFile(c Config) error {
 	}
 	// Write non-empty contents to the file, otherwise delete it
 	if info.SystemIdentity != "" {
-		logger.Infof("writing system identity file")
+		logger.Infof(context.TODO(), "writing system identity file")
 		err := utils.AtomicWriteFile(c.SystemIdentityPath(), []byte(info.SystemIdentity), 0600)
 		if err != nil {
 			return errors.Annotate(err, "cannot write system identity")
 		}
 	} else {
-		logger.Infof("removing system identity file")
+		logger.Infof(context.TODO(), "removing system identity file")
 		os.Remove(c.SystemIdentityPath())
 	}
 	return nil

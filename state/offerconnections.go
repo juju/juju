@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -233,7 +234,7 @@ func (st *State) RemoteConnectionStatus(offerUUID string) (*RemoteConnectionStat
 			// Note: apiserver/facades/client/client/status.go#fetchOffers also
 			// performs the same check.
 			if errors.Is(err, errors.NotFound) {
-				logger.Errorf("KeyRelation from offer connection (%s) not found, unable to locate relation key %q.", conn.String(), key)
+				logger.Errorf(context.TODO(), "KeyRelation from offer connection (%s) not found, unable to locate relation key %q.", conn.String(), key)
 				continue
 			}
 			return nil, errors.Trace(err)

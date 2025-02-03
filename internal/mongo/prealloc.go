@@ -5,6 +5,7 @@ package mongo
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"runtime"
@@ -63,12 +64,12 @@ func fsAvailSpace(dir string) (avail float64, err error) {
 	}
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	if len(lines) < 2 {
-		logger.Errorf("unexpected output: %q", out)
+		logger.Errorf(context.TODO(), "unexpected output: %q", out)
 		return -1, fmt.Errorf("could not determine available space on %q", dir)
 	}
 	fields := strings.Fields(lines[1])
 	if len(fields) < 4 {
-		logger.Errorf("unexpected output: %q", out)
+		logger.Errorf(context.TODO(), "unexpected output: %q", out)
 		return -1, fmt.Errorf("could not determine available space on %q", dir)
 	}
 	kilobytes, err := strconv.Atoi(fields[3])

@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForApplication generates the triggers for the
 // application table.
 func ChangeLogTriggersForApplication(columnName string, namespaceID int) func() schema.Patch {
@@ -254,4 +253,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

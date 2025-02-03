@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/internal/storage"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
@@ -90,7 +91,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*storageRegistryWo
 				return !errors.Is(err, database.ErrDBDead)
 			},
 			RestartDelay: time.Second * 10,
-			Logger:       cfg.Logger,
+			Logger:       internalworker.WrapLogger(cfg.Logger),
 		}),
 		storageRegistryRequests: make(chan storageRegistryRequest),
 	}

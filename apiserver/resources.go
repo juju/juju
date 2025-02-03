@@ -78,7 +78,7 @@ func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request
 	backend, poolhelper, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
 	if err != nil {
 		if err := sendError(resp, err); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 		return
 	}
@@ -89,7 +89,7 @@ func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request
 		reader, size, err := h.download(backend, req)
 		if err != nil {
 			if err := sendError(resp, err); err != nil {
-				logger.Errorf("%v", err)
+				logger.Errorf(context.TODO(), "%v", err)
 			}
 			return
 		}
@@ -99,28 +99,28 @@ func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request
 		header.Set("Content-Length", fmt.Sprint(size))
 		resp.WriteHeader(http.StatusOK)
 		if _, err := io.Copy(resp, reader); err != nil {
-			logger.Errorf("resource download failed: %v", err)
+			logger.Errorf(context.TODO(), "resource download failed: %v", err)
 		}
 	case "PUT":
 		if err := h.ChangeAllowedFunc(req.Context()); err != nil {
 			if err := sendError(resp, err); err != nil {
-				logger.Errorf("%v", err)
+				logger.Errorf(context.TODO(), "%v", err)
 			}
 			return
 		}
 		response, err := h.upload(backend, req, tagToUsername(tag))
 		if err != nil {
 			if err := sendError(resp, err); err != nil {
-				logger.Errorf("%v", err)
+				logger.Errorf(context.TODO(), "%v", err)
 			}
 			return
 		}
 		if err := internalhttp.SendStatusAndJSON(resp, http.StatusOK, &response); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(req.Context(), "%v", err)
 		}
 	default:
 		if err := sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 	}
 }

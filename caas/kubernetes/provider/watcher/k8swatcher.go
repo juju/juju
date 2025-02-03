@@ -4,6 +4,7 @@
 package watcher
 
 import (
+	"context"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -72,9 +73,9 @@ func (w *kubernetesNotifyWatcher) loop() error {
 		return func(obj interface{}) {
 			meta, err := meta.Accessor(obj)
 			if err != nil {
-				logger.Errorf("getting kubernetes watcher event meta: %v", err)
+				logger.Errorf(context.TODO(), "getting kubernetes watcher event meta: %v", err)
 			} else {
-				logger.Tracef("kubernetes watch event %s %v(%v) = %v", evt,
+				logger.Tracef(context.TODO(), "kubernetes watch event %s %v(%v) = %v", evt,
 					meta.GetName(), meta.GetUID(), meta.GetLabels())
 			}
 
@@ -112,7 +113,7 @@ func (w *kubernetesNotifyWatcher) loop() error {
 		case <-delayCh:
 			out = w.out
 		case out <- struct{}{}:
-			logger.Debugf("fire notify watcher for %v", w.name)
+			logger.Debugf(context.TODO(), "fire notify watcher for %v", w.name)
 			out = nil
 			delayCh = nil
 		}
@@ -190,9 +191,9 @@ func (w *kubernetesStringsWatcher) loop() error {
 		return func(obj interface{}) {
 			meta, err := meta.Accessor(obj)
 			if err != nil {
-				logger.Errorf("getting kubernetes watcher event meta: %v", err)
+				logger.Errorf(context.TODO(), "getting kubernetes watcher event meta: %v", err)
 			} else {
-				logger.Tracef("kubernetes watch event %s %v(%v) = %v", evt,
+				logger.Tracef(context.TODO(), "kubernetes watch event %s %v(%v) = %v", evt,
 					meta.GetName(), meta.GetUID(), meta.GetLabels())
 			}
 

@@ -245,7 +245,7 @@ func (d *factory) localCharmDeployer(ctx context.Context, getter ModelConfigGett
 	} else if errors.Is(err, errors.NotFound) {
 		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", d.charmOrBundle))
 	} else if errors.Is(err, os.ErrNotExist) {
-		logger.Debugf("cannot interpret as local charm: %v", err)
+		logger.Debugf(context.TODO(), "cannot interpret as local charm: %v", err)
 		return nil, nil
 	} else if err != nil {
 		// If we get a "not exists" error then we attempt to interpret

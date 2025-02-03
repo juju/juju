@@ -307,7 +307,7 @@ func (s *WatchableService) watchApplicationsWithPendingCharmsMapper(ctx context.
 	for _, appID := range apps {
 		events, ok := appChanges[appID]
 		if !ok {
-			s.logger.Errorf("application %q has pending charms but no change events", appID)
+			s.logger.Errorf(context.TODO(), "application %q has pending charms but no change events", appID)
 			continue
 		}
 

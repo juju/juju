@@ -237,7 +237,7 @@ func BootstrapInstance(
 		// a blank StartInstanceParams.AvailabilityZone.
 		zones = []string{""}
 		if args.BootstrapConstraints.HasZones() {
-			logger.Debugf("environ doesn't support zones: ignoring bootstrap zone constraints")
+			logger.Debugf(context.TODO(), "environ doesn't support zones: ignoring bootstrap zone constraints")
 		}
 	} else if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "cannot start bootstrap instance")
@@ -285,7 +285,7 @@ func BootstrapInstance(
 
 		if i < len(zones)-1 {
 			// Try the next zone.
-			logger.Debugf("failed to start instance in availability zone %q: %s", zone, err)
+			logger.Debugf(context.TODO(), "failed to start instance in availability zone %q: %s", zone, err)
 			continue
 		}
 		// This is the last zone in the list, error.
@@ -698,7 +698,7 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 			if lastErr == nil {
 				return hc, nil
 			}
-			logger.Debugf("connection attempt for %s failed: %v", address, lastErr)
+			logger.Debugf(context.TODO(), "connection attempt for %s failed: %v", address, lastErr)
 		}
 		select {
 		case <-hc.closed:

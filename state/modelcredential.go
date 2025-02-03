@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -30,7 +31,7 @@ func (st *State) InvalidateModelCredential(reason string) error {
 
 	if err := st.suspendCredentialModels(tag, reason); err != nil {
 		// These updates are optimistic. If they fail, it's unfortunate but we are not going to stop the call.
-		logger.Warningf("could not suspend models that use credential %v: %v", tag.Id(), err)
+		logger.Warningf(context.TODO(), "could not suspend models that use credential %v: %v", tag.Id(), err)
 	}
 	return nil
 }
@@ -58,7 +59,7 @@ func (st *State) modelsWithCredential(tag names.CloudCredentialTag) ([]modelDoc,
 // RemoveModelsCredential clears out given credential reference from all models that have it.
 func (st *State) RemoveModelsCredential(tag names.CloudCredentialTag) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		logger.Tracef("creating operations to remove models credential, attempt %d", attempt)
+		logger.Tracef(context.TODO(), "creating operations to remove models credential, attempt %d", attempt)
 		coll, cleanup := st.db().GetCollection(modelsC)
 		defer cleanup()
 
@@ -104,7 +105,7 @@ func (st *State) suspendCredentialModels(tag names.CloudCredentialTag, reason st
 			return errors.Trace(err)
 		}
 	}
-	logger.Warningf("suspending these models:\n%s\n because their credential has become invalid:\n%s",
+	logger.Warningf(context.TODO(), "suspending these models:\n%s\n because their credential has become invalid:\n%s",
 		strings.Join(infos, " - "),
 		reason)
 	return nil

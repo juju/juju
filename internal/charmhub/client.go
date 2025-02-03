@@ -131,7 +131,7 @@ func NewClient(config Config) (*Client, error) {
 		return nil, errors.Annotate(err, "constructing resources path")
 	}
 
-	logger.Tracef("NewClient to %q", url)
+	logger.Tracef(context.TODO(), "NewClient to %q", url)
 
 	apiRequester := newAPIRequester(httpClient, logger)
 	apiRequestLogger := newAPIRequesterLogger(apiRequester, logger)

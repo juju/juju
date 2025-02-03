@@ -4,6 +4,7 @@
 package gce
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -47,7 +48,7 @@ func (env *environ) StartInstance(ctx envcontext.ProviderCallContext, args envir
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("started instance %q in zone %q", raw.ID, raw.ZoneName)
+	logger.Infof(context.TODO(), "started instance %q in zone %q", raw.ID, raw.ZoneName)
 	inst := newInstance(raw, env)
 
 	// Build the result.
@@ -219,7 +220,7 @@ func getMetadata(args environs.StartInstanceParams, os ostype.OSType) (map[strin
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
-	logger.Debugf("GCE user data; %d bytes", len(userData))
+	logger.Debugf(context.TODO(), "GCE user data; %d bytes", len(userData))
 
 	metadata := make(map[string]string)
 	for tag, value := range args.InstanceConfig.Tags {
@@ -256,7 +257,7 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, os ostype.OS
 		return nil, errors.NotValidf("imageURLBase must be set")
 	}
 	imageURL := imageURLBase + spec.Image.Id
-	logger.Infof("fetching disk image from %v", imageURL)
+	logger.Infof(context.TODO(), "fetching disk image from %v", imageURL)
 	dSpec := google.DiskSpec{
 		OS:         strings.ToLower(os.String()),
 		SizeHintGB: size,
@@ -266,7 +267,7 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, os ostype.OS
 	}
 	if cons.RootDisk != nil && dSpec.TooSmall() {
 		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"
-		logger.Infof(msg, *cons.RootDisk, google.MinDiskSizeGB)
+		logger.Infof(context.TODO(), msg, *cons.RootDisk, google.MinDiskSizeGB)
 	}
 	return []google.DiskSpec{dSpec}, nil
 }

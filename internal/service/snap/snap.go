@@ -4,6 +4,7 @@
 package snap
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -260,7 +261,7 @@ func (s Service) Exists() (bool, error) {
 // Install installs the snap and its background services.
 func (s Service) Install() error {
 	for _, app := range s.app.Prerequisites() {
-		logger.Infof("command: %v", app)
+		logger.Infof(context.TODO(), "command: %v", app)
 
 		out, err := s.installAppWithRetry(app)
 		if err != nil {
@@ -428,7 +429,7 @@ func (s Service) execThenExpect(commandArgs []string, expectation string) error 
 }
 
 func (s Service) runCommand(args ...string) (string, error) {
-	logger.Infof("running snap command: %v", args)
+	logger.Infof(context.TODO(), "running snap command: %v", args)
 	return s.runnable.Execute(s.executable, args...)
 }
 

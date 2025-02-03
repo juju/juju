@@ -4,6 +4,7 @@
 package peergrouper
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"sort"
@@ -217,7 +218,7 @@ func (p *peerGroupChanges) initNewReplicaSet() map[string]*replicaset.Member {
 //  2. There is no HA space configured and any nodes have multiple
 //     cloud-local addresses.
 func desiredPeerGroup(info *peerGroupInfo) (desiredChanges, error) {
-	logger.Debugf(info.getLogMessage())
+	logger.Debugf(context.TODO(), info.getLogMessage())
 
 	peerChanges := peerGroupChanges{
 		info: info,
@@ -330,7 +331,7 @@ func (p *peerGroupChanges) possiblePeerGroupChanges() {
 		nodeIds = append(nodeIds, id)
 	}
 	sortAsInts(nodeIds)
-	logger.Debugf("assessing possible peer group changes:")
+	logger.Debugf(context.TODO(), "assessing possible peer group changes:")
 	for _, id := range nodeIds {
 		m := p.info.controllers[id]
 		member := p.desired.members[id]
@@ -339,7 +340,7 @@ func (p *peerGroupChanges) possiblePeerGroupChanges() {
 				// Dead machine already removed from replicaset.
 				continue
 			}
-			logger.Debugf("controller %v has died %q, wants vote: %v", id, m.host.Life(), m.WantsVote())
+			logger.Debugf(context.TODO(), "controller %v has died %q, wants vote: %v", id, m.host.Life(), m.WantsVote())
 			if isPrimaryMember(p.info, id) {
 				p.desired.stepDownPrimary = true
 			}
@@ -351,18 +352,18 @@ func (p *peerGroupChanges) possiblePeerGroupChanges() {
 		wantsVote := m.WantsVote()
 		switch {
 		case wantsVote && isVoting:
-			logger.Debugf("node %q is already voting", id)
+			logger.Debugf(context.TODO(), "node %q is already voting", id)
 			p.toKeepVoting = append(p.toKeepVoting, id)
 		case wantsVote && !isVoting:
 			if status, ok := p.info.statuses[id]; ok && isReady(status) {
-				logger.Debugf("node %q is a potential voter", id)
+				logger.Debugf(context.TODO(), "node %q is a potential voter", id)
 				p.toAddVote = append(p.toAddVote, id)
 			} else if member != nil {
-				logger.Debugf("node %q exists but is not ready (status: %v, healthy: %v)",
+				logger.Debugf(context.TODO(), "node %q exists but is not ready (status: %v, healthy: %v)",
 					id, status.State, status.Healthy)
 				p.toKeepNonVoting = append(p.toKeepNonVoting, id)
 			} else {
-				logger.Debugf("node %q does not exist and is not ready (status: %v, healthy: %v)",
+				logger.Debugf(context.TODO(), "node %q does not exist and is not ready (status: %v, healthy: %v)",
 					id, status.State, status.Healthy)
 				p.toKeepCreateNonVotingMember = append(p.toKeepCreateNonVotingMember, id)
 			}
@@ -370,16 +371,16 @@ func (p *peerGroupChanges) possiblePeerGroupChanges() {
 			p.toRemoveVote = append(p.toRemoveVote, id)
 			if isPrimaryMember(p.info, id) {
 				p.desired.stepDownPrimary = true
-				logger.Debugf("primary node %q is a potential non-voter", id)
+				logger.Debugf(context.TODO(), "primary node %q is a potential non-voter", id)
 			} else {
-				logger.Debugf("node %q is a potential non-voter", id)
+				logger.Debugf(context.TODO(), "node %q is a potential non-voter", id)
 			}
 		case !wantsVote && !isVoting:
-			logger.Debugf("node %q does not want the vote", id)
+			logger.Debugf(context.TODO(), "node %q does not want the vote", id)
 			p.toKeepNonVoting = append(p.toKeepNonVoting, id)
 		}
 	}
-	logger.Debugf("assessed")
+	logger.Debugf(context.TODO(), "assessed")
 }
 
 func isReady(status replicaset.MemberStatus) bool {
@@ -409,7 +410,7 @@ func (p *peerGroupChanges) reviewPeerGroupChanges() {
 			if !isPrimary {
 				tempToRemove = append(tempToRemove, id)
 			} else {
-				logger.Debugf("asked to remove all voters, preserving primary voter %q", id)
+				logger.Debugf(context.TODO(), "asked to remove all voters, preserving primary voter %q", id)
 				p.desired.stepDownPrimary = false
 			}
 		}
@@ -417,13 +418,13 @@ func (p *peerGroupChanges) reviewPeerGroupChanges() {
 	}
 	newCount := keptVoters + len(p.toAddVote)
 	if (newCount)%2 == 1 {
-		logger.Debugf("number of voters is odd")
+		logger.Debugf(context.TODO(), "number of voters is odd")
 		// if this is true we will create an odd number of voters
 		return
 	}
 	if len(p.toAddVote) > 0 {
 		last := p.toAddVote[len(p.toAddVote)-1]
-		logger.Debugf("number of voters would be even, not adding %q to maintain odd", last)
+		logger.Debugf(context.TODO(), "number of voters would be even, not adding %q to maintain odd", last)
 		p.toAddVote = p.toAddVote[:len(p.toAddVote)-1]
 		return
 	}
@@ -432,7 +433,7 @@ func (p *peerGroupChanges) reviewPeerGroupChanges() {
 	for i, id := range p.toKeepVoting {
 		if !isPrimaryMember(p.info, id) {
 			p.toRemoveVote = append(p.toRemoveVote, id)
-			logger.Debugf("removing vote from %q to maintain odd number of voters", id)
+			logger.Debugf(context.TODO(), "removing vote from %q to maintain odd number of voters", id)
 			if i == len(p.toKeepVoting)-1 {
 				p.toKeepVoting = p.toKeepVoting[:i]
 			} else {
@@ -486,7 +487,7 @@ func (p *peerGroupChanges) adjustVotes() {
 // member and add it to members map with the given ID.
 func (p *peerGroupChanges) createNonVotingMember() {
 	for _, id := range p.toKeepCreateNonVotingMember {
-		logger.Debugf("create member with id %q", id)
+		logger.Debugf(context.TODO(), "create member with id %q", id)
 		p.info.maxMemberId++
 		member := &replicaset.Member{
 			Tags: map[string]string{
@@ -501,7 +502,7 @@ func (p *peerGroupChanges) createNonVotingMember() {
 		if p.desired.members[id] != nil {
 			continue
 		}
-		logger.Debugf("create member with id %q", id)
+		logger.Debugf(context.TODO(), "create member with id %q", id)
 		p.info.maxMemberId++
 		member := &replicaset.Member{
 			Tags: map[string]string{
@@ -554,7 +555,7 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 		member := p.desired.members[id]
 		if len(addrs) == 1 {
 			addr := addrs[0]
-			logger.Debugf("node %q selected address %q by scope from %v", id, addr, hostPorts)
+			logger.Debugf(context.TODO(), "node %q selected address %q by scope from %v", id, addr, hostPorts)
 
 			if member.Address != addr {
 				member.Address = addr

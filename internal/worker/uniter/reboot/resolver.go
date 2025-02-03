@@ -64,7 +64,7 @@ func (r *rebootResolver) NextOp(ctx context.Context, localState resolver.LocalSt
 		return nil, errors.Trace(err)
 	}
 
-	r.logger.Infof("reboot detected; triggering implicit start hook to notify charm")
+	r.logger.Infof(context.TODO(), "reboot detected; triggering implicit start hook to notify charm")
 
 	r.rebootDetected = false
 	return op, nil

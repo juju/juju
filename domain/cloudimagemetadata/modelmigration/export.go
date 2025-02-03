@@ -55,7 +55,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 // Execute retrieves cloud image metadata and adds it to the provided model.
 // If the metadata retrieval fails, it returns an error.
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	e.logger.Debugf("exporting cloudimagemetadata")
+	e.logger.Debugf(context.TODO(), "exporting cloudimagemetadata")
 
 	metadata, err := e.service.AllCloudImageMetadata(ctx)
 	if err != nil {
@@ -77,6 +77,6 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		})
 	}
 
-	e.logger.Debugf("exporting cloudimagemetadata succeeded")
+	e.logger.Debugf(context.TODO(), "exporting cloudimagemetadata succeeded")
 	return nil
 }

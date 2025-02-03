@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"sync"
@@ -660,7 +661,7 @@ func nextAvailableLUN(vm *armcompute.VirtualMachine) (int32, error) {
 		for _, disk := range vm.Properties.StorageProfile.DataDisks {
 			lun := toValue(disk.Lun)
 			if lun < 0 || lun > 31 {
-				logger.Debugf("ignore disk with invalid LUN: %+v", disk)
+				logger.Debugf(context.TODO(), "ignore disk with invalid LUN: %+v", disk)
 				continue
 			}
 			inUse[lun] = true

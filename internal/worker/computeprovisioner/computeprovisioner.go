@@ -282,7 +282,7 @@ func NewEnvironProvisioner(
 		environ:                 environ,
 	}
 	p.broker = environ
-	logger.Tracef("Starting environ provisioner for %q", p.agentConfig.Tag())
+	logger.Tracef(context.TODO(), "Starting environ provisioner for %q", p.agentConfig.Tag())
 
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,

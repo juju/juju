@@ -4,6 +4,7 @@
 package presence
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -118,19 +119,19 @@ func (w *wrapper) loop(started chan struct{}) error {
 	close(started)
 	// Don't exit until we are told to. Exiting unsubscribes.
 	<-w.tomb.Dying()
-	w.logger.Tracef("presence loop finished")
+	w.logger.Tracef(context.TODO(), "presence loop finished")
 	return nil
 }
 
 func (w *wrapper) forwarderConnect(topic string, data forwarder.OriginTarget, err error) {
 	if err != nil {
-		w.logger.Errorf("forwarderConnect error %v", err)
+		w.logger.Errorf(context.TODO(), "forwarderConnect error %v", err)
 		return
 	}
 
 	// If we have just set up forwarding to another server, or another server
 	// has just set up forwarding to us, ask for their presence info.
-	w.logger.Tracef("forwarding connection up for %s -> %s", data.Origin, data.Target)
+	w.logger.Tracef(context.TODO(), "forwarding connection up for %s -> %s", data.Origin, data.Target)
 	var request string
 	switch {
 	case data.Origin == w.origin:
@@ -140,15 +141,15 @@ func (w *wrapper) forwarderConnect(topic string, data forwarder.OriginTarget, er
 	default:
 		return
 	}
-	w.logger.Tracef("request presence info from %s", request)
+	w.logger.Tracef(context.TODO(), "request presence info from %s", request)
 	msg := apiserver.OriginTarget{Target: request}
 	_, _ = w.hub.Publish(apiserver.PresenceRequestTopic, msg)
-	w.logger.Tracef("request sent")
+	w.logger.Tracef(context.TODO(), "request sent")
 }
 
 func (w *wrapper) forwarderDisconnect(topic string, data forwarder.OriginTarget, err error) {
 	if err != nil {
-		w.logger.Errorf("forwarderChange error %v", err)
+		w.logger.Errorf(context.TODO(), "forwarderChange error %v", err)
 		return
 	}
 	// If we have lost connectivity to the target, we mark the server down.
@@ -156,14 +157,14 @@ func (w *wrapper) forwarderDisconnect(topic string, data forwarder.OriginTarget,
 	// but we aren't guaranteed to get those messages, so we use the lack of our
 	// connectivity to the other machine to indicate that comms are down.
 	if data.Origin == w.origin {
-		w.logger.Tracef("forwarding connection down for %s", data.Target)
+		w.logger.Tracef(context.TODO(), "forwarding connection down for %s", data.Target)
 		w.recorder.ServerDown(data.Target)
 	}
 }
 
 func (w *wrapper) agentLogin(topic string, data apiserver.APIConnection, err error) {
 	if err != nil {
-		w.logger.Errorf("agentLogin error %v", err)
+		w.logger.Errorf(context.TODO(), "agentLogin error %v", err)
 		return
 	}
 	if w.logger.IsLevelEnabled(logger.TRACE) {
@@ -171,32 +172,32 @@ func (w *wrapper) agentLogin(topic string, data apiserver.APIConnection, err err
 		if data.ControllerAgent {
 			agentName += " (controller)"
 		}
-		w.logger.Tracef("api connect %s:%s -> %s (%v)", data.ModelUUID, agentName, data.Origin, data.ConnectionID)
+		w.logger.Tracef(context.TODO(), "api connect %s:%s -> %s (%v)", data.ModelUUID, agentName, data.Origin, data.ConnectionID)
 	}
 	w.recorder.Connect(data.Origin, data.ModelUUID, data.AgentTag, data.ConnectionID, data.ControllerAgent, data.UserData)
 }
 
 func (w *wrapper) agentDisconnect(topic string, data apiserver.APIConnection, err error) {
 	if err != nil {
-		w.logger.Errorf("agentDisconnect error %v", err)
+		w.logger.Errorf(context.TODO(), "agentDisconnect error %v", err)
 		return
 	}
-	w.logger.Tracef("api disconnect %s (%v)", data.Origin, data.ConnectionID)
+	w.logger.Tracef(context.TODO(), "api disconnect %s (%v)", data.Origin, data.ConnectionID)
 	w.recorder.Disconnect(data.Origin, data.ConnectionID)
 }
 
 func (w *wrapper) presenceRequest(topic string, data apiserver.OriginTarget, err error) {
 	if err != nil {
-		w.logger.Errorf("connectionChange error %v", err)
+		w.logger.Errorf(context.TODO(), "connectionChange error %v", err)
 		return
 	}
 	// If the message is not meant for us, ignore.
 	if data.Target != w.origin {
-		w.logger.Tracef("presence request for %s ignored, as we are %s", data.Target, w.origin)
+		w.logger.Tracef(context.TODO(), "presence request for %s ignored, as we are %s", data.Target, w.origin)
 		return
 	}
 
-	w.logger.Tracef("presence request from %s", data.Origin)
+	w.logger.Tracef(context.TODO(), "presence request from %s", data.Origin)
 
 	connections := w.recorder.Connections().ForServer(w.origin)
 	values := connections.Values()
@@ -205,7 +206,7 @@ func (w *wrapper) presenceRequest(topic string, data apiserver.OriginTarget, err
 	}
 	for i, value := range values {
 		if value.Status != presence.Alive {
-			w.logger.Infof("presence response has weird status: %#v", value)
+			w.logger.Infof(context.TODO(), "presence response has weird status: %#v", value)
 		}
 		response.Connections[i] = apiserver.APIConnection{
 			AgentTag:        value.Agent,
@@ -218,18 +219,18 @@ func (w *wrapper) presenceRequest(topic string, data apiserver.OriginTarget, err
 	}
 	_, err = w.hub.Publish(apiserver.PresenceResponseTopic, response)
 	if err != nil {
-		w.logger.Errorf("cannot send presence response: %v", err)
+		w.logger.Errorf(context.TODO(), "cannot send presence response: %v", err)
 	}
 }
 
 func (w *wrapper) presenceResponse(topic string, data apiserver.PresenceResponse, err error) {
 	if err != nil {
-		w.logger.Errorf("connectionChange error %v", err)
+		w.logger.Errorf(context.TODO(), "connectionChange error %v", err)
 		return
 	}
 	// If this message is from us, ignore it.
 	if data.Origin == w.origin {
-		w.logger.Tracef("ignoring our own presence response message")
+		w.logger.Tracef(context.TODO(), "ignoring our own presence response message")
 		return
 	}
 
@@ -242,7 +243,7 @@ func (w *wrapper) presenceResponse(topic string, data apiserver.PresenceResponse
 			if conn.ControllerAgent {
 				agentName += " (controller)"
 			}
-			w.logger.Tracef("setting presence %s:%s -> %s (%v)", conn.ModelUUID, agentName, conn.Origin, conn.ConnectionID)
+			w.logger.Tracef(context.TODO(), "setting presence %s:%s -> %s (%v)", conn.ModelUUID, agentName, conn.Origin, conn.ConnectionID)
 		}
 		values = append(values, presence.Value{
 			Model:           conn.ModelUUID,
@@ -258,7 +259,7 @@ func (w *wrapper) presenceResponse(topic string, data apiserver.PresenceResponse
 	// An error here is only if the values don't come from the server.
 	// This would be a programming error, and as such, we just log it.
 	if err != nil {
-		w.logger.Errorf("UpdateServer error %v", err)
+		w.logger.Errorf(context.TODO(), "UpdateServer error %v", err)
 	}
 }
 

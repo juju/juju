@@ -4,6 +4,7 @@
 package netplan
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -98,7 +99,7 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 		Code:   result.Code,
 	}
 
-	logger.Debugf("Netplan activation result %q %q %d", result.Stderr, result.Stdout, result.Code)
+	logger.Debugf(context.TODO(), "Netplan activation result %q %q %d", result.Stderr, result.Stdout, result.Code)
 
 	if err != nil {
 		_ = netplan.Rollback()

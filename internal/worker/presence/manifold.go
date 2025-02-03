@@ -62,7 +62,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// Get the agent.
 			var agent coreagent.Agent
 			if err := getter.Get(config.AgentName, &agent); err != nil {
-				config.Logger.Tracef("agent dependency not available")
+				config.Logger.Tracef(context.TODO(), "agent dependency not available")
 				return nil, err
 			}
 			origin := agent.CurrentConfig().Tag().String()
@@ -70,7 +70,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// Get the hub.
 			var hub *pubsub.StructuredHub
 			if err := getter.Get(config.CentralHubName, &hub); err != nil {
-				config.Logger.Tracef("hub dependency not available")
+				config.Logger.Tracef(context.TODO(), "hub dependency not available")
 				return nil, err
 			}
 			config.Recorder.Enable()

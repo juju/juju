@@ -119,7 +119,7 @@ func (w *stateConfigWatcher) loop() error {
 	for {
 		select {
 		case <-w.tomb.Dying():
-			logger.Infof("tomb dying")
+			logger.Infof(context.TODO(), "tomb dying")
 			return tomb.ErrDying
 		case _, ok := <-watchCh:
 			if !ok {
@@ -129,7 +129,7 @@ func (w *stateConfigWatcher) loop() error {
 				// State serving info has been set or unset so restart
 				// so that dependents get notified. ErrBounce ensures
 				// that the manifold is restarted quickly.
-				logger.Debugf("state serving info change in agent config")
+				logger.Debugf(context.TODO(), "state serving info change in agent config")
 				return dependency.ErrBounce
 			}
 		}

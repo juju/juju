@@ -4,6 +4,7 @@
 package websocket
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -49,7 +50,7 @@ type Conn struct {
 func Serve(w http.ResponseWriter, req *http.Request, handler func(ws *Conn)) {
 	conn, err := websocketUpgrader.Upgrade(w, req, nil)
 	if err != nil {
-		logger.Errorf("problem initiating websocket: %v", err)
+		logger.Errorf(context.TODO(), "problem initiating websocket: %v", err)
 		return
 	}
 	handler(&Conn{conn})

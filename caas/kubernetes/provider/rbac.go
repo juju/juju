@@ -70,7 +70,7 @@ func (k *kubernetesClient) updateServiceAccount(ctx context.Context, sa *core.Se
 func (k *kubernetesClient) ensureServiceAccount(ctx context.Context, sa *core.ServiceAccount) (out *core.ServiceAccount, cleanups []func(), err error) {
 	out, err = k.createServiceAccount(ctx, sa)
 	if err == nil {
-		logger.Debugf("service account %q created", out.GetName())
+		logger.Debugf(context.TODO(), "service account %q created", out.GetName())
 		cleanups = append(cleanups, func() { _ = k.deleteServiceAccount(ctx, out.GetName(), out.GetUID()) })
 		return out, cleanups, nil
 	}
@@ -86,7 +86,7 @@ func (k *kubernetesClient) ensureServiceAccount(ctx context.Context, sa *core.Se
 		return nil, cleanups, errors.Trace(err)
 	}
 	out, err = k.updateServiceAccount(ctx, sa)
-	logger.Debugf("updating service account %q", sa.GetName())
+	logger.Debugf(context.TODO(), "updating service account %q", sa.GetName())
 	return out, cleanups, errors.Trace(err)
 }
 
@@ -155,7 +155,7 @@ func (k *kubernetesClient) updateRole(ctx context.Context, role *rbacv1.Role) (*
 func (k *kubernetesClient) ensureRole(ctx context.Context, role *rbacv1.Role) (out *rbacv1.Role, cleanups []func(), err error) {
 	out, err = k.createRole(ctx, role)
 	if err == nil {
-		logger.Debugf("role %q created", out.GetName())
+		logger.Debugf(context.TODO(), "role %q created", out.GetName())
 		cleanups = append(cleanups, func() { _ = k.deleteRole(ctx, out.GetName(), out.GetUID()) })
 		return out, cleanups, nil
 	}
@@ -171,7 +171,7 @@ func (k *kubernetesClient) ensureRole(ctx context.Context, role *rbacv1.Role) (o
 		return nil, cleanups, errors.Trace(err)
 	}
 	out, err = k.updateRole(ctx, role)
-	logger.Debugf("updating role %q", role.GetName())
+	logger.Debugf(context.TODO(), "updating role %q", role.GetName())
 	return out, cleanups, errors.Trace(err)
 }
 
@@ -263,7 +263,7 @@ func ensureResourceDeleted(clock jujuclock.Clock, getResource func() error) erro
 			return err != nil && err != notReadyYetErr
 		},
 		NotifyFunc: func(error, int) {
-			logger.Debugf("waiting for resource to be deleted")
+			logger.Debugf(context.TODO(), "waiting for resource to be deleted")
 		},
 	})
 	return errors.Trace(err)
@@ -321,7 +321,7 @@ func (k *kubernetesClient) ensureRoleBinding(ctx context.Context, rb *rbacv1.Rol
 		// only do cleanup for the first time, don't do this for existing deployments.
 		cleanups = append(cleanups, func() { _ = k.deleteRoleBinding(ctx, out.GetName(), out.GetUID()) })
 	}
-	logger.Debugf("role binding %q created", rb.GetName())
+	logger.Debugf(context.TODO(), "role binding %q created", rb.GetName())
 	return out, cleanups, nil
 }
 

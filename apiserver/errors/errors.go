@@ -4,6 +4,7 @@
 package errors
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -158,7 +159,7 @@ func ServerError(err error) *params.Error {
 		return nil
 	}
 	if logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef("server RPC error %v", errors.Details(err))
+		logger.Tracef(context.TODO(), "server RPC error %v", errors.Details(err))
 	}
 
 	var (

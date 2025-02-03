@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -38,7 +39,7 @@ func (env *azureEnviron) networkInfo() (vnetRG string, vnetName string) {
 			vnetRG = parts[0]
 			vnetName = parts[1]
 		}
-		logger.Debugf("user specified network name %q in resource group %q", vnetName, vnetRG)
+		logger.Debugf(context.TODO(), "user specified network name %q in resource group %q", vnetName, vnetRG)
 	}
 	return
 }
@@ -95,7 +96,7 @@ func (env *azureEnviron) allSubnets(ctx envcontext.ProviderCallContext) ([]netwo
 		// An empty CIDR is no use to us, so guard against it.
 		cidr := toValue(sub.Properties.AddressPrefix)
 		if cidr == "" {
-			logger.Debugf("ignoring subnet %q with empty address prefix", id)
+			logger.Debugf(context.TODO(), "ignoring subnet %q with empty address prefix", id)
 			continue
 		}
 
@@ -485,6 +486,6 @@ func (env *azureEnviron) findPlacementSubnet(ctx envcontext.ProviderCallContext,
 		return "", errors.Trace(err)
 	}
 
-	logger.Debugf("searching for subnet matching placement directive %q", subnetName)
+	logger.Debugf(context.TODO(), "searching for subnet matching placement directive %q", subnetName)
 	return env.findSubnetID(ctx, subnetName)
 }

@@ -4,6 +4,8 @@
 package containerprovisioner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
@@ -16,7 +18,7 @@ import (
 // is also the return value of this function.
 func loggedErrorStack(logger logger.Logger, err error) error {
 	if featureflag.Enabled(featureflag.LogErrorStack) {
-		logger.Errorf("error stack:\n%s", errors.ErrorStack(err))
+		logger.Errorf(context.TODO(), "error stack:\n%s", errors.ErrorStack(err))
 	}
 	return err
 }

@@ -58,10 +58,12 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/container/broker"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
+	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/service"
@@ -69,6 +71,7 @@ import (
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
+	internalworker "github.com/juju/juju/internal/worker"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/gate"
@@ -187,7 +190,7 @@ func (a *machineAgentCommand) Init(args []string) error {
 	}
 	config := a.currentConfig.CurrentConfig()
 	if err := os.MkdirAll(config.LogDir(), 0644); err != nil {
-		logger.Warningf("cannot create log dir: %v", err)
+		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
 	a.isCaas = config.Value(agent.ProviderType) == k8sconstants.CAASProviderType
 
@@ -199,7 +202,7 @@ func (a *machineAgentCommand) Init(args []string) error {
 			MaxBackups: config.AgentLogfileMaxBackups(),
 			Compress:   true,
 		}
-		logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+		logger.Debugf(context.TODO(), "created rotating log file %q with max size %d MB and max backups %d",
 			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 		a.ctx.Stderr = ljLogger
 	}
@@ -250,7 +253,7 @@ func MachineAgentFactoryFn(
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
-				Logger:        logger,
+				Logger:        internalworker.WrapLogger(logger),
 			}),
 			looputil.NewLoopDeviceManager(),
 			preUpgradeSteps,
@@ -414,7 +417,7 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 	leaf, err := authority.LeafGroupFromPemCertKey(pki.DefaultLeafGroup,
 		[]byte(si.Cert), []byte(si.PrivateKey))
 	if err != nil || !pki.LeafHasDNSNames(leaf, controller.DefaultDNSNames) {
-		logger.Infof("parsing certificate/key failed, will generate a new one: %v", err)
+		logger.Infof(context.TODO(), "parsing certificate/key failed, will generate a new one: %v", err)
 		leaf, err = authority.LeafRequestForGroup(pki.DefaultLeafGroup).
 			AddDNSNames(controller.DefaultDNSNames...).
 			Commit()
@@ -450,7 +453,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
-		logger.Errorf("failed to write profile funcs: %v", err)
+		logger.Errorf(context.TODO(), "failed to write profile funcs: %v", err)
 	}
 
 	a.pubsubMetrics = centralhub.NewPubsubMetrics()
@@ -497,10 +500,10 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	err = a.runner.Wait()
 	switch errors.Cause(err) {
 	case jworker.ErrRebootMachine:
-		logger.Infof("Caught reboot error")
+		logger.Infof(context.TODO(), "Caught reboot error")
 		err = a.executeRebootOrShutdown(params.ShouldReboot)
 	case jworker.ErrShutdownMachine:
-		logger.Infof("Caught shutdown error")
+		logger.Infof(context.TODO(), "Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
 	return cmdutil.AgentDone(logger, err)
@@ -514,12 +517,15 @@ func (a *MachineAgent) makeEngineCreator(
 		engineConfigFunc := agentengine.DependencyEngineConfig
 		metrics := agentengine.NewMetrics()
 		controllerMetricsSink := metrics.ForModel(agentConfig.Model())
-		engine, err := dependency.NewEngine(engineConfigFunc(controllerMetricsSink, internallogger.GetLogger("juju.worker.dependency")))
+		engine, err := dependency.NewEngine(engineConfigFunc(
+			controllerMetricsSink,
+			internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
+		))
 		if err != nil {
 			return nil, err
 		}
 		localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-			Logger: internallogger.GetLogger("juju.localhub"),
+			Logger: internalpubsub.WrapLogger(internallogger.GetLogger("juju.localhub")),
 		})
 		updateAgentConfLogging := func(loggingConfig string) error {
 			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
@@ -567,7 +573,7 @@ func (a *MachineAgent) makeEngineCreator(
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return agentengine.DependencyEngineConfig(
 					controllerMetricsSink,
-					internallogger.GetLogger("juju.worker.dependency"),
+					internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 				)
 			},
 			SetupLogging:       agentconf.SetupAgentLogging,
@@ -581,7 +587,7 @@ func (a *MachineAgent) makeEngineCreator(
 		}
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
-				logger.Errorf("while stopping engine with bad manifolds: %v", err)
+				logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
 			}
 			return nil, err
 		}
@@ -600,13 +606,13 @@ func (a *MachineAgent) makeEngineCreator(
 			// but continue. It is very unlikely to happen in the real world
 			// as the only issue is connecting to the abstract domain socket
 			// and the agent is controlled by by the OS to only have one.
-			logger.Errorf("failed to start introspection worker: %v", err)
+			logger.Errorf(context.TODO(), "failed to start introspection worker: %v", err)
 		}
 		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, engine, controllerMetricsSink); err != nil {
 			// If the dependency engine metrics fail, continue on. This is unlikely
 			// to happen in the real world, but should't stop or bring down an
 			// agent.
-			logger.Errorf("failed to start the dependency engine metrics %v", err)
+			logger.Errorf(context.TODO(), "failed to start the dependency engine metrics %v", err)
 		}
 		return engine, nil
 	}
@@ -619,10 +625,10 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 		return errors.Trace(err)
 	}
 
-	logger.Infof("Reboot: Executing reboot")
+	logger.Infof(context.TODO(), "Reboot: Executing reboot")
 	err = finalize.ExecuteReboot(action)
 	if err != nil {
-		logger.Infof("Reboot: Error executing reboot: %v", err)
+		logger.Infof(context.TODO(), "Reboot: Error executing reboot: %v", err)
 		return errors.Trace(err)
 	}
 	// We return ErrRebootMachine so the agent will simply exit without error
@@ -642,7 +648,7 @@ var (
 )
 
 func (a *MachineAgent) machineStartup(ctx stdcontext.Context, apiConn api.Connection, logger corelogger.Logger) error {
-	logger.Tracef("machineStartup called")
+	logger.Tracef(context.TODO(), "machineStartup called")
 	// CAAS agents do not have machines.
 	if a.isCaasAgent {
 		return nil
@@ -732,7 +738,7 @@ func (a *MachineAgent) validateMigration(ctx stdcontext.Context, apiCaller base.
 // setupContainerSupport determines what containers can be run on this machine and
 // passes the result to the juju controller.
 func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Connection, logger corelogger.Logger) error {
-	logger.Tracef("setupContainerSupport called")
+	logger.Tracef(context.TODO(), "setupContainerSupport called")
 	pr := apiprovisioner.NewClient(st)
 	mTag, ok := a.CurrentConfig().Tag().(names.MachineTag)
 	if !ok {
@@ -753,7 +759,7 @@ func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Conn
 	var supportedContainers []instance.ContainerType
 	supportedContainers = append(supportedContainers, instance.LXD)
 
-	logger.Debugf("Supported container types %q", supportedContainers)
+	logger.Debugf(context.TODO(), "Supported container types %q", supportedContainers)
 
 	if len(supportedContainers) == 0 {
 		if err := m.SupportsNoContainers(ctx); err != nil {
@@ -810,7 +816,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 
 	if stat, err := os.Lstat(fullLink); err == nil {
 		if stat.Mode()&os.ModeSymlink == 0 {
-			logger.Infof("skipping creating symlink %q as exsting path has a normal file", fullLink)
+			logger.Infof(context.TODO(), "skipping creating symlink %q as exsting path has a normal file", fullLink)
 			return nil
 		}
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {

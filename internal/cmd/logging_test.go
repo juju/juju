@@ -4,6 +4,7 @@
 package cmd_test
 
 import (
+	"context"
 	"io/ioutil"
 	"path/filepath"
 
@@ -13,9 +14,10 @@ import (
 
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.test")
+var logger = internallogger.GetLogger("juju.test")
 
 type LogSuite struct {
 	testing.LoggingCleanupSuite
@@ -90,7 +92,7 @@ func (s *LogSuite) TestStderr(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	logger.Infof("hello")
+	logger.Infof(context.TODO(), "hello")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `^.* INFO .* hello\n`)
 }
 
@@ -99,7 +101,7 @@ func (s *LogSuite) TestRelPathLog(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	logger.Infof("hello")
+	logger.Infof(context.TODO(), "hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
@@ -113,7 +115,7 @@ func (s *LogSuite) TestAbsPathLog(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	logger.Infof("hello")
+	logger.Infof(context.TODO(), "hello")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, gc.IsNil)
@@ -125,7 +127,7 @@ func (s *LogSuite) TestLoggingToFileAndStderr(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	logger.Infof("hello")
+	logger.Infof(context.TODO(), "hello")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
@@ -139,9 +141,9 @@ func (s *LogSuite) TestErrorAndWarningLoggingToStderr(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, gc.IsNil)
-	logger.Warningf("a warning")
-	logger.Errorf("an error")
-	logger.Infof("an info")
+	logger.Warningf(context.TODO(), "a warning")
+	logger.Errorf(context.TODO(), "an error")
+	logger.Infof(context.TODO(), "an info")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, `^.*WARNING a warning\n.*ERROR an error\n.*`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }

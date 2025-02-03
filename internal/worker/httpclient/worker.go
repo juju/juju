@@ -15,6 +15,7 @@ import (
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	internalhttp "github.com/juju/juju/internal/http"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
@@ -84,7 +85,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*httpClientWorker,
 				return false
 			},
 			RestartDelay: time.Second * 10,
-			Logger:       cfg.Logger,
+			Logger:       internalworker.WrapLogger(cfg.Logger),
 		}),
 		httpClientRequests: make(chan httpClientRequest),
 	}

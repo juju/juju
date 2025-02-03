@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -28,8 +29,10 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/cmd"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/upgrade"
+	internalworker "github.com/juju/juju/internal/worker"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/logsender"
@@ -76,7 +79,7 @@ func (m *ModelCommand) Init(args []string) error {
 		IsFatal:       agenterrors.IsFatal,
 		MoreImportant: agenterrors.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
-		Logger:        logger,
+		Logger:        internalworker.WrapLogger(logger),
 	})
 	return nil
 }
@@ -89,13 +92,13 @@ func (m *ModelCommand) maybeCopyAgentConfig() error {
 		return nil
 	}
 	if !os.IsNotExist(errors.Cause(err)) {
-		logger.Errorf("reading initial agent config file: %v", err)
+		logger.Errorf(context.TODO(), "reading initial agent config file: %v", err)
 		return errors.Trace(err)
 	}
 
 	templateFile := filepath.Join(agent.Dir(m.DataDir(), m.Tag()), caasconstants.TemplateFileNameAgentConf)
 	if err := copyFile(agent.ConfigPath(m.DataDir(), m.Tag()), templateFile); err != nil {
-		logger.Errorf("copying agent config file template: %v", err)
+		logger.Errorf(context.TODO(), "copying agent config file template: %v", err)
 		return errors.Trace(err)
 	}
 	return m.ReadConfig(m.Tag().String())
@@ -132,7 +135,7 @@ func NewModelCommand(
 
 // Run implements Command
 func (m *ModelCommand) Run(ctx *cmd.Context) error {
-	logger.Infof("caas model operator start (%s [%s])", jujuversion.Current,
+	logger.Infof(context.TODO(), "caas model operator start (%s [%s])", jujuversion.Current,
 		runtime.Compiler)
 
 	if err := m.maybeCopyAgentConfig(); err != nil {
@@ -206,14 +209,14 @@ func (m *ModelCommand) Workers() (worker.Worker, error) {
 	// should work out the best way to get it into here.
 	engine, err := dependency.NewEngine(engine.DependencyEngineConfig(
 		dependency.DefaultMetrics(),
-		internallogger.GetLogger("juju.worker.dependency"),
+		internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 	))
 	if err != nil {
 		return nil, err
 	}
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
-			logger.Errorf("while stopping engine with bad manifolds: %v", err)
+			logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
 		}
 		return nil, err
 	}

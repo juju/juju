@@ -4,6 +4,7 @@
 package machinelock
 
 import (
+	"context"
 	"fmt"
 	"runtime/debug"
 	"sort"
@@ -158,7 +159,7 @@ func (c *lock) Acquire(spec Spec) (func(), error) {
 	}
 
 	c.mu.Unlock()
-	c.logger.Debugf("acquire machine lock %q for %s (%s)", mSpec.Name, spec.Worker, spec.Comment)
+	c.logger.Debugf(context.TODO(), "acquire machine lock %q for %s (%s)", mSpec.Name, spec.Worker, spec.Comment)
 	releaser, err := c.acquire(mSpec)
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -168,7 +169,7 @@ func (c *lock) Acquire(spec Spec) (func(), error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	c.logger.Debugf("machine lock %q acquired for %s (%s)", mSpec.Name, spec.Worker, spec.Comment)
+	c.logger.Debugf(context.TODO(), "machine lock %q acquired for %s (%s)", mSpec.Name, spec.Worker, spec.Comment)
 	c.holder = current
 	current.acquired = c.clock.Now()
 	return func() {
@@ -182,7 +183,7 @@ func (c *lock) Acquire(spec Spec) (func(), error) {
 		// log file.
 		current.released = c.clock.Now()
 		c.writeLogEntry()
-		c.logger.Debugf("machine lock %q released for %s (%s)", mSpec.Name, spec.Worker, spec.Comment)
+		c.logger.Debugf(context.TODO(), "machine lock %q released for %s (%s)", mSpec.Name, spec.Worker, spec.Comment)
 		releaser.Release()
 		c.history.PushFront(current)
 		c.holder = nil
@@ -198,21 +199,21 @@ func (c *lock) writeLogEntry() {
 		MaxBackups: 5,
 		Compress:   true,
 	}
-	c.logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+	c.logger.Debugf(context.TODO(), "created rotating log file %q with max size %d MB and max backups %d",
 		writer.Filename, writer.MaxSize, writer.MaxBackups)
 	defer func() { _ = writer.Close() }()
 
 	if c.startMessage != "" {
 		_, err := fmt.Fprintln(writer, c.startMessage)
 		if err != nil {
-			c.logger.Warningf("unable to write startMessage: %s", err.Error())
+			c.logger.Warningf(context.TODO(), "unable to write startMessage: %s", err.Error())
 		}
 		c.startMessage = ""
 	}
 
 	_, err := fmt.Fprintln(writer, simpleInfo(c.agent, c.holder, c.clock.Now()))
 	if err != nil {
-		c.logger.Warningf("unable to release message: %s", err.Error())
+		c.logger.Warningf(context.TODO(), "unable to release message: %s", err.Error())
 	}
 }
 

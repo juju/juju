@@ -83,7 +83,7 @@ func (w *BaseWorker) AlreadyUpgraded() bool {
 	}
 
 	if w.FromVersion == w.ToVersion {
-		w.Logger.Infof("upgrade to %v already completed.", w.ToVersion)
+		w.Logger.Infof(context.TODO(), "upgrade to %v already completed.", w.ToVersion)
 		w.UpgradeCompleteLock.Unlock()
 		return true
 	}
@@ -103,7 +103,7 @@ func (w *BaseWorker) RunUpgradeSteps(ctx context.Context, targets []upgrades.Tar
 		}
 
 		context := upgrades.NewContext(agentConfig, w.APICaller)
-		w.Logger.Infof("starting upgrade from %v to %v for %q", w.FromVersion, w.ToVersion, w.Tag)
+		w.Logger.Infof(ctx, "starting upgrade from %v to %v for %q", w.FromVersion, w.ToVersion, w.Tag)
 
 		retryStrategy := retry.CallArgs{
 			Clock:    w.Clock,
@@ -144,7 +144,7 @@ func (w *BaseWorker) reportUpgradeFailure(ctx context.Context, err error, willRe
 	if !willRetry {
 		retryText = "giving up"
 	}
-	w.Logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
+	w.Logger.Errorf(context.TODO(), "upgrade from %v to %v for %q failed (%s): %v",
 		w.FromVersion, w.ToVersion, w.Tag, retryText, err)
 	_ = w.StatusSetter.SetStatus(
 		ctx,

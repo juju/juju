@@ -4,6 +4,7 @@
 package internal
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -55,6 +56,6 @@ func (c *dockerhub) DecideBaseURL() error {
 		addr += "/"
 	}
 	c.repoDetails.ServerAddress = addr
-	logger.Tracef("dockerhub repoDetails %s", c.repoDetails)
+	logger.Tracef(context.TODO(), "dockerhub repoDetails %s", c.repoDetails)
 	return nil
 }

@@ -4,6 +4,8 @@
 package google
 
 import (
+	"context"
+
 	"google.golang.org/api/compute/v1"
 )
 
@@ -46,9 +48,9 @@ func (z AvailabilityZone) Status() string {
 func (z AvailabilityZone) Deprecated() bool {
 	deprecated := z.zone.Deprecated != nil
 	if deprecated {
-		logger.Warningf("zone %q is %q", z.Name(), z.zone.Deprecated.State)
+		logger.Warningf(context.TODO(), "zone %q is %q", z.Name(), z.zone.Deprecated.State)
 		if z.zone.Deprecated.Replacement != "" {
-			logger.Warningf("zone %q is the replacement for zone %q", z.zone.Deprecated.Replacement, z.Name())
+			logger.Warningf(context.TODO(), "zone %q is the replacement for zone %q", z.zone.Deprecated.Replacement, z.Name())
 		}
 	}
 	return deprecated

@@ -18,8 +18,9 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4"
+
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // ErrSilent can be returned from Run to signal that Main should exit with
@@ -136,7 +137,7 @@ func (ctx *Context) Infof(format string, params ...interface{}) {
 		//level (since `Infof` calls `Logf` internally). This is done so
 		//that this function can produce more accurate source location
 		//debug information.
-		logger.Logf(loggo.INFO, format, params...)
+		logger.Logf(context.TODO(), corelogger.INFO, format, params...)
 	} else {
 		ctx.write(format, params...)
 	}
@@ -151,7 +152,7 @@ func (ctx *Context) Warningf(format string, params ...interface{}) {
 	// `logger.Warningf` to avoid introducing an additional call stack level
 	// (since `Warningf` calls Logf internally). This is done so that this
 	// function can produce more accurate source location debug information.
-	logger.Logf(loggo.WARNING, format, params...)
+	logger.Logf(context.TODO(), corelogger.WARNING, format, params...)
 }
 
 // Verbosef will write the formatted string to Stderr if the verbose is true,
@@ -165,7 +166,7 @@ func (ctx *Context) Verbosef(format string, params ...interface{}) {
 		// level (since `Infof` calls `Logf` internally). This is done so
 		// that this function can produce more accurate source location
 		// debug information.
-		logger.Logf(loggo.INFO, format, params...)
+		logger.Logf(context.TODO(), corelogger.INFO, format, params...)
 	}
 }
 
@@ -180,7 +181,7 @@ func (ctx *Context) Errorf(format string, params ...interface{}) {
 	// level (since `Errorf` calls `Logf` internally). This is done so
 	// that this function can produce more accurate source location
 	// debug information.
-	logger.Logf(loggo.ERROR, format, params...)
+	logger.Logf(context.TODO(), corelogger.ERROR, format, params...)
 }
 
 // WriteError will output the formatted text to the writer with

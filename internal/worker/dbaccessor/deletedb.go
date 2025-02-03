@@ -91,21 +91,21 @@ func deleteDBContents(ctx context.Context, tx *sql.Tx, logger logger.Logger) err
 		stmts = append(stmts, fmt.Sprintf("DROP TABLE IF EXISTS %q;", name))
 	}
 
-	logger.Debugf("deleting database contents: %d statements", len(stmts))
+	logger.Debugf(context.TODO(), "deleting database contents: %d statements", len(stmts))
 
 	// Batch the statements into groups, so we don't exceed the maximum
 	// number of statements in a single transaction.
 	const maxBatchSize = 15
 	for i := 0; i < len(stmts); i += maxBatchSize {
 		batch := stmts[i:min(i+maxBatchSize, len(stmts))]
-		logger.Debugf("executing batch %d with %d statements", i, len(batch))
+		logger.Debugf(context.TODO(), "executing batch %d with %d statements", i, len(batch))
 
 		if _, err := tx.ExecContext(ctx, strings.Join(batch, "\n")); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	logger.Infof("database contents deleted")
+	logger.Infof(context.TODO(), "database contents deleted")
 
 	return nil
 }

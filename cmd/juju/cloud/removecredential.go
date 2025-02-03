@@ -174,14 +174,14 @@ func (c *removeCredentialCommand) checkCloud(ctxt *cmd.Context, client RemoveCre
 	if c.ControllerName != "" {
 		if err := c.maybeRemoteCloud(ctxt, client); err != nil {
 			if !errors.Is(err, errors.NotFound) {
-				logger.Errorf("%v", err)
+				logger.Errorf(context.TODO(), "%v", err)
 			}
 		}
 	}
 	if c.Client {
 		if err := c.maybeLocalCloud(ctxt); err != nil {
 			if !errors.Is(err, errors.NotFound) {
-				logger.Errorf("%v", err)
+				logger.Errorf(context.TODO(), "%v", err)
 			}
 		}
 	}

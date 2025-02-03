@@ -4,6 +4,7 @@
 package vsphere
 
 import (
+	"context"
 	"sort"
 	"strings"
 
@@ -55,7 +56,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext)
 		HandleCredentialError(err, env, ctx)
 		return nil, errors.Trace(err)
 	}
-	logger.Tracef("host folder InventoryPath=%q, Name=%q",
+	logger.Tracef(context.TODO(), "host folder InventoryPath=%q, Name=%q",
 		folders.HostFolder.InventoryPath, folders.HostFolder.Name())
 	hostFolder := folders.HostFolder.InventoryPath
 
@@ -67,7 +68,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext)
 	var zones network.AvailabilityZones
 	for _, cr := range computeResources {
 		if cr.Resource.Summary.GetComputeResourceSummary().EffectiveCpu == 0 {
-			logger.Debugf("skipping empty compute resource %q", cr.Resource.Name)
+			logger.Debugf(context.TODO(), "skipping empty compute resource %q", cr.Resource.Name)
 			continue
 		}
 
@@ -84,7 +85,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext)
 				pool: pool,
 				name: makeAvailZoneName(hostFolder, cr.Path, pool.InventoryPath),
 			}
-			logger.Tracef("zone: %s (cr.Name=%q pool.InventoryPath=%q)",
+			logger.Tracef(context.TODO(), "zone: %s (cr.Name=%q pool.InventoryPath=%q)",
 				zone.Name(), zone.r.Name, zone.pool.InventoryPath)
 			zones = append(zones, zone)
 		}
@@ -96,7 +97,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext)
 			zoneNames[i] = zone.Name()
 		}
 		sort.Strings(zoneNames)
-		logger.Debugf("fetched availability zones: %q", zoneNames)
+		logger.Debugf(context.TODO(), "fetched availability zones: %q", zoneNames)
 	}
 
 	env.zones = zones

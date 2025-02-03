@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"context"
 	"io/ioutil"
 	"strings"
 )
@@ -20,7 +21,7 @@ func ParseAliasFile(aliasFilename string) map[string][]string {
 
 	content, err := ioutil.ReadFile(aliasFilename)
 	if err != nil {
-		logger.Tracef("unable to read alias file %q: %s", aliasFilename, err)
+		logger.Tracef(context.TODO(), "unable to read alias file %q: %s", aliasFilename, err)
 		return result
 	}
 
@@ -33,20 +34,20 @@ func ParseAliasFile(aliasFilename string) map[string][]string {
 		}
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
-			logger.Warningf("line %d bad in alias file: %s", i+1, line)
+			logger.Warningf(context.TODO(), "line %d bad in alias file: %s", i+1, line)
 			continue
 		}
 		name, value := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
 		if name == "" {
-			logger.Warningf("line %d missing alias name in alias file: %s", i+1, line)
+			logger.Warningf(context.TODO(), "line %d missing alias name in alias file: %s", i+1, line)
 			continue
 		}
 		if value == "" {
-			logger.Warningf("line %d missing alias value in alias file: %s", i+1, line)
+			logger.Warningf(context.TODO(), "line %d missing alias value in alias file: %s", i+1, line)
 			continue
 		}
 
-		logger.Tracef("setting alias %q=%q", name, value)
+		logger.Tracef(context.TODO(), "setting alias %q=%q", name, value)
 		result[name] = strings.Fields(value)
 	}
 	return result

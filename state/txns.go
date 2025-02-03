@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"runtime/debug"
 	"strings"
 
@@ -57,7 +58,7 @@ func (r *multiModelRunner) RunTransaction(tx *jujutxn.Transaction) error {
 		// don't want to clutter up logs so we'll only write it once.
 		if !seenShortStacks[stack] {
 			seenShortStacks[stack] = true
-			logger.Warningf("Running no-op transaction - called by %s", stack)
+			logger.Warningf(context.TODO(), "Running no-op transaction - called by %s", stack)
 		}
 	}
 	newOps, err := r.updateOps(tx.Ops)

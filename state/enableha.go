@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -145,7 +146,7 @@ func (st *State) EnableHA(
 
 		intent.newCount = desiredControllerCount - voteCount
 
-		logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
+		logger.Infof(context.TODO(), "%d new machines; converting %v", intent.newCount, intent.convert)
 
 		var ops []txn.Op
 		ops, change, addedUnits, err = st.enableHAIntentionOps(intent, cons, base)
@@ -328,12 +329,12 @@ func (st *State) enableHAIntentions(controllerIds []string, placement []string) 
 		if err != nil {
 			return nil, err
 		}
-		logger.Infof("controller %q, wants vote %v, has vote %v", id, node.WantsVote(), node.HasVote())
+		logger.Infof(context.TODO(), "controller %q, wants vote %v, has vote %v", id, node.WantsVote(), node.HasVote())
 		if node.WantsVote() {
 			intent.maintain = append(intent.maintain, node)
 		}
 	}
-	logger.Infof("initial intentions: maintain %v; convert: %v",
+	logger.Infof(context.TODO(), "initial intentions: maintain %v; convert: %v",
 		intent.maintain, intent.convert)
 	return &intent, nil
 }
@@ -735,7 +736,7 @@ type controllerReference interface {
 // RemoveControllerReference will unregister Controller from being part of the set of Controllers.
 // It must not have or want to vote, and it must not be the last controller.
 func (st *State) RemoveControllerReference(c controllerReference) error {
-	logger.Infof("removing controller machine %q", c.Id())
+	logger.Infof(context.TODO(), "removing controller machine %q", c.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
 			// Something changed, make sure we're still up to date

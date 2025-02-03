@@ -6,6 +6,8 @@
 
 package filenotifywatcher
 
+import "k8s.io/utils/inotify"
+
 type watcher struct{}
 
 func newWatcher() (INotifyWatcher, error) {

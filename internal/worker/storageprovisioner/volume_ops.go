@@ -34,7 +34,7 @@ func createVolumes(ctx context.Context, deps *dependencies, ops map[names.Volume
 	var volumeAttachments []storage.VolumeAttachment
 	var statuses []params.EntityStatusArgs
 	for sourceName, volumeParams := range paramsBySource {
-		deps.config.Logger.Debugf("creating volumes: %v", volumeParams)
+		deps.config.Logger.Debugf(context.TODO(), "creating volumes: %v", volumeParams)
 		volumeSource := volumeSources[sourceName]
 		validVolumeParams, validationErrors := validateVolumeParams(volumeSource, volumeParams)
 		for i, err := range validationErrors {
@@ -46,7 +46,7 @@ func createVolumes(ctx context.Context, deps *dependencies, ops map[names.Volume
 				Status: status.Error.String(),
 				Info:   err.Error(),
 			})
-			deps.config.Logger.Debugf(
+			deps.config.Logger.Debugf(context.TODO(),
 				"failed to validate parameters for %s: %v",
 				names.ReadableString(volumeParams[i].Tag), err,
 			)
@@ -75,7 +75,7 @@ func createVolumes(ctx context.Context, deps *dependencies, ops map[names.Volume
 				// status to "error" for permanent errors.
 				entityStatus.Status = status.Pending.String()
 				entityStatus.Info = result.Error.Error()
-				deps.config.Logger.Debugf(
+				deps.config.Logger.Debugf(context.TODO(),
 					"failed to create %s: %v",
 					names.ReadableString(volumeParams[i].Tag),
 					result.Error,
@@ -104,7 +104,7 @@ func createVolumes(ctx context.Context, deps *dependencies, ops map[names.Volume
 	}
 	for i, result := range errorResults {
 		if result.Error != nil {
-			deps.config.Logger.Errorf(
+			deps.config.Logger.Errorf(context.TODO(),
 				"publishing volume %s to state: %v",
 				volumes[i].Tag.Id(),
 				result.Error,
@@ -142,7 +142,7 @@ func attachVolumes(ctx context.Context, deps *dependencies, ops map[params.Machi
 	var volumeAttachments []storage.VolumeAttachment
 	var statuses []params.EntityStatusArgs
 	for sourceName, volumeAttachmentParams := range paramsBySource {
-		deps.config.Logger.Debugf("attaching volumes: %+v", volumeAttachmentParams)
+		deps.config.Logger.Debugf(context.TODO(), "attaching volumes: %+v", volumeAttachmentParams)
 		volumeSource := volumeSources[sourceName]
 		if volumeSource == nil {
 			// The storage provider does not support dynamic
@@ -176,7 +176,7 @@ func attachVolumes(ctx context.Context, deps *dependencies, ops map[params.Machi
 				// set the status to "error" for permanent errors.
 				entityStatus.Status = status.Attaching.String()
 				entityStatus.Info = result.Error.Error()
-				deps.config.Logger.Warningf(
+				deps.config.Logger.Warningf(context.TODO(),
 					"failed to attach %s to %s: %v",
 					names.ReadableString(p.Volume),
 					names.ReadableString(p.Machine),
@@ -307,7 +307,7 @@ func removeVolumes(ctx context.Context, deps *dependencies, ops map[names.Volume
 		return nil
 	}
 	for sourceName, volumeParams := range paramsBySource {
-		deps.config.Logger.Debugf("removing volumes from %q: %v", sourceName, volumeParams)
+		deps.config.Logger.Debugf(context.TODO(), "removing volumes from %q: %v", sourceName, volumeParams)
 		volumeSource := volumeSources[sourceName]
 		removeTags := make([]names.VolumeTag, len(volumeParams))
 		removeParams := make([]params.RemoveVolumeParams, len(volumeParams))
@@ -368,7 +368,7 @@ func detachVolumes(ctx context.Context, deps *dependencies, ops map[params.Machi
 	var statuses []params.EntityStatusArgs
 	var remove []params.MachineStorageId
 	for sourceName, volumeAttachmentParams := range paramsBySource {
-		deps.config.Logger.Debugf("detaching volumes: %+v", volumeAttachmentParams)
+		deps.config.Logger.Debugf(context.TODO(), "detaching volumes: %+v", volumeAttachmentParams)
 		volumeSource := volumeSources[sourceName]
 		if volumeSource == nil {
 			// The storage provider does not support dynamic
@@ -402,7 +402,7 @@ func detachVolumes(ctx context.Context, deps *dependencies, ops map[params.Machi
 				reschedule = append(reschedule, ops[id])
 				entityStatus.Status = status.Detaching.String()
 				entityStatus.Info = err.Error()
-				deps.config.Logger.Debugf(
+				deps.config.Logger.Debugf(context.TODO(),
 					"failed to detach %s from %s: %v",
 					names.ReadableString(p.Volume),
 					names.ReadableString(p.Machine),

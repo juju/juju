@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForModelAgent generates the triggers for the
 // model_agent table.
 func ChangeLogTriggersForModelAgent(columnName string, namespaceID int) func() schema.Patch {
@@ -45,4 +44,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

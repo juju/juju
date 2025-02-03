@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -109,7 +110,7 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 			Clock:        config.Clock,
 			IsFatal:      func(error) bool { return false },
 			RestartDelay: 3 * time.Second,
-			Logger:       config.Logger.Child("runner"),
+			Logger:       internalworker.WrapLogger(config.Logger.Child("runner")),
 		}),
 	)
 }
@@ -184,7 +185,7 @@ func (p *provisioner) loop() error {
 					return errors.Trace(err)
 				}
 				if errors.Is(err, errors.NotFound) {
-					p.logger.Debugf("application %q not found, ignoring", appName)
+					p.logger.Debugf(context.TODO(), "application %q not found, ignoring", appName)
 					continue
 				}
 
@@ -215,7 +216,7 @@ func (p *provisioner) loop() error {
 					StatusOnly: unmanagedApps.Contains(appName),
 				}
 				startFunc := p.newAppWorker(config)
-				p.logger.Debugf("starting app worker %q", appName)
+				p.logger.Debugf(context.TODO(), "starting app worker %q", appName)
 				err = p.runner.StartWorker(appName, startFunc)
 				if err != nil {
 					return errors.Trace(err)

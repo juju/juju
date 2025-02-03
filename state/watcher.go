@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -156,7 +157,7 @@ func collectWhereRevnoGreaterThan(one watcher.Change, more <-chan watcher.Change
 			done = true
 		}
 	}
-	watchLogger.Tracef("read %d events for %d documents", count, len(result))
+	watchLogger.Tracef(context.TODO(), "read %d events for %d documents", count, len(result))
 	return result, true
 }
 
@@ -1046,7 +1047,7 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 			info.add(name)
 		}
 	}
-	logger.Tracef("relationScopeWatcher prefix %q initializing with %# v",
+	logger.Tracef(context.TODO(), "relationScopeWatcher prefix %q initializing with %# v",
 		w.prefix, pretty.Formatter(info))
 	return info, nil
 }
@@ -1073,7 +1074,7 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 				info.remove(unitNameFromScopeKey(key))
 			}
 		default:
-			logger.Warningf("ignoring bad relation scope id: %#v", id)
+			logger.Warningf(context.TODO(), "ignoring bad relation scope id: %#v", id)
 		}
 	}
 	var docs []relationScopeDoc
@@ -1089,7 +1090,7 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 			info.add(name)
 		}
 	}
-	logger.Tracef("RelationScopeWatcher prefix %q merge scope to %# v from ids: %# v",
+	logger.Tracef(context.TODO(), "RelationScopeWatcher prefix %q merge scope to %# v from ids: %# v",
 		w.prefix, pretty.Formatter(info), pretty.Formatter(ids))
 	return nil
 }
@@ -1177,7 +1178,7 @@ func (r *Relation) WatchUnits(appName string) (RelationUnitsWatcher, error) {
 	}
 	rsw := watchRelationScope(r.st, r.globalScope(), ep.Role, "")
 	appSettingsKey := relationApplicationSettingsKey(r.Id(), appName)
-	logger.Child("relationunits").Tracef("Relation.WatchUnits(%q) watching: %q", appName, appSettingsKey)
+	logger.Child("relationunits").Tracef(context.TODO(), "Relation.WatchUnits(%q) watching: %q", appName, appSettingsKey)
 	return newRelationUnitsWatcher(r.st, rsw, []string{appSettingsKey}), nil
 }
 
@@ -1225,7 +1226,7 @@ func (w *relationUnitsWatcher) watchRelatedAppSettings(changes *corewatcher.Rela
 	for i, key := range w.appSettingsKeys {
 		idsAsInterface[i] = w.backend.docID(key)
 	}
-	w.logger.Tracef("relationUnitsWatcher %q watching app keys: %v", w.sw.prefix, w.appSettingsKeys)
+	w.logger.Tracef(context.TODO(), "relationUnitsWatcher %q watching app keys: %v", w.sw.prefix, w.appSettingsKeys)
 	if err := w.watcher.WatchMulti(settingsC, idsAsInterface, w.appUpdates); err != nil {
 		return errors.Trace(err)
 	}
@@ -1245,10 +1246,10 @@ func (w *relationUnitsWatcher) watchRelatedAppSettings(changes *corewatcher.Rela
 func (w *relationUnitsWatcher) mergeSettings(changes *corewatcher.RelationUnitsChange, key string) error {
 	version, err := readSettingsDocVersion(w.backend.db(), settingsC, key)
 	if err != nil {
-		w.logger.Tracef("relationUnitsWatcher %q merging key %q (not found)", w.sw.prefix, key)
+		w.logger.Tracef(context.TODO(), "relationUnitsWatcher %q merging key %q (not found)", w.sw.prefix, key)
 		return errors.Trace(err)
 	}
-	w.logger.Tracef("relationUnitsWatcher %q merging key %q version: %d", w.sw.prefix, key, version)
+	w.logger.Tracef(context.TODO(), "relationUnitsWatcher %q merging key %q version: %d", w.sw.prefix, key, version)
 	setRelationUnitChangeVersion(changes, key, version)
 	return nil
 }
@@ -1256,10 +1257,10 @@ func (w *relationUnitsWatcher) mergeSettings(changes *corewatcher.RelationUnitsC
 func (w *relationUnitsWatcher) mergeAppSettings(changes *corewatcher.RelationUnitsChange, key string) error {
 	version, err := readSettingsDocVersion(w.backend.db(), settingsC, key)
 	if err != nil {
-		w.logger.Tracef("relationUnitsWatcher %q merging app key %q (not found)", w.sw.prefix, key)
+		w.logger.Tracef(context.TODO(), "relationUnitsWatcher %q merging app key %q (not found)", w.sw.prefix, key)
 		return errors.Trace(err)
 	}
-	w.logger.Tracef("relationUnitsWatcher %q merging app key %q version: %d", w.sw.prefix, key, version)
+	w.logger.Tracef(context.TODO(), "relationUnitsWatcher %q merging app key %q version: %d", w.sw.prefix, key, version)
 	if changes.AppChanged == nil {
 		changes.AppChanged = make(map[string]int64)
 	}
@@ -1279,7 +1280,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *corewatcher.RelationUnitsChan
 		docID := w.backend.docID(key)
 		docIds[i] = docID
 	}
-	w.logger.Tracef("relationUnitsWatcher %q watching newly entered: %v, and unwatching left %v", w.sw.prefix, c.Entered, c.Left)
+	w.logger.Tracef(context.TODO(), "relationUnitsWatcher %q watching newly entered: %v, and unwatching left %v", w.sw.prefix, c.Entered, c.Left)
 	if err := w.watcher.WatchMulti(settingsC, docIds, w.updates); err != nil {
 		return errors.Trace(err)
 	}
@@ -1303,7 +1304,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *corewatcher.RelationUnitsChan
 		w.watcher.Unwatch(settingsC, docID, w.updates)
 		w.watching.Remove(docID)
 	}
-	w.logger.Tracef("relationUnitsWatcher %q Change updated to: %# v", w.sw.prefix, changes)
+	w.logger.Tracef(context.TODO(), "relationUnitsWatcher %q Change updated to: %# v", w.sw.prefix, changes)
 	return nil
 }
 
@@ -1357,7 +1358,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			}
 			gotInitialScopeWatcher = true
 			if w.logger.IsLevelEnabled(corelogger.TRACE) {
-				w.logger.Tracef("relationUnitsWatcher %q scope Changes(): %# v", w.sw.prefix, pretty.Formatter(c))
+				w.logger.Tracef(context.TODO(), "relationUnitsWatcher %q scope Changes(): %# v", w.sw.prefix, pretty.Formatter(c))
 			}
 			if err = w.mergeScope(&changes, c); err != nil {
 				return err
@@ -1371,10 +1372,10 @@ func (w *relationUnitsWatcher) loop() (err error) {
 		case c := <-w.updates:
 			id, ok := c.Id.(string)
 			if !ok {
-				w.logger.Warningf("relationUnitsWatcher %q ignoring bad relation scope id: %#v", w.sw.prefix, c.Id)
+				w.logger.Warningf(context.TODO(), "relationUnitsWatcher %q ignoring bad relation scope id: %#v", w.sw.prefix, c.Id)
 				continue
 			}
-			w.logger.Tracef("relationUnitsWatcher %q relation update %q", w.sw.prefix, id)
+			w.logger.Tracef(context.TODO(), "relationUnitsWatcher %q relation update %q", w.sw.prefix, id)
 			if err := w.mergeSettings(&changes, id); err != nil {
 				return errors.Annotatef(err, "relation scope id %q", id)
 			}
@@ -1384,10 +1385,10 @@ func (w *relationUnitsWatcher) loop() (err error) {
 		case c := <-w.appUpdates:
 			id, ok := c.Id.(string)
 			if !ok {
-				w.logger.Warningf("relationUnitsWatcher %q ignoring bad application settings id: %#v", w.sw.prefix, c.Id)
+				w.logger.Warningf(context.TODO(), "relationUnitsWatcher %q ignoring bad application settings id: %#v", w.sw.prefix, c.Id)
 				continue
 			}
-			w.logger.Tracef("relationUnitsWatcher %q app settings update %q", w.sw.prefix, id)
+			w.logger.Tracef(context.TODO(), "relationUnitsWatcher %q app settings update %q", w.sw.prefix, id)
 			if err := w.mergeAppSettings(&changes, id); err != nil {
 				return errors.Annotatef(err, "relation scope id %q", id)
 			}
@@ -1396,7 +1397,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			}
 		case out <- changes:
 			if w.logger.IsLevelEnabled(corelogger.TRACE) {
-				w.logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
+				w.logger.Tracef(context.TODO(), "relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
 			}
 			sentInitial = true
 			changes = corewatcher.RelationUnitsChange{}
@@ -1681,10 +1682,10 @@ func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 		ids[i] = w.backend.docID(names[i])
 	}
 	if err := w.watcher.WatchMulti(unitsC, ids, w.in); err != nil {
-		logger.Tracef("error watching %q in %q: %v", ids, unitsC, err)
+		logger.Tracef(context.TODO(), "error watching %q in %q: %v", ids, unitsC, err)
 		return nil, errors.Trace(err)
 	}
-	logger.Tracef("watching %q ids: %q", unitsC, ids)
+	logger.Tracef(context.TODO(), "watching %q ids: %q", unitsC, ids)
 	newUnits, closer := w.db.GetCollection(unitsC)
 	err := newUnits.Find(bson.M{"_id": bson.M{"$in": names}}).Select(lifeWatchFields).All(&docs)
 	closer()
@@ -1700,11 +1701,11 @@ func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 		}
 		found.Add(localId)
 		if !hasString(changes, localId) {
-			logger.Tracef("marking change for %q", localId)
+			logger.Tracef(context.TODO(), "marking change for %q", localId)
 			changes = append(changes, localId)
 		}
 		if doc.Life != Dead {
-			logger.Tracef("setting life of %q to %q", localId, doc.Life)
+			logger.Tracef(context.TODO(), "setting life of %q to %q", localId, doc.Life)
 			w.life[localId] = doc.Life
 		} else {
 			// Note(jam): 2019-01-31 This was done to match existing behavior, it is not guaranteed
@@ -1714,7 +1715,7 @@ func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 			// removed from the database. It seems better if we either/
 			// a) don't tell you about Dead documents
 			// b) give you an event if a Dead document goes away.
-			logger.Tracef("unwatching Dead unit: %q", localId)
+			logger.Tracef(context.TODO(), "unwatching Dead unit: %q", localId)
 			w.watcher.Unwatch(unitsC, doc.Id, w.in)
 			delete(w.life, localId)
 		}
@@ -1722,7 +1723,7 @@ func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 	// See if there are any entries that we wanted to watch but are actually gone
 	for _, name := range names {
 		if !found.Contains(name) {
-			logger.Tracef("looking for unit %q, found it gone, Unwatching", name)
+			logger.Tracef(context.TODO(), "looking for unit %q, found it gone, Unwatching", name)
 			if _, ok := w.life[name]; ok {
 				// we see this doc, but it doesn't exist
 				if !hasString(changes, name) {
@@ -1733,7 +1734,7 @@ func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 			w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 		}
 	}
-	logger.Tracef("changes: %q", changes)
+	logger.Tracef(context.TODO(), "changes: %q", changes)
 	return changes, nil
 }
 
@@ -1763,18 +1764,18 @@ func (w *unitsWatcher) update(changes []string) ([]string, error) {
 		if !hasString(changes, name) {
 			changes = append(changes, name)
 		}
-		logger.Tracef("unit %q %q no longer in latest, removing watch", unitsC, name)
+		logger.Tracef(context.TODO(), "unit %q %q no longer in latest, removing watch", unitsC, name)
 		delete(w.life, name)
 		w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 	}
-	logger.Tracef("update reports changes: %q", changes)
+	logger.Tracef(context.TODO(), "update reports changes: %q", changes)
 	return changes, nil
 }
 
 // merge adds to and returns changes, such that it contains the supplied unit
 // name if that unit is unknown and non-Dead, or has changed lifecycle status.
 func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
-	logger.Tracef("merging change for %q %q", unitsC, name)
+	logger.Tracef(context.TODO(), "merging change for %q %q", unitsC, name)
 	var doc lifeWatchDoc
 	units, closer := w.db.GetCollection(unitsC)
 	err := units.FindId(name).Select(lifeWatchFields).One(&doc)
@@ -1791,10 +1792,10 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	switch {
 	case gone:
 		delete(w.life, name)
-		logger.Tracef("document gone, unwatching %q %q", unitsC, name)
+		logger.Tracef(context.TODO(), "document gone, unwatching %q %q", unitsC, name)
 		w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 	case life != doc.Life:
-		logger.Tracef("updating doc life %q %q to %q", unitsC, name, doc.Life)
+		logger.Tracef(context.TODO(), "updating doc life %q %q to %q", unitsC, name, doc.Life)
 		w.life[name] = doc.Life
 	default:
 		return changes, nil
@@ -1802,12 +1803,12 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	if !hasString(changes, name) {
 		changes = append(changes, name)
 	}
-	logger.Tracef("merge reporting changes: %q", changes)
+	logger.Tracef(context.TODO(), "merge reporting changes: %q", changes)
 	return changes, nil
 }
 
 func (w *unitsWatcher) loop(coll, id string) error {
-	logger.Tracef("watching root channel %q %q", coll, id)
+	logger.Tracef(context.TODO(), "watching root channel %q %q", coll, id)
 	rootCh := make(chan watcher.Change)
 	w.watcher.Watch(coll, id, rootCh)
 	defer func() {
@@ -1845,7 +1846,7 @@ func (w *unitsWatcher) loop(coll, id string) error {
 				out = w.out
 			}
 		case out <- changes:
-			logger.Tracef("watcher reported changes: %q", changes)
+			logger.Tracef(context.TODO(), "watcher reported changes: %q", changes)
 			out = nil
 			changes = nil
 		}
@@ -2076,7 +2077,7 @@ func (w *documentFieldWatcher) initial() error {
 	}
 	w.known = &field
 
-	logger.Tracef("Started watching %s for %v: %q", w.collection, w.members, field)
+	logger.Tracef(context.TODO(), "Started watching %s for %v: %q", w.collection, w.members, field)
 	return nil
 }
 
@@ -2098,7 +2099,7 @@ func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 	currentField, err := w.extract(col.Find(w.members))
 	if err != nil {
 		if err != mgo.ErrNotFound {
-			logger.Debugf("%s NOT mgo err not found", w.collection)
+			logger.Debugf(context.TODO(), "%s NOT mgo err not found", w.collection)
 			return false, err
 		}
 		// treat this as the document being deleted
@@ -2111,7 +2112,7 @@ func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 	if w.known == nil || *w.known != currentField {
 		w.known = &currentField
 
-		logger.Tracef("Changes in watching %s for %v: %q", w.collection, w.members, currentField)
+		logger.Tracef(context.TODO(), "Changes in watching %s for %v: %q", w.collection, w.members, currentField)
 		return true, nil
 	}
 	return false, nil
@@ -2201,7 +2202,7 @@ func (w *docWatcher) Changes() <-chan struct{} {
 
 func (w *docWatcher) loop(docKeys []docKey) error {
 	in := make(chan watcher.Change)
-	logger.Tracef("watching docs: %v", docKeys)
+	logger.Tracef(context.TODO(), "watching docs: %v", docKeys)
 	for _, k := range docKeys {
 		w.watcher.Watch(k.coll, k.docId, in)
 		defer w.watcher.Unwatch(k.coll, k.docId, in)
@@ -2311,7 +2312,7 @@ func (w *machineUnitsWatcher) watchNewUnits(unitNames, pending []string, unitCol
 	for i := range unitNames {
 		ids[i] = w.backend.docID(unitNames[i])
 	}
-	logger.Tracef("for machine %q watching new units %q", w.machine.doc.DocID, unitNames)
+	logger.Tracef(context.TODO(), "for machine %q watching new units %q", w.machine.doc.DocID, unitNames)
 	err := w.watcher.WatchMulti(unitsC, ids, w.in)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2341,7 +2342,7 @@ func (w *machineUnitsWatcher) watchNewUnits(unitNames, pending []string, unitCol
 		return nil, errors.Trace(err)
 	}
 	for name := range notfound {
-		logger.Debugf("unit %q referenced but not found", name)
+		logger.Debugf(context.TODO(), "unit %q referenced but not found", name)
 		w.watcher.Unwatch(unitsC, w.backend.docID(name), w.in)
 	}
 	if !unknownSubs.IsEmpty() {
@@ -2355,7 +2356,7 @@ func (w *machineUnitsWatcher) watchNewUnits(unitNames, pending []string, unitCol
 
 // removeWatchedUnit stops watching the unit, and all subordinates for this unit
 func (w *machineUnitsWatcher) removeWatchedUnit(unitName string, doc unitDoc, pending []string) ([]string, error) {
-	logger.Tracef("machineUnitsWatcher removing unit %q for life %q", doc.Name, doc.Life)
+	logger.Tracef(context.TODO(), "machineUnitsWatcher removing unit %q for life %q", doc.Name, doc.Life)
 	life, known := w.known[unitName]
 	// Unit was removed or unassigned from w.machine
 	if known {
@@ -2402,7 +2403,7 @@ func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []st
 		return nil, errors.Errorf("merge() called with an unknown document: %q", doc.DocID)
 	}
 	if life != doc.Life && !hasString(pending, doc.Name) {
-		logger.Tracef("machineUnitsWatcher found life changed to %q => %q for %q", life, doc.Life, doc.Name)
+		logger.Tracef(context.TODO(), "machineUnitsWatcher found life changed to %q => %q for %q", life, doc.Life, doc.Name)
 		pending = append(pending, doc.Name)
 	}
 	w.known[doc.Name] = doc.Life
@@ -2776,7 +2777,7 @@ func makeIdFilter(backend modelBackend, marker string, receivers ...ActionReceiv
 				}
 			}
 		default:
-			watchLogger.Errorf("key is not type string, got %T", key)
+			watchLogger.Errorf(context.TODO(), "key is not type string, got %T", key)
 		}
 		return false
 	}
@@ -3060,7 +3061,7 @@ func (st *State) WatchControllerStatusChanges() StringsWatcher {
 func makeControllerIdFilter(st *State) func(interface{}) bool {
 	initialNodes, err := st.ControllerNodes()
 	if err != nil {
-		logger.Debugf("unable to get controller nodes: %v", err)
+		logger.Debugf(context.TODO(), "unable to get controller nodes: %v", err)
 		return nil
 	}
 
@@ -3092,7 +3093,7 @@ func (f *controllerIdFilter) nodeIds() []string {
 		// Most likely, things will be killed and
 		// restarted if we hit this error.  Just use
 		// the machine list we knew about last time.
-		logger.Debugf("unable to get controller info: %v", err)
+		logger.Debugf(context.TODO(), "unable to get controller info: %v", err)
 		result = f.lastNodes
 	} else {
 		ids := make([]string, len(nodes))
@@ -3117,7 +3118,7 @@ func (f *controllerIdFilter) match(key interface{}) bool {
 			// TODO(HA) - add k8s controller filter when we do k8s HA
 		}
 	default:
-		watchLogger.Errorf("key is not type string, got %T", key)
+		watchLogger.Errorf(context.TODO(), "key is not type string, got %T", key)
 	}
 	return false
 }
@@ -3294,7 +3295,7 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 		var apps []remoteAppDoc
 		err = remoteApps.Find(nil).Select(remoteAppNameField).All(&apps)
 		if err != nil {
-			watchLogger.Errorf("could not lookup remote application names: %v", err)
+			watchLogger.Errorf(context.TODO(), "could not lookup remote application names: %v", err)
 			return false
 		}
 		remoteAppNames := set.NewStrings()
@@ -3312,7 +3313,7 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 		}
 		num, err := relations.Find(query).Count()
 		if err != nil {
-			watchLogger.Errorf("could not lookup remote relations: %v", err)
+			watchLogger.Errorf(context.TODO(), "could not lookup remote relations: %v", err)
 			return false
 		}
 		// The relation (or remote app) may have been deleted, but if it has been

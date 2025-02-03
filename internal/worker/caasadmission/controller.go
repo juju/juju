@@ -66,13 +66,13 @@ func (c *Controller) makeLoop(
 	path string) func() error {
 
 	return func() error {
-		logger.Debugf("installing caas admission handler at %s", path)
+		logger.Debugf(context.TODO(), "installing caas admission handler at %s", path)
 		if err := mux.AddHandler(http.MethodPost, path, handler); err != nil {
 			return errors.Trace(err)
 		}
 		defer mux.RemoveHandler(http.MethodPost, path)
 
-		logger.Infof("ensuring model k8s webhook configurations")
+		logger.Infof(context.TODO(), "ensuring model k8s webhook configurations")
 		admissionCleanup, err := admissionCreator.EnsureMutatingWebhookConfiguration(context.TODO())
 		if err != nil {
 			return errors.Trace(err)

@@ -173,7 +173,7 @@ func (w *Worker) loop() error {
 	go func() {
 		err := server.Serve(tls.NewListener(w.holdable, w.config.TLSConfig))
 		if err != nil && err != http.ErrServerClosed {
-			w.logger.Errorf("server finished with error %v", err)
+			w.logger.Errorf(context.TODO(), "server finished with error %v", err)
 		}
 	}()
 	defer func() {
@@ -222,9 +222,9 @@ func (w *Worker) shutdown() error {
 		msg := "timeout waiting for apiserver shutdown"
 		dumpFile, err := w.dumpDebug()
 		if err == nil {
-			w.logger.Warningf("%v\ndebug info written to %v", msg, dumpFile)
+			w.logger.Warningf(context.TODO(), "%v\ndebug info written to %v", msg, dumpFile)
 		} else {
-			w.logger.Warningf("%v\nerror writing debug info: %v", msg, err)
+			w.logger.Warningf(context.TODO(), "%v\nerror writing debug info: %v", msg, err)
 		}
 	}
 	return w.catacomb.ErrDying()
@@ -312,7 +312,7 @@ func (w *Worker) newSimpleListener() (listener, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	w.logger.Infof("listening on %q", listener.Addr())
+	w.logger.Infof(context.TODO(), "listening on %q", listener.Addr())
 	return &simpleListener{listener}, nil
 }
 
@@ -344,7 +344,7 @@ func (w *Worker) newDualPortListener() (listener, error) {
 	if err != nil {
 		return nil, err
 	}
-	w.logger.Infof("listening for controller connections on %q", listener.Addr())
+	w.logger.Infof(context.TODO(), "listening for controller connections on %q", listener.Addr())
 	dual := &dualListener{
 		agentName:          w.config.AgentName,
 		clock:              w.config.Clock,
@@ -412,7 +412,7 @@ func (d *dualListener) accept(listener net.Listener) {
 			select {
 			case d.errors <- err:
 			case <-d.done:
-				d.logger.Infof("no longer accepting connections on %s", listener.Addr())
+				d.logger.Infof(context.TODO(), "no longer accepting connections on %s", listener.Addr())
 				return
 			}
 		} else {
@@ -420,7 +420,7 @@ func (d *dualListener) accept(listener net.Listener) {
 			case d.connections <- conn:
 			case <-d.done:
 				conn.Close()
-				d.logger.Infof("no longer accepting connections on %s", listener.Addr())
+				d.logger.Infof(context.TODO(), "no longer accepting connections on %s", listener.Addr())
 				return
 			}
 		}
@@ -490,7 +490,7 @@ func (d *dualListener) URL() string {
 // openAPIPort opens the api port and starts accepting connections.
 func (d *dualListener) openAPIPort(topic string, conn apiserver.APIConnection, err error) {
 	if err != nil {
-		d.logger.Errorf("programming error: %v", err)
+		d.logger.Errorf(context.TODO(), "programming error: %v", err)
 		return
 	}
 	// We are wanting to make sure that the api-caller has connected before we
@@ -508,11 +508,11 @@ func (d *dualListener) openAPIPort(topic string, conn apiserver.APIConnection, e
 		d.mu.Lock()
 		d.status = "waiting prior to opening agent port"
 		d.mu.Unlock()
-		d.logger.Infof("waiting for %s before allowing api connections", d.delay)
+		d.logger.Infof(context.TODO(), "waiting for %s before allowing api connections", d.delay)
 		select {
 		case <-d.done:
 			// while waiting, we were asked to shut down
-			d.logger.Debugf("shutting down API port before opening")
+			d.logger.Debugf(context.TODO(), "shutting down API port before opening")
 			return
 		case <-d.clock.After(d.delay):
 			// We are all good.
@@ -524,7 +524,7 @@ func (d *dualListener) openAPIPort(topic string, conn apiserver.APIConnection, e
 	// Make sure we haven't been closed already.
 	select {
 	case <-d.done:
-		d.logger.Infof("shutting down API port before allowing connections", d.delay)
+		d.logger.Infof(context.TODO(), "shutting down API port before allowing connections", d.delay)
 		return
 	default:
 		// We are all good.
@@ -536,12 +536,12 @@ func (d *dualListener) openAPIPort(topic string, conn apiserver.APIConnection, e
 		select {
 		case d.errors <- err:
 		case <-d.done:
-			d.logger.Errorf("can't open api port: %v, but worker exiting already", err)
+			d.logger.Errorf(context.TODO(), "can't open api port: %v, but worker exiting already", err)
 		}
 		return
 	}
 
-	d.logger.Infof("listening for api connections on %q", listener.Addr())
+	d.logger.Infof(context.TODO(), "listening for api connections on %q", listener.Addr())
 	d.apiListener = listener
 	go d.accept(listener)
 	d.status = ""

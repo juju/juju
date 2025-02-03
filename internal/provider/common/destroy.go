@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -18,7 +19,7 @@ import (
 // environs.Environ; we strongly recommend that this implementation be
 // used when writing a new provider.
 func Destroy(env environs.Environ, ctx envcontext.ProviderCallContext) error {
-	logger.Infof("destroying model %q", env.Config().Name())
+	logger.Infof(context.TODO(), "destroying model %q", env.Config().Name())
 	if err := destroyInstances(env, ctx); err != nil {
 		return errors.Annotate(err, "destroying instances")
 	}
@@ -29,7 +30,7 @@ func Destroy(env environs.Environ, ctx envcontext.ProviderCallContext) error {
 }
 
 func destroyInstances(env environs.Environ, ctx envcontext.ProviderCallContext) error {
-	logger.Infof("destroying instances")
+	logger.Infof(context.TODO(), "destroying instances")
 	instances, err := env.AllInstances(ctx)
 	switch err {
 	case nil:
@@ -53,7 +54,7 @@ func destroyInstances(env environs.Environ, ctx envcontext.ProviderCallContext) 
 // source abstraction doesn't work well with dynamic, non-persistent
 // storage like tmpfs, rootfs, etc.
 func destroyStorage(env environs.Environ, ctx envcontext.ProviderCallContext) error {
-	logger.Infof("destroying storage")
+	logger.Infof(context.TODO(), "destroying storage")
 	storageProviderTypes, err := env.StorageProviderTypes()
 	if err != nil {
 		return errors.Trace(err)

@@ -53,7 +53,7 @@ func NewClient(st base.APICallCloser, options ...Option) *Client {
 func (c *Client) ModelUUID() string {
 	tag, ok := c.st.ModelTag()
 	if !ok {
-		logger.Warningf("controller-only API connection has no model tag")
+		logger.Warningf(context.TODO(), "controller-only API connection has no model tag")
 	}
 	return tag.Id()
 }

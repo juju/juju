@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/core/logger"
 	jv "github.com/juju/juju/core/version"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jt "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
@@ -48,7 +49,7 @@ func (s *UnitAgentSuite) SetUpTest(c *gc.C) {
 		UnitEngineConfig: func() dependency.EngineConfig {
 			return engine.DependencyEngineConfig(
 				dependency.DefaultMetrics(),
-				loggertesting.WrapCheckLog(c).Child("dependency"),
+				internaldependency.WrapLogger(loggertesting.WrapCheckLog(c).Child("dependency")),
 			)
 		},
 		UnitManifolds: s.workers.Manifolds,

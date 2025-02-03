@@ -348,7 +348,7 @@ func (n *NetworkInfoIAAS) populateMachineAddresses() error {
 		var err error
 		privateMachineAddress, err = n.pollForAddress(n.machine.PrivateAddress)
 		if err != nil {
-			n.logger.Errorf("unable to obtain preferred private address for machine %q: %s", n.machine.Id(), err.Error())
+			n.logger.Errorf(context.TODO(), "unable to obtain preferred private address for machine %q: %s", n.machine.Id(), err.Error())
 			// Remove this ID to prevent further processing.
 			spaceSet.Remove(network.AlphaSpaceId)
 		}
@@ -377,14 +377,14 @@ func (n *NetworkInfoIAAS) populateMachineAddresses() error {
 		return order1 < order2
 	})
 
-	n.logger.Debugf("Looking for address from %v in spaces %v", addrs, spaceSet.Values())
+	n.logger.Debugf(context.TODO(), "Looking for address from %v in spaces %v", addrs, spaceSet.Values())
 
 	var privateLinkLayerAddress NetInfoAddress
 	for _, addr := range addrs {
 		spaceID := addr.SpaceAddr().SpaceID
 
 		if spaceID == "" {
-			n.logger.Debugf("skipping %s: not linked to a known space.", addr)
+			n.logger.Debugf(context.TODO(), "skipping %s: not linked to a known space.", addr)
 
 			// For a space-less model, we will not have subnets populated,
 			// and will therefore not find a space for the address.
@@ -436,7 +436,7 @@ func (n *NetworkInfoIAAS) populateMachineAddresses() error {
 
 	for _, id := range spaceSet.Values() {
 		if _, ok := n.machineAddresses[id]; !ok {
-			n.logger.Warningf("machine %q has no addresses in space %q", n.machine.Id(), id)
+			n.logger.Warningf(context.TODO(), "machine %q has no addresses in space %q", n.machine.Id(), id)
 		}
 	}
 

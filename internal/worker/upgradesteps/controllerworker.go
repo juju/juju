@@ -145,7 +145,7 @@ func (w *controllerWorker) run() error {
 
 	// We're not in the right state, so we can't proceed.
 	if info.State != upgrade.DBCompleted {
-		w.logger.Errorf("upgrade %q is not in the db completed state %q", upgradeUUID, info.State.String())
+		w.logger.Errorf(context.TODO(), "upgrade %q is not in the db completed state %q", upgradeUUID, info.State.String())
 		return w.abort(ctx, upgradeUUID, upgradesteps.ErrUpgradeStepsInvalidState)
 	}
 
@@ -179,17 +179,17 @@ func (w *controllerWorker) run() error {
 	for {
 		select {
 		case <-w.catacomb.Dying():
-			w.logger.Errorf("upgrade worker is dying whilst performing upgrade steps: %s, marking upgrade as failed", upgradeUUID)
+			w.logger.Errorf(context.TODO(), "upgrade worker is dying whilst performing upgrade steps: %s, marking upgrade as failed", upgradeUUID)
 			// We didn't perform the upgrade, so we need to mark it as failed.
 			if err := w.upgradeService.SetDBUpgradeFailed(ctx, upgradeUUID); err != nil {
-				w.logger.Errorf("failed to set db upgrade failed: %v, manual intervention required.", err)
+				w.logger.Errorf(context.TODO(), "failed to set db upgrade failed: %v, manual intervention required.", err)
 			}
 			return w.catacomb.ErrDying()
 
 		case <-completedWatcher.Changes():
 			// All the controllers have completed their upgrade steps, so
 			// we can now proceed with the upgrade.
-			w.logger.Infof("upgrade to %v completed successfully.", w.base.ToVersion)
+			w.logger.Infof(context.TODO(), "upgrade to %v completed successfully.", w.base.ToVersion)
 			_ = w.base.StatusSetter.SetStatus(ctx, status.Started, "", nil)
 			w.base.UpgradeCompleteLock.Unlock()
 
@@ -198,7 +198,7 @@ func (w *controllerWorker) run() error {
 		case <-failedWatcher.Changes():
 			// One or all of the controllers have failed their upgrade steps,
 			// so we can't proceed with the upgrade.
-			w.logger.Errorf("upgrade steps failed")
+			w.logger.Errorf(context.TODO(), "upgrade steps failed")
 			return w.abort(ctx, upgradeUUID, upgradesteps.ErrFailedUpgradeSteps)
 
 		case err := <-stepsWorker.Err():
@@ -230,7 +230,7 @@ func (w *controllerWorker) run() error {
 
 		case <-w.base.Clock.After(upgradesteps.DefaultUpgradeTimeout):
 			// We've timed out waiting for the upgrade steps to complete.
-			w.logger.Errorf("timed out waiting for upgrade steps to complete")
+			w.logger.Errorf(context.TODO(), "timed out waiting for upgrade steps to complete")
 			return w.abort(ctx, upgradeUUID, upgradesteps.ErrUpgradeTimeout)
 		}
 	}
@@ -260,9 +260,9 @@ func (w *controllerWorker) abort(ctx context.Context, upgradeUUID domainupgrade.
 	// Ignore the error as it's not critical if it fails.
 	_ = w.base.StatusSetter.SetStatus(ctx, status.Error, "failed to perform upgrade steps, check logs.", nil)
 
-	w.logger.Errorf("aborting upgrade steps: %v, manual intervention is required", err)
+	w.logger.Errorf(context.TODO(), "aborting upgrade steps: %v, manual intervention is required", err)
 	if err := w.upgradeService.SetDBUpgradeFailed(ctx, upgradeUUID); err != nil {
-		w.logger.Errorf("unable to fail upgrade steps %v.\nmanual intervention is required to force the upgrade state into an error state before proceeding", err)
+		w.logger.Errorf(context.TODO(), "unable to fail upgrade steps %v.\nmanual intervention is required to force the upgrade state into an error state before proceeding", err)
 	}
 	return nil
 }
@@ -321,12 +321,12 @@ func (w *controllerStepsWorker) run() error {
 // runUpgrades runs the upgrade operations for each job type and
 // updates the updatedToVersion on success.
 func (w *controllerStepsWorker) runUpgrades(ctx context.Context) error {
-	w.logger.Infof("checking that upgrade can proceed")
+	w.logger.Infof(context.TODO(), "checking that upgrade can proceed")
 	if err := w.base.PreUpgradeSteps(w.base.Agent.CurrentConfig(), false); err != nil {
 		return errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.base.Tag))
 	}
 
-	w.logger.Infof("running upgrade steps for %q", w.base.Tag)
+	w.logger.Infof(context.TODO(), "running upgrade steps for %q", w.base.Tag)
 	if err := w.base.Agent.ChangeConfig(w.base.RunUpgradeSteps(ctx, []upgrades.Target{
 		upgrades.Controller,
 		upgrades.HostMachine,

@@ -4,6 +4,7 @@
 package tools
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -38,9 +39,9 @@ func storagePrefix(stream string) string {
 // If store contains no such tools, it returns ErrNoMatches.
 func ReadList(stor storage.StorageReader, toolsDir string, majorVersion, minorVersion int) (coretools.List, error) {
 	if minorVersion >= 0 {
-		logger.Debugf("reading v%d.%d agent binaries", majorVersion, minorVersion)
+		logger.Debugf(context.TODO(), "reading v%d.%d agent binaries", majorVersion, minorVersion)
 	} else {
-		logger.Debugf("reading v%d.* agent binaries", majorVersion)
+		logger.Debugf(context.TODO(), "reading v%d.* agent binaries", majorVersion)
 	}
 	storagePrefix := storagePrefix(toolsDir)
 	names, err := storage.List(stor, storagePrefix)
@@ -57,7 +58,7 @@ func ReadList(stor storage.StorageReader, toolsDir string, majorVersion, minorVe
 		var t coretools.Tools
 		vers := name[len(storagePrefix) : len(name)-len(toolSuffix)]
 		if t.Version, err = version.ParseBinary(vers); err != nil {
-			logger.Debugf("failed to parse version %q: %v", vers, err)
+			logger.Debugf(context.TODO(), "failed to parse version %q: %v", vers, err)
 			continue
 		}
 		foundAnyTools = true
@@ -69,7 +70,7 @@ func ReadList(stor storage.StorageReader, toolsDir string, majorVersion, minorVe
 		if minorVersion >= 0 && t.Version.Minor != minorVersion {
 			continue
 		}
-		logger.Debugf("found %s", vers)
+		logger.Debugf(context.TODO(), "found %s", vers)
 		if t.URL, err = stor.URL(name); err != nil {
 			return nil, err
 		}

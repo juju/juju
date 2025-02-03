@@ -1627,7 +1627,7 @@ func (s *StorageProvisionerAPIv4) Remove(ctx context.Context, args params.Entiti
 			return s.sb.RemoveVolume(tag)
 		default:
 			// should have been picked up by canAccess
-			s.logger.Debugf("unexpected %v tag", tag.Kind())
+			s.logger.Debugf(context.TODO(), "unexpected %v tag", tag.Kind())
 			return apiservererrors.ErrPerm
 		}
 	}

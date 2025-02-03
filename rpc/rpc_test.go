@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/trace"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
@@ -26,7 +27,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.rpc")
+var logger = internallogger.GetLogger("juju.rpc")
 
 type rpcSuite struct {
 	testing.BaseSuite
@@ -111,7 +112,7 @@ func (r *Root) CallbackMethods(string) (*CallbackMethods, error) {
 }
 
 func (r *Root) InterfaceMethods(id string) (InterfaceMethods, error) {
-	logger.Infof("interface methods called")
+	logger.Infof(context.TODO(), "interface methods called")
 	m, err := r.SimpleMethods(id)
 	if err != nil {
 		return nil, err
@@ -352,9 +353,9 @@ func (c customMethodCaller) Call(_ context.Context, objId string, arg reflect.Va
 	}
 	obj := c.wrap(sm)
 	if reflect.TypeOf(obj) != c.expectedType {
-		logger.Errorf("got the wrong type back, expected %s got %T", c.expectedType, obj)
+		logger.Errorf(context.TODO(), "got the wrong type back, expected %s got %T", c.expectedType, obj)
 	}
-	logger.Debugf("calling: %T %v %#v", obj, obj, c.objMethod)
+	logger.Debugf(context.TODO(), "calling: %T %v %#v", obj, obj, c.objMethod)
 	return c.objMethod.Call(context.Background(), obj, arg)
 }
 
@@ -369,7 +370,7 @@ func (cc *CustomRoot) FindMethod(
 ) (
 	rpcreflect.MethodCaller, error,
 ) {
-	logger.Debugf("got to FindMethod: %q %d %q", rootMethodName, version, objMethodName)
+	logger.Debugf(context.TODO(), "got to FindMethod: %q %d %q", rootMethodName, version, objMethodName)
 	if rootMethodName != "MultiVersion" {
 		return nil, &rpcreflect.CallNotImplementedError{
 			RootMethod: rootMethodName,
@@ -400,7 +401,7 @@ func (cc *CustomRoot) FindMethod(
 			Version:    version,
 		}
 	}
-	logger.Debugf("found type: %s", goType)
+	logger.Debugf(context.TODO(), "found type: %s", goType)
 	objType := rpcreflect.ObjTypeOf(goType)
 	objMethod, err := objType.Method(objMethodName)
 	if err != nil {
@@ -1435,7 +1436,7 @@ func (c *testCodec) WriteMessage(hdr *rpc.Header, x interface{}) error {
 	if c.role != roleBoth && hdr.IsRequest() != (c.role == roleClient) {
 		panic(fmt.Errorf("codec role %v; header wrong type %#v", c.role, hdr))
 	}
-	logger.Infof("send header: %#v; body: %#v", hdr, x)
+	logger.Infof(context.TODO(), "send header: %#v; body: %#v", hdr, x)
 	return c.Codec.WriteMessage(hdr, x)
 }
 
@@ -1444,7 +1445,7 @@ func (c *testCodec) ReadHeader(hdr *rpc.Header) error {
 	if err != nil {
 		return err
 	}
-	logger.Infof("got header %#v", hdr)
+	logger.Infof(context.TODO(), "got header %#v", hdr)
 	if c.role != roleBoth && hdr.IsRequest() == (c.role == roleClient) {
 		panic(fmt.Errorf("codec role %v; read wrong type %#v", c.role, hdr))
 	}
@@ -1464,9 +1465,9 @@ func (c *testCodec) ReadBody(r interface{}, isRequest bool) error {
 	if err != nil {
 		return err
 	}
-	logger.Infof("got response body: %q", m)
+	logger.Infof(context.TODO(), "got response body: %q", m)
 	err = json.Unmarshal(m, r)
-	logger.Infof("unmarshalled into %#v", r)
+	logger.Infof(context.TODO(), "unmarshalled into %#v", r)
 	return err
 }
 

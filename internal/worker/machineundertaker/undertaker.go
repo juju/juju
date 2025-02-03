@@ -4,6 +4,7 @@
 package machineundertaker
 
 import (
+	"context"
 	stdcontext "context"
 
 	"github.com/juju/errors"
@@ -64,7 +65,7 @@ func NewWorker(api Facade, env environs.Environ, credentialAPI common.Credential
 // SetUp (part of watcher.NotifyHandler) starts watching for machine
 // removals.
 func (u *Undertaker) SetUp(ctx stdcontext.Context) (watcher.NotifyWatcher, error) {
-	u.Logger.Infof("setting up machine undertaker")
+	u.Logger.Infof(context.TODO(), "setting up machine undertaker")
 	return u.API.WatchMachineRemovals(ctx)
 }
 
@@ -75,20 +76,20 @@ func (u *Undertaker) Handle(ctx stdcontext.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	u.Logger.Debugf("handling removals: %v", removals)
+	u.Logger.Debugf(context.TODO(), "handling removals: %v", removals)
 	// TODO(babbageclunk): shuffle the removals so if there's a
 	// problem with one others can still get past?
 	for _, machine := range removals {
 		err := u.MaybeReleaseAddresses(ctx, machine)
 		if err != nil {
-			u.Logger.Errorf("couldn't release addresses for %s: %s", machine, err)
+			u.Logger.Errorf(context.TODO(), "couldn't release addresses for %s: %s", machine, err)
 			continue
 		}
 		err = u.API.CompleteRemoval(ctx, machine)
 		if err != nil {
-			u.Logger.Errorf("couldn't complete removal for %s: %s", machine, err)
+			u.Logger.Errorf(context.TODO(), "couldn't complete removal for %s: %s", machine, err)
 		} else {
-			u.Logger.Debugf("completed removal: %s", machine)
+			u.Logger.Debugf(context.TODO(), "completed removal: %s", machine)
 		}
 	}
 	return nil
@@ -111,7 +112,7 @@ func (u *Undertaker) MaybeReleaseAddresses(ctx stdcontext.Context, machine names
 		return errors.Trace(err)
 	}
 	if len(interfaceInfos) == 0 {
-		u.Logger.Debugf("%s has no addresses to release", machine)
+		u.Logger.Debugf(context.TODO(), "%s has no addresses to release", machine)
 		return nil
 	}
 	err = u.Releaser.ReleaseContainerAddresses(u.CallContextFunc(stdcontext.Background()), interfaceInfos)
@@ -119,7 +120,7 @@ func (u *Undertaker) MaybeReleaseAddresses(ctx stdcontext.Context, machine names
 	// actually support container addressing; don't freak out
 	// about those.
 	if errors.Is(err, errors.NotSupported) {
-		u.Logger.Debugf("%s has addresses but provider doesn't support releasing them", machine)
+		u.Logger.Debugf(context.TODO(), "%s has addresses but provider doesn't support releasing them", machine)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -130,6 +131,6 @@ func (u *Undertaker) MaybeReleaseAddresses(ctx stdcontext.Context, machine names
 // or release any resources created in SetUp other than the watcher,
 // which watcher.NotifyWorker takes care of for us.
 func (u *Undertaker) TearDown() error {
-	u.Logger.Infof("tearing down machine undertaker")
+	u.Logger.Infof(context.TODO(), "tearing down machine undertaker")
 	return nil
 }

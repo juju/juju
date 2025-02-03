@@ -4,6 +4,7 @@
 package netplan
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -501,7 +502,7 @@ func (np *Netplan) MoveYamlsToBak() (err error) {
 		newFile := path.Join(np.sourceDirectory, newFilename)
 		err = os.Rename(oldFile, newFile)
 		if err != nil {
-			logger.Errorf("Cannot rename %s to %s - %q", oldFile, newFile, err.Error())
+			logger.Errorf(context.TODO(), "Cannot rename %s to %s - %q", oldFile, newFile, err.Error())
 		}
 		np.backedFiles[oldFile] = newFile
 	}
@@ -553,7 +554,7 @@ func (np *Netplan) Rollback() (err error) {
 	for oldFile, newFile := range np.backedFiles {
 		err = os.Rename(newFile, oldFile)
 		if err != nil {
-			logger.Errorf("Cannot rename %s to %s - %q", newFile, oldFile, err.Error())
+			logger.Errorf(context.TODO(), "Cannot rename %s to %s - %q", newFile, oldFile, err.Error())
 		}
 	}
 	np.backedFiles = nil

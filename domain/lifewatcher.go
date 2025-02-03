@@ -31,7 +31,7 @@ func LifeStringsWatcherMapperFunc(logger logger.Logger, lifeGetter LifeGetter) e
 	return func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (_ []changestream.ChangeEvent, err error) {
 		defer func() {
 			if err != nil {
-				logger.Errorf("running life watcher mapper func: %v", err)
+				logger.Errorf(context.TODO(), "running life watcher mapper func: %v", err)
 			}
 		}()
 
@@ -43,7 +43,7 @@ func LifeStringsWatcherMapperFunc(logger logger.Logger, lifeGetter LifeGetter) e
 			events[change.Changed()] = change
 			ids.Add(change.Changed())
 		}
-		logger.Debugf("got changes for ids: %v", ids.Values())
+		logger.Debugf(context.TODO(), "got changes for ids: %v", ids.Values())
 
 		// First record any deleted entities and remove from the
 		// set of ids we are interested in looking up the life for.
@@ -70,14 +70,14 @@ func LifeStringsWatcherMapperFunc(logger logger.Logger, lifeGetter LifeGetter) e
 			unknownIDs.Remove(id)
 			latest[id] = l
 		}
-		logger.Debugf("ignoring unknown ids %v", unknownIDs.Values())
+		logger.Debugf(context.TODO(), "ignoring unknown ids %v", unknownIDs.Values())
 
 		for _, id := range unknownIDs.Values() {
 			delete(latest, id)
 			delete(events, id)
 		}
 
-		logger.Debugf("processing latest life values for %v", latest)
+		logger.Debugf(context.TODO(), "processing latest life values for %v", latest)
 
 		// Add to ids any whose life state is known to have changed.
 		for id, newLife := range latest {

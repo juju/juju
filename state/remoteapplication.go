@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -187,7 +188,7 @@ func (op *DestroyRemoteApplicationOperation) Build(attempt int) ([]txn.Op, error
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf("force destroy saas application %v despite error %v", op.app, err)
+			logger.Warningf(context.TODO(), "force destroy saas application %v despite error %v", op.app, err)
 			return ops, nil
 		}
 		return nil, err
@@ -208,7 +209,7 @@ func (op *DestroyRemoteApplicationOperation) Done(err error) error {
 
 	// Reimplement in dqlite.
 	//if err := op.deleteSecretReferences(); err != nil {
-	//	logger.Errorf("cannot delete secret references for saas application %q: %v", op.app, err)
+	//	logger.Errorf(context.TODO(), "cannot delete secret references for saas application %q: %v", op.app, err)
 	//}
 	return nil
 }
@@ -234,7 +235,7 @@ func (a *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) 
 func (a *RemoteApplication) Destroy() error {
 	errs, err := a.DestroyWithForce(false, time.Duration(0))
 	if len(errs) != 0 {
-		logger.Warningf("operational errors destroying saas application %v: %v", a.Name(), errs)
+		logger.Warningf(context.TODO(), "operational errors destroying saas application %v: %v", a.Name(), errs)
 	}
 	return err
 }
@@ -448,7 +449,7 @@ func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, err
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	})
 	name := op.app.Name()
-	logger.Debugf("leaving scope on all %q relation units", name)
+	logger.Debugf(context.TODO(), "leaving scope on all %q relation units", name)
 	rels, err := op.app.Relations()
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting relations for %q", name)

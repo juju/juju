@@ -84,7 +84,7 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 //
 // Open is part of the CloudEnvironProvider interface.
 func (p environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
-	logger.Debugf("opening model %q", args.Config.Name())
+	logger.Debugf(context.TODO(), "opening model %q", args.Config.Name())
 
 	e := new(environ)
 	e.name = args.Config.Name()

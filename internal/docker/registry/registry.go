@@ -4,6 +4,7 @@
 package registry
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -32,11 +33,11 @@ func New(repoDetails docker.ImageRepoDetails) (Registry, error) {
 	for _, providerNewer := range internal.Providers() {
 		p, err := providerNewer(repoDetails, DefaultTransport)
 		if err != nil {
-			logger.Tracef("error matching registry client %#v for %s: %s", p, repoDetails, err.Error())
+			logger.Tracef(context.TODO(), "error matching registry client %#v for %s: %s", p, repoDetails, err.Error())
 			continue
 		}
 		if p.Match() {
-			logger.Tracef("found registry client %#v for %s", p, repoDetails)
+			logger.Tracef(context.TODO(), "found registry client %#v for %s", p, repoDetails)
 			provider = p
 			break
 		}

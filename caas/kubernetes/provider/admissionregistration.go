@@ -22,7 +22,7 @@ func (k *kubernetesClient) EnsureMutatingWebhookConfiguration(ctx context.Contex
 	api := k.client().AdmissionregistrationV1().MutatingWebhookConfigurations()
 	out, err := api.Create(ctx, cfg, metav1.CreateOptions{})
 	if err == nil {
-		logger.Debugf("MutatingWebhookConfiguration %q created", out.GetName())
+		logger.Debugf(context.TODO(), "MutatingWebhookConfiguration %q created", out.GetName())
 		cleanUp = func() {
 			_ = api.Delete(ctx, out.GetName(), utils.NewPreconditionDeleteOptions(out.GetUID()))
 		}
@@ -48,7 +48,7 @@ func (k *kubernetesClient) EnsureMutatingWebhookConfiguration(ctx context.Contex
 	}
 	cfg.SetResourceVersion(existingCfg.GetResourceVersion())
 	_, err = api.Update(ctx, cfg, metav1.UpdateOptions{})
-	logger.Debugf("updating MutatingWebhookConfiguration %q", cfg.GetName())
+	logger.Debugf(context.TODO(), "updating MutatingWebhookConfiguration %q", cfg.GetName())
 	return cleanUp, errors.Trace(err)
 }
 

@@ -4,6 +4,8 @@
 package caasunitsmanager
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -64,7 +66,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 func (w *manager) stopUnitRequest(topic string, data interface{}) {
 	units, ok := data.(message.Units)
 	if !ok {
-		w.logger.Errorf("data should be a Units structure")
+		w.logger.Errorf(context.TODO(), "data should be a Units structure")
 	}
 	response := message.StartStopResponse{
 		"error": errors.NotSupportedf("stop units for %v", units).Error(),
@@ -75,7 +77,7 @@ func (w *manager) stopUnitRequest(topic string, data interface{}) {
 func (w *manager) startUnitRequest(topic string, data interface{}) {
 	units, ok := data.(message.Units)
 	if !ok {
-		w.logger.Errorf("data should be a Units structure")
+		w.logger.Errorf(context.TODO(), "data should be a Units structure")
 	}
 	response := message.StartStopResponse{
 		"error": errors.NotSupportedf("start units for %v", units).Error(),

@@ -210,7 +210,7 @@ func (st *State) Cleanup(
 	defer closeIter(iter, &err, "reading cleanup document")
 	for iter.Next(&doc) {
 		var err error
-		logger.Debugf("model %v cleanup: %v(%q)", modelId, doc.Kind, doc.Prefix)
+		logger.Debugf(context.TODO(), "model %v cleanup: %v(%q)", modelId, doc.Kind, doc.Prefix)
 		args := make([]bson.Raw, len(doc.Args))
 		for i, arg := range doc.Args {
 			args[i] = arg.Value.(bson.Raw)
@@ -266,7 +266,7 @@ func (st *State) Cleanup(
 			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
 		if err != nil {
-			logger.Warningf(
+			logger.Warningf(context.TODO(),
 				"cleanup failed in model %v for %v(%q): %v",
 				modelUUID, doc.Kind, doc.Prefix, err,
 			)
@@ -311,7 +311,7 @@ func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 	if relId, err = strconv.Atoi(prefix); err == nil {
 		relation, err = st.Relation(relId)
 	} else if err != nil {
-		logger.Warningf("handling legacy cleanupForceDestroyedRelation with relation key %q", prefix)
+		logger.Warningf(context.TODO(), "handling legacy cleanupForceDestroyedRelation with relation key %q", prefix)
 		relation, err = st.KeyRelation(prefix)
 	}
 	if errors.Is(err, errors.NotFound) {
@@ -370,7 +370,7 @@ func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 		// required time.
 		errs, err := ru.LeaveScopeWithForce(true, 0)
 		if len(errs) > 0 {
-			logger.Warningf("operational errors leaving scope for unit %q in relation %q: %v", unitName, relation, errs)
+			logger.Warningf(context.TODO(), "operational errors leaving scope for unit %q in relation %q: %v", unitName, relation, errs)
 		}
 		if err != nil {
 			return errors.Annotatef(err, "leaving scope for unit %q in relation %q", unitName, relation)
@@ -383,7 +383,7 @@ func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 		// required time.
 		errs, err := relation.DestroyWithForce(true, 0)
 		if len(errs) > 0 {
-			logger.Warningf("operational errors force destroying orphaned relation %q: %v", relation, errs)
+			logger.Warningf(context.TODO(), "operational errors force destroying orphaned relation %q: %v", relation, errs)
 		}
 		return errors.Annotatef(err, "force destroying relation %q", relation)
 	}
@@ -492,7 +492,7 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 			if !force {
 				return errors.Trace(err)
 			}
-			logger.Warningf("%v", err)
+			logger.Warningf(context.TODO(), "%v", err)
 		}
 	}
 	return nil
@@ -585,7 +585,7 @@ func (st *State) cleanupApplication(ctx context.Context, store objectstore.Objec
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			// Nothing to do, the application is already gone.
-			logger.Tracef("cleanupApplication(%s): application already gone", appName)
+			logger.Tracef(context.TODO(), "cleanupApplication(%s): application already gone", appName)
 			return nil
 		}
 		return errors.Trace(err)
@@ -597,7 +597,7 @@ func (st *State) cleanupApplication(ctx context.Context, store objectstore.Objec
 	if app.UnitCount() > 0 || app.RelationCount() > 0 {
 		// this is considered a no-op because whatever is currently referencing the application
 		// should queue up a new cleanup once it stops
-		logger.Tracef("cleanupApplication(%s) called, but it still has references: unitcount: %d relationcount: %d",
+		logger.Tracef(context.TODO(), "cleanupApplication(%s) called, but it still has references: unitcount: %d relationcount: %d",
 			appName, app.UnitCount(), app.RelationCount())
 		return nil
 	}
@@ -623,7 +623,7 @@ func (st *State) cleanupApplication(ctx context.Context, store objectstore.Objec
 	op.Force = force
 	err = st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
-		logger.Warningf("operational errors cleaning up application %v: %v", appName, op.Errors)
+		logger.Warningf(context.TODO(), "operational errors cleaning up application %v: %v", appName, op.Errors)
 	} else if err == nil {
 		if op.Removed {
 			err = appService.DeleteApplication(ctx, appName)
@@ -637,12 +637,12 @@ func (st *State) cleanupApplication(ctx context.Context, store objectstore.Objec
 
 // cleanupForceApplication forcibly removes the application.
 func (st *State) cleanupForceApplication(ctx context.Context, store objectstore.ObjectStore, appService ApplicationAndUnitRemover, appName string, cleanupArgs []bson.Raw) (err error) {
-	logger.Debugf("force destroy application: %v", appName)
+	logger.Debugf(context.TODO(), "force destroy application: %v", appName)
 	app, err := st.Application(appName)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			// Nothing to do, the application is already gone.
-			logger.Tracef("forceCleanupApplication(%s): application already gone", appName)
+			logger.Tracef(context.TODO(), "forceCleanupApplication(%s): application already gone", appName)
 			return nil
 		}
 		return errors.Trace(err)
@@ -669,7 +669,7 @@ func (st *State) cleanupForceApplication(ctx context.Context, store objectstore.
 	op.MaxWait = maxWait
 	err = st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
-		logger.Warningf("operational errors cleaning up application %v: %v", appName, op.Errors)
+		logger.Warningf(context.TODO(), "operational errors cleaning up application %v: %v", appName, op.Errors)
 	} else if err == nil && op.Removed {
 		err = appService.DeleteApplication(ctx, appName)
 	}
@@ -732,7 +732,7 @@ func (st *State) removeApplicationsForDyingModel(ctx context.Context, store obje
 		op.MaxWait = args.MaxWait
 		err := st.ApplyOperation(op)
 		if len(op.Errors) != 0 {
-			logger.Warningf("operational errors removing application %v for dying model %v: %v", application.Name(), st.ModelUUID(), op.Errors)
+			logger.Warningf(context.TODO(), "operational errors removing application %v for dying model %v: %v", application.Name(), st.ModelUUID(), op.Errors)
 		} else if err == nil && op.Removed {
 			err = appService.DeleteApplication(ctx, application.Name())
 		}
@@ -758,7 +758,7 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 	for iter.Next(&remoteApp.doc) {
 		errs, err := remoteApp.DestroyWithForce(force, args.MaxWait)
 		if len(errs) != 0 {
-			logger.Warningf("operational errors removing remote application %v for dying model %v: %v", remoteApp.Name(), st.ModelUUID(), errs)
+			logger.Warningf(context.TODO(), "operational errors removing remote application %v for dying model %v: %v", remoteApp.Name(), st.ModelUUID(), errs)
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -780,7 +780,7 @@ func (st *State) removeOffersForDyingModel() (err error) {
 		// Remove with force so that any connections get cleaned up.
 		err := offers.Remove(offer.OfferName, true)
 		if err != nil {
-			logger.Warningf("operational errors removing application offer %v for dying model %v: %v", offer.OfferName, st.ModelUUID(), err)
+			logger.Warningf(context.TODO(), "operational errors removing application offer %v for dying model %v: %v", offer.OfferName, st.ModelUUID(), err)
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -857,7 +857,7 @@ func (st *State) cleanupUnitsForDyingApplication(
 			unitsToDestroy.Add(unit.Name())
 		}
 		if len(op.Errors) != 0 {
-			logger.Warningf("operational errors destroying unit %v for dying application %v: %v", unit.Name(), applicationName, op.Errors)
+			logger.Warningf(context.TODO(), "operational errors destroying unit %v for dying application %v: %v", unit.Name(), applicationName, op.Errors)
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -918,7 +918,7 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 		if !force {
 			return err
 		}
-		logger.Warningf("could not get joined relations for unit %v during dying unit cleanup: %v", unit.Name(), err)
+		logger.Warningf(context.TODO(), "could not get joined relations for unit %v during dying unit cleanup: %v", unit.Name(), err)
 	}
 	for _, relation := range relations {
 		relationUnit, err := relation.Unit(unit)
@@ -928,13 +928,13 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 			if !force {
 				return err
 			}
-			logger.Warningf("could not get unit relation for unit %v during dying unit cleanup: %v", unit.Name(), err)
+			logger.Warningf(context.TODO(), "could not get unit relation for unit %v during dying unit cleanup: %v", unit.Name(), err)
 		} else {
 			if err := relationUnit.PrepareLeaveScope(); err != nil {
 				if !force {
 					return err
 				}
-				logger.Warningf("could not prepare to leave scope for relation %v for unit %v during dying unit cleanup: %v", relation, unit.Name(), err)
+				logger.Warningf(context.TODO(), "could not prepare to leave scope for relation %v for unit %v during dying unit cleanup: %v", relation, unit.Name(), err)
 			}
 		}
 	}
@@ -964,7 +964,7 @@ func (st *State) scheduleForceCleanup(kind cleanupKind, name string, maxWait tim
 		return []txn.Op{op}, nil
 	})
 	if err != nil {
-		logger.Warningf("couldn't schedule %s cleanup: %v", kind, err)
+		logger.Warningf(context.TODO(), "couldn't schedule %s cleanup: %v", kind, err)
 	}
 }
 
@@ -989,7 +989,7 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 
 	unit, err := st.Unit(unitName.String())
 	if errors.Is(err, errors.NotFound) {
-		logger.Debugf("no need to force unit to dead %q", unitName)
+		logger.Debugf(context.TODO(), "no need to force unit to dead %q", unitName)
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
@@ -1010,7 +1010,7 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
-			logger.Warningf("couldn't get subordinate %q to force destroy: %v", subName, err)
+			logger.Warningf(context.TODO(), "couldn't get subordinate %q to force destroy: %v", subName, err)
 		}
 		removed, destroyOpErrs, err := subUnit.DestroyWithForce(store, true, maxWait)
 		if len(destroyOpErrs) != 0 {
@@ -1026,7 +1026,7 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 			err = applicationService.DeleteUnit(ctx, unitName)
 		}
 		if len(opErrs) != 0 || err != nil {
-			logger.Warningf("errors while destroying subordinate %q: %v, %v", subName, err, opErrs)
+			logger.Warningf(context.TODO(), "errors while destroying subordinate %q: %v, %v", subName, err, opErrs)
 		}
 	}
 
@@ -1036,25 +1036,25 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 		for _, relation := range relations {
 			ru, err := relation.Unit(unit)
 			if err != nil {
-				logger.Warningf("couldn't get relation unit for %q in %q: %v", unit, relation, err)
+				logger.Warningf(context.TODO(), "couldn't get relation unit for %q in %q: %v", unit, relation, err)
 				continue
 			}
 			errs, err := ru.LeaveScopeWithForce(true, maxWait)
 			if len(errs) != 0 {
-				logger.Warningf("operational errors cleaning up force destroyed unit %v in relation %v: %v", unit, relation, errs)
+				logger.Warningf(context.TODO(), "operational errors cleaning up force destroyed unit %v in relation %v: %v", unit, relation, errs)
 			}
 			if err != nil {
-				logger.Warningf("unit %q couldn't leave scope of relation %q: %v", unitName, relation, err)
+				logger.Warningf(context.TODO(), "unit %q couldn't leave scope of relation %q: %v", unitName, relation, err)
 			}
 		}
 	} else {
-		logger.Warningf("couldn't get in-scope relations for unit %q: %v", unitName, err)
+		logger.Warningf(context.TODO(), "couldn't get in-scope relations for unit %q: %v", unitName, err)
 	}
 
 	// Detach all storage.
 	err = st.forceRemoveUnitStorageAttachments(unit)
 	if err != nil {
-		logger.Warningf("couldn't remove storage attachments for %q: %v", unitName, err)
+		logger.Warningf(context.TODO(), "couldn't remove storage attachments for %q: %v", unitName, err)
 	}
 
 	// Mark the unit dead.
@@ -1065,7 +1065,7 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 		// gone, so we should give them time to be removed.
 		return err
 	} else if err != nil {
-		logger.Warningf("couldn't set unit %q dead: %v", unitName, err)
+		logger.Warningf(context.TODO(), "couldn't set unit %q dead: %v", unitName, err)
 	}
 
 	// TODO(units) - remove me
@@ -1077,7 +1077,7 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 		// gone, so we should give them time to be removed.
 		return err
 	} else if err != nil {
-		logger.Warningf("couldn't set unit %q dead: %v", unitName, err)
+		logger.Warningf(context.TODO(), "couldn't set unit %q dead: %v", unitName, err)
 	}
 
 	// Set up another cleanup to remove the unit in a minute if the
@@ -1103,7 +1103,7 @@ func (st *State) forceRemoveUnitStorageAttachments(unit *Unit) error {
 		err := sb.RemoveStorageAttachment(
 			attachment.StorageInstance(), unit.UnitTag(), true)
 		if err != nil {
-			logger.Warningf("couldn't remove storage attachment %q for %q: %v", attachment.StorageInstance(), unit, err)
+			logger.Warningf(context.TODO(), "couldn't remove storage attachment %q for %q: %v", attachment.StorageInstance(), unit, err)
 		}
 	}
 	return nil
@@ -1123,14 +1123,14 @@ func (st *State) cleanupForceRemoveUnit(ctx context.Context, store objectstore.O
 	}
 	unit, err := st.Unit(unitName.String())
 	if errors.Is(err, errors.NotFound) {
-		logger.Debugf("no need to force remove unit %q", unitName)
+		logger.Debugf(context.TODO(), "no need to force remove unit %q", unitName)
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
 	}
 	opErrs, err := unit.RemoveWithForce(store, true, maxWait)
 	if len(opErrs) != 0 {
-		logger.Warningf("errors encountered force-removing unit %q: %v", unitName, opErrs)
+		logger.Warningf(context.TODO(), "errors encountered force-removing unit %q: %v", unitName, opErrs)
 	} else {
 		err = applicationService.DeleteUnit(ctx, unitName)
 	}
@@ -1164,7 +1164,7 @@ func (st *State) cleanupDyingUnitResources(unitId string, cleanupArgs []bson.Raw
 		if !force {
 			return err
 		}
-		logger.Warningf("%v", err)
+		logger.Warningf(context.TODO(), "%v", err)
 	}
 	volumeAttachments, err := sb.UnitVolumeAttachments(unitTag)
 	if err != nil {
@@ -1172,7 +1172,7 @@ func (st *State) cleanupDyingUnitResources(unitId string, cleanupArgs []bson.Raw
 		if !force {
 			return err
 		}
-		logger.Warningf("%v", err)
+		logger.Warningf(context.TODO(), "%v", err)
 	}
 
 	cleaner := newDyingEntityStorageCleaner(sb, unitTag, false, force)
@@ -1197,7 +1197,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 			if !force {
 				return err
 			}
-			logger.Warningf("could not detach storage %v for unit %v: %v", storageTag.Id(), unitTag.Id(), err)
+			logger.Warningf(context.TODO(), "could not detach storage %v for unit %v: %v", storageTag.Id(), unitTag.Id(), err)
 		}
 		if !remove {
 			continue
@@ -1209,7 +1209,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 			if !force {
 				return err
 			}
-			logger.Warningf("could not remove storage attachment for storage %v for unit %v: %v", storageTag.Id(), unitTag.Id(), err)
+			logger.Warningf(context.TODO(), "could not remove storage attachment for storage %v for unit %v: %v", storageTag.Id(), unitTag.Id(), err)
 		}
 	}
 	return nil
@@ -1256,7 +1256,7 @@ func (st *State) cleanupRemovedUnit(unitId string, cleanupArgs []bson.Raw) error
 		if !force {
 			return errors.Trace(err)
 		}
-		logger.Warningf("could not get unit actions for unit %v during cleanup of removed unit: %v", unitId, err)
+		logger.Warningf(context.TODO(), "could not get unit actions for unit %v during cleanup of removed unit: %v", unitId, err)
 	}
 	cancelled := ActionResults{
 		Status:  ActionCancelled,
@@ -1271,7 +1271,7 @@ func (st *State) cleanupRemovedUnit(unitId string, cleanupArgs []bson.Raw) error
 				if !force {
 					return errors.Trace(err)
 				}
-				logger.Warningf("could not finish action %v for unit %v during cleanup of removed unit: %v", action.Name(), unitId, err)
+				logger.Warningf(context.TODO(), "could not finish action %v for unit %v during cleanup of removed unit: %v", action.Name(), unitId, err)
 			}
 		}
 	}
@@ -1373,7 +1373,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store
 	for _, unitName := range machine.doc.Principals {
 		opErrs, err := st.obliterateUnit(ctx, store, applicationService, unitName, true, maxWait)
 		if len(opErrs) != 0 {
-			logger.Warningf("while obliterating unit %v: %v", unitName, opErrs)
+			logger.Warningf(context.TODO(), "while obliterating unit %v: %v", unitName, opErrs)
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -1597,7 +1597,7 @@ func cleanupDyingMachineResources(m *Machine, force bool) error {
 		if !force {
 			return err
 		}
-		logger.Warningf("%v", err)
+		logger.Warningf(context.TODO(), "%v", err)
 	}
 	volumeAttachments, err := sb.MachineVolumeAttachments(m.MachineTag())
 	if err != nil {
@@ -1605,7 +1605,7 @@ func cleanupDyingMachineResources(m *Machine, force bool) error {
 		if !force {
 			return err
 		}
-		logger.Warningf("%v", err)
+		logger.Warningf(context.TODO(), "%v", err)
 	}
 
 	// Check if the machine is manual, to decide whether or not to
@@ -1615,7 +1615,7 @@ func cleanupDyingMachineResources(m *Machine, force bool) error {
 		if !force {
 			return errors.Trace(err)
 		}
-		logger.Warningf("could not determine if machine %v is manual: %v", m.MachineTag().Id(), err)
+		logger.Warningf(context.TODO(), "could not determine if machine %v is manual: %v", m.MachineTag().Id(), err)
 	}
 
 	cleaner := newDyingEntityStorageCleaner(sb, m.Tag(), manual, force)
@@ -1748,7 +1748,7 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string, cleanupArgs
 		unitTag := names.NewUnitTag(doc.Unit)
 		if err := sb.DetachStorage(storageTag, unitTag, force, maxWait); err != nil {
 			detachErr = errors.Annotate(err, "destroying storage attachment")
-			logger.Warningf("%v", detachErr)
+			logger.Warningf(context.TODO(), "%v", detachErr)
 		}
 	}
 	if !force && detachErr != nil {
@@ -1829,5 +1829,5 @@ func closeIter(iter mongo.Iterator, errOut *error, message string) {
 		*errOut = err
 		return
 	}
-	logger.Errorf("%v", err)
+	logger.Errorf(context.TODO(), "%v", err)
 }

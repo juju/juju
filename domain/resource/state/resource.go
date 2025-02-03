@@ -1335,7 +1335,7 @@ WHERE uuid = $updatePotentialResource.uuid
 			for _, res := range resIdentities {
 				foundResources.Add(res.Name)
 			}
-			st.logger.Errorf("Resource not found for application %s (%s), missing: %s",
+			st.logger.Errorf(context.TODO(), "Resource not found for application %s (%s), missing: %s",
 				appNameAndID.Name, config.ApplicationID, set.NewStrings(names...).Difference(foundResources).Values())
 		}
 

@@ -243,7 +243,7 @@ func (w *bootstrapWorker) loop() error {
 		if !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
-		w.logger.Debugf("reload spaces not supported due to a non-networking environement")
+		w.logger.Debugf(context.TODO(), "reload spaces not supported due to a non-networking environement")
 	}
 
 	if err := w.seedInitialAuthorizedKeys(ctx, bootstrapParams.ControllerModelAuthorizedKeys); err != nil {
@@ -253,7 +253,7 @@ func (w *bootstrapWorker) loop() error {
 	// Set machine cloud instance data for the bootstrap machine.
 	bootstrapMachineUUID, err := w.cfg.MachineService.GetMachineUUID(ctx, machine.Name(agent.BootstrapControllerId))
 	if errors.Is(err, machineerrors.MachineNotFound) {
-		w.logger.Debugf("unable to retrieve machine UUID for bootstrap machine %q, it could mean that this is a k8s cloud: %w", agent.BootstrapControllerId, err)
+		w.logger.Debugf(context.TODO(), "unable to retrieve machine UUID for bootstrap machine %q, it could mean that this is a k8s cloud: %w", agent.BootstrapControllerId, err)
 	} else if err != nil {
 		return errors.Trace(err)
 	} else if err := w.cfg.MachineService.SetMachineCloudInstance(
@@ -263,7 +263,7 @@ func (w *bootstrapWorker) loop() error {
 		bootstrapParams.BootstrapMachineDisplayName,
 		bootstrapParams.BootstrapMachineHardwareCharacteristics,
 	); err != nil {
-		w.logger.Errorf("unable to set machine cloud instance data for bootstrap machine %q: %w", bootstrapMachineUUID, err)
+		w.logger.Errorf(context.TODO(), "unable to set machine cloud instance data for bootstrap machine %q: %w", bootstrapMachineUUID, err)
 		return errors.Trace(err)
 	}
 
@@ -447,7 +447,7 @@ func (w *bootstrapWorker) filterHostPortsForManagementSpace(
 			if addrsIsInSpace {
 				hostPortsForAgents[i] = filtered
 			} else {
-				w.logger.Warningf("API addresses %v not in the management space %s", apiHostPort, mgmtSpace)
+				w.logger.Warningf(context.TODO(), "API addresses %v not in the management space %s", apiHostPort, mgmtSpace)
 				hostPortsForAgents[i] = apiHostPort
 			}
 		}

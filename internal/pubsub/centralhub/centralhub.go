@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	internallogger "github.com/juju/juju/internal/logger"
+	internalpubsub "github.com/juju/juju/internal/pubsub"
 )
 
 // New returns a new structured hub using yaml marshalling with an origin
@@ -19,7 +20,7 @@ import (
 func New(origin names.Tag, metrics pubsub.Metrics) *pubsub.StructuredHub {
 	return pubsub.NewStructuredHub(
 		&pubsub.StructuredHubConfig{
-			Logger:     internallogger.GetLogger("juju.centralhub"),
+			Logger:     internalpubsub.WrapLogger(internallogger.GetLogger("juju.centralhub")),
 			Marshaller: &yamlMarshaller{},
 			Annotations: map[string]interface{}{
 				"origin": origin.String(),

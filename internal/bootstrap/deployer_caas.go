@@ -93,7 +93,7 @@ func (d *CAASDeployer) ControllerAddress(context.Context) (string, error) {
 	if len(addr) > 0 {
 		controllerAddress = addr[0]
 	}
-	d.logger.Debugf("CAAS controller address %v", controllerAddress)
+	d.logger.Debugf(context.TODO(), "CAAS controller address %v", controllerAddress)
 	return controllerAddress, nil
 }
 

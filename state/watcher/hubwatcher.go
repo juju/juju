@@ -4,6 +4,7 @@
 package watcher
 
 import (
+	"context"
 	"fmt"
 	"runtime/debug"
 	"time"
@@ -165,7 +166,7 @@ func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger logger.L
 		// exact values, so we need to log and unwrap
 		// the error first.
 		if err != nil && cause != tomb.ErrDying {
-			logger.Infof("watcher loop failed: %v", err)
+			logger.Infof(context.TODO(), "watcher loop failed: %v", err)
 		}
 		return cause
 	})
@@ -185,7 +186,7 @@ func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 	case TxnWatcherCollection:
 		change, ok := data.(Change)
 		if !ok {
-			w.logger.Warningf("incoming event not a Change")
+			w.logger.Warningf(context.TODO(), "incoming event not a Change")
 			return
 		}
 		select {
@@ -193,7 +194,7 @@ func (w *HubWatcher) receiveEvent(topic string, data interface{}) {
 		case <-w.tomb.Dying():
 		}
 	default:
-		w.logger.Warningf("programming error, unknown topic: %q", topic)
+		w.logger.Warningf(context.TODO(), "programming error, unknown topic: %q", topic)
 	}
 }
 
@@ -400,13 +401,13 @@ func (w *HubWatcher) Report() map[string]interface{} {
 // loop implements the main watcher loop.
 // period is the delay between each sync.
 func (w *HubWatcher) loop() error {
-	w.logger.Tracef("%p loop started", w)
-	defer w.logger.Tracef("loop finished")
+	w.logger.Tracef(context.TODO(), "%p loop started", w)
+	defer w.logger.Tracef(context.TODO(), "loop finished")
 	// idle's channel is initially nil, and is only ever set if idleFunc
 	// has a value.
 	idle := &time.Timer{}
 	if w.idleFunc != nil {
-		w.logger.Tracef("%p set idle timeout to %s", w, HubWatcherIdleTime)
+		w.logger.Tracef(context.TODO(), "%p set idle timeout to %s", w, HubWatcherIdleTime)
 		idle = time.NewTimer(HubWatcherIdleTime)
 		defer idle.Stop()
 	}
@@ -422,7 +423,7 @@ func (w *HubWatcher) loop() error {
 		case req := <-w.request:
 			w.handle(req)
 		case <-idle.C:
-			w.logger.Tracef("%p notify %s idle", w, w.modelUUID)
+			w.logger.Tracef(context.TODO(), "%p notify %s idle", w, w.modelUUID)
 			w.idleFunc(w.modelUUID)
 			idle.Reset(HubWatcherIdleTime)
 		}
@@ -446,7 +447,7 @@ func (w *HubWatcher) flush() bool {
 	// syncEvents are stored first in first out.
 	// syncEvents may grow during the looping here if new
 	// watch events come in while we are notifying other watchers.
-	w.logger.Tracef("%p flushing syncEvents: len(%d) cap(%d)", w, len(w.syncEvents), cap(w.syncEvents))
+	w.logger.Tracef(context.TODO(), "%p flushing syncEvents: len(%d) cap(%d)", w, len(w.syncEvents), cap(w.syncEvents))
 allevents:
 	for i := 0; i < len(w.syncEvents); i++ {
 		deadline := w.clock.After(syncEventSendTimeout)
@@ -458,7 +459,7 @@ allevents:
 				Id:    e.key.id,
 				Revno: e.revno,
 			}
-			w.logger.Tracef("%p sending syncEvent(%d): e.ch=%v %v", w, i, e.ch, outChange)
+			w.logger.Tracef(context.TODO(), "%p sending syncEvent(%d): e.ch=%v %v", w, i, e.ch, outChange)
 			select {
 			case <-w.tomb.Dying():
 				return watchersNotified
@@ -469,10 +470,10 @@ allevents:
 				w.queueChange(inChange)
 				continue
 			case e.ch <- outChange:
-				w.logger.Tracef("%p e.ch=%v has been notified %v", w, e.ch, outChange)
+				w.logger.Tracef(context.TODO(), "%p e.ch=%v has been notified %v", w, e.ch, outChange)
 				watchersNotified = true
 			case <-deadline:
-				w.logger.Criticalf("%p programming error, e.ch=%v did not accept %v - missing Unwatch?\nwatch source:\n%s",
+				w.logger.Criticalf(context.TODO(), "%p programming error, e.ch=%v did not accept %v - missing Unwatch?\nwatch source:\n%s",
 					w, e.ch, outChange, e.watchSource)
 				continue allevents
 			}
@@ -487,9 +488,9 @@ allevents:
 	// This allows us to compute an "average" without having to actually track N samples.
 	w.averageSyncLen = (filterFactor * float64(w.lastSyncLen)) + ((1.0 - filterFactor) * w.averageSyncLen)
 	w.syncEvents = w.syncEvents[:0]
-	w.logger.Tracef("%p syncEvents after flush: len(%d), cap(%d) avg(%.1f)", w, len(w.syncEvents), cap(w.syncEvents), w.averageSyncLen)
+	w.logger.Tracef(context.TODO(), "%p syncEvents after flush: len(%d), cap(%d) avg(%.1f)", w, len(w.syncEvents), cap(w.syncEvents), w.averageSyncLen)
 	if cap(w.syncEvents) > 100 && float64(cap(w.syncEvents)) > 10.0*w.averageSyncLen {
-		w.logger.Debugf("syncEvents buffer being reset from peak size %d", cap(w.syncEvents))
+		w.logger.Debugf(context.TODO(), "syncEvents buffer being reset from peak size %d", cap(w.syncEvents))
 		w.syncEvents = nil
 	}
 
@@ -499,7 +500,7 @@ allevents:
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *HubWatcher) handle(req interface{}) {
-	w.logger.Tracef("%p got request: %s", w, req)
+	w.logger.Tracef(context.TODO(), "%p got request: %s", w, req)
 	w.requestCount++
 	switch r := req.(type) {
 	case reqWatch:
@@ -596,7 +597,7 @@ func (w *HubWatcher) handle(req interface{}) {
 // queueChange queues up the change for the registered watchers.
 func (w *HubWatcher) queueChange(change Change) {
 	w.changeCount++
-	w.logger.Tracef("%p got change document: %#v", w, change)
+	w.logger.Tracef(context.TODO(), "%p got change document: %#v", w, change)
 	key := watchKey{change.C, change.Id}
 	revno := change.Revno
 
@@ -613,7 +614,7 @@ func (w *HubWatcher) queueChange(change Change) {
 		}
 		w.syncEvents = append(w.syncEvents, evt)
 		w.syncEventCollectionCount++
-		w.logger.Tracef("%p adding event for collection %q watch %v, syncEvents: len(%d), cap(%d)", w, change.C, info.ch, len(w.syncEvents), cap(w.syncEvents))
+		w.logger.Tracef(context.TODO(), "%p adding event for collection %q watch %v, syncEvents: len(%d), cap(%d)", w, change.C, info.ch, len(w.syncEvents), cap(w.syncEvents))
 	}
 
 	// Queue notifications for per-document watches.
@@ -629,7 +630,7 @@ func (w *HubWatcher) queueChange(change Change) {
 			}
 			w.syncEvents = append(w.syncEvents, evt)
 			w.syncEventDocCount++
-			w.logger.Tracef("%p adding event for %v watch %v, syncEvents: len(%d), cap(%d)", w, key, info.ch, len(w.syncEvents), cap(w.syncEvents))
+			w.logger.Tracef(context.TODO(), "%p adding event for %v watch %v, syncEvents: len(%d), cap(%d)", w, key, info.ch, len(w.syncEvents), cap(w.syncEvents))
 		}
 	}
 }

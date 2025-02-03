@@ -4,6 +4,7 @@
 package tools
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -51,7 +52,7 @@ func (v *Versions) VersionsMatching(r io.Reader) ([]string, error) {
 // versionsMatchingHash returns all version numbers for which the SHA256
 // matches the hash passed in.
 func (v *Versions) versionsMatchingHash(h string) []string {
-	logger.Debugf("looking for sha256 %s", h)
+	logger.Debugf(context.TODO(), "looking for sha256 %s", h)
 	var results []string
 	for i := range v.Versions {
 		if v.Versions[i].SHA256 == h {

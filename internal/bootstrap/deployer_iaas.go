@@ -64,7 +64,7 @@ func (d *IAASDeployer) ControllerAddress(context.Context) (string, error) {
 	if err == nil {
 		controllerAddress = pa.Value
 	}
-	d.logger.Debugf("IAAS controller address %v", controllerAddress)
+	d.logger.Debugf(context.TODO(), "IAAS controller address %v", controllerAddress)
 	return controllerAddress, nil
 }
 

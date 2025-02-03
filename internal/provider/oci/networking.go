@@ -117,7 +117,7 @@ func (e *Environ) ensureVCN(controllerUUID, modelUUID string) (ociCore.Vcn, erro
 	}
 
 	name := e.vcnName(controllerUUID, modelUUID)
-	logger.Debugf("creating new VCN %s", name)
+	logger.Debugf(context.TODO(), "creating new VCN %s", name)
 
 	vcnDetails := ociCore.CreateVcnDetails{
 		CidrBlock:     e.ecfg().addressSpace(),
@@ -136,7 +136,7 @@ func (e *Environ) ensureVCN(controllerUUID, modelUUID string) (ociCore.Vcn, erro
 	if err != nil {
 		return ociCore.Vcn{}, errors.Trace(err)
 	}
-	logger.Debugf("VCN %s created. Waiting for status: %s", *result.Vcn.Id, string(ociCore.VcnLifecycleStateAvailable))
+	logger.Debugf(context.TODO(), "VCN %s created. Waiting for status: %s", *result.Vcn.Id, string(ociCore.VcnLifecycleStateAvailable))
 
 	err = e.waitForResourceStatus(
 		e.getVCNStatus, result.Vcn.Id,
@@ -214,7 +214,7 @@ func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *st
 	}
 
 	name := e.secListName(controllerUUID, modelUUID)
-	logger.Debugf("creating new security list %s", name)
+	logger.Debugf(context.TODO(), "creating new security list %s", name)
 
 	// Hopefully just temporary, open all ingress/egress ports
 	prefix := AllowAllPrefix
@@ -248,7 +248,7 @@ func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *st
 	if err != nil {
 		return ociCore.SecurityList{}, errors.Trace(err)
 	}
-	logger.Debugf("security list %s created. Waiting for status: %s",
+	logger.Debugf(context.TODO(), "security list %s created. Waiting for status: %s",
 		*response.SecurityList.Id, string(ociCore.SecurityListLifecycleStateAvailable))
 
 	err = e.waitForResourceStatus(
@@ -281,7 +281,7 @@ func (e *Environ) allSubnets(controllerUUID, modelUUID string, vcnID *string) (m
 		}
 		cidr := *val.CidrBlock
 		if valid, err := e.validateCidrBlock(cidr); err != nil || !valid {
-			logger.Warningf("failed to validate CIDR block %s: %s", cidr, err)
+			logger.Warningf(context.TODO(), "failed to validate CIDR block %s: %s", cidr, err)
 			continue
 		}
 		ret[*val.AvailabilityDomain] = append(ret[*val.AvailabilityDomain], val)
@@ -536,7 +536,7 @@ func (e *Environ) removeSecurityLists(secLists []ociCore.SecurityList) error {
 		request := ociCore.DeleteSecurityListRequest{
 			SecurityListId: secList.Id,
 		}
-		logger.Debugf("deleting security list %s", *secList.Id)
+		logger.Debugf(context.TODO(), "deleting security list %s", *secList.Id)
 		response, err := e.Firewall.DeleteSecurityList(context.Background(), request)
 		if err != nil && !e.isNotFound(response.RawResponse) {
 			return nil
@@ -560,7 +560,7 @@ func (e *Environ) removeVCN(vcn ociCore.Vcn) error {
 		VcnId: vcn.Id,
 	}
 
-	logger.Infof("deleting VCN: %s", *vcn.Id)
+	logger.Infof(context.TODO(), "deleting VCN: %s", *vcn.Id)
 	response, err := e.Networking.DeleteVcn(context.Background(), requestDeleteVcn)
 	if err != nil && !e.isNotFound(response.RawResponse) {
 		return err
@@ -667,7 +667,7 @@ func (e *Environ) ensureInternetGateway(controllerUUID, modelUUID string, vcnID 
 	}
 
 	name := e.internetGatewayName(controllerUUID, modelUUID)
-	logger.Debugf("creating new internet gateway %s", name)
+	logger.Debugf(context.TODO(), "creating new internet gateway %s", name)
 
 	enabled := true
 	details := ociCore.CreateInternetGatewayDetails{
@@ -811,7 +811,7 @@ func (e *Environ) ensureRouteTable(
 	}
 
 	name := e.routeTableName(controllerUUID, modelUUID)
-	logger.Debugf("creating new route table %s", name)
+	logger.Debugf(context.TODO(), "creating new route table %s", name)
 
 	details := ociCore.CreateRouteTableDetails{
 		VcnId:         vcnId,
@@ -832,7 +832,7 @@ func (e *Environ) ensureRouteTable(
 	if err != nil {
 		return ociCore.RouteTable{}, errors.Trace(err)
 	}
-	logger.Debugf("route table %s created. Waiting for status: %s",
+	logger.Debugf(context.TODO(), "route table %s created. Waiting for status: %s",
 		*response.RouteTable.Id, string(ociCore.RouteTableLifecycleStateAvailable))
 
 	if err := e.waitForResourceStatus(

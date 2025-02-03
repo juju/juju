@@ -165,7 +165,7 @@ func (w *trackedDBWorker) loop() error {
 	defer func() {
 		err := w.rawDB.Close()
 		if err != nil {
-			w.logger.Errorf("failed to close database: %v", err)
+			w.logger.Errorf(context.TODO(), "failed to close database: %v", err)
 		}
 	}()
 

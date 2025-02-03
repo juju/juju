@@ -4,6 +4,8 @@
 package networkingcommon
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
@@ -157,7 +159,7 @@ type MachineLinkLayerOp struct {
 // NewMachineLinkLayerOp returns a reference that can be embedded in a
 // model operation for updating the input machine's link layer data.
 func NewMachineLinkLayerOp(source string, machine LinkLayerMachine, in network.InterfaceInfos) *MachineLinkLayerOp {
-	logger.Debugf(
+	logger.Debugf(context.TODO(),
 		"processing %s-sourced link-layer devices for machine %q in model %q",
 		source, machine.Id(), machine.ModelUUID(),
 	)

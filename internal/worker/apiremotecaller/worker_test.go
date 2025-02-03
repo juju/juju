@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 )
 
@@ -387,7 +388,7 @@ func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
 		Clock:  s.clock,
-		Logger: loggertesting.WrapCheckLog(c),
+		Logger: internalpubsub.WrapLogger(loggertesting.WrapCheckLog(c)),
 	})
 
 	s.mutex.Lock()

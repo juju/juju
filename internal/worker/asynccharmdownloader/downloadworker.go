@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/internal/errors"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
@@ -116,7 +117,7 @@ func newWorker(config Config, internalState chan string) (*Worker, error) {
 				return false
 			},
 			Clock:  config.Clock,
-			Logger: config.Logger,
+			Logger: internalworker.WrapLogger(config.Logger),
 		}),
 		internalStates: internalState,
 	}
@@ -161,7 +162,7 @@ func (w *Worker) loop() error {
 		return errors.Capture(err)
 	}
 
-	logger.Debugf("watching applications referencing charms that have not yet been downloaded")
+	logger.Debugf(context.TODO(), "watching applications referencing charms that have not yet been downloaded")
 
 	for {
 		select {
@@ -176,7 +177,7 @@ func (w *Worker) loop() error {
 				continue
 			}
 
-			logger.Debugf("triggering asynchronous download of charms for the following applications: %v", strings.Join(changes, ", "))
+			logger.Debugf(context.TODO(), "triggering asynchronous download of charms for the following applications: %v", strings.Join(changes, ", "))
 
 			// Get a new downloader, this ensures that we've got a fresh
 			// connection to the charm store.
@@ -194,7 +195,7 @@ func (w *Worker) loop() error {
 			for _, change := range changes {
 				appID, err := application.ParseID(change)
 				if err != nil {
-					logger.Errorf("failed to parse application ID %q: %v", change, err)
+					logger.Errorf(context.TODO(), "failed to parse application ID %q: %v", change, err)
 					continue
 				}
 

@@ -4,6 +4,7 @@
 package openstack
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -149,10 +150,10 @@ func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, str
 		return nil, "", "", errors.Errorf("failed to retrieve credential from env : %v", err)
 	}
 	if creds.TenantName == "" {
-		logger.Debugf("neither OS_TENANT_NAME nor OS_PROJECT_NAME environment variable not set")
+		logger.Debugf(context.TODO(), "neither OS_TENANT_NAME nor OS_PROJECT_NAME environment variable not set")
 	}
 	if creds.TenantID == "" {
-		logger.Debugf("neither OS_TENANT_ID nor OS_PROJECT_ID environment variable not set")
+		logger.Debugf(context.TODO(), "neither OS_TENANT_ID nor OS_PROJECT_ID environment variable not set")
 	}
 	if creds.User == "" {
 		return nil, "", "", errors.NewNotFound(nil, "neither OS_USERNAME nor OS_ACCESS_KEY environment variable not set")

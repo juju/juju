@@ -97,7 +97,7 @@ type awsLogger struct {
 }
 
 func (l awsLogger) Write(p []byte) (n int, err error) {
-	logger.Tracef("awsLogger %p: %s", l.cfg, p)
+	logger.Tracef(context.TODO(), "awsLogger %p: %s", l.cfg, p)
 	return len(p), nil
 }
 

@@ -207,7 +207,7 @@ func (ctxt *httpContext) stop() <-chan struct{} {
 // for errors encountered during processing.
 func sendError(w http.ResponseWriter, errToSend error) error {
 	paramsErr, statusCode := apiservererrors.ServerErrorAndStatus(errToSend)
-	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
+	logger.Debugf(context.TODO(), "sending error: %d %v", statusCode, paramsErr)
 	return errors.Trace(internalhttp.SendStatusAndJSON(w, statusCode, &params.ErrorResult{
 		Error: paramsErr,
 	}))

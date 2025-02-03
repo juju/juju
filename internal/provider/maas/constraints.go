@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"context"
 	"net/url"
 	"strings"
 
@@ -64,7 +65,7 @@ func convertConstraints(cons constraints.Value) gomaasapi.AllocateMachineArgs {
 		}
 	}
 	if cons.CpuPower != nil {
-		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
+		logger.Warningf(context.TODO(), "ignoring unsupported constraint 'cpu-power'")
 	}
 	return params
 }

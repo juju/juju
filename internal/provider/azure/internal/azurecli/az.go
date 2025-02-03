@@ -5,6 +5,7 @@ package azurecli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -67,7 +68,7 @@ func (a AzureCLI) exec(cmd string, args []string) ([]byte, error) {
 // the json output into v.
 func (a AzureCLI) run(v interface{}, args ...string) error {
 	args = append(args, "-o", "json")
-	logger.Debugf("running az %s", strings.Join(args, " "))
+	logger.Debugf(context.TODO(), "running az %s", strings.Join(args, " "))
 	b, err := a.exec("az", args)
 	if err != nil {
 		return errors.Annotate(err, "execution failure")
@@ -76,7 +77,7 @@ func (a AzureCLI) run(v interface{}, args ...string) error {
 		return errors.Annotate(err, "cannot unmarshal output")
 	}
 	if logger.IsLevelEnabled(corelogger.DEBUG) {
-		logger.Debugf("az returned: %s", pretty.Sprint(v))
+		logger.Debugf(context.TODO(), "az returned: %s", pretty.Sprint(v))
 	}
 	return nil
 }

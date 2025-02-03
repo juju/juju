@@ -78,7 +78,7 @@ func (c *infoClient) info(ctx context.Context, name string, options ...InfoOptio
 
 	isTraceEnabled := c.logger.IsLevelEnabled(corelogger.TRACE)
 	if isTraceEnabled {
-		c.logger.Tracef("Info(%s)", name)
+		c.logger.Tracef(context.TODO(), "Info(%s)", name)
 	}
 
 	var resp transport.InfoResponse
@@ -117,7 +117,7 @@ func (c *infoClient) info(ctx context.Context, name string, options ...InfoOptio
 	}
 
 	if isTraceEnabled {
-		c.logger.Tracef("Info() unmarshalled: %+v", resp)
+		c.logger.Tracef(context.TODO(), "Info() unmarshalled: %+v", resp)
 	}
 	return resp, nil
 }

@@ -161,7 +161,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	controllerCloudSpec, err := c.getControllerCloudSpecFromStore(ctx, store, controllerName)
 	if err != nil {
-		logger.Debugf("unable to get controller %q cloud spec from local store", controllerName)
+		logger.Debugf(context.TODO(), "unable to get controller %q cloud spec from local store", controllerName)
 		controllerCloudSpec = cloudspec.CloudSpec{}
 	}
 
@@ -212,14 +212,14 @@ func (c *killCommand) DirectDestroyRemaining(
 	hostedConfig, err := api.HostedModelConfigs(ctx)
 	if err != nil {
 		hasErrors = true
-		logger.Warningf("unable to retrieve hosted model config: %v", err)
+		logger.Warningf(context.TODO(), "unable to retrieve hosted model config: %v", err)
 	}
 	ctrlUUID := ""
 	// try to get controller UUID or just ignore.
 	if ctrlCfg, err := api.ControllerConfig(ctx.Context); err == nil {
 		ctrlUUID = ctrlCfg.ControllerUUID()
 	} else {
-		logger.Warningf("getting controller config from API: %v", err)
+		logger.Warningf(context.TODO(), "getting controller config from API: %v", err)
 	}
 	for _, model := range hostedConfig {
 		if model.Error != nil {
@@ -229,26 +229,26 @@ func (c *killCommand) DirectDestroyRemaining(
 			// Only model name is guaranteed to be set in the result
 			// when an error is returned.
 			hasErrors = true
-			logger.Warningf("could not kill %s directly: %v", model.Name, model.Error)
+			logger.Warningf(context.TODO(), "could not kill %s directly: %v", model.Name, model.Error)
 			continue
 		}
 		ctx.Infof("Killing %s/%s directly", model.Owner.Id(), model.Name)
 		cfg, err := config.New(config.NoDefaults, model.Config)
 		if err != nil {
-			logger.Warningf(err.Error())
+			logger.Warningf(context.TODO(), err.Error())
 			hasErrors = true
 			continue
 		}
 		p, err := environs.Provider(model.CloudSpec.Type)
 		if err != nil {
-			logger.Warningf(err.Error())
+			logger.Warningf(context.TODO(), err.Error())
 			hasErrors = true
 			continue
 		}
 
 		modelCloudSpec, err := transformModelCloudSpecForInstanceRoles(model.Name, model.CloudSpec, controllerCloudSpec)
 		if err != nil {
-			logger.Warningf("could not kill %s directly: %v", model.Name, err)
+			logger.Warningf(context.TODO(), "could not kill %s directly: %v", model.Name, err)
 			continue
 		}
 
@@ -265,13 +265,13 @@ func (c *killCommand) DirectDestroyRemaining(
 				env, err = environs.Open(ctx, cloudProvider, openParams)
 			}
 			if err != nil {
-				logger.Warningf(err.Error())
+				logger.Warningf(context.TODO(), err.Error())
 				hasErrors = true
 				continue
 			}
 			callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 			if err := env.Destroy(callCtx); err != nil {
-				logger.Warningf(err.Error())
+				logger.Warningf(context.TODO(), err.Error())
 				hasErrors = true
 				continue
 			}
@@ -279,7 +279,7 @@ func (c *killCommand) DirectDestroyRemaining(
 		ctx.Infof("  done")
 	}
 	if hasErrors {
-		logger.Warningf("there were problems destroying some models, manual intervention may be necessary to ensure resources are released")
+		logger.Warningf(context.TODO(), "there were problems destroying some models, manual intervention may be necessary to ensure resources are released")
 	} else {
 		ctx.Infof("All models destroyed, cleaning up controller machines")
 	}

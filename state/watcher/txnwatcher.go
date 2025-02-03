@@ -4,6 +4,7 @@
 package watcher
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -181,7 +182,7 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 			return tomb.ErrStillAlive
 		}
 		if err != nil {
-			w.logger.Infof("watcher loop failed: %v", err)
+			w.logger.Infof(context.TODO(), "watcher loop failed: %v", err)
 		}
 		return err
 	})
@@ -248,8 +249,8 @@ func (w *TxnWatcher) Ready() error {
 // loop implements the main watcher loop.
 // period is the delay between each sync.
 func (w *TxnWatcher) loop() error {
-	w.logger.Tracef("loop started")
-	defer w.logger.Tracef("loop finished")
+	w.logger.Tracef(context.TODO(), "loop started")
+	defer w.logger.Tracef(context.TODO(), "loop finished")
 
 	// Change Stream specification can be found here:
 	// https://github.com/mongodb/specifications/blob/master/source/change-streams/change-streams.rst
@@ -304,7 +305,7 @@ func (w *TxnWatcher) loop() error {
 			}
 			if first {
 				defer w.killCursor()
-				w.logger.Infof("txn watcher started")
+				w.logger.Infof(context.TODO(), "txn watcher started")
 				close(w.readyChan)
 				first = false
 			}
@@ -316,12 +317,12 @@ func (w *TxnWatcher) loop() error {
 		}
 		if err == nil {
 			if errorOccurred {
-				w.logger.Infof("txn sync watcher resumed after failure")
+				w.logger.Infof(context.TODO(), "txn sync watcher resumed after failure")
 			}
 			errorOccurred = false
 			w.flush()
 		} else {
-			w.logger.Warningf("txn watcher sync error: %v", err)
+			w.logger.Warningf(context.TODO(), "txn watcher sync error: %v", err)
 			// If didn't get a resumable error and either we have already had one error resuming
 			// or received a fatal error, then exit the watcher and report failure.
 			if !errors.Is(err, ResumableChangeStreamError) &&
@@ -329,7 +330,7 @@ func (w *TxnWatcher) loop() error {
 				_ = w.hub.Publish(TxnWatcherSyncErr, err)
 				return errors.Trace(err)
 			}
-			w.logger.Warningf("txn watcher resume queued")
+			w.logger.Warningf(context.TODO(), "txn watcher resume queued")
 			errorOccurred = true
 			next = w.clock.After(txnWatcherErrorWait)
 		}
@@ -352,7 +353,7 @@ func (w *TxnWatcher) killCursor() {
 		} else if err == nil {
 			break
 		}
-		w.logger.Warningf("failed to kill cursor %d: %s", w.cursorId, err.Error())
+		w.logger.Warningf(context.TODO(), "failed to kill cursor %d: %s", w.cursorId, err.Error())
 	}
 	w.cursorId = 0
 }
@@ -456,7 +457,7 @@ func (w *TxnWatcher) process(changes []bson.Raw) error {
 				// If you want to receive watch notifications on your collection and get here, you need to make sure
 				// all mutations are done inside a jujutxn otherwise you have a programming error and the change will
 				// get skipped.
-				w.logger.Criticalf("update %s %v without revno %s", change.Ns.Collection, change.DocumentKey.Id, j)
+				w.logger.Criticalf(context.TODO(), "update %s %v without revno %s", change.Ns.Collection, change.DocumentKey.Id, j)
 				w.resumeToken = change.Id
 				continue
 			} else if revno == 0 && change.TxnNumber != 0 {
@@ -470,11 +471,11 @@ func (w *TxnWatcher) process(changes []bson.Raw) error {
 		default:
 			// If we have a bad change, then we can just skip it, making sure to update the resumption token
 			// to resume after this event.
-			w.logger.Warningf("received bad change type %s", change.OperationType)
+			w.logger.Warningf(context.TODO(), "received bad change type %s", change.OperationType)
 			w.resumeToken = change.Id
 			continue
 		}
-		w.logger.Debugf("txn watcher: %s %v #%d", change.Ns.Collection, change.DocumentKey.Id, revno)
+		w.logger.Debugf(context.TODO(), "txn watcher: %s %v #%d", change.Ns.Collection, change.DocumentKey.Id, revno)
 		w.syncEvents = append(w.syncEvents, Change{
 			C:     change.Ns.Collection,
 			Id:    change.DocumentKey.Id,
@@ -504,7 +505,7 @@ func (w *TxnWatcher) flush() {
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
 func (w *TxnWatcher) sync() error {
-	w.logger.Tracef("txn watcher %p starting sync", w)
+	w.logger.Tracef(context.TODO(), "txn watcher %p starting sync", w)
 
 	db := w.session.DB(w.jujuDBName)
 	resp := aggregateResponse{}

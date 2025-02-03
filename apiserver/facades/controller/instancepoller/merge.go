@@ -4,6 +4,7 @@
 package instancepoller
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -167,7 +168,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 	// Log a warning if we are changing a provider ID that is already set.
 	providerID := dev.ProviderID()
 	if providerID != "" && providerID != incomingDev.ProviderId {
-		o.logger.Warningf(
+		o.logger.Warningf(context.TODO(),
 			"changing provider ID for device %q from %q to %q",
 			dev.Name(), providerID, incomingDev.ProviderId,
 		)
@@ -196,7 +197,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDevice(dev networkingcommon.Lin
 		// If the ID is moving from one device to another for whatever reason,
 		// It will be eventually consistent. E.g. removed from the old device
 		// on this pass and added to the new device on the next.
-		o.logger.Warningf(
+		o.logger.Warningf(context.TODO(),
 			"not setting provider ID for device %q to %q; it is assigned to another device",
 			dev.Name(), incomingDev.ProviderId,
 		)
@@ -281,7 +282,7 @@ func (o *mergeMachineLinkLayerOp) processExistingDeviceAddress(
 func (o *mergeMachineLinkLayerOp) processNewDevices() {
 	for _, dev := range o.Incoming() {
 		if !o.IsDevProcessed(dev) {
-			o.logger.Debugf(
+			o.logger.Debugf(context.TODO(),
 				"ignoring unrecognised device %q (%s) with addresses %v",
 				dev.InterfaceName, dev.MACAddress, dev.Addresses,
 			)
