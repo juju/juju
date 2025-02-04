@@ -6,7 +6,9 @@
 
 package filenotifywatcher
 
-import "k8s.io/utils/inotify"
+import (
+	"github.com/fsnotify/fsnotify"
+)
 
 type watcher struct{}
 
@@ -18,7 +20,7 @@ func (w *watcher) Watch(path string) error {
 	return nil
 }
 
-func (w *watcher) Events() <-chan *inotify.Event {
+func (w *watcher) Events() <-chan fsnotify.Event {
 	return nil
 }
 
