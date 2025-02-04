@@ -696,3 +696,79 @@ type applicationConfigHash struct {
 	ApplicationUUID string `db:"application_uuid"`
 	SHA256          string `db:"sha256"`
 }
+
+// applicationConstraint represents a single returned row when joining the
+// constraint table with the constraint_space, constraint_tag and
+// constraint_zone.
+type applicationConstraint struct {
+	ApplicationUUID  string         `db:"application_uuid"`
+	Arch             sql.NullString `db:"arch"`
+	CPUCores         sql.NullInt64  `db:"cpu_cores"`
+	CPUPower         sql.NullInt64  `db:"cpu_power"`
+	Mem              sql.NullInt64  `db:"mem"`
+	RootDisk         sql.NullInt64  `db:"root_disk"`
+	RootDiskSource   sql.NullString `db:"root_disk_source"`
+	InstanceRole     sql.NullString `db:"instance_role"`
+	InstanceType     sql.NullString `db:"instance_type"`
+	ContainerType    sql.NullString `db:"container_type"`
+	VirtType         sql.NullString `db:"virt_type"`
+	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
+	ImageID          sql.NullString `db:"image_id"`
+	Space            sql.NullString `db:"space"`
+	Tag              sql.NullString `db:"tag"`
+	Zone             sql.NullString `db:"zone"`
+}
+
+type applicationConstraints []applicationConstraint
+
+type setApplicationConstraint struct {
+	ApplicationUUID string `db:"application_uuid"`
+	ConstraintUUID  string `db:"constraint_uuid"`
+}
+
+type setConstraint struct {
+	UUID             string  `db:"uuid"`
+	Arch             *string `db:"arch"`
+	CPUCores         *uint64 `db:"cpu_cores"`
+	CPUPower         *uint64 `db:"cpu_power"`
+	Mem              *uint64 `db:"mem"`
+	RootDisk         *uint64 `db:"root_disk"`
+	RootDiskSource   *string `db:"root_disk_source"`
+	InstanceRole     *string `db:"instance_role"`
+	InstanceType     *string `db:"instance_type"`
+	ContainerTypeID  *uint64 `db:"container_type_id"`
+	VirtType         *string `db:"virt_type"`
+	AllocatePublicIP *bool   `db:"allocate_public_ip"`
+	ImageID          *string `db:"image_id"`
+}
+
+type containerTypeID struct {
+	ID uint64 `db:"id"`
+}
+
+type containerTypeVal struct {
+	Value string `db:"value"`
+}
+
+type setConstraintTag struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Tag            string `db:"tag"`
+}
+
+type setConstraintSpace struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Space          string `db:"space"`
+}
+
+type setConstraintZone struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Zone           string `db:"zone"`
+}
+
+type applicationUUID struct {
+	ApplicationUUID string `db:"application_uuid"`
+}
+
+type constraintUUID struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+}

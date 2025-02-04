@@ -21,7 +21,9 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
@@ -39,7 +41,6 @@ import (
 	storagestate "github.com/juju/juju/domain/storage/state"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -1959,7 +1960,7 @@ WHERE a.name = $applicationName.name
 			return jujuerrors.Trace(err)
 		})
 		if err != nil {
-			return nil, internalerrors.Errorf("querying unit IDs for %q: %w", appName, err)
+			return nil, errors.Errorf("querying unit IDs for %q: %w", appName, err)
 		}
 		hashes := make([]string, len(result))
 		for i, r := range result {
@@ -2692,7 +2693,7 @@ WHERE application_uuid = $applicationConfigHash.application_uuid;
 	}
 	setHashStmt, err := st.Prepare(setHashQuery, applicationConfigHash{})
 	if err != nil {
-		return internalerrors.Errorf("preparing set hash query: %w", err)
+		return errors.Errorf("preparing set hash query: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -2800,14 +2801,14 @@ WHERE application_uuid = $applicationConfigHash.application_uuid;
 
 		configHash, err := hashConfigAndSettings(config, settings)
 		if err != nil {
-			return internalerrors.Errorf("hashing config and settings: %w", err)
+			return errors.Errorf("hashing config and settings: %w", err)
 		}
 
 		if err := tx.Query(ctx, setHashStmt, applicationConfigHash{
 			ApplicationUUID: ident.ID.String(),
 			SHA256:          configHash,
 		}).Run(); err != nil {
-			return internalerrors.Errorf("setting hash: %w", err)
+			return errors.Errorf("setting hash: %w", err)
 		}
 
 		return nil
@@ -2978,7 +2979,7 @@ func (st *State) GetApplicationIDByName(ctx context.Context, name string) (corea
 func (st *State) GetApplicationConfigHash(ctx context.Context, appID coreapplication.ID) (string, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	ident := applicationID{ID: appID}
@@ -2991,27 +2992,380 @@ WHERE application_uuid = $applicationID.uuid;
 
 	stmt, err := st.Prepare(query, applicationConfigHash{}, ident)
 	if err != nil {
-		return "", internalerrors.Errorf("preparing query for application config hash: %w", err)
+		return "", errors.Errorf("preparing query for application config hash: %w", err)
 	}
 
 	var hash applicationConfigHash
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 
 		if err := tx.Query(ctx, stmt, ident).Get(&hash); errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 
 		return nil
 	}); err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	return hash.SHA256, nil
+}
+
+// GetApplicationConstraints returns the application constraints for the
+// specified application ID.
+// Empty constraints are returned if no constraints exist for the given
+// application ID.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error) {
+	db, err := st.DB()
+	if err != nil {
+		return constraints.Value{}, errors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+
+	query := `
+SELECT &applicationConstraint.*
+FROM v_application_constraint
+WHERE application_uuid = $applicationID.uuid;
+`
+
+	stmt, err := st.Prepare(query, applicationConstraint{}, ident)
+	if err != nil {
+		return constraints.Value{}, errors.Errorf("preparing query for application constraints: %w", err)
+	}
+
+	var result applicationConstraints
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+			return errors.Capture(err)
+		}
+
+		err := tx.Query(ctx, stmt, ident).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
+		return nil
+	}); err != nil {
+		return constraints.Value{}, errors.Errorf("querying application constraints for application %q: %w", appID, err)
+	}
+
+	return decodeConstraints(result), nil
+}
+
+// SetApplicationConstraints sets the application constraints for the
+// specified application ID.
+// This method overwrites the full constraints on every call.
+// If invalid constraints are provided (e.g. invalid container type or
+// non-existing space), a [applicationerrors.InvalidApplicationConstraints]
+// error is returned.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	cUUID, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	cUUIDStr := cUUID.String()
+
+	selectConstraintUUIDQuery := `
+SELECT &constraintUUID.*
+FROM application_constraint 
+WHERE application_uuid = $applicationUUID.application_uuid
+`
+	selectConstraintUUIDStmt, err := st.Prepare(selectConstraintUUIDQuery, constraintUUID{}, applicationUUID{})
+	if err != nil {
+		return errors.Errorf("preparing select application constraint uuid query: %w", err)
+	}
+
+	// Cleanup all previous tags, spaces and zones from their join tables.
+	deleteConstraintTagsQuery := `DELETE FROM constraint_tag WHERE constraint_uuid = $constraintUUID.constraint_uuid`
+	deleteConstraintTagsStmt, err := st.Prepare(deleteConstraintTagsQuery, constraintUUID{})
+	if err != nil {
+		return errors.Errorf("preparing delete constraint tags query: %w", err)
+	}
+	deleteConstraintSpacesQuery := `DELETE FROM constraint_space WHERE constraint_uuid = $constraintUUID.constraint_uuid`
+	deleteConstraintSpacesStmt, err := st.Prepare(deleteConstraintSpacesQuery, constraintUUID{})
+	if err != nil {
+		return errors.Errorf("preparing delete constraint spaces query: %w", err)
+	}
+	deleteConstraintZonesQuery := `DELETE FROM constraint_zone WHERE constraint_uuid = $constraintUUID.constraint_uuid`
+	deleteConstraintZonesStmt, err := st.Prepare(deleteConstraintZonesQuery, constraintUUID{})
+	if err != nil {
+		return errors.Errorf("preparing delete constraint zones query: %w", err)
+	}
+
+	selectContainerTypeIDQuery := `SELECT &containerTypeID.id FROM container_type WHERE value = $containerTypeVal.value`
+	selectContainerTypeIDStmt, err := st.Prepare(selectContainerTypeIDQuery, containerTypeID{}, containerTypeVal{})
+	if err != nil {
+		return errors.Errorf("preparing select container type id query: %w", err)
+	}
+
+	insertConstraintsQuery := `
+INSERT INTO "constraint"(*) 
+VALUES ($setConstraint.*)
+ON CONFLICT (uuid) DO UPDATE SET
+    arch = excluded.arch,
+    cpu_cores = excluded.cpu_cores,
+    cpu_power = excluded.cpu_power,
+    mem = excluded.mem,
+    root_disk= excluded.root_disk,
+    root_disk_source = excluded.root_disk_source,
+    instance_role = excluded.instance_role,
+    instance_type = excluded.instance_type,
+    container_type_id = excluded.container_type_id,
+    virt_type = excluded.virt_type,
+    allocate_public_ip = excluded.allocate_public_ip,
+    image_id = excluded.image_id
+`
+	insertConstraintsStmt, err := st.Prepare(insertConstraintsQuery, setConstraint{})
+	if err != nil {
+		return errors.Errorf("preparing insert constraints query: %w", err)
+	}
+
+	insertConstraintTagsQuery := `INSERT INTO constraint_tag(*) VALUES ($setConstraintTag.*)`
+	insertConstraintTagsStmt, err := st.Prepare(insertConstraintTagsQuery, setConstraintTag{})
+	if err != nil {
+		return errors.Errorf("preparing insert constraint tags query: %w", err)
+	}
+
+	insertConstraintSpacesQuery := `INSERT INTO constraint_space(*) VALUES ($setConstraintSpace.*)`
+	insertConstraintSpacesStmt, err := st.Prepare(insertConstraintSpacesQuery, setConstraintSpace{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertConstraintZonesQuery := `INSERT INTO constraint_zone(*) VALUES ($setConstraintZone.*)`
+	insertConstraintZonesStmt, err := st.Prepare(insertConstraintZonesQuery, setConstraintZone{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertAppConstraintsQuery := `
+INSERT INTO application_constraint(*)
+VALUES ($setApplicationConstraint.*)
+ON CONFLICT (application_uuid) DO NOTHING
+`
+	insertAppConstraintsStmt, err := st.Prepare(insertAppConstraintsQuery, setApplicationConstraint{})
+	if err != nil {
+		return errors.Errorf("preparing insert application constraints query: %w", err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationExists(ctx, tx, applicationID{ID: appID}); err != nil {
+			return errors.Capture(err)
+		}
+
+		var containerTypeID containerTypeID
+		if cons.Container != nil {
+			err := tx.Query(ctx, selectContainerTypeIDStmt, containerTypeVal{Value: string(*cons.Container)}).Get(&containerTypeID)
+			if errors.Is(err, sql.ErrNoRows) {
+				return applicationerrors.InvalidApplicationConstraints
+			}
+			if err != nil {
+				return errors.Capture(err)
+			}
+		}
+
+		// First check if the constraint already exists, in that case
+		// we need to update it, unsetting the nil values.
+		var retrievedConstraintUUID constraintUUID
+		err := tx.Query(ctx, selectConstraintUUIDStmt, applicationUUID{ApplicationUUID: appID.String()}).Get(&retrievedConstraintUUID)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		} else if err == nil {
+			cUUIDStr = retrievedConstraintUUID.ConstraintUUID
+		}
+
+		// Cleanup tags, spaces and zones from their join tables.
+		if err := tx.Query(ctx, deleteConstraintTagsStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
+			return errors.Capture(err)
+		}
+		if err := tx.Query(ctx, deleteConstraintSpacesStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
+			return errors.Capture(err)
+		}
+		if err := tx.Query(ctx, deleteConstraintZonesStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
+			return errors.Capture(err)
+		}
+
+		constraints := encodeConstraints(cUUIDStr, cons, containerTypeID.ID)
+
+		if err := tx.Query(ctx, insertConstraintsStmt, constraints).Run(); err != nil {
+			return errors.Capture(err)
+		}
+
+		if cons.Tags != nil {
+			for _, tag := range *cons.Tags {
+				constraintTag := setConstraintTag{ConstraintUUID: cUUIDStr, Tag: tag}
+				if err := tx.Query(ctx, insertConstraintTagsStmt, constraintTag).Run(); err != nil {
+					return errors.Capture(err)
+				}
+			}
+		}
+
+		if cons.Spaces != nil {
+			for _, space := range *cons.Spaces {
+				constraintSpace := setConstraintSpace{ConstraintUUID: cUUIDStr, Space: space}
+				err := tx.Query(ctx, insertConstraintSpacesStmt, constraintSpace).Run()
+				// Space is not found.
+				if internaldatabase.IsErrConstraintForeignKey(err) {
+					return applicationerrors.InvalidApplicationConstraints
+				}
+				if err != nil {
+					return errors.Capture(err)
+				}
+			}
+		}
+
+		if cons.Zones != nil {
+			for _, zone := range *cons.Zones {
+				constraintZone := setConstraintZone{ConstraintUUID: cUUIDStr, Zone: zone}
+				if err := tx.Query(ctx, insertConstraintZonesStmt, constraintZone).Run(); err != nil {
+					return errors.Capture(err)
+				}
+			}
+		}
+
+		return errors.Capture(
+			tx.Query(ctx, insertAppConstraintsStmt, setApplicationConstraint{
+				ApplicationUUID: appID.String(),
+				ConstraintUUID:  cUUIDStr,
+			}).Run(),
+		)
+	})
+
+}
+
+// decodeConstraints flattens and maps the list of rows of applicatioConstraint
+// to get a single constraints.Value. The flattening is needed because of the
+// spaces, tags and zones constraints which are slices. We can safely assume
+// that the non-slice values are repeated on every row so we can safely
+// overwrite the previous value on each iteration.
+func decodeConstraints(cons applicationConstraints) constraints.Value {
+	res := constraints.Value{}
+
+	// Empty constraints is not an error case, so return early the empty
+	// result.
+	if len(cons) == 0 {
+		return res
+	}
+
+	// Unique spaces, tags and zones:
+	spaces := make(map[string]string)
+	tags := make(map[string]string)
+	zones := make(map[string]string)
+
+	for _, row := range cons {
+		if row.Arch.Valid {
+			res.Arch = &row.Arch.String
+		}
+		if row.CPUCores.Valid {
+			cpuCores := uint64(row.CPUCores.Int64)
+			res.CpuCores = &cpuCores
+		}
+		if row.CPUPower.Valid {
+			cpuPower := uint64(row.CPUPower.Int64)
+			res.CpuPower = &cpuPower
+		}
+		if row.Mem.Valid {
+			mem := uint64(row.Mem.Int64)
+			res.Mem = &mem
+		}
+		if row.RootDisk.Valid {
+			rootDisk := uint64(row.RootDisk.Int64)
+			res.RootDisk = &rootDisk
+		}
+		if row.RootDiskSource.Valid {
+			res.RootDiskSource = &row.RootDiskSource.String
+		}
+		if row.InstanceRole.Valid {
+			res.InstanceRole = &row.InstanceRole.String
+		}
+		if row.InstanceType.Valid {
+			res.InstanceType = &row.InstanceType.String
+		}
+		if row.ContainerType.Valid {
+			containerType := instance.ContainerType(row.ContainerType.String)
+			res.Container = &containerType
+		}
+		if row.VirtType.Valid {
+			res.VirtType = &row.VirtType.String
+		}
+		if row.AllocatePublicIP.Valid {
+			res.AllocatePublicIP = &row.AllocatePublicIP.Bool
+		}
+		if row.ImageID.Valid {
+			res.ImageID = &row.ImageID.String
+		}
+		if row.Space.Valid {
+			spaces[row.Space.String] = row.Space.String
+		}
+		if row.Tag.Valid {
+			tags[row.Tag.String] = row.Tag.String
+		}
+		if row.Zone.Valid {
+			zones[row.Zone.String] = row.Zone.String
+		}
+	}
+
+	// Add the unique spaces, tags and zones to the result:
+	if len(spaces) > 0 {
+		spacesSlice := make([]string, 0, len(spaces))
+		for _, space := range spaces {
+			spacesSlice = append(spacesSlice, space)
+		}
+		res.Spaces = &spacesSlice
+	}
+	if len(tags) > 0 {
+		tagsSlice := make([]string, 0, len(tags))
+		for _, tag := range tags {
+			tagsSlice = append(tagsSlice, tag)
+		}
+		res.Tags = &tagsSlice
+	}
+	if len(zones) > 0 {
+		zonesSlice := make([]string, 0, len(zones))
+		for _, zone := range zones {
+			zonesSlice = append(zonesSlice, zone)
+		}
+		res.Zones = &zonesSlice
+	}
+
+	return res
+}
+
+// encodeConstraints maps the constraints.Value to a constraint struct, which
+// does not contain the spaces, tags and zones constraints.
+func encodeConstraints(constraintUUID string, cons constraints.Value, containerTypeID uint64) setConstraint {
+	res := setConstraint{
+		UUID:             constraintUUID,
+		Arch:             cons.Arch,
+		CPUCores:         cons.CpuCores,
+		CPUPower:         cons.CpuPower,
+		Mem:              cons.Mem,
+		RootDisk:         cons.RootDisk,
+		RootDiskSource:   cons.RootDiskSource,
+		InstanceRole:     cons.InstanceRole,
+		InstanceType:     cons.InstanceType,
+		VirtType:         cons.VirtType,
+		AllocatePublicIP: cons.AllocatePublicIP,
+		ImageID:          cons.ImageID,
+	}
+	if cons.Container != nil {
+		res.ContainerTypeID = &containerTypeID
+	}
+	return res
 }
 
 // lookupApplication looks up the application by name and returns the
@@ -3076,14 +3430,14 @@ VALUES ($setApplicationConfig.*);
 `
 	insertStmt, err := st.Prepare(insertQuery, setApplicationConfig{})
 	if err != nil {
-		return internalerrors.Errorf("preparing insert query: %w", err)
+		return errors.Errorf("preparing insert query: %w", err)
 	}
 
 	inserts := make([]setApplicationConfig, 0, len(config))
 	for k, v := range config {
 		typeID, err := encodeConfigType(v.Type)
 		if err != nil {
-			return internalerrors.Errorf("encoding config type: %w", err)
+			return errors.Errorf("encoding config type: %w", err)
 		}
 
 		inserts = append(inserts, setApplicationConfig{
@@ -3095,7 +3449,7 @@ VALUES ($setApplicationConfig.*);
 	}
 
 	if err := tx.Query(ctx, insertStmt, inserts).Run(); err != nil {
-		return internalerrors.Errorf("inserting config: %w", err)
+		return errors.Errorf("inserting config: %w", err)
 	}
 
 	return nil
@@ -3113,14 +3467,14 @@ VALUES ($setApplicationSettings.*);
 `
 	insertStmt, err := st.Prepare(insertQuery, setApplicationSettings{})
 	if err != nil {
-		return internalerrors.Errorf("preparing insert query: %w", err)
+		return errors.Errorf("preparing insert query: %w", err)
 	}
 
 	if err := tx.Query(ctx, insertStmt, setApplicationSettings{
 		ApplicationUUID: appID.String(),
 		Trust:           settings.Trust,
 	}).Run(); err != nil {
-		return internalerrors.Errorf("inserting settings: %w", err)
+		return errors.Errorf("inserting settings: %w", err)
 	}
 
 	return nil
@@ -3138,14 +3492,14 @@ INSERT INTO application_config_hash (*) VALUES ($applicationConfigHash.*);
 `
 	insertStmt, err := st.Prepare(insertQuery, applicationConfigHash{})
 	if err != nil {
-		return internalerrors.Errorf("preparing insert query: %w", err)
+		return errors.Errorf("preparing insert query: %w", err)
 	}
 
 	if err := tx.Query(ctx, insertStmt, applicationConfigHash{
 		ApplicationUUID: appID.String(),
 		SHA256:          sha256,
 	}).Run(); err != nil {
-		return internalerrors.Errorf("inserting hash: %w", err)
+		return errors.Errorf("inserting hash: %w", err)
 	}
 	return nil
 }
@@ -3187,24 +3541,24 @@ func hashConfigAndSettings(config map[string]application.ApplicationConfig, sett
 
 	for _, key := range keys {
 		if _, err := h.Write([]byte(key)); err != nil {
-			return "", internalerrors.Errorf("writing key %q: %w", key, err)
+			return "", errors.Errorf("writing key %q: %w", key, err)
 		}
 
 		v, ok := config[key]
 		if !ok {
-			return "", internalerrors.Errorf("missing value for key %q", key)
+			return "", errors.Errorf("missing value for key %q", key)
 		}
 
 		val, err := encodeConfigValue(v)
 		if err != nil {
-			return "", internalerrors.Errorf("encoding value for key %q: %w", key, err)
+			return "", errors.Errorf("encoding value for key %q: %w", key, err)
 		}
 		if _, err := h.Write([]byte(val)); err != nil {
-			return "", internalerrors.Errorf("writing value for key %q: %w", key, err)
+			return "", errors.Errorf("writing value for key %q: %w", key, err)
 		}
 	}
 	if _, err := h.Write([]byte(fmt.Sprintf("%t", settings.Trust))); err != nil {
-		return "", internalerrors.Errorf("writing trust setting: %w", err)
+		return "", errors.Errorf("writing trust setting: %w", err)
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
@@ -3214,7 +3568,7 @@ func encodeConfigValue(v application.ApplicationConfig) (string, error) {
 	case charm.OptionBool:
 		b, ok := v.Value.(bool)
 		if !ok {
-			return "", internalerrors.Errorf("value is not a bool")
+			return "", errors.Errorf("value is not a bool")
 		}
 		return strconv.FormatBool(b), nil
 	case charm.OptionInt:
@@ -3224,22 +3578,22 @@ func encodeConfigValue(v application.ApplicationConfig) (string, error) {
 		case int64:
 			return strconv.FormatInt(t, 10), nil
 		default:
-			return "", internalerrors.Errorf("value is not an int")
+			return "", errors.Errorf("value is not an int")
 		}
 	case charm.OptionFloat:
 		f, ok := v.Value.(float64)
 		if !ok {
-			return "", internalerrors.Errorf("value is not a float")
+			return "", errors.Errorf("value is not a float")
 		}
 		return fmt.Sprintf("%f", f), nil
 	case charm.OptionString, charm.OptionSecret:
 		s, ok := v.Value.(string)
 		if !ok {
-			return "", internalerrors.Errorf("value is not a string")
+			return "", errors.Errorf("value is not a string")
 		}
 		return s, nil
 	default:
-		return "", internalerrors.Errorf("unknown config type %v", v.Type)
+		return "", errors.Errorf("unknown config type %v", v.Type)
 
 	}
 }
