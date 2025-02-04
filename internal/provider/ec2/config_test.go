@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -288,67 +287,6 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 		c.Logf("test %d: %v", i, t.config)
 		t.check(c)
 	}
-}
-
-func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(Client, envcontext.ProviderCallContext) error { return nil })
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type": "ec2",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	credential := cloud.NewCredential(
-		cloud.AccessKeyAuthType,
-		map[string]string{
-			"access-key": "x",
-			"secret-key": "y",
-		},
-	)
-	cfg, err = providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Config: cfg,
-		Cloud: environscloudspec.CloudSpec{
-			Type:       "ec2",
-			Name:       "aws",
-			Region:     "test",
-			Credential: &credential,
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	source, ok := cfg.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(source, gc.Equals, "ebs")
-}
-
-func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(Client, envcontext.ProviderCallContext) error { return nil })
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type": "ec2",
-	})
-	baseConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	credential := cloud.NewCredential(
-		cloud.AccessKeyAuthType,
-		map[string]string{
-			"access-key": "x",
-			"secret-key": "y",
-		},
-	)
-	cfg, err := providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Config: baseConfig,
-		Cloud: environscloudspec.CloudSpec{
-			Type:       "ec2",
-			Name:       "aws",
-			Region:     "test",
-			Credential: &credential,
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	source, ok := cfg.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(source, gc.Equals, "ebs")
 }
 
 // TestModelConfigDefaults is asserting the default model config values returned

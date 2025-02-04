@@ -1223,17 +1223,17 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
+	bootstrapConfig, spec, cfg, err := modelcmd.NewGetBootstrapConfigParamsFunc(
 		cmdtesting.Context(c), s.store, environs.GlobalProviderRegistry(),
 	)("devcontroller")
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(bootstrapConfig.CloudType)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := provider.PrepareConfig(context.Background(), *params)
+	err = provider.ValidateCloud(context.Background(), *spec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := environs.New(context.Background(), environs.OpenParams{
-		Cloud:  params.Cloud,
+		Cloud:  *spec,
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -622,14 +622,14 @@ func (c *destroyCommandBase) getControllerCloudSpecFromStore(
 	store jujuclient.ClientStore,
 	controllerName string,
 ) (environscloudspec.CloudSpec, error) {
-	_, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
+	_, spec, _, err := modelcmd.NewGetBootstrapConfigParamsFunc(
 		ctx, store, environs.GlobalProviderRegistry(),
 	)(controllerName)
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
 
-	return params.Cloud, nil
+	return *spec, nil
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromStore(
@@ -637,7 +637,7 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 	store jujuclient.ClientStore,
 	controllerName string,
 ) (environs.BootstrapEnviron, error) {
-	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
+	bootstrapConfig, spec, cfg, err := modelcmd.NewGetBootstrapConfigParamsFunc(
 		ctx, store, environs.GlobalProviderRegistry(),
 	)(controllerName)
 	if err != nil {
@@ -647,7 +647,7 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := provider.PrepareConfig(ctx, *params)
+	err = provider.ValidateCloud(ctx, *spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -658,7 +658,7 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 
 	openParams := environs.OpenParams{
 		ControllerUUID: ctrlUUID,
-		Cloud:          params.Cloud,
+		Cloud:          *spec,
 		Config:         cfg,
 	}
 	if cloud.CloudTypeIsCAAS(bootstrapConfig.CloudType) {

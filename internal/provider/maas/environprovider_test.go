@@ -48,70 +48,33 @@ func oauthCredential(token string) cloud.Credential {
 	)
 }
 
-func (s *EnvironProviderSuite) TestPrepareConfig(c *gc.C) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
-	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Config: config,
-		Cloud:  s.cloudSpec(),
-	})
+func (s *EnvironProviderSuite) TestValidateCloud(c *gc.C) {
+	err := providerInstance.ValidateCloud(context.Background(), s.cloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironProviderSuite) TestPrepareConfigSkipTLSVerify(c *gc.C) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
-	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *EnvironProviderSuite) TestValidateCloudSkipTLSVerify(c *gc.C) {
 	cloud := s.cloudSpec()
 	cloud.SkipTLSVerify = true
-	_, err = providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Config: config,
-		Cloud:  cloud,
-	})
+	err := providerInstance.ValidateCloud(context.Background(), cloud)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *EnvironProviderSuite) TestPrepareConfigInvalidOAuth(c *gc.C) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
-	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *EnvironProviderSuite) TestValidateCloudInvalidOAuth(c *gc.C) {
 	spec := s.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
-	_, err = providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Config: config,
-		Cloud:  spec,
-	})
+	err := providerInstance.ValidateCloud(context.Background(), spec)
 	c.Assert(err, gc.ErrorMatches, ".*malformed maas-oauth.*")
 }
 
-func (s *EnvironProviderSuite) TestPrepareConfigInvalidEndpoint(c *gc.C) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
-	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *EnvironProviderSuite) TestValidateCloudInvalidEndpoint(c *gc.C) {
 	spec := s.cloudSpec()
 	spec.Endpoint = "This should have been a URL or host."
-	_, err = providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Config: config,
-		Cloud:  spec,
-	})
+	err := providerInstance.ValidateCloud(context.Background(), spec)
 	c.Assert(err, gc.ErrorMatches,
 		`validating cloud spec: validating endpoint: endpoint "This should have been a URL or host." not valid`,
 	)
-}
-
-func (s *EnvironProviderSuite) TestPrepareConfigSetsDefaults(c *gc.C) {
-	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
-	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Config: config,
-		Cloud:  s.cloudSpec(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	src, _ := cfg.StorageDefaultBlockSource()
-	c.Assert(src, gc.Equals, "maas")
 }
 
 // create a temporary file with the given content.  The file will be cleaned

@@ -52,7 +52,7 @@ func (s *providerSuite) TestPrepareForBootstrapUserHost(c *gc.C) {
 func (s *providerSuite) TestPrepareForBootstrapNoCloudEndpoint(c *gc.C) {
 	_, err := s.testPrepareForBootstrap(c, "", "region")
 	c.Assert(err, gc.ErrorMatches,
-		`missing address of host to bootstrap: please specify "juju bootstrap manual/\[user@\]<host>"`)
+		`validating cloud spec: missing address of host to bootstrap: please specify "juju bootstrap manual/\[user@\]<host>"`)
 }
 
 func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string) (environs.BootstrapContext, error) {
@@ -63,10 +63,7 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 		Endpoint: endpoint,
 		Region:   region,
 	}
-	testConfig, err = manual.ProviderInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Config: testConfig,
-		Cloud:  cloudSpec,
-	})
+	err = manual.ProviderInstance.ValidateCloud(context.Background(), cloudSpec)
 	if err != nil {
 		return nil, err
 	}

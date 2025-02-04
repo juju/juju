@@ -24,6 +24,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/charmhub"
@@ -420,9 +421,9 @@ type fakeProvider struct {
 	environ *fakeEnviron
 }
 
-func (p *fakeProvider) PrepareConfig(_ context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	p.MethodCall(p, "PrepareConfig", args)
-	return args.Config, p.NextErr()
+func (p *fakeProvider) ValidateCloud(_ context.Context, spec cloudspec.CloudSpec) error {
+	p.MethodCall(p, "ValidateCloud", spec)
+	return p.NextErr()
 }
 
 func (p *fakeProvider) Validate(_ context.Context, newCfg, oldCfg *config.Config) (*config.Config, error) {

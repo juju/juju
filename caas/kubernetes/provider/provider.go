@@ -24,14 +24,12 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 )
 
@@ -209,20 +207,9 @@ func (p kubernetesEnvironProvider) Ping(ctx envcontext.ProviderCallContext, endp
 	return errors.NotImplementedf("Ping")
 }
 
-// PrepareConfig is specified in the EnvironProvider interface.
-func (p kubernetesEnvironProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := p.validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
-	// Set the default storage sources.
-	attrs := make(map[string]interface{})
-	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
-		attrs[config.StorageDefaultBlockSourceKey] = constants.StorageProviderType
-	}
-	if _, ok := args.Config.StorageDefaultFilesystemSource(); !ok {
-		attrs[config.StorageDefaultFilesystemSourceKey] = constants.StorageProviderType
-	}
-	return args.Config.Apply(attrs)
+// ValidateCloud is specified in the EnvironProvider interface.
+func (p kubernetesEnvironProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+	return errors.Annotate(p.validateCloudSpec(spec), "validating cloud spec")
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.

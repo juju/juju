@@ -189,7 +189,7 @@ func prepare(
 		return cfg, details, errors.Trace(err)
 	}
 
-	cfg, err = p.PrepareConfig(ctx, environs.PrepareConfigParams{Cloud: args.Cloud, Config: cfg})
+	err = p.ValidateCloud(ctx, args.Cloud)
 	if err != nil {
 		return cfg, details, errors.Trace(err)
 	}

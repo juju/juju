@@ -114,13 +114,9 @@ func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec,
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 
-func (s *providerSuite) TestPrepareConfig(c *gc.C) {
-	cfg, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Config: fakeConfig(c),
-		Cloud:  fakeCloudSpec(),
-	})
+func (s *providerSuite) TestValidateCloud(c *gc.C) {
+	err := s.provider.ValidateCloud(context.Background(), fakeCloudSpec())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(cfg, gc.NotNil)
 }
 
 func (s *providerSuite) TestValidate(c *gc.C) {

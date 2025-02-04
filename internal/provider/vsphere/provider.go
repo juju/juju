@@ -138,12 +138,9 @@ func (p *environProvider) Ping(callCtx callcontext.ProviderCallContext, endpoint
 	return nil
 }
 
-// PrepareConfig implements environs.EnvironProvider.
-func (p *environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
-	return args.Config, nil
+// ValidateCloud is specified in the EnvironProvider interface.
+func (*environProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+	return errors.Annotate(validateCloudSpec(spec), "validating cloud spec")
 }
 
 // Validate implements environs.EnvironProvider.

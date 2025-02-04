@@ -68,13 +68,8 @@ func fakeServicePrincipalCredential() *cloud.Credential {
 }
 
 func (s *environProviderSuite) TestPrepareConfig(c *gc.C) {
-	cfg := makeTestModelConfig(c)
-	cfg, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
-		Cloud:  s.spec,
-		Config: cfg,
-	})
+	err := s.provider.ValidateCloud(context.Background(), s.spec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg, gc.NotNil)
 }
 
 func (s *environProviderSuite) TestOpen(c *gc.C) {

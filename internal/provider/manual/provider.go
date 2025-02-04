@@ -109,16 +109,9 @@ func pingMachine(endpoint string) error {
 	return nil
 }
 
-// PrepareConfig is specified in the EnvironProvider interface.
-func (p ManualProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Trace(err)
-	}
-	envConfig, err := p.validate(ctx, args.Config, nil)
-	if err != nil {
-		return nil, err
-	}
-	return args.Config.Apply(envConfig.attrs)
+// ValidateCloud is specified in the EnvironProvider interface.
+func (ManualProvider) ValidateCloud(ctx context.Context, spec environscloudspec.CloudSpec) error {
+	return errors.Annotate(validateCloudSpec(spec), "validating cloud spec")
 }
 
 // Version is part of the EnvironProvider interface.

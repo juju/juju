@@ -31,7 +31,7 @@ func prepare(ctx *cmd.Context, controllerName string, store jujuclient.ClientSto
 	// NOTE(axw) this is a work-around for the TODO below. This
 	// means that the command will only work if you've bootstrapped
 	// the specified environment.
-	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
+	bootstrapConfig, spec, cfg, err := modelcmd.NewGetBootstrapConfigParamsFunc(
 		ctx, store, environs.GlobalProviderRegistry(),
 	)(controllerName)
 	if err != nil {
@@ -44,10 +44,6 @@ func prepare(ctx *cmd.Context, controllerName string, store jujuclient.ClientSto
 	if _, ok := provider.(caas.ContainerEnvironProvider); ok {
 		return nil, errors.NotSupportedf("preparing environ for CAAS")
 	}
-	cfg, err := provider.PrepareConfig(ctx, *params)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	// TODO(axw) we'll need to revise the metadata commands to work
 	// without preparing an environment. They should take the same
 	// format as bootstrap, i.e. cloud/region, and we'll use that to
@@ -55,7 +51,7 @@ func prepare(ctx *cmd.Context, controllerName string, store jujuclient.ClientSto
 	// we'll do about simplestreams.MetadataValidator yet. Probably
 	// move it to the EnvironProvider interface.
 	return environs.New(ctx, environs.OpenParams{
-		Cloud:  params.Cloud,
+		Cloud:  *spec,
 		Config: cfg,
 	})
 }

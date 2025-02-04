@@ -19,6 +19,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	firewall "github.com/juju/juju/core/network/firewall"
 	environs "github.com/juju/juju/environs"
+	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
@@ -244,45 +245,6 @@ func (c *MockEnvironProviderPingCall) DoAndReturn(f func(envcontext.ProviderCall
 	return c
 }
 
-// PrepareConfig mocks base method.
-func (m *MockEnvironProvider) PrepareConfig(arg0 context.Context, arg1 environs.PrepareConfigParams) (*config.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareConfig", arg0, arg1)
-	ret0, _ := ret[0].(*config.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareConfig indicates an expected call of PrepareConfig.
-func (mr *MockEnvironProviderMockRecorder) PrepareConfig(arg0, arg1 any) *MockEnvironProviderPrepareConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareConfig", reflect.TypeOf((*MockEnvironProvider)(nil).PrepareConfig), arg0, arg1)
-	return &MockEnvironProviderPrepareConfigCall{Call: call}
-}
-
-// MockEnvironProviderPrepareConfigCall wrap *gomock.Call
-type MockEnvironProviderPrepareConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockEnvironProviderPrepareConfigCall) Return(arg0 *config.Config, arg1 error) *MockEnvironProviderPrepareConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockEnvironProviderPrepareConfigCall) Do(f func(context.Context, environs.PrepareConfigParams) (*config.Config, error)) *MockEnvironProviderPrepareConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironProviderPrepareConfigCall) DoAndReturn(f func(context.Context, environs.PrepareConfigParams) (*config.Config, error)) *MockEnvironProviderPrepareConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Validate mocks base method.
 func (m *MockEnvironProvider) Validate(arg0 context.Context, arg1, arg2 *config.Config) (*config.Config, error) {
 	m.ctrl.T.Helper()
@@ -318,6 +280,44 @@ func (c *MockEnvironProviderValidateCall) Do(f func(context.Context, *config.Con
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockEnvironProviderValidateCall) DoAndReturn(f func(context.Context, *config.Config, *config.Config) (*config.Config, error)) *MockEnvironProviderValidateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ValidateCloud mocks base method.
+func (m *MockEnvironProvider) ValidateCloud(arg0 context.Context, arg1 cloudspec.CloudSpec) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateCloud", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateCloud indicates an expected call of ValidateCloud.
+func (mr *MockEnvironProviderMockRecorder) ValidateCloud(arg0, arg1 any) *MockEnvironProviderValidateCloudCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateCloud", reflect.TypeOf((*MockEnvironProvider)(nil).ValidateCloud), arg0, arg1)
+	return &MockEnvironProviderValidateCloudCall{Call: call}
+}
+
+// MockEnvironProviderValidateCloudCall wrap *gomock.Call
+type MockEnvironProviderValidateCloudCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockEnvironProviderValidateCloudCall) Return(arg0 error) *MockEnvironProviderValidateCloudCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockEnvironProviderValidateCloudCall) Do(f func(context.Context, cloudspec.CloudSpec) error) *MockEnvironProviderValidateCloudCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockEnvironProviderValidateCloudCall) DoAndReturn(f func(context.Context, cloudspec.CloudSpec) error) *MockEnvironProviderValidateCloudCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -614,45 +614,6 @@ func (c *MockCloudEnvironProviderPingCall) DoAndReturn(f func(envcontext.Provide
 	return c
 }
 
-// PrepareConfig mocks base method.
-func (m *MockCloudEnvironProvider) PrepareConfig(arg0 context.Context, arg1 environs.PrepareConfigParams) (*config.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareConfig", arg0, arg1)
-	ret0, _ := ret[0].(*config.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareConfig indicates an expected call of PrepareConfig.
-func (mr *MockCloudEnvironProviderMockRecorder) PrepareConfig(arg0, arg1 any) *MockCloudEnvironProviderPrepareConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareConfig", reflect.TypeOf((*MockCloudEnvironProvider)(nil).PrepareConfig), arg0, arg1)
-	return &MockCloudEnvironProviderPrepareConfigCall{Call: call}
-}
-
-// MockCloudEnvironProviderPrepareConfigCall wrap *gomock.Call
-type MockCloudEnvironProviderPrepareConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCloudEnvironProviderPrepareConfigCall) Return(arg0 *config.Config, arg1 error) *MockCloudEnvironProviderPrepareConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCloudEnvironProviderPrepareConfigCall) Do(f func(context.Context, environs.PrepareConfigParams) (*config.Config, error)) *MockCloudEnvironProviderPrepareConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCloudEnvironProviderPrepareConfigCall) DoAndReturn(f func(context.Context, environs.PrepareConfigParams) (*config.Config, error)) *MockCloudEnvironProviderPrepareConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Validate mocks base method.
 func (m *MockCloudEnvironProvider) Validate(arg0 context.Context, arg1, arg2 *config.Config) (*config.Config, error) {
 	m.ctrl.T.Helper()
@@ -688,6 +649,44 @@ func (c *MockCloudEnvironProviderValidateCall) Do(f func(context.Context, *confi
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCloudEnvironProviderValidateCall) DoAndReturn(f func(context.Context, *config.Config, *config.Config) (*config.Config, error)) *MockCloudEnvironProviderValidateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ValidateCloud mocks base method.
+func (m *MockCloudEnvironProvider) ValidateCloud(arg0 context.Context, arg1 cloudspec.CloudSpec) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateCloud", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateCloud indicates an expected call of ValidateCloud.
+func (mr *MockCloudEnvironProviderMockRecorder) ValidateCloud(arg0, arg1 any) *MockCloudEnvironProviderValidateCloudCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateCloud", reflect.TypeOf((*MockCloudEnvironProvider)(nil).ValidateCloud), arg0, arg1)
+	return &MockCloudEnvironProviderValidateCloudCall{Call: call}
+}
+
+// MockCloudEnvironProviderValidateCloudCall wrap *gomock.Call
+type MockCloudEnvironProviderValidateCloudCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCloudEnvironProviderValidateCloudCall) Return(arg0 error) *MockCloudEnvironProviderValidateCloudCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCloudEnvironProviderValidateCloudCall) Do(f func(context.Context, cloudspec.CloudSpec) error) *MockCloudEnvironProviderValidateCloudCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCloudEnvironProviderValidateCloudCall) DoAndReturn(f func(context.Context, cloudspec.CloudSpec) error) *MockCloudEnvironProviderValidateCloudCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
