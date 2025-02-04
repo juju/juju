@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
-	"gopkg.in/macaroon.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -28,7 +27,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/crossmodel"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
@@ -1907,108 +1905,7 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 // Consume adds remote applications to the model without creating any
 // relations.
 func (api *APIBase) Consume(ctx context.Context, args params.ConsumeApplicationArgsV5) (params.ErrorResults, error) {
-	var consumeResults params.ErrorResults
-	if err := api.checkCanWrite(ctx); err != nil {
-		return consumeResults, errors.Trace(err)
-	}
-	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return consumeResults, errors.Trace(err)
-	}
-
-	results := make([]params.ErrorResult, len(args.Args))
-	for i, arg := range args.Args {
-		err := api.consumeOne(ctx, arg)
-		results[i].Error = apiservererrors.ServerError(err)
-	}
-	consumeResults.Results = results
-	return consumeResults, nil
-}
-
-func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicationArgV5) error {
-	sourceModelTag, err := names.ParseModelTag(arg.SourceModelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Maybe save the details of the controller hosting the offer.
-	var externalControllerUUID string
-	if arg.ControllerInfo != nil {
-		controllerTag, err := names.ParseControllerTag(arg.ControllerInfo.ControllerTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		// Only save controller details if the offer comes from
-		// a different controller.
-		if controllerTag.Id() != api.backend.ControllerTag().Id() {
-			externalControllerUUID = controllerTag.Id()
-			if err = api.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
-				ControllerTag: controllerTag,
-				Alias:         arg.ControllerInfo.Alias,
-				Addrs:         arg.ControllerInfo.Addrs,
-				CACert:        arg.ControllerInfo.CACert,
-				ModelUUIDs:    []string{sourceModelTag.Id()},
-			}); err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
-
-	appName := arg.ApplicationAlias
-	if appName == "" {
-		appName = arg.OfferName
-	}
-	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetailsV5, arg.Macaroon)
-	return err
-}
-
-// saveRemoteApplication saves the details of the specified remote application and its endpoints
-// to the state model so relations to the remote application can be created.
-func (api *APIBase) saveRemoteApplication(
-	sourceModelTag names.ModelTag,
-	applicationName string,
-	externalControllerUUID string,
-	offer params.ApplicationOfferDetailsV5,
-	mac *macaroon.Macaroon,
-) (RemoteApplication, error) {
-	remoteEps := make([]charm.Relation, len(offer.Endpoints))
-	for j, ep := range offer.Endpoints {
-		remoteEps[j] = charm.Relation{
-			Name:      ep.Name,
-			Role:      ep.Role,
-			Interface: ep.Interface,
-		}
-	}
-
-	// If a remote application with the same name and endpoints from the same
-	// source model already exists, we will use that one.
-	// If the status was "terminated", the offer had been removed, so we'll replace
-	// the terminated application with a fresh copy.
-	remoteApp, appStatus, err := api.maybeUpdateExistingApplicationEndpoints(applicationName, sourceModelTag, remoteEps)
-	if err == nil {
-		if appStatus != status.Terminated {
-			return remoteApp, nil
-		}
-		// If the same application was previously terminated due to the offer being removed,
-		// first ensure we delete it from this consuming model before adding again.
-		// TODO(wallyworld) - this operation should be in a single txn.
-		api.logger.Debugf(context.TODO(), "removing terminated remote app %q before adding a replacement", applicationName)
-		op := remoteApp.DestroyOperation(true)
-		if err := api.backend.ApplyOperation(op); err != nil {
-			return nil, errors.Annotatef(err, "removing terminated saas application %q", applicationName)
-		}
-	} else if !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-
-	return api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:                   applicationName,
-		OfferUUID:              offer.OfferUUID,
-		URL:                    offer.OfferURL,
-		ExternalControllerUUID: externalControllerUUID,
-		SourceModel:            sourceModelTag,
-		Endpoints:              remoteEps,
-		Macaroon:               mac,
-	})
+	return params.ErrorResults{}, internalerrors.Errorf("cross model relations are disabled until backend functionality is moved to domain: %w", errors.NotImplemented)
 }
 
 // maybeUpdateExistingApplicationEndpoints looks for a remote application with the
