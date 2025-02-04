@@ -460,13 +460,13 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 	unitArg := ImportUnitArg{
 		UnitName:     "ubuntu/666",
 		PasswordHash: ptr("passwordhash"),
-		AgentStatus: StatusParams{
+		AgentStatus: application.StatusParams{
 			Status:  "idle",
 			Message: "agent status",
 			Data:    map[string]any{"foo": "bar"},
 			Since:   ptr(s.clock.Now()),
 		},
-		WorkloadStatus: StatusParams{
+		WorkloadStatus: application.StatusParams{
 			Status:  "waiting",
 			Message: "workload status",
 			Data:    map[string]any{"foo": "bar"},

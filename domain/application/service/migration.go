@@ -13,10 +13,14 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/network"
 	corestorage "github.com/juju/juju/core/storage"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/ipaddress"
+	"github.com/juju/juju/domain/linklayerdevice"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
@@ -222,6 +226,38 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 	return nil
 }
 
+func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
+	result := &application.CloudContainer{
+		ProviderId: cloudContainer.ProviderId,
+		Ports:      cloudContainer.Ports,
+	}
+	if cloudContainer.Address != nil {
+		// TODO(units) - handle the cloudContainer.Address space ID
+		// For k8s we'll initially create a /32 subnet off the container address
+		// and add that to the default space.
+		result.Address = &application.ContainerAddress{
+			// For cloud containers, the device is a placeholder without
+			// a MAC address and once inserted, not updated. It just exists
+			// to tie the address to the net node corresponding to the
+			// cloud container.
+			Device: application.ContainerDevice{
+				Name:              fmt.Sprintf("placeholder for %q cloud container", unitName),
+				DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
+				VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
+			},
+			Value:       cloudContainer.Address.Value,
+			AddressType: ipaddress.MarshallAddressType(cloudContainer.Address.AddressType()),
+			Scope:       ipaddress.MarshallScope(cloudContainer.Address.Scope),
+			Origin:      ipaddress.MarshallOrigin(network.OriginProvider),
+			ConfigType:  ipaddress.MarshallConfigType(network.ConfigDHCP),
+		}
+		if cloudContainer.AddressOrigin != nil {
+			result.Address.Origin = ipaddress.MarshallOrigin(*cloudContainer.AddressOrigin)
+		}
+	}
+	return result
+}
+
 // RemoveImportedApplication removes an application that was imported. The
 // application might be in an incomplete state, so it's important to remove
 // as much of the application as possible, even on failure.
@@ -231,7 +267,7 @@ func (s *MigrationService) RemoveImportedApplication(context.Context, string) er
 	return nil
 }
 
-func (s *MigrationService) makeUnitStatus(in StatusParams) application.StatusInfo {
+func (s *MigrationService) makeUnitStatus(in application.StatusParams) application.StatusInfo {
 	si := application.StatusInfo{
 		Message: in.Message,
 		Since:   s.clock.Now(),

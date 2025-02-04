@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
@@ -69,5 +70,5 @@ type ApplicationService interface {
 	IsCharmAvailable(ctx context.Context, locator applicationcharm.CharmLocator) (bool, error)
 	DestroyUnit(context.Context, unit.Name) error
 	RemoveUnit(context.Context, unit.Name, leadership.Revoker) error
-	UpdateCAASUnit(context.Context, unit.Name, service.UpdateCAASUnitParams) error
+	UpdateCAASUnit(context.Context, unit.Name, application.UpdateCAASUnitParams) error
 }

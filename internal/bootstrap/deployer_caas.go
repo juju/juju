@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/version"
-	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/state"
 )
 
@@ -110,7 +110,7 @@ func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Unit)
 	if err != nil {
 		return errors.Annotatef(err, "parsing controller unit name %q", controllerUnit.UnitTag().Id())
 	}
-	if err := d.applicationService.UpdateCAASUnit(ctx, controllerUnitName, service.UpdateCAASUnitParams{
+	if err := d.applicationService.UpdateCAASUnit(ctx, controllerUnitName, application.UpdateCAASUnitParams{
 		ProviderId: &providerID,
 	}); err != nil {
 		return errors.Annotatef(err, "updating controller unit")

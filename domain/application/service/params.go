@@ -4,12 +4,9 @@
 package service
 
 import (
-	"time"
-
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/objectstore"
-	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -80,8 +77,8 @@ type AddUnitArg struct {
 type ImportUnitArg struct {
 	UnitName       coreunit.Name
 	PasswordHash   *string
-	AgentStatus    StatusParams
-	WorkloadStatus StatusParams
+	AgentStatus    application.StatusParams
+	WorkloadStatus application.StatusParams
 	CloudContainer *application.CloudContainerParams
 }
 
@@ -90,24 +87,6 @@ type ImportUnitArg struct {
 type ScalingState struct {
 	ScaleTarget int
 	Scaling     bool
-}
-
-// StatusParams contains parameters for setting unit status.
-type StatusParams struct {
-	Status  corestatus.Status
-	Message string
-	Data    map[string]any
-	Since   *time.Time
-}
-
-// UpdateCAASUnitParams contains parameters for updating a CAAS unit.
-type UpdateCAASUnitParams struct {
-	ProviderId           *string
-	Address              *string
-	Ports                *[]string
-	AgentStatus          *StatusParams
-	WorkloadStatus       *StatusParams
-	CloudContainerStatus *StatusParams
 }
 
 // UpdateCharmParams contains the parameters for updating
