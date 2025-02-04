@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -348,17 +349,17 @@ func (st *State) startWorkers(hub *pubsub.SimpleHub) (err error) {
 			return
 		}
 		if err2 := st.Close(); err2 != nil {
-			logger.Errorf("closing State for %s: %v", st.modelTag, err2)
+			logger.Errorf(context.TODO(), "closing State for %s: %v", st.modelTag, err2)
 		}
 	}()
 
-	logger.Infof("starting standard state workers")
+	logger.Infof(context.TODO(), "starting standard state workers")
 	workers, err := newWorkers(st, hub)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	st.workers = workers
-	logger.Infof("started state workers for %s successfully", st.modelTag)
+	logger.Infof(context.TODO(), "started state workers for %s successfully", st.modelTag)
 	return nil
 }
 
@@ -1250,7 +1251,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 	}
 	unsupported, err := st.validateConstraints(cons)
 	if len(unsupported) > 0 {
-		logger.Warningf(
+		logger.Warningf(context.TODO(),
 			"deploying %q: unsupported constraints: %v", args.Name, strings.Join(unsupported, ","))
 	}
 	return Base{appBase.OS, appBase.Channel.String()}, errors.Trace(err)

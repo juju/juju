@@ -159,7 +159,7 @@ func (e *EventMultiplexer) Report() map[string]any {
 	// This can happen if we're in the middle of a dispatch and the term
 	// channel is blocked.
 	case <-e.clock.After(time.Second):
-		e.logger.Errorf("report request timed out")
+		e.logger.Errorf(context.TODO(), "report request timed out")
 		return nil
 	case e.reportsCh <- r:
 	}
@@ -204,7 +204,7 @@ func (e *EventMultiplexer) loop() error {
 
 		// If the underlying stream is dying, then we should also exit.
 		case <-e.stream.Dying():
-			e.logger.Debugf("change stream is dying, waiting for catacomb to die")
+			e.logger.Debugf(context.TODO(), "change stream is dying, waiting for catacomb to die")
 
 			<-e.catacomb.Dying()
 			return e.catacomb.ErrDying()
@@ -214,7 +214,7 @@ func (e *EventMultiplexer) loop() error {
 			// again using the change stream worker infrastructure. In this case
 			// just ignore and close out.
 			if !ok {
-				e.logger.Infof("change stream term channel is closed")
+				e.logger.Infof(context.TODO(), "change stream term channel is closed")
 				return nil
 			}
 
@@ -242,7 +242,7 @@ func (e *EventMultiplexer) loop() error {
 			// There isn't anything we can do in this case.
 			err := e.dispatchSet(changeSet)
 			if err != nil {
-				e.logger.Errorf("dispatching set: %v", err)
+				e.logger.Errorf(context.TODO(), "dispatching set: %v", err)
 				e.dispatchErrorCount++
 			}
 			e.metrics.DispatchDurationObserve(e.clock.Now().Sub(begin).Seconds(), err != nil)
@@ -339,7 +339,7 @@ func (e *EventMultiplexer) loop() error {
 			// to bring down the entire multiplexer. Instead, just log it out
 			// and continue.
 			if err := sub.close(); err != nil {
-				e.logger.Infof("error closing subscription: %v", err)
+				e.logger.Infof(context.TODO(), "error closing subscription: %v", err)
 			}
 
 		case r := <-e.reportsCh:
@@ -380,13 +380,13 @@ func (e *EventMultiplexer) gatherSubscriptions(ch changestream.ChangeEvent) []*s
 
 		if !subOpt.filter(ch) {
 			if traceEnabled {
-				e.logger.Tracef("filtering out change: %v", ch)
+				e.logger.Tracef(context.TODO(), "filtering out change: %v", ch)
 			}
 			continue
 		}
 
 		if traceEnabled {
-			e.logger.Tracef("dispatching change: %v", ch)
+			e.logger.Tracef(context.TODO(), "dispatching change: %v", ch)
 		}
 
 		subs[subOpt.subscriptionID] = e.subscriptions[subOpt.subscriptionID]

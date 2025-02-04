@@ -6,6 +6,7 @@ package iscsi
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -110,7 +111,7 @@ func getHardwareInfo(name string) (blockdevice.BlockDevice, error) {
 		}
 		fields := strings.SplitN(line, "=", 2)
 		if len(fields) != 2 {
-			logger.Tracef("failed to parse line %s", line)
+			logger.Tracef(context.TODO(), "failed to parse line %s", line)
 			continue
 		}
 
@@ -198,12 +199,12 @@ func (i *iscsiConnectionInfo) deviceName() (string, error) {
 	for _, val := range items {
 		sessionBase, err := i.sessionBase(val.Name())
 		if err != nil {
-			logger.Tracef("failed to get session folder for device %s: %s", val.Name(), err)
+			logger.Tracef(context.TODO(), "failed to get session folder for device %s: %s", val.Name(), err)
 			continue
 		}
 		tgtnameFile := filepath.Join(sessionBase, "targetname")
 		if _, err := os.Stat(tgtnameFile); err != nil {
-			logger.Tracef("%s was not found. Skipping", tgtnameFile)
+			logger.Tracef(context.TODO(), "%s was not found. Skipping", tgtnameFile)
 			continue
 		}
 		tgtname, err := os.ReadFile(tgtnameFile)

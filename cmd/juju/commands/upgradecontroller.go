@@ -223,7 +223,7 @@ func (c *upgradeControllerCommand) uploadTools(
 	defer os.RemoveAll(builtTools.Dir)
 
 	if dryRun {
-		logger.Debugf("dryrun, skipping upload agent binary")
+		logger.Debugf(context.TODO(), "dryrun, skipping upload agent binary")
 		return targetVersion, nil
 	}
 
@@ -231,7 +231,7 @@ func (c *upgradeControllerCommand) uploadTools(
 	uploadToolsVersion.Number = targetVersion
 
 	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
-	logger.Infof("uploading agent binary %v (%dkB) to Juju controller", targetVersion, (builtTools.Size+512)/1024)
+	logger.Infof(context.TODO(), "uploading agent binary %v (%dkB) to Juju controller", targetVersion, (builtTools.Size+512)/1024)
 	f, err := os.Open(toolsPath)
 	if err != nil {
 		return targetVersion, errors.Trace(err)
@@ -253,7 +253,7 @@ func (c *upgradeControllerCommand) upgradeWithTargetVersion(
 	if err == nil {
 		// All good!
 		// Upgraded to the provided target version.
-		logger.Debugf("upgraded to the provided target version %q", targetVersion)
+		logger.Debugf(context.TODO(), "upgraded to the provided target version %q", targetVersion)
 		return chosenVersion, nil
 	}
 	if !errors.Is(err, errors.NotFound) {
@@ -267,12 +267,12 @@ func (c *upgradeControllerCommand) upgradeWithTargetVersion(
 	if !canImplicitUpload {
 		// expecting to upload a local binary but we are not allowed to upload, so pretend there
 		// is no more recent version available.
-		logger.Debugf("no available binary found, and we are not allowed to upload, err %v", err)
+		logger.Debugf(context.TODO(), "no available binary found, and we are not allowed to upload, err %v", err)
 		return chosenVersion, errUpToDate
 	}
 
 	if targetVersion.Compare(jujuversion.Current.ToPatch()) != 0 {
-		logger.Warningf(
+		logger.Warningf(context.TODO(),
 			"try again with --agent-version=%s if you want to upgrade using the local packaged jujud from the snap",
 			jujuversion.Current.ToPatch(),
 		)
@@ -319,7 +319,7 @@ func (c *upgradeControllerCommand) upgradeController(
 			err = nil
 		}
 		if err != nil {
-			logger.Debugf("upgradeController failed %v", err)
+			logger.Debugf(context.TODO(), "upgradeController failed %v", err)
 		}
 	}()
 
@@ -390,7 +390,7 @@ func (c *upgradeControllerCommand) upgradeController(
 	if err == nil {
 		// All good!
 		// Upgraded to a next stable version or the newest stable version.
-		logger.Debugf("upgraded to a next version or latest stable version")
+		logger.Debugf(context.TODO(), "upgraded to a next version or latest stable version")
 		return nil
 	}
 	if errors.Is(err, errors.NotFound) {
@@ -428,18 +428,18 @@ func checkCanImplicitUpload(
 	clientVersion, agentVersion version.Number,
 ) bool {
 	if modelType != model.IAAS {
-		logger.Tracef("the model is not IAAS model")
+		logger.Tracef(context.TODO(), "the model is not IAAS model")
 		return false
 	}
 
 	if !isOfficialClient {
-		logger.Tracef("the client is not an official client")
+		logger.Tracef(context.TODO(), "the client is not an official client")
 		// For non official (under $GOPATH) client, always use --build-agent explicitly.
 		return false
 	}
 	newerClient := clientVersion.Compare(agentVersion.ToPatch()) >= 0
 	if !newerClient {
-		logger.Tracef(
+		logger.Tracef(context.TODO(),
 			"the client version(%s) is not newer than agent version(%s)",
 			clientVersion, agentVersion.ToPatch(),
 		)

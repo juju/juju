@@ -5,6 +5,7 @@ package network
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"sort"
@@ -538,7 +539,7 @@ func (pas ProviderAddresses) ToSpaceAddresses(spaceInfos SpaceInfos) (SpaceAddre
 		// Otherwise attempt to look up the CIDR.
 		sInfo, err := spaceInfos.InferSpaceFromCIDRAndSubnetID(pa.CIDR, string(pa.ProviderSubnetID))
 		if err != nil {
-			logger.Debugf("no matching subnet for CIDR %q and provider ID %q", pa.CIDR, pa.ProviderSubnetID)
+			logger.Debugf(context.TODO(), "no matching subnet for CIDR %q and provider ID %q", pa.CIDR, pa.ProviderSubnetID)
 			continue
 		}
 		sas[i].SpaceID = sInfo.ID
@@ -554,7 +555,7 @@ func (pas ProviderAddresses) OneMatchingScope(getMatcher ScopeMatchFunc) (Provid
 		return ProviderAddress{}, false
 	}
 	addr := pas[indexes[0]]
-	logger.Debugf("selected %q as address, using scope %q", addr.Value, addr.Scope)
+	logger.Debugf(context.TODO(), "selected %q as address, using scope %q", addr.Value, addr.Scope)
 	return addr, true
 }
 
@@ -641,7 +642,7 @@ func (sas SpaceAddresses) ToProviderAddresses(spaceInfos SpaceInfos) (ProviderAd
 // InSpaces returns the SpaceAddresses that are in the input spaces.
 func (sas SpaceAddresses) InSpaces(spaces ...SpaceInfo) (SpaceAddresses, bool) {
 	if len(spaces) == 0 {
-		logger.Errorf("addresses not filtered - no spaces given.")
+		logger.Errorf(context.TODO(), "addresses not filtered - no spaces given.")
 		return sas, false
 	}
 
@@ -649,7 +650,7 @@ func (sas SpaceAddresses) InSpaces(spaces ...SpaceInfo) (SpaceAddresses, bool) {
 	var selectedAddresses SpaceAddresses
 	for _, addr := range sas {
 		if space := spaceInfos.GetByID(addr.SpaceID); space != nil {
-			logger.Debugf("selected %q as an address in space %q", addr.Value, space.Name)
+			logger.Debugf(context.TODO(), "selected %q as an address in space %q", addr.Value, space.Name)
 			selectedAddresses = append(selectedAddresses, addr)
 		}
 	}
@@ -658,7 +659,7 @@ func (sas SpaceAddresses) InSpaces(spaces ...SpaceInfo) (SpaceAddresses, bool) {
 		return selectedAddresses, true
 	}
 
-	logger.Errorf("no addresses found in spaces %s", spaceInfos)
+	logger.Errorf(context.TODO(), "no addresses found in spaces %s", spaceInfos)
 	return sas, false
 }
 

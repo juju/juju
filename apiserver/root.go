@@ -293,7 +293,7 @@ func (r *apiHandler) CloseConn() error {
 func (r *apiHandler) Kill() {
 	r.watcherRegistry.Kill()
 	if err := r.watcherRegistry.Wait(); err != nil {
-		logger.Infof("error waiting for watcher registry to stop: %v", err)
+		logger.Infof(context.TODO(), "error waiting for watcher registry to stop: %v", err)
 	}
 	r.resources.StopAll()
 }

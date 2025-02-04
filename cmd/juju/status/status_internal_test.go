@@ -5,6 +5,7 @@ package status
 
 import (
 	"bytes"
+	stdcontext "context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -5493,7 +5494,7 @@ func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--format=yaml", "--relations")
 	c.Assert(stderr, gc.Equals, "provided relations option is always enabled in non tabular formats\n")
-	logger.Debugf("stdout -> \n%q", stdout)
+	logger.Debugf(stdcontext.TODO(), "stdout -> \n%q", stdout)
 	c.Assert(strings.Contains(stdout, "    relations:"), jc.IsTrue)
 	c.Assert(strings.Contains(stdout, "storage:"), jc.IsTrue)
 }

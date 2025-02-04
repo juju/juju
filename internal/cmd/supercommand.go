@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"sort"
@@ -11,11 +12,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("cmd")
+var logger = internallogger.GetLogger("cmd")
 
 type topic struct {
 	short string
@@ -287,7 +289,7 @@ func (c *SuperCommand) RegisterDeprecated(subcmd Command, check DeprecationCheck
 
 	info := subcmd.Info()
 	if check != nil && check.Obsolete() {
-		logger.Infof("%q command not registered as it is obsolete", info.Name)
+		logger.Infof(context.TODO(), "%q command not registered as it is obsolete", info.Name)
 		return
 	}
 	c.insert(commandReference{name: info.Name, command: subcmd, check: check})
@@ -301,7 +303,7 @@ func (c *SuperCommand) RegisterDeprecated(subcmd Command, check DeprecationCheck
 // then the alias is not registered.
 func (c *SuperCommand) RegisterAlias(name, forName string, check DeprecationCheck) {
 	if check != nil && check.Obsolete() {
-		logger.Infof("%q alias not registered as it is obsolete", name)
+		logger.Infof(context.TODO(), "%q alias not registered as it is obsolete", name)
 		return
 	}
 	action, found := c.subcmds[forName]
@@ -322,7 +324,7 @@ func (c *SuperCommand) RegisterAlias(name, forName string, check DeprecationChec
 // call is true, then the alias is not registered.
 func (c *SuperCommand) RegisterSuperAlias(name, super, forName string, check DeprecationCheck) {
 	if check != nil && check.Obsolete() {
-		logger.Infof("%q alias not registered as it is obsolete", name)
+		logger.Infof(context.TODO(), "%q alias not registered as it is obsolete", name)
 		return
 	}
 	action, found := c.subcmds[super]
@@ -453,7 +455,7 @@ func (c *SuperCommand) Init(args []string) error {
 	}
 
 	if userAlias, found := c.userAliases[args[0]]; found && !c.noAlias {
-		logger.Debugf("using alias %q=%q", args[0], strings.Join(userAlias, " "))
+		logger.Debugf(context.TODO(), "using alias %q=%q", args[0], strings.Join(userAlias, " "))
 		args = append(userAlias, args[1:]...)
 	}
 	found := false
@@ -542,19 +544,19 @@ func (c *SuperCommand) Run(ctx *Context) error {
 			// format, we should let the user know. In doing so, we dump the
 			// original error and return the handle error so that effective
 			// debugging is possible.
-			logger.Debugf("error stack: \n%v", errors.ErrorStack(err))
+			logger.Debugf(context.TODO(), "error stack: \n%v", errors.ErrorStack(err))
 			return handleErr
 		}
 
 		WriteError(ctx.Stderr, err)
-		logger.Debugf("error stack: \n%v", errors.ErrorStack(err))
+		logger.Debugf(context.TODO(), "error stack: \n%v", errors.ErrorStack(err))
 
 		// Err has been logged above, we can make the err silent so it does not log again in cmd/main
 		if !utils.IsRcPassthroughError(err) {
 			err = ErrSilent
 		}
 	} else {
-		logger.Infof("command finished")
+		logger.Infof(context.TODO(), "command finished")
 	}
 	return err
 }

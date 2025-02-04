@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -246,7 +247,7 @@ func (op *DestroyRelationOperation) Build(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf("force destroying relation %v despite error %v", op.r, err)
+			logger.Warningf(context.TODO(), "force destroying relation %v despite error %v", op.r, err)
 			return ops, nil
 		}
 		return nil, err
@@ -280,7 +281,7 @@ func (r *Relation) DestroyWithForce(force bool, maxWait time.Duration) ([]error,
 func (r *Relation) Destroy(_ objectstore.ObjectStore) error {
 	errs, err := r.DestroyWithForce(false, time.Duration(0))
 	if len(errs) != 0 {
-		logger.Warningf("operational errors removing relation %v: %v", r.Id(), errs)
+		logger.Warningf(context.TODO(), "operational errors removing relation %v: %v", r.Id(), errs)
 	}
 	return err
 }
@@ -297,16 +298,16 @@ func destroyCrossModelRelationUnitsOps(op *ForcedOperation, remoteApp *RemoteApp
 			return nil, jujutxn.ErrNoOperations
 		}
 	}
-	logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
+	logger.Debugf(context.TODO(), "forcing cleanup of units for %v", remoteApp.Name())
 	remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	} else if err != nil {
-		logger.Warningf("could not get remote units for %q: %v", remoteApp.Name(), err)
+		logger.Warningf(context.TODO(), "could not get remote units for %q: %v", remoteApp.Name(), err)
 	}
 
 	var ops []txn.Op
-	logger.Debugf("got %v relation units to clean", len(remoteUnits))
+	logger.Debugf(context.TODO(), "got %v relation units to clean", len(remoteUnits))
 	failRemoteUnits := false
 	for _, ru := range remoteUnits {
 		leaveScopeOps, err := ru.leaveScopeForcedOps(op)
@@ -353,7 +354,7 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 		// but only if the unit count is already 0. This is just a backstop to allow force to fully clean up; normally
 		// unit count is not 0 so this doesn't get run.
 		if remoteApp.IsConsumerProxy() && remoteApp.doc.RelationCount <= 1 && (op.Force || rel.doc.UnitCount == 0) {
-			logger.Debugf("removing cross model consumer proxy and last relation %d: %v", op.r.doc.Id, op.r.doc.Key)
+			logger.Debugf(context.TODO(), "removing cross model consumer proxy and last relation %d: %v", op.r.doc.Id, op.r.doc.Key)
 			removeRelOps, err := rel.removeOps("", "", &op.ForcedOperation)
 			if err != nil && err != jujutxn.ErrNoOperations {
 				return nil, errors.Trace(err)
@@ -415,7 +416,7 @@ func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (op
 	}
 	if unitsInScope != r.doc.UnitCount {
 		if op.Force {
-			logger.Warningf("ignoring unit count mismatch on relation %v: expected %d units in scope but got %d", r, r.doc.UnitCount, unitsInScope)
+			logger.Warningf(context.TODO(), "ignoring unit count mismatch on relation %v: expected %d units in scope but got %d", r, r.doc.UnitCount, unitsInScope)
 		} else {
 			return nil, false, errors.Errorf("unit count mismatch on relation %v: expected %d units in scope but got %d", r, r.doc.UnitCount, unitsInScope)
 		}
@@ -430,7 +431,7 @@ func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (op
 			if !op.Force {
 				return nil, false, err
 			}
-			logger.Warningf("ignoring error (%v) while constructing relation %v destroy operations since force is used", err, r)
+			logger.Warningf(context.TODO(), "ignoring error (%v) while constructing relation %v destroy operations since force is used", err, r)
 		}
 		return removeOps, true, nil
 	}

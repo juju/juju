@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"io"
 	"os"
 	"strconv"
@@ -116,7 +117,7 @@ func (o *osDirFuncs) mountPoint(path string) (string, error) {
 
 func (o *osDirFuncs) mountPointSource(target string) (result string, _ error) {
 	defer func() {
-		logger.Debugf("mount point source for %q is %q", target, result)
+		logger.Debugf(context.TODO(), "mount point source for %q is %q", target, result)
 	}()
 
 	infoReader, closer, err := o.infoReader()

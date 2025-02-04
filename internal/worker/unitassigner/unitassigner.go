@@ -40,7 +40,7 @@ func (u unitAssignerHandler) SetUp(ctx context.Context) (watcher.StringsWatcher,
 func (u unitAssignerHandler) Handle(ctx context.Context, ids []string) error {
 	traceEnabled := u.logger.IsLevelEnabled(logger.TRACE)
 	if traceEnabled {
-		u.logger.Tracef("Handling unit assignments: %q", ids)
+		u.logger.Tracef(context.TODO(), "Handling unit assignments: %q", ids)
 	}
 	if len(ids) == 0 {
 		return nil
@@ -63,7 +63,7 @@ func (u unitAssignerHandler) Handle(ctx context.Context, ids []string) error {
 
 	for _, err := range results {
 		if err != nil {
-			u.logger.Errorf("Unit assignment error: %q", results)
+			u.logger.Errorf(context.TODO(), "Unit assignment error: %q", results)
 		}
 	}
 

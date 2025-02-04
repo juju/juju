@@ -81,7 +81,7 @@ func (a *app) Trust(trust bool) error {
 }
 
 func (a *app) applyTrust(applier resources.Applier, trust bool) error {
-	logger.Debugf("application %q, trust %v", a.name, trust)
+	logger.Debugf(context.TODO(), "application %q, trust %v", a.name, trust)
 	if err := a.applyRoles(applier, trust); err != nil {
 		return errors.Trace(err)
 	}

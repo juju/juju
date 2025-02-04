@@ -1,6 +1,7 @@
 package cloudconfig
 
 import (
+	"context"
 	"encoding/base64"
 	"os"
 	"path/filepath"
@@ -81,13 +82,13 @@ func NewMachineInitReaderFromConfig(cfg MachineInitReaderConfig) InitReader {
 // machine. It is sourced from both Cloud-Init and Curtin data.
 func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
 	if ostype.OSTypeForName(r.config.Base.OS) != ostype.Ubuntu {
-		logger.Debugf("not attempting to get init config for %s container", r.config.Base.DisplayString())
+		logger.Debugf(context.TODO(), "not attempting to get init config for %s container", r.config.Base.DisplayString())
 		return nil, nil
 	}
 
 	base, err := utilsos.HostBase()
 	if err != nil || r.config.Base != base {
-		logger.Debugf("not attempting to get init config for %s, base of machine and container differ", r.config.Base.DisplayString())
+		logger.Debugf(context.TODO(), "not attempting to get init config for %s, base of machine and container differ", r.config.Base.DisplayString())
 		return nil, nil
 	}
 
@@ -159,14 +160,14 @@ func (r *MachineInitReader) unmarshallConfigFile(file string) (map[string]interf
 
 	// The data maybe be gzipped, base64 encoded, both, or neither.
 	// If both, it has been gzipped, then base64 encoded.
-	logger.Tracef("unmarshall failed (%s), file may be compressed", err.Error())
+	logger.Tracef(context.TODO(), "unmarshall failed (%s), file may be compressed", err.Error())
 
 	zippedData, err := utils.Gunzip(raw)
 	if err == nil {
 		cfg, err := bytesAsConfigMap(zippedData)
 		return cfg, errors.Trace(err)
 	}
-	logger.Tracef("Gunzip of %q failed (%s), maybe it is encoded", file, err)
+	logger.Tracef(context.TODO(), "Gunzip of %q failed (%s), maybe it is encoded", file, err)
 
 	decodedData, err := base64.StdEncoding.DecodeString(string(raw))
 	if err == nil {
@@ -174,7 +175,7 @@ func (r *MachineInitReader) unmarshallConfigFile(file string) (map[string]interf
 			return buf, nil
 		}
 	}
-	logger.Tracef("Decoding of %q failed (%s), maybe it is encoded and gzipped", file, err)
+	logger.Tracef(context.TODO(), "Decoding of %q failed (%s), maybe it is encoded and gzipped", file, err)
 
 	decodedZippedBuf, err := utils.Gunzip(decodedData)
 	if err != nil {
@@ -226,14 +227,14 @@ func (r *MachineInitReader) ExtractPropertiesFromConfig(
 					}
 				}
 			} else {
-				log.Debugf("%s not found in machine init data", key)
+				log.Debugf(context.TODO(), "%s not found in machine init data", key)
 			}
 		case "ca-certs":
 			// No translation needed, ca-certs the same in both versions of Cloud-Init.
 			if val, ok := cfg[key]; ok {
 				foundDataMap[key] = val
 			} else {
-				log.Debugf("%s not found in machine init data", key)
+				log.Debugf(context.TODO(), "%s not found in machine init data", key)
 			}
 		}
 	}
@@ -252,7 +253,7 @@ func nestedAptConfig(key string, val interface{}, log corelogger.Logger) map[str
 		}
 	}
 
-	log.Debugf("%s not found in machine init data", key)
+	log.Debugf(context.TODO(), "%s not found in machine init data", key)
 	return nil
 }
 

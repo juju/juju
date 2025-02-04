@@ -113,7 +113,7 @@ func (a *applier) Run(ctx context.Context, client kubernetes.Interface, noRollba
 			return
 		}
 		if rollbackErr := rollback.Run(ctx, client, true); rollbackErr != nil {
-			logger.Warningf("rollback failed %s", rollbackErr.Error())
+			logger.Warningf(context.TODO(), "rollback failed %s", rollbackErr.Error())
 		}
 	}()
 	for _, op := range a.ops {

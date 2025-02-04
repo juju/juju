@@ -141,7 +141,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 		}
 	}
 	if len(c.Placement) > c.NumUnits {
-		logger.Warningf("%d unit(s) will be deployed, extra placement directives will be ignored", c.NumUnits)
+		logger.Warningf(context.TODO(), "%d unit(s) will be deployed, extra placement directives will be ignored", c.NumUnits)
 	}
 	return nil
 }

@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
@@ -141,7 +142,7 @@ func NewWorker(cfg WorkerConfig) (*dbReplWorker, error) {
 				return !errors.Is(err, database.ErrDBDead)
 			},
 			RestartDelay: time.Second * 1,
-			Logger:       cfg.Logger,
+			Logger:       internalworker.WrapLogger(cfg.Logger),
 		}),
 		dbReplReady:    make(chan struct{}),
 		dbReplRequests: make(chan dbRequest),

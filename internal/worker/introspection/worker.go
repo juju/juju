@@ -4,6 +4,7 @@
 package introspection
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -122,7 +123,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to listen on unix socket")
 	}
-	logger.Debugf("introspection worker listening on %q", config.SocketName)
+	logger.Debugf(context.TODO(), "introspection worker listening on %q", config.SocketName)
 
 	w := &socketListener{
 		listener:           l,
@@ -147,16 +148,16 @@ func (w *socketListener) serve() {
 	w.RegisterHTTPHandlers(mux.Handle)
 
 	srv := http.Server{Handler: mux}
-	logger.Debugf("stats worker now serving")
-	defer logger.Debugf("stats worker serving finished")
+	logger.Debugf(context.TODO(), "stats worker now serving")
+	defer logger.Debugf(context.TODO(), "stats worker serving finished")
 	defer close(w.done)
 	_ = srv.Serve(w.listener)
 }
 
 func (w *socketListener) run() error {
-	defer logger.Debugf("stats worker finished")
+	defer logger.Debugf(context.TODO(), "stats worker finished")
 	<-w.tomb.Dying()
-	logger.Debugf("stats worker closing listener")
+	logger.Debugf(context.TODO(), "stats worker closing listener")
 	w.listener.Close()
 	// Don't mark the worker as done until the serve goroutine has finished.
 	<-w.done

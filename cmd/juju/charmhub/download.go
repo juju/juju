@@ -145,7 +145,7 @@ func (c *downloadCommand) Init(args []string) error {
 func (c *downloadCommand) validateCharmOrBundle(charmOrBundle string) (*charm.URL, error) {
 	curl, err := charm.ParseURL(charmOrBundle)
 	if err != nil {
-		logger.Debugf("%s", err)
+		logger.Debugf(context.TODO(), "%s", err)
 		return nil, errors.NotValidf("charm or bundle name, %q, is", charmOrBundle)
 	}
 	if !charm.CharmHub.Matches(curl.Schema) {

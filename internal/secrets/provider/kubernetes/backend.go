@@ -76,7 +76,7 @@ func (k *k8sBackend) GetContent(ctx context.Context, revisionId string) (_ secre
 	// revisionId is the secret name.
 	secret, err := k.getSecret(ctx, revisionId)
 	if err != nil {
-		logger.Tracef("getting secret %q: %v", revisionId, err)
+		logger.Tracef(context.TODO(), "getting secret %q: %v", revisionId, err)
 		return nil, errors.Trace(err)
 	}
 	data := map[string]string{}
@@ -121,7 +121,7 @@ func (k *k8sBackend) DeleteContent(ctx context.Context, revisionId string) (err 
 	// revisionId is the secret name.
 	secret, err := k.getSecret(ctx, revisionId)
 	if err != nil {
-		logger.Tracef("deleting secret %q: %v", revisionId, err)
+		logger.Tracef(context.TODO(), "deleting secret %q: %v", revisionId, err)
 		return errors.Trace(err)
 	}
 	return resources.NewSecret(secret.Name, k.namespace, secret).Delete(ctx, k.client)

@@ -111,14 +111,14 @@ func (c *CertificateUpdater) Handle(_ context.Context) error {
 	if reflect.DeepEqual(addresses, c.addresses) {
 		// Sometimes the watcher will tell us things have changed, when they
 		// haven't as far as we can tell.
-		c.logger.Debugf("addresses have not changed since last updated cert")
+		c.logger.Debugf(context.TODO(), "addresses have not changed since last updated cert")
 		return nil
 	}
 	return c.updateCertificate(addresses)
 }
 
 func (c *CertificateUpdater) updateCertificate(addresses network.SpaceAddresses) error {
-	c.logger.Debugf("new machine addresses: %#v", addresses)
+	c.logger.Debugf(context.TODO(), "new machine addresses: %#v", addresses)
 	c.addresses = addresses
 
 	request := c.authority.LeafRequestForGroup(pki.ControllerIPLeafGroup)
@@ -146,7 +146,7 @@ func (c *CertificateUpdater) updateCertificate(addresses network.SpaceAddresses)
 			}
 			request.AddIPAddresses(ip)
 		default:
-			c.logger.Warningf(
+			c.logger.Warningf(context.TODO(),
 				"unsupported space address type %s for controller certificate",
 				addr.Type)
 		}

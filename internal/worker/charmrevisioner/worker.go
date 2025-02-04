@@ -199,7 +199,7 @@ func newWorker(config Config, internalState chan string) (worker.Worker, error) 
 		return nil, internalerrors.Capture(err)
 	}
 
-	w.config.Logger.Debugf("worker created with period %v", w.config.Period)
+	w.config.Logger.Debugf(context.TODO(), "worker created with period %v", w.config.Period)
 
 	return w, nil
 }
@@ -232,7 +232,7 @@ func (w *revisionUpdateWorker) loop() error {
 	}
 
 	logger := w.config.Logger
-	logger.Debugf("watching model config for changes to charmhub URL")
+	logger.Debugf(context.TODO(), "watching model config for changes to charmhub URL")
 
 	charmhubClient, err := w.getCharmhubClient(ctx)
 	if err != nil {
@@ -248,7 +248,7 @@ func (w *revisionUpdateWorker) loop() error {
 			return w.catacomb.ErrDying()
 
 		case <-w.config.Clock.After(jitter(w.config.Period)):
-			w.config.Logger.Debugf("%v elapsed, performing work", w.config.Period)
+			w.config.Logger.Debugf(context.TODO(), "%v elapsed, performing work", w.config.Period)
 
 			// This worker is responsible for updating the latest revision of
 			// applications in the model. It does this by fetching the latest
@@ -259,27 +259,27 @@ func (w *revisionUpdateWorker) loop() error {
 
 			latestInfo, err := w.fetch(ctx, charmhubClient)
 			if errors.Is(err, ErrFailedToSendMetrics) {
-				logger.Warningf("failed to send metrics: %v", err)
+				logger.Warningf(context.TODO(), "failed to send metrics: %v", err)
 				continue
 			} else if err != nil {
-				logger.Errorf("failed to fetch revisions: %v", err)
+				logger.Errorf(context.TODO(), "failed to fetch revisions: %v", err)
 				continue
 			} else if len(latestInfo) == 0 {
 				if err := w.recordNoApplications(ctx, charmhubClient); err != nil {
-					logger.Warningf("failed to record no applications: %v", err)
+					logger.Warningf(context.TODO(), "failed to record no applications: %v", err)
 				}
-				logger.Debugf("no new application revisions")
+				logger.Debugf(context.TODO(), "no new application revisions")
 				continue
 			}
 
-			logger.Debugf("revisions fetched for %d applications", len(latestInfo))
+			logger.Debugf(context.TODO(), "revisions fetched for %d applications", len(latestInfo))
 
 			if err := w.storeNewRevisions(ctx, latestInfo); err != nil {
-				logger.Warningf("failed to store revisions: %v", err)
+				logger.Warningf(context.TODO(), "failed to store revisions: %v", err)
 				continue
 			}
 
-			logger.Debugf("revisions stored for %d applications", len(latestInfo))
+			logger.Debugf(context.TODO(), "revisions stored for %d applications", len(latestInfo))
 
 		case changes, ok := <-configWatcher.Changes():
 			if !ok {
@@ -298,7 +298,7 @@ func (w *revisionUpdateWorker) loop() error {
 				continue
 			}
 
-			logger.Debugf("refreshing charmhubClient due to model config change")
+			logger.Debugf(context.TODO(), "refreshing charmhubClient due to model config change")
 
 			charmhubClient, err = w.getCharmhubClient(ctx)
 			if err != nil {
@@ -321,7 +321,7 @@ func (w *revisionUpdateWorker) fetch(ctx context.Context, client CharmhubClient)
 
 	buildTelemetry, err := w.shouldBuildTelemetry(ctx)
 	if err != nil {
-		w.config.Logger.Infof("checking telemetry config: %v", err)
+		w.config.Logger.Infof(context.TODO(), "checking telemetry config: %v", err)
 		buildTelemetry = false
 	}
 
@@ -331,7 +331,7 @@ func (w *revisionUpdateWorker) fetch(ctx context.Context, client CharmhubClient)
 	for i, app := range applications {
 		charmhubID, err := encodeCharmhubID(app, w.config.ModelTag)
 		if err != nil {
-			w.config.Logger.Infof("encoding charmhub ID for %q: %v", app.Name, err)
+			w.config.Logger.Infof(context.TODO(), "encoding charmhub ID for %q: %v", app.Name, err)
 			continue
 		}
 
@@ -355,7 +355,7 @@ func (w *revisionUpdateWorker) fetch(ctx context.Context, client CharmhubClient)
 func (w *revisionUpdateWorker) recordNoApplications(ctx context.Context, client CharmhubClient) error {
 	buildTelemetry, err := w.shouldBuildTelemetry(ctx)
 	if err != nil {
-		w.config.Logger.Infof("checking telemetry config: %v", err)
+		w.config.Logger.Infof(context.TODO(), "checking telemetry config: %v", err)
 		buildTelemetry = false
 	}
 
@@ -472,7 +472,7 @@ func (w *revisionUpdateWorker) request(ctx context.Context, client CharmhubClien
 	ctx, cancel := context.WithTimeout(ctx, charmhub.RefreshTimeout)
 	defer cancel()
 
-	w.config.Logger.Debugf("refreshing %d charms", len(configs))
+	w.config.Logger.Debugf(context.TODO(), "refreshing %d charms", len(configs))
 
 	responses, err := client.RefreshWithRequestMetrics(ctx, config, metrics)
 	if err != nil {
@@ -537,7 +537,7 @@ func (w *revisionUpdateWorker) storeNewCharmRevision(ctx context.Context, info l
 	if err != nil {
 		return internalerrors.Capture(err)
 	} else if len(warnings) > 0 {
-		w.config.Logger.Infof("reserving charm revision for %q: %v", info.appName, warnings)
+		w.config.Logger.Infof(ctx, "reserving charm revision for %q: %v", info.appName, warnings)
 	}
 
 	return w.storeNewResourcesRevision(ctx, charmID, info)
@@ -555,7 +555,7 @@ func (w *revisionUpdateWorker) storeNewResourcesRevision(ctx context.Context,
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		// Maybe the application has been removed in the meantime. In this case,
 		// that's not a real issue. Log it as a warning and continue.
-		w.config.Logger.Warningf("failed to get application ID for %q: %v", info.appName, err)
+		w.config.Logger.Warningf(ctx, "failed to get application ID for %q: %v", info.appName, err)
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
@@ -651,12 +651,12 @@ func (w *revisionUpdateWorker) refreshResponseToCharmhubResult(response transpor
 	for _, r := range response.Entity.Resources {
 		fingerprint, err := resource.ParseFingerprint(r.Download.HashSHA384)
 		if err != nil {
-			w.config.Logger.Warningf("invalid resource fingerprint %q: %v", r.Download.HashSHA384, err)
+			w.config.Logger.Warningf(context.TODO(), "invalid resource fingerprint %q: %v", r.Download.HashSHA384, err)
 			continue
 		}
 		typ, err := resource.ParseType(r.Type)
 		if err != nil {
-			w.config.Logger.Warningf("invalid resource type %q: %v", r.Type, err)
+			w.config.Logger.Warningf(context.TODO(), "invalid resource type %q: %v", r.Type, err)
 			continue
 		}
 		res := resource.Resource{

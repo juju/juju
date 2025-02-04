@@ -52,7 +52,7 @@ type CrossModelAuthorizer struct{}
 
 // AuthorizeOps implements OpsAuthorizer.AuthorizeOps.
 func (CrossModelAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery.Op, queryOps []bakery.Op) ([]bool, []checkers.Caveat, error) {
-	authlogger.Debugf("authorize cmr query ops check for %#v: %#v", authorizedOp, queryOps)
+	authlogger.Debugf(context.TODO(), "authorize cmr query ops check for %#v: %#v", authorizedOp, queryOps)
 	allowed := make([]bool, len(queryOps))
 	for i := range allowed {
 		allowed[i] = queryOps[i].Action == consumeOp || queryOps[i].Action == relateOp
@@ -133,7 +133,7 @@ func (a *AuthContext) CheckOfferAccessCaveat(caveat string) (*offerPermissionChe
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	authlogger.Debugf("offer access caveat details: %+v", details)
+	authlogger.Debugf(context.TODO(), "offer access caveat details: %+v", details)
 	if !names.IsValidModel(details.SourceModelUUID) {
 		return nil, errors.NotValidf("source-model-uuid %q", details.SourceModelUUID)
 	}
@@ -152,7 +152,7 @@ func (a *AuthContext) CheckOfferAccessCaveat(caveat string) (*offerPermissionChe
 // verification failed. If the macaroon is valid, CheckLocalAccessRequest
 // returns a list of caveats to add to the discharge macaroon.
 func (a *AuthContext) CheckLocalAccessRequest(ctx context.Context, details *offerPermissionCheck) ([]checkers.Caveat, error) {
-	authlogger.Debugf("authenticate local offer access: %+v", details)
+	authlogger.Debugf(context.TODO(), "authenticate local offer access: %+v", details)
 	if err := a.checkOfferAccess(
 		ctx, a.accessService.ReadUserAccessLevelForTarget,
 		details.User, details.OfferUUID); err != nil {
@@ -313,16 +313,16 @@ func (a *authenticator) checkMacaroonCaveats(op bakery.Op, relationId, sourceMod
 func (a *authenticator) checkMacaroons(
 	ctx context.Context, mac macaroon.Slice, version bakery.Version, requiredValues map[string]string, op bakery.Op,
 ) (map[string]string, error) {
-	authlogger.Debugf("check %d macaroons with required attrs: %v", len(mac), requiredValues)
+	authlogger.Debugf(context.TODO(), "check %d macaroons with required attrs: %v", len(mac), requiredValues)
 	for _, m := range mac {
 		if m == nil {
-			authlogger.Warningf("unexpected nil cross model macaroon")
+			authlogger.Warningf(context.TODO(), "unexpected nil cross model macaroon")
 			continue
 		}
-		authlogger.Debugf("- mac %s", m.Id())
+		authlogger.Debugf(context.TODO(), "- mac %s", m.Id())
 	}
 	declared := a.ctxt.offerBakery.InferDeclaredFromMacaroon(mac, requiredValues)
-	authlogger.Debugf("check macaroons with declared attrs: %v", declared)
+	authlogger.Debugf(context.TODO(), "check macaroons with declared attrs: %v", declared)
 
 	username, ok := declared[usernameKey]
 	if !ok {
@@ -336,7 +336,7 @@ func (a *authenticator) checkMacaroons(
 	ai, err := auth.Allow(ctx, op)
 	if err == nil && len(ai.Conditions()) > 0 {
 		if err = a.checkMacaroonCaveats(op, relation, sourceModelUUID, offerUUID); err == nil {
-			authlogger.Debugf("ok macaroon check ok, attr: %v, conditions: %v", declared, ai.Conditions())
+			authlogger.Debugf(context.TODO(), "ok macaroon check ok, attr: %v, conditions: %v", declared, ai.Conditions())
 			return declared, nil
 		}
 		if _, ok := err.(*bakery.VerificationError); !ok {
@@ -348,12 +348,12 @@ func (a *authenticator) checkMacaroons(
 	if cause == nil {
 		cause = errors.New("invalid cmr macaroon")
 	}
-	authlogger.Debugf("generating discharge macaroon because: %v", cause)
+	authlogger.Debugf(context.TODO(), "generating discharge macaroon because: %v", cause)
 
 	m, err := a.ctxt.offerBakery.CreateDischargeMacaroon(ctx, a.ctxt.offerAccessEndpoint, username, requiredValues, declared, op, version)
 	if err != nil {
 		err = errors.Annotate(err, "cannot create macaroon")
-		authlogger.Errorf("cannot create cross model macaroon: %v", err)
+		authlogger.Errorf(context.TODO(), "cannot create cross model macaroon: %v", err)
 		return nil, err
 	}
 

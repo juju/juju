@@ -4,6 +4,7 @@
 package internal
 
 import (
+	"context"
 	"encoding/base64"
 	"net/http"
 	"strings"
@@ -82,7 +83,7 @@ func (c githubContainerRegistry) Ping() error {
 		// github v2 root endpoint requires the trailing slash(otherwise 404 returns).
 		url += "/"
 	}
-	logger.Debugf("github ping %q", url)
+	logger.Debugf(context.TODO(), "github ping %q", url)
 	resp, err := c.client.Get(url)
 	if resp != nil {
 		defer resp.Body.Close()

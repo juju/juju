@@ -133,14 +133,14 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) rotate(now time.Time) {
-	w.config.Logger.Debugf("processing secret rotation for %q at %s", w.config.SecretOwners, now)
+	w.config.Logger.Debugf(context.TODO(), "processing secret rotation for %q at %s", w.config.SecretOwners, now)
 
 	var toRotate []string
 	for id, info := range w.secrets {
-		w.config.Logger.Debugf("checking %s: rotate at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
+		w.config.Logger.Debugf(context.TODO(), "checking %s: rotate at %s... time diff %s", id, info.rotateTime, info.rotateTime.Sub(now))
 		// A one minute granularity is acceptable for secret rotation.
 		if info.rotateTime.Truncate(time.Minute).Before(now) {
-			w.config.Logger.Debugf("rotating %s", info.URI.String())
+			w.config.Logger.Debugf(context.TODO(), "rotating %s", info.URI.String())
 			toRotate = append(toRotate, info.URI.String())
 			// Once secret has been queued for rotation, delete it here since
 			// it will re-appear via the watcher after the rotation is actually
@@ -160,7 +160,7 @@ func (w *Worker) rotate(now time.Time) {
 }
 
 func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretTriggerChange) {
-	w.config.Logger.Debugf("got rotate secret changes: %#v", changes)
+	w.config.Logger.Debugf(context.TODO(), "got rotate secret changes: %#v", changes)
 	if len(changes) == 0 {
 		return
 	}
@@ -168,7 +168,7 @@ func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretTriggerChange
 	for _, ch := range changes {
 		// Next rotate time of 0 means the rotation has been deleted.
 		if ch.NextTriggerTime.IsZero() {
-			w.config.Logger.Debugf("secret no longer rotated: %v", ch.URI.String())
+			w.config.Logger.Debugf(context.TODO(), "secret no longer rotated: %v", ch.URI.String())
 			delete(w.secrets, ch.URI.ID)
 			continue
 		}
@@ -182,7 +182,7 @@ func (w *Worker) handleSecretRotateChanges(changes []watcher.SecretTriggerChange
 }
 
 func (w *Worker) computeNextRotateTime() {
-	w.config.Logger.Debugf("computing next rotated time for secrets %#v", w.secrets)
+	w.config.Logger.Debugf(context.TODO(), "computing next rotated time for secrets %#v", w.secrets)
 
 	if len(w.secrets) == 0 {
 		w.timer = nil
@@ -210,7 +210,7 @@ func (w *Worker) computeNextRotateTime() {
 	}
 
 	nextDuration := soonestRotateTime.Sub(now)
-	w.config.Logger.Debugf("next secret for %q will rotate in %v at %s", w.config.SecretOwners, nextDuration, soonestRotateTime)
+	w.config.Logger.Debugf(context.TODO(), "next secret for %q will rotate in %v at %s", w.config.SecretOwners, nextDuration, soonestRotateTime)
 
 	w.nextTrigger = soonestRotateTime
 	if w.timer == nil {

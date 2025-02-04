@@ -83,9 +83,9 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(ctx context.Context, args 
 	}
 
 	observedConfig := args.Config
-	logger.Tracef("observed network config of machine %q: %+v", m.Id(), observedConfig)
+	logger.Tracef(context.TODO(), "observed network config of machine %q: %+v", m.Id(), observedConfig)
 	if len(observedConfig) == 0 {
-		logger.Infof("not updating machine %q network config: no observed network config found", m.Id())
+		logger.Infof(context.TODO(), "not updating machine %q network config: no observed network config found", m.Id())
 		return nil
 	}
 
@@ -253,7 +253,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNotObserved(dev LinkLaye
 		// If the machine is the authority for this address,
 		// we can delete it; otherwise leave it alone.
 		if addr.Origin() == network.OriginMachine {
-			logger.Debugf("machine %q: removing address %q from device %q", o.machine.Id(), addr.Value(), dev.Name())
+			logger.Debugf(context.TODO(), "machine %q: removing address %q from device %q", o.machine.Id(), addr.Value(), dev.Name())
 			ops = append(ops, addr.RemoveOps()...)
 			removing++
 		}
@@ -290,7 +290,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceAddress(
 
 	// Otherwise if we are the authority, delete it.
 	if addr.Origin() == network.OriginMachine {
-		logger.Infof("machine %q: removing address %q from device %q", o.machine.Id(), addrValue, addr.DeviceName())
+		logger.Infof(context.TODO(), "machine %q: removing address %q from device %q", o.machine.Id(), addrValue, addr.DeviceName())
 		return addr.RemoveOps(), nil
 	}
 
@@ -307,7 +307,7 @@ func (o *updateMachineLinkLayerOp) processExistingDeviceNewAddresses(
 	var ops []txn.Op
 	for _, addr := range incomingAddrs {
 		if !o.IsAddrProcessed(dev.Name(), addr.CIDRAddress) {
-			logger.Infof("machine %q: adding address %q to device %q", o.machine.Id(), addr.CIDRAddress, dev.Name())
+			logger.Infof(context.TODO(), "machine %q: adding address %q to device %q", o.machine.Id(), addr.CIDRAddress, dev.Name())
 
 			addOps, err := dev.AddAddressOps(addr)
 			if err != nil {
@@ -344,7 +344,7 @@ func (o *updateMachineLinkLayerOp) processNewDevices() ([]txn.Op, error) {
 			addrValues[i] = addr.CIDRAddress
 		}
 
-		logger.Infof("machine %q: adding new device %q (%s) with addresses %v",
+		logger.Infof(context.TODO(), "machine %q: adding new device %q (%s) with addresses %v",
 			o.machine.Id(), dev.InterfaceName, dev.MACAddress, addrValues)
 
 		addOps, err := o.machine.AddLinkLayerDeviceOps(
@@ -388,7 +388,7 @@ func (o *updateMachineLinkLayerOp) processSubnets(name string) error {
 	cidrs := cidrSet.SortedValues()
 
 	if isVLAN {
-		logger.Warningf("ignoring VLAN tag for incoming device subnets: %v", cidrs)
+		logger.Warningf(context.TODO(), "ignoring VLAN tag for incoming device subnets: %v", cidrs)
 	}
 
 	for _, cidr := range cidrs {
@@ -413,10 +413,10 @@ func (o *updateMachineLinkLayerOp) processRemovalCandidates() []txn.Op {
 	var ops []txn.Op
 	for _, dev := range o.removalCandidates {
 		if o.observedParentDevices.Contains(dev.Name()) {
-			logger.Warningf("machine %q: device %q (%s) not removed; it has incoming child devices",
+			logger.Warningf(context.TODO(), "machine %q: device %q (%s) not removed; it has incoming child devices",
 				o.machine.Id(), dev.Name(), dev.MACAddress())
 		} else {
-			logger.Infof("machine %q: removing device %q (%s)", o.machine.Id(), dev.Name(), dev.MACAddress())
+			logger.Infof(context.TODO(), "machine %q: removing device %q (%s)", o.machine.Id(), dev.Name(), dev.MACAddress())
 			ops = append(ops, dev.RemoveOps()...)
 		}
 	}

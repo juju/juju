@@ -235,7 +235,7 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 		args.ConfigDir = systemd.EtcSystemdDir
 	}
 
-	logger.Infof(
+	logger.Infof(context.TODO(),
 		"Ensuring mongo server is running; data directory %s; port %d",
 		args.MongoDataDir, args.StatePort,
 	)
@@ -300,7 +300,7 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 	return retry.Call(retry.CallArgs{
 		Func: func() error {
 			if err := svc.Start(); err != nil {
-				logger.Debugf("cannot start mongo service: %v", err)
+				logger.Debugf(context.TODO(), "cannot start mongo service: %v", err)
 			}
 			return ensureMongoServiceRunning(ctx, svc)
 		},
@@ -310,7 +310,7 @@ func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweak
 			return errors.Cause(err) == ErrMongoServiceNotInstalled
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("attempt %d to start mongo service: %v", attempt, err)
+			logger.Debugf(context.TODO(), "attempt %d to start mongo service: %v", attempt, err)
 		},
 		Stop:        ctx.Done(),
 		Attempts:    -1,
@@ -377,7 +377,7 @@ func setupDataDirectory(args EnsureServerParams) error {
 
 func truncateAndWriteIfExists(procFile, value string) error {
 	if _, err := os.Stat(procFile); os.IsNotExist(err) {
-		logger.Debugf("%q does not exist, will not set %q", procFile, value)
+		logger.Debugf(context.TODO(), "%q does not exist, will not set %q", procFile, value)
 		return errors.Errorf("%q does not exist, will not set %q", procFile, value)
 	}
 	f, err := os.OpenFile(procFile, os.O_WRONLY|os.O_TRUNC, 0600)
@@ -392,7 +392,7 @@ func truncateAndWriteIfExists(procFile, value string) error {
 func tweakSysctlForMongo(editables map[string]string) {
 	for editableFile, value := range editables {
 		if err := truncateAndWriteIfExists(editableFile, value); err != nil {
-			logger.Errorf("could not set the value of %q to %q because of: %v\n", editableFile, value, err)
+			logger.Errorf(context.TODO(), "could not set the value of %q to %q because of: %v\n", editableFile, value, err)
 		}
 	}
 }
@@ -412,10 +412,10 @@ func logVersion(mongoPath string) {
 	cmd := exec.Command(mongoPath, "--version")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		logger.Infof("failed to read the output from %s --version: %v", mongoPath, err)
+		logger.Infof(context.TODO(), "failed to read the output from %s --version: %v", mongoPath, err)
 		return
 	}
-	logger.Debugf("using mongod: %s --version:\n%s", mongoPath, output)
+	logger.Debugf(context.TODO(), "using mongod: %s --version:\n%s", mongoPath, output)
 }
 
 func mongoSnapService(dataDir, configDir, snapChannel string) (MongoSnapService, error) {

@@ -60,7 +60,7 @@ func (EnvironProvider) Version() int {
 }
 
 func (EnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
-	logger.Debugf("opening model %q.", args.Config.Name())
+	logger.Debugf(context.TODO(), "opening model %q.", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -98,7 +98,7 @@ func (p EnvironProvider) Ping(ctx envcontext.ProviderCallContext, endpoint strin
 func (p EnvironProvider) checkMaas(endpoint, ver string) error {
 	c, err := gomaasapi.NewAnonymousClient(endpoint, ver)
 	if err != nil {
-		logger.Debugf("Can't create maas API %s client for %q: %v", ver, endpoint, err)
+		logger.Debugf(context.TODO(), "Can't create maas API %s client for %q: %v", ver, endpoint, err)
 		return errors.Trace(err)
 	}
 	maas := gomaasapi.NewMAAS(*c)

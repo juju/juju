@@ -218,7 +218,7 @@ func (p *environProvider) DetectClouds() ([]cloud.Cloud, error) {
 		config, err := p.lxcConfigReader.ReadConfig(configPath)
 		if err != nil {
 			if !strings.HasSuffix(err.Error(), "permission denied") {
-				logger.Warningf("unable to read/parse LXC config file (%s): %s", configPath, err)
+				logger.Warningf(context.TODO(), "unable to read/parse LXC config file (%s): %s", configPath, err)
 			}
 		}
 		for name, remote := range config.Remotes {
@@ -226,7 +226,7 @@ func (p *environProvider) DetectClouds() ([]cloud.Cloud, error) {
 				continue
 			}
 			if usedNames[name] {
-				logger.Warningf("ignoring ambigious cloud %s", name)
+				logger.Warningf(context.TODO(), "ignoring ambigious cloud %s", name)
 				continue
 			}
 			usedNames[name] = true

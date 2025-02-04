@@ -112,7 +112,7 @@ func (s *SubnetCommandBase) CheckNumArgs(args []string, errors []error) error {
 func (s *SubnetCommandBase) ValidateCIDR(given string, strict bool) (string, error) {
 	_, ipNet, err := net.ParseCIDR(given)
 	if err != nil {
-		logger.Debugf("cannot parse CIDR %q: %v", given, err)
+		logger.Debugf(context.TODO(), "cannot parse CIDR %q: %v", given, err)
 		return "", errors.Errorf("%q is not a valid CIDR", given)
 	}
 	if strict && given != ipNet.String() {

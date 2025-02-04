@@ -4,15 +4,17 @@
 package cmdtesting
 
 import (
+	"context"
 	"io"
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	gc "gopkg.in/check.v1"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.cmd.testing")
+var logger = internallogger.GetLogger("juju.cmd.testing")
 
 // NewSeqPrompter returns a prompter that can be used to check a sequence of
 // IO interactions. Expected input from the user is marked with the
@@ -117,7 +119,7 @@ func (p *SeqPrompter) prompt(text string) (string, error) {
 		return "", errors.Errorf("unexpected prompt %q; expected %q", text, p.ios[0].prompt)
 	}
 	reply := p.ios[0].reply
-	logger.Infof("prompt %q -> %q", text, reply)
+	logger.Infof(context.TODO(), "prompt %q -> %q", text, reply)
 	p.ios = p.ios[1:]
 	return reply, nil
 }

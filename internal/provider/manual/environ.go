@@ -176,7 +176,7 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 			return environs.ErrNotBootstrapped
 		}
 		err := errors.Errorf("unexpected output: %q", out)
-		logger.Infof(err.Error())
+		logger.Infof(context.TODO(), err.Error())
 		return err
 	}
 	return nil
@@ -298,13 +298,13 @@ exit 0
 		diagnostics,
 		mongo.ServiceName,
 	)
-	logger.Tracef("destroy controller script: %s", script)
+	logger.Tracef(context.TODO(), "destroy controller script: %s", script)
 	stdout, stderr, err := runSSHCommand(
 		"ubuntu@"+e.host,
 		[]string{"sudo", "/bin/bash"}, script,
 	)
-	logger.Debugf("script stdout: \n%s", stdout)
-	logger.Debugf("script stderr: \n%s", stderr)
+	logger.Debugf(context.TODO(), "script stdout: \n%s", stdout)
+	logger.Debugf(context.TODO(), "script stderr: \n%s", stderr)
 	return err
 }
 

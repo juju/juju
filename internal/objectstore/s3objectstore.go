@@ -511,7 +511,7 @@ func (t *s3ObjectStore) loop() error {
 			timer.Reset(defaultPruneInterval)
 
 			if err := t.prune(ctx, t.list, t.deleteObject); err != nil {
-				t.logger.Errorf("prune: %v", err)
+				t.logger.Errorf(context.TODO(), "prune: %v", err)
 				continue
 			}
 
@@ -533,7 +533,7 @@ func (t *s3ObjectStore) loop() error {
 }
 
 func (t *s3ObjectStore) get(ctx context.Context, path string, useAccessor getAccessorPattern) (io.ReadCloser, int64, error) {
-	t.logger.Debugf("getting object %q from file storage", path)
+	t.logger.Debugf(context.TODO(), "getting object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
@@ -547,7 +547,7 @@ func (t *s3ObjectStore) get(ctx context.Context, path string, useAccessor getAcc
 }
 
 func (t *s3ObjectStore) getBySHA256(ctx context.Context, sha256 string, useAccessor getAccessorPattern) (io.ReadCloser, int64, error) {
-	t.logger.Debugf("getting object with SHA256 %q from file storage", sha256)
+	t.logger.Debugf(context.TODO(), "getting object with SHA256 %q from file storage", sha256)
 
 	metadata, err := t.metadataService.GetMetadataBySHA256(ctx, sha256)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
@@ -561,7 +561,7 @@ func (t *s3ObjectStore) getBySHA256(ctx context.Context, sha256 string, useAcces
 }
 
 func (t *s3ObjectStore) getBySHA256Prefix(ctx context.Context, sha256Prefix string, useAccessor getAccessorPattern) (io.ReadCloser, int64, error) {
-	t.logger.Debugf("getting object with SHA256 prefix %q from file storage", sha256Prefix)
+	t.logger.Debugf(context.TODO(), "getting object with SHA256 prefix %q from file storage", sha256Prefix)
 
 	metadata, err := t.metadataService.GetMetadataBySHA256Prefix(ctx, sha256Prefix)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
@@ -597,13 +597,13 @@ func (t *s3ObjectStore) getWithMetadata(ctx context.Context, metadata objectstor
 		if newErr != nil {
 			// Ignore the new error, because we want to return the original
 			// error.
-			t.logger.Debugf("unable to get file %q from file object store: %v", metadata.Path, newErr)
+			t.logger.Debugf(context.TODO(), "unable to get file %q from file object store: %v", metadata.Path, newErr)
 			return nil, -1, objectstoreerrors.ObjectNotFound
 		}
 
 		// This file was located in the file backed object store, the draining
 		// process should remove it from the file backed object store.
-		t.logger.Tracef("located file from file object store that wasn't found in s3 object store: %q", metadata.Path)
+		t.logger.Tracef(context.TODO(), "located file from file object store that wasn't found in s3 object store: %q", metadata.Path)
 	}
 
 	if metadata.Size != size {
@@ -614,7 +614,7 @@ func (t *s3ObjectStore) getWithMetadata(ctx context.Context, metadata objectstor
 }
 
 func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) (objectstore.UUID, error) {
-	t.logger.Debugf("putting object %q to s3 storage", path)
+	t.logger.Debugf(context.TODO(), "putting object %q to s3 storage", path)
 
 	// Charms and resources are coded to use the SHA384 hash. It is possible
 	// to move to the more common SHA256 hash, but that would require a
@@ -723,7 +723,7 @@ func (t *s3ObjectStore) putFile(ctx context.Context, file io.ReadSeeker, fileEnc
 }
 
 func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
-	t.logger.Debugf("removing object %q from s3 storage", path)
+	t.logger.Debugf(context.TODO(), "removing object %q from s3 storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
@@ -745,7 +745,7 @@ func (t *s3ObjectStore) filePath(hash string) string {
 }
 
 func (t *s3ObjectStore) list(ctx context.Context) ([]objectstore.Metadata, []string, error) {
-	t.logger.Debugf("listing objects from s3 storage")
+	t.logger.Debugf(context.TODO(), "listing objects from s3 storage")
 
 	metadata, err := t.metadataService.ListMetadata(ctx)
 	if err != nil {
@@ -797,7 +797,7 @@ func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error
 		ctx, cancel := t.scopedContext()
 		defer cancel()
 
-		t.logger.Infof("draining started for %q, processing %d", t.namespace, len(metadata))
+		t.logger.Infof(context.TODO(), "draining started for %q, processing %d", t.namespace, len(metadata))
 
 		// Process each file in the metadata service, and drain it to the s3 object
 		// store.
@@ -808,7 +808,7 @@ func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error
 
 			hash := selectFileHash(m)
 
-			t.logger.Debugf("draining file %q to s3 object store %q", m.Path, hash)
+			t.logger.Debugf(context.TODO(), "draining file %q to s3 object store %q", m.Path, hash)
 
 			select {
 			case <-ctx.Done():
@@ -843,7 +843,7 @@ func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error
 		// any further requests to the local file system.
 		close(t.drainRequests)
 
-		t.logger.Infof("draining completed for %q, processed %d", t.namespace, len(metadata))
+		t.logger.Infof(context.TODO(), "draining completed for %q, processed %d", t.namespace, len(metadata))
 
 		// Report the drained state completed.
 		t.reportInternalState(stateDrained)
@@ -870,11 +870,11 @@ func (t *s3ObjectStore) drainFile(ctx context.Context, path, hash string, metada
 		return errors.Errorf("checking if file %q exists in s3 object store: %w", path, err)
 	} else if err == nil {
 		// File already contains the hash, so we can skip it.
-		t.logger.Tracef("file %q already exists in s3 object store, skipping", path)
+		t.logger.Tracef(context.TODO(), "file %q already exists in s3 object store, skipping", path)
 		return nil
 	}
 
-	t.logger.Debugf("draining file %q to s3 object store", path)
+	t.logger.Debugf(context.TODO(), "draining file %q to s3 object store", path)
 
 	// Grab the file from the file backed object store and drain it to the
 	// s3 object store.
@@ -884,7 +884,7 @@ func (t *s3ObjectStore) drainFile(ctx context.Context, path, hash string, metada
 		// doesn't exist in the s3 object store. This is a problem, so we
 		// should skip it.
 		if errors.Is(err, jujuerrors.NotFound) {
-			t.logger.Warningf("file %q doesn't exist in file object store, unable to drain", path)
+			t.logger.Warningf(context.TODO(), "file %q doesn't exist in file object store, unable to drain", path)
 			return nil
 		}
 		return errors.Errorf("getting file %q from file object store: %w", path, err)
@@ -896,7 +896,7 @@ func (t *s3ObjectStore) drainFile(ctx context.Context, path, hash string, metada
 	// If the file size doesn't match the metadata size, then the file is
 	// potentially corrupt, so we should skip it.
 	if fileSize != metadataSize {
-		t.logger.Warningf("file %q has a size mismatch, unable to drain", path)
+		t.logger.Warningf(context.TODO(), "file %q has a size mismatch, unable to drain", path)
 		return nil
 	}
 
@@ -977,7 +977,7 @@ func (t *s3ObjectStore) removeDrainedFile(ctx context.Context, hash string) erro
 		// If we're unable to remove the file from the file backed object
 		// store, then we should log a warning, but continue processing.
 		// This is not a terminal case, we can continue processing.
-		t.logger.Warningf("unable to remove file %q from file object store: %v", hash, err)
+		t.logger.Warningf(context.TODO(), "unable to remove file %q from file object store: %v", hash, err)
 		return nil
 	}
 	return nil

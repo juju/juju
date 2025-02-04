@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"sort"
 	"strings"
 
@@ -183,7 +184,7 @@ func (st *State) completeMachineRemovalsOps(ids []string) ([]txn.Op, error) {
 	// retries.
 	if len(machinesToRemove) < len(ids) {
 		missingMachines := collectMissingMachineIds(ids, machinesToRemove)
-		logger.Debugf("skipping nonexistent machine%s: %s",
+		logger.Debugf(context.TODO(), "skipping nonexistent machine%s: %s",
 			plural(len(missingMachines)),
 			strings.Join(missingMachines, ", "),
 		)

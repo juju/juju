@@ -91,7 +91,7 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 	}
 	if err != nil {
 		if err := sendError(w, internalerrors.Capture(err)); err != nil {
-			logger.Errorf("cannot return error to user: %v", err)
+			logger.Errorf(context.TODO(), "cannot return error to user: %v", err)
 		}
 	}
 }

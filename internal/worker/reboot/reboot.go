@@ -57,7 +57,7 @@ func (r *Reboot) Handle(ctx context.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("Reboot worker got action: %v", rAction)
+	logger.Debugf(context.TODO(), "Reboot worker got action: %v", rAction)
 
 	// NOTE: Here we explicitly avoid stopping on the abort channel as we are
 	// wanting to make sure that we grab the lock and return an error
@@ -73,14 +73,14 @@ func (r *Reboot) Handle(ctx context.Context) error {
 		if _, err := r.machineLock.Acquire(spec); err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("machine lock will not be released manually")
+		logger.Debugf(context.TODO(), "machine lock will not be released manually")
 		err = jworker.ErrRebootMachine
 	case params.ShouldShutdown:
 		spec.Comment = "shutdown"
 		if _, err := r.machineLock.Acquire(spec); err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("machine lock will not be released manually")
+		logger.Debugf(context.TODO(), "machine lock will not be released manually")
 		err = jworker.ErrShutdownMachine
 	}
 
@@ -91,7 +91,7 @@ func (r *Reboot) Handle(ctx context.Context) error {
 		// shut down. It is better to clear the flag and not reboot on a weird
 		// error rather than get into a reboot loop because we can't shutdown.
 		if err := r.client.ClearReboot(ctx); err != nil {
-			logger.Infof("unable to clear reboot flag: %v", err)
+			logger.Infof(context.TODO(), "unable to clear reboot flag: %v", err)
 		}
 	}
 	return err

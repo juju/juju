@@ -66,7 +66,7 @@ func (s *uniterResolver) NextOp(
 	badge := "<unspecified>"
 	defer func() {
 		if err != nil && errors.Cause(err) != resolver.ErrNoOperation && err != resolver.ErrRestart {
-			s.config.Logger.Debugf("next %q operation could not be resolved: %v", badge, err)
+			s.config.Logger.Debugf(stdcontext.TODO(), "next %q operation could not be resolved: %v", badge, err)
 		}
 	}()
 
@@ -88,7 +88,7 @@ func (s *uniterResolver) NextOp(
 			return s.nextOpConflicted(ctx, localState, remoteState, opFactory)
 		}
 		// continue upgrading the charm
-		log.Infof("resuming charm upgrade")
+		log.Infof(stdcontext.TODO(), "resuming charm upgrade")
 		return s.newUpgradeOperation(ctx, localState, remoteState, opFactory)
 	}
 
@@ -154,7 +154,7 @@ func (s *uniterResolver) NextOp(
 	// If we are to shut down, we don't want to start running any more queued/pending hooks.
 	if remoteState.Shutdown {
 		badge = "shutdown"
-		log.Debugf("unit agent is shutting down, will not run pending/queued hooks")
+		log.Debugf(stdcontext.TODO(), "unit agent is shutting down, will not run pending/queued hooks")
 		return s.nextOp(ctx, localState, remoteState, opFactory)
 	}
 
@@ -167,12 +167,12 @@ func (s *uniterResolver) NextOp(
 		switch step {
 		case operation.Pending:
 			badge = "resolve hook"
-			log.Infof("awaiting error resolution for %q hook", localState.Hook.Kind)
+			log.Infof(stdcontext.TODO(), "awaiting error resolution for %q hook", localState.Hook.Kind)
 			return s.nextOpHookError(ctx, localState, remoteState, opFactory)
 
 		case operation.Queued:
 			badge = "queued hook"
-			log.Infof("found queued %q hook", localState.Hook.Kind)
+			log.Infof(stdcontext.TODO(), "found queued %q hook", localState.Hook.Kind)
 			if localState.Hook.Kind == hooks.Install {
 				// Special case: handle install in nextOp,
 				// so we do nothing when the unit is dying.
@@ -189,12 +189,12 @@ func (s *uniterResolver) NextOp(
 				// If it's set, the charm url will parse.
 				curl := jujucharm.MustParseURL(localState.CharmURL)
 				if curl != nil && wrench.IsActive("hooks", fmt.Sprintf("%s-%s-error", curl.Name, localState.Hook.Kind)) {
-					s.config.Logger.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
+					s.config.Logger.Errorf(stdcontext.TODO(), "commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
 					return nil, errors.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
 				}
 			}
 
-			log.Infof("committing %q hook", localState.Hook.Kind)
+			log.Infof(stdcontext.TODO(), "committing %q hook", localState.Hook.Kind)
 			return opFactory.NewSkipHook(*localState.Hook)
 
 		default:
@@ -203,7 +203,7 @@ func (s *uniterResolver) NextOp(
 
 	case operation.Continue:
 		badge = "idle"
-		log.Debugf("no operations in progress; waiting for changes")
+		log.Debugf(stdcontext.TODO(), "no operations in progress; waiting for changes")
 		return s.nextOp(ctx, localState, remoteState, opFactory)
 
 	default:
@@ -325,12 +325,12 @@ func (s *uniterResolver) charmModified(local resolver.LocalState, remote remotes
 		return false
 	}
 	if local.CharmURL != remote.CharmURL {
-		s.config.Logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
+		s.config.Logger.Debugf(stdcontext.TODO(), "upgrade from %v to %v", local.CharmURL, remote.CharmURL)
 		return true
 	}
 
 	if local.CharmModifiedVersion != remote.CharmModifiedVersion {
-		s.config.Logger.Debugf("upgrade from CharmModifiedVersion %v to %v", local.CharmModifiedVersion, remote.CharmModifiedVersion)
+		s.config.Logger.Debugf(stdcontext.TODO(), "upgrade from CharmModifiedVersion %v to %v", local.CharmModifiedVersion, remote.CharmModifiedVersion)
 		return true
 	}
 	return false

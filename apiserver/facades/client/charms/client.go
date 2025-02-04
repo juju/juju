@@ -90,7 +90,7 @@ func (a *API) checkCanWrite(ctx context.Context) error {
 // charms with supplied names. The order of the charms is not guaranteed to be
 // the same as the order of the names passed in.
 func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsListResult, error) {
-	a.logger.Tracef("List %+v", args)
+	a.logger.Tracef(context.TODO(), "List %+v", args)
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.CharmsListResult{}, errors.Trace(err)
 	}
@@ -118,7 +118,7 @@ func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsLi
 // GetDownloadInfos attempts to get the bundle corresponding to the charm url
 // and origin.
 func (a *API) GetDownloadInfos(ctx context.Context, args params.CharmURLAndOrigins) (params.DownloadInfoResults, error) {
-	a.logger.Tracef("GetDownloadInfos %+v", args)
+	a.logger.Tracef(context.TODO(), "GetDownloadInfos %+v", args)
 
 	results := params.DownloadInfoResults{
 		Results: make([]params.DownloadInfoResult, len(args.Entities)),
@@ -193,7 +193,7 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 		return params.CharmOriginResult{}, err
 	}
 
-	a.logger.Debugf("AddCharm request: %+v", args)
+	a.logger.Debugf(context.TODO(), "AddCharm request: %+v", args)
 	if commoncharm.OriginSource(args.Origin.Source) != commoncharm.OriginCharmHub {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
 	}
@@ -212,7 +212,7 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
 
-	a.logger.Debugf("AddCharm result: %+v", origin)
+	a.logger.Debugf(context.TODO(), "AddCharm result: %+v", origin)
 
 	return params.CharmOriginResult{
 		Origin: origin,
@@ -268,7 +268,7 @@ func (a *API) addCharm(ctx context.Context, args params.AddCharmWithOrigin) (cor
 	}); err != nil && !errors.Is(err, applicationerrors.CharmAlreadyExists) {
 		return corecharm.Origin{}, errors.Annotatef(err, "setting charm %q", args.URL)
 	} else if len(warnings) > 0 {
-		a.logger.Infof("setting charm %q: %v", args.URL, warnings)
+		a.logger.Infof(context.TODO(), "setting charm %q: %v", args.URL, warnings)
 	}
 
 	return essentialMetadata.ResolvedOrigin, nil
@@ -289,7 +289,7 @@ func makeCharmRevision(origin corecharm.Origin, url string) (int, error) {
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.  Channel provided via CharmOrigin.
 func (a *API) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
-	a.logger.Tracef("ResolveCharms %+v", args)
+	a.logger.Tracef(context.TODO(), "ResolveCharms %+v", args)
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.ResolveCharmWithChannelResults{}, errors.Trace(err)
 	}
@@ -633,12 +633,12 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger
 	// out.
 	o := origin
 	if origin.Base.Name == "all" || origin.Base.Channel == "all" {
-		logger.Warningf("Release all detected, removing all from the origin. %s", origin.ID)
+		logger.Warningf(context.TODO(), "Release all detected, removing all from the origin. %s", origin.ID)
 		o.Base = params.Base{}
 	}
 
 	if origin.Architecture == "all" || origin.Architecture == "" {
-		logger.Warningf("Architecture not in expected state, found %q, using fallback architecture %q. %s", origin.Architecture, fallbackArch, origin.ID)
+		logger.Warningf(context.TODO(), "Architecture not in expected state, found %q, using fallback architecture %q. %s", origin.Architecture, fallbackArch, origin.ID)
 		o.Architecture = fallbackArch
 	}
 

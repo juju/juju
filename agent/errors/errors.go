@@ -41,7 +41,7 @@ func (e *UpgradeReadyError) ChangeAgentTools(logger logger.Logger) error {
 	if err != nil {
 		return err
 	}
-	logger.Infof("upgraded from %v to %v (%q)", e.OldTools, agentTools.Version, agentTools.URL)
+	logger.Infof(context.TODO(), "upgraded from %v to %v (%q)", e.OldTools, agentTools.Version, agentTools.URL)
 	return nil
 }
 
@@ -161,7 +161,7 @@ func PingerIsFatal(logger logger.Logger, conns ...Pinger) func(err error) bool {
 // PingerIsDead returns true if the given pinger fails to ping.
 var PingerIsDead = func(logger logger.Logger, conn Pinger) bool {
 	if err := conn.Ping(); err != nil {
-		logger.Infof("error pinging %T: %v", conn, err)
+		logger.Infof(context.TODO(), "error pinging %T: %v", conn, err)
 		return true
 	}
 	return false

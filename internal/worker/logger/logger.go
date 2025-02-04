@@ -64,7 +64,7 @@ func NewLogger(config WorkerConfig) (worker.Worker, error) {
 		config:     config,
 		lastConfig: config.Context.Config().String(),
 	}
-	config.Logger.Debugf("initial log config: %q", logger.lastConfig)
+	config.Logger.Debugf(context.TODO(), "initial log config: %q", logger.lastConfig)
 
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: logger,
@@ -80,27 +80,27 @@ func (l *loggerWorker) setLogging(ctx context.Context) {
 	logger := l.config.Logger
 
 	if override := l.config.Override; override != "" {
-		logger.Debugf("overriding logging config with override from agent.conf %q", override)
+		logger.Debugf(context.TODO(), "overriding logging config with override from agent.conf %q", override)
 		loggingConfig = override
 	} else {
 		modelLoggingConfig, err := l.config.API.LoggingConfig(ctx, l.config.Tag)
 		if err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 			return
 		}
 		loggingConfig = modelLoggingConfig
 	}
 
 	if loggingConfig != l.lastConfig {
-		logger.Debugf("reconfiguring logging from %q to %q", l.lastConfig, loggingConfig)
-		context := l.config.Context
-		context.ResetLoggerLevels()
-		if err := context.ConfigureLoggers(loggingConfig); err != nil {
+		logger.Debugf(context.TODO(), "reconfiguring logging from %q to %q", l.lastConfig, loggingConfig)
+		loggerContext := l.config.Context
+		loggerContext.ResetLoggerLevels()
+		if err := loggerContext.ConfigureLoggers(loggingConfig); err != nil {
 			// This shouldn't occur as the loggingConfig should be
 			// validated by the original Config before it gets here.
-			logger.Warningf("configure loggers failed: %v", err)
+			logger.Warningf(context.TODO(), "configure loggers failed: %v", err)
 			// Try to reset to what we had before
-			_ = context.ConfigureLoggers(l.lastConfig)
+			_ = loggerContext.ConfigureLoggers(l.lastConfig)
 			return
 		}
 		mgo.ConfigureMgoLogging()
@@ -109,7 +109,7 @@ func (l *loggerWorker) setLogging(ctx context.Context) {
 		if callback := l.config.Callback; callback != nil {
 			err := callback(loggingConfig)
 			if err != nil {
-				logger.Errorf("%v", err)
+				logger.Errorf(context.TODO(), "%v", err)
 			}
 		}
 	}
@@ -119,7 +119,7 @@ func (l *loggerWorker) setLogging(ctx context.Context) {
 // required to return a notify watcher that is used as the event source
 // for the Handle method.
 func (l *loggerWorker) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
-	l.config.Logger.Infof("logger worker started")
+	l.config.Logger.Infof(context.TODO(), "logger worker started")
 	// We need to set this up initially as the NotifyWorker sucks up the first
 	// event.
 	l.setLogging(ctx)
@@ -135,6 +135,6 @@ func (l *loggerWorker) Handle(ctx context.Context) error {
 // TearDown is called by the NotifyWorker when the worker is being stopped.
 func (l *loggerWorker) TearDown() error {
 	// Nothing to cleanup, only state is the watcher
-	l.config.Logger.Infof("logger worker stopped")
+	l.config.Logger.Infof(context.TODO(), "logger worker stopped")
 	return nil
 }

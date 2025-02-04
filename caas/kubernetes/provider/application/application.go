@@ -167,10 +167,10 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	// TODO: storage handling for deployment/daemonset enhancement.
 	defer func() {
 		if err != nil {
-			logger.Errorf("Ensure %s", err)
+			logger.Errorf(context.TODO(), "Ensure %s", err)
 		}
 	}()
-	logger.Debugf("creating/updating %s application", a.name)
+	logger.Debugf(context.TODO(), "creating/updating %s application", a.name)
 
 	applier := a.newApplier()
 
@@ -643,7 +643,7 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 		if terminating || c.forceTerminating {
 			// Terminating is always set to true regardless of whether the resource is failed as terminating
 			// since it's the overall state that is reported baca.
-			logger.Debugf("application %q exists and is terminating due to dangling %s resource(s)", a.name, c.label)
+			logger.Debugf(context.TODO(), "application %q exists and is terminating due to dangling %s resource(s)", a.name, c.label)
 			return caas.DeploymentState{Exists: true, Terminating: true}, nil
 		}
 	}
@@ -991,7 +991,7 @@ func (a *app) serviceAccountExists() (exists bool, terminating bool, err error) 
 
 // Delete deletes the specified application.
 func (a *app) Delete() error {
-	logger.Debugf("deleting %s application", a.name)
+	logger.Debugf(context.TODO(), "deleting %s application", a.name)
 	applier := a.newApplier()
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
@@ -1238,7 +1238,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 			}
 			vol, ok := volumesByName[volMount.Name]
 			if !ok {
-				logger.Warningf("volume for volume mount %q not found", volMount.Name)
+				logger.Warningf(context.TODO(), "volume for volume mount %q not found", volMount.Name)
 				continue
 			}
 
@@ -1246,23 +1246,23 @@ func (a *app) Units() ([]caas.Unit, error) {
 			// See: https://discourse.charmhub.io/t/k8s-spec-v3-changes/2698
 			if vol.Secret != nil &&
 				(strings.Contains(vol.Secret.SecretName, "-token") || strings.HasPrefix(vol.Secret.SecretName, "controller-")) {
-				logger.Tracef("ignoring volume source for service account secret: %v", vol.Name)
+				logger.Tracef(context.TODO(), "ignoring volume source for service account secret: %v", vol.Name)
 				continue
 			}
 			if vol.Projected != nil {
-				logger.Tracef("ignoring volume source for projected volume: %v", vol.Name)
+				logger.Tracef(context.TODO(), "ignoring volume source for projected volume: %v", vol.Name)
 				continue
 			}
 			if vol.ConfigMap != nil {
-				logger.Tracef("ignoring volume source for configMap volume: %v", vol.Name)
+				logger.Tracef(context.TODO(), "ignoring volume source for configMap volume: %v", vol.Name)
 				continue
 			}
 			if vol.HostPath != nil {
-				logger.Tracef("ignoring volume source for hostPath volume: %v", vol.Name)
+				logger.Tracef(context.TODO(), "ignoring volume source for hostPath volume: %v", vol.Name)
 				continue
 			}
 			if vol.EmptyDir != nil {
-				logger.Tracef("ignoring volume source for emptyDir volume: %v", vol.Name)
+				logger.Tracef(context.TODO(), "ignoring volume source for emptyDir volume: %v", vol.Name)
 				continue
 			}
 
@@ -1280,7 +1280,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 					fsInfo.StorageName = constants.PVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
 				}
 			}
-			logger.Tracef("filesystem info for %v: %+v", volMount.Name, *fsInfo)
+			logger.Tracef(context.TODO(), "filesystem info for %v: %+v", volMount.Name, *fsInfo)
 			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, *fsInfo)
 		}
 		units = append(units, unitInfo)
@@ -1999,7 +1999,7 @@ func (a *app) configureStorage(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Tracef("persistent volume claim name mapping = %v", pvcNames)
+	logger.Tracef(context.TODO(), "persistent volume claim name mapping = %v", pvcNames)
 
 	fsNames := set.NewStrings()
 	for index, fs := range filesystems {
@@ -2008,7 +2008,7 @@ func (a *app) configureStorage(
 		}
 		fsNames.Add(fs.StorageName)
 
-		logger.Debugf("%s has filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(fs))
+		logger.Debugf(context.TODO(), "%s has filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(fs))
 
 		readOnly := false
 		if fs.Attachment != nil {
@@ -2018,7 +2018,7 @@ func (a *app) configureStorage(
 		name := a.volumeName(fs.StorageName)
 		pvcNameGetter := func(volName string) string {
 			if n, ok := pvcNames[volName]; ok {
-				logger.Debugf("using existing persistent volume claim %q (volume %q)", n, volName)
+				logger.Debugf(context.TODO(), "using existing persistent volume claim %q (volume %q)", n, volName)
 				return n
 			}
 			return fmt.Sprintf("%s-%s", volName, storageUniqueID)
@@ -2032,21 +2032,21 @@ func (a *app) configureStorage(
 		var volumeMount *corev1.VolumeMount
 		mountPath := storage.GetMountPathForFilesystem(index, a.name, fs)
 		if vol != nil && handleVolume != nil {
-			logger.Debugf("using volume for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*vol))
+			logger.Debugf(context.TODO(), "using volume for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*vol))
 			volumeMount, err = handleVolume(*vol, mountPath, readOnly)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		}
 		if sc != nil && handleStorageClass != nil {
-			logger.Debugf("creating storage class for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*sc))
+			logger.Debugf(context.TODO(), "creating storage class for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*sc))
 			if err = handleStorageClass(*sc); err != nil {
 				return errors.Trace(err)
 			}
 			storageClassMap[sc.Name] = resources.StorageClass{StorageClass: *sc}
 		}
 		if pvc != nil && handlePVC != nil {
-			logger.Debugf("using persistent volume claim for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*pvc))
+			logger.Debugf(context.TODO(), "using persistent volume claim for %s filesystem %s: %s", a.name, fs.StorageName, pretty.Sprint(*pvc))
 			volumeMount, err = handlePVC(*pvc, mountPath, readOnly)
 			if err != nil {
 				return errors.Trace(err)

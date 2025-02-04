@@ -4,6 +4,7 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -133,7 +134,7 @@ func SubnetsForAddresses(addrs []string) []string {
 			continue
 		}
 
-		logger.Warningf("unable to determine egress subnet for %q", a)
+		logger.Warningf(context.TODO(), "unable to determine egress subnet for %q", a)
 	}
 	return subs
 }

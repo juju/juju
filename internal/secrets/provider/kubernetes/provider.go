@@ -148,7 +148,7 @@ func configToK8sRestConfig(cfg *backendConfig) (*rest.Config, error) {
 			return nil, errors.Trace(err)
 		}
 		if rc != nil {
-			logger.Tracef("using in-cluster config")
+			logger.Tracef(context.TODO(), "using in-cluster config")
 			return rc, nil
 		}
 	}
@@ -244,7 +244,7 @@ func (p k8sProvider) RestrictedConfig(
 	ctx context.Context,
 	adminCfg *provider.ModelBackendConfig, sameController, _ bool, accessor coresecrets.Accessor, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
-	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", accessor, owned, read)
+	logger.Tracef(context.TODO(), "getting k8s backend config for %q, owned %v, read %v", accessor, owned, read)
 
 	if accessor.Kind != coresecrets.UnitAccessor && accessor.Kind != coresecrets.ModelAccessor {
 		return nil, errors.NotValidf("secret accessor %s", accessor)
@@ -272,7 +272,7 @@ func (p k8sProvider) RestrictedConfig(
 		host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
 		if len(host) != 0 && len(port) != 0 {
 			endpoint = "https://" + net.JoinHostPort(host, port)
-			logger.Tracef("patching endpoint to %q", endpoint)
+			logger.Tracef(context.TODO(), "patching endpoint to %q", endpoint)
 		}
 	}
 
@@ -431,14 +431,14 @@ func (k *kubernetesClient) ensureServiceAccount(
 		}
 	}
 	if err == nil {
-		logger.Debugf("service account %q created", out.GetName())
+		logger.Debugf(context.TODO(), "service account %q created", out.GetName())
 		cleanups = append(cleanups, func() { _ = k.deleteServiceAccount(ctx, out.GetName(), out.GetUID()) })
 		return out, cleanups, nil
 	}
 
 	// Service account already exists so update it.
 	out, err = k.updateServiceAccount(ctx, sa)
-	logger.Debugf("updating service account %q", sa.GetName())
+	logger.Debugf(context.TODO(), "updating service account %q", sa.GetName())
 	return out, cleanups, errors.Trace(err)
 }
 
@@ -904,7 +904,7 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 		if err == nil {
 			return
 		}
-		logger.Warningf("error ensuring secret service account for %s: %v", consumer, err)
+		logger.Warningf(context.TODO(), "error ensuring secret service account for %s: %v", consumer, err)
 		for _, f := range cleanups {
 			f()
 		}

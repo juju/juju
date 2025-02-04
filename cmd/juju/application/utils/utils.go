@@ -189,16 +189,16 @@ func shouldUpgradeResource(
 		if err == nil && curFound && cur.Revision == providedResourceRev && cur.Origin == charmresource.OriginStore {
 			// A revision refers to resources in a repository. If the specified revision
 			// is already uploaded, nothing to do.
-			logger.Tracef("provided revision of %s resource already loaded", resName)
+			logger.Tracef(context.TODO(), "provided revision of %s resource already loaded", resName)
 			return false, nil
 		}
-		logger.Tracef("%q provided to upgrade existing resource", resName)
+		logger.Tracef(context.TODO(), "%q provided to upgrade existing resource", resName)
 		return true, nil
 	}
 
 	if !curFound {
 		// If there's no information on the server, there might be a new resource added to the charm.
-		logger.Tracef("resource %q does not exist in controller, so it will be uploaded", resName)
+		logger.Tracef(context.TODO(), "resource %q does not exist in controller, so it will be uploaded", resName)
 		return true, nil
 	}
 
@@ -206,7 +206,7 @@ func shouldUpgradeResource(
 	if availFound &&
 		avail.Revision == cur.Revision &&
 		cur.Origin != charmresource.OriginUpload {
-		logger.Tracef("available resource and current store resource have same revision, no upgrade")
+		logger.Tracef(context.TODO(), "available resource and current store resource have same revision, no upgrade")
 		return false, nil
 	}
 	// Never override existing resources a user has already uploaded.
@@ -233,7 +233,7 @@ func shouldUpgradeResourceLocalCharm(
 		_, err := strconv.Atoi(providedResource)
 		if err != nil {
 			// This is a filename to be uploaded.
-			logger.Tracef("%q provided to upgrade existing resource", name)
+			logger.Tracef(context.TODO(), "%q provided to upgrade existing resource", name)
 			return true, nil
 		} else {
 			return false, errors.NewNotFound(nil, fmt.Sprintf("resource %q revision not found, provide via --resource", name))

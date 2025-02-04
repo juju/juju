@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -137,7 +138,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	defer func() {
 		if err != nil {
 			if closeErr := ctlr.Close(); closeErr != nil {
-				logger.Errorf("error closing controller while aborting Initialize: %v", closeErr)
+				logger.Errorf(context.TODO(), "error closing controller while aborting Initialize: %v", closeErr)
 			}
 		}
 	}()
@@ -158,7 +159,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	logger.Infof("initializing controller model %s", modelTag.Id())
+	logger.Infof(context.TODO(), "initializing controller model %s", modelTag.Id())
 
 	modelOps, _, err := st.modelSetupOps(
 		args.ControllerConfig.ControllerUUID(),

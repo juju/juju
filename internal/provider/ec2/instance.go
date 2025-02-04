@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 
@@ -115,7 +116,7 @@ func (inst *sdkInstance) OpenPorts(ctx envcontext.ProviderCallContext, machineId
 	if err := inst.e.openPortsInGroup(ctx, name, rules); err != nil {
 		return err
 	}
-	logger.Infof("opened ports in security group %s: %v", name, rules)
+	logger.Infof(context.TODO(), "opened ports in security group %s: %v", name, rules)
 	return nil
 }
 
@@ -129,7 +130,7 @@ func (inst *sdkInstance) ClosePorts(ctx envcontext.ProviderCallContext, machineI
 	if err := inst.e.closePortsInGroup(ctx, name, ports); err != nil {
 		return err
 	}
-	logger.Infof("closed ports in security group %s: %v", name, ports)
+	logger.Infof(context.TODO(), "closed ports in security group %s: %v", name, ports)
 	return nil
 }
 

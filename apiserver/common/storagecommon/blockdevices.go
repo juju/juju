@@ -4,6 +4,7 @@
 package storagecommon
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/juju/core/blockdevice"
@@ -43,77 +44,77 @@ func matchingBlockDevice(
 	planBlockInfo blockdevice.BlockDevice,
 	allowPartitions bool,
 ) (*blockdevice.BlockDevice, bool) {
-	logger.Tracef("looking for block device to match one of planBlockInfo %#v volumeInfo %#v attachmentInfo %#v",
+	logger.Tracef(context.TODO(), "looking for block device to match one of planBlockInfo %#v volumeInfo %#v attachmentInfo %#v",
 		planBlockInfo, volumeInfo, attachmentInfo)
 
 	if planBlockInfo.HardwareId != "" {
 		for _, dev := range blockDevices {
 			if planBlockInfo.HardwareId == dev.HardwareId {
-				logger.Tracef("plan hwid match on %v", planBlockInfo.HardwareId)
+				logger.Tracef(context.TODO(), "plan hwid match on %v", planBlockInfo.HardwareId)
 				return &dev, true
 			}
 		}
-		logger.Tracef("no match for block device hardware id: %v", planBlockInfo.HardwareId)
+		logger.Tracef(context.TODO(), "no match for block device hardware id: %v", planBlockInfo.HardwareId)
 	}
 
 	if planBlockInfo.WWN != "" {
 		for _, dev := range blockDevices {
 			if planBlockInfo.WWN == dev.WWN {
-				logger.Tracef("plan wwn match on %v", planBlockInfo.WWN)
+				logger.Tracef(context.TODO(), "plan wwn match on %v", planBlockInfo.WWN)
 				return &dev, true
 			}
 		}
-		logger.Tracef("no match for block device wwn: %v", planBlockInfo.WWN)
+		logger.Tracef(context.TODO(), "no match for block device wwn: %v", planBlockInfo.WWN)
 	}
 
 	if planBlockInfo.DeviceName != "" {
 		for _, dev := range blockDevices {
 			if planBlockInfo.DeviceName == dev.DeviceName {
-				logger.Tracef("plan device name match on %v", planBlockInfo.DeviceName)
+				logger.Tracef(context.TODO(), "plan device name match on %v", planBlockInfo.DeviceName)
 				return &dev, true
 			}
 		}
-		logger.Tracef("no match for block device name: %v", planBlockInfo.DeviceName)
+		logger.Tracef(context.TODO(), "no match for block device name: %v", planBlockInfo.DeviceName)
 	}
 
 	if volumeInfo.WWN != "" {
 		for _, dev := range blockDevices {
 			if volumeInfo.WWN == dev.WWN {
-				logger.Tracef("wwn match on %v", volumeInfo.WWN)
+				logger.Tracef(context.TODO(), "wwn match on %v", volumeInfo.WWN)
 				return &dev, true
 			}
 		}
-		logger.Tracef("no match for block device wwn: %v", volumeInfo.WWN)
+		logger.Tracef(context.TODO(), "no match for block device wwn: %v", volumeInfo.WWN)
 	}
 
 	if volumeInfo.HardwareId != "" {
 		for _, dev := range blockDevices {
 			if volumeInfo.HardwareId == dev.HardwareId {
-				logger.Tracef("hwid match on %v", volumeInfo.HardwareId)
+				logger.Tracef(context.TODO(), "hwid match on %v", volumeInfo.HardwareId)
 				return &dev, true
 			}
 		}
-		logger.Tracef("no match for block device hardware id: %v", volumeInfo.HardwareId)
+		logger.Tracef(context.TODO(), "no match for block device hardware id: %v", volumeInfo.HardwareId)
 	}
 
 	if volumeInfo.VolumeId != "" {
 		for _, dev := range blockDevices {
 			if dev.SerialId != "" && strings.HasPrefix(volumeInfo.VolumeId, dev.SerialId) {
-				logger.Tracef("serial id %v match on volume id %v", dev.SerialId, volumeInfo.VolumeId)
+				logger.Tracef(context.TODO(), "serial id %v match on volume id %v", dev.SerialId, volumeInfo.VolumeId)
 				return &dev, true
 			}
 		}
-		logger.Tracef("no match for block device volume id: %v", volumeInfo.VolumeId)
+		logger.Tracef(context.TODO(), "no match for block device volume id: %v", volumeInfo.VolumeId)
 	}
 
 	if attachmentInfo.BusAddress != "" {
 		for _, dev := range blockDevices {
 			if attachmentInfo.BusAddress == dev.BusAddress {
-				logger.Tracef("bus address match on %v", attachmentInfo.BusAddress)
+				logger.Tracef(context.TODO(), "bus address match on %v", attachmentInfo.BusAddress)
 				return &dev, true
 			}
 		}
-		logger.Tracef("no match for block device bus address: %v", attachmentInfo.BusAddress)
+		logger.Tracef(context.TODO(), "no match for block device bus address: %v", attachmentInfo.BusAddress)
 	}
 
 	if attachmentInfo.DeviceLink != "" {
@@ -137,24 +138,24 @@ func matchingBlockDevice(
 			}
 		}
 		if devWithUUID != nil {
-			logger.Tracef("device link with UUID match on %v", attachmentInfo.DeviceLink)
+			logger.Tracef(context.TODO(), "device link with UUID match on %v", attachmentInfo.DeviceLink)
 			return devWithUUID, true
 		}
 		if parentDev != nil {
-			logger.Tracef("device link without UUID match on %v", attachmentInfo.DeviceLink)
+			logger.Tracef(context.TODO(), "device link without UUID match on %v", attachmentInfo.DeviceLink)
 			return parentDev, true
 		}
-		logger.Tracef("no match for block device dev link: %v", attachmentInfo.DeviceLink)
+		logger.Tracef(context.TODO(), "no match for block device dev link: %v", attachmentInfo.DeviceLink)
 	}
 
 	if attachmentInfo.DeviceName != "" {
 		for _, dev := range blockDevices {
 			if attachmentInfo.DeviceName == dev.DeviceName {
-				logger.Tracef("device name match on %v", attachmentInfo.DeviceName)
+				logger.Tracef(context.TODO(), "device name match on %v", attachmentInfo.DeviceName)
 				return &dev, true
 			}
 		}
-		logger.Tracef("no match for block device name: %v", attachmentInfo.DeviceName)
+		logger.Tracef(context.TODO(), "no match for block device name: %v", attachmentInfo.DeviceName)
 	}
 	return nil, false
 }

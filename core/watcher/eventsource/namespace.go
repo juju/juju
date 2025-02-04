@@ -113,7 +113,7 @@ func (w *NamespaceWatcher) loop() error {
 			return ErrSubscriptionClosed
 		case subChanges, ok := <-in:
 			if !ok {
-				w.logger.Debugf("change channel closed for %q; terminating watcher", w.namespace)
+				w.logger.Debugf(context.TODO(), "change channel closed for %q; terminating watcher", w.namespace)
 				return nil
 			}
 

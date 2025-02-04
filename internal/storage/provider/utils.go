@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"os/exec"
 	"strings"
 
@@ -23,7 +24,7 @@ type runCommandFunc func(cmd string, args ...string) (string, error)
 // them, and returns the combined stdout/stderr and an error if
 // the command fails.
 func logAndExec(cmd string, args ...string) (string, error) {
-	logger.Debugf("running: %s %s", cmd, strings.Join(args, " "))
+	logger.Debugf(context.TODO(), "running: %s %s", cmd, strings.Join(args, " "))
 	c := exec.Command(cmd, args...)
 	output, err := c.CombinedOutput()
 	if err != nil {

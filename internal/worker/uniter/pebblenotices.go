@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	stdcontext "context"
 	"time"
 
 	"github.com/canonical/pebble/client"
@@ -73,8 +74,8 @@ func (n *pebbleNoticer) run(containerName string) (err error) {
 		errorDelay  = time.Second
 	)
 
-	n.logger.Debugf("container %q: pebbleNoticer starting", containerName)
-	defer n.logger.Debugf("container %q: pebbleNoticer stopped, error %v", containerName, err)
+	n.logger.Debugf(stdcontext.TODO(), "container %q: pebbleNoticer starting", containerName)
+	defer n.logger.Debugf(stdcontext.TODO(), "container %q: pebbleNoticer stopped, error %v", containerName, err)
 
 	config := newPebbleConfig(containerName)
 	pebbleClient, err := n.newPebbleClient(config)
@@ -103,10 +104,10 @@ func (n *pebbleNoticer) run(containerName string) (err error) {
 			var socketNotFound *client.SocketNotFoundError
 			if errors.As(err, &socketNotFound) {
 				// Pebble has probably not started yet -- not an error.
-				n.logger.Debugf("container %q: socket %q not found, waiting %s",
+				n.logger.Debugf(stdcontext.TODO(), "container %q: socket %q not found, waiting %s",
 					containerName, socketNotFound.Path, errorDelay)
 			} else {
-				n.logger.Errorf("container %q: WaitNotices error, waiting %s: %v",
+				n.logger.Errorf(stdcontext.TODO(), "container %q: WaitNotices error, waiting %s: %v",
 					containerName, errorDelay, err)
 			}
 			select {
@@ -155,7 +156,7 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 		// change kinds reflect changes in the workload state, so are useful to
 		// charms.
 		if kind != "perform-check" && kind != "recover-check" {
-			n.logger.Debugf("container %q: ignoring %s notice, kind %s", containerName, notice.Type, kind)
+			n.logger.Debugf(stdcontext.TODO(), "container %q: ignoring %s notice, kind %s", containerName, notice.Type, kind)
 			return nil
 		}
 		// We always look for the final status (Done, Error), because the status
@@ -178,7 +179,7 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 		case kind == "recover-check" && chg.Status == "Done":
 			eventType = container.CheckRecoveredEvent
 		default:
-			n.logger.Debugf("container %q: ignoring %s, status %s", containerName, kind, chg.Status)
+			n.logger.Debugf(stdcontext.TODO(), "container %q: ignoring %s, status %s", containerName, kind, chg.Status)
 			return nil
 		}
 		event = container.WorkloadEvent{
@@ -187,11 +188,11 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 			CheckName:    data["check-name"],
 		}
 	default:
-		n.logger.Debugf("container %q: ignoring %s notice", containerName, notice.Type)
+		n.logger.Debugf(stdcontext.TODO(), "container %q: ignoring %s notice", containerName, notice.Type)
 		return nil
 	}
 
-	n.logger.Debugf("container %q: processing %s notice, key %q", containerName, notice.Type, notice.Key)
+	n.logger.Debugf(stdcontext.TODO(), "container %q: processing %s notice, key %q", containerName, notice.Type, notice.Key)
 
 	errChan := make(chan error, 1)
 	eventID := n.workloadEvents.AddWorkloadEvent(event, func(err error) {

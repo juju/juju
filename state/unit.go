@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
@@ -309,26 +310,26 @@ func (u *Unit) PasswordValid(password string) bool {
 	// Usually found 1-3 months after it happened.  It would be helpful to have
 	// additional data we can go back and find.
 	if agentHash == "" {
-		logger.Errorf("%q invalid password, provided agent hash empty", u.Name())
+		logger.Errorf(context.TODO(), "%q invalid password, provided agent hash empty", u.Name())
 		return false
 	}
 	if u.doc.PasswordHash == "" {
-		logger.Errorf("%q invalid password, doc password hash empty", u.Name())
+		logger.Errorf(context.TODO(), "%q invalid password, doc password hash empty", u.Name())
 		return false
 	}
 	app, err := u.Application()
 	if err != nil {
-		logger.Errorf("%q invalid password, error getting application: %s", u.Name(), err.Error())
+		logger.Errorf(context.TODO(), "%q invalid password, error getting application: %s", u.Name(), err.Error())
 		return false
 	}
 	units, err := app.AllUnits()
 	if err != nil {
-		logger.Errorf("%q invalid password, error getting all units: %s", app.Name(), err.Error())
+		logger.Errorf(context.TODO(), "%q invalid password, error getting all units: %s", app.Name(), err.Error())
 		return false
 	}
 	for _, unit := range units {
 		if u.Name() != unit.Name() && agentHash == unit.doc.PasswordHash {
-			logger.Errorf("%q invalid password, provided agent hash matches %q password hash", u.Name(), unit.Name())
+			logger.Errorf(context.TODO(), "%q invalid password, provided agent hash matches %q password hash", u.Name(), unit.Name())
 		}
 	}
 	return false
@@ -372,7 +373,7 @@ func (op *UpdateUnitOperation) Build(_ int) ([]txn.Op, error) {
 	if containerInfo.ProviderId != "" &&
 		newProviderId != "" &&
 		containerInfo.ProviderId != newProviderId {
-		logger.Debugf("unit %q has provider id %q which changed to %q",
+		logger.Debugf(context.TODO(), "unit %q has provider id %q which changed to %q",
 			op.unit.Name(), containerInfo.ProviderId, newProviderId)
 	}
 
@@ -477,7 +478,7 @@ func (op *UpdateUnitOperation) Done(err error) error {
 func (u *Unit) Destroy(store objectstore.ObjectStore) error {
 	_, errs, err := u.DestroyWithForce(store, false, time.Duration(0))
 	if len(errs) != 0 {
-		logger.Warningf("operational errors destroying unit %v: %v", u.Name(), errs)
+		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.Name(), errs)
 	}
 	return err
 }
@@ -486,7 +487,7 @@ func (u *Unit) Destroy(store objectstore.ObjectStore) error {
 func (u *Unit) DestroyMaybeRemove(store objectstore.ObjectStore) (bool, error) {
 	removed, errs, err := u.DestroyWithForce(store, false, time.Duration(0))
 	if len(errs) != 0 {
-		logger.Warningf("operational errors destroying unit %v: %v", u.Name(), errs)
+		logger.Warningf(context.TODO(), "operational errors destroying unit %v: %v", u.Name(), errs)
 	}
 	return removed, err
 }
@@ -558,7 +559,7 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf("forcing unit destruction for %v despite error %v", op.unit.Name(), err)
+			logger.Warningf(context.TODO(), "forcing unit destruction for %v despite error %v", op.unit.Name(), err)
 			return ops, nil
 		}
 		return nil, err
@@ -576,7 +577,7 @@ func (op *DestroyUnitOperation) Done(err error) error {
 	}
 	// Reimplement in dqlite.
 	//if err := op.deleteSecrets(); err != nil {
-	//	logger.Errorf("cannot delete secrets for unit %q: %v", op.unit, err)
+	//	logger.Errorf(context.TODO(), "cannot delete secrets for unit %q: %v", op.unit, err)
 	//}
 	return nil
 }
@@ -747,7 +748,7 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
 		}}, nil
 	} else if u.doc.MachineId == "" {
-		unitLogger.Tracef("unit %v unassigned", u)
+		unitLogger.Tracef(context.TODO(), "unit %v unassigned", u)
 		return nil, nil
 	}
 
@@ -972,7 +973,7 @@ func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf("forcing unit removal for %v despite error %v", op.unit.Name(), err)
+			logger.Warningf(context.TODO(), "forcing unit removal for %v despite error %v", op.unit.Name(), err)
 			return ops, nil
 		}
 		return nil, err
@@ -1153,7 +1154,7 @@ func (u *Unit) PublicAddress() (network.SpaceAddress, error) {
 	}
 	m, err := u.machine()
 	if err != nil {
-		unitLogger.Tracef("%v", err)
+		unitLogger.Tracef(context.TODO(), "%v", err)
 		return network.SpaceAddress{}, errors.Trace(err)
 	}
 	return m.PublicAddress()
@@ -1170,7 +1171,7 @@ func (u *Unit) PrivateAddress() (network.SpaceAddress, error) {
 	}
 	m, err := u.machine()
 	if err != nil {
-		unitLogger.Tracef("%v", err)
+		unitLogger.Tracef(context.TODO(), "%v", err)
 		return network.SpaceAddress{}, errors.Trace(err)
 	}
 	return m.PrivateAddress()
@@ -1447,7 +1448,7 @@ func (u *Unit) charm() (CharmRefFull, error) {
 		},
 		Clock: u.st.clock(),
 		NotifyFunc: func(err error, attempt int) {
-			logger.Warningf("error getting charm for unit %q. Retrying (attempt %d): %v", u.Name(), attempt, err)
+			logger.Warningf(context.TODO(), "error getting charm for unit %q. Retrying (attempt %d): %v", u.Name(), attempt, err)
 		},
 	})
 

@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -28,7 +29,9 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/internal/cmd"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
+	internalworker "github.com/juju/juju/internal/worker"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
 	"github.com/juju/juju/rpc/params"
@@ -101,7 +104,7 @@ func (a *dbReplAgentCommand) Init(args []string) error {
 	}
 	config := a.currentConfig.CurrentConfig()
 	if err := os.MkdirAll(config.LogDir(), 0644); err != nil {
-		logger.Warningf("cannot create log dir: %v", err)
+		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
 	a.isCaas = config.Value(agent.ProviderType) == k8sconstants.CAASProviderType
 
@@ -167,7 +170,7 @@ func DBReplMachineAgentFactoryFn(
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
 				RestartDelay:  jworker.RestartDelay,
-				Logger:        logger,
+				Logger:        internalworker.WrapLogger(logger),
 			}),
 			newDBReplWorkerFunc,
 			isCaasAgent,
@@ -248,10 +251,10 @@ func (a *replMachineAgent) Run(ctx *cmd.Context) (err error) {
 	err = a.runner.Wait()
 	switch errors.Cause(err) {
 	case jworker.ErrRebootMachine:
-		logger.Infof("Caught reboot error")
+		logger.Infof(context.TODO(), "Caught reboot error")
 		err = a.executeRebootOrShutdown(params.ShouldReboot)
 	case jworker.ErrShutdownMachine:
-		logger.Infof("Caught shutdown error")
+		logger.Infof(context.TODO(), "Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
 	return cmdutil.AgentDone(logger, err)
@@ -275,7 +278,7 @@ func (a *replMachineAgent) makeEngineCreator(
 	return func() (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
 			dependency.DefaultMetrics(),
-			internallogger.GetLogger("juju.worker.dependency"),
+			internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 		))
 		if err != nil {
 			return nil, err
@@ -301,7 +304,7 @@ func (a *replMachineAgent) makeEngineCreator(
 
 		if err := dependency.Install(eng, manifolds); err != nil {
 			if err := worker.Stop(eng); err != nil {
-				logger.Errorf("while stopping engine with bad manifolds: %v", err)
+				logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
 			}
 			return nil, err
 		}
@@ -316,10 +319,10 @@ func (a *replMachineAgent) executeRebootOrShutdown(action params.RebootAction) e
 		return errors.Trace(err)
 	}
 
-	logger.Infof("Reboot: Executing reboot")
+	logger.Infof(context.TODO(), "Reboot: Executing reboot")
 	err = finalize.ExecuteReboot(action)
 	if err != nil {
-		logger.Infof("Reboot: Error executing reboot: %v", err)
+		logger.Infof(context.TODO(), "Reboot: Error executing reboot: %v", err)
 		return errors.Trace(err)
 	}
 	// We return ErrRebootMachine so the agent will simply exit without error

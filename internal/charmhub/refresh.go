@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/kr/pretty"
 	"golang.org/x/crypto/pbkdf2"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -100,7 +100,7 @@ func newRefreshClient(path path.Path, client RESTClient, logger corelogger.Logge
 // Refresh is used to refresh installed charms to a more suitable revision.
 func (c *refreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
 	if c.logger.IsLevelEnabled(corelogger.TRACE) {
-		c.logger.Tracef("Refresh(%s)", pretty.Sprint(config))
+		c.logger.Tracef(context.TODO(), "Refresh(%s)", pretty.Sprint(config))
 	}
 	req, err := config.Build()
 	if err != nil {
@@ -113,7 +113,7 @@ func (c *refreshClient) Refresh(ctx context.Context, config RefreshConfig) ([]tr
 // at the same time.  Used as part of the charm revision updater facade.
 func (c *refreshClient) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics Metrics) ([]transport.RefreshResponse, error) {
 	if c.logger.IsLevelEnabled(corelogger.TRACE) {
-		c.logger.Tracef("RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
+		c.logger.Tracef(context.TODO(), "RefreshWithRequestMetrics(%s, %+v)", pretty.Sprint(config), metrics)
 	}
 	req, err := config.Build()
 	if err != nil {
@@ -130,7 +130,7 @@ func (c *refreshClient) RefreshWithRequestMetrics(ctx context.Context, config Re
 // RefreshWithMetricsOnly is to provide metrics without context or actions. Used
 // as part of the charm revision updater facade.
 func (c *refreshClient) RefreshWithMetricsOnly(ctx context.Context, metrics Metrics) error {
-	c.logger.Tracef("RefreshWithMetricsOnly(%+v)", metrics)
+	c.logger.Tracef(context.TODO(), "RefreshWithMetricsOnly(%+v)", metrics)
 	m, err := contextMetrics(metrics)
 	if err != nil {
 		return errors.Trace(err)
@@ -209,7 +209,7 @@ func (c *refreshClient) refresh(ctx context.Context, ensure func(responses []tra
 	}
 
 	if c.logger.IsLevelEnabled(corelogger.TRACE) {
-		c.logger.Tracef("Refresh() unmarshalled: %s", pretty.Sprint(results))
+		c.logger.Tracef(context.TODO(), "Refresh() unmarshalled: %s", pretty.Sprint(results))
 	}
 	return results, nil
 }
@@ -502,11 +502,11 @@ func ExtractConfigInstanceKey(cfg RefreshConfig) string {
 // the functions that create a RefreshConfig like RefreshOne don't take
 // loggers. This logging can sometimes be quite useful to avoid error sources
 // getting lost across the wire, so leave as is for now.
-var logger = loggo.GetLoggerWithTags("juju.charmhub", corelogger.CHARMHUB)
+var logger = internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
 
 func logAndReturnError(err error) error {
 	err = errors.Trace(err)
-	logger.Errorf(err.Error())
+	logger.Errorf(context.TODO(), err.Error())
 	return err
 }
 

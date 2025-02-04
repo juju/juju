@@ -4,6 +4,7 @@
 package tools
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -125,12 +126,12 @@ func environmentDataSources(bootstrapEnviron environs.BootstrapEnviron) ([]simpl
 	var datasources []simplestreams.DataSource
 	env, ok := bootstrapEnviron.(environs.Environ)
 	if !ok {
-		logger.Debugf("environmentDataSources is supported for IAAS, environ %#v is not Environ", bootstrapEnviron)
+		logger.Debugf(context.TODO(), "environmentDataSources is supported for IAAS, environ %#v is not Environ", bootstrapEnviron)
 		// ignore for CAAS
 		return datasources, nil
 	}
 	for _, f := range toolsDatasourceFuncs {
-		logger.Debugf("trying datasource %q", f.id)
+		logger.Debugf(context.TODO(), "trying datasource %q", f.id)
 		datasource, err := f.f(env)
 		if err != nil {
 			if errors.Is(err, errors.NotSupported) {

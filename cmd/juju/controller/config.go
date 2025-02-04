@@ -262,7 +262,7 @@ func (c *configCommand) filterOutReadOnly(attrs config.Attrs) error {
 		return errors.Errorf("invalid or read-only controller config values cannot be updated: %v", extraValues.SortedValues())
 	}
 
-	logger.Warningf("invalid or read-only controller config values ignored: %v", extraValues.SortedValues())
+	logger.Warningf(context.TODO(), "invalid or read-only controller config values ignored: %v", extraValues.SortedValues())
 	return nil
 }
 

@@ -63,7 +63,7 @@ func (c *Client) handleError(ctx context.Context, apiErr error) (macaroon.Slice,
 	if errResp.Info == nil {
 		return nil, errors.Annotatef(apiErr, "no error info found in discharge-required response error")
 	}
-	logger.Debugf("attempting to discharge macaroon due to error: %v", apiErr)
+	logger.Debugf(context.TODO(), "attempting to discharge macaroon due to error: %v", apiErr)
 	var info params.DischargeRequiredErrorInfo
 	if errUnmarshal := errResp.UnmarshalInfo(&info); errUnmarshal != nil {
 		return nil, errors.Annotatef(apiErr, "unable to extract macaroon details from discharge-required response error")
@@ -80,9 +80,9 @@ func (c *Client) handleError(ctx context.Context, apiErr error) (macaroon.Slice,
 	}
 	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(ctx, m)
 	if err == nil && logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef("discharge macaroon ids:")
+		logger.Tracef(context.TODO(), "discharge macaroon ids:")
 		for _, m := range ms {
-			logger.Tracef("  - %v", m.Id())
+			logger.Tracef(context.TODO(), "  - %v", m.Id())
 		}
 	}
 	if err != nil {
@@ -94,10 +94,10 @@ func (c *Client) handleError(ctx context.Context, apiErr error) (macaroon.Slice,
 func (c *Client) getCachedMacaroon(opName, token string) (macaroon.Slice, bool) {
 	ms, ok := c.cache.Get(token)
 	if ok {
-		logger.Debugf("%s using cached macaroons for %s", opName, token)
+		logger.Debugf(context.TODO(), "%s using cached macaroons for %s", opName, token)
 		if logger.IsLevelEnabled(corelogger.TRACE) {
 			for _, m := range ms {
-				logger.Tracef("  - %v", m.Id())
+				logger.Tracef(context.TODO(), "  - %v", m.Id())
 			}
 		}
 	}

@@ -4,6 +4,7 @@
 package logsender_test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -12,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsender/logsendertest"
@@ -150,10 +152,10 @@ func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer logsender.UninstallBufferedLogWriter()
 
-	logger := loggo.GetLogger("bufferedLogWriter-test")
+	logger := internallogger.GetLogger("bufferedLogWriter-test")
 
 	for i := 0; i < 5; i++ {
-		logger.Infof("%d", i)
+		logger.Infof(context.TODO(), "%d", i)
 	}
 
 	logsCh := bufferedLogger.Logs()

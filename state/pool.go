@@ -5,6 +5,7 @@ package state
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"runtime/debug"
 	"sync"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -70,7 +72,7 @@ func (ps *PooledState) Release() bool {
 
 	removed, err := ps.pool.release(ps.modelUUID, ps.itemKey)
 	if err != nil {
-		logger.Errorf("releasing state back to pool: %s", err.Error())
+		logger.Errorf(context.TODO(), "releasing state back to pool: %s", err.Error())
 	}
 	ps.released = true
 	return removed
@@ -137,7 +139,7 @@ type StatePool struct {
 
 // OpenStatePool returns a new StatePool instance.
 func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
-	logger.Tracef("opening state pool")
+	logger.Tracef(context.TODO(), "opening state pool")
 	if err = args.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating args")
 	}
@@ -172,7 +174,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	defer func() {
 		if err != nil {
 			if closeErr := st.Close(); closeErr != nil {
-				logger.Errorf("closing State for %s: %v", args.ControllerModelTag, closeErr)
+				logger.Errorf(context.TODO(), "closing State for %s: %v", args.ControllerModelTag, closeErr)
 			}
 		}
 	}()
@@ -193,7 +195,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	// noticed. The clocks in the runner and the txn watcher are used to
 	// control polling, and never return the actual times.
 	pool.watcherRunner = worker.NewRunner(worker.RunnerParams{
-		Logger:       internallogger.GetLogger("juju.state.pool.txnwatcher"),
+		Logger:       internalworker.WrapLogger(internallogger.GetLogger("juju.state.pool.txnwatcher")),
 		IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
 		RestartDelay: time.Second,
 		Clock:        args.Clock,
@@ -421,7 +423,7 @@ func (p *StatePool) Close() error {
 		return nil
 	}
 	if logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef("state pool closed from:\n%s", debug.Stack())
+		logger.Tracef(context.TODO(), "state pool closed from:\n%s", debug.Stack())
 	}
 
 	// Before we go through and close the state pool objects, we need to
@@ -434,11 +436,11 @@ func (p *StatePool) Close() error {
 
 	for uuid, item := range p.pool {
 		if err := item.state.stopWorkers(); err != nil {
-			logger.Infof("state workers for model %s did not stop: %v", uuid, err)
+			logger.Infof(context.TODO(), "state workers for model %s did not stop: %v", uuid, err)
 		}
 	}
 	if err := p.systemState.stopWorkers(); err != nil {
-		logger.Infof("state workers for controller model did not stop: %v", err)
+		logger.Infof(context.TODO(), "state workers for controller model did not stop: %v", err)
 	}
 
 	// Reacquire the lock to modify the pool.
@@ -455,7 +457,7 @@ func (p *StatePool) Close() error {
 	p.mu.Unlock()
 	for _, item := range pool {
 		if item.refCount() != 0 || item.remove {
-			logger.Warningf(
+			logger.Warningf(context.TODO(),
 				"state for %v leaked from pool - references: %v, removed: %v",
 				item.state.ModelUUID(),
 				item.refCount(),

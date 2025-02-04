@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"io"
@@ -179,7 +180,7 @@ func Main(args []string) int {
 		if r := recover(); r != nil {
 			buf := make([]byte, 4096)
 			buf = buf[:runtime.Stack(buf, false)]
-			logger.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
+			logger.Criticalf(context.TODO(), "Unhandled panic: \n%v\n%s", r, buf)
 			os.Exit(ExitStatusCodePanic)
 		}
 	}()

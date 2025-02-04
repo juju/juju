@@ -5,6 +5,8 @@
 package containerinit
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	corenetwork "github.com/juju/juju/core/network"
@@ -45,7 +47,7 @@ func CloudInitUserData(
 	cloudConfig.AddRunCmd("ifconfig || ip addr")
 
 	if instanceConfig.MachineContainerHostname != "" {
-		logger.Debugf("Cloud-init configured to set hostname")
+		logger.Debugf(context.TODO(), "Cloud-init configured to set hostname")
 		cloudConfig.SetAttr("hostname", instanceConfig.MachineContainerHostname)
 	}
 

@@ -13,11 +13,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/retry"
 	"golang.org/x/net/http/httpproxy"
 
 	"github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // FileProtocolMiddleware registers support for file:// URLs on the given transport.
@@ -99,7 +99,7 @@ func ProxyMiddleware(transport *http.Transport) *http.Transport {
 	return transport
 }
 
-var midLogger = loggo.GetLoggerWithTags("juju.http.middleware", "http")
+var midLogger = internallogger.GetLogger("juju.http.middleware", "http")
 
 func getProxy(req *http.Request) (*url.URL, error) {
 	// Get proxy config new for each client.  Go will cache the proxy
@@ -107,7 +107,7 @@ func getProxy(req *http.Request) (*url.URL, error) {
 	// And caused changes in proxy settings via model-config not to
 	// be used.
 	cfg := httpproxy.FromEnvironment()
-	midLogger.Tracef("proxy config http(%s), https(%s), no-proxy(%s)",
+	midLogger.Tracef(context.TODO(), "proxy config http(%s), https(%s), no-proxy(%s)",
 		cfg.HTTPProxy, cfg.HTTPSProxy, cfg.NoProxy)
 	return cfg.ProxyFunc()(req.URL)
 }
@@ -292,7 +292,7 @@ func (m retryMiddleware) defaultBackoff(resp *http.Response, backoff time.Durati
 		if resp.Request != nil {
 			url = resp.Request.URL.String()
 		}
-		m.logger.Errorf("unable to parse Retry-After header %s from %s", header, url)
+		m.logger.Errorf(context.TODO(), "unable to parse Retry-After header %s from %s", header, url)
 	}
 
 	return m.clampBackoff(backoff)

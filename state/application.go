@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	stderrors "errors"
 	"fmt"
 	"net"
@@ -317,7 +318,7 @@ var errRefresh = stderrors.New("state seems inconsistent, refresh and try again"
 func (a *Application) Destroy(store objectstore.ObjectStore) (err error) {
 	op := a.DestroyOperation(store)
 	defer func() {
-		logger.Tracef("Application(%s).Destroy() => %v", a.doc.Name, err)
+		logger.Tracef(context.TODO(), "Application(%s).Destroy() => %v", a.doc.Name, err)
 		if err == nil {
 			// After running the destroy ops, app life is either Dying,
 			// or it may be set to Dead. If removed, life will also be marked as Dead.
@@ -326,7 +327,7 @@ func (a *Application) Destroy(store objectstore.ObjectStore) (err error) {
 	}()
 	err = a.st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
-		logger.Warningf("operational errors destroying application %v: %v", a.Name(), op.Errors)
+		logger.Warningf(context.TODO(), "operational errors destroying application %v: %v", a.Name(), op.Errors)
 	}
 	return err
 }
@@ -401,7 +402,7 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 			return ops, nil
 		}
 		if op.Force {
-			logger.Debugf("forcing application removal")
+			logger.Debugf(context.TODO(), "forcing application removal")
 			return ops, nil
 		}
 		// Should be impossible to reach as--by convention--we return an error and
@@ -421,7 +422,7 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 
 		// Reimplement in dqlite.
 		//if err := op.deleteSecrets(); err != nil {
-		//	logger.Errorf("cannot delete secrets for application %q: %v", op.app, err)
+		//	logger.Errorf(context.TODO(), "cannot delete secrets for application %q: %v", op.app, err)
 		//}
 		return nil
 	}
@@ -467,7 +468,7 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 		// This is just an early bail out. The relations obtained may still
 		// be wrong, but that situation will be caught by a combination of
 		// asserts on relationcount and on each known relation, below.
-		logger.Tracef("DestroyApplicationOperation(%s).destroyOps mismatched relation count %d != %d",
+		logger.Tracef(context.TODO(), "DestroyApplicationOperation(%s).destroyOps mismatched relation count %d != %d",
 			op.app.doc.Name, len(rels), op.app.doc.RelationCount)
 		return nil, errRefresh
 	}
@@ -550,7 +551,7 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 	// removed, the application can also be removed, so long as there are
 	// no other cluster resources, as can be the case for k8s charms.
 	if op.app.doc.UnitCount == 0 && op.app.doc.RelationCount == removeCount {
-		logger.Tracef("DestroyApplicationOperation(%s).destroyOps removing application", op.app.doc.Name)
+		logger.Tracef(context.TODO(), "DestroyApplicationOperation(%s).destroyOps removing application", op.app.doc.Name)
 		// If we're forcing destruction the assertion shouldn't be that
 		// life is alive, but that it's what we think it is now.
 		assertion := bson.D{
@@ -590,7 +591,7 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 	// about is that *some* unit is, or is not, keeping the application from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
 	if op.app.doc.UnitCount > 0 {
-		logger.Tracef("DestroyApplicationOperation(%s).destroyOps UnitCount == %d, queuing up unitCleanup",
+		logger.Tracef(context.TODO(), "DestroyApplicationOperation(%s).destroyOps UnitCount == %d, queuing up unitCleanup",
 			op.app.doc.Name, op.app.doc.UnitCount)
 		cleanupOp := newCleanupOp(
 			cleanupUnitsForDyingApplication,
@@ -1554,7 +1555,7 @@ func (a *Application) SetCharm(
 			// If the operator specified --force, we still allow
 			// the upgrade to continue with a warning.
 			if errors.Is(quotaErr, errors.QuotaLimitExceeded) && cfg.Force {
-				logger.Warningf("%v; allowing upgrade to proceed as the operator specified --force", quotaErr)
+				logger.Warningf(context.TODO(), "%v; allowing upgrade to proceed as the operator specified --force", quotaErr)
 			} else if quotaErr != nil {
 				return nil, errors.Trace(quotaErr)
 			}
@@ -1743,7 +1744,7 @@ func (a *Application) GetScale() int {
 // This is used on CAAS models.
 func (a *Application) ChangeScale(scaleChange int) (int, error) {
 	newScale := a.doc.DesiredScale + scaleChange
-	logger.Tracef("ChangeScale DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
+	logger.Tracef(context.TODO(), "ChangeScale DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
 	if newScale < 0 {
 		return a.doc.DesiredScale, errors.NotValidf("cannot remove more units than currently exist")
 	}
@@ -1804,7 +1805,7 @@ func (a *Application) SetScale(scale int, generation int64, force bool) error {
 		return errors.Trace(err)
 	}
 	if err == nil {
-		logger.Tracef(
+		logger.Tracef(context.TODO(),
 			"SetScale DesiredScaleProtected %v, DesiredScale %v -> %v, Generation %v -> %v",
 			svcInfo.DesiredScaleProtected(), a.doc.DesiredScale, scale, svcInfo.Generation(), generation,
 		)
@@ -2739,7 +2740,7 @@ func (a *Application) Constraints() (constraints.Value, error) {
 func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	unsupported, err := a.st.validateConstraints(cons)
 	if len(unsupported) > 0 {
-		logger.Warningf(
+		logger.Warningf(context.TODO(),
 			"setting constraints on application %q: unsupported constraints: %v", a.Name(), strings.Join(unsupported, ","))
 	} else if err != nil {
 		return err

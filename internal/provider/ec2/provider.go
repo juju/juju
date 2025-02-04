@@ -39,7 +39,7 @@ func (environProvider) Version() int {
 
 // Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
-	logger.Debugf("opening model %q", args.Config.Name())
+	logger.Debugf(context.TODO(), "opening model %q", args.Config.Name())
 
 	e := newEnviron()
 	e.name = args.Config.Name()
@@ -163,7 +163,7 @@ var maybeConvertCredentialError = func(err error, ctx envcontext.ProviderCallCon
 		callbackErr := ctx.InvalidateCredential(converted.Error())
 		if callbackErr != nil {
 			// We want to proceed with the actual processing but still keep a log of a problem.
-			logger.Infof("callback to invalidate model credential failed with %v", converted)
+			logger.Infof(context.TODO(), "callback to invalidate model credential failed with %v", converted)
 		}
 		return converted
 	}

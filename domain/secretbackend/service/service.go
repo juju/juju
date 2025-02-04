@@ -280,7 +280,7 @@ func (s *Service) backendConfigInfo(
 		return nil, errors.NotSupportedf("secret accessor kind %q", accessor.Kind)
 	}
 
-	s.logger.Debugf("secrets for %s:\nowned: %v\nconsumed:%v", accessor, ownedRevisions, readRevisions)
+	s.logger.Debugf(context.TODO(), "secrets for %s:\nowned: %v\nconsumed:%v", accessor, ownedRevisions, readRevisions)
 	restrictedConfig, err := p.RestrictedConfig(ctx, cfg, sameController, forDrain, coreAccessor, ownedRevisions, readRevisions)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -562,11 +562,11 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	}
 
 	if backendInfo.TokenRotateInterval == nil || *backendInfo.TokenRotateInterval == 0 {
-		s.logger.Debugf("not rotating token for secret backend %q", backendInfo.Name)
+		s.logger.Debugf(context.TODO(), "not rotating token for secret backend %q", backendInfo.Name)
 		return nil
 	}
 
-	s.logger.Debugf("refresh token for backend %v", backendInfo.Name)
+	s.logger.Debugf(context.TODO(), "refresh token for backend %v", backendInfo.Name)
 	cfg := provider.BackendConfig{
 		BackendType: backendInfo.BackendType,
 		Config:      backendInfo.Config,
@@ -576,7 +576,7 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	var nextRotateTime time.Time
 	auth, err := p.(provider.SupportAuthRefresh).RefreshAuth(ctx, cfg, *backendInfo.TokenRotateInterval)
 	if err != nil {
-		s.logger.Debugf("refreshing auth token for %q: %v", backendInfo.Name, err)
+		s.logger.Debugf(context.TODO(), "refreshing auth token for %q: %v", backendInfo.Name, err)
 		// If there's a permission error, we can't recover from that.
 		if errors.Is(err, internalsecrets.PermissionDenied) {
 			return errors.Trace(err)
@@ -595,7 +595,7 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	if nextRotateTime.IsZero() {
 		nextRotateTime = s.clock.Now().Add(2 * time.Minute)
 	}
-	s.logger.Debugf("updating token rotation for %q, next: %s", backendInfo.Name, nextRotateTime)
+	s.logger.Debugf(context.TODO(), "updating token rotation for %q, next: %s", backendInfo.Name, nextRotateTime)
 	err = s.st.SecretBackendRotated(ctx, backendID, nextRotateTime)
 	return errors.Trace(err)
 }

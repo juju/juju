@@ -410,7 +410,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		controllermsg.ConfigChanged,
 		func(topic string, data controllermsg.ConfigChangedMessage, err error) {
 			if err != nil {
-				logger.Criticalf("programming error in %s message data: %v", topic, err)
+				logger.Criticalf(context.TODO(), "programming error in %s message data: %v", topic, err)
 				return
 			}
 
@@ -419,12 +419,12 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 			// If the update fails, there is nothing else we can do but log the
 			// error. The server will continue to run with the old limits.
 			if err := srv.updateResourceDownloadLimiters(data.Config); err != nil {
-				logger.Errorf("failed to update resource download limiters: %v", err)
+				logger.Errorf(context.TODO(), "failed to update resource download limiters: %v", err)
 				return
 			}
 		})
 	if err != nil {
-		logger.Criticalf("programming error in subscribe function: %v", err)
+		logger.Criticalf(context.TODO(), "programming error in subscribe function: %v", err)
 		return nil, errors.Trace(err)
 	}
 
@@ -1098,7 +1098,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		// deferred to the facade methods.
 		ctx := model.WithContextModelUUID(req.Context(), resolvedModelUUID)
 
-		logger.Tracef("got a request for model %q", modelUUID)
+		logger.Tracef(context.TODO(), "got a request for model %q", modelUUID)
 		if err := srv.serveConn(
 			srv.tomb.Context(ctx),
 			conn,
@@ -1108,7 +1108,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 			apiObserver,
 			req.Host,
 		); err != nil {
-			logger.Errorf("error serving RPCs: %v", err)
+			logger.Errorf(context.TODO(), "error serving RPCs: %v", err)
 		}
 	})
 }
@@ -1131,7 +1131,7 @@ func (srv *Server) serveConn(
 		coretrace.Namespace("apiserver", modelUUID.String()),
 	)
 	if err != nil {
-		logger.Infof("failed to get tracer for model %q: %v", modelUUID, err)
+		logger.Infof(context.TODO(), "failed to get tracer for model %q: %v", modelUUID, err)
 		tracer = coretrace.NoopTracer{}
 	}
 

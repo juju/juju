@@ -204,11 +204,11 @@ func (w *remoteServer) loop() error {
 				rctx      = request.ctx
 			)
 
-			w.logger.Debugf("addresses for %q have changed: %v", w.controllerID, addresses)
+			w.logger.Debugf(context.TODO(), "addresses for %q have changed: %v", w.controllerID, addresses)
 
 			// If the addresses already exist, we don't need to do anything.
 			if connected && w.addressesAlreadyExist(addresses) {
-				w.logger.Debugf("addresses for %q have not changed", w.controllerID)
+				w.logger.Debugf(context.TODO(), "addresses for %q have not changed", w.controllerID)
 				continue
 			}
 
@@ -227,7 +227,7 @@ func (w *remoteServer) loop() error {
 				}
 			}
 
-			w.logger.Debugf("connected to %s with addresses: %v", w.controllerID, addresses)
+			w.logger.Debugf(context.TODO(), "connected to %s with addresses: %v", w.controllerID, addresses)
 
 			// We've successfully connected to the remote server, so update the
 			// addresses.
@@ -264,7 +264,7 @@ func (w *remoteServer) addressesAlreadyExist(addresses []string) bool {
 }
 
 func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan struct{}, error) {
-	w.logger.Debugf("connecting to %s with addresses: %v", w.controllerID, addresses)
+	w.logger.Debugf(context.TODO(), "connecting to %s with addresses: %v", w.controllerID, addresses)
 
 	// Use temporary info until we're sure we can connect. If the addresses
 	// are invalid, but the existing connection is still valid, we don't want
@@ -286,7 +286,7 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan 
 		},
 		NotifyFunc: func(err error, attempt int) {
 			// This is normal behavior, so we don't need to log it as an error.
-			w.logger.Debugf("failed to connect to %s attempt %d, with addresses %v: %v", w.controllerID, attempt, info.Addrs, err)
+			w.logger.Debugf(context.TODO(), "failed to connect to %s attempt %d, with addresses %v: %v", w.controllerID, attempt, info.Addrs, err)
 		},
 		IsFatalError: func(err error) bool {
 			// This is the only legitimist error that can be returned from the
@@ -328,7 +328,7 @@ func (w *remoteServer) closeCurrentConnection() {
 
 	err := w.currentConnection.Close()
 	if err != nil {
-		w.logger.Errorf("failed to close connection %q: %v", w.controllerID, err)
+		w.logger.Errorf(context.TODO(), "failed to close connection %q: %v", w.controllerID, err)
 	}
 
 	w.currentConnection = nil

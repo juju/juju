@@ -5,6 +5,7 @@ package wrench
 
 import (
 	"bufio"
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -60,7 +61,7 @@ func IsActive(category, feature string) bool {
 
 	wrenchFile, err := os.Open(fileName)
 	if err != nil {
-		logger.Errorf("unable to read wrench data for %s/%s (ignored): %v",
+		logger.Errorf(context.TODO(), "unable to read wrench data for %s/%s (ignored): %v",
 			category, feature, err)
 		return false
 	}
@@ -69,12 +70,12 @@ func IsActive(category, feature string) bool {
 	for lines.Scan() {
 		line := strings.TrimSpace(lines.Text())
 		if line == feature {
-			logger.Tracef("wrench for %s/%s is active", category, feature)
+			logger.Tracef(context.TODO(), "wrench for %s/%s is active", category, feature)
 			return true
 		}
 	}
 	if err := lines.Err(); err != nil {
-		logger.Errorf("error while reading wrench data for %s/%s (ignored): %v",
+		logger.Errorf(context.TODO(), "error while reading wrench data for %s/%s (ignored): %v",
 			category, feature, err)
 	}
 	return false
@@ -107,11 +108,11 @@ var stat = os.Stat // To support patching
 func checkWrenchDir(dirName string) bool {
 	dirinfo, err := stat(dirName)
 	if err != nil {
-		logger.Tracef("couldn't read wrench directory: %v", err)
+		logger.Tracef(context.TODO(), "couldn't read wrench directory: %v", err)
 		return false
 	}
 	if !isOwnedByJujuUser(dirinfo) {
-		logger.Errorf("wrench directory has incorrect ownership - wrench "+
+		logger.Errorf(context.TODO(), "wrench directory has incorrect ownership - wrench "+
 			"functionality disabled (%s)", wrenchDir)
 		return false
 	}
@@ -121,19 +122,19 @@ func checkWrenchDir(dirName string) bool {
 func checkWrenchFile(category, feature, fileName string) bool {
 	fileinfo, err := stat(fileName)
 	if err != nil {
-		logger.Tracef("no wrench data for %s/%s (ignored): %v",
+		logger.Tracef(context.TODO(), "no wrench data for %s/%s (ignored): %v",
 			category, feature, err)
 		return false
 	}
 	if !isOwnedByJujuUser(fileinfo) {
-		logger.Errorf("wrench file for %s/%s has incorrect ownership "+
+		logger.Errorf(context.TODO(), "wrench file for %s/%s has incorrect ownership "+
 			"- ignoring %s", category, feature, fileName)
 		return false
 	}
 	// Windows is not fully POSIX compliant
 	if runtime.GOOS != "windows" {
 		if fileinfo.Mode()&0022 != 0 {
-			logger.Errorf("wrench file for %s/%s should only be writable by "+
+			logger.Errorf(context.TODO(), "wrench file for %s/%s should only be writable by "+
 				"owner - ignoring %s", category, feature, fileName)
 			return false
 		}

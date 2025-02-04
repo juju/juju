@@ -321,7 +321,7 @@ func (w *RemoteStateWatcher) setUp(ctx context.Context, unitTag names.UnitTag) (
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.logger.Debugf("starting remote state watcher, actions for %s", w.unit.Tag())
+	w.logger.Debugf(context.TODO(), "starting remote state watcher, actions for %s", w.unit.Tag())
 	return nil
 }
 
@@ -513,7 +513,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			return w.catacomb.ErrDying()
 
 		case _, ok := <-unitw.Changes():
-			w.logger.Debugf("got unit change for %s", w.unit.Tag().Id())
+			w.logger.Debugf(context.TODO(), "got unit change for %s", w.unit.Tag().Id())
 			if !ok {
 				return errors.New("unit watcher closed")
 			}
@@ -523,7 +523,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenUnitChange)
 
 		case _, ok := <-applicationw.Changes():
-			w.logger.Debugf("got application change for %s", w.unit.Tag().Id())
+			w.logger.Debugf(context.TODO(), "got application change for %s", w.unit.Tag().Id())
 			if !ok {
 				return errors.New("application watcher closed")
 			}
@@ -533,7 +533,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenApplicationChange)
 
 		case secrets, ok := <-secretsChanges:
-			w.logger.Debugf("got secrets change for %s: %s", w.unit.Tag().Id(), secrets)
+			w.logger.Debugf(context.TODO(), "got secrets change for %s: %s", w.unit.Tag().Id(), secrets)
 			if !ok {
 				return errors.New("secrets watcher closed")
 			}
@@ -543,7 +543,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenSecretsChange)
 
 		case _, ok := <-instanceDataChannel:
-			w.logger.Debugf("got instance data change for %s", w.unit.Tag().Id())
+			w.logger.Debugf(context.TODO(), "got instance data change for %s", w.unit.Tag().Id())
 			if !ok {
 				return errors.New("instance data watcher closed")
 			}
@@ -553,7 +553,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenInstanceDataChange)
 
 		case hashes, ok := <-charmConfigw.Changes():
-			w.logger.Debugf("got config change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
+			w.logger.Debugf(context.TODO(), "got config change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
 			if !ok {
 				return errors.New("config watcher closed")
 			}
@@ -564,7 +564,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenConfigChange)
 
 		case hashes, ok := <-trustConfigw.Changes():
-			w.logger.Debugf("got trust config change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
+			w.logger.Debugf(context.TODO(), "got trust config change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
 			if !ok {
 				return errors.New("trust config watcher closed")
 			}
@@ -575,7 +575,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenTrustConfigChange)
 
 		case hashes, ok := <-addressesChanges:
-			w.logger.Debugf("got address change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
+			w.logger.Debugf(context.TODO(), "got address change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
 			if !ok {
 				return errors.New("addresses watcher closed")
 			}
@@ -586,7 +586,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenAddressesChange)
 
 		case actions, ok := <-actionsw.Changes():
-			w.logger.Debugf("got action change for %s: %v ok=%t", w.unit.Tag().Id(), actions, ok)
+			w.logger.Debugf(context.TODO(), "got action change for %s: %v ok=%t", w.unit.Tag().Id(), actions, ok)
 			if !ok {
 				return errors.New("actions watcher closed")
 			}
@@ -594,7 +594,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenActionsChange)
 
 		case keys, ok := <-relationsw.Changes():
-			w.logger.Debugf("got relations change for %s: ok=%t: %q", w.unit.Tag().Id(), ok, keys)
+			w.logger.Debugf(context.TODO(), "got relations change for %s: ok=%t: %q", w.unit.Tag().Id(), ok, keys)
 			if !ok {
 				return errors.New("relations watcher closed")
 			}
@@ -604,7 +604,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenRelationsChange)
 
 		case keys, ok := <-storagew.Changes():
-			w.logger.Debugf("got storage change for %s: %v ok=%t", w.unit.Tag().Id(), keys, ok)
+			w.logger.Debugf(context.TODO(), "got storage change for %s: %v ok=%t", w.unit.Tag().Id(), keys, ok)
 			if !ok {
 				return errors.New("storage watcher closed")
 			}
@@ -614,7 +614,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenStorageChange)
 
 		case _, ok := <-updateStatusIntervalw.Changes():
-			w.logger.Debugf("got update status interval change for %s: ok=%t", w.unit.Tag().Id(), ok)
+			w.logger.Debugf(context.TODO(), "got update status interval change for %s: ok=%t", w.unit.Tag().Id(), ok)
 			if !ok {
 				return errors.New("update status interval watcher closed")
 			}
@@ -635,7 +635,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 
 		case <-waitMinion:
-			w.logger.Debugf("got leadership change for %v: minion", unitTag.Id())
+			w.logger.Debugf(context.TODO(), "got leadership change for %v: minion", unitTag.Id())
 			if err := w.leadershipChanged(ctx, false); err != nil {
 				return errors.Trace(err)
 			}
@@ -643,7 +643,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			waitLeader = w.leadershipTracker.WaitLeader().Ready()
 
 		case <-waitLeader:
-			w.logger.Debugf("got leadership change for %v: leader", unitTag.Id())
+			w.logger.Debugf(context.TODO(), "got leadership change for %v: leader", unitTag.Id())
 			if err := w.leadershipChanged(ctx, true); err != nil {
 				return errors.Trace(err)
 			}
@@ -654,18 +654,18 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok || len(uris) == 0 {
 				continue
 			}
-			w.logger.Debugf("got rotate secret URIs: %q", uris)
+			w.logger.Debugf(context.TODO(), "got rotate secret URIs: %q", uris)
 			w.rotateSecretURIs(uris)
 
 		case revisions, ok := <-w.expireSecretsChanges:
 			if !ok || len(revisions) == 0 {
 				continue
 			}
-			w.logger.Debugf("got expired secret revisions: %q", revisions)
+			w.logger.Debugf(context.TODO(), "got expired secret revisions: %q", revisions)
 			w.expireSecretRevisions(revisions)
 
 		case secretRevisions, ok := <-w.obsoleteRevisionChanges:
-			w.logger.Debugf("got obsolete secret revisions change for %s: %s", w.application.Tag().Id(), secretRevisions)
+			w.logger.Debugf(context.TODO(), "got obsolete secret revisions change for %s: %s", w.application.Tag().Id(), secretRevisions)
 			if !ok {
 				return errors.New("secret revisions watcher closed")
 			}
@@ -674,17 +674,17 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 
 		case change := <-w.storageAttachmentChanges:
-			w.logger.Debugf("storage attachment change for %s: %v", w.unit.Tag().Id(), change)
+			w.logger.Debugf(context.TODO(), "storage attachment change for %s: %v", w.unit.Tag().Id(), change)
 			w.storageAttachmentChanged(change)
 
 		case change := <-w.relationUnitsChanges:
-			w.logger.Debugf("got a relation units change for %s : %v", w.unit.Tag().Id(), change)
+			w.logger.Debugf(context.TODO(), "got a relation units change for %s : %v", w.unit.Tag().Id(), change)
 			if err := w.relationUnitsChanged(change); err != nil {
 				return errors.Trace(err)
 			}
 
 		case <-updateStatusTimer:
-			w.logger.Debugf("update status timer triggered for %s", w.unit.Tag().Id())
+			w.logger.Debugf(context.TODO(), "update status timer triggered for %s", w.unit.Tag().Id())
 			w.updateStatusChanged()
 			resetUpdateStatusTimer()
 
@@ -692,21 +692,21 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("commandChannel closed")
 			}
-			w.logger.Debugf("command enqueued for %s: %v", w.unit.Tag().Id(), id)
+			w.logger.Debugf(context.TODO(), "command enqueued for %s: %v", w.unit.Tag().Id(), id)
 			w.commandsChanged(id)
 
 		case id, ok := <-w.workloadEventChannel:
 			if !ok {
 				return errors.New("workloadEventChannel closed")
 			}
-			w.logger.Debugf("workloadEvent enqueued for %s: %v", w.unit.Tag().Id(), id)
+			w.logger.Debugf(context.TODO(), "workloadEvent enqueued for %s: %v", w.unit.Tag().Id(), id)
 			w.workloadEventsChanged(id)
 
 		case _, ok := <-w.retryHookChannel:
 			if !ok {
 				return errors.New("retryHookChannel closed")
 			}
-			w.logger.Debugf("retry hook timer triggered for %s", w.unit.Tag().Id())
+			w.logger.Debugf(context.TODO(), "retry hook timer triggered for %s", w.unit.Tag().Id())
 			w.retryHookTimerTriggered()
 
 		case shutdown, ok := <-w.shutdownChannel:
@@ -818,7 +818,7 @@ func (w *RemoteStateWatcher) secretsChanged(ctx context.Context, secretURIs []st
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.logger.Debugf("got latest secret info: %#v", info)
+	w.logger.Debugf(context.TODO(), "got latest secret info: %#v", info)
 	for _, uri := range secretURIs {
 		if latest, ok := info[uri]; ok {
 			w.current.ConsumedSecretInfo[uri] = latest
@@ -829,8 +829,8 @@ func (w *RemoteStateWatcher) secretsChanged(ctx context.Context, secretURIs []st
 			w.current.DeletedSecrets = deleted.SortedValues()
 		}
 	}
-	w.logger.Debugf("deleted secrets: %v", w.current.DeletedSecrets)
-	w.logger.Debugf("obsolete secrets: %v", w.current.ObsoleteSecretRevisions)
+	w.logger.Debugf(context.TODO(), "deleted secrets: %v", w.current.DeletedSecrets)
+	w.logger.Debugf(context.TODO(), "obsolete secrets: %v", w.current.ObsoleteSecretRevisions)
 	return nil
 }
 
@@ -854,8 +854,8 @@ func (w *RemoteStateWatcher) secretObsoleteRevisionsChanged(secretRevisions []st
 		obsolete.Add(rev)
 		w.current.ObsoleteSecretRevisions[uri] = obsolete.SortedValues()
 	}
-	w.logger.Debugf("obsolete secret revisions: %v", w.current.ObsoleteSecretRevisions)
-	w.logger.Debugf("deleted secrets: %v", w.current.DeletedSecrets)
+	w.logger.Debugf(context.TODO(), "obsolete secret revisions: %v", w.current.ObsoleteSecretRevisions)
+	w.logger.Debugf(context.TODO(), "deleted secrets: %v", w.current.DeletedSecrets)
 	return nil
 }
 
@@ -867,7 +867,7 @@ func (w *RemoteStateWatcher) instanceDataChanged(ctx context.Context) error {
 	w.mu.Lock()
 	w.current.LXDProfileName = name
 	w.mu.Unlock()
-	w.logger.Debugf("LXDProfileName changed to %q", name)
+	w.logger.Debugf(context.TODO(), "LXDProfileName changed to %q", name)
 	return nil
 }
 
@@ -917,7 +917,7 @@ func (w *RemoteStateWatcher) leadershipChanged(ctx context.Context, isLeader boo
 	// Allow a generous buffer so a slow unit agent does not
 	// block the upstream worker.
 	w.rotateSecretsChanges = make(chan []string, 100)
-	w.logger.Debugf("starting secrets rotation watcher")
+	w.logger.Debugf(context.TODO(), "starting secrets rotation watcher")
 	rotateWatcher, err := w.secretRotateWatcherFunc(w.unit.Tag(), isLeader, w.rotateSecretsChanges)
 	if err != nil {
 		return errors.Trace(err)
@@ -930,7 +930,7 @@ func (w *RemoteStateWatcher) leadershipChanged(ctx context.Context, isLeader boo
 	// Allow a generous buffer so a slow unit agent does not
 	// block the upstream worker.
 	w.expireSecretsChanges = make(chan []string, 100)
-	w.logger.Debugf("starting secret revisions expiry watcher")
+	w.logger.Debugf(context.TODO(), "starting secret revisions expiry watcher")
 	expiryWatcher, err := w.secretExpiryWatcherFunc(w.unit.Tag(), isLeader, w.expireSecretsChanges)
 	if err != nil {
 		return errors.Trace(err)
@@ -943,7 +943,7 @@ func (w *RemoteStateWatcher) leadershipChanged(ctx context.Context, isLeader boo
 	// Allow a generous buffer so a slow unit agent does not
 	// block the upstream worker.
 	w.obsoleteRevisionChanges = make(chan []string, 100)
-	w.logger.Debugf("starting obsolete secret revisions watcher (leader=%v)", isLeader)
+	w.logger.Debugf(context.TODO(), "starting obsolete secret revisions watcher (leader=%v)", isLeader)
 	owners := []names.Tag{w.unit.Tag()}
 	if isLeader {
 		appName, _ := names.UnitApplication(w.unit.Tag().Id())
@@ -1038,7 +1038,7 @@ func (w *RemoteStateWatcher) ensureRelationUnits(ctx context.Context, rel api.Re
 				if err != nil {
 					// This was always silently ignored, so it can't be
 					// particularly useful, but avoid suppressing errors entirely.
-					w.logger.Debugf("error stopping relation watcher for %s: %v", w.unit.Tag().Id(), err)
+					w.logger.Debugf(context.TODO(), "error stopping relation watcher for %s: %v", w.unit.Tag().Id(), err)
 				}
 				delete(w.relations, relationTag)
 			}

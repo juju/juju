@@ -8,13 +8,13 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/internal/loginprovider"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 type tryInOrderLoginProviderSuite struct{}
@@ -28,7 +28,7 @@ func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *gc.C) {
 	header.Add("test", "foo")
 	p3 := &mockLoginProvider{header: header, token: "successful-login-token"}
 
-	logger := loggo.GetLogger("juju.cmd.loginprovider")
+	logger := internallogger.GetLogger("juju.cmd.loginprovider")
 	lp := loginprovider.NewTryInOrderLoginProvider(logger, p1, p2)
 	_, err := lp.Login(context.Background(), nil)
 	c.Assert(err, gc.ErrorMatches, "provider 2 error")

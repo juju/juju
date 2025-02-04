@@ -4,6 +4,8 @@
 package lxd
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -32,7 +34,7 @@ func (env *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance
 		// for each ID into the result. If there is a problem then we
 		// will return either ErrPartialInstances or ErrNoInstances.
 		// TODO(ericsnow) Skip returning here only for certain errors?
-		logger.Errorf("failed to get instances from LXD: %v", err)
+		logger.Errorf(context.TODO(), "failed to get instances from LXD: %v", err)
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		err = errors.Trace(err)
 	}
@@ -137,7 +139,7 @@ func (env *environ) AdoptResources(ctx envcontext.ProviderCallContext, controlle
 		// holding would be consistent with that on the server.
 		err := env.server().UpdateContainerConfig(string(id), map[string]string{qualifiedKey: controllerUUID})
 		if err != nil {
-			logger.Errorf("error setting controller uuid tag for %q: %v", id, err)
+			logger.Errorf(context.TODO(), "error setting controller uuid tag for %q: %v", id, err)
 			failed = append(failed, id)
 		}
 	}

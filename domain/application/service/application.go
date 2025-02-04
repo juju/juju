@@ -639,7 +639,7 @@ func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, le
 	}
 	appName, _ := names.UnitApplication(unitName.String())
 	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-		s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
+		s.logger.Warningf(ctx, "cannot revoke lease for dead unit %q", unitName)
 	}
 	return nil
 }
@@ -666,7 +666,7 @@ func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leader
 	}
 	appName, _ := names.UnitApplication(unitName.String())
 	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-		s.logger.Warningf("cannot revoke lease for dead unit %q", unitName)
+		s.logger.Warningf(ctx, "cannot revoke lease for dead unit %q", unitName)
 	}
 	return nil
 }
@@ -1102,7 +1102,7 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	if err != nil {
 		return errors.Annotatef(err, "getting application scale state for app %q", appID)
 	}
-	s.logger.Tracef(
+	s.logger.Tracef(ctx,
 		"SetScale DesiredScale %v -> %v", appScale.Scale, scale,
 	)
 	err = s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
@@ -1140,7 +1140,7 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 		return -1, errors.Annotatef(err, "getting current scale state for %q", appName)
 	}
 	newScale := currentScaleState.Scale + scaleChange
-	s.logger.Tracef("ChangeScale DesiredScale %v, scaleChange %v, newScale %v", currentScaleState.Scale, scaleChange, newScale)
+	s.logger.Tracef(ctx, "ChangeScale DesiredScale %v, scaleChange %v, newScale %v", currentScaleState.Scale, scaleChange, newScale)
 	if newScale < 0 {
 		newScale = currentScaleState.Scale
 		return -1, internalerrors.Errorf(
@@ -1280,7 +1280,7 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 	if err != nil {
 		return errors.Annotatef(err, "encoding charm %q", resolve.Path)
 	} else if len(warnings) > 0 {
-		s.logger.Debugf("encoding charm %q: %v", resolve.Path, warnings)
+		s.logger.Debugf(ctx, "encoding charm %q: %v", resolve.Path, warnings)
 	}
 
 	// Use the hash from the reservation, incase the caller has the wrong hash.

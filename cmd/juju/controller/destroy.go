@@ -482,7 +482,7 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 		return nil
 	}
 	if params.IsCodeOperationBlocked(destroyErr) {
-		logger.Errorf(destroyControllerBlockedMsg)
+		logger.Errorf(context.TODO(), destroyControllerBlockedMsg)
 		if api != nil {
 			models, err := api.ListBlockedModels(ctx)
 			out := &bytes.Buffer{}
@@ -495,7 +495,7 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 				err = block.FormatTabularBlockedModels(out, info)
 			}
 			if err != nil {
-				logger.Errorf("Unable to list models: %s", err)
+				logger.Errorf(context.TODO(), "Unable to list models: %s", err)
 				return cmd.ErrSilent
 			}
 			ctx.Infof("%s", out.String())
@@ -506,7 +506,7 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Errorf(stdFailureMsg, controllerName)
+	logger.Errorf(context.TODO(), stdFailureMsg, controllerName)
 	return destroyErr
 }
 

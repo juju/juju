@@ -201,7 +201,7 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(
 
 	address, err := n.pollForAddress(n.unit.PublicAddress)
 	if err != nil {
-		n.logger.Warningf("no public address for unit %q in cross model relation %q", n.unit.Name(), rel)
+		n.logger.Warningf(context.TODO(), "no public address for unit %q in cross model relation %q", n.unit.Name(), rel)
 	} else if address.Value != "" {
 		return network.SpaceAddresses{address}, nil
 	}
@@ -210,10 +210,10 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(
 		return nil, nil
 	}
 
-	n.logger.Warningf("attempting fallback to private address")
+	n.logger.Warningf(context.TODO(), "attempting fallback to private address")
 	address, err = n.pollForAddress(n.unit.PrivateAddress)
 	if err != nil {
-		n.logger.Warningf("no private address for unit %q in relation %q", n.unit.Name(), rel)
+		n.logger.Warningf(context.TODO(), "no private address for unit %q in relation %q", n.unit.Name(), rel)
 	} else if address.Value != "" {
 		return network.SpaceAddresses{address}, nil
 	}
@@ -268,7 +268,7 @@ func (n *NetworkInfoBase) resolveResultInfoHostNames(netInfo params.NetworkInfoR
 func (n *NetworkInfoBase) resolveHostAddress(hostName string) string {
 	resolved, err := n.lookupHost(hostName)
 	if err != nil {
-		n.logger.Errorf("resolving %q: %v", hostName, err)
+		n.logger.Errorf(context.TODO(), "resolving %q: %v", hostName, err)
 		return ""
 	}
 
@@ -283,11 +283,11 @@ func (n *NetworkInfoBase) resolveHostAddress(hostName string) string {
 	}
 
 	if len(resolved) == 0 {
-		n.logger.Warningf("no addresses resolved for host %q", hostName)
+		n.logger.Warningf(context.TODO(), "no addresses resolved for host %q", hostName)
 	} else {
 		// If we got results, but they were all filtered out, then we need to
 		// help out operators with some advice.
-		n.logger.Warningf(
+		n.logger.Warningf(context.TODO(),
 			"no usable addresses resolved for host %q\n\t"+
 				"resolved: %v\n\t"+
 				"consider editing the hosts file, or changing host resolution order via /etc/nsswitch.conf",

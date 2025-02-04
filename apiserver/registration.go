@@ -36,14 +36,14 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	if req.Method != "POST" {
 		err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 		if err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 		return
 	}
 	st, err := h.ctxt.stateForRequestUnauthenticated(req.Context())
 	if err != nil {
 		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 		return
 	}
@@ -61,7 +61,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 		return
 	}
@@ -71,21 +71,21 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	m, err := h.ctxt.srv.localMacaroonAuthenticator.CreateLocalLoginMacaroon(req.Context(), userTag, httpbakery.RequestVersion(req))
 	if err != nil {
 		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 		return
 	}
 	cookie, err := httpbakery.NewCookie(internalmacaroon.MacaroonNamespace, macaroon.Slice{m})
 	if err != nil {
 		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 		}
 		return
 	}
 	http.SetCookie(w, cookie)
 
 	if err := internalhttp.SendStatusAndJSON(w, http.StatusOK, response); err != nil {
-		logger.Errorf("%v", err)
+		logger.Errorf(req.Context(), "%v", err)
 	}
 }
 

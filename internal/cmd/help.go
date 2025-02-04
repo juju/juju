@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -139,7 +140,7 @@ func (c *helpCommand) Init(args []string) error {
 		c.super.notifyHelp(args)
 	}
 
-	logger.Tracef("helpCommand.Init: %#v", args)
+	logger.Tracef(context.TODO(), "helpCommand.Init: %#v", args)
 	if len(args) == 0 {
 		// If there is no help topic specified, print basic usage if it is
 		// there.
@@ -155,7 +156,7 @@ func (c *helpCommand) Init(args []string) error {
 		if c.super.missingCallback == nil && len(args) > 1 {
 			return fmt.Errorf("extra arguments to command help: %q", args[1:])
 		}
-		logger.Tracef("help not found, setting topic")
+		logger.Tracef(context.TODO(), "help not found, setting topic")
 		c.topic, c.topicArgs = args[0], args[1:]
 		return nil
 	}
@@ -170,7 +171,7 @@ func (c *helpCommand) Init(args []string) error {
 		c.target = &commandRef
 		// If there are more args and the target isn't a super command
 		// error out.
-		logger.Tracef("target name: %s", c.target.name)
+		logger.Tracef(context.TODO(), "target name: %s", c.target.name)
 		if super, ok := c.target.command.(*SuperCommand); ok {
 			c.targetSuper = super
 		} else if len(args) > 0 {
@@ -184,7 +185,7 @@ func (c *helpCommand) getCommandHelp(super *SuperCommand, command Command, alias
 	info := command.Info()
 
 	if command != super {
-		logger.Tracef("command not super")
+		logger.Tracef(context.TODO(), "command not super")
 		// If the alias is to a subcommand of another super command
 		// the alias string holds the "super sub" name.
 		if alias == "" {
@@ -194,7 +195,7 @@ func (c *helpCommand) getCommandHelp(super *SuperCommand, command Command, alias
 		}
 	}
 	if super.usagePrefix != "" {
-		logger.Tracef("adding super prefix")
+		logger.Tracef(context.TODO(), "adding super prefix")
 		info.Name = fmt.Sprintf("%s %s", super.usagePrefix, info.Name)
 	}
 

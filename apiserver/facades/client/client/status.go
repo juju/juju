@@ -105,7 +105,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 			// get FullStatus including machine info even if we could not get HA Primary determined.
 			// Also on some non-HA setups, i.e. where mongo was not run with --replSet,
 			// this call will return an error.
-			logger.Warningf("could not determine if there is a primary HA machine: %v", err)
+			logger.Warningf(ctx, "could not determine if there is a primary HA machine: %v", err)
 		} else {
 			context.primaryHAMachine = &primaryHAMachine
 		}
@@ -128,7 +128,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 			// Given that it comes from Dqlite, which may be subject to
 			// reconfiguration when mutating the control plane, we would
 			// rather return as much status as possible over an error.
-			logger.Warningf("could not determine application leaders: %v", err)
+			logger.Warningf(ctx, "could not determine application leaders: %v", err)
 			context.leaders = make(map[string]string)
 		}
 	}
@@ -152,14 +152,14 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	}
 
 	if logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef("Applications: %v", context.allAppsUnitsCharmBindings.applications)
-		logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
-		logger.Tracef("Offers: %v", context.offers)
-		logger.Tracef("Leaders", context.leaders)
-		logger.Tracef("Relations: %v", context.relations)
-		logger.Tracef("StorageInstances: %v", context.storageInstances)
-		logger.Tracef("Filesystems: %v", context.filesystems)
-		logger.Tracef("Volumes: %v", context.volumes)
+		logger.Tracef(ctx, "Applications: %v", context.allAppsUnitsCharmBindings.applications)
+		logger.Tracef(ctx, "Remote applications: %v", context.consumerRemoteApplications)
+		logger.Tracef(ctx, "Offers: %v", context.offers)
+		logger.Tracef(ctx, "Leaders", context.leaders)
+		logger.Tracef(ctx, "Relations: %v", context.relations)
+		logger.Tracef(ctx, "StorageInstances: %v", context.storageInstances)
+		logger.Tracef(ctx, "Filesystems: %v", context.filesystems)
+		logger.Tracef(ctx, "Volumes: %v", context.volumes)
 	}
 
 	if len(args.Patterns) > 0 {
@@ -282,7 +282,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 				if matchedMachines.Contains(m.Id()) || !matchedMachines.Intersection(machineContainersSet).IsEmpty() {
 					// The machine is matched directly, or contains a unit
 					// or container that matches.
-					logger.Tracef("machine %s is hosting something.", m.Id())
+					logger.Tracef(ctx, "machine %s is hosting something.", m.Id())
 					matched = append(matched, m)
 					continue
 				}
@@ -864,7 +864,7 @@ func (c *statusContext) processMachines(ctx context.Context, machineService Mach
 		for _, machine := range machines[1:] {
 			parent, ok := aCache[container.ParentId(machine.Id())]
 			if !ok {
-				logger.Errorf("programmer error, please file a bug, reference this whole log line: %q, %q", id,
+				logger.Errorf(context.TODO(), "programmer error, please file a bug, reference this whole log line: %q, %q", id,
 					machine.Id())
 				continue
 			}
@@ -921,11 +921,11 @@ func (c *statusContext) makeMachineStatus(
 	)
 	machineUUID, err := machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
 	if err != nil {
-		logger.Debugf("error retrieving uuid for machine: %q, %w", machineID, err)
+		logger.Debugf(context.TODO(), "error retrieving uuid for machine: %q, %w", machineID, err)
 	} else {
 		instid, displayName, err = machineService.InstanceIDAndName(ctx, machineUUID)
 		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
-			logger.Debugf("error retrieving instance ID and display name for machine: %q, %w", machineID, err)
+			logger.Debugf(context.TODO(), "error retrieving instance ID and display name for machine: %q, %w", machineID, err)
 		}
 	}
 	if instid != instance.UnknownId {
@@ -936,13 +936,13 @@ func (c *statusContext) makeMachineStatus(
 			// Usually this indicates that no addresses have been set on the
 			// machine yet.
 			addr = network.SpaceAddress{}
-			logger.Debugf("error fetching public address: %q", err)
+			logger.Debugf(context.TODO(), "error fetching public address: %q", err)
 		}
 		status.DNSName = addr.Value
 		status.Hostname = machine.Hostname()
 		mAddrs := machine.Addresses()
 		if len(mAddrs) == 0 {
-			logger.Debugf("no IP addresses fetched for machine %q", instid)
+			logger.Debugf(context.TODO(), "no IP addresses fetched for machine %q", instid)
 			// At least give it the newly created DNSName address, if it exists.
 			if addr.Value != "" {
 				mAddrs = append(mAddrs, addr)
@@ -996,7 +996,7 @@ func (c *statusContext) makeMachineStatus(
 				IsUp:           llDev.IsUp(),
 			}
 		}
-		logger.Tracef("NetworkInterfaces: %+v", status.NetworkInterfaces)
+		logger.Tracef(context.TODO(), "NetworkInterfaces: %+v", status.NetworkInterfaces)
 	} else {
 		status.InstanceId = "pending"
 	}
@@ -1006,10 +1006,10 @@ func (c *statusContext) makeMachineStatus(
 
 	hc, err := machineService.HardwareCharacteristics(ctx, machineUUID)
 	if errors.Is(err, machineerrors.NotProvisioned) {
-		logger.Debugf("can't retrieve hardware characteristics of machine %q: not provisioned", machineUUID)
+		logger.Debugf(context.TODO(), "can't retrieve hardware characteristics of machine %q: not provisioned", machineUUID)
 	}
 	if err != nil {
-		logger.Debugf("error fetching hardware characteristics: %v", err)
+		logger.Debugf(context.TODO(), "error fetching hardware characteristics: %v", err)
 	} else if hc != nil {
 		status.Hardware = hc.String()
 	}
@@ -1018,10 +1018,10 @@ func (c *statusContext) makeMachineStatus(
 	lxdProfiles := make(map[string]params.LXDProfile)
 	charmProfiles, err := machineService.AppliedLXDProfileNames(ctx, machineUUID)
 	if errors.Is(err, machineerrors.NotProvisioned) {
-		logger.Debugf("can't retrieve lxd profiles for machine %q: not provisioned", machineUUID)
+		logger.Debugf(context.TODO(), "can't retrieve lxd profiles for machine %q: not provisioned", machineUUID)
 	}
 	if err != nil {
-		logger.Debugf("error fetching lxd profiles: %w", err)
+		logger.Debugf(context.TODO(), "error fetching lxd profiles: %w", err)
 	}
 	if charmProfiles != nil {
 		for _, v := range charmProfiles {
@@ -1214,7 +1214,7 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 				processedStatus.PublicAddress = serviceInfo.Addresses()[0].Value
 			}
 		} else {
-			logger.Debugf("no service details for %v: %v", application.Name(), err)
+			logger.Debugf(ctx, "no service details for %v: %v", application.Name(), err)
 		}
 		processedStatus.Scale = application.GetScale()
 	}
@@ -1374,7 +1374,7 @@ func (context *statusContext) processUnit(ctx context.Context, unit *state.Unit,
 			result.ProviderId = container.ProviderId()
 
 		} else {
-			logger.Tracef("container info not yet available for unit: %v", err)
+			logger.Tracef(ctx, "container info not yet available for unit: %v", err)
 		}
 	}
 	if unit.IsPrincipal() {
@@ -1388,7 +1388,7 @@ func (context *statusContext) processUnit(ctx context.Context, unit *state.Unit,
 	if err == nil {
 		result.WorkloadVersion = workloadVersion
 	} else {
-		logger.Debugf("error fetching workload version: %v", err)
+		logger.Debugf(ctx, "error fetching workload version: %v", err)
 	}
 
 	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(ctx, unit)
@@ -1405,12 +1405,12 @@ func (context *statusContext) processUnit(ctx context.Context, unit *state.Unit,
 					if subUnitAppCh, _, err := subUnitApp.Charm(); err == nil {
 						subUnitAppCharm = subUnitAppCh.URL()
 					} else {
-						logger.Debugf("error fetching subordinate application charm for %q: %q", subUnit.ApplicationName(), err.Error())
+						logger.Debugf(ctx, "error fetching subordinate application charm for %q: %q", subUnit.ApplicationName(), err.Error())
 					}
 				} else {
 					// We can still run processUnit with an empty string for
 					// the ApplicationCharm.
-					logger.Debugf("error fetching subordinate application for %q: %q", subUnit.ApplicationName(), err.Error())
+					logger.Debugf(ctx, "error fetching subordinate application for %q: %q", subUnit.ApplicationName(), err.Error())
 				}
 				result.Subordinates[name] = context.processUnit(ctx, subUnit, subUnitAppCharm)
 			}

@@ -5,6 +5,7 @@
 package machineactions
 
 import (
+	"context"
 	"encoding/base64"
 	"os"
 	"time"
@@ -41,7 +42,7 @@ func HandleAction(name string, params map[string]interface{}) (results map[strin
 func handleJujuExecAction(params map[string]interface{}) (results map[string]interface{}, err error) {
 	// The spec checks that the parameters are available so we don't need to check again here
 	command, _ := params["command"].(string)
-	logger.Tracef("juju run %q", command)
+	logger.Tracef(context.TODO(), "juju run %q", command)
 
 	// The timeout is passed in in nanoseconds(which are represented in go as int64)
 	// But due to serialization it comes out as float64

@@ -70,7 +70,7 @@ func NewContainerManager(cfg container.ManagerConfig, newServer func() (*Server,
 
 	availabilityZone := cfg.PopValue(container.ConfigAvailabilityZone)
 	if availabilityZone == "" {
-		logger.Infof("Availability zone will be empty for this container manager")
+		logger.Infof(context.TODO(), "Availability zone will be empty for this container manager")
 	}
 
 	imageMetaDataURL := cfg.PopValue(config.ContainerImageMetadataURLKey)
@@ -244,7 +244,7 @@ func (m *containerManager) getContainerSpec(
 		return ContainerSpec{}, errors.Trace(err)
 	}
 
-	logger.Debugf("configuring container %q with network devices: %v", name, nics)
+	logger.Debugf(context.TODO(), "configuring container %q with network devices: %v", name, nics)
 
 	// If the default LXD bridge was supplied in network config,
 	// but without a CIDR, attempt to ensure it is configured for IPv4.
@@ -256,10 +256,10 @@ func (m *containerManager) getContainerSpec(
 				return ContainerSpec{}, errors.Annotate(err, "ensuring default bridge IPv4 config")
 			}
 			if mod {
-				logger.Infof(`added "auto" IPv4 configuration to default LXD bridge`)
+				logger.Infof(context.TODO(), `added "auto" IPv4 configuration to default LXD bridge`)
 			}
 		} else {
-			logger.Warningf("no CIDR was detected for the following networks: %v", unknown)
+			logger.Warningf(context.TODO(), "no CIDR was detected for the following networks: %v", unknown)
 		}
 	}
 
@@ -379,10 +379,10 @@ func (m *containerManager) MaybeWriteLXDProfile(pName string, put lxdprofile.Pro
 		return errors.Trace(err)
 	}
 	if hasProfile {
-		logger.Debugf("lxd profile %q already exists, not written again", pName)
+		logger.Debugf(context.TODO(), "lxd profile %q already exists, not written again", pName)
 		return nil
 	}
-	logger.Debugf("attempting to write lxd profile %q %+v", pName, put)
+	logger.Debugf(context.TODO(), "attempting to write lxd profile %q %+v", pName, put)
 	post := api.ProfilesPost{
 		Name: pName,
 		ProfilePut: api.ProfilePut{
@@ -394,7 +394,7 @@ func (m *containerManager) MaybeWriteLXDProfile(pName string, put lxdprofile.Pro
 	if err = m.server.CreateProfile(post); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("wrote lxd profile %q", pName)
+	logger.Debugf(context.TODO(), "wrote lxd profile %q", pName)
 	if err := m.verifyProfile(pName); err != nil {
 		return errors.Trace(err)
 	}
@@ -412,7 +412,7 @@ func (m *containerManager) verifyProfile(pName string) error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf("lxd profile %q: received %+v ", pName, profile)
+	logger.Debugf(context.TODO(), "lxd profile %q: received %+v ", pName, profile)
 	return nil
 }
 
@@ -437,7 +437,7 @@ func (m *containerManager) AssignLXDProfiles(
 		// Always return the current profiles assigned to the instance.
 		currentProfiles, err2 := m.LXDProfileNames(instID)
 		if err != nil && err2 != nil {
-			logger.Errorf("secondary error, retrieving profile names: %s", err2)
+			logger.Errorf(context.TODO(), "secondary error, retrieving profile names: %s", err2)
 		}
 		return currentProfiles, err
 	}
@@ -462,7 +462,7 @@ func (m *containerManager) AssignLXDProfiles(
 	for _, name := range deleteProfiles {
 		if err := m.server.DeleteProfile(name); err != nil {
 			// Most likely the failure is because the profile is already in use.
-			logger.Debugf("failed to delete profile %q: %s", name, err)
+			logger.Debugf(context.TODO(), "failed to delete profile %q: %s", name, err)
 		}
 	}
 	return report(nil)

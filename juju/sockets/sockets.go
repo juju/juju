@@ -5,6 +5,7 @@
 package sockets
 
 import (
+	"context"
 	"crypto/tls"
 	"io"
 	"net"
@@ -63,7 +64,7 @@ func innerListen(soc Socket) (listener net.Listener, err error) {
 	}
 	// In case the unix socket is present, delete it.
 	if err := os.Remove(soc.Address); err != nil {
-		logger.Tracef("ignoring error on removing %q: %v", soc.Address, err)
+		logger.Tracef(context.TODO(), "ignoring error on removing %q: %v", soc.Address, err)
 	}
 	// Listen directly to abstract domain sockets.
 	if strings.HasPrefix(soc.Address, "@") {
@@ -86,7 +87,7 @@ func innerListen(soc Socket) (listener net.Listener, err error) {
 	tempSocketPath := filepath.Join(tempdir, "s")
 	listener, err = net.Listen(soc.Network, tempSocketPath)
 	if err != nil {
-		logger.Errorf("failed to listen on unix:%s: %v", tempSocketPath, err)
+		logger.Errorf(context.TODO(), "failed to listen on unix:%s: %v", tempSocketPath, err)
 		return nil, errors.Trace(err)
 	}
 	if err := os.Chmod(tempSocketPath, 0700); err != nil {

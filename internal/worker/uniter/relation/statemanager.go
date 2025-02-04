@@ -68,7 +68,7 @@ func (m *stateManager) RemoveRelation(ctx context.Context, id int, unitGetter Un
 			knownUnits[unitName] = unitExists
 		}
 		if !unitExists {
-			m.logger.Warningf("unit %v in relation %d no longer exists", unitName, id)
+			m.logger.Warningf(context.TODO(), "unit %v in relation %d no longer exists", unitName, id)
 			continue
 		}
 		knownMembers.Add(unitName)
@@ -129,7 +129,7 @@ func (m *stateManager) initialize(ctx stdcontext.Context) error {
 	}
 	m.relationState = make(map[int]State, len(unitState.RelationState))
 	if m.logger.IsLevelEnabled(logger.TRACE) {
-		m.logger.Tracef("initialising state manager: %# v", pretty.Formatter(unitState.RelationState))
+		m.logger.Tracef(context.TODO(), "initialising state manager: %# v", pretty.Formatter(unitState.RelationState))
 	}
 	for k, v := range unitState.RelationState {
 		var state State

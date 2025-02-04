@@ -25,7 +25,7 @@ func (k *kubernetesClient) Upgrade(ctx context.Context, agentTag string, vers ve
 		return errors.Annotate(err, "parsing agent tag to upgrade")
 	}
 
-	logger.Infof("handling upgrade request for tag %q to %s", tag, vers.String())
+	logger.Infof(context.TODO(), "handling upgrade request for tag %q to %s", tag, vers.String())
 
 	switch tag.Kind() {
 	case names.MachineTagKind:

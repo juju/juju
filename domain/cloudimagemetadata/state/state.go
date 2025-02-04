@@ -99,9 +99,9 @@ func (s *State) SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.
 	// Expired metadata are ignored when retrieving metadata, so it doesn't have any impact to keep
 	// some of them longer than their time to live.
 	if err := s.tryCleanUpExpiredMetadata(ctx); err != nil {
-		s.logger.Warningf("cannot cleanup expired metadata: %s", err)
+		s.logger.Warningf(context.TODO(), "cannot cleanup expired metadata: %s", err)
 	}
-	s.logger.Debugf("saving %d metadata", len(metadata))
+	s.logger.Debugf(context.TODO(), "saving %d metadata", len(metadata))
 
 	db, err := s.DB()
 	if err != nil {

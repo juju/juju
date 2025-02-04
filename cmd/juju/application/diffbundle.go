@@ -265,7 +265,7 @@ func (c *diffBundleCommand) warnForMissingRelationEndpoints(ctx *cmd.Context, bu
 		return nil
 	}
 
-	logger.Warningf(
+	logger.Warningf(context.TODO(),
 		"The provided bundle includes relations without explicit endpoints, which may appear as extra entries in the diff output.\nTo avoid this in the future, update the endpoints for the following bundle relations:\n - %s",
 		strings.Join(missing, "\n - "),
 	)

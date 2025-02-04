@@ -25,7 +25,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
@@ -42,6 +41,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/cmd"
 	jujuhttp "github.com/juju/juju/internal/http"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/proxy/factory"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -294,7 +294,7 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	// oauth device flow, failing that it will try to log in using
 	// user-pass or macaroons.
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
-		loggo.GetLogger("juju.cmd.loginprovider"),
+		internallogger.GetLogger("juju.cmd.loginprovider"),
 		api.NewSessionTokenLoginProvider(
 			"",
 			ctx.Stderr,
@@ -323,7 +323,7 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	// user. If we encounter an error after here, we need to clear it.
 	c.onRunError = func() {
 		if err := c.ClearControllerMacaroons(c.store, controllerName); err != nil {
-			logger.Errorf("failed to clear macaroon: %v", err)
+			logger.Errorf(context.TODO(), "failed to clear macaroon: %v", err)
 		}
 	}
 	return jujuclient.ControllerDetails{
@@ -422,7 +422,7 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 	// user. If we encounter an error after here, we need to clear it.
 	c.onRunError = func() {
 		if err := c.ClearControllerMacaroons(c.store, controllerName); err != nil {
-			logger.Errorf("failed to clear macaroon: %v", err)
+			logger.Errorf(context.TODO(), "failed to clear macaroon: %v", err)
 		}
 	}
 	return controllerDetails, jujuclient.AccountDetails{
@@ -624,7 +624,7 @@ func (c *registerCommand) secretKeyLogin(
 	}
 	conn, err := c.apiOpen(ctx, apiInfo, opts)
 	if err != nil {
-		logger.Infof("opening api connection: %s", err)
+		logger.Infof(context.TODO(), "opening api connection: %s", err)
 		return nil, controllerUnreachableError(controllerName, controllerDetails.APIEndpoints)
 	}
 	apiAddr := conn.Addr()
@@ -633,7 +633,7 @@ func (c *registerCommand) secretKeyLogin(
 			if err == nil {
 				err = closeErr
 			} else {
-				logger.Warningf("error closing API connection: %v", closeErr)
+				logger.Warningf(context.TODO(), "error closing API connection: %v", closeErr)
 			}
 		}
 	}()
@@ -655,7 +655,7 @@ func (c *registerCommand) secretKeyLogin(
 	)
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
-		logger.Infof("connecting to controller: %s", err)
+		logger.Infof(context.TODO(), "connecting to controller: %s", err)
 		return nil, controllerUnreachableError(controllerName, controllerDetails.APIEndpoints)
 	}
 	defer func() { _ = httpResp.Body.Close() }()
@@ -665,7 +665,7 @@ func (c *registerCommand) secretKeyLogin(
 		if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
 			return nil, errors.Annotatef(err, "internal error: cannot decode http response")
 		}
-		logger.Infof("error response, %s", resp.Error)
+		logger.Infof(context.TODO(), "error response, %s", resp.Error)
 		return nil, errors.Errorf("Provided registration token may have expired."+
 			"\nA controller administrator must reset your user to issue a new token.\nSee %q for more information.", "juju help change-user-password")
 	}

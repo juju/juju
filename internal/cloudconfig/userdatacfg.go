@@ -6,6 +6,7 @@ package cloudconfig
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	stdos "os"
@@ -526,7 +527,7 @@ func (w *userdataConfig) addLocalSnapUpload() error {
 		return nil
 	}
 
-	logger.Infof("preparing to upload juju-db snap from %v", snapPath)
+	logger.Infof(context.TODO(), "preparing to upload juju-db snap from %v", snapPath)
 	snapData, err := stdos.ReadFile(snapPath)
 	if err != nil {
 		return errors.Trace(err)
@@ -534,7 +535,7 @@ func (w *userdataConfig) addLocalSnapUpload() error {
 	_, snapName := path.Split(snapPath)
 	w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapName), snapData, 0644)
 
-	logger.Infof("preparing to upload juju-db assertions from %v", assertionsPath)
+	logger.Infof(context.TODO(), "preparing to upload juju-db assertions from %v", assertionsPath)
 	snapAssertionsData, err := stdos.ReadFile(assertionsPath)
 	if err != nil {
 		return errors.Trace(err)
@@ -556,7 +557,7 @@ func (w *userdataConfig) addLocalControllerCharmsUpload() error {
 		return nil
 	}
 
-	logger.Infof("preparing to upload controller charm from %v", charmPath)
+	logger.Infof(context.TODO(), "preparing to upload controller charm from %v", charmPath)
 	charmData, err := stdos.ReadFile(charmPath)
 	if err != nil {
 		return errors.Trace(err)
@@ -609,7 +610,7 @@ func (w *userdataConfig) addDownloadToolsCmds() error {
 		}
 		curlCommand += " -o $bin/tools.tar.gz"
 		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching Juju agent version %s for %s", tools.Version.Number, tools.Version.Arch))
-		logger.Infof("Fetching agent: %s <%s>", curlCommand, urls)
+		logger.Infof(context.TODO(), "Fetching agent: %s <%s>", curlCommand, urls)
 		w.conf.AddRunCmd(toolsDownloadCommand(curlCommand, urls))
 	}
 

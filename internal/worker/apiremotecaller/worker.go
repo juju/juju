@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pubsub/apiserver"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
@@ -106,7 +107,7 @@ func newWorker(cfg WorkerConfig, internalState chan string) (*remoteWorker, erro
 			// Backoff for 5 seconds before restarting a worker.
 			// This is a lifetime for the life of an API connection.
 			RestartDelay: time.Second * 5,
-			Logger:       cfg.Logger,
+			Logger:       internalworker.WrapLogger(cfg.Logger),
 		}),
 		changes:        make(chan serverChanges),
 		internalStates: internalState,
@@ -178,7 +179,7 @@ func (w *remoteWorker) loop() error {
 			return w.catacomb.ErrDying()
 
 		case change := <-w.changes:
-			w.cfg.Logger.Debugf("remoteWorker API server change: %v", change)
+			w.cfg.Logger.Debugf(context.TODO(), "remoteWorker API server change: %v", change)
 
 			// Locate the current workers, so we can remove any workers that are
 			// no longer required.
@@ -189,7 +190,7 @@ func (w *remoteWorker) loop() error {
 
 				server, err := w.newRemoteServer(target, addresses)
 				if err != nil {
-					w.cfg.Logger.Errorf("failed to start remote worker for %q: %v", target, err)
+					w.cfg.Logger.Errorf(context.TODO(), "failed to start remote worker for %q: %v", target, err)
 					return errors.Trace(err)
 				}
 
@@ -208,14 +209,14 @@ func (w *remoteWorker) loop() error {
 					continue
 				}
 
-				w.cfg.Logger.Debugf("remote worker %q no longer required", s)
+				w.cfg.Logger.Debugf(context.TODO(), "remote worker %q no longer required", s)
 				if err := w.stopRemoteServer(ctx, s); err != nil {
-					w.cfg.Logger.Errorf("failed to stop remote worker %q: %v", s, err)
+					w.cfg.Logger.Errorf(context.TODO(), "failed to stop remote worker %q: %v", s, err)
 					continue
 				}
 			}
 
-			w.cfg.Logger.Debugf("remote workers updated: %v", required)
+			w.cfg.Logger.Debugf(context.TODO(), "remote workers updated: %v", required)
 
 			w.mu.Lock()
 			w.apiRemotes = slices.Collect(maps.Values(required))
@@ -228,11 +229,11 @@ func (w *remoteWorker) loop() error {
 
 func (w *remoteWorker) apiServerChanges(topic string, details apiserver.Details, err error) {
 	if err != nil {
-		w.cfg.Logger.Errorf("remoteWorker callback error: %v", err)
+		w.cfg.Logger.Errorf(context.TODO(), "remoteWorker callback error: %v", err)
 		return
 	}
 
-	w.cfg.Logger.Debugf("remoteWorker API server changes: %v", details)
+	w.cfg.Logger.Debugf(context.TODO(), "remoteWorker API server changes: %v", details)
 
 	changes := make(map[string][]string)
 
@@ -246,7 +247,7 @@ func (w *remoteWorker) apiServerChanges(topic string, details apiserver.Details,
 		case names.ControllerAgentTagKind:
 			target = names.NewControllerAgentTag(id)
 		default:
-			w.cfg.Logger.Errorf("unknown remoteWorker origin tag: %s", id)
+			w.cfg.Logger.Errorf(context.TODO(), "unknown remoteWorker origin tag: %s", id)
 			continue
 		}
 
@@ -283,7 +284,7 @@ func (w *remoteWorker) newRemoteServer(controllerID string, addresses []string) 
 
 	// Start a new worker with the target and addresses.
 	err := w.runner.StartWorker(controllerID, func() (worker.Worker, error) {
-		w.cfg.Logger.Debugf("starting remote worker for %q", controllerID)
+		w.cfg.Logger.Debugf(context.TODO(), "starting remote worker for %q", controllerID)
 		return w.cfg.NewRemote(RemoteServerConfig{
 			Clock:        w.cfg.Clock,
 			Logger:       w.cfg.Logger,
@@ -315,7 +316,7 @@ func (w *remoteWorker) stopRemoteServer(ctx context.Context, controllerID string
 	defer cancel()
 
 	// Stop and remove the worker if it's no longer required.
-	w.cfg.Logger.Debugf("stopping remote worker for %q", controllerID)
+	w.cfg.Logger.Debugf(context.TODO(), "stopping remote worker for %q", controllerID)
 	if err := w.runner.StopAndRemoveWorker(controllerID, ctx.Done()); errors.Is(err, context.DeadlineExceeded) {
 		return errors.Errorf("failed to stop worker %q: timed out", controllerID)
 	} else if err != nil {

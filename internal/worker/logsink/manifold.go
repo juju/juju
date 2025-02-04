@@ -160,7 +160,7 @@ func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger logger.Logger, l
 			MaxBackups: maxBackups,
 			Compress:   true,
 		}
-		debugLogger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+		debugLogger.Debugf(context.TODO(), "created rotating log file %q with max size %d MB and max backups %d",
 			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 		modelFileLogger := &logWriter{WriteCloser: ljLogger}
 		return modelFileLogger, nil

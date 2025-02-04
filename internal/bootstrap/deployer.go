@@ -306,7 +306,7 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 		return DeployCharmInfo{}, errors.Annotatef(err, "resolving controller charm download")
 	}
 
-	b.logger.Debugf("Successfully deployed local Juju controller charm")
+	b.logger.Debugf(context.TODO(), "Successfully deployed local Juju controller charm")
 
 	// The revision of the charm will always be zero during bootstrap, so
 	// there is no need to have additional logic to determine the revision.
@@ -417,7 +417,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		return DeployCharmInfo{}, errors.Errorf("resolved charm %q has no revision", resolved.URL)
 	}
 
-	b.logger.Debugf("Successfully deployed charmhub Juju controller charm")
+	b.logger.Debugf(context.TODO(), "Successfully deployed charmhub Juju controller charm")
 
 	curl = curl.
 		WithRevision(*resolved.Origin.Revision).

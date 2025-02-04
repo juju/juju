@@ -259,7 +259,7 @@ func (s *Service) CheckAndRevokeCredential(ctx context.Context, key corecredenti
 		if force {
 			opMessage = "will be deleted but"
 		}
-		s.logger.Debugf("credential %v %v it is used by model%v",
+		s.logger.Debugf(context.TODO(), "credential %v %v it is used by model%v",
 			key,
 			opMessage,
 			modelsPretty(models),

@@ -4,6 +4,7 @@
 package logsink
 
 import (
+	"context"
 	"io"
 
 	"github.com/juju/lumberjack/v2"
@@ -15,7 +16,7 @@ import (
 func NewFileWriter(logPath string, maxSizeMB, maxBackups int) (io.WriteCloser, error) {
 	if err := paths.PrimeLogFile(logPath); err != nil {
 		// This isn't a fatal error so log and continue if priming fails.
-		logger.Warningf("Unable to prime %s (proceeding anyway): %v", logPath, err)
+		logger.Warningf(context.TODO(), "Unable to prime %s (proceeding anyway): %v", logPath, err)
 	}
 	ljLogger := &lumberjack.Logger{
 		Filename:   logPath,
@@ -23,7 +24,7 @@ func NewFileWriter(logPath string, maxSizeMB, maxBackups int) (io.WriteCloser, e
 		MaxBackups: maxBackups,
 		Compress:   true,
 	}
-	logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
+	logger.Debugf(context.TODO(), "created rotating log file %q with max size %d MB and max backups %d",
 		ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 	return ljLogger, nil
 }

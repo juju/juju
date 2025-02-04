@@ -61,7 +61,7 @@ func (config ModelManifoldConfig) newWorker(ctx context.Context, environ environ
 	if !ok {
 		// If we don't have an LXDProfiler broker, there is no need to
 		// run this worker.
-		config.Logger.Debugf("Uninstalling worker because the broker is not a LXDProfiler %T", environ)
+		config.Logger.Debugf(context.TODO(), "Uninstalling worker because the broker is not a LXDProfiler %T", environ)
 		return nil, dependency.ErrUninstall
 	}
 	facade := config.NewClient(apiCaller)
@@ -175,13 +175,13 @@ func (config MachineManifoldConfig) newWorker(ctx context.Context, instanceBroke
 	if !ok {
 		// If we don't have an LXDProfiler broker, there is no need to
 		// run this worker.
-		config.Logger.Debugf("Uninstalling worker because the broker is not a LXDProfiler %T", instanceBroker)
+		config.Logger.Debugf(context.TODO(), "Uninstalling worker because the broker is not a LXDProfiler %T", instanceBroker)
 		return nil, dependency.ErrUninstall
 	}
 	agentConfig := agent.CurrentConfig()
 	tag := agentConfig.Tag()
 	if _, ok := tag.(names.MachineTag); !ok {
-		config.Logger.Warningf("cannot start a ContainerWorker on a %q, not starting", tag.Kind())
+		config.Logger.Warningf(context.TODO(), "cannot start a ContainerWorker on a %q, not starting", tag.Kind())
 		return nil, dependency.ErrUninstall
 	}
 	facade := config.NewClient(apiCaller)

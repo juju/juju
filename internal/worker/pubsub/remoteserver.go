@@ -146,7 +146,7 @@ func (r *remoteServer) IntrospectionReport() string {
 func (r *remoteServer) onForwarderConnection(topic string, details forwarder.OriginTarget, err error) {
 	if err != nil {
 		// This should never happen.
-		r.logger.Errorf("subscriber callback error: %v", err)
+		r.logger.Errorf(context.TODO(), "subscriber callback error: %v", err)
 		return
 	}
 	if details.Target == r.origin && details.Origin == r.target {
@@ -169,7 +169,7 @@ func (r *remoteServer) UpdateAddresses(addresses []string) {
 		// get a race between setting addresses and trying to read them to
 		// connect. Note that we don't call the interruptConnecting method
 		// here because that method also tries to lock the mutex.
-		r.logger.Debugf("interrupting connecting due to new addresses: %v", addresses)
+		r.logger.Debugf(context.TODO(), "interrupting connecting due to new addresses: %v", addresses)
 		close(r.stopConnecting)
 		r.stopConnecting = nil
 	}
@@ -181,25 +181,25 @@ func (r *remoteServer) UpdateAddresses(addresses []string) {
 func (r *remoteServer) Publish(message *params.PubSubMessage) {
 	select {
 	case <-r.tomb.Dying():
-		r.logger.Tracef("dying, don't send %q", message.Topic)
+		r.logger.Tracef(context.TODO(), "dying, don't send %q", message.Topic)
 	default:
 		r.mutex.Lock()
 		// Only queue the message up if we are currently connected.
 		notifyData := false
 		if r.connection != nil {
-			r.logger.Tracef("queue up topic %q", message.Topic)
+			r.logger.Tracef(context.TODO(), "queue up topic %q", message.Topic)
 			r.pending.PushBack(message)
 			notifyData = r.pending.Len() == 1
 
 		} else {
-			r.logger.Tracef("skipping %q for %s as not connected", message.Topic, r.target)
+			r.logger.Tracef(context.TODO(), "skipping %q for %s as not connected", message.Topic, r.target)
 		}
 		r.mutex.Unlock()
 		if notifyData {
 			select {
 			case r.data <- struct{}{}:
 			case <-r.connectionReset:
-				r.logger.Debugf("connection reset while notifying %q for %s", message.Topic, r.target)
+				r.logger.Debugf(context.TODO(), "connection reset while notifying %q for %s", message.Topic, r.target)
 			}
 		}
 	}
@@ -227,13 +227,13 @@ func (r *remoteServer) connect() bool {
 	r.mutex.Unlock()
 
 	var connection MessageWriter
-	r.logger.Debugf("connecting to %s", r.target)
+	r.logger.Debugf(context.TODO(), "connecting to %s", r.target)
 	_ = retry.Call(retry.CallArgs{
 		Func: func() error {
-			r.logger.Debugf("open api to %s: %v", r.target, r.info.Addrs)
+			r.logger.Debugf(context.TODO(), "open api to %s: %v", r.target, r.info.Addrs)
 			conn, err := r.newWriter(context.TODO(), r.info)
 			if err != nil {
-				r.logger.Tracef("unable to get message writer for %s, reconnecting... : %v\n%s", r.target, err, errors.ErrorStack(err))
+				r.logger.Tracef(context.TODO(), "unable to get message writer for %s, reconnecting... : %v\n%s", r.target, err, errors.ErrorStack(err))
 				return errors.Trace(err)
 			}
 			connection = conn
@@ -254,13 +254,13 @@ func (r *remoteServer) connect() bool {
 	if connection != nil {
 		r.connection = connection
 		r.connectionReset = make(chan struct{})
-		r.logger.Infof("forwarding connected %s -> %s", r.origin, r.target)
+		r.logger.Infof(context.TODO(), "forwarding connected %s -> %s", r.origin, r.target)
 		_, err := r.hub.Publish(
 			forwarder.ConnectedTopic,
 			// NOTE: origin is filled in by the the central hub annotations.
 			forwarder.OriginTarget{Target: r.target})
 		if err != nil {
-			r.logger.Errorf("%v", err)
+			r.logger.Errorf(context.TODO(), "%v", err)
 		}
 		return true
 	}
@@ -288,18 +288,18 @@ func (r *remoteServer) loop() error {
 
 		select {
 		case <-r.tomb.Dying():
-			r.logger.Debugf("worker shutting down")
+			r.logger.Debugf(context.TODO(), "worker shutting down")
 			r.resetConnection()
 			return tomb.ErrDying
 		case <-r.data:
 			// Has new data been pushed on?
-			r.logger.Tracef("new messages")
+			r.logger.Tracef(context.TODO(), "new messages")
 		case <-delay:
 			// If we failed to connect for whatever reason, this means we don't cycle
 			// immediately.
-			r.logger.Tracef("connect delay")
+			r.logger.Tracef(context.TODO(), "connect delay")
 		}
-		r.logger.Tracef("send pending messages")
+		r.logger.Tracef(context.TODO(), "send pending messages")
 		r.sendPendingMessages(messageToSend, messageSent)
 	}
 }
@@ -330,7 +330,7 @@ func (r *remoteServer) resetConnection() {
 	if r.connection == nil {
 		return
 	}
-	r.logger.Debugf("closing connection and clearing pending")
+	r.logger.Debugf(context.TODO(), "closing connection and clearing pending")
 	r.connection.Close()
 	r.connection = nil
 	close(r.connectionReset)
@@ -342,7 +342,7 @@ func (r *remoteServer) resetConnection() {
 		// NOTE: origin is filled in by the the central hub annotations.
 		forwarder.OriginTarget{Target: r.target})
 	if err != nil {
-		r.logger.Errorf("%v", err)
+		r.logger.Errorf(context.TODO(), "%v", err)
 	}
 }
 
@@ -365,12 +365,12 @@ func (r *remoteServer) forwardMessages(messageToSend <-chan *params.PubSubMessag
 		conn := r.connection
 		r.mutex.Unlock()
 
-		r.logger.Tracef("forwarding %q to %s, data %v", message.Topic, r.target, message.Data)
+		r.logger.Tracef(context.TODO(), "forwarding %q to %s, data %v", message.Topic, r.target, message.Data)
 		if conn != nil {
 			err := conn.ForwardMessage(message)
 			if err != nil {
 				// Some problem sending, so log, close the connection, and try to reconnect.
-				r.logger.Infof("unable to forward message, reconnecting... : %v", err)
+				r.logger.Infof(context.TODO(), "unable to forward message, reconnecting... : %v", err)
 				r.resetConnection()
 			}
 		}
@@ -387,7 +387,7 @@ func (r *remoteServer) interruptConnecting() {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 	if r.stopConnecting != nil {
-		r.logger.Debugf("interrupting the pending connect loop")
+		r.logger.Debugf(context.TODO(), "interrupting the pending connect loop")
 		close(r.stopConnecting)
 		r.stopConnecting = nil
 	}

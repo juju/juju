@@ -4,6 +4,7 @@
 package openstack
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-goose/goose/v5/client"
@@ -171,7 +172,7 @@ func (c *ClientFactory) getClientState(options ...ClientOption) (client.Authenti
 	if authMode == identity.AuthUserPass && (identityClientVersion == -1 || identityClientVersion == 3) {
 		authOptions, err := newClient.IdentityAuthOptions()
 		if err != nil {
-			logger.Errorf("cannot determine available auth versions %v", err)
+			logger.Errorf(context.TODO(), "cannot determine available auth versions %v", err)
 		}
 
 		// Walk over the options to verify if the AuthUserPassV3 exists, if it
@@ -248,7 +249,7 @@ func newClient(
 
 	logger := internallogger.GetLogger("goose")
 	gooseLogger := gooselogging.DebugLoggerAdapater{
-		Logger: logger,
+		Logger: wrapLogger(logger),
 	}
 
 	httpClient := jujuhttp.NewClient(
@@ -260,4 +261,24 @@ func newClient(
 		client.WithHTTPClient(httpClient.Client()),
 		client.WithHTTPHeadersFunc(opts.httpHeadersFunc),
 	), nil
+}
+
+// wrappedLogger is a logger.Logger that logs to dependency.Logger interface.
+type wrappedLogger struct {
+	logger corelogger.Logger
+}
+
+// wrapLogger returns a new instance of wrappedLogger.
+func wrapLogger(logger corelogger.Logger) *wrappedLogger {
+	return &wrappedLogger{
+		logger: logger,
+	}
+}
+
+// Debug logs a message at the debug level.
+func (c *wrappedLogger) Debugf(msg string, args ...any) {
+	// We should either fix the goose logger to use a context, or we should
+	// instantiate a new client for each request rather than caching it for
+	// the lifetime of the provider.
+	c.logger.Debugf(context.TODO(), msg, args...)
 }

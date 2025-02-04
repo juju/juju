@@ -97,7 +97,7 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 			BakeryDischargeRequired: err.Macaroon,
 			DischargeRequiredReason: err.Error(),
 		}
-		logger.Infof("login failed with discharge-required error: %v", err)
+		logger.Infof(context.TODO(), "login failed with discharge-required error: %v", err)
 		return loginResult, nil
 	}
 	if err != nil {
@@ -207,7 +207,7 @@ func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult
 		},
 	)
 	if err != nil {
-		logger.Errorf("couldn't add login to audit log: %+v", err)
+		logger.Errorf(context.TODO(), "couldn't add login to audit log: %+v", err)
 		return nil, errors.Trace(err)
 	}
 	return result, nil
@@ -228,7 +228,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 		userLogin:           true,
 	}
 
-	logger.Debugf("request authToken: %q", req.Token)
+	logger.Debugf(context.TODO(), "request authToken: %q", req.Token)
 	if req.Token == "" && req.AuthTag != "" {
 		tag, err := names.ParseTag(req.AuthTag)
 		if err == nil {
@@ -242,7 +242,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 
 			// Users are not rate limited, all other entities are.
 			if err := a.srv.getAgentToken(); err != nil {
-				logger.Tracef("rate limiting for agent %s", req.AuthTag)
+				logger.Tracef(context.TODO(), "rate limiting for agent %s", req.AuthTag)
 				return nil, errors.Trace(err)
 			}
 		}
@@ -427,15 +427,15 @@ func (a *admin) fillLoginDetails(ctx context.Context, authInfo authentication.Au
 	}
 	if result.controllerOnlyLogin {
 		if result.anonymousLogin {
-			logger.Debugf(" anonymous controller login")
+			logger.Debugf(context.TODO(), " anonymous controller login")
 		} else {
-			logger.Debugf("controller login: %s", a.root.authInfo.Entity.Tag())
+			logger.Debugf(context.TODO(), "controller login: %s", a.root.authInfo.Entity.Tag())
 		}
 	} else {
 		if result.anonymousLogin {
-			logger.Debugf("anonymous model login")
+			logger.Debugf(context.TODO(), "anonymous model login")
 		} else {
-			logger.Debugf("model login: %s for %s", a.root.authInfo.Entity.Tag(), a.root.model.ModelTag().Id())
+			logger.Debugf(context.TODO(), "model login: %s for %s", a.root.authInfo.Entity.Tag(), a.root.model.ModelTag().Id())
 		}
 	}
 	return nil
@@ -490,9 +490,9 @@ func (a *admin) checkUserPermissions(
 		}
 	}
 	if controllerOnlyLogin {
-		logger.Debugf("controller login: user %s has %q access", userTag.Id(), controllerAccess)
+		logger.Debugf(context.TODO(), "controller login: user %s has %q access", userTag.Id(), controllerAccess)
 	} else {
-		logger.Debugf("model login: user %s has %q for controller; %q for model %s",
+		logger.Debugf(context.TODO(), "model login: user %s has %q for controller; %q for model %s",
 			userTag.Id(), controllerAccess, modelAccess, a.root.model.ModelTag().Id())
 	}
 	return &params.AuthUserInfo{
@@ -545,9 +545,9 @@ func setupPingTimeoutDisconnect(clock clock.Clock, root PingRootHandler, entity 
 	//
 	// We should have picked better names...
 	action := func() {
-		logger.Debugf("closing connection due to ping timeout")
+		logger.Debugf(context.TODO(), "closing connection due to ping timeout")
 		if err := root.CloseConn(); err != nil {
-			logger.Errorf("error closing the RPC connection: %v", err)
+			logger.Errorf(context.TODO(), "error closing the RPC connection: %v", err)
 		}
 	}
 	p := pinger.NewPinger(action, clock, maxClientPingInterval)

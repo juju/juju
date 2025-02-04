@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -73,7 +74,7 @@ func (c *stateTracker) Done() error {
 	c.references--
 	if c.references == 0 {
 		if err := c.pool.Close(); err != nil {
-			logger.Errorf("error when closing state pool: %v", err)
+			logger.Errorf(context.TODO(), "error when closing state pool: %v", err)
 		}
 	}
 	return nil

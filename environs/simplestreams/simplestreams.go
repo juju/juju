@@ -415,11 +415,11 @@ type GetMetadataParams struct {
 // is found.
 func (s Simplestreams) GetMetadata(ctx context.Context, sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
 	for _, source := range sources {
-		logger.Debugf("searching for signed metadata in datasource %q", source.Description())
+		logger.Debugf(context.TODO(), "searching for signed metadata in datasource %q", source.Description())
 		items, resolveInfo, err = s.getMaybeSignedMetadata(ctx, source, params, true)
 		// If no items are found using signed metadata, check unsigned.
 		if err != nil && len(items) == 0 && !source.RequireSigned() {
-			logger.Debugf("falling back to search for unsigned metadata in datasource %q", source.Description())
+			logger.Debugf(context.TODO(), "falling back to search for unsigned metadata in datasource %q", source.Description())
 			items, resolveInfo, err = s.getMaybeSignedMetadata(ctx, source, params, false)
 		}
 		if err == nil {
@@ -449,7 +449,7 @@ func (s Simplestreams) getMaybeSignedMetadata(ctx context.Context, source DataSo
 	resolveInfo.Signed = signed
 	indexPath := makeIndexPath(defaultIndexPath)
 
-	logger.Debugf("looking for data index using path %s", indexPath)
+	logger.Debugf(context.TODO(), "looking for data index using path %s", indexPath)
 	mirrorsPath := fmt.Sprintf(defaultMirrorsPath, params.StreamsVersion)
 	cons := params.LookupConstraint
 
@@ -462,11 +462,11 @@ func (s Simplestreams) getMaybeSignedMetadata(ctx context.Context, source DataSo
 		signed,
 		params.ValueParams,
 	)
-	logger.Debugf("looking for data index using URL %s", indexURL)
+	logger.Debugf(context.TODO(), "looking for data index using URL %s", indexURL)
 	if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
 		legacyIndexPath := makeIndexPath(defaultLegacyIndexPath)
-		logger.Debugf("%s not accessed, actual error: %v", indexPath, errors.Details(err))
-		logger.Debugf("%s not accessed, trying legacy index path: %s", indexPath, legacyIndexPath)
+		logger.Debugf(context.TODO(), "%s not accessed, actual error: %v", indexPath, errors.Details(err))
+		logger.Debugf(context.TODO(), "%s not accessed, trying legacy index path: %s", indexPath, legacyIndexPath)
 
 		indexPath = legacyIndexPath
 		indexRef, indexURL, err = s.fetchIndex(
@@ -482,19 +482,19 @@ func (s Simplestreams) getMaybeSignedMetadata(ctx context.Context, source DataSo
 	resolveInfo.IndexURL = indexURL
 	if err != nil {
 		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
-			logger.Debugf("cannot load index %q: %v", indexURL, err)
+			logger.Debugf(context.TODO(), "cannot load index %q: %v", indexURL, err)
 		}
 		return nil, resolveInfo, err
 	}
-	logger.Debugf("read metadata index at %q", indexURL)
+	logger.Debugf(context.TODO(), "read metadata index at %q", indexURL)
 	items, err := indexRef.getLatestMetadataWithFormat(ctx, cons, ProductFormat, signed)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
-			logger.Debugf("skipping index %q because of missing information: %v", indexURL, err)
+			logger.Debugf(context.TODO(), "skipping index %q because of missing information: %v", indexURL, err)
 			return nil, resolveInfo, err
 		}
 		if _, ok := err.(*noMatchingProductsError); !ok {
-			logger.Debugf("%v", err)
+			logger.Debugf(context.TODO(), "%v", err)
 		}
 	}
 	if indexRef.Source.Description() == "mirror" {
@@ -531,7 +531,7 @@ func (s Simplestreams) fetchIndex(ctx context.Context, source DataSource, indexP
 func fetchData(ctx context.Context, source DataSource, path string, requireSigned bool) (data []byte, dataURL string, err error) {
 	rc, dataURL, err := source.Fetch(ctx, path)
 	if err != nil {
-		logger.Tracef("fetchData failed for %q: %v", dataURL, err)
+		logger.Tracef(context.TODO(), "fetchData failed for %q: %v", dataURL, err)
 		return nil, dataURL, err
 	}
 	defer func() { _ = rc.Close() }()
@@ -582,7 +582,7 @@ func (s Simplestreams) GetIndexWithFormat(
 	var indices Indices
 	err = json.Unmarshal(data, &indices)
 	if err != nil {
-		logger.Errorf("bad JSON index data at URL %q: %v", url, string(data))
+		logger.Errorf(context.TODO(), "bad JSON index data at URL %q: %v", url, string(data))
 		return nil, fmt.Errorf("cannot unmarshal JSON index metadata at URL %q: %v", url, err)
 	}
 	if indices.Format != indexFormat {
@@ -606,7 +606,7 @@ func (s Simplestreams) GetIndexWithFormat(
 		mirrorInfo, err := getMirror(
 			ctx, source, mirrors, params.DataType, params.MirrorContentId, cloudSpec, requireSigned)
 		if err == nil {
-			logger.Debugf("using mirrored products path: %s", path.Join(mirrorInfo.MirrorURL, mirrorInfo.Path))
+			logger.Debugf(context.TODO(), "using mirrored products path: %s", path.Join(mirrorInfo.MirrorURL, mirrorInfo.Path))
 			indexRef.Source = s.factory.NewDataSource(Config{
 				Description:          "mirror",
 				BaseURL:              mirrorInfo.MirrorURL,
@@ -617,7 +617,7 @@ func (s Simplestreams) GetIndexWithFormat(
 			})
 			indexRef.MirroredProductsPath = mirrorInfo.Path
 		} else {
-			logger.Tracef("no mirror information available for %s: %v", cloudSpec, err)
+			logger.Tracef(context.TODO(), "no mirror information available for %s: %v", cloudSpec, err)
 		}
 	}
 
@@ -708,7 +708,7 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 		return "", newNoMatchingProductsError("index file has no data for product name(s) %q", prodIds)
 	}
 
-	logger.Tracef("candidate matches for products %q are %v", prodIds, candidates)
+	logger.Tracef(context.TODO(), "candidate matches for products %q are %v", prodIds, candidates)
 
 	// Pick arbitrary match.
 	return candidates[0].ProductsFilePath, nil
@@ -750,14 +750,14 @@ func (mirrorRefs *MirrorRefs) getMirrorReference(datatype, contentId string, clo
 		// No cloud specific mirrors found so look for a non cloud specific mirror.
 		for _, candidate := range candidates {
 			if len(candidate.Clouds) == 0 {
-				logger.Debugf("using default candidate for content id %q are %v", contentId, candidate)
+				logger.Debugf(context.TODO(), "using default candidate for content id %q are %v", contentId, candidate)
 				return &candidate, nil
 			}
 		}
 		return nil, errors.NotFoundf("index file with cloud %v", cloud)
 	}
 
-	logger.Debugf("candidate matches for content id %q are %v", contentId, candidates)
+	logger.Debugf(context.TODO(), "candidate matches for content id %q are %v", contentId, candidates)
 
 	// Pick arbitrary match.
 	return &matchingCandidates[0], nil
@@ -1021,10 +1021,10 @@ func (indexRef *IndexReference) GetCloudMetadataWithFormat(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("finding products at path %q", productFilesPath)
+	logger.Debugf(context.TODO(), "finding products at path %q", productFilesPath)
 	data, url, err := fetchData(ctx, indexRef.Source, productFilesPath, requireSigned)
 	if err != nil {
-		logger.Debugf("can't read product data: %v", err)
+		logger.Debugf(context.TODO(), "can't read product data: %v", err)
 		return nil, errors.Annotate(err, "cannot read product data")
 	}
 	return ParseCloudMetadata(data, format, url, indexRef.valueParams.ValueTemplate)
@@ -1044,7 +1044,7 @@ func ParseCloudMetadata(data []byte, format, url string, valueTemplate interface
 		err = metadata.construct(reflect.TypeOf(valueTemplate))
 	}
 	if err != nil {
-		logger.Errorf("bad JSON product data at URL %q: %v", url, string(data))
+		logger.Errorf(context.TODO(), "bad JSON product data at URL %q: %v", url, string(data))
 		return nil, fmt.Errorf("cannot unmarshal JSON metadata at URL %q: %v", url, err)
 	}
 	metadata.applyAliases()
@@ -1060,7 +1060,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	logger.Tracef("metadata: %v", metadata)
+	logger.Tracef(context.TODO(), "metadata: %v", metadata)
 	matches, err := GetLatestMetadata(metadata, cons, indexRef.Source, indexRef.valueParams.FilterFunc)
 	if err != nil {
 		return nil, err

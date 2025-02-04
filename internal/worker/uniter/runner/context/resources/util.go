@@ -4,6 +4,7 @@
 package resources
 
 import (
+	"context"
 	"io"
 
 	"github.com/juju/juju/core/logger"
@@ -15,6 +16,6 @@ func closeAndLog(closer io.Closer, label string, logger logger.Logger) {
 		return
 	}
 	if err := closer.Close(); err != nil {
-		logger.Errorf("while closing %s: %v", label, err)
+		logger.Errorf(context.TODO(), "while closing %s: %v", label, err)
 	}
 }

@@ -119,7 +119,7 @@ func (h *ObjectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 
 	if err != nil {
 		if err := sendJSONError(w, errors.Capture(err)); err != nil {
-			logger.Errorf("%v", errors.Errorf("cannot return error to user: %w", err))
+			logger.Errorf(r.Context(), "%v", errors.Errorf("cannot return error to user: %w", err))
 		}
 	}
 }
@@ -245,7 +245,7 @@ func (h *ObjectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 		Importing: isImporting,
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
-		logger.Criticalf("charm not found on object store")
+		logger.Criticalf(context.TODO(), "charm not found on object store")
 		return nil, jujuerrors.NotFoundf("charm")
 	} else if errors.Is(err, applicationerrors.CharmAlreadyAvailable) {
 		return nil, jujuerrors.AlreadyExistsf("charm")

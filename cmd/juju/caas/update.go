@@ -394,7 +394,7 @@ func (c *UpdateCAASCommand) updateCredentialOnController(ctx *cmd.Context, apiCl
 	for _, result := range results {
 		tag, err := names.ParseCloudCredentialTag(result.CredentialTag)
 		if err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf(context.TODO(), "%v", err)
 			ctx.Warningf("Could not parse credential tag %q", result.CredentialTag)
 			resultError = cmd.ErrSilent
 		}

@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -178,7 +179,7 @@ func (s *applicationOffers) RemoveOfferOperation(offerName string, force bool) (
 			if !isCrossModel {
 				continue
 			}
-			logger.Debugf("destroy consumer proxy %v for offer %v", remoteApp.Name(), offerName)
+			logger.Debugf(context.TODO(), "destroy consumer proxy %v for offer %v", remoteApp.Name(), offerName)
 			associatedAppProxies = append(associatedAppProxies, remoteApp.DestroyOperation(force))
 		}
 	}
@@ -225,7 +226,7 @@ func (op *RemoveOfferOperation) Build(attempt int) (ops []txn.Op, err error) {
 	}
 	if err != nil {
 		if op.Force {
-			logger.Warningf("force removing offer %v despite error %v", op.offerName, err)
+			logger.Warningf(context.TODO(), "force removing offer %v despite error %v", op.offerName, err)
 		} else {
 			return nil, err
 		}
@@ -239,7 +240,7 @@ func (op *RemoveOfferOperation) Build(attempt int) (ops []txn.Op, err error) {
 		}
 		if err != nil {
 			if remoteProxyOp.Force {
-				logger.Warningf("force removing consuming proxy %v despite error %v", remoteProxyOp.app.Name(), err)
+				logger.Warningf(context.TODO(), "force removing consuming proxy %v despite error %v", remoteProxyOp.app.Name(), err)
 			} else {
 				return nil, err
 			}
@@ -285,7 +286,7 @@ func (s *applicationOffers) Remove(offerName string, force bool) error {
 	}
 	err = s.st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
-		logger.Warningf("operational errors removing offer %v: %v", offerName, op.Errors)
+		logger.Warningf(context.TODO(), "operational errors removing offer %v: %v", offerName, op.Errors)
 	}
 	return err
 }
@@ -352,7 +353,7 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			return nil, errors.Trace(err)
 		}
 		if isCrossModel && !op.Force {
-			logger.Debugf("aborting removal of offer %q due to relation %q", offer.OfferName, rel)
+			logger.Debugf(context.TODO(), "aborting removal of offer %q due to relation %q", offer.OfferName, rel)
 			return nil, jujutxn.ErrTransientFailure
 		}
 		if op.Force {

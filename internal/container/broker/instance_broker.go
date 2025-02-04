@@ -99,7 +99,7 @@ func New(config Config) (environs.InstanceBroker, error) {
 
 	broker, err := newBroker(prepareHost(config), config.APICaller, manager, config.AgentConfig)
 	if err != nil {
-		logger.Errorf("failed to create new %s broker", config.ContainerType)
+		logger.Errorf(context.TODO(), "failed to create new %s broker", config.ContainerType)
 		return nil, errors.Trace(err)
 	}
 

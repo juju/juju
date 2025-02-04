@@ -5,6 +5,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -671,7 +672,7 @@ func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("read agent config, format %q", format.version())
+	logger.Debugf(context.TODO(), "read agent config, format %q", format.version())
 	config.configFilePath = configFilePath
 	return config, nil
 }
@@ -682,7 +683,7 @@ func ParseConfigData(configData []byte) (ConfigSetterWriter, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("parsing agent config, format %q", format.version())
+	logger.Debugf(context.TODO(), "parsing agent config, format %q", format.version())
 	config.configFilePath = ConfigPath(config.paths.DataDir, config.tag)
 	return config, nil
 }
@@ -722,7 +723,7 @@ func (c *configInternal) SetAPIHostPorts(servers []network.HostPorts) error {
 		addrs = append(addrs, hps...)
 	}
 	c.apiDetails.addresses = addrs
-	logger.Debugf("API server address details %q written to agent config as %q", servers, addrs)
+	logger.Debugf(context.TODO(), "API server address details %q written to agent config as %q", servers, addrs)
 	return nil
 }
 
@@ -1119,7 +1120,7 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	// in any case (lp:1644009). Review.
 	local := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
 	mongoAddrs = append([]string{local}, mongoAddrs...)
-	logger.Debugf("potential mongo addresses: %v", mongoAddrs)
+	logger.Debugf(context.TODO(), "potential mongo addresses: %v", mongoAddrs)
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  mongoAddrs,
