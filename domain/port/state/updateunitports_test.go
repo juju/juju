@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -33,7 +34,7 @@ var _ = gc.Suite(&updateUnitPortsSuite{})
 func (s *updateUnitPortsSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	machineSt := machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
+	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 	err := machineSt.CreateMachine(context.Background(), "m", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 

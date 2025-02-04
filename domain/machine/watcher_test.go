@@ -6,6 +6,7 @@ package machine_test
 import (
 	"context"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -36,6 +37,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.svc = service.NewWatchableService(
 		state.NewState(
 			func() (database.TxnRunner, error) { return factory() },
+			clock.WallClock,
 			loggertesting.WrapCheckLog(c),
 		),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),

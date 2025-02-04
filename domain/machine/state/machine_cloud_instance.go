@@ -6,15 +6,15 @@ package state
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/database"
@@ -225,20 +225,7 @@ WHERE machine_uuid=$machineUUID.uuid
 		return errors.Trace(err)
 	}
 
-	// Prepare query for deleting cloud instance status data.
-	deleteInstanceStatusDataQuery := `DELETE FROM machine_cloud_instance_status_data WHERE machine_uuid=$machineUUID.uuid`
-	deleteInstanceStatusDataStmt, err := st.Prepare(deleteInstanceStatusDataQuery, machineUUIDParam)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Delete the machine cloud instance status data. No need to return
-		// error if no status data is set for the instance while deleting.
-		if err := tx.Query(ctx, deleteInstanceStatusDataStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(domain.CoerceError(err), "deleting machine cloud instance status data for machine %q", mUUID)
-		}
-
 		// Delete the machine cloud instance status. No need to return error if
 		// no status is set for the instance while deleting.
 		if err := tx.Query(ctx, deleteInstanceStatusStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -345,157 +332,139 @@ WHERE  machine_uuid = $machineUUID.uuid;`
 // It returns NotFound if the machine does not exist.
 // It returns a StatusNotSet if the instance status is not set.
 // Idempotent.
-func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (status.StatusInfo, error) {
+func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (domainmachine.StatusInfo, error) {
 	db, err := st.DB()
 	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo{}, errors.Trace(err)
 	}
 
-	// Prepare query for machine uuid (to be used in
-	// machine_cloud_instance_status and machine_cloud_instance_status_data
-	// tables)
-	machineNameParam := machineName{Name: mName}
-	machineUUID := machineUUID{}
+	nameIdent := machineName{Name: mName}
+
+	var uuid machineUUID
 	uuidQuery := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name`
-	uuidQueryStmt, err := st.Prepare(uuidQuery, machineNameParam, machineUUID)
+	uuidQueryStmt, err := st.Prepare(uuidQuery, nameIdent, uuid)
 	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo{}, errors.Trace(err)
 	}
 
-	// Prepare query for combined machine cloud instance status and the status
-	// data (to get them both in one transaction, as this a a relatively
-	// frequent retrieval).
-	machineStatusParam := machineStatusWithData{}
+	var status machineStatus
 	statusCombinedQuery := `
-SELECT &machineStatusWithData.*
-FROM machine_cloud_instance_status AS st
-LEFT JOIN machine_cloud_instance_status_data AS st_data
-ON st.machine_uuid = st_data.machine_uuid
+SELECT &machineStatus.*
+FROM v_machine_cloud_instance_status AS st
 WHERE st.machine_uuid = $machineUUID.uuid`
-	statusCombinedQueryStmt, err := st.Prepare(statusCombinedQuery, machineUUID, machineStatusParam)
+	statusCombinedQueryStmt, err := st.Prepare(statusCombinedQuery, uuid, status)
 	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo{}, errors.Trace(err)
 	}
 
-	var instanceStatusWithData machineStatusData
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine uuid
-		err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUID)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return machineerrors.MachineNotFound
-			}
+		err := tx.Query(ctx, uuidQueryStmt, nameIdent).Get(&uuid)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		} else if err != nil {
 			return errors.Annotatef(err, "querying uuid for machine %q", mName)
 		}
 
 		// Query for the machine cloud instance status and status data combined
-		err = tx.Query(ctx, statusCombinedQueryStmt, machineUUID).GetAll(&instanceStatusWithData)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(machineerrors.StatusNotSet, "machine: %q", mName)
-			}
-			return errors.Annotatef(err, "querying machine status and status data for machine %q", mName)
+		err = tx.Query(ctx, statusCombinedQueryStmt, uuid).Get(&status)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(machineerrors.StatusNotSet, "machine: %q", mName)
+		} else if err != nil {
+			return errors.Annotatef(err, "querying cloud instance status and status data for machine %q", mName)
 		}
 
 		return nil
 	})
-
 	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo{}, errors.Trace(err)
 	}
 
-	// Transform the status data slice into a status.Data map.
-	statusDataResult := transform.SliceToMap(instanceStatusWithData, func(d machineStatusWithData) (string, interface{}) {
-		return d.Key, d.Data
-	})
-
-	instanceStatus := status.StatusInfo{
-		Message: instanceStatusWithData[0].Message,
-		Since:   instanceStatusWithData[0].Updated,
-		Data:    statusDataResult,
+	// Convert the internal status id from the
+	// (machine_cloud_instance_status_value table) into the core status.Status
+	// type.
+	machineStatus, err := decodeCloudInstanceStatus(status.Status)
+	if err != nil {
+		return domainmachine.StatusInfo{}, errors.Annotatef(err, "decoding cloud instance status for machine %q", mName)
 	}
 
-	// Convert the internal status id from the (machine_cloud_instance_status_value table)
-	// into the core status.Status type.
-	instanceStatus.Status = instanceStatusWithData[0].toCoreInstanceStatusValue()
+	var since time.Time
+	if status.Updated.Valid {
+		since = status.Updated.Time
+	} else {
+		since = st.clock.Now()
+	}
 
-	return instanceStatus, nil
+	return domainmachine.StatusInfo{
+		Status:  machineStatus,
+		Message: status.Message,
+		Since:   &since,
+		Data:    status.Data,
+	}, nil
 }
 
 // SetInstanceStatus sets the cloud specific instance status for this
 // machine.
 // It returns [machineerrors.MachineNotFound] if the machine does not exist.
-func (st *State) SetInstanceStatus(ctx context.Context, mName machine.Name, newStatus status.StatusInfo) error {
+func (st *State) SetInstanceStatus(ctx context.Context, mName machine.Name, newStatus domainmachine.StatusInfo) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Prepare the new status to be set.
-	instanceStatus := machineStatusWithData{}
+	statusID, err := encodeCloudInstanceStatus(newStatus.Status)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	instanceStatus.StatusID = fromCoreInstanceStatusValue(newStatus.Status)
-	instanceStatus.Message = newStatus.Message
-	instanceStatus.Updated = newStatus.Since
-	instanceStatusData := transform.MapToSlice(newStatus.Data, func(key string, value interface{}) []machineStatusWithData {
-		return []machineStatusWithData{{Key: key, Data: value.(string)}}
-	})
+	status := setMachineStatus{
+		StatusID: statusID,
+		Message:  newStatus.Message,
+		Data:     newStatus.Data,
+		Updated:  newStatus.Since,
+	}
 
 	// Prepare query for machine uuid
-	machineNameParam := machineName{Name: mName}
-	mUUID := machineUUID{}
-	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name`
-	queryMachineStmt, err := st.Prepare(queryMachine, machineNameParam, mUUID)
+	nameIdent := machineName{Name: mName}
+
+	var mUUID machineUUID
+	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name;`
+	queryMachineStmt, err := st.Prepare(queryMachine, nameIdent, mUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Prepare query for setting the machine cloud instance status
 	statusQuery := `
-INSERT INTO machine_cloud_instance_status (machine_uuid, status_id, message, updated_at)
-VALUES ($machineUUID.uuid, $machineStatusWithData.status_id, $machineStatusWithData.message, $machineStatusWithData.updated_at)
+INSERT INTO machine_cloud_instance_status (*)
+VALUES ($setMachineStatus.*)
   ON CONFLICT (machine_uuid)
-  DO UPDATE SET status_id = excluded.status_id, message = excluded.message, updated_at = excluded.updated_at
+  DO UPDATE SET 
+  	status_id = excluded.status_id, 
+	message = excluded.message, 
+	updated_at = excluded.updated_at,
+	data = excluded.data;
 `
-	statusQueryStmt, err := st.Prepare(statusQuery, mUUID, instanceStatus)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Prepare query for setting the machine cloud instance status data
-	statusDataQuery := `
-INSERT INTO machine_cloud_instance_status_data (machine_uuid, "key", data)
-VALUES ($machineUUID.uuid, $machineStatusWithData.key, $machineStatusWithData.data)
-  ON CONFLICT (machine_uuid, "key") DO UPDATE SET data = excluded.data
-`
-	statusDataQueryStmt, err := st.Prepare(statusDataQuery, mUUID, instanceStatus)
+	statusQueryStmt, err := st.Prepare(statusQuery, status)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine uuid
-		err := tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&mUUID)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return machineerrors.MachineNotFound
-			}
+		err := tx.Query(ctx, queryMachineStmt, nameIdent).Get(&mUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		} else if err != nil {
 			return errors.Annotatef(err, "querying uuid for machine %q", mName)
 		}
 
+		status.MachineUUID = mUUID.UUID
+
 		// Query for setting the machine cloud instance status
-		err = tx.Query(ctx, statusQueryStmt, mUUID, instanceStatus).Run()
+		err = tx.Query(ctx, statusQueryStmt, status).Run()
 		if err != nil {
 			return errors.Annotatef(err, "setting machine status for machine %q", mName)
-		}
-
-		// Query for setting the machine cloud instance status data if
-		// instanceStatusData is not empty.
-		if len(instanceStatusData) > 0 {
-			err = tx.Query(ctx, statusDataQueryStmt, mUUID, instanceStatusData).Run()
-			if err != nil {
-				return errors.Annotatef(err, "setting machine status data for machine %q", mName)
-			}
 		}
 		return nil
 	})

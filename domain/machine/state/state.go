@@ -6,18 +6,20 @@ package state
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	coredb "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain"
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
@@ -25,13 +27,15 @@ import (
 // State describes retrieval and persistence methods for storage.
 type State struct {
 	*domain.StateBase
+	clock  clock.Clock
 	logger logger.Logger
 }
 
 // NewState returns a new state reference.
-func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
+func NewState(factory coredb.TxnRunnerFactory, clock clock.Clock, logger logger.Logger) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
+		clock:     clock,
 		logger:    logger,
 	}
 }
@@ -243,12 +247,6 @@ DELETE FROM net_node WHERE uuid IN
 		return errors.Trace(err)
 	}
 
-	deleteStatusData := `DELETE FROM machine_status_data WHERE machine_uuid = $machineUUID.uuid`
-	deleteStatusDataStmt, err := st.Prepare(deleteStatusData, machineUUIDParam)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&machineUUIDParam)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -261,12 +259,6 @@ DELETE FROM net_node WHERE uuid IN
 		// Remove block devices for the machine.
 		if err := blockdevice.RemoveMachineBlockDevices(ctx, tx, machineUUIDParam.UUID); err != nil {
 			return errors.Annotatef(err, "deleting block devices for machine %q", mName)
-		}
-
-		// Remove the status data for the machine. No need to return error if no
-		// status data is set for the machine.
-		if err := tx.Query(ctx, deleteStatusDataStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "deleting status data for machine %q", mName)
 		}
 
 		// Remove the status for the machine. No need to return error if no
@@ -342,53 +334,46 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 // It returns MachineNotFound if the machine does not exist.
 // It returns a StatusNotSet if the status is not set.
 // Idempotent.
-func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (status.StatusInfo, error) {
+func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (domainmachine.StatusInfo, error) {
 	db, err := st.DB()
 	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo{}, errors.Trace(err)
 	}
 
-	// Prepare query for machine uuid (to be used in machine status and status
-	// data tables)
-	machineNameParam := machineName{Name: mName}
-	machineUUIDout := machineUUID{}
-	uuidQuery := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name`
-	uuidQueryStmt, err := st.Prepare(uuidQuery, machineNameParam, machineUUIDout)
+	nameIdent := machineName{Name: mName}
+
+	var uuid machineUUID
+	uuidQuery := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name;`
+	uuidQueryStmt, err := st.Prepare(uuidQuery, nameIdent, uuid)
 	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo{}, errors.Trace(err)
 	}
 
-	// Prepare query for combined machine status and the status data (to get
-	// them both in one transaction, as this a a relatively frequent retrieval).
-	machineStatusDataParam := machineStatusWithData{}
-	statusCombinedQuery := `
-SELECT &machineStatusWithData.*
-FROM machine_status AS st
-LEFT JOIN machine_status_data AS st_data
-ON st.machine_uuid = st_data.machine_uuid
-WHERE st.machine_uuid = $machineUUID.uuid`
-	statusCombinedQueryStmt, err := st.Prepare(statusCombinedQuery, machineUUIDout, machineStatusDataParam)
+	var status machineStatus
+	statusQuery := `
+SELECT &machineStatus.*
+FROM v_machine_status AS st
+WHERE st.machine_uuid = $machineUUID.uuid;
+`
+	statusCombinedQueryStmt, err := st.Prepare(statusQuery, uuid, status)
 	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo{}, errors.Trace(err)
 	}
 
-	var machineStatusWithAllData machineStatusData
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine uuid
-		err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUIDout)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
-			}
+		err := tx.Query(ctx, uuidQueryStmt, nameIdent).Get(&uuid)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
+		} else if err != nil {
 			return errors.Annotatef(err, "querying uuid for machine %q", mName)
 		}
 
 		// Query for the machine cloud instance status and status data combined
-		err = tx.Query(ctx, statusCombinedQueryStmt, machineUUIDout).GetAll(&machineStatusWithAllData)
+		err = tx.Query(ctx, statusCombinedQueryStmt, uuid).Get(&status)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(machineerrors.StatusNotSet, "machine: %q", mName)
-		}
-		if err != nil {
+		} else if err != nil {
 			return errors.Annotatef(err, "querying machine status for machine %q", mName)
 		}
 
@@ -396,96 +381,94 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 	})
 
 	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
-	}
-
-	// Transform the status data slice into a status.Data map.
-	statusDataResult := transform.SliceToMap(machineStatusWithAllData, machineStatusWithData.dataMapTransformFunc)
-
-	machineStatus := status.StatusInfo{
-		Message: machineStatusWithAllData[0].Message,
-		Since:   machineStatusWithAllData[0].Updated,
-		Data:    statusDataResult,
+		return domainmachine.StatusInfo{}, errors.Trace(err)
 	}
 
 	// Convert the internal status id from the (machine_status_value table)
 	// into the core status.Status type.
-	machineStatus.Status = machineStatusWithAllData[0].toCoreMachineStatusValue()
+	machineStatus, err := decodeMachineStatus(status.Status)
+	if err != nil {
+		return domainmachine.StatusInfo{}, errors.Annotatef(err, "decoding machine status for machine %q", mName)
+	}
 
-	return machineStatus, nil
+	var since time.Time
+	if status.Updated.Valid {
+		since = status.Updated.Time
+	} else {
+		since = st.clock.Now()
+	}
+
+	return domainmachine.StatusInfo{
+		Status:  machineStatus,
+		Message: status.Message,
+		Since:   &since,
+		Data:    status.Data,
+	}, nil
 }
 
 // SetMachineStatus sets the status of the specified machine.
 // It returns MachineNotFound if the machine does not exist.
-func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newStatus status.StatusInfo) error {
+func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newStatus domainmachine.StatusInfo) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Prepare the new status to be set.
-	machineStatus := machineStatusWithData{}
+	statusID, err := encodeMachineStatus(newStatus.Status)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	machineStatus.StatusID = fromCoreMachineStatusValue(newStatus.Status)
-	machineStatus.Message = newStatus.Message
-	machineStatus.Updated = newStatus.Since
-	machineStatusData := transform.MapToSlice(newStatus.Data, dataSliceTransformFunc)
+	// Prepare the new status to be set.
+	status := setMachineStatus{
+		StatusID: statusID,
+		Message:  newStatus.Message,
+		Data:     newStatus.Data,
+		Updated:  newStatus.Since,
+	}
 
 	// Prepare query for machine uuid
-	machineNameParam := machineName{Name: mName}
-	mUUID := machineUUID{}
-	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name`
-	queryMachineStmt, err := st.Prepare(queryMachine, machineNameParam, mUUID)
+	nameIdent := machineName{Name: mName}
+
+	var mUUID machineUUID
+	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name;`
+	queryMachineStmt, err := st.Prepare(queryMachine, nameIdent, mUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Prepare query for setting machine status
 	statusQuery := `
-INSERT INTO machine_status (machine_uuid, status_id, message, updated_at)
-VALUES ($machineUUID.uuid, $machineStatusWithData.status_id, $machineStatusWithData.message, $machineStatusWithData.updated_at)
+INSERT INTO machine_status (*)
+VALUES ($setMachineStatus.*)
   ON CONFLICT (machine_uuid)
-  DO UPDATE SET status_id = excluded.status_id, message = excluded.message, updated_at = excluded.updated_at
+  DO UPDATE SET 
+  	status_id = excluded.status_id, 
+	message = excluded.message, 
+	updated_at = excluded.updated_at,
+	data = excluded.data;
 `
-	statusQueryStmt, err := st.Prepare(statusQuery, mUUID, machineStatus)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Prepare query for setting machine status data
-	statusDataQuery := `
-INSERT INTO machine_status_data (machine_uuid, "key", data)
-VALUES ($machineUUID.uuid, $machineStatusWithData.key, $machineStatusWithData.data)
-  ON CONFLICT (machine_uuid, "key") DO UPDATE SET data = excluded.data
-`
-	statusDataQueryStmt, err := st.Prepare(statusDataQuery, mUUID, machineStatus)
+	statusQueryStmt, err := st.Prepare(statusQuery, status)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine uuid.
-		err := tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&mUUID)
+		err := tx.Query(ctx, queryMachineStmt, nameIdent).Get(&mUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
-		}
-		if err != nil {
+		} else if err != nil {
 			return errors.Annotatef(err, "querying uuid for machine %q", mName)
 		}
 
+		// Set the machine uuid in the status struct.
+		status.MachineUUID = mUUID.UUID
+
 		// Query for setting the machine status.
-		err = tx.Query(ctx, statusQueryStmt, mUUID, machineStatus).Run()
+		err = tx.Query(ctx, statusQueryStmt, status).Run()
 		if err != nil {
 			return errors.Annotatef(err, "setting machine status for machine %q", mName)
-		}
-
-		// Query for setting the machine status data if machineStatusData is not
-		// empty.
-		if len(machineStatusData) > 0 {
-			err = tx.Query(ctx, statusDataQueryStmt, mUUID, machineStatusData).Run()
-			if err != nil {
-				return errors.Annotatef(err, "setting machine status data for machine %q", mName)
-			}
 		}
 
 		return nil

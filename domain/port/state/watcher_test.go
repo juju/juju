@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,7 +31,7 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	machineSt := machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
+	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
 	err := machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)

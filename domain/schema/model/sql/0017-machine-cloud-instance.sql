@@ -58,6 +58,7 @@ CREATE TABLE machine_cloud_instance_status (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     status_id INT NOT NULL,
     message TEXT,
+    data TEXT,
     updated_at DATETIME,
     CONSTRAINT fk_machine_constraint_instance
     FOREIGN KEY (machine_uuid)
@@ -67,19 +68,11 @@ CREATE TABLE machine_cloud_instance_status (
     REFERENCES machine_cloud_instance_status_value (id)
 );
 
-/*
-machine_cloud_instance_status_data stores the status data for a cloud instance
-as a key-value pair.
-
-Primary key is (machine_uuid, key) to allow for multiple status data entries for
-one machine.
-*/
-CREATE TABLE machine_cloud_instance_status_data (
-    machine_uuid TEXT NOT NULL,
-    "key" TEXT,
-    data TEXT,
-    CONSTRAINT fk_machine_cloud_instance_status_data_machine_cloud_instance_status
-    FOREIGN KEY (machine_uuid)
-    REFERENCES machine_cloud_instance_status (machine_uuid),
-    PRIMARY KEY (machine_uuid, "key")
-);
+CREATE VIEW v_machine_cloud_instance_status AS
+SELECT ms.machine_uuid,
+       ms.message,
+       ms.data,
+       ms.updated_at,
+       msv.status
+FROM machine_cloud_instance_status AS ms
+INNER JOIN machine_cloud_instance_status_value AS msv ON ms.status_id = msv.id;

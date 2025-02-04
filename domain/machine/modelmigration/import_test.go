@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v8"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
@@ -46,7 +47,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c))
+	RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
 func (s *importSuite) TestNoMachines(c *gc.C) {

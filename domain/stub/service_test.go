@@ -216,7 +216,7 @@ func (s *stubSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.srv = NewStubService(s.TxnRunnerFactory())
 	s.appState = applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
-	s.machineState = machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
+	s.machineState = machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
 	return ctrl
 }

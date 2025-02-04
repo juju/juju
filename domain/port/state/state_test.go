@@ -50,7 +50,7 @@ var (
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	machineSt := machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
+	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 	err := machineSt.CreateMachine(context.Background(), "m", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -295,7 +295,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnitsDifferentMachines(c 
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	machineSt := machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
+	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 	err := machineSt.CreateMachine(context.Background(), "m1", netNodeUUIDs[1], machineUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
 

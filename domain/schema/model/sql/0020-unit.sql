@@ -158,21 +158,6 @@ INSERT INTO unit_agent_status_value VALUES
 (5, 'lost'),
 (6, 'rebooting');
 
--- Status values for unit workloads.
-CREATE TABLE unit_workload_status_value (
-    id INT PRIMARY KEY,
-    status TEXT NOT NULL
-);
-
-INSERT INTO unit_workload_status_value VALUES
-(0, 'unset'),
-(1, 'unknown'),
-(2, 'maintenance'),
-(3, 'waiting'),
-(4, 'blocked'),
-(5, 'active'),
-(6, 'terminated');
-
 -- Status values for cloud containers.
 CREATE TABLE cloud_container_status_value (
     id INT PRIMARY KEY,
@@ -188,6 +173,7 @@ CREATE TABLE unit_agent_status (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     status_id INT NOT NULL,
     message TEXT,
+    data TEXT,
     updated_at DATETIME,
     CONSTRAINT fk_unit_agent_status_unit
     FOREIGN KEY (unit_uuid)
@@ -197,43 +183,25 @@ CREATE TABLE unit_agent_status (
     REFERENCES unit_agent_status_value (id)
 );
 
-CREATE TABLE unit_agent_status_data (
-    unit_uuid TEXT NOT NULL,
-    "key" TEXT NOT NULL,
-    data TEXT,
-    CONSTRAINT fk_unit_agent_status_data_unit
-    FOREIGN KEY (unit_uuid)
-    REFERENCES unit_agent_status (unit_uuid),
-    PRIMARY KEY (unit_uuid, "key")
-);
-
 CREATE TABLE unit_workload_status (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     status_id INT NOT NULL,
     message TEXT,
+    data TEXT,
     updated_at DATETIME,
     CONSTRAINT fk_unit_workload_status_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
-    CONSTRAINT fk_unit_workload_status_status
+    CONSTRAINT fk_workload_status_value_status
     FOREIGN KEY (status_id)
-    REFERENCES unit_workload_status_value (id)
-);
-
-CREATE TABLE unit_workload_status_data (
-    unit_uuid TEXT NOT NULL,
-    "key" TEXT,
-    data TEXT,
-    CONSTRAINT fk_unit_workload_status_data_unit
-    FOREIGN KEY (unit_uuid)
-    REFERENCES unit_workload_status (unit_uuid),
-    PRIMARY KEY (unit_uuid, "key")
+    REFERENCES workload_status_value (id)
 );
 
 CREATE TABLE cloud_container_status (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     status_id INT NOT NULL,
     message TEXT,
+    data TEXT,
     updated_at DATETIME,
     CONSTRAINT fk_cloud_container_status_unit
     FOREIGN KEY (unit_uuid)
@@ -241,14 +209,4 @@ CREATE TABLE cloud_container_status (
     CONSTRAINT fk_cloud_container_status_status
     FOREIGN KEY (status_id)
     REFERENCES cloud_container_status_value (id)
-);
-
-CREATE TABLE cloud_container_status_data (
-    unit_uuid TEXT NOT NULL,
-    "key" TEXT NOT NULL,
-    data TEXT,
-    CONSTRAINT fk_cloud_container_status_data_unit
-    FOREIGN KEY (unit_uuid)
-    REFERENCES cloud_container_status (unit_uuid),
-    PRIMARY KEY (unit_uuid, "key")
 );

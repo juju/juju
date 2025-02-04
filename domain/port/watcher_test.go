@@ -68,7 +68,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 		logger.GetLogger("juju.test.port"),
 	)
 
-	machineSt := machinestate.NewState(s.TxnRunnerFactory(), logger.GetLogger("juju.test.machine"))
+	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
 	err := machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)

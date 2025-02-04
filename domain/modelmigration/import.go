@@ -56,7 +56,7 @@ func ImportOperations(
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider, logger.Child("modelconfig"))
 	access.RegisterImport(coordinator, logger.Child("access"))
 	network.RegisterImport(coordinator, logger.Child("network"))
-	machine.RegisterImport(coordinator, logger.Child("machine"))
+	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	application.RegisterImport(coordinator, storageRegistryGetter, clock, logger.Child("application"))
 	port.RegisterImport(coordinator, logger.Child("port"))
 	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))

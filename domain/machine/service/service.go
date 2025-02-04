@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/juju/errors"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/uuid"
@@ -67,21 +69,21 @@ type State interface {
 	// machine.
 	// It returns MachineNotFound if the machine does not exist.
 	// It returns a StatusNotSet if the instance status is not set.
-	GetInstanceStatus(context.Context, machine.Name) (status.StatusInfo, error)
+	GetInstanceStatus(context.Context, machine.Name) (domainmachine.StatusInfo, error)
 
 	// SetInstanceStatus sets the cloud specific instance status for this
 	// machine.
 	// It returns MachineNotFound if the machine does not exist.
-	SetInstanceStatus(context.Context, machine.Name, status.StatusInfo) error
+	SetInstanceStatus(context.Context, machine.Name, domainmachine.StatusInfo) error
 
 	// GetMachineStatus returns the status of the specified machine.
 	// It returns MachineNotFound if the machine does not exist.
 	// It returns a StatusNotSet if the status is not set.
-	GetMachineStatus(context.Context, machine.Name) (status.StatusInfo, error)
+	GetMachineStatus(context.Context, machine.Name) (domainmachine.StatusInfo, error)
 
 	// SetMachineStatus sets the status of the specified machine.
 	// It returns MachineNotFound if the machine does not exist.
-	SetMachineStatus(context.Context, machine.Name, status.StatusInfo) error
+	SetMachineStatus(context.Context, machine.Name, domainmachine.StatusInfo) error
 
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
@@ -261,45 +263,96 @@ func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Nam
 	if err != nil {
 		return status.StatusInfo{}, errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineName)
 	}
-	return instanceStatus, nil
+
+	var data map[string]any
+	if len(instanceStatus.Data) > 0 {
+		if err := json.Unmarshal(instanceStatus.Data, &data); err != nil {
+			return status.StatusInfo{}, errors.Annotatef(err, "unmarshalling instance data for machine %q", machineName)
+		}
+	}
+
+	return status.StatusInfo{
+		Status:  instanceStatus.Status,
+		Message: instanceStatus.Message,
+		Data:    data,
+		Since:   instanceStatus.Since,
+	}, nil
 }
 
-// SetInstanceStatus sets the cloud specific instance status for this
-// machine.
-// It returns MachineNotFound if the machine does not exist.
-// It returns InvalidStatus if the given status is not a known status value.
+// SetInstanceStatus sets the cloud specific instance status for this machine.
+// It returns MachineNotFound if the machine does not exist. It returns
+// InvalidStatus if the given status is not a known status value.
 func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) error {
 	if !status.Status.KnownInstanceStatus() {
 		return machineerrors.InvalidStatus
 	}
-	err := s.st.SetInstanceStatus(ctx, machineName, status)
-	if err != nil {
+
+	var data []byte
+	if len(status.Data) > 0 {
+		var err error
+		data, err = json.Marshal(status.Data)
+		if err != nil {
+			return errors.Annotatef(err, "marshalling instance data for machine %q", machineName)
+		}
+	}
+
+	if err := s.st.SetInstanceStatus(ctx, machineName, domainmachine.StatusInfo{
+		Status:  status.Status,
+		Message: status.Message,
+		Data:    data,
+		Since:   status.Since,
+	}); err != nil {
 		return errors.Annotatef(err, "setting cloud instance status for machine %q", machineName)
 	}
 	return nil
 }
 
-// GetMachineStatus returns the status of the specified machine.
-// It returns MachineNotFound if the machine does not exist.
-// It returns a StatusNotSet if the status is not set.
-// Idempotent.
+// GetMachineStatus returns the status of the specified machine. It returns
+// MachineNotFound if the machine does not exist. It returns a StatusNotSet if
+// the status is not set. Idempotent.
 func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
 	machineStatus, err := s.st.GetMachineStatus(ctx, machineName)
 	if err != nil {
 		return status.StatusInfo{}, errors.Annotatef(err, "retrieving machine status for machine %q", machineName)
 	}
-	return machineStatus, nil
+
+	var data map[string]any
+	if len(machineStatus.Data) > 0 {
+		if err := json.Unmarshal(machineStatus.Data, &data); err != nil {
+			return status.StatusInfo{}, errors.Annotatef(err, "unmarshalling machine data for machine %q", machineName)
+		}
+	}
+
+	return status.StatusInfo{
+		Status:  machineStatus.Status,
+		Message: machineStatus.Message,
+		Data:    data,
+		Since:   machineStatus.Since,
+	}, nil
 }
 
-// SetMachineStatus sets the status of the specified machine.
-// It returns MachineNotFound if the machine does not exist.
-// It returns InvalidStatus if the given status is not a known status value.
+// SetMachineStatus sets the status of the specified machine. It returns
+// MachineNotFound if the machine does not exist. It returns InvalidStatus if
+// the given status is not a known status value.
 func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) error {
 	if !status.Status.KnownMachineStatus() {
 		return machineerrors.InvalidStatus
 	}
-	err := s.st.SetMachineStatus(ctx, machineName, status)
-	if err != nil {
+
+	var data []byte
+	if len(status.Data) > 0 {
+		var err error
+		data, err = json.Marshal(status.Data)
+		if err != nil {
+			return errors.Annotatef(err, "marshalling machine data for machine %q", machineName)
+		}
+	}
+	if err := s.st.SetMachineStatus(ctx, machineName, domainmachine.StatusInfo{
+		Status:  status.Status,
+		Message: status.Message,
+		Data:    data,
+		Since:   status.Since,
+	}); err != nil {
 		return errors.Annotatef(err, "setting machine status for machine %q", machineName)
 	}
 	return nil

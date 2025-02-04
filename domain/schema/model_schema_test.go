@@ -36,6 +36,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"application_setting",
 		"application_scale",
 		"cloud_service",
+		"workload_status_value",
 
 		// Annotations
 		"annotation_application",
@@ -73,12 +74,12 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"object_store_metadata_path",
 
 		// Node
-		"net_node",
-		"instance_tag",
 		"fqdn_address",
-		"net_node_fqdn_address",
 		"hostname_address",
+		"instance_tag",
+		"net_node_fqdn_address",
 		"net_node_hostname_address",
+		"net_node",
 		"network_address_scope",
 
 		// Link layer device
@@ -100,24 +101,20 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"ip_address_dns_server_address",
 
 		// Unit
-		"unit",
+		"cloud_container_port",
+		"cloud_container_status_value",
+		"cloud_container_status",
+		"cloud_container",
+		"unit_agent_status_value",
+		"unit_agent_status",
+		"unit_agent",
+		"unit_principal",
 		"unit_resolve_kind",
 		"unit_state_charm",
 		"unit_state_relation",
 		"unit_state",
-		"unit_agent",
-		"unit_principal",
-		"cloud_container",
-		"cloud_container_port",
-		"unit_agent_status",
-		"unit_agent_status_data",
 		"unit_workload_status",
-		"unit_workload_status_data",
-		"cloud_container_status",
-		"cloud_container_status_data",
-		"unit_agent_status_value",
-		"unit_workload_status_value",
-		"cloud_container_status_value",
+		"unit",
 
 		// Constraint
 		"constraint",
@@ -135,12 +132,10 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"machine_requires_reboot",
 		"machine_removals",
 		"machine_status",
-		"machine_status_data",
 		"machine_status_value",
 		"machine_cloud_instance",
 		"machine_cloud_instance_status_value",
 		"machine_cloud_instance_status",
-		"machine_cloud_instance_status_data",
 		"machine_lxd_profile",
 		"container_type",
 
@@ -180,52 +175,52 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		// Resources
 		"application_resource",
 		"kubernetes_application_resource",
-		"resource",
 		"resource_container_image_metadata_store",
 		"resource_file_store",
 		"resource_image_store",
 		"resource_origin_type",
-		"resource_retrieved_by",
 		"resource_retrieved_by_type",
+		"resource_retrieved_by",
 		"resource_state",
+		"resource",
 		"unit_resource",
 
 		// Space
-		"space",
 		"provider_space",
+		"space",
 
 		// Subnet
-		"subnet",
-		"provider_subnet",
-		"provider_network",
-		"provider_network_subnet",
-		"availability_zone",
 		"availability_zone_subnet",
+		"availability_zone",
+		"provider_network_subnet",
+		"provider_network",
+		"provider_subnet",
+		"subnet",
 
 		// Block device
+		"block_device_link_device",
 		"block_device",
 		"filesystem_type",
-		"block_device_link_device",
 
 		// Storage
-		"storage_pool",
-		"storage_pool_attribute",
-		"storage_kind",
-		"storage_instance",
-		"storage_unit_owner",
-		"storage_attachment",
 		"application_storage_directive",
-		"unit_storage_directive",
-		"storage_volume",
-		"storage_instance_volume",
-		"storage_volume_attachment",
+		"storage_attachment",
+		"storage_filesystem_attachment",
 		"storage_filesystem",
 		"storage_instance_filesystem",
-		"storage_filesystem_attachment",
-		"storage_volume_attachment_plan",
-		"storage_volume_attachment_plan_attr",
+		"storage_instance_volume",
+		"storage_instance",
+		"storage_kind",
+		"storage_pool_attribute",
+		"storage_pool",
 		"storage_provisioning_status",
+		"storage_unit_owner",
+		"storage_volume_attachment_plan_attr",
+		"storage_volume_attachment_plan",
+		"storage_volume_attachment",
 		"storage_volume_device_type",
+		"storage_volume",
+		"unit_storage_directive",
 
 		// Secret
 		"secret_rotate_policy",
@@ -255,14 +250,14 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Relations
 		"application_endpoint",
-		"relation",
 		"relation_application_setting",
 		"relation_endpoint",
 		"relation_sequence",
-		"relation_status",
 		"relation_status_type",
-		"relation_unit",
+		"relation_status",
 		"relation_unit_setting",
+		"relation_unit",
+		"relation",
 
 		// Cleanup
 		"removal_type",
