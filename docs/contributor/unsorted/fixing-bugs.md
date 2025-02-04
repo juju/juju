@@ -1,6 +1,5 @@
 (fixing-bugs)=
-juju and Bug Fixes
-==================
+# Juju and bug fixes
 
 When fixing a bug that affects more than a single branch the prefered
 process for fixing the bug is to perform the work against the oldest
@@ -13,8 +12,8 @@ you would use the pull request and review process.
 Then you would apply your fix to R2, and finally once your fix
 was merged in to R2, you would apply the fix to current master.
 
-How To Backport
-================
+## How to backport
+
 Once your initial fix has been merged by the bot (the back port) the process
 of applying your patch can be done with a few git commands. In this example I will show
 you applying the fix in to master.

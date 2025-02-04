@@ -1,5 +1,6 @@
 (cross-platform-development)=
-## Introduction
+# Cross-platform development
+
 It's often common practice that a juju developer needs to test out new juju code
 on machines that are not the same operating system or architecture to that of
 their current host. Alternatively in this workflow it is common place to want to
@@ -89,7 +90,7 @@ juju upgrade-controller --agent-version <version>
 number from above.**
 
 ## Current limitations & future changes
-- Does not support oci artifacts including upgrading of OCI deployed controllers 
+- Does not support oci artifacts including upgrading of OCI deployed controllers
   and agents.
 - Would like to integrate work by @hpidcock for a simplestreams server that
   continuously builds and updates.
