@@ -228,16 +228,12 @@ func (s *Service) CreateModel(
 	args model.GlobalModelCreationArgs,
 ) (coremodel.UUID, func(context.Context) error, error) {
 	if err := args.Validate(); err != nil {
-		return "", nil, fmt.Errorf(
-			"cannot validate model creation args: %w", err,
-		)
+		return "", nil, fmt.Errorf("cannot validate model creation args: %w", err)
 	}
 
 	modelID, err := coremodel.NewUUID()
 	if err != nil {
-		return "", nil, fmt.Errorf(
-			"cannot generate id for model %q: %w", args.Name, err,
-		)
+		return "", nil, fmt.Errorf("cannot generate id for model %q: %w", args.Name, err)
 	}
 
 	activator, err := s.createModel(ctx, modelID, args)
@@ -295,20 +291,6 @@ func (s *Service) createModel(
 			args.Name,
 		)
 	}
-
-	agentVersion := args.AgentVersion
-	if args.AgentVersion == version.Zero {
-		agentVersion = agentVersionSelector()
-	}
-
-	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
-		return nil, fmt.Errorf(
-			"creating model %q with agent version %q: %w",
-			args.Name, agentVersion, err,
-		)
-	}
-
-	args.AgentVersion = agentVersion
 
 	activator := ModelActivator(func(ctx context.Context) error {
 		return s.st.Activate(ctx, id)

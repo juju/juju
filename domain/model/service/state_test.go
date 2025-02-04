@@ -113,16 +113,15 @@ func (d *dummyState) Create(
 	}
 
 	d.nonActivatedModels[modelID] = coremodel.Model{
-		AgentVersion: args.AgentVersion,
-		Name:         args.Name,
-		UUID:         modelID,
-		ModelType:    modelType,
-		Cloud:        args.Cloud,
-		CloudRegion:  args.CloudRegion,
-		Credential:   args.Credential,
-		Owner:        args.Owner,
-		OwnerName:    userName,
-		Life:         life.Alive,
+		Name:        args.Name,
+		UUID:        modelID,
+		ModelType:   modelType,
+		Cloud:       args.Cloud,
+		CloudRegion: args.CloudRegion,
+		Credential:  args.Credential,
+		Owner:       args.Owner,
+		OwnerName:   userName,
+		Life:        life.Alive,
 	}
 	return nil
 }

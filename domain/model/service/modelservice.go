@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
@@ -145,6 +146,7 @@ func (s *ModelService) GetModelMetrics(ctx context.Context) (coremodel.ModelMetr
 func (s *ModelService) CreateModel(
 	ctx context.Context,
 	controllerUUID uuid.UUID,
+	agentVersion version.Number,
 ) error {
 	m, err := s.controllerSt.GetModel(ctx, s.modelID)
 	if err != nil {
@@ -153,7 +155,6 @@ func (s *ModelService) CreateModel(
 
 	args := model.ModelDetailArgs{
 		UUID:            m.UUID,
-		AgentVersion:    m.AgentVersion,
 		ControllerUUID:  controllerUUID,
 		Name:            m.Name,
 		Type:            m.ModelType,
@@ -162,6 +163,11 @@ func (s *ModelService) CreateModel(
 		CloudRegion:     m.CloudRegion,
 		CredentialOwner: m.Credential.Owner,
 		CredentialName:  m.Credential.Name,
+		
+		// TODO (manadart 2024-01-13): Note that this comes from the arg.
+		// It is not populated in the return from the controller state.
+		// So that method should not return the core type.
+		AgentVersion: agentVersion,
 	}
 
 	return s.modelSt.Create(ctx, args)

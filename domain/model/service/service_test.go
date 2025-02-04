@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/credential"
@@ -116,12 +115,8 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	args, exists := s.state.models[id]
+	_, exists := s.state.models[id]
 	c.Assert(exists, jc.IsTrue)
-
-	// Test that because we have not specified an agent version that the current
-	// controller version is chosen.
-	c.Check(args.AgentVersion, gc.Equals, jujuversion.Current)
 
 	modelList, err := svc.ListModelIDs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,75 +478,6 @@ func (s *serviceSuite) TestDeleteModelNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-// TestAgentVersionUnsupportedGreater is asserting that if we try and create a
-// model with an agent version that is greater then that of the controller the
-// operation fails with a [modelerrors.AgentVersionNotSupported] error.
-func (s *serviceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
-	cred := credential.Key{
-		Cloud: "aws",
-		Name:  "foobar",
-		Owner: usertesting.GenNewName(c, "owner"),
-	}
-	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.Key{
-			cred.String(): cred,
-		},
-		Regions: []string{"myregion"},
-	}
-
-	agentVersion, err := version.Parse("99.9.9")
-	c.Assert(err, jc.ErrorIsNil)
-
-	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	id, _, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
-		AgentVersion: agentVersion,
-		Cloud:        "aws",
-		CloudRegion:  "myregion",
-		Credential:   cred,
-		Owner:        s.userUUID,
-		Name:         "my-awesome-model",
-	})
-	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
-
-	_, exists := s.state.models[id]
-	c.Assert(exists, jc.IsFalse)
-}
-
-// TestAgentVersionUnsupportedLess is asserting that if we try and create a
-// model with an agent version that is less then that of the controller.
-func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
-	cred := credential.Key{
-		Cloud: "aws",
-		Name:  "foobar",
-		Owner: usertesting.GenNewName(c, "owner"),
-	}
-	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.Key{
-			cred.String(): cred,
-		},
-		Regions: []string{"myregion"},
-	}
-
-	agentVersion, err := version.Parse("1.9.9")
-	c.Assert(err, jc.ErrorIsNil)
-
-	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	id, _, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
-		AgentVersion: agentVersion,
-		Cloud:        "aws",
-		CloudRegion:  "myregion",
-		Credential:   cred,
-		Owner:        s.userUUID,
-		Name:         "my-awesome-model",
-	})
-
-	// This is temporary until we implement tools metadata for the controller.
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, exists := s.state.models[id]
-	c.Assert(exists, jc.IsFalse)
-}
-
 // TestListAllModelsNoResults is asserting that when no models exist the return
 // value of ListAllModels is an empty slice.
 func (s *serviceSuite) TestListAllModelsNoResults(c *gc.C) {
@@ -579,23 +505,21 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	id1, activator, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        "aws",
-		CloudRegion:  "myregion",
-		Credential:   cred,
-		Owner:        s.userUUID,
-		Name:         "my-awesome-model",
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+		Credential:  cred,
+		Owner:       s.userUUID,
+		Name:        "my-awesome-model",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	id2, activator, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        "aws",
-		CloudRegion:  "myregion",
-		Credential:   cred,
-		Owner:        usr1,
-		Name:         "my-awesome-model1",
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+		Credential:  cred,
+		Owner:       usr1,
+		Name:        "my-awesome-model1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
@@ -609,28 +533,26 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 
 	c.Check(models, gc.DeepEquals, []coremodel.Model{
 		{
-			Name:         "my-awesome-model",
-			AgentVersion: jujuversion.Current,
-			UUID:         id1,
-			Cloud:        "aws",
-			CloudRegion:  "myregion",
-			ModelType:    coremodel.IAAS,
-			Owner:        s.userUUID,
-			OwnerName:    usertesting.GenNewName(c, "admin"),
-			Credential:   cred,
-			Life:         life.Alive,
+			Name:        "my-awesome-model",
+			UUID:        id1,
+			Cloud:       "aws",
+			CloudRegion: "myregion",
+			ModelType:   coremodel.IAAS,
+			Owner:       s.userUUID,
+			OwnerName:   usertesting.GenNewName(c, "admin"),
+			Credential:  cred,
+			Life:        life.Alive,
 		},
 		{
-			Name:         "my-awesome-model1",
-			AgentVersion: jujuversion.Current,
-			UUID:         id2,
-			Cloud:        "aws",
-			CloudRegion:  "myregion",
-			ModelType:    coremodel.IAAS,
-			Owner:        usr1,
-			OwnerName:    usertesting.GenNewName(c, "tlm"),
-			Credential:   cred,
-			Life:         life.Alive,
+			Name:        "my-awesome-model1",
+			UUID:        id2,
+			Cloud:       "aws",
+			CloudRegion: "myregion",
+			ModelType:   coremodel.IAAS,
+			Owner:       usr1,
+			OwnerName:   usertesting.GenNewName(c, "tlm"),
+			Credential:  cred,
+			Life:        life.Alive,
 		},
 	})
 }
@@ -663,23 +585,21 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	id1, activator, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        "aws",
-		CloudRegion:  "myregion",
-		Credential:   cred,
-		Owner:        usr1,
-		Name:         "my-awesome-model",
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+		Credential:  cred,
+		Owner:       usr1,
+		Name:        "my-awesome-model",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	id2, activator, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        "aws",
-		CloudRegion:  "myregion",
-		Credential:   cred,
-		Owner:        usr1,
-		Name:         "my-awesome-model1",
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+		Credential:  cred,
+		Owner:       usr1,
+		Name:        "my-awesome-model1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
@@ -693,28 +613,26 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 
 	c.Check(models, gc.DeepEquals, []coremodel.Model{
 		{
-			Name:         "my-awesome-model",
-			AgentVersion: jujuversion.Current,
-			UUID:         id1,
-			Cloud:        "aws",
-			CloudRegion:  "myregion",
-			ModelType:    coremodel.IAAS,
-			Owner:        usr1,
-			OwnerName:    usertesting.GenNewName(c, "tlm"),
-			Credential:   cred,
-			Life:         life.Alive,
+			Name:        "my-awesome-model",
+			UUID:        id1,
+			Cloud:       "aws",
+			CloudRegion: "myregion",
+			ModelType:   coremodel.IAAS,
+			Owner:       usr1,
+			OwnerName:   usertesting.GenNewName(c, "tlm"),
+			Credential:  cred,
+			Life:        life.Alive,
 		},
 		{
-			Name:         "my-awesome-model1",
-			AgentVersion: jujuversion.Current,
-			UUID:         id2,
-			Cloud:        "aws",
-			CloudRegion:  "myregion",
-			ModelType:    coremodel.IAAS,
-			Owner:        usr1,
-			OwnerName:    usertesting.GenNewName(c, "tlm"),
-			Credential:   cred,
-			Life:         life.Alive,
+			Name:        "my-awesome-model1",
+			UUID:        id2,
+			Cloud:       "aws",
+			CloudRegion: "myregion",
+			ModelType:   coremodel.IAAS,
+			Owner:       usr1,
+			OwnerName:   usertesting.GenNewName(c, "tlm"),
+			Credential:  cred,
+			Life:        life.Alive,
 		},
 	})
 }
@@ -773,14 +691,14 @@ func (s *serviceSuite) TestImportModel(c *gc.C) {
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	activator, err := svc.ImportModel(context.Background(), model.ModelImportArgs{
 		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
-			Cloud:        "aws",
-			CloudRegion:  "myregion",
-			Credential:   cred,
-			Owner:        s.userUUID,
-			Name:         "my-awesome-model",
-			AgentVersion: jujuversion.Current,
+			Cloud:       "aws",
+			CloudRegion: "myregion",
+			Credential:  cred,
+			Owner:       s.userUUID,
+			Name:        "my-awesome-model",
 		},
-		ID: modelID,
+		ID:           modelID,
+		AgentVersion: jujuversion.Current,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
@@ -818,12 +736,11 @@ func (s *serviceSuite) TestControllerModel(c *gc.C) {
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	modelID, activator, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        "aws",
-		CloudRegion:  "myregion",
-		Credential:   cred,
-		Owner:        adminUUID,
-		Name:         coremodel.ControllerModelName,
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+		Credential:  cred,
+		Owner:       adminUUID,
+		Name:        coremodel.ControllerModelName,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
@@ -832,16 +749,15 @@ func (s *serviceSuite) TestControllerModel(c *gc.C) {
 	model, err := svc.ControllerModel(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, gc.DeepEquals, coremodel.Model{
-		Name:         coremodel.ControllerModelName,
-		Life:         life.Alive,
-		UUID:         modelID,
-		ModelType:    coremodel.IAAS,
-		AgentVersion: jujuversion.Current,
-		Cloud:        "aws",
-		CloudRegion:  "myregion",
-		Credential:   cred,
-		Owner:        adminUUID,
-		OwnerName:    coremodel.ControllerModelOwnerUsername,
+		Name:        coremodel.ControllerModelName,
+		Life:        life.Alive,
+		UUID:        modelID,
+		ModelType:   coremodel.IAAS,
+		Cloud:       "aws",
+		CloudRegion: "myregion",
+		Credential:  cred,
+		Owner:       adminUUID,
+		OwnerName:   coremodel.ControllerModelOwnerUsername,
 	})
 }
 
