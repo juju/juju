@@ -1,11 +1,14 @@
 // Copyright 2025 Canonical Ltd. Licensed under the AGPLv3, see LICENCE file for
 // details.
 //
-// Package changestream defines a worker that manages the lifecycle of the
+// Package changestream makes the databases created by the
+// internal/worker/dbaccessor package watchable.
+//
+// This happens through a worker that manages the lifecycle of the
 // internal/changestream/stream worker and of the
 // internal/changestream/eventmultiplexer worker as the former polls the
-// database for changes and the latter forwards them as events to the appropriate event
-// subscriber:
+// database for changes and as the latter forwards them as events to the
+// appropriate event subscriber:
 //
 //  ┌──────────┐          ┌──────────┐
 //  │          │          │          │
