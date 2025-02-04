@@ -260,6 +260,12 @@ type ApplicationState interface {
 	// SetUnitLife sets the life of the specified unit.
 	SetUnitLife(context.Context, coreunit.Name, life.Life) error
 
+	// GetApplicationConfigHash returns the SHA256 hash of the application config
+	// for the specified application ID.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationConfigHash(ctx context.Context, appID coreapplication.ID) (string, error)
+
 	// InitialWatchStatementUnitLife returns the initial namespace query for the
 	// application unit life watcher.
 	InitialWatchStatementUnitLife(appName string) (string, eventsource.NamespaceQuery)
@@ -267,6 +273,10 @@ type ApplicationState interface {
 	// InitialWatchStatementApplicationsWithPendingCharms returns the initial
 	// namespace query for the applications with pending charms watcher.
 	InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery)
+
+	// InitialWatchStatementApplicationConfigHash returns the initial namespace
+	// query for the application config hash watcher.
+	InitialWatchStatementApplicationConfigHash(appName string) (string, eventsource.NamespaceQuery)
 }
 
 // CreateApplication creates the specified application and units if required,

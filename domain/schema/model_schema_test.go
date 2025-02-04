@@ -28,6 +28,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"application",
 		"application_channel",
 		"application_config",
+		"application_config_hash",
 		"application_constraint",
 		"application_endpoint_space",
 		"application_endpoint_cidr",
@@ -324,6 +325,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_application_delete",
 		"trg_log_application_insert",
 		"trg_log_application_update",
+
+		"trg_log_application_config_hash_delete",
+		"trg_log_application_config_hash_insert",
+		"trg_log_application_config_hash_update",
 
 		"trg_log_application_scale_delete",
 		"trg_log_application_scale_insert",
