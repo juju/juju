@@ -4,7 +4,7 @@
 package storage
 
 import (
-	stdcontext "context"
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,21 +29,22 @@ import (
 
 // StorageService defines apis on the storage service.
 type StorageService interface {
-	CreateStoragePool(ctx stdcontext.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
-	DeleteStoragePool(ctx stdcontext.Context, name string) error
-	ReplaceStoragePool(ctx stdcontext.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
-	ListStoragePools(ctx stdcontext.Context, filter domainstorage.Names, providers domainstorage.Providers) ([]*storage.Config, error)
-	GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error)
+	CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
+	DeleteStoragePool(ctx context.Context, name string) error
+	ReplaceStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
+	ListStoragePools(ctx context.Context, filter domainstorage.Names, providers domainstorage.Providers) ([]*storage.Config, error)
+	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
 }
 
-type storageMetadataFunc func(stdcontext.Context) (StorageService, storage.ProviderRegistry, error)
+type storageRegistryGetter func(context.Context) (storage.ProviderRegistry, error)
 
 // StorageAPI implements the latest version (v6) of the Storage API.
 type StorageAPI struct {
 	backend                     backend
 	storageAccess               storageAccess
 	blockDeviceGetter           blockDeviceGetter
-	storageMetadata             storageMetadataFunc
+	storageService              StorageService
+	storageRegistryGetter       storageRegistryGetter
 	authorizer                  facade.Authorizer
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	modelType                   state.ModelType
@@ -55,7 +56,8 @@ func NewStorageAPI(
 	modelType state.ModelType,
 	storageAccess storageAccess,
 	blockDeviceGetter blockDeviceGetter,
-	storageMetadata storageMetadataFunc,
+	storageService StorageService,
+	storageRegistryGetter storageRegistryGetter,
 	authorizer facade.Authorizer,
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	blockCommandService common.BlockCommandService,
@@ -65,14 +67,15 @@ func NewStorageAPI(
 		modelType:                   modelType,
 		storageAccess:               storageAccess,
 		blockDeviceGetter:           blockDeviceGetter,
-		storageMetadata:             storageMetadata,
+		storageService:              storageService,
+		storageRegistryGetter:       storageRegistryGetter,
 		authorizer:                  authorizer,
 		credentialInvalidatorGetter: credentialInvalidatorGetter,
 		blockCommandService:         blockCommandService,
 	}
 }
 
-func (a *StorageAPI) checkCanRead(ctx stdcontext.Context) error {
+func (a *StorageAPI) checkCanRead(ctx context.Context) error {
 	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, a.backend.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
@@ -84,14 +87,14 @@ func (a *StorageAPI) checkCanRead(ctx stdcontext.Context) error {
 	return a.authorizer.HasPermission(ctx, permission.ReadAccess, a.backend.ModelTag())
 }
 
-func (a *StorageAPI) checkCanWrite(ctx stdcontext.Context) error {
+func (a *StorageAPI) checkCanWrite(ctx context.Context) error {
 	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.backend.ModelTag())
 }
 
 // StorageDetails retrieves and returns detailed information about desired
 // storage identified by supplied tags. If specified storage cannot be
 // retrieved, individual error is returned instead of storage information.
-func (a *StorageAPI) StorageDetails(ctx stdcontext.Context, entities params.Entities) (params.StorageDetailsResults, error) {
+func (a *StorageAPI) StorageDetails(ctx context.Context, entities params.Entities) (params.StorageDetailsResults, error) {
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.StorageDetailsResults{}, errors.Trace(err)
 	}
@@ -118,7 +121,7 @@ func (a *StorageAPI) StorageDetails(ctx stdcontext.Context, entities params.Enti
 }
 
 // ListStorageDetails returns storage matching a filter.
-func (a *StorageAPI) ListStorageDetails(ctx stdcontext.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
+func (a *StorageAPI) ListStorageDetails(ctx context.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.StorageDetailsListResults{}, errors.Trace(err)
 	}
@@ -136,7 +139,7 @@ func (a *StorageAPI) ListStorageDetails(ctx stdcontext.Context, filters params.S
 	return results, nil
 }
 
-func (a *StorageAPI) listStorageDetails(ctx stdcontext.Context, filter params.StorageFilter) ([]params.StorageDetails, error) {
+func (a *StorageAPI) listStorageDetails(ctx context.Context, filter params.StorageFilter) ([]params.StorageDetails, error) {
 	if filter != (params.StorageFilter{}) {
 		// StorageFilter has no fields at the time of writing, but
 		// check that no fields are set in case we forget to update
@@ -170,7 +173,7 @@ func (a *StorageAPI) listStorageDetails(ctx stdcontext.Context, filter params.St
 // This method lists union of pools and environment provider types.
 // If no filter is provided, all pools are returned.
 func (a *StorageAPI) ListPools(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	filters params.StoragePoolFilters,
 ) (params.StoragePoolsResults, error) {
 	if err := a.checkCanRead(ctx); err != nil {
@@ -198,13 +201,8 @@ func (a *StorageAPI) ensureStoragePoolFilter(filter params.StoragePoolFilter) pa
 	return filter
 }
 
-func (a *StorageAPI) listPools(ctx stdcontext.Context, filter params.StoragePoolFilter) ([]params.StoragePool, error) {
-	service, _, err := a.storageMetadata(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	pools, err := service.ListStoragePools(ctx, filter.Names, filter.Providers)
+func (a *StorageAPI) listPools(ctx context.Context, filter params.StoragePoolFilter) ([]params.StoragePool, error) {
+	pools, err := a.storageService.ListStoragePools(ctx, filter.Names, filter.Providers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -220,16 +218,12 @@ func (a *StorageAPI) listPools(ctx stdcontext.Context, filter params.StoragePool
 }
 
 // CreatePool creates a new pool with specified parameters.
-func (a *StorageAPI) CreatePool(ctx stdcontext.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
+func (a *StorageAPI) CreatePool(ctx context.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
-	service, _, err := a.storageMetadata(ctx)
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
 	for i, pool := range p.Pools {
-		err := service.CreateStoragePool(
+		err := a.storageService.CreateStoragePool(
 			ctx,
 			pool.Name,
 			storage.ProviderType(pool.Provider),
@@ -242,7 +236,7 @@ func (a *StorageAPI) CreatePool(ctx stdcontext.Context, p params.StoragePoolArgs
 // ListVolumes lists volumes with the given filters. Each filter produces
 // an independent list of volumes, or an error if the filter is invalid
 // or the volumes could not be listed.
-func (a *StorageAPI) ListVolumes(ctx stdcontext.Context, filters params.VolumeFilters) (params.VolumeDetailsListResults, error) {
+func (a *StorageAPI) ListVolumes(ctx context.Context, filters params.VolumeFilters) (params.VolumeDetailsListResults, error) {
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.VolumeDetailsListResults{}, errors.Trace(err)
 	}
@@ -321,7 +315,7 @@ func filterVolumes(
 }
 
 func (a *StorageAPI) createVolumeDetailsList(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	volumes []state.Volume,
 	attachments map[names.VolumeTag][]state.VolumeAttachment,
 ) ([]params.VolumeDetails, error) {
@@ -345,7 +339,7 @@ func (a *StorageAPI) createVolumeDetailsList(
 // ListFilesystems returns a list of filesystems in the environment matching
 // the provided filter. Each result describes a filesystem in detail, including
 // the filesystem's attachments.
-func (a *StorageAPI) ListFilesystems(ctx stdcontext.Context, filters params.FilesystemFilters) (params.FilesystemDetailsListResults, error) {
+func (a *StorageAPI) ListFilesystems(ctx context.Context, filters params.FilesystemFilters) (params.FilesystemDetailsListResults, error) {
 	results := params.FilesystemDetailsListResults{
 		Results: make([]params.FilesystemDetailsListResult, len(filters.Filters)),
 	}
@@ -421,7 +415,7 @@ func filterFilesystems(
 }
 
 func (a *StorageAPI) createFilesystemDetailsList(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	filesystems []state.Filesystem,
 	attachments map[names.FilesystemTag][]state.FilesystemAttachment,
 ) ([]params.FilesystemDetails, error) {
@@ -444,11 +438,11 @@ func (a *StorageAPI) createFilesystemDetailsList(
 
 // AddToUnit validates and creates additional storage instances for units.
 // A "CHANGE" block can block this operation.
-func (a *StorageAPI) AddToUnit(ctx stdcontext.Context, args params.StoragesAddParams) (params.AddStorageResults, error) {
+func (a *StorageAPI) AddToUnit(ctx context.Context, args params.StoragesAddParams) (params.AddStorageResults, error) {
 	return a.addToUnit(ctx, args)
 }
 
-func (a *StorageAPI) addToUnit(ctx stdcontext.Context, args params.StoragesAddParams) (params.AddStorageResults, error) {
+func (a *StorageAPI) addToUnit(ctx context.Context, args params.StoragesAddParams) (params.AddStorageResults, error) {
 	if err := a.checkCanWrite(ctx); err != nil {
 		return params.AddStorageResults{}, errors.Trace(err)
 	}
@@ -500,11 +494,11 @@ func (a *StorageAPI) addToUnit(ctx stdcontext.Context, args params.StoragesAddPa
 // from the model. If the arguments specify that the storage should be
 // destroyed, then the associated cloud storage will be destroyed first;
 // otherwise it will only be released from Juju's control.
-func (a *StorageAPI) Remove(ctx stdcontext.Context, args params.RemoveStorage) (params.ErrorResults, error) {
+func (a *StorageAPI) Remove(ctx context.Context, args params.RemoveStorage) (params.ErrorResults, error) {
 	return a.remove(ctx, args)
 }
 
-func (a *StorageAPI) remove(ctx stdcontext.Context, args params.RemoveStorage) (params.ErrorResults, error) {
+func (a *StorageAPI) remove(ctx context.Context, args params.RemoveStorage) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -534,11 +528,11 @@ func (a *StorageAPI) remove(ctx stdcontext.Context, args params.RemoveStorage) (
 // DetachStorage sets the specified storage attachments to Dying, unless they are
 // already Dying or Dead. Any associated, persistent storage will remain
 // alive. This call can be forced.
-func (a *StorageAPI) DetachStorage(ctx stdcontext.Context, args params.StorageDetachmentParams) (params.ErrorResults, error) {
+func (a *StorageAPI) DetachStorage(ctx context.Context, args params.StorageDetachmentParams) (params.ErrorResults, error) {
 	return a.internalDetach(ctx, args.StorageIds, args.Force, args.MaxWait)
 }
 
-func (a *StorageAPI) internalDetach(ctx stdcontext.Context, args params.StorageAttachmentIds, force *bool, maxWait *time.Duration) (params.ErrorResults, error) {
+func (a *StorageAPI) internalDetach(ctx context.Context, args params.StorageAttachmentIds, force *bool, maxWait *time.Duration) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -604,7 +598,7 @@ func (a *StorageAPI) detachStorage(storageTag names.StorageTag, unitTag names.Un
 
 // Attach attaches existing storage instances to units.
 // A "CHANGE" block can block this operation.
-func (a *StorageAPI) Attach(ctx stdcontext.Context, args params.StorageAttachmentIds) (params.ErrorResults, error) {
+func (a *StorageAPI) Attach(ctx context.Context, args params.StorageAttachmentIds) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -635,7 +629,7 @@ func (a *StorageAPI) Attach(ctx stdcontext.Context, args params.StorageAttachmen
 
 // Import imports existing storage into the model.
 // A "CHANGE" block can block this operation.
-func (a *StorageAPI) Import(ctx stdcontext.Context, args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
+func (a *StorageAPI) Import(ctx context.Context, args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
 	if err := a.checkCanWrite(ctx); err != nil {
 		return params.ImportStorageResults{}, errors.Trace(err)
 	}
@@ -657,7 +651,7 @@ func (a *StorageAPI) Import(ctx stdcontext.Context, args params.BulkImportStorag
 	return params.ImportStorageResults{Results: results}, nil
 }
 
-func (a *StorageAPI) importStorage(ctx stdcontext.Context, arg params.ImportStorageParams) (*params.ImportStorageDetails, error) {
+func (a *StorageAPI) importStorage(ctx context.Context, arg params.ImportStorageParams) (*params.ImportStorageDetails, error) {
 	if arg.Kind != params.StorageKindFilesystem {
 		// TODO(axw) implement support for volumes.
 		return nil, errors.NotSupportedf("storage kind %q", arg.Kind.String())
@@ -666,12 +660,7 @@ func (a *StorageAPI) importStorage(ctx stdcontext.Context, arg params.ImportStor
 		return nil, errors.NotValidf("pool name %q", arg.Pool)
 	}
 
-	service, registry, err := a.storageMetadata(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cfg, err := service.GetStoragePoolByName(ctx, arg.Pool)
+	cfg, err := a.storageService.GetStoragePoolByName(ctx, arg.Pool)
 	if errors.Is(err, storageerrors.PoolNotFoundError) {
 		cfg, err = storage.NewConfig(
 			arg.Pool,
@@ -684,6 +673,10 @@ func (a *StorageAPI) importStorage(ctx stdcontext.Context, arg params.ImportStor
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
+	registry, err := a.storageRegistryGetter(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	provider, err := registry.StorageProvider(cfg.Provider())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -692,7 +685,7 @@ func (a *StorageAPI) importStorage(ctx stdcontext.Context, arg params.ImportStor
 }
 
 func (a *StorageAPI) importFilesystem(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	arg params.ImportStorageParams,
 	provider storage.Provider,
 	cfg *storage.Config,
@@ -766,7 +759,7 @@ func (a *StorageAPI) importFilesystem(
 }
 
 // RemovePool deletes the named pool
-func (a *StorageAPI) RemovePool(ctx stdcontext.Context, p params.StoragePoolDeleteArgs) (params.ErrorResults, error) {
+func (a *StorageAPI) RemovePool(ctx context.Context, p params.StoragePoolDeleteArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
@@ -774,12 +767,8 @@ func (a *StorageAPI) RemovePool(ctx stdcontext.Context, p params.StoragePoolDele
 		return results, errors.Trace(err)
 	}
 
-	service, _, err := a.storageMetadata(ctx)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
 	for i, pool := range p.Pools {
-		err := service.DeleteStoragePool(ctx, pool.Name)
+		err := a.storageService.DeleteStoragePool(ctx, pool.Name)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
@@ -788,20 +777,16 @@ func (a *StorageAPI) RemovePool(ctx stdcontext.Context, p params.StoragePoolDele
 }
 
 // UpdatePool deletes the named pool
-func (a *StorageAPI) UpdatePool(ctx stdcontext.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
+func (a *StorageAPI) UpdatePool(ctx context.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
 	if err := a.checkCanWrite(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
-	service, _, err := a.storageMetadata(ctx)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
 
 	for i, pool := range p.Pools {
-		err := service.ReplaceStoragePool(ctx, pool.Name, storage.ProviderType(pool.Provider), pool.Attrs)
+		err := a.storageService.ReplaceStoragePool(ctx, pool.Name, storage.ProviderType(pool.Provider), pool.Attrs)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
