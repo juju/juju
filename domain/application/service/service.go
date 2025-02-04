@@ -258,7 +258,7 @@ func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Contex
 	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		table,
-		changestream.Create,
+		changestream.Create|changestream.Update,
 		query,
 		func(ctx context.Context, _ database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			return s.watchApplicationsWithPendingCharmsMapper(ctx, changes)

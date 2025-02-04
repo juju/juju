@@ -422,7 +422,8 @@ WHERE a.uuid=?`, id0.String())
 		w.AssertNoChange()
 	})
 
-	// Updating the application doesn't emit an event.
+	// Updating the parts of the application table ignored by the mapper doesn't
+	// emit an event.
 	harness.AddTest(func(c *gc.C) {
 		db, err := factory()
 		c.Assert(err, jc.ErrorIsNil)
@@ -448,7 +449,7 @@ WHERE uuid=?`, id0.String())
 		)
 	})
 
-	// Add another application with a available charm.
+	// Add another application with an available charm.
 	// Available charms are not pending charms!
 	harness.AddTest(func(c *gc.C) {
 		id2 = s.createApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddUnitArg{})

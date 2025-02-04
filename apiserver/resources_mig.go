@@ -90,13 +90,13 @@ type ResourceService interface {
 	) error
 
 	// GetApplicationResourceID returns the ID of the application resource
-	// specified by natural key of application and resource Name.
+	// specified by the application and resource name.
 	GetApplicationResourceID(
 		ctx context.Context,
 		args resource.GetApplicationResourceIDArgs,
 	) (coreresource.UUID, error)
 
-	// SetUnitResource sets the resource metadata for a specific unit.
+	// SetUnitResource records that the unit is using the resource.
 	SetUnitResource(
 		ctx context.Context,
 		resourceUUID coreresource.UUID,
