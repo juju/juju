@@ -56,6 +56,8 @@ import (
 	proxy "github.com/juju/juju/domain/proxy/service"
 	relationservice "github.com/juju/juju/domain/relation/service"
 	relationstate "github.com/juju/juju/domain/relation/state"
+	removalservice "github.com/juju/juju/domain/removal/service"
+	removalstate "github.com/juju/juju/domain/removal/state"
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	resourcestate "github.com/juju/juju/domain/resource/state"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -385,6 +387,18 @@ func (s *ModelServices) Relation() *relationservice.WatchableService {
 		),
 		s.modelWatcherFactory("relation.watcher"),
 		s.logger.Child("relation.service"),
+	)
+}
+
+// Removal returns the service for working
+// with entity removals in the current model.
+func (s *ModelServices) Removal() *removalservice.WatchableService {
+	log := s.logger.Child("removal")
+
+	return removalservice.NewWatchableService(
+		removalstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
+		s.modelWatcherFactory("removal"),
+		log,
 	)
 }
 
