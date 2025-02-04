@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
-	"gopkg.in/macaroon.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -28,7 +27,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/crossmodel"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
@@ -39,7 +37,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -1839,36 +1836,10 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
 
-	// Validate any CIDRs.
-	for _, cidr := range args.ViaCIDRs {
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return params.AddRelationResults{}, errors.Trace(err)
-		}
-		if cidr == "0.0.0.0/0" {
-			return params.AddRelationResults{}, errors.Errorf("CIDR %q not allowed", cidr)
-		}
-	}
 	if len(args.ViaCIDRs) > 0 {
-		var isCrossModel bool
-		for _, ep := range inEps {
-			_, err = api.backend.RemoteApplication(ep.ApplicationName)
-			if err == nil {
-				isCrossModel = true
-				break
-			} else if !errors.Is(err, errors.NotFound) {
-				return params.AddRelationResults{}, errors.Trace(err)
-			}
-		}
-		if !isCrossModel {
-			return params.AddRelationResults{}, errors.NotSupportedf("integration via subnets for non cross model relations")
-		}
-	}
-
-	if rel, err = api.backend.AddRelation(inEps...); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
-	}
-	if _, err := api.backend.SaveEgressNetworks(rel.Tag().Id(), args.ViaCIDRs); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
+		return params.AddRelationResults{},
+			errors.NotSupportedf("integration via subnets is only for cross model relations which are not yet" +
+				" implemented")
 	}
 
 	outEps := make(map[string]params.CharmRelation)
@@ -1977,173 +1948,7 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 // Consume adds remote applications to the model without creating any
 // relations.
 func (api *APIBase) Consume(ctx context.Context, args params.ConsumeApplicationArgsV5) (params.ErrorResults, error) {
-	var consumeResults params.ErrorResults
-	if err := api.checkCanWrite(ctx); err != nil {
-		return consumeResults, errors.Trace(err)
-	}
-	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return consumeResults, errors.Trace(err)
-	}
-
-	results := make([]params.ErrorResult, len(args.Args))
-	for i, arg := range args.Args {
-		err := api.consumeOne(ctx, arg)
-		results[i].Error = apiservererrors.ServerError(err)
-	}
-	consumeResults.Results = results
-	return consumeResults, nil
-}
-
-func (api *APIBase) consumeOne(ctx context.Context, arg params.ConsumeApplicationArgV5) error {
-	sourceModelTag, err := names.ParseModelTag(arg.SourceModelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Maybe save the details of the controller hosting the offer.
-	var externalControllerUUID string
-	if arg.ControllerInfo != nil {
-		controllerTag, err := names.ParseControllerTag(arg.ControllerInfo.ControllerTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		// Only save controller details if the offer comes from
-		// a different controller.
-		if controllerTag.Id() != api.backend.ControllerTag().Id() {
-			externalControllerUUID = controllerTag.Id()
-			if err = api.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
-				ControllerTag: controllerTag,
-				Alias:         arg.ControllerInfo.Alias,
-				Addrs:         arg.ControllerInfo.Addrs,
-				CACert:        arg.ControllerInfo.CACert,
-				ModelUUIDs:    []string{sourceModelTag.Id()},
-			}); err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
-
-	appName := arg.ApplicationAlias
-	if appName == "" {
-		appName = arg.OfferName
-	}
-	_, err = api.saveRemoteApplication(sourceModelTag, appName, externalControllerUUID, arg.ApplicationOfferDetailsV5, arg.Macaroon)
-	return err
-}
-
-// saveRemoteApplication saves the details of the specified remote application and its endpoints
-// to the state model so relations to the remote application can be created.
-func (api *APIBase) saveRemoteApplication(
-	sourceModelTag names.ModelTag,
-	applicationName string,
-	externalControllerUUID string,
-	offer params.ApplicationOfferDetailsV5,
-	mac *macaroon.Macaroon,
-) (RemoteApplication, error) {
-	remoteEps := make([]charm.Relation, len(offer.Endpoints))
-	for j, ep := range offer.Endpoints {
-		remoteEps[j] = charm.Relation{
-			Name:      ep.Name,
-			Role:      ep.Role,
-			Interface: ep.Interface,
-		}
-	}
-
-	// If a remote application with the same name and endpoints from the same
-	// source model already exists, we will use that one.
-	// If the status was "terminated", the offer had been removed, so we'll replace
-	// the terminated application with a fresh copy.
-	remoteApp, appStatus, err := api.maybeUpdateExistingApplicationEndpoints(applicationName, sourceModelTag, remoteEps)
-	if err == nil {
-		if appStatus != status.Terminated {
-			return remoteApp, nil
-		}
-		// If the same application was previously terminated due to the offer being removed,
-		// first ensure we delete it from this consuming model before adding again.
-		// TODO(wallyworld) - this operation should be in a single txn.
-		api.logger.Debugf(context.TODO(), "removing terminated remote app %q before adding a replacement", applicationName)
-		op := remoteApp.DestroyOperation(true)
-		if err := api.backend.ApplyOperation(op); err != nil {
-			return nil, errors.Annotatef(err, "removing terminated saas application %q", applicationName)
-		}
-	} else if !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-
-	return api.backend.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:                   applicationName,
-		OfferUUID:              offer.OfferUUID,
-		URL:                    offer.OfferURL,
-		ExternalControllerUUID: externalControllerUUID,
-		SourceModel:            sourceModelTag,
-		Endpoints:              remoteEps,
-		Macaroon:               mac,
-	})
-}
-
-// maybeUpdateExistingApplicationEndpoints looks for a remote application with the
-// specified name and source model tag and tries to update its endpoints with the
-// new ones specified. If the endpoints are compatible, the newly updated remote
-// application is returned.
-// If the application status is Terminated, no updates are done.
-func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
-	applicationName string, sourceModelTag names.ModelTag, remoteEps []charm.Relation,
-) (RemoteApplication, status.Status, error) {
-	existingRemoteApp, err := api.backend.RemoteApplication(applicationName)
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	if existingRemoteApp.SourceModel().Id() != sourceModelTag.Id() {
-		return nil, "", errors.AlreadyExistsf("saas application called %q from a different model", applicationName)
-	}
-	if existingRemoteApp.Life() != state.Alive {
-		return nil, "", errors.NewAlreadyExists(nil, fmt.Sprintf("saas application called %q exists but is terminating", applicationName))
-	}
-	appStatus, err := existingRemoteApp.Status()
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	if appStatus.Status == status.Terminated {
-		return existingRemoteApp, appStatus.Status, nil
-	}
-	newEpsMap := make(map[charm.Relation]bool)
-	for _, ep := range remoteEps {
-		newEpsMap[ep] = true
-	}
-	existingEps, err := existingRemoteApp.Endpoints()
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-	maybeSameEndpoints := len(newEpsMap) == len(existingEps)
-	existingEpsByName := make(map[string]charm.Relation)
-	for _, ep := range existingEps {
-		existingEpsByName[ep.Name] = ep.Relation
-		delete(newEpsMap, ep.Relation)
-	}
-	sameEndpoints := maybeSameEndpoints && len(newEpsMap) == 0
-	if sameEndpoints {
-		return existingRemoteApp, appStatus.Status, nil
-	}
-
-	// Gather the new endpoints. All new endpoints passed to AddEndpoints()
-	// below must not have the same name as an existing endpoint.
-	var newEps []charm.Relation
-	for ep := range newEpsMap {
-		// See if we are attempting to update endpoints with the same name but
-		// different relation data.
-		if existing, ok := existingEpsByName[ep.Name]; ok && existing != ep {
-			return nil, "", errors.Errorf("conflicting endpoint %v", ep.Name)
-		}
-		newEps = append(newEps, ep)
-	}
-
-	if len(newEps) > 0 {
-		// Update the existing remote app to have the new, additional endpoints.
-		if err := existingRemoteApp.AddEndpoints(newEps); err != nil {
-			return nil, "", errors.Trace(err)
-		}
-	}
-	return existingRemoteApp, appStatus.Status, nil
+	return params.ErrorResults{}, internalerrors.Errorf("cross model relations are disabled until backend functionality is moved to domain: %w", errors.NotImplemented)
 }
 
 // Get returns the charm configuration for an application.
