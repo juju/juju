@@ -568,7 +568,10 @@ func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace
 	if c.VirtType.Valid {
 		consVal.VirtType = &c.VirtType.String
 	}
-	if c.AllocatePublicIP.Valid {
+	// We only set allocate public ip when it is true and not nil. The reason
+	// for this is no matter what the dqlite driver will always return false
+	// out of the database even when the value is NULL.
+	if c.AllocatePublicIP.Valid && c.AllocatePublicIP.Bool {
 		consVal.AllocatePublicIP = &c.AllocatePublicIP.Bool
 	}
 	if c.ImageID.Valid {
