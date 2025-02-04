@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -19,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/core/resource"
 	domainresource "github.com/juju/juju/domain/resource"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -29,6 +32,16 @@ type resourcesUploadSuite struct {
 	resourceServiceGetter *MockResourceServiceGetter
 	resourceService       *MockResourceService
 
+	content        string
+	origin         charmresource.Origin
+	originStr      string
+	revision       int
+	revisionStr    string
+	size           int64
+	sizeStr        string
+	fingerprint    charmresource.Fingerprint
+	fingerprintStr string
+
 	mux *apiserverhttp.Mux
 	srv *httptest.Server
 }
@@ -36,6 +49,18 @@ type resourcesUploadSuite struct {
 var _ = gc.Suite(&resourcesUploadSuite{})
 
 func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
+	s.content = "resource-content"
+	s.origin = charmresource.OriginStore
+	s.originStr = s.origin.String()
+	s.revision = 3
+	s.revisionStr = strconv.Itoa(s.revision)
+	s.size = int64(len(s.content))
+	s.sizeStr = strconv.Itoa(int(s.size))
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(s.content))
+	c.Assert(err, jc.ErrorIsNil)
+	s.fingerprint = fp
+	s.fingerprintStr = fp.String()
+
 	s.mux = apiserverhttp.NewMux()
 	s.srv = httptest.NewServer(s.mux)
 }
@@ -124,6 +149,10 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *g
 		"name":        {"resource-name"},
 		"application": {"app-name"},
 		"timestamp":   {"not-placeholder"},
+		"origin":      {"store"},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
 	}
 	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
 		gomock.Any(),
@@ -150,6 +179,10 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *gc.
 		"name":        {"resource-name"},
 		"application": {"app-name"},
 		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
 	}
 	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
 		gomock.Any(),
@@ -200,6 +233,10 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 		"name":        {"resource-name"},
 		"application": {"app-name"},
 		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
 	}
 	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
 		gomock.Any(),
@@ -207,8 +244,13 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 		"resource-name",
 	).Return("res-uuid", nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
-		ResourceUUID: "res-uuid",
-		Reader:       http.NoBody,
+		ResourceUUID:    "res-uuid",
+		Reader:          http.NoBody,
+		RetrievedByType: resource.Application,
+		Origin:          s.origin,
+		Revision:        s.revision,
+		Fingerprint:     s.fingerprint,
+		Size:            s.size,
 	}).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
 		UUID:      "res-uuid",
@@ -245,6 +287,9 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *gc.C
 		"timestamp":   {"not-placeholder"},
 		"user":        {"username"},
 		"origin":      {"upload"},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
 	}
 	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
 		gomock.Any(),
@@ -256,6 +301,10 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *gc.C
 		Reader:          http.NoBody,
 		RetrievedByType: resource.User,
 		RetrievedBy:     "username",
+		Origin:          charmresource.OriginUpload,
+		Revision:        -1,
+		Fingerprint:     s.fingerprint,
+		Size:            s.size,
 	}).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
 		UUID:      "res-uuid",
@@ -280,6 +329,9 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(
 		"timestamp":   {"not-placeholder"},
 		"user":        {"app-name"},
 		"origin":      {"store"},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
 	}
 	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
 		gomock.Any(),
@@ -291,6 +343,10 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(
 		Reader:          http.NoBody,
 		RetrievedByType: resource.Application,
 		RetrievedBy:     "app-name",
+		Origin:          s.origin,
+		Revision:        s.revision,
+		Fingerprint:     s.fingerprint,
+		Size:            s.size,
 	}).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
 		UUID:      "res-uuid",
@@ -314,6 +370,9 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *gc.C
 		"timestamp":   {"not-placeholder"},
 		"user":        {"app-name/0"},
 		"origin":      {"store"},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
 	}
 	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
 		gomock.Any(),
@@ -325,6 +384,10 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *gc.C
 		Reader:          http.NoBody,
 		RetrievedByType: resource.Unit,
 		RetrievedBy:     "app-name/0",
+		Origin:          s.origin,
+		Revision:        s.revision,
+		Fingerprint:     s.fingerprint,
+		Size:            s.size,
 	}).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
 		UUID:      "res-uuid",

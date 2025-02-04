@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -116,12 +117,21 @@ func (h *resourcesMigrationUploadHandler) processPost(
 		)
 	}
 
+	details, err := resourceDetailsFromQuery(query)
+	if err != nil {
+		return empty, internalerrors.Errorf("extracting resource details from request: %w", err)
+	}
+
 	retrievedBy, retrievedByType := determineRetrievedBy(query)
 	err = resourceService.StoreResource(ctx, resource.StoreResourceArgs{
 		ResourceUUID:    resUUID,
 		Reader:          r.Body,
 		RetrievedBy:     retrievedBy,
 		RetrievedByType: retrievedByType,
+		Size:            details.size,
+		Fingerprint:     details.fingerprint,
+		Origin:          details.origin,
+		Revision:        details.revision,
 	})
 	if err != nil {
 		return empty, internalerrors.Capture(err)
@@ -162,4 +172,46 @@ func determineRetrievedBy(query url.Values) (string, coreresource.RetrievedByTyp
 // checking if the "timestamp" field is empty.
 func isPlaceholder(query url.Values) bool {
 	return query.Get("timestamp") == ""
+}
+
+// resourceDetails contains metadata about the resource from the request header.
+type resourceDetails struct {
+	// origin identifies where the resource will come from.
+	origin charmresource.Origin
+	// revision is the charm store revision of the resource.
+	revision int
+	// fingerprint is the SHA-384 checksum for the resource blob.
+	fingerprint charmresource.Fingerprint
+	// size is the size of the resource, in bytes.
+	size int64
+}
+
+// resourceDetailsFromQuery extracts details about the uploaded resource from
+// the query.
+func resourceDetailsFromQuery(query url.Values) (resourceDetails, error) {
+	var (
+		details resourceDetails
+		err     error
+	)
+	details.origin, err = charmresource.ParseOrigin(query.Get("origin"))
+	if err != nil {
+		return details, errors.BadRequestf("invalid origin: %w", err)
+	}
+	if details.origin == charmresource.OriginUpload {
+		details.revision = -1
+	} else {
+		details.revision, err = strconv.Atoi(query.Get("revision"))
+		if err != nil {
+			return details, errors.BadRequestf("invalid revision: %w", err)
+		}
+	}
+	details.size, err = strconv.ParseInt(query.Get("size"), 10, 64)
+	if err != nil {
+		return details, errors.BadRequestf("invalid size: %w", err)
+	}
+	details.fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
+	if err != nil {
+		return details, errors.BadRequestf("invalid fingerprint: %w", err)
+	}
+	return details, nil
 }
