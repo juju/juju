@@ -13,7 +13,6 @@ Starting with Juju 3, providers Rackspace and CloudSigma are no longer supported
 
 Amazon EC2 <the-amazon-ec2-cloud-and-juju>
 Amazon EKS <the-amazon-eks-cloud-and-juju>
-Equinix Metal <the-equinix-metal-cloud-and-juju>
 Google GCE <the-google-gce-cloud-and-juju>
 Google GKE <the-google-gke-cloud-and-juju>
 LXD <the-lxd-cloud-and-juju>
@@ -37,7 +36,6 @@ Juju supports all of the following clouds. Click to find out more about using yo
 |---------------------------------------------|---------------|------------------------------------------------------|
 | {ref}`Amazon EC2 <cloud-ec2>`               | &#x2611;      |                                                      |
 | {ref}`Amazon EKS <cloud-kubernetes-eks>`    |               | &#x2611;                                             |
-| {ref}`Equinix Metal <cloud-equinix>`        | &#x2611;      |                                                      |
 | {ref}`Google GCE <cloud-gce>`               | &#x2611;      |                                                      |
 | {ref}`Google GKE <cloud-kubernetes-gke>`    |               | &#x2611;                                             |
 | {ref}`LXD <cloud-lxd>`                      | &#x2611;      |                                                      |

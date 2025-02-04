@@ -20,11 +20,10 @@ INSERT INTO cloud_type VALUES
 (3, 'manual'),
 (4, 'azure'),
 (5, 'ec2'),
-(6, 'equinix'),
-(7, 'gce'),
-(8, 'oci'),
-(9, 'openstack'),
-(10, 'vsphere');
+(6, 'gce'),
+(7, 'oci'),
+(8, 'openstack'),
+(9, 'vsphere');
 
 CREATE TABLE auth_type (
     id INT PRIMARY KEY,

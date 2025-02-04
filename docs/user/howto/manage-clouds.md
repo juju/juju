@@ -105,7 +105,6 @@ aws-china    2        cn-north-1     ec2      0            public    Amazon Chin
 aws-gov      2        us-gov-west-1  ec2      0            public    Amazon (USA Government)
 azure        43       centralus      azure    0            public    Microsoft Azure
 azure-china  4        chinaeast      azure    0            public    Microsoft Azure China
-equinix      25       px             equinix  0            public    
 google       25       us-east1       gce      0            public    Google Cloud Platform
 localhost    1        localhost      lxd      1            built-in  LXD Container Hypervisor
 microk8s     1        localhost      k8s      1            built-in  A Kubernetes Cluster
