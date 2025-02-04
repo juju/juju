@@ -34,7 +34,7 @@ controller
 credential
 high-availability
 hook
-hook-command
+hook-commands/index
 juju/index
 juju-cli/index
 jujuc
