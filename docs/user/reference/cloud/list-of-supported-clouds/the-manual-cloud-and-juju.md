@@ -1,13 +1,13 @@
 (cloud-manual)=
 # The Manual cloud and Juju
 
-This document describes details specific to using the Manual (`manual`) cloud with Juju. 
+This document describes details specific to using the Manual (`manual`) cloud with Juju.
 
 ```{important}
 
-The Manual (`manual`) cloud is a cloud you create with Juju from existing machines. 
+The Manual (`manual`) cloud is a cloud you create with Juju from existing machines.
 
-The purpose of the Manual cloud is to cater to the situation where you have machines (of any nature) at your disposal and you want to create a backing cloud out of them. 
+The purpose of the Manual cloud is to cater to the situation where you have machines (of any nature) at your disposal and you want to create a backing cloud out of them.
 
 If this collection of machines is composed solely of bare metal you might opt for a {ref}`cloud-maas`. However, recall that such machines would also require [IPMI hardware](https://docs.maas.io/en/nodes-power-types) and a MAAS infrastructure. In contrast, the Manual cloud can make use of a collection of disparate hardware as well as of machines of varying natures (bare metal or virtual), all without any extra overhead/infrastructure.
 
@@ -32,7 +32,7 @@ Type in Juju: `manual`
 
 Name in Juju: User-defined.
 
-You will need to supply a name you wish to call your cloud and the ssh connection string for the controller, the username@<hostname or IP>, or the <hostname or IP>
+Enter the SSH connection information for the machine where a Juju controller will be bootstrapped, e.g., `username@<hostname or IP>` (where we assume `username` is `ubuntu`) or `<hostname or IP>`.
 
 ## Notes on `juju add-credential`
 
@@ -50,7 +50,7 @@ The machine that will be allocated to run the controller on is the one specified
 ## Notes on `juju deploy`
 
 
-With any other cloud, the Juju client can trigger the creation of a backing machine (e.g. a cloud instance) as they become necessary. In addition, the client can also cause charms to be deployed automatically onto those newly-created machines. However, with a Manual cloud the machines must pre-exist and they must also be specifically targeted during charm deployment. 
+With any other cloud, the Juju client can trigger the creation of a backing machine (e.g. a cloud instance) as they become necessary. In addition, the client can also cause charms to be deployed automatically onto those newly-created machines. However, with a Manual cloud the machines must pre-exist and they must also be specifically targeted during charm deployment.
 
 
 (Note: A MAAS cloud must also have pre-existing backing machines. However, Juju, by default, can deploy charmed operators onto those machines, or add a machine to its pool of managed machines, without any extra effort.)

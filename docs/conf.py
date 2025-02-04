@@ -379,6 +379,46 @@ def generate_model_config_docs():
 
     print("generated model config key list")
 
+def generate_hook_command_docs():
+    hook_commands_reference_dir = 'user/reference/hook-commands/'
+    generated_hook_commands_dir = hook_commands_reference_dir + 'list-of-hook-commands/'
+    hook_index_header = hook_commands_reference_dir + 'hook_index'
+
+    # Remove existing hook command folder to regenerate it
+    if os.path.exists(generated_hook_commands_dir):
+        shutil.rmtree(generated_hook_commands_dir)
+
+    # Generate the hook commands doc using script.
+    result = subprocess.run(['go', 'run', '../scripts/md-gen/hook-commands/main.go', generated_hook_commands_dir],
+                            check=True)
+    if result.returncode != 0:
+        raise Exception("error auto-generating hook commands: " + result.stderr)
+
+    # Remove 'help' and 'documentaion' files as they are not needed.
+    if os.path.exists(generated_hook_commands_dir + 'help.md'):
+        os.remove(generated_hook_commands_dir + 'help.md')
+    if os.path.exists(generated_hook_commands_dir + 'documentation.md'):
+        os.remove(generated_hook_commands_dir + 'documentation.md')
+
+    for page in os.listdir(generated_hook_commands_dir):
+        title = "`" + page[:-3] + "`"
+        anchor = "hook-command-" + page[:-3]
+        # Add sphinx names to each file.
+        with open(os.path.join(generated_hook_commands_dir, page), 'r+') as mdfile:
+            content = mdfile.read()
+            # Remove trailing seperated (e.g. ----)
+            content = content.rstrip(" -\n")
+            mdfile.seek(0, 0)
+            mdfile.write('(' + anchor + ')=\n' +
+                         '# ' + title + '\n' +
+                         content)
+
+    # Add in the index file containing the command list.
+    subprocess.run(['cp', hook_index_header, generated_hook_commands_dir + 'index.md'])
+
+    print("generated hook command list")
+
 generate_cli_docs()
 generate_controller_config_docs()
 generate_model_config_docs()
+generate_hook_command_docs()

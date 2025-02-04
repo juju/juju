@@ -1,8 +1,10 @@
 (conventional-commits)=
+# Conventional commits
+
 The [Conventional Commits standard](https://www.conventionalcommits.org/en/v1.0.0/) is adopted for the Juju project with the
 following structure:
 
-```  
+```
 <type>(optional <scope>): <description>
 
 [optional body]
@@ -55,14 +57,14 @@ feat(api): add user authentication feature
 
 # scope: Indicates the part of the codebase affected
 # Here, 'api' is specified as the scope
-  
+
 # description: A brief summary of the change in lower-case
 # "add user authentication feature" summarizes the change concisely
 
 This commit adds user authentication to the API. Users can now sign up,
 log in, and log out. Passwords are hashed using bcrypt. Token-based 
 authentication is implemented using JWT.
-  
+
 # body: Detailed explanation of the change
 # A more detailed explanation of what has been changed and why
 
