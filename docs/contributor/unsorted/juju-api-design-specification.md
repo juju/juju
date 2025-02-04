@@ -157,24 +157,6 @@ can be found in the type `rpc.Call`, which represents an active
 remote procedue call and embeds the request as well as other important
 parts of the request.
 
-#### Request
-
-- **RequestId** (Number) holds the sequence number of the request.
-- **Type** (String) holds the type of object to act on.
-- **Version** (Number) holds the version of Type we will be acting on.
-- **Id** (String) is the ID of a watched object; future implementations
-  pass one ore more IDs as parameters.
-- **Request** (String) holds the action to perform on the object.
-- **Params** (JSON) holds the parameters as JSON structure, each request
-  implementation out to accept bulk requests.
-
-#### Response
-
-- **RequestId** (Number) holds the sequence number of the request.
-- **Error** (String) holds the error, if any.
-- **ErrorCode** (String) holds the code of the error, if any.
-- **Response** (JSON) holds an optional response as JSON structure.
-
 ## Component Design
 
 ### RPC
