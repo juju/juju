@@ -302,6 +302,7 @@ func (s *ModelServices) ModelInfo() *modelservice.ModelService {
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("modelinfo")),
 		modelservice.EnvironVersionProviderGetter(),
+		modelservice.DefaultAgentBinaryFinder(),
 	)
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -19,7 +20,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestatus "github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/version"
+	jujuversion "github.com/juju/juju/core/version"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -78,6 +79,7 @@ func (s *modelServiceSuite) TestGetModelConstraints(c *gc.C) {
 		s.mockControllerState,
 		s.mockModelState,
 		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
 	)
 	result, err := svc.GetModelConstraints(context.Background())
 	c.Check(err, jc.ErrorIsNil)
@@ -110,6 +112,7 @@ func (s *modelServiceSuite) TestGetModelConstraintsNotFound(c *gc.C) {
 		s.mockControllerState,
 		s.mockModelState,
 		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
 	)
 	result, err := svc.GetModelConstraints(context.Background())
 	c.Check(err, jc.ErrorIsNil)
@@ -130,6 +133,7 @@ func (s *modelServiceSuite) TestGetModelConstraintsFailedModelNotFound(c *gc.C) 
 		s.mockControllerState,
 		s.mockModelState,
 		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
 	)
 	_, err := svc.GetModelConstraints(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
@@ -161,6 +165,7 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
 		s.mockControllerState,
 		s.mockModelState,
 		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
 	)
 
 	cons := constraints.Value{
@@ -200,6 +205,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsInvalidContainerType(c *gc.C)
 		s.mockControllerState,
 		s.mockModelState,
 		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
 	)
 	err := svc.SetModelConstraints(context.Background(), badConstraints)
 	c.Check(err, jc.ErrorIs, machineerrors.InvalidContainerType)
@@ -238,6 +244,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *gc.C) 
 		s.mockControllerState,
 		s.mockModelState,
 		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
 	)
 	err := svc.SetModelConstraints(context.Background(), cons)
 	c.Check(err, jc.ErrorIs, networkerrors.SpaceNotFound)
@@ -272,9 +279,63 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *gc.C) 
 		s.mockControllerState,
 		s.mockModelState,
 		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
 	)
 	err := svc.SetModelConstraints(context.Background(), cons)
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestAgentVersionUnsupportedGreater is asserting that if we try and create a
+// model with an agent version that is greater then that of the controller the
+// operation fails with a [modelerrors.AgentVersionNotSupported] error.
+func (s *modelServiceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	mUUID := modeltesting.GenModelUUID(c)
+
+	s.mockControllerState.EXPECT().GetModel(gomock.Any(), mUUID).Return(coremodel.Model{}, nil)
+
+	agentVersion, err := version.Parse("99.9.9")
+	c.Assert(err, jc.ErrorIsNil)
+
+	svc := NewModelService(
+		mUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	err = svc.CreateModel(context.Background(), uuid.MustNewUUID(), agentVersion)
+	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
+}
+
+// TestAgentVersionUnsupportedLess is asserting that if we try and create a
+// model with an agent version that is less then that of the controller.
+func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	mUUID := modeltesting.GenModelUUID(c)
+
+	s.mockControllerState.EXPECT().GetModel(gomock.Any(), mUUID).Return(coremodel.Model{}, nil)
+
+	agentVersion, err := version.Parse("1.9.9")
+	c.Assert(err, jc.ErrorIsNil)
+
+	svc := NewModelService(
+		mUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	err = svc.CreateModel(context.Background(), uuid.MustNewUUID(), agentVersion)
+	// This is temporary until we implement tools metadata for the controller.
+	c.Assert(err, jc.ErrorIsNil)
+
 }
 
 type legacyModelServiceSuite struct {
@@ -301,7 +362,7 @@ func (s *legacyModelServiceSuite) SetUpTest(c *gc.C) {
 
 func (s *legacyModelServiceSuite) TestModelCreation(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.controllerState, s.modelState, nil)
+	svc := NewModelService(id, s.controllerState, s.modelState, nil, DefaultAgentBinaryFinder())
 
 	m := model.ModelDetailArgs{
 		UUID:        id,
@@ -315,7 +376,7 @@ func (s *legacyModelServiceSuite) TestModelCreation(c *gc.C) {
 	s.controllerState.models[id] = m
 	s.modelState.models[id] = m
 
-	err := svc.CreateModel(context.Background(), s.controllerUUID, version.Current)
+	err := svc.CreateModel(context.Background(), s.controllerUUID, jujuversion.Current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	readonlyVal, err := svc.GetModelInfo(context.Background())
@@ -333,7 +394,7 @@ func (s *legacyModelServiceSuite) TestModelCreation(c *gc.C) {
 
 func (s *legacyModelServiceSuite) TestGetModelMetrics(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.controllerState, s.modelState, nil)
+	svc := NewModelService(id, s.controllerState, s.modelState, nil, DefaultAgentBinaryFinder())
 
 	m := model.ModelDetailArgs{
 		UUID:        id,
@@ -347,7 +408,7 @@ func (s *legacyModelServiceSuite) TestGetModelMetrics(c *gc.C) {
 	s.controllerState.models[id] = m
 	s.modelState.models[id] = m
 
-	err := svc.CreateModel(context.Background(), s.controllerUUID, version.Current)
+	err := svc.CreateModel(context.Background(), s.controllerUUID, jujuversion.Current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	readonlyVal, err := svc.GetModelMetrics(context.Background())
@@ -366,7 +427,7 @@ func (s *legacyModelServiceSuite) TestGetModelMetrics(c *gc.C) {
 
 func (s *legacyModelServiceSuite) TestModelDeletion(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.controllerState, s.modelState, nil)
+	svc := NewModelService(id, s.controllerState, s.modelState, nil, DefaultAgentBinaryFinder())
 
 	m := model.ModelDetailArgs{
 		UUID:        id,
@@ -380,7 +441,7 @@ func (s *legacyModelServiceSuite) TestModelDeletion(c *gc.C) {
 	s.controllerState.models[id] = m
 	s.modelState.models[id] = m
 
-	err := svc.CreateModel(context.Background(), s.controllerUUID, version.Current)
+	err := svc.CreateModel(context.Background(), s.controllerUUID, jujuversion.Current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = svc.DeleteModel(context.Background())
@@ -392,7 +453,7 @@ func (s *legacyModelServiceSuite) TestModelDeletion(c *gc.C) {
 
 func (s *legacyModelServiceSuite) TestStatusSuspended(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.controllerState, s.modelState, nil)
+	svc := NewModelService(id, s.controllerState, s.modelState, nil, DefaultAgentBinaryFinder())
 	svc.clock = testclock.NewClock(time.Time{})
 
 	s.modelState.setID = id
@@ -475,7 +536,7 @@ func (s *legacyModelServiceSuite) TestStatus(c *gc.C) {
 
 func (s *legacyModelServiceSuite) TestStatusFailedModelNotFound(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.controllerState, s.modelState, nil)
+	svc := NewModelService(id, s.controllerState, s.modelState, nil, DefaultAgentBinaryFinder())
 
 	_, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)

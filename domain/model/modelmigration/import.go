@@ -138,6 +138,7 @@ func modelDetailServiceGetter(
 			modelstate.NewState(scope.ControllerDB()),
 			modelstate.NewModelState(scope.ModelDB(), logger),
 			modelservice.EnvironVersionProviderGetter(),
+			modelservice.DefaultAgentBinaryFinder(),
 		)
 	}
 }
@@ -158,7 +159,6 @@ func (i *importModelOperation) Setup(scope modelmigration.Scope) error {
 	i.modelImportService = modelservice.NewService(
 		modelstate.NewState(scope.ControllerDB()),
 		scope.ModelDeleter(),
-		modelservice.DefaultAgentBinaryFinder(),
 		i.logger,
 	)
 

@@ -94,6 +94,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 			state.NewState(scope.ControllerDB()),
 			state.NewModelState(scope.ModelDB(), e.logger),
 			service.EnvironVersionProviderGetter(),
+			service.DefaultAgentBinaryFinder(),
 		)
 	}
 	return nil
