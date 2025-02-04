@@ -107,7 +107,8 @@ html_context = {
     # Product page URL; can be different from product docs URL
     "product_page": "juju.is",
     # Product tag image; the orange part of your logo, shown in the page header
-    'product_tag': 'logos/juju-logo.png',
+    # Assumes the current directory is .sphinx.
+    'product_tag': '_static/logos/juju-logo-no-text.png',
     # Your Discourse instance URL
     "discourse": "https://discourse.charmhub.com",
     # Your Mattermost channel URL
