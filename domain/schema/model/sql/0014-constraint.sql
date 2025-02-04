@@ -35,7 +35,7 @@ SELECT
     c.allocate_public_ip,
     c.image_id
 FROM "constraint" AS c
-INNER JOIN container_type AS ct ON c.container_type_id = ct.id;
+LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
 
 CREATE TABLE constraint_tag (
     constraint_uuid TEXT NOT NULL,
