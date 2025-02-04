@@ -80,7 +80,7 @@ func Test(t *stdtesting.T) {
 ```
 
 The key difference here is that the first one just hooks up `gocheck`
-so it looks for the `gocheck` suites in the package.  The second makes 
+so it looks for the `gocheck` suites in the package.  The second makes
 sure that there is a mongo available for the duration of the package tests.
 
 A general rule is not to setup mongo for a package unless you really

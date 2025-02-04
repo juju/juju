@@ -47,11 +47,11 @@ Do not track the emission of events, or elements relating to the charm’s lifec
 
 **If your charm's workload is delivered by a snap:** Pin the snap revision to the charm revision by hard-coding it in the charm. Examples:
 
-- [`mysql-router-operator`](https://github.com/canonical/mysql-router-operator/blob/5d89fb6acd08ec3ea2e65356fad520ad5d9862d9/src/snap.py#L25) (the snap revision is hard-coded directly; note that this charm also keeps it in sync with the [workload version](https://github.com/canonical/mysql-router-operator/blob/5d89fb6acd08ec3ea2e65356fad520ad5d9862d9/workload_version) -- something database charms like to do because, to minimize risk and cost, they favor in-place upgrades, and this helps them check compatibility prior to the upgrade) 
+- [`mysql-router-operator`](https://github.com/canonical/mysql-router-operator/blob/5d89fb6acd08ec3ea2e65356fad520ad5d9862d9/src/snap.py#L25) (the snap revision is hard-coded directly; note that this charm also keeps it in sync with the [workload version](https://github.com/canonical/mysql-router-operator/blob/5d89fb6acd08ec3ea2e65356fad520ad5d9862d9/workload_version) -- something database charms like to do because, to minimize risk and cost, they favor in-place upgrades, and this helps them check compatibility prior to the upgrade)
 - [`postgresql-operator`](https://github.com/canonical/postgresql-operator/blob/37570c761deffd11e0e83a324fc256fc6e174adb/src/constants.py#L38) (the snap revision is hard-coded in a format suitable for when you have multiple workload snaps; because the charm is a multi-architecture charm, the revision is also pinned to a particular architecture, and will be selected depending on [the current architecture](https://github.com/canonical/postgresql-operator/blob/37570c761deffd11e0e83a324fc256fc6e174adb/src/charm.py#L1347))
 
 ### Resources
- 
+
 Resources can either be of the type oci-image or file. When providing binary files as resources, provide binaries for all CPU architectures your binary might end up being run on. An example of this can be found [here](https://github.com/canonical/prometheus-operator/blob/9fddf95fe29d3a63f8c131f63d7e93d98257d179/metadata.yaml#L37).
 
 Implement the usage of these resources in such a way that the user may build a binary for their architecture of choice and supply it themselves. An example of this can be found [here](https://github.com/canonical/prometheus-operator/blob/9fddf95fe29d3a63f8c131f63d7e93d98257d179/lib/charms/prometheus_k8s/v0/prometheus_scrape.py#L1846-L1857).
@@ -76,7 +76,7 @@ class MetricsEndpointRequirer(ops.Object):
 These classes should do whatever is necessary to handle any relation events specific to the relation interface you are implementing, throughout the lifecycle of the application. By passing the charm object into the constructor to either the Provider or Requirer, you can gain access to the on attribute of the charm and register event handlers on behalf of the charm, as required.
 
 ### Application and unit statuses
- 
+
 
 Only make changes to the charm’s application or unit status directly within an event handler.
 
@@ -125,7 +125,7 @@ logger.info(f"something {var}")
 Due to logging features, using f-strings or str.format is a security risk (see [issue46200](https://bugs.python.org/issue46200)) when creating log messages and also causes the string formatting to be done even if the log level for the message is disabled.
 
 #### Frequency
- 
+
 
 Avoid spurious logging, ensure that log messages are clear and meaningful and provide the information a user would require to rectify any issues.
 
@@ -157,6 +157,7 @@ Limit the use of shell scripts and commands as much as possible in favour of wri
 * Extracting data from a machine or container which can't be obtained through Python
 * Issuing commands to applications that do not have Python bindings (e.g., starting a process on a machine)
 
+(charm-best-practices-documentation)=
 ## Documentation
 
 Documentation should be considered the user’s handbook for using a charmed application safely and successfully.
@@ -237,7 +238,7 @@ A key consideration here is which of your application’s configuration options 
 For very complex applications, consider providing “configuration profiles” which can group values for large configs together. For example, "profile: large" that tweaks multiple options under the hood to optimise for larger deployments, or "profile: ci" for limited resource usage during testing.
 
 ### Event handler visibility
- 
+
 
 Charms should make event handlers private: _on_install, not on_install. There is no need for any other code to directly access the event handlers of a charm or charm library.
 
@@ -289,7 +290,7 @@ In general, run these tools inside a tox environment named lint, and one called 
 Charms should have docstrings. Use the [Google docstring](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings) format when writing docstrings for charms. To enforce this, use [ruff](https://github.com/charliermarsh/ruff) as part of our [linter suite](https://juju.is/docs/sdk/styleguide#heading--linters). See [this example](https://google.github.io/styleguide/pyguide.html#doc-function-raises) from the Google style guide.
 
 ### Class layout
- 
+
 
 The class layout of a charm should be organised in the following order:
 
@@ -467,7 +468,7 @@ The [charming-actions repo](https://github.com/canonical/charming-actions) provi
 The automation should also allow the maintainers to easily see whether the tests failed or passed for any available commit. Provide enough data for the reader to be able to take action, i.e. dumps from juju status, juju debug-log, kubectl describe and similar. To have this done for you, you may integrate [charm-logdump-action](https://github.com/canonical/charm-logdump-action) into your CI workflow.
 
 ### Linters
- 
+
 
 At the time of writing, linting modules commonly used by charm authors include [black](https://github.com/psf/black), [ruff](https://github.com/charliermarsh/ruff), and [codespell](https://github.com/codespell-project/codespell). [bandit](https://bandit.readthedocs.io/en/latest/) can be used to statically check for common security issues. [Pyright](https://microsoft.github.io/pyright/#/) is recommended for static type checking (though MyPy can be used as well).,
 

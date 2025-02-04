@@ -1,6 +1,6 @@
 (entity-creation)=
-Entity Creation
-===============
+# Entity creation
+
 
 This document describes the circumstances in which fundamental state entities
 are created, from the perspective of the CLI.
