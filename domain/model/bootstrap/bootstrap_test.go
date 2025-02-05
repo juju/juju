@@ -12,7 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/instance"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
@@ -21,6 +24,7 @@ import (
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	"github.com/juju/juju/domain/model"
+	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -196,4 +200,53 @@ type dbReadOnlyModel struct {
 	CredentialOwner    string         `db:"credential_owner"`
 	CredentialName     string         `db:"credential_name"`
 	IsControllerModel  bool           `db:"is_controller_model"`
+}
+
+func (s *modelBootstrapSuite) TestSetModelConstraints(c *gc.C) {
+	controllerUUID := uuid.MustNewUUID()
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	args := model.GlobalModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        s.cloudName,
+		Credential: credential.Key{
+			Cloud: s.cloudName,
+			Name:  s.credentialName,
+			Owner: coreuser.AdminUserName,
+		},
+		Name:  "test",
+		Owner: s.adminUserUUID,
+	}
+
+	// Create a model and then create a read-only model from it.
+	fn := CreateGlobalModelRecord(modelUUID, args)
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	fn = CreateReadOnlyModel(modelUUID, controllerUUID)
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.Value{
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.LXD),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
+	}
+	fn = SetModelConstraints(cons)
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelState := modelstate.NewModelState(func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}, loggertesting.WrapCheckLog(c))
+
+	data, err := modelState.GetModelConstraints(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(data, jc.DeepEquals, cons)
+}
+
+func ptr[T any](s T) *T {
+	return &s
 }

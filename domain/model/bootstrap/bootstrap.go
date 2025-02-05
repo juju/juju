@@ -156,7 +156,7 @@ func CreateReadOnlyModel(
 	}
 }
 
-// SetModelConstraints sets the constraints for the controller model.
+// SetModelConstraints sets the constraints for the controller model during bootstrap.
 func SetModelConstraints(constraints constraints.Value) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		return model.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
