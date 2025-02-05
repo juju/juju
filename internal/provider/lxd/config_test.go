@@ -5,7 +5,6 @@ package lxd_test
 
 import (
 	"context"
-	stdcontext "context"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -141,7 +140,7 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(stdcontext.Background(), environs.OpenParams{
+		environ, err := environs.New(context.Background(), environs.OpenParams{
 			Cloud:  lxdCloudSpec(),
 			Config: testConfig,
 		})
@@ -231,7 +230,7 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(stdcontext.Background(), environs.OpenParams{
+		environ, err := environs.New(context.Background(), environs.OpenParams{
 			Cloud:  lxdCloudSpec(),
 			Config: s.config,
 		})

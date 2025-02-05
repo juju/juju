@@ -5,7 +5,7 @@ package charms_test
 
 import (
 	"archive/zip"
-	context "context"
+	"context"
 	"os"
 	"path/filepath"
 

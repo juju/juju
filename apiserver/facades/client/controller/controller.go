@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -322,7 +321,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 	}
 	modelBlocks := make(map[string]set.Strings)
 	for _, uuid := range uuids {
-		blockService := c.blockCommandServiceGetter(model.UUID(uuid))
+		blockService := c.blockCommandServiceGetter(coremodel.UUID(uuid))
 
 		blocks, err := blockService.GetBlocks(ctx)
 		if err != nil {
@@ -442,7 +441,7 @@ func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBloc
 		return errors.Trace(err)
 	}
 	for _, uuid := range uuids {
-		blockService := c.blockCommandServiceGetter(model.UUID(uuid))
+		blockService := c.blockCommandServiceGetter(coremodel.UUID(uuid))
 		err := blockService.RemoveAllBlocks(ctx)
 		if err != nil {
 			c.logger.Debugf(context.TODO(), "Unable to get blocks for controller: %s", err)

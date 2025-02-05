@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
 	internalworker "github.com/juju/juju/internal/worker"
-	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/logsender"
 	uniterworker "github.com/juju/juju/internal/worker/uniter"
@@ -159,7 +158,7 @@ func (c *containerUnitAgent) Init(args []string) error {
 	c.runner = worker.NewRunner(worker.RunnerParams{
 		IsFatal:       agenterrors.IsFatal,
 		MoreImportant: agenterrors.MoreImportant,
-		RestartDelay:  jworker.RestartDelay,
+		RestartDelay:  internalworker.RestartDelay,
 		Logger:        internalworker.WrapLogger(logger),
 	})
 
@@ -395,14 +394,14 @@ func (c *containerUnitAgent) validateMigration(ctx context.Context, apiCaller ba
 func AgentDone(logger corelogger.Logger, err error) error {
 	err = errors.Cause(err)
 	switch err {
-	case jworker.ErrTerminateAgent:
+	case internalworker.ErrTerminateAgent:
 		// These errors are swallowed here because we want to exit
 		// the agent process without error, to avoid the init system
 		// restarting us.
 		logger.Infof(context.TODO(), "agent terminating")
 		err = nil
 	}
-	if err == jworker.ErrRestartAgent {
+	if err == internalworker.ErrRestartAgent {
 		// This does not seem to happen for k8s units.
 		logger.Infof(context.TODO(), "agent restarting")
 	}

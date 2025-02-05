@@ -5,7 +5,6 @@ package crossmodelsecrets
 
 import (
 	"context"
-	stdcontext "context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/juju/cloud"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -82,7 +80,7 @@ func NewCrossModelSecretsAPI(
 }
 
 // GetSecretAccessScope returns the tokens for the access scope of the specified secrets and consumers.
-func (s *CrossModelSecretsAPI) GetSecretAccessScope(ctx stdcontext.Context, args params.GetRemoteSecretAccessArgs) (params.StringResults, error) {
+func (s *CrossModelSecretsAPI) GetSecretAccessScope(ctx context.Context, args params.GetRemoteSecretAccessArgs) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Args)),
 	}
@@ -97,7 +95,7 @@ func (s *CrossModelSecretsAPI) GetSecretAccessScope(ctx stdcontext.Context, args
 	return result, nil
 }
 
-func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx stdcontext.Context, arg params.GetRemoteSecretAccessArg) (string, error) {
+func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx context.Context, arg params.GetRemoteSecretAccessArg) (string, error) {
 	if arg.URI == "" {
 		return "", errors.NewNotValid(nil, "empty uri")
 	}
@@ -117,7 +115,7 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx stdcontext.Context, arg 
 
 	s.logger.Debugf(context.TODO(), "consumer unit for token %q: %v", arg.ApplicationToken, consumerUnit.Id())
 
-	secretService := s.secretServiceGetter(coremodel.UUID(uri.SourceUUID))
+	secretService := s.secretServiceGetter(model.UUID(uri.SourceUUID))
 	scopeTag, err := s.accessScope(ctx, secretService, uri, consumerUnit)
 	if errors.Is(err, secreterrors.SecretAccessScopeNotFound) {
 		return "", apiservererrors.ErrPerm
@@ -129,7 +127,7 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx stdcontext.Context, arg 
 	return s.crossModelState.GetToken(scopeTag)
 }
 
-func (s *CrossModelSecretsAPI) checkRelationMacaroons(ctx stdcontext.Context, consumerTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
+func (s *CrossModelSecretsAPI) checkRelationMacaroons(ctx context.Context, consumerTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -183,7 +181,7 @@ func marshallLegacyBackendConfig(cfg params.SecretBackendConfig) error {
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
-func (s *CrossModelSecretsAPIV1) GetSecretContentInfo(ctx stdcontext.Context, args params.GetRemoteSecretContentArgs) (params.SecretContentResults, error) {
+func (s *CrossModelSecretsAPIV1) GetSecretContentInfo(ctx context.Context, args params.GetRemoteSecretContentArgs) (params.SecretContentResults, error) {
 	results, err := s.CrossModelSecretsAPI.GetSecretContentInfo(ctx, args)
 	if err != nil {
 		return params.SecretContentResults{}, errors.Trace(err)
@@ -201,7 +199,7 @@ func (s *CrossModelSecretsAPIV1) GetSecretContentInfo(ctx stdcontext.Context, ar
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
-func (s *CrossModelSecretsAPI) GetSecretContentInfo(ctx stdcontext.Context, args params.GetRemoteSecretContentArgs) (params.SecretContentResults, error) {
+func (s *CrossModelSecretsAPI) GetSecretContentInfo(ctx context.Context, args params.GetRemoteSecretContentArgs) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
 		Results: make([]params.SecretContentResult, len(args.Args)),
 	}
@@ -228,7 +226,7 @@ func (s *CrossModelSecretsAPI) GetSecretContentInfo(ctx stdcontext.Context, args
 	return result, nil
 }
 
-func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg params.GetRemoteSecretContentArg) (*secrets.ContentParams, *params.SecretBackendConfigResult, int, error) {
+func (s *CrossModelSecretsAPI) getSecretContent(ctx context.Context, arg params.GetRemoteSecretContentArg) (*secrets.ContentParams, *params.SecretBackendConfigResult, int, error) {
 	if arg.URI == "" {
 		return nil, nil, 0, errors.NewNotValid(nil, "empty uri")
 	}
@@ -253,7 +251,7 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 		return nil, nil, 0, errors.Trace(err)
 	}
 
-	secretService := s.secretServiceGetter(coremodel.UUID(uri.SourceUUID))
+	secretService := s.secretServiceGetter(model.UUID(uri.SourceUUID))
 
 	var (
 		wantRevision   int
@@ -291,7 +289,7 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg para
 }
 
 func (s *CrossModelSecretsAPI) getBackend(
-	ctx stdcontext.Context, secretService SecretService, modelUUID string, sameController bool, backendID string, accessor secretservice.SecretAccessor,
+	ctx context.Context, secretService SecretService, modelUUID string, sameController bool, backendID string, accessor secretservice.SecretAccessor,
 ) (*params.SecretBackendConfigResult, error) {
 	cfgInfo, err := s.secretBackendService.BackendConfigInfo(ctx, secretbackendservice.BackendConfigParams{
 		GrantedSecretsGetter: secretService.ListGrantedSecretsForBackend,
@@ -332,7 +330,7 @@ func tagFromAccessScope(scope secretservice.SecretAccessScope) names.Tag {
 	return nil
 }
 
-func (s *CrossModelSecretsAPI) accessScope(ctx stdcontext.Context, secretService SecretService, uri *coresecrets.URI, unit names.UnitTag) (names.Tag, error) {
+func (s *CrossModelSecretsAPI) accessScope(ctx context.Context, secretService SecretService, uri *coresecrets.URI, unit names.UnitTag) (names.Tag, error) {
 	s.logger.Debugf(context.TODO(), "scope for %q on secret %s", unit, uri.ID)
 	scope, err := secretService.GetSecretAccessScope(ctx, uri, secretservice.SecretAccessor{
 		Kind: secretservice.UnitAccessor,

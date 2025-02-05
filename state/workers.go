@@ -12,7 +12,6 @@ import (
 
 	internallogger "github.com/juju/juju/internal/logger"
 	internalworker "github.com/juju/juju/internal/worker"
-	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -39,7 +38,7 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 		hub:   hub,
 		Runner: worker.NewRunner(worker.RunnerParams{
 			Logger:       internalworker.WrapLogger(internallogger.GetLogger("juju.state.watcher")),
-			IsFatal:      func(err error) bool { return err == jworker.ErrRestartAgent },
+			IsFatal:      func(err error) bool { return err == internalworker.ErrRestartAgent },
 			RestartDelay: time.Second,
 			Clock:        st.clock(),
 		}),

@@ -5,7 +5,6 @@ package gce_test
 
 import (
 	"context"
-	stdcontext "context"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -102,7 +101,7 @@ func (s *ConfigSuite) TestNewModelConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(stdcontext.Background(), environs.OpenParams{
+		environ, err := environs.New(context.Background(), environs.OpenParams{
 			Cloud:  gce.MakeTestCloudSpec(),
 			Config: testConfig,
 		})
@@ -180,7 +179,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(stdcontext.Background(), environs.OpenParams{
+		environ, err := environs.New(context.Background(), environs.OpenParams{
 			Cloud:  gce.MakeTestCloudSpec(),
 			Config: s.config,
 		})

@@ -7,7 +7,6 @@ package openstack
 
 import (
 	"context"
-	stdcontext "context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -159,7 +158,7 @@ func (EnvironProvider) Version() int {
 	return 0
 }
 
-func (p EnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (p EnvironProvider) Open(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof(context.TODO(), "opening model %q", args.Config.Name())
 	uuid := args.Config.UUID()
 	namespace, err := instance.NewNamespace(uuid)
@@ -892,7 +891,7 @@ func (e *Environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (e *Environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.CloudSpec) error {
+func (e *Environ) SetCloudSpec(_ context.Context, spec environscloudspec.CloudSpec) error {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 

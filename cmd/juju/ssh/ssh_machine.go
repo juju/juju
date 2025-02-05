@@ -23,7 +23,6 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/client"
-	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/sshclient"
 	"github.com/juju/juju/core/network"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -411,7 +410,7 @@ func (c *sshMachine) ensureAPIClient(ctx context.Context, mc ModelCommand) error
 	}
 
 	if c.statusClient == nil {
-		c.statusClient = apiclient.NewClient(conn, logger)
+		c.statusClient = client.NewClient(conn, logger)
 	}
 	return nil
 }

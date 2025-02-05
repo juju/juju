@@ -15,7 +15,6 @@ import (
 
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/errors"
@@ -35,7 +34,7 @@ type CharmhubClient interface {
 }
 
 // NewCharmhubClientFunc is a function that creates a new CharmhubClient.
-type NewCharmhubClientFunc func(charmhub.HTTPClient, string, corelogger.Logger) (CharmhubClient, error)
+type NewCharmhubClientFunc func(charmhub.HTTPClient, string, logger.Logger) (CharmhubClient, error)
 
 // NewHTTPClientFunc is a function that creates a new HTTP client.
 type NewHTTPClientFunc func(context.Context, corehttp.HTTPClientGetter) (corehttp.HTTPClient, error)
@@ -136,7 +135,7 @@ func NewHTTPClient(ctx context.Context, getter corehttp.HTTPClientGetter) (coreh
 }
 
 // NewCharmhubClient creates a new CharmhubClient.
-func NewCharmhubClient(httpClient charmhub.HTTPClient, url string, logger corelogger.Logger) (CharmhubClient, error) {
+func NewCharmhubClient(httpClient charmhub.HTTPClient, url string, logger logger.Logger) (CharmhubClient, error) {
 	return charmhub.NewClient(charmhub.Config{
 		URL:        url,
 		Logger:     logger,

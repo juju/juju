@@ -4,7 +4,7 @@
 package modelupgrader_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -116,14 +116,14 @@ func (s *modelUpgradeSuite) newFacade(c *gc.C) *modelupgrader.ModelUpgraderAPI {
 		coretesting.ControllerTag,
 		s.statePool,
 		s.toolsFinder,
-		func(ctx stdcontext.Context) (environs.BootstrapEnviron, error) {
+		func(ctx context.Context) (environs.BootstrapEnviron, error) {
 			return s.bootstrapEnviron, nil
 		},
 		s.blockChecker, s.authoriser, apiservertesting.NoopModelCredentialInvalidatorGetter,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return s.registryProvider, nil
 		},
-		func(stdcontext.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
+		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return s.cloudSpec.CloudSpec, nil
 		},
 		func(modelUUID model.UUID) modelupgrader.ModelAgentService {
@@ -143,7 +143,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithInvalidModelTag(c *gc.C) {
 
 	api := s.newFacade(c)
 
-	_, err := api.UpgradeModel(stdcontext.Background(), params.UpgradeModelParams{ModelTag: "!!!"})
+	_, err := api.UpgradeModel(context.Background(), params.UpgradeModelParams{ModelTag: "!!!"})
 	c.Assert(err, gc.ErrorMatches, `"!!!" is not a valid tag`)
 }
 
@@ -156,7 +156,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithModelWithNoPermission(c *gc.C) {
 	api := s.newFacade(c)
 
 	_, err := api.UpgradeModel(
-		stdcontext.Background(),
+		context.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),
 			TargetVersion: version.MustParse("3.0.0"),
@@ -173,7 +173,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(errors.Errorf("the operation has been blocked"))
 
 	_, err := api.UpgradeModel(
-		stdcontext.Background(),
+		context.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),
 			TargetVersion: version.MustParse("3.0.0"),
@@ -294,7 +294,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	api := s.newFacade(c)
 
 	result, err := api.UpgradeModel(
-		stdcontext.Background(),
+		context.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
@@ -413,7 +413,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 	api := s.newFacade(c)
 
 	result, err := api.UpgradeModel(
-		stdcontext.Background(),
+		context.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
@@ -538,7 +538,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	api := s.newFacade(c)
 
 	result, err := api.UpgradeModel(
-		stdcontext.Background(),
+		context.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
@@ -629,7 +629,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 	api := s.newFacade(c)
 
 	result, err := api.UpgradeModel(
-		stdcontext.Background(),
+		context.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      names.NewModelTag(modelUUID.String()).String(),
 			TargetVersion: version.MustParse("3.9.99"),
@@ -679,7 +679,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	s.statePool.EXPECT().Get(modelUUID.String()).AnyTimes().Return(st, nil)
 	st.EXPECT().Model().AnyTimes().Return(model, nil)
 
-	s.blockChecker.EXPECT().ChangeAllowed(stdcontext.Background()).Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(context.Background()).Return(nil)
 
 	// Decide/validate target version.
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
@@ -716,7 +716,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	api := s.newFacade(c)
 
 	result, err := api.UpgradeModel(
-		stdcontext.Background(),
+		context.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      names.NewModelTag(modelUUID.String()).String(),
 			TargetVersion: version.MustParse("3.9.99"),
@@ -757,7 +757,7 @@ func (s *modelUpgradeSuite) TestCannotUpgradePastControllerVersion(c *gc.C) {
 		version.MustParse("3.9.99"), nil,
 	)
 
-	_, err := api.UpgradeModel(stdcontext.Background(),
+	_, err := api.UpgradeModel(context.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      names.NewModelTag(modelUUID.String()).String(),
 			TargetVersion: version.MustParse("3.12.0"),
@@ -778,7 +778,7 @@ func (s *modelUpgradeSuite) TestFindToolsIAAS(c *gc.C) {
 		MajorVersion: 2, ModelType: state.ModelTypeIAAS}).Return(simpleStreams, nil)
 
 	api := s.newFacade(c)
-	result, err := api.FindAgents(stdcontext.Background(), common.FindAgentsParams{MajorVersion: 2, ModelType: state.ModelTypeIAAS})
+	result, err := api.FindAgents(context.Background(), common.FindAgentsParams{MajorVersion: 2, ModelType: state.ModelTypeIAAS})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
@@ -836,7 +836,7 @@ func (s *modelUpgradeSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expec
 	)
 
 	api := s.newFacade(c)
-	result, err := api.FindAgents(stdcontext.Background(), common.FindAgentsParams{MajorVersion: 2, MinorVersion: 9, ModelType: state.ModelTypeCAAS, Arch: wantArch})
+	result, err := api.FindAgents(context.Background(), common.FindAgentsParams{MajorVersion: 2, MinorVersion: 9, ModelType: state.ModelTypeCAAS, Arch: wantArch})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.9-ubuntu-" + expectArch)},
@@ -878,7 +878,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
 	)
 
 	api := s.newFacade(c)
-	result, err := api.FindAgents(stdcontext.Background(), common.FindAgentsParams{
+	result, err := api.FindAgents(context.Background(), common.FindAgentsParams{
 		Number: version.MustParse("2.9.10"), ModelType: state.ModelTypeCAAS})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
@@ -926,7 +926,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 
 	api := s.newFacade(c)
 	result, err := api.FindAgents(
-		stdcontext.Background(),
+		context.Background(),
 		common.FindAgentsParams{
 			MajorVersion: 2, MinorVersion: 9, AgentStream: envtools.DevelStream,
 			ModelType: state.ModelTypeCAAS,
@@ -955,7 +955,7 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseAgentVersionMajorMinor(c
 
 	api := s.newFacade(c)
 	targetVersion, err := api.DecideVersion(
-		stdcontext.Background(),
+		context.Background(),
 		version.MustParse("3.9.99"), common.FindAgentsParams{
 			MajorVersion: 3, MinorVersion: 666, ModelType: state.ModelTypeIAAS},
 	)
@@ -978,7 +978,7 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseTargetMajor(c *gc.C) {
 
 	api := s.newFacade(c)
 	targetVersion, err := api.DecideVersion(
-		stdcontext.Background(),
+		context.Background(),
 		version.MustParse("3.9.99"),
 		common.FindAgentsParams{Number: version.MustParse("4.9.99"), ModelType: state.ModelTypeIAAS},
 	)
@@ -1004,7 +1004,7 @@ func (s *modelUpgradeSuite) TestDecideVersionValidateAndUseTargetVersion(c *gc.C
 
 	api := s.newFacade(c)
 	targetVersion, err := api.DecideVersion(
-		stdcontext.Background(),
+		context.Background(),
 		version.MustParse("2.9.99"),
 		common.FindAgentsParams{
 			Number: version.MustParse("3.9.98"), ModelType: state.ModelTypeIAAS},
@@ -1035,7 +1035,7 @@ func (s *modelUpgradeSuite) TestDecideVersionNewestMinor(c *gc.C) {
 
 	api := s.newFacade(c)
 	targetVersion, err := api.DecideVersion(
-		stdcontext.Background(),
+		context.Background(),
 		version.MustParse("2.9.99"),
 		common.FindAgentsParams{
 			MajorVersion: 2, MinorVersion: 0,
@@ -1065,7 +1065,7 @@ func (s *modelUpgradeSuite) TestDecideVersionIgnoresNewerMajor(c *gc.C) {
 
 	api := s.newFacade(c)
 	targetVersion, err := api.DecideVersion(
-		stdcontext.Background(),
+		context.Background(),
 		version.MustParse("2.9.99"),
 		common.FindAgentsParams{
 			MajorVersion: 2,

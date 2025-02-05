@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	coremachine "github.com/juju/juju/core/machine"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -68,7 +67,7 @@ func (s *importSuite) TestImport(c *gc.C) {
 	model.AddMachine(description.MachineArgs{
 		Id: names.NewMachineTag("666"),
 	})
-	s.service.EXPECT().CreateMachine(gomock.Any(), coremachine.Name("666")).Times(1)
+	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("666")).Times(1)
 
 	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)

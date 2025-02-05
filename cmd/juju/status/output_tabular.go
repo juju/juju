@@ -4,7 +4,7 @@
 package status
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"io"
 	"regexp"
@@ -440,7 +440,7 @@ func printRemoteApplications(tw *ansiterm.TabWriter, remoteApplications map[stri
 			}
 		} else {
 			// This is not expected.
-			logger.Errorf(stdcontext.TODO(), "invalid offer URL %q: %v", app.OfferURL, err)
+			logger.Errorf(context.TODO(), "invalid offer URL %q: %v", app.OfferURL, err)
 			store = "unknown"
 			urlPath = app.OfferURL
 		}
@@ -546,7 +546,7 @@ func printMachine(w *output.Wrapper, m machineStatus) {
 	// We want to display availability zone so extract from hardware info".
 	hw, err := instance.ParseHardware(m.Hardware)
 	if err != nil {
-		logger.Warningf(stdcontext.TODO(), "invalid hardware info %s for machine %v", m.Hardware, m)
+		logger.Warningf(context.TODO(), "invalid hardware info %s for machine %v", m.Hardware, m)
 	}
 	az := ""
 	if hw.AvailabilityZone != nil {

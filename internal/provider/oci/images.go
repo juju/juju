@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
-	"github.com/juju/juju/core/arch"
 	corearch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	coreconstraints "github.com/juju/juju/core/constraints"
@@ -394,9 +393,9 @@ func archTypeByProcessorDescription(input string) string {
 	var archType string
 	description := strings.ToLower(input)
 	if strings.Contains(description, "ampere") {
-		archType = arch.ARM64
+		archType = corearch.ARM64
 	} else if strings.Contains(description, "intel") || strings.Contains(description, "amd") {
-		archType = arch.AMD64
+		archType = corearch.AMD64
 	}
 	return archType
 }

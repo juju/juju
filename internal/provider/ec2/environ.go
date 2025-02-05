@@ -5,7 +5,6 @@ package ec2
 
 import (
 	"context"
-	stdcontext "context"
 	"encoding/base64"
 	stderrors "errors"
 	"fmt"
@@ -313,7 +312,7 @@ func (e *environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (cons
 	return validator, nil
 }
 
-var ec2AvailabilityZones = func(client Client, ctx stdcontext.Context, in *ec2.DescribeAvailabilityZonesInput, opts ...func(*ec2.Options)) (*ec2.DescribeAvailabilityZonesOutput, error) {
+var ec2AvailabilityZones = func(client Client, ctx context.Context, in *ec2.DescribeAvailabilityZonesInput, opts ...func(*ec2.Options)) (*ec2.DescribeAvailabilityZonesOutput, error) {
 	return client.DescribeAvailabilityZones(ctx, in, opts...)
 }
 
@@ -2331,7 +2330,7 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx envcontext.ProviderCallCo
 // a security group.
 type SecurityGroupCleaner interface {
 	// DeleteSecurityGroup deletes security group on the provider.
-	DeleteSecurityGroup(stdcontext.Context, *ec2.DeleteSecurityGroupInput, ...func(*ec2.Options)) (*ec2.DeleteSecurityGroupOutput, error)
+	DeleteSecurityGroup(context.Context, *ec2.DeleteSecurityGroupInput, ...func(*ec2.Options)) (*ec2.DeleteSecurityGroupOutput, error)
 }
 
 var deleteSecurityGroupInsistently = func(client SecurityGroupCleaner, ctx envcontext.ProviderCallContext, g types.GroupIdentifier, clock clock.Clock) error {
@@ -2418,7 +2417,7 @@ func (e *environ) setUpGroups(ctx envcontext.ProviderCallContext, controllerUUID
 // securityGroupsByNameOrID calls ec2.SecurityGroups() either with the given
 // groupName or with filter by vpc-id and group-name, depending on whether
 // vpc-id is empty or not.
-func (e *environ) securityGroupsByNameOrID(ctx stdcontext.Context, groupName string) ([]types.SecurityGroup, error) {
+func (e *environ) securityGroupsByNameOrID(ctx context.Context, groupName string) ([]types.SecurityGroup, error) {
 	var (
 		groups  []string
 		filters []types.Filter
@@ -2720,7 +2719,7 @@ func (e *environ) hasDefaultVPC(ctx envcontext.ProviderCallContext) (bool, error
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.CloudSpec) error {
+func (e *environ) SetCloudSpec(ctx context.Context, spec environscloudspec.CloudSpec) error {
 	if err := validateCloudSpec(spec); err != nil {
 		return errors.Annotate(err, "validating cloud spec")
 	}

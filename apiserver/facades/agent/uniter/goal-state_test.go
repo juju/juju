@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	stdcontext "context"
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -482,7 +482,7 @@ func (s *uniterGoalStateSuite) assertInScope(c *gc.C, relUnit *state.RelationUni
 // goalStates call uniter.GoalStates API and compares the output with the
 // expected result.
 func testGoalStates(c *gc.C, thisUniter *uniter.UniterAPI, args params.Entities, expected params.GoalStateResults) {
-	result, err := thisUniter.GoalStates(stdcontext.Background(), args)
+	result, err := thisUniter.GoalStates(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	for i := range result.Results {
 		if result.Results[i].Error != nil {

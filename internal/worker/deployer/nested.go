@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	message "github.com/juju/juju/internal/pubsub/agent"
 	internalworker "github.com/juju/juju/internal/worker"
-	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common/reboot"
 )
 
@@ -129,7 +128,7 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 			Logger:        internalworker.WrapLogger(config.Logger),
 			IsFatal:       agenterrors.IsFatal,
 			MoreImportant: agenterrors.MoreImportant,
-			RestartDelay:  jworker.RestartDelay,
+			RestartDelay:  internalworker.RestartDelay,
 		}),
 		hub:                      config.Hub,
 		rebootMonitorStatePurger: config.RebootMonitorStatePurger,
@@ -249,14 +248,14 @@ func (c *nestedContext) newUnitAgent(unitName string) (*UnitAgent, error) {
 	engineConfig.Filter = func(err error) error {
 		err = errors.Cause(err)
 		switch err {
-		case jworker.ErrTerminateAgent:
+		case internalworker.ErrTerminateAgent:
 			// Here we just return nil to have the worker Wait function
 			// return nil, so that the start function isn't called again.
 			// We also try to record the unit as "stopped".
 			c.hub.Publish(message.StopUnitTopic,
 				message.Units{Names: []string{unitName}})
 			return nil
-		case jworker.ErrRestartAgent:
+		case internalworker.ErrRestartAgent:
 			// Return a different error that the Runner will not identify
 			// as fatal to get the workers restarted.
 			return errors.New("restart unit agent workers")

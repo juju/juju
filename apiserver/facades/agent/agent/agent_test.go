@@ -26,13 +26,12 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	ttesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type agentSuite struct {
-	jujutesting.ApiServerSuite
+	testing.ApiServerSuite
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer

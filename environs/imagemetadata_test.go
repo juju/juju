@@ -4,7 +4,7 @@
 package environs_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -17,18 +17,17 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 )
 
 type ImageMetadataSuite struct {
-	coretesting.BaseSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&ImageMetadataSuite{})
 
 func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string, defaultsDisabled bool) environs.Environ {
-	attrs := coretesting.FakeConfig()
+	attrs := testing.FakeConfig()
 	if stream != "" {
 		attrs = attrs.Merge(testing.Attrs{
 			"image-stream": stream,
@@ -46,13 +45,13 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string, defau
 	}
 	env, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapContext(stdcontext.Background(), c),
+		envtesting.BootstrapContext(context.Background(), c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   attrs["name"].(string),
 			ModelConfig:      attrs,
-			Cloud:            coretesting.FakeCloudSpec(),
+			Cloud:            testing.FakeCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

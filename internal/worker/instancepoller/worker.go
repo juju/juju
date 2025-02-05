@@ -5,7 +5,6 @@ package instancepoller
 
 import (
 	"context"
-	stdcontext "context"
 	"time"
 
 	"github.com/juju/clock"
@@ -53,22 +52,22 @@ type Environ interface {
 // instance poller.
 type Machine interface {
 	Id() string
-	InstanceId(ctx stdcontext.Context) (instance.Id, error)
-	SetProviderNetworkConfig(stdcontext.Context, network.InterfaceInfos) (network.ProviderAddresses, bool, error)
-	InstanceStatus(ctx stdcontext.Context) (params.StatusResult, error)
-	SetInstanceStatus(stdcontext.Context, status.Status, string, map[string]interface{}) error
+	InstanceId(ctx context.Context) (instance.Id, error)
+	SetProviderNetworkConfig(context.Context, network.InterfaceInfos) (network.ProviderAddresses, bool, error)
+	InstanceStatus(ctx context.Context) (params.StatusResult, error)
+	SetInstanceStatus(context.Context, status.Status, string, map[string]interface{}) error
 	String() string
-	Refresh(ctx stdcontext.Context) error
-	Status(ctx stdcontext.Context) (params.StatusResult, error)
+	Refresh(ctx context.Context) error
+	Status(ctx context.Context) (params.StatusResult, error)
 	Life() life.Value
-	IsManual(ctx stdcontext.Context) (bool, error)
+	IsManual(ctx context.Context) (bool, error)
 }
 
 // FacadeAPI specifies the api-server methods needed by the instance
 // poller.
 type FacadeAPI interface {
-	WatchModelMachines(ctx stdcontext.Context) (watcher.StringsWatcher, error)
-	Machine(ctx stdcontext.Context, tag names.MachineTag) (Machine, error)
+	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
+	Machine(ctx context.Context, tag names.MachineTag) (Machine, error)
 }
 
 // Config encapsulates the configuration options for instantiating a new
@@ -233,7 +232,7 @@ func (u *updaterWorker) loop() error {
 	}
 }
 
-func (u *updaterWorker) queueMachineForPolling(ctx stdcontext.Context, tag names.MachineTag) error {
+func (u *updaterWorker) queueMachineForPolling(ctx context.Context, tag names.MachineTag) error {
 	// If we are already polling this machine, check whether it is still alive
 	// and remove it from its poll group if it is now dead.
 	if entry, groupType := u.lookupPolledMachine(tag); entry != nil {
@@ -329,7 +328,7 @@ func (u *updaterWorker) lookupPolledMachine(tag names.MachineTag) (*pollGroupEnt
 	return nil, invalidPollGroup
 }
 
-func (u *updaterWorker) pollGroupMembers(ctx stdcontext.Context, groupType pollGroupType) error {
+func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGroupType) error {
 	// Build a list of instance IDs to pass as a query to the provider.
 	var instList []instance.Id
 	now := u.config.Clock.Now()
@@ -413,7 +412,7 @@ func (u *updaterWorker) pollGroupMembers(ctx stdcontext.Context, groupType pollG
 }
 
 func (u *updaterWorker) processOneInstance(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	id instance.Id, info instances.Instance,
 	nics network.InterfaceInfos, groupType pollGroupType,
 ) error {
@@ -446,7 +445,7 @@ func (u *updaterWorker) processOneInstance(
 	return nil
 }
 
-func (u *updaterWorker) resolveInstanceID(ctx stdcontext.Context, entry *pollGroupEntry) error {
+func (u *updaterWorker) resolveInstanceID(ctx context.Context, entry *pollGroupEntry) error {
 	if entry.instanceID != "" {
 		return nil // already resolved
 	}
@@ -466,7 +465,7 @@ func (u *updaterWorker) resolveInstanceID(ctx stdcontext.Context, entry *pollGro
 // the *instance* status and the number of provider addresses currently
 // known for the machine.
 func (u *updaterWorker) processProviderInfo(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	entry *pollGroupEntry, info instances.Instance,
 	providerInterfaces network.InterfaceInfos,
 ) (status.Status, int, error) {
@@ -482,7 +481,7 @@ func (u *updaterWorker) processProviderInfo(
 	}
 
 	// Check for status changes
-	providerStatus := info.Status(u.callContextFunc(stdcontext.Background()))
+	providerStatus := info.Status(u.callContextFunc(context.Background()))
 	curInstStatus := instance.Status{
 		Status:  status.Status(curStatus.Status),
 		Message: curStatus.Info,
@@ -526,7 +525,7 @@ func (u *updaterWorker) processProviderInfo(
 //
 // The call returns the count of provider addresses for the machine.
 func (u *updaterWorker) syncProviderAddresses(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	entry *pollGroupEntry, providerIfaceList network.InterfaceInfos,
 ) (int, error) {
 	addrs, modified, err := entry.m.SetProviderNetworkConfig(ctx, providerIfaceList)
@@ -579,8 +578,8 @@ func (u *updaterWorker) maybeSwitchPollGroup(
 	}
 }
 
-func (u *updaterWorker) scopedContext() (stdcontext.Context, stdcontext.CancelFunc) {
-	return stdcontext.WithCancel(u.catacomb.Context(stdcontext.Background()))
+func (u *updaterWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(u.catacomb.Context(context.Background()))
 }
 
 func isPartialOrNoInstancesError(err error) bool {

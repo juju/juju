@@ -15,7 +15,6 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
@@ -62,7 +61,7 @@ func NewCharmHubRepository(cfg CharmHubRepositoryConfig) (*CharmHubRepository, e
 		return nil, errors.Trace(err)
 	}
 	return &CharmHubRepository{
-		logger: cfg.Logger.Child("charmhubrepo", corelogger.CHARMHUB),
+		logger: cfg.Logger.Child("charmhubrepo", logger.CHARMHUB),
 		client: chClient,
 	}, nil
 }

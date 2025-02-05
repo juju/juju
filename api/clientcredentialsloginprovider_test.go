@@ -18,13 +18,12 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujuhttp "github.com/juju/juju/internal/http"
-	coretesting "github.com/juju/juju/internal/testing"
-	jtesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type clientCredentialsLoginProviderProviderSuite struct {
-	coretesting.BaseSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&clientCredentialsLoginProviderProviderSuite{})
@@ -32,7 +31,7 @@ var _ = gc.Suite(&clientCredentialsLoginProviderProviderSuite{})
 func (s *clientCredentialsLoginProviderProviderSuite) APIInfo() *api.Info {
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
 		var err error
-		if modelUUID != "" && modelUUID != jtesting.ModelTag.Id() {
+		if modelUUID != "" && modelUUID != testing.ModelTag.Id() {
 			err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
 		}
 		return &testRootAPI{}, err
@@ -40,9 +39,9 @@ func (s *clientCredentialsLoginProviderProviderSuite) APIInfo() *api.Info {
 	s.AddCleanup(func(_ *gc.C) { srv.Close() })
 	info := &api.Info{
 		Addrs:          srv.Addrs,
-		CACert:         jtesting.CACert,
-		ControllerUUID: jtesting.ControllerTag.Id(),
-		ModelTag:       jtesting.ModelTag,
+		CACert:         testing.CACert,
+		ControllerUUID: testing.ControllerTag.Id(),
+		ModelTag:       testing.ModelTag,
 	}
 	return info
 }
@@ -105,7 +104,7 @@ func (s *clientCredentialsLoginProviderProviderSuite) TestClientCredentialsLogin
 
 // A separate suite for tests that don't need to communicate with a Juju controller.
 type clientCredentialsLoginProviderBasicSuite struct {
-	coretesting.BaseSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&clientCredentialsLoginProviderBasicSuite{})

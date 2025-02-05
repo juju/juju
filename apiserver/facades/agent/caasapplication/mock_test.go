@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/caas"
 	_ "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/controller"
-	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -30,7 +29,7 @@ type mockState struct {
 	app              mockApplication
 	model            mockModel
 	units            map[string]*mockUnit
-	controllerConfig jujucontroller.Config
+	controllerConfig controller.Config
 }
 
 func newMockState() *mockState {
@@ -39,8 +38,8 @@ func newMockState() *mockState {
 			controllerTag: names.NewControllerTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 			tag:           names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 		},
-		controllerConfig: jujucontroller.Config{
-			jujucontroller.CACertKey: jtesting.CACert,
+		controllerConfig: controller.Config{
+			controller.CACertKey: jtesting.CACert,
 		},
 	}
 	return st
@@ -74,7 +73,7 @@ func (st *mockState) Unit(name string) (caasapplication.Unit, error) {
 	return unit, nil
 }
 
-func (st *mockState) ControllerConfig() (jujucontroller.Config, error) {
+func (st *mockState) ControllerConfig() (controller.Config, error) {
 	st.MethodCall(st, "ControllerConfig")
 	if err := st.NextErr(); err != nil {
 		return nil, err

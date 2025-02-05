@@ -4,7 +4,7 @@
 package storageprovisioner
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -36,7 +36,7 @@ type ModelManifoldConfig struct {
 func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.APICallerName, config.StorageRegistryName},
-		Start: func(context stdcontext.Context, getter dependency.Getter) (worker.Worker, error) {
+		Start: func(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 
 			var apiCaller base.APICaller
 			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {

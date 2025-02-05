@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -902,7 +901,7 @@ func userPublicSigningKey() (string, error) {
 // initiator. In addition, the custom image metadata that is saved into the
 // state database will have the synthesised image metadata added to it.
 func bootstrapImageMetadata(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	environ environs.BootstrapEnviron,
 	fetcher imagemetadata.SimplestreamsFetcher,
 	bootstrapBase *corebase.Base,
@@ -1055,7 +1054,7 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 // and adds an image metadata source after verifying the contents. If the
 // directory ends in tools, only the default tools metadata source will be
 // set. Same for images.
-func setPrivateMetadataSources(ctx stdcontext.Context, fetcher imagemetadata.SimplestreamsFetcher, metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
+func setPrivateMetadataSources(ctx context.Context, fetcher imagemetadata.SimplestreamsFetcher, metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
 	if _, err := os.Stat(metadataDir); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, errors.Annotate(err, "cannot access simplestreams metadata directory")
@@ -1144,6 +1143,6 @@ func Cancelled() error {
 }
 
 // IsContextDone returns true if the context is done.
-func IsContextDone(ctx stdcontext.Context) bool {
+func IsContextDone(ctx context.Context) bool {
 	return ctx.Err() != nil
 }

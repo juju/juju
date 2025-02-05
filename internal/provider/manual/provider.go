@@ -6,7 +6,6 @@ package manual
 import (
 	"bytes"
 	"context"
-	stdcontext "context"
 	"fmt"
 	"strings"
 
@@ -119,7 +118,7 @@ func (ManualProvider) Version() int {
 	return 0
 }
 
-func (p ManualProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (p ManualProvider) Open(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Trace(err)
 	}

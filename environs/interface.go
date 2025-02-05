@@ -5,7 +5,6 @@ package environs
 
 import (
 	"context"
-	stdcontext "context"
 	"io"
 
 	"github.com/juju/jsonschema"
@@ -30,7 +29,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package testing -destination testing/package_mock.go -write_package_comment=false github.com/juju/juju/environs EnvironProvider,CloudEnvironProvider,ProviderSchema,ProviderCredentials,FinalizeCredentialContext,FinalizeCloudContext,CloudFinalizer,CloudDetector,CloudRegionDetector,ConfigGetter,CloudDestroyer,Environ,InstancePrechecker,Firewaller,InstanceTagger,InstanceTypesFetcher,Upgrader,UpgradeStep,DefaultConstraintsChecker,ProviderCredentialsRegister,RequestFinalizeCredential,NetworkingEnviron
 
 type ConnectorInfo interface {
-	ConnectionProxyInfo(ctx stdcontext.Context) (proxy.Proxier, error)
+	ConnectionProxyInfo(ctx context.Context) (proxy.Proxier, error)
 }
 
 // A EnvironProvider represents a computing and storage provider
@@ -85,7 +84,7 @@ type CloudEnvironProvider interface {
 	//
 	// Open should not perform any expensive operations, such as querying
 	// the cloud API, as it will be called frequently.
-	Open(stdcontext.Context, OpenParams) (Environ, error)
+	Open(context.Context, OpenParams) (Environ, error)
 }
 
 // OpenParams contains the parameters for EnvironProvider.Open.
@@ -221,7 +220,7 @@ type FinalizeCredentialParams struct {
 // to provide a means of interacting with the user when finalizing
 // a cloud definition.
 type FinalizeCloudContext interface {
-	stdcontext.Context
+	context.Context
 
 	// Verbosef will write the formatted string to Stderr if the
 	// verbose flag is true, and to the logger if not.
@@ -293,7 +292,7 @@ type ConfigSetter interface {
 // CloudSpecSetter implements access to an environment's cloud spec.
 type CloudSpecSetter interface {
 	// SetCloudSpec updates the Environ's configuration.
-	SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.CloudSpec) error
+	SetCloudSpec(ctx context.Context, spec environscloudspec.CloudSpec) error
 }
 
 // Bootstrapper provides the way for bootstrapping controller.

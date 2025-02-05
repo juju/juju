@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
@@ -515,7 +514,7 @@ func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {
 	select {
 	case v := <-ch:
 		return v
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out %s", activity)
 		panic("unreachable")
 	}

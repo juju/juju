@@ -5,7 +5,6 @@ package azure
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"strconv"
 
@@ -178,7 +177,7 @@ func vaultAccessPolicy(desIdentity *armcompute.EncryptionSetIdentity) *armkeyvau
 // ensureDiskEncryptionSet creates or updates a disk encryption set
 // to use the specified vault and key.
 func (env *azureEnviron) ensureDiskEncryptionSet(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	encryptionSets *armcompute.DiskEncryptionSetsClient,
 	encryptionSetName string,
 	envTags map[string]*string,
@@ -213,7 +212,7 @@ func (env *azureEnviron) ensureDiskEncryptionSet(
 // ensureVault creates a vault and adds an access policy for the
 // specified disk encryption set identity.
 func (env *azureEnviron) ensureVault(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	vaults *armkeyvault.VaultsClient,
 	vaultName string,
 	userID string,
@@ -322,7 +321,7 @@ func (env *azureEnviron) deleteVault(ctx envcontext.ProviderCallContext, vaultNa
 // createVaultKey creates, or recovers a soft deleted key,
 // in the specified vault.
 func (env *azureEnviron) createVaultKey(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	vaultBaseURI string,
 	vaultName string,
 	keyName string,

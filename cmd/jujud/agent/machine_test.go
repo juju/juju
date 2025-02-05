@@ -5,7 +5,6 @@ package agent
 
 import (
 	"context"
-	stdcontext "context"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -115,7 +114,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	coretesting.DumpTestLogsAfter(time.Minute, c, s)
 
 	// Ensure the dummy provider is initialised - no need to actually bootstrap.
-	ctx := envtesting.BootstrapContext(stdcontext.Background(), c)
+	ctx := envtesting.BootstrapContext(context.Background(), c)
 	err = s.Environ.PrepareForBootstrap(ctx, "controller")
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -145,7 +144,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		aCfg := agentconf.NewAgentConf(s.DataDir)
 		s.PrimeAgent(c, names.NewMachineTag("42"), initialMachinePassword)
 		logger := s.newBufferedLogWriter()
-		newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
+		newDBWorkerFunc := func(context.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 			return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
 		}
 		a := NewMachineAgentCommand(
@@ -168,7 +167,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
 
-	newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
+	newDBWorkerFunc := func(context.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 		return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
 	}
 	a := NewMachineAgentCommand(
@@ -199,7 +198,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
 
-	newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
+	newDBWorkerFunc := func(context.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 		return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
 	}
 	a := NewMachineAgentCommand(
@@ -351,7 +350,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 
 	// Wait for state to be updated.
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		devices, err := blockdevicestate.NewState(s.TxnRunnerFactory()).BlockDevices(stdcontext.Background(), m.Id())
+		devices, err := blockdevicestate.NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), m.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		if len(devices) > 0 {
 			c.Assert(devices, gc.HasLen, 1)
@@ -396,7 +395,7 @@ func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) c
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
-	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(stdcontext.Background(), attrs, nil)
+	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return ignoreAddressCh
 }

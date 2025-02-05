@@ -4,7 +4,7 @@
 package testing
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"strings"
 
@@ -268,7 +268,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 	}
 }
 
-func (sb *StubBacking) ModelConfig(_ stdcontext.Context) (*config.Config, error) {
+func (sb *StubBacking) ModelConfig(_ context.Context) (*config.Config, error) {
 	sb.MethodCall(sb, "ModelConfig")
 	if err := sb.NextErr(); err != nil {
 		return nil, err
@@ -280,7 +280,7 @@ func (sb *StubBacking) ModelTag() names.ModelTag {
 	return names.NewModelTag("dbeef-2f18-4fd2-967d-db9663db7bea")
 }
 
-func (sb *StubBacking) CloudSpec(_ stdcontext.Context) (environscloudspec.CloudSpec, error) {
+func (sb *StubBacking) CloudSpec(_ context.Context) (environscloudspec.CloudSpec, error) {
 	sb.MethodCall(sb, "CloudSpec")
 	if err := sb.NextErr(); err != nil {
 		return environscloudspec.CloudSpec{}, err
@@ -332,7 +332,7 @@ type StubProvider struct {
 
 var _ environs.EnvironProvider = (*StubProvider)(nil)
 
-func (sp *StubProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (sp *StubProvider) Open(_ context.Context, args environs.OpenParams) (environs.Environ, error) {
 	sp.MethodCall(sp, "Open", args.Config)
 	if err := sp.NextErr(); err != nil {
 		return nil, err

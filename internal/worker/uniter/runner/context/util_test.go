@@ -5,7 +5,6 @@ package context_test
 
 import (
 	"context"
-	stdcontext "context"
 	"reflect"
 	"time"
 
@@ -218,7 +217,7 @@ func (s *BaseHookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.Hoo
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.Equals, "u-0.testing.invalid")
 
-	actual, err = ctx.PublicAddress(stdcontext.Background())
+	actual, err = ctx.PublicAddress(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.Equals, "u-0.testing.invalid")
 
@@ -271,13 +270,13 @@ func (s *BaseHookContextSuite) AssertActionContext(c *gc.C, ctx *runnercontext.H
 }
 
 func (s *BaseHookContextSuite) AssertNotStorageContext(c *gc.C, ctx *runnercontext.HookContext) {
-	storageAttachment, err := ctx.HookStorage(stdcontext.Background())
+	storageAttachment, err := ctx.HookStorage(context.Background())
 	c.Assert(storageAttachment, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, ".*")
 }
 
 func (s *BaseHookContextSuite) AssertStorageContext(c *gc.C, ctx *runnercontext.HookContext, id string, attachment storage.StorageAttachmentInfo) {
-	fromCache, err := ctx.HookStorage(stdcontext.Background())
+	fromCache, err := ctx.HookStorage(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fromCache, gc.NotNil)
 	c.Assert(fromCache.Tag().Id(), gc.Equals, id)

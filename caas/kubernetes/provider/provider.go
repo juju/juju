@@ -5,7 +5,6 @@ package provider
 
 import (
 	"context"
-	stdcontext "context"
 	"net/url"
 	osexec "os/exec"
 
@@ -36,22 +35,22 @@ import (
 // ClusterMetadataStorageChecker provides functionalities for checking k8s cluster storage and pods details.
 type ClusterMetadataStorageChecker interface {
 	k8s.ClusterMetadataChecker
-	ListStorageClasses(ctx stdcontext.Context, selector k8slabels.Selector) ([]storagev1.StorageClass, error)
-	ListPods(ctx stdcontext.Context, namespace string, selector k8slabels.Selector) ([]corev1.Pod, error)
+	ListStorageClasses(ctx context.Context, selector k8slabels.Selector) ([]storagev1.StorageClass, error)
+	ListPods(ctx context.Context, namespace string, selector k8slabels.Selector) ([]corev1.Pod, error)
 }
 
 type kubernetesEnvironProvider struct {
 	environProviderCredentials
 	cmdRunner          CommandRunner
 	builtinCloudGetter func(CommandRunner) (cloud.Cloud, error)
-	brokerGetter       func(stdcontext.Context, environs.OpenParams) (ClusterMetadataStorageChecker, error)
+	brokerGetter       func(context.Context, environs.OpenParams) (ClusterMetadataStorageChecker, error)
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
 var providerInstance = kubernetesEnvironProvider{
 	environProviderCredentials: environProviderCredentials{
 		cmdRunner: defaultRunner{},
-		builtinCredentialGetter: func(ctx stdcontext.Context, cmdRunner CommandRunner) (cloud.Credential, error) {
+		builtinCredentialGetter: func(ctx context.Context, cmdRunner CommandRunner) (cloud.Credential, error) {
 			return attemptMicroK8sCredential(ctx, cmdRunner, decideKubeConfigDir)
 		},
 	},
@@ -59,7 +58,7 @@ var providerInstance = kubernetesEnvironProvider{
 	builtinCloudGetter: func(cmdRunner CommandRunner) (cloud.Cloud, error) {
 		return attemptMicroK8sCloud(cmdRunner, decideKubeConfigDir)
 	},
-	brokerGetter: func(ctx stdcontext.Context, args environs.OpenParams) (ClusterMetadataStorageChecker, error) {
+	brokerGetter: func(ctx context.Context, args environs.OpenParams) (ClusterMetadataStorageChecker, error) {
 		broker, err := caas.New(ctx, args)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -159,7 +158,7 @@ func newRestClient(cfg *rest.Config) (rest.Interface, error) {
 }
 
 // Open is part of the ContainerEnvironProvider interface.
-func (p kubernetesEnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (caas.Broker, error) {
+func (p kubernetesEnvironProvider) Open(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
 	logger.Debugf(context.TODO(), "opening model %q.", args.Config.Name())
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")

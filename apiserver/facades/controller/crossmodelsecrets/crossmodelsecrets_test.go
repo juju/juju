@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets/mocks"
 	"github.com/juju/juju/core/model"
-	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -108,7 +107,7 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.crossModelState = mocks.NewMockCrossModelState(ctrl)
 	s.stateBackend = mocks.NewMockStateBackend(ctrl)
 
-	secretsServiceGetter := func(coremodel.UUID) crossmodelsecrets.SecretService {
+	secretsServiceGetter := func(model.UUID) crossmodelsecrets.SecretService {
 		return s.secretService
 	}
 

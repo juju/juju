@@ -32,7 +32,6 @@ import (
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	internalworker "github.com/juju/juju/internal/worker"
-	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
 	"github.com/juju/juju/rpc/params"
 )
@@ -169,7 +168,7 @@ func DBReplMachineAgentFactoryFn(
 			worker.NewRunner(worker.RunnerParams{
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
-				RestartDelay:  jworker.RestartDelay,
+				RestartDelay:  internalworker.RestartDelay,
 				Logger:        internalworker.WrapLogger(logger),
 			}),
 			newDBReplWorkerFunc,
@@ -250,10 +249,10 @@ func (a *replMachineAgent) Run(ctx *cmd.Context) (err error) {
 	// At this point, all workers will have been configured to start
 	err = a.runner.Wait()
 	switch errors.Cause(err) {
-	case jworker.ErrRebootMachine:
+	case internalworker.ErrRebootMachine:
 		logger.Infof(context.TODO(), "Caught reboot error")
 		err = a.executeRebootOrShutdown(params.ShouldReboot)
-	case jworker.ErrShutdownMachine:
+	case internalworker.ErrShutdownMachine:
 		logger.Infof(context.TODO(), "Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
@@ -327,5 +326,5 @@ func (a *replMachineAgent) executeRebootOrShutdown(action params.RebootAction) e
 	}
 	// We return ErrRebootMachine so the agent will simply exit without error
 	// pending reboot/shutdown.
-	return jworker.ErrRebootMachine
+	return internalworker.ErrRebootMachine
 }

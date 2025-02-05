@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
@@ -134,22 +133,22 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	}
 
 	switch outPointer := out.(type) {
-	case *corelogger.ModelLogger:
+	case *logger.ModelLogger:
 		*outPointer = inWorker.logSink
 	default:
-		return errors.Errorf("out should be *corelogger.Logger; got %T", out)
+		return errors.Errorf("out should be *logger.Logger; got %T", out)
 	}
 	return nil
 }
 
 // getLoggerForModelFunc returns a function which can be called to get a logger which can store
 // logs for a specified model.
-func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger logger.Logger, logDir string) corelogger.LogWriterForModelFunc {
-	return func(modelUUID, modelName string) (corelogger.LogWriterCloser, error) {
+func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger logger.Logger, logDir string) logger.LogWriterForModelFunc {
+	return func(modelUUID, modelName string) (logger.LogWriterCloser, error) {
 		if !names.IsValidModel(modelUUID) {
 			return nil, errors.NotValidf("model UUID %q", modelUUID)
 		}
-		logFilename := corelogger.ModelLogFile(logDir, modelUUID, modelName)
+		logFilename := logger.ModelLogFile(logDir, modelUUID, modelName)
 		if err := paths.PrimeLogFile(logFilename); err != nil && !errors.Is(err, os.ErrPermission) {
 			// If we don't have permission to chown this, it means we are running rootless.
 			return nil, errors.Annotate(err, "unable to prime log file")

@@ -6,7 +6,6 @@ package caas
 import (
 	"bytes"
 	"context"
-	stdcontext "context"
 	"fmt"
 	"io"
 	"os"
@@ -61,7 +60,7 @@ type AddCloudAPI interface {
 }
 
 // BrokerGetter returns caas broker instance.
-type BrokerGetter func(ctx stdcontext.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error)
+type BrokerGetter func(ctx context.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error)
 
 var usageAddCAASSummary = `
 Adds a k8s endpoint and credential to Juju.`[1:]
@@ -178,7 +177,7 @@ type AddCAASCommand struct {
 	eks        bool
 	k8sCluster k8sCluster
 
-	adminServiceAccountResolver func(stdcontext.Context, jujuclock.Clock) clientconfig.K8sCredentialResolver
+	adminServiceAccountResolver func(context.Context, jujuclock.Clock) clientconfig.K8sCredentialResolver
 	cloudMetadataStore          CloudMetadataStore
 	credentialStoreAPI          CredentialStoreAPI
 	newClientConfigReader       func(string) (clientconfig.ClientConfigFunc, error)
@@ -696,7 +695,7 @@ func checkCloudRegion(given, detected string) error {
 	return nil
 }
 
-func (c *AddCAASCommand) newK8sClusterBroker(ctx stdcontext.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
+func (c *AddCAASCommand) newK8sClusterBroker(ctx context.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
@@ -400,11 +399,11 @@ func (s *localServerSuite) TestAddressesWithPublicIPConstraints(c *gc.C) {
 		addr, err := inst.Addresses(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, network.ProviderAddresses{
-			network.NewMachineAddress("10.0.0.1", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
-			network.NewMachineAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)).AsProviderAddress(),
+			network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+			network.NewMachineAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)).AsProviderAddress(),
 			network.NewMachineAddress("::face::000f").AsProviderAddress(),
-			network.NewMachineAddress("127.10.0.1", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
-			network.NewMachineAddress("::dead:beef:f00d", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+			network.NewMachineAddress("127.10.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+			network.NewMachineAddress("::dead:beef:f00d", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 		})
 		bootstrapFinished = true
 		return nil
@@ -433,10 +432,10 @@ func (s *localServerSuite) TestAddressesWithoutPublicIPConstraints(c *gc.C) {
 		addr, err := inst.Addresses(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, network.ProviderAddresses{
-			network.NewMachineAddress("127.0.0.1", corenetwork.WithScope(corenetwork.ScopeMachineLocal)).AsProviderAddress(),
+			network.NewMachineAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)).AsProviderAddress(),
 			network.NewMachineAddress("::face::000f").AsProviderAddress(),
-			network.NewMachineAddress("127.10.0.1", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
-			network.NewMachineAddress("::dead:beef:f00d", corenetwork.WithScope(corenetwork.ScopePublic)).AsProviderAddress(),
+			network.NewMachineAddress("127.10.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+			network.NewMachineAddress("::dead:beef:f00d", network.WithScope(network.ScopePublic)).AsProviderAddress(),
 		})
 		bootstrapFinished = true
 		return nil
@@ -1083,7 +1082,7 @@ func (s *localServerSuite) TestDestroyControllerSpaceConstraints(c *gc.C) {
 		ControllerUUID:   s.ControllerUUID,
 		AvailabilityZone: "zone-0",
 		Constraints:      constraints.MustParse("spaces=space-1 zones=zone-0"),
-		SubnetsToZones: []map[corenetwork.Id][]string{
+		SubnetsToZones: []map[network.Id][]string{
 			{
 				"999-01": {"zone-0"},
 			},

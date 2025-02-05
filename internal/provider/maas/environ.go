@@ -5,7 +5,6 @@ package maas
 
 import (
 	"context"
-	stdcontext "context"
 	"crypto/tls"
 	"fmt"
 	"net/http"
@@ -110,7 +109,7 @@ var (
 // the capabilities of a MAAS installation.
 type Capabilities = func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error)
 
-func NewEnviron(ctx stdcontext.Context, cloud environscloudspec.CloudSpec, cfg *config.Config, getCaps Capabilities) (*maasEnviron, error) {
+func NewEnviron(ctx context.Context, cloud environscloudspec.CloudSpec, cfg *config.Config, getCaps Capabilities) (*maasEnviron, error) {
 	if getCaps == nil {
 		getCaps = getCapabilities
 	}
@@ -246,7 +245,7 @@ func (env *maasEnviron) SetConfig(ctx context.Context, cfg *config.Config) error
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (env *maasEnviron) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.CloudSpec) error {
+func (env *maasEnviron) SetCloudSpec(_ context.Context, spec environscloudspec.CloudSpec) error {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 

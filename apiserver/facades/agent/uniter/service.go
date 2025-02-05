@@ -18,7 +18,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -100,7 +99,7 @@ type ApplicationService interface {
 	// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm archive
 	// for the given charm name, source and revision. If the charm is not available,
 	// [applicationerrors.CharmNotResolved] is returned.
-	GetAvailableCharmArchiveSHA256(ctx context.Context, locator applicationcharm.CharmLocator) (string, error)
+	GetAvailableCharmArchiveSHA256(ctx context.Context, locator charm.CharmLocator) (string, error)
 
 	// GetCharmLXDProfile returns the LXD profile along with the revision of the
 	// charm using the charm name, source and revision.

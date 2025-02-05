@@ -4,7 +4,7 @@
 package storageprovisioner
 
 import (
-	stdcontext "context"
+	"context"
 	"path/filepath"
 
 	"github.com/juju/clock"
@@ -31,7 +31,7 @@ type MachineManifoldConfig struct {
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
-func (config MachineManifoldConfig) newWorker(_ stdcontext.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func (config MachineManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	if config.Clock == nil {
 		return nil, errors.NotValidf("missing Clock")
 	}

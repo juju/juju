@@ -5,7 +5,7 @@ package status
 
 import (
 	"bytes"
-	stdcontext "context"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -229,7 +229,7 @@ func (f *summaryFormatter) resolveAndTrackIp(publicDns string) {
 	// TODO(katco-): We may be able to utilize upcoming work which will expose these addresses outright.
 	ip, err := net.ResolveIPAddr("ip4", publicDns)
 	if err != nil {
-		logger.Warningf(stdcontext.TODO(),
+		logger.Warningf(context.TODO(),
 			"unable to resolve %s to an IP address. Status may be incorrect: %v",
 			publicDns,
 			err,

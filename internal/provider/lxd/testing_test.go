@@ -5,7 +5,6 @@ package lxd
 
 import (
 	"context"
-	stdcontext "context"
 	"net"
 	"os"
 	"strconv"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/container/lxd"
-	containerlxd "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -177,12 +175,12 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 
 	s.Metadata = map[string]string{
-		containerlxd.UserNamespacePrefix + tags.JujuIsController: "true",
-		containerlxd.UserNamespacePrefix + tags.JujuController:   testing.ControllerTag.Id(),
-		containerlxd.JujuModelKey:                                s.Config.UUID(),
-		containerlxd.UserDataKey:                                 string(userData),
-		"limits.cpu":                                             "1",
-		"limits.memory":                                          strconv.Itoa(3750 * 1024 * 1024),
+		lxd.UserNamespacePrefix + tags.JujuIsController: "true",
+		lxd.UserNamespacePrefix + tags.JujuController:   testing.ControllerTag.Id(),
+		lxd.JujuModelKey: s.Config.UUID(),
+		lxd.UserDataKey:  string(userData),
+		"limits.cpu":     "1",
+		"limits.memory":  strconv.Itoa(3750 * 1024 * 1024),
 	}
 	s.Addresses = network.ProviderAddresses{
 		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
@@ -242,13 +240,13 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 	s.setConfig(c, cfg)
 }
 
-func (s *BaseSuiteUnpatched) NewContainer(c *gc.C, name string) *containerlxd.Container {
+func (s *BaseSuiteUnpatched) NewContainer(c *gc.C, name string) *lxd.Container {
 	metadata := make(map[string]string)
 	for k, v := range s.Metadata {
 		metadata[k] = v
 	}
 
-	return &containerlxd.Container{
+	return &lxd.Container{
 		Instance: api.Instance{
 			Name:       name,
 			StatusCode: api.Running,
@@ -421,7 +419,7 @@ func (conn *StubClient) CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Co
 }
 
 func (conn *StubClient) FindImage(
-	ctx stdcontext.Context, base corebase.Base, arch string, virtType instance.VirtType, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
+	ctx context.Context, base corebase.Base, arch string, virtType instance.VirtType, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
 ) (lxd.SourcedImage, error) {
 	conn.AddCall("FindImage", base.DisplayString(), arch)
 	if err := conn.NextErr(); err != nil {

@@ -39,7 +39,6 @@ import (
 	storagestate "github.com/juju/juju/domain/storage/state"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -1959,7 +1958,7 @@ WHERE a.name = $applicationName.name
 			return jujuerrors.Trace(err)
 		})
 		if err != nil {
-			return nil, internalerrors.Errorf("querying unit IDs for %q: %w", appName, err)
+			return nil, errors.Errorf("querying unit IDs for %q: %w", appName, err)
 		}
 		hashes := make([]string, len(result))
 		for i, r := range result {
@@ -2692,7 +2691,7 @@ WHERE application_uuid = $applicationConfigHash.application_uuid;
 	}
 	setHashStmt, err := st.Prepare(setHashQuery, applicationConfigHash{})
 	if err != nil {
-		return internalerrors.Errorf("preparing set hash query: %w", err)
+		return errors.Errorf("preparing set hash query: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -2800,14 +2799,14 @@ WHERE application_uuid = $applicationConfigHash.application_uuid;
 
 		configHash, err := hashConfigAndSettings(config, settings)
 		if err != nil {
-			return internalerrors.Errorf("hashing config and settings: %w", err)
+			return errors.Errorf("hashing config and settings: %w", err)
 		}
 
 		if err := tx.Query(ctx, setHashStmt, applicationConfigHash{
 			ApplicationUUID: ident.ID.String(),
 			SHA256:          configHash,
 		}).Run(); err != nil {
-			return internalerrors.Errorf("setting hash: %w", err)
+			return errors.Errorf("setting hash: %w", err)
 		}
 
 		return nil
@@ -2978,7 +2977,7 @@ func (st *State) GetApplicationIDByName(ctx context.Context, name string) (corea
 func (st *State) GetApplicationConfigHash(ctx context.Context, appID coreapplication.ID) (string, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	ident := applicationID{ID: appID}
@@ -2991,24 +2990,24 @@ WHERE application_uuid = $applicationID.uuid;
 
 	stmt, err := st.Prepare(query, applicationConfigHash{}, ident)
 	if err != nil {
-		return "", internalerrors.Errorf("preparing query for application config hash: %w", err)
+		return "", errors.Errorf("preparing query for application config hash: %w", err)
 	}
 
 	var hash applicationConfigHash
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 
 		if err := tx.Query(ctx, stmt, ident).Get(&hash); errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 
 		return nil
 	}); err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	return hash.SHA256, nil
@@ -3076,14 +3075,14 @@ VALUES ($setApplicationConfig.*);
 `
 	insertStmt, err := st.Prepare(insertQuery, setApplicationConfig{})
 	if err != nil {
-		return internalerrors.Errorf("preparing insert query: %w", err)
+		return errors.Errorf("preparing insert query: %w", err)
 	}
 
 	inserts := make([]setApplicationConfig, 0, len(config))
 	for k, v := range config {
 		typeID, err := encodeConfigType(v.Type)
 		if err != nil {
-			return internalerrors.Errorf("encoding config type: %w", err)
+			return errors.Errorf("encoding config type: %w", err)
 		}
 
 		inserts = append(inserts, setApplicationConfig{
@@ -3095,7 +3094,7 @@ VALUES ($setApplicationConfig.*);
 	}
 
 	if err := tx.Query(ctx, insertStmt, inserts).Run(); err != nil {
-		return internalerrors.Errorf("inserting config: %w", err)
+		return errors.Errorf("inserting config: %w", err)
 	}
 
 	return nil
@@ -3113,14 +3112,14 @@ VALUES ($setApplicationSettings.*);
 `
 	insertStmt, err := st.Prepare(insertQuery, setApplicationSettings{})
 	if err != nil {
-		return internalerrors.Errorf("preparing insert query: %w", err)
+		return errors.Errorf("preparing insert query: %w", err)
 	}
 
 	if err := tx.Query(ctx, insertStmt, setApplicationSettings{
 		ApplicationUUID: appID.String(),
 		Trust:           settings.Trust,
 	}).Run(); err != nil {
-		return internalerrors.Errorf("inserting settings: %w", err)
+		return errors.Errorf("inserting settings: %w", err)
 	}
 
 	return nil
@@ -3138,14 +3137,14 @@ INSERT INTO application_config_hash (*) VALUES ($applicationConfigHash.*);
 `
 	insertStmt, err := st.Prepare(insertQuery, applicationConfigHash{})
 	if err != nil {
-		return internalerrors.Errorf("preparing insert query: %w", err)
+		return errors.Errorf("preparing insert query: %w", err)
 	}
 
 	if err := tx.Query(ctx, insertStmt, applicationConfigHash{
 		ApplicationUUID: appID.String(),
 		SHA256:          sha256,
 	}).Run(); err != nil {
-		return internalerrors.Errorf("inserting hash: %w", err)
+		return errors.Errorf("inserting hash: %w", err)
 	}
 	return nil
 }
@@ -3187,24 +3186,24 @@ func hashConfigAndSettings(config map[string]application.ApplicationConfig, sett
 
 	for _, key := range keys {
 		if _, err := h.Write([]byte(key)); err != nil {
-			return "", internalerrors.Errorf("writing key %q: %w", key, err)
+			return "", errors.Errorf("writing key %q: %w", key, err)
 		}
 
 		v, ok := config[key]
 		if !ok {
-			return "", internalerrors.Errorf("missing value for key %q", key)
+			return "", errors.Errorf("missing value for key %q", key)
 		}
 
 		val, err := encodeConfigValue(v)
 		if err != nil {
-			return "", internalerrors.Errorf("encoding value for key %q: %w", key, err)
+			return "", errors.Errorf("encoding value for key %q: %w", key, err)
 		}
 		if _, err := h.Write([]byte(val)); err != nil {
-			return "", internalerrors.Errorf("writing value for key %q: %w", key, err)
+			return "", errors.Errorf("writing value for key %q: %w", key, err)
 		}
 	}
 	if _, err := h.Write([]byte(fmt.Sprintf("%t", settings.Trust))); err != nil {
-		return "", internalerrors.Errorf("writing trust setting: %w", err)
+		return "", errors.Errorf("writing trust setting: %w", err)
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
@@ -3214,7 +3213,7 @@ func encodeConfigValue(v application.ApplicationConfig) (string, error) {
 	case charm.OptionBool:
 		b, ok := v.Value.(bool)
 		if !ok {
-			return "", internalerrors.Errorf("value is not a bool")
+			return "", errors.Errorf("value is not a bool")
 		}
 		return strconv.FormatBool(b), nil
 	case charm.OptionInt:
@@ -3224,22 +3223,22 @@ func encodeConfigValue(v application.ApplicationConfig) (string, error) {
 		case int64:
 			return strconv.FormatInt(t, 10), nil
 		default:
-			return "", internalerrors.Errorf("value is not an int")
+			return "", errors.Errorf("value is not an int")
 		}
 	case charm.OptionFloat:
 		f, ok := v.Value.(float64)
 		if !ok {
-			return "", internalerrors.Errorf("value is not a float")
+			return "", errors.Errorf("value is not a float")
 		}
 		return fmt.Sprintf("%f", f), nil
 	case charm.OptionString, charm.OptionSecret:
 		s, ok := v.Value.(string)
 		if !ok {
-			return "", internalerrors.Errorf("value is not a string")
+			return "", errors.Errorf("value is not a string")
 		}
 		return s, nil
 	default:
-		return "", internalerrors.Errorf("unknown config type %v", v.Type)
+		return "", errors.Errorf("unknown config type %v", v.Type)
 
 	}
 }

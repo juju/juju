@@ -10,7 +10,7 @@
 package modelmigration
 
 import (
-	context "context"
+	"context"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"

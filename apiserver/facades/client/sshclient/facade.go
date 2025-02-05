@@ -4,7 +4,7 @@
 package sshclient
 
 import (
-	stdcontext "context"
+	"context"
 	"sort"
 
 	"github.com/juju/errors"
@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (Broker, error)
+type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (Broker, error)
 
 // Facade implements the API required by the sshclient worker.
 type Facade struct {
@@ -55,7 +55,7 @@ func internalFacade(
 	}, nil
 }
 
-func (facade *Facade) checkIsModelAdmin(ctx stdcontext.Context) error {
+func (facade *Facade) checkIsModelAdmin(ctx context.Context) error {
 	err := facade.authorizer.HasPermission(ctx, permission.SuperuserAccess, facade.backend.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
@@ -70,7 +70,7 @@ func (facade *Facade) checkIsModelAdmin(ctx stdcontext.Context) error {
 
 // PublicAddress reports the preferred public network address for one
 // or more entities. Machines and units are supported.
-func (facade *Facade) PublicAddress(ctx stdcontext.Context, args params.Entities) (params.SSHAddressResults, error) {
+func (facade *Facade) PublicAddress(ctx context.Context, args params.Entities) (params.SSHAddressResults, error) {
 	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHAddressResults{}, errors.Trace(err)
 	}
@@ -81,7 +81,7 @@ func (facade *Facade) PublicAddress(ctx stdcontext.Context, args params.Entities
 
 // PrivateAddress reports the preferred private network address for one or
 // more entities. Machines and units are supported.
-func (facade *Facade) PrivateAddress(ctx stdcontext.Context, args params.Entities) (params.SSHAddressResults, error) {
+func (facade *Facade) PrivateAddress(ctx context.Context, args params.Entities) (params.SSHAddressResults, error) {
 	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHAddressResults{}, errors.Trace(err)
 	}
@@ -93,7 +93,7 @@ func (facade *Facade) PrivateAddress(ctx stdcontext.Context, args params.Entitie
 // AllAddresses reports all addresses that might have SSH listening for each
 // entity in args. The result is sorted with public addresses first.
 // Machines and units are supported as entity types.
-func (facade *Facade) AllAddresses(ctx stdcontext.Context, args params.Entities) (params.SSHAddressesResults, error) {
+func (facade *Facade) AllAddresses(ctx context.Context, args params.Entities) (params.SSHAddressesResults, error) {
 	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHAddressesResults{}, errors.Trace(err)
 	}
@@ -182,7 +182,7 @@ func (facade *Facade) getAddressPerEntity(args params.Entities, addressGetter fu
 
 // PublicKeys returns the public SSH hosts for one or more
 // entities. Machines and units are supported.
-func (facade *Facade) PublicKeys(ctx stdcontext.Context, args params.Entities) (params.SSHPublicKeysResults, error) {
+func (facade *Facade) PublicKeys(ctx context.Context, args params.Entities) (params.SSHPublicKeysResults, error) {
 	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHPublicKeysResults{}, errors.Trace(err)
 	}
@@ -208,7 +208,7 @@ func (facade *Facade) PublicKeys(ctx stdcontext.Context, args params.Entities) (
 
 // Proxy returns whether SSH connections should be proxied through the
 // controller hosts for the model associated with the API connection.
-func (facade *Facade) Proxy(ctx stdcontext.Context) (params.SSHProxyResult, error) {
+func (facade *Facade) Proxy(ctx context.Context) (params.SSHProxyResult, error) {
 	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHProxyResult{}, errors.Trace(err)
 	}
@@ -221,7 +221,7 @@ func (facade *Facade) Proxy(ctx stdcontext.Context) (params.SSHProxyResult, erro
 
 // ModelCredentialForSSH returns a cloud spec for ssh purpose.
 // This facade call is only used for k8s model.
-func (facade *Facade) ModelCredentialForSSH(ctx stdcontext.Context) (params.CloudSpecResult, error) {
+func (facade *Facade) ModelCredentialForSSH(ctx context.Context) (params.CloudSpecResult, error) {
 	var result params.CloudSpecResult
 
 	if err := facade.checkIsModelAdmin(ctx); err != nil {
@@ -277,7 +277,7 @@ func (facade *Facade) ModelCredentialForSSH(ctx stdcontext.Context) (params.Clou
 	return result, nil
 }
 
-func (facade *Facade) getExecSecretToken(ctx stdcontext.Context, cloudSpec environscloudspec.CloudSpec, model Model) (string, error) {
+func (facade *Facade) getExecSecretToken(ctx context.Context, cloudSpec environscloudspec.CloudSpec, model Model) (string, error) {
 	cfg, err := facade.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return "", errors.Trace(err)

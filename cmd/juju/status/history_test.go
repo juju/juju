@@ -4,7 +4,7 @@
 package status_test
 
 import (
-	stdcontext "context"
+	"context"
 	"os"
 	"time"
 
@@ -167,6 +167,6 @@ func (*fakeHistoryAPI) Close() error {
 	return nil
 }
 
-func (f *fakeHistoryAPI) StatusHistory(ctx stdcontext.Context, kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error) {
+func (f *fakeHistoryAPI) StatusHistory(ctx context.Context, kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error) {
 	return f.history, f.err
 }

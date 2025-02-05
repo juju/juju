@@ -5,7 +5,6 @@ package ec2
 
 import (
 	"context"
-	sdkcontext "context"
 	"fmt"
 	"strings"
 
@@ -103,11 +102,11 @@ but will be used anyway because vpc-id-force=true is also specified.
 
 // vpcAPIClient defines a subset of the aws sdk API calls needed to validate a VPC.
 type vpcAPIClient interface {
-	DescribeAccountAttributes(sdkcontext.Context, *ec2.DescribeAccountAttributesInput, ...func(*ec2.Options)) (*ec2.DescribeAccountAttributesOutput, error)
-	DescribeVpcs(sdkcontext.Context, *ec2.DescribeVpcsInput, ...func(*ec2.Options)) (*ec2.DescribeVpcsOutput, error)
-	DescribeSubnets(sdkcontext.Context, *ec2.DescribeSubnetsInput, ...func(*ec2.Options)) (*ec2.DescribeSubnetsOutput, error)
-	DescribeInternetGateways(sdkcontext.Context, *ec2.DescribeInternetGatewaysInput, ...func(*ec2.Options)) (*ec2.DescribeInternetGatewaysOutput, error)
-	DescribeRouteTables(sdkcontext.Context, *ec2.DescribeRouteTablesInput, ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error)
+	DescribeAccountAttributes(context.Context, *ec2.DescribeAccountAttributesInput, ...func(*ec2.Options)) (*ec2.DescribeAccountAttributesOutput, error)
+	DescribeVpcs(context.Context, *ec2.DescribeVpcsInput, ...func(*ec2.Options)) (*ec2.DescribeVpcsOutput, error)
+	DescribeSubnets(context.Context, *ec2.DescribeSubnetsInput, ...func(*ec2.Options)) (*ec2.DescribeSubnetsOutput, error)
+	DescribeInternetGateways(context.Context, *ec2.DescribeInternetGatewaysInput, ...func(*ec2.Options)) (*ec2.DescribeInternetGatewaysOutput, error)
+	DescribeRouteTables(context.Context, *ec2.DescribeRouteTablesInput, ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error)
 }
 
 // validateVPC requires both arguments to be set and validates that vpcID refers

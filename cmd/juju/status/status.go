@@ -4,7 +4,7 @@
 package status
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -31,7 +31,7 @@ import (
 var logger = internallogger.GetLogger("juju.cmd.juju.status")
 
 type statusAPI interface {
-	Status(stdcontext.Context, *client.StatusArgs) (*params.FullStatus, error)
+	Status(context.Context, *client.StatusArgs) (*params.FullStatus, error)
 	Close() error
 }
 
@@ -233,7 +233,7 @@ func (c *statusCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *statusCommand) getStatusAPI(ctx stdcontext.Context) (statusAPI, error) {
+func (c *statusCommand) getStatusAPI(ctx context.Context) (statusAPI, error) {
 	if c.statusAPI == nil {
 		api, err := c.NewAPIClient(ctx)
 		if err != nil {
@@ -252,7 +252,7 @@ func (c *statusCommand) close() {
 	}
 }
 
-func (c *statusCommand) getStatus(ctx stdcontext.Context, includeStorage bool) (*params.FullStatus, error) {
+func (c *statusCommand) getStatus(ctx context.Context, includeStorage bool) (*params.FullStatus, error) {
 	apiclient, err := c.getStatusAPI(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

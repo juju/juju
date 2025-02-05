@@ -5,7 +5,6 @@ package cloud
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"os"
 	"sort"
@@ -174,7 +173,7 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		// Ping is provider.Ping except in tests where we don't actually want to
 		// require a valid cloud.
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
-			callCtx := envcontext.WithoutCredentialInvalidator(stdcontext.Background())
+			callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 			return p.Ping(callCtx, endpoint)
 		},
 	}

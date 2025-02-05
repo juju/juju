@@ -4,7 +4,7 @@
 package testing
 
 import (
-	context "context"
+	"context"
 
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"go.uber.org/mock/gomock"

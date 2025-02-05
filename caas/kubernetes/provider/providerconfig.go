@@ -10,13 +10,12 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/configschema"
 )
 
 var configSchema = configschema.Fields{
-	k8sconstants.WorkloadStorageKey: {
+	constants.WorkloadStorageKey: {
 		Description: "The preferred storage class used to provision workload storage.",
 		Type:        configschema.Tstring,
 		Group:       configschema.AccountGroup,
@@ -32,7 +31,7 @@ var providerConfigFields = func() schema.Fields {
 }()
 
 var providerConfigDefaults = schema.Defaults{
-	k8sconstants.WorkloadStorageKey: "",
+	constants.WorkloadStorageKey: "",
 }
 
 type brokerConfig struct {

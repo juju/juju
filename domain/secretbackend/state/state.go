@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/secretbackend"
-	domainsecretbackend "github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/database"
@@ -230,7 +229,7 @@ func (s *State) upsertSecretBackend(ctx context.Context, tx *sqlair.TX, params u
 		return "", errors.Trace(err)
 	}
 
-	backendTypeID, err := domainsecretbackend.MarshallBackendType(params.BackendType)
+	backendTypeID, err := secretbackend.MarshallBackendType(params.BackendType)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

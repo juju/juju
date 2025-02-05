@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/secrets"
-	coresecrets "github.com/juju/juju/core/secrets"
 )
 
 // SecretServiceParams defines parameters used to create a secret service for
@@ -103,8 +102,8 @@ const (
 // GrantedSecretsGetter returns the revisions on the given backend for which
 // consumers have access with the given role.
 type GrantedSecretsGetter func(
-	ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...SecretAccessor,
-) ([]*coresecrets.SecretRevisionRef, error)
+	ctx context.Context, backendID string, role secrets.SecretRole, consumers ...SecretAccessor,
+) ([]*secrets.SecretRevisionRef, error)
 
 // SecretAccessor represents an entity that can access a secret.
 type SecretAccessor struct {

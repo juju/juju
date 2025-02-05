@@ -5,10 +5,8 @@ package storage_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing/checkers"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
-	"gopkg.in/check.v1"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
@@ -47,9 +45,9 @@ func (s *mockStateOpsSuite) expectSetStateEmpty(c *gc.C) {
 	mExp.SetState(gomock.Any(), unitStateMatcher{c: c, expected: strStorageState}).Return(nil)
 }
 
-func (s *mockStateOpsSuite) expectState(c *check.C) {
+func (s *mockStateOpsSuite) expectState(c *gc.C) {
 	data, err := yaml.Marshal(storage.Storage(s.storSt))
-	c.Assert(err, checkers.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	strStorageState := string(data)
 
 	mExp := s.mockStateOps.EXPECT()

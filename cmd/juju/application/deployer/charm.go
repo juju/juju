@@ -13,7 +13,6 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/client/application"
-	applicationapi "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicharms "github.com/juju/juju/api/common/charms"
@@ -152,7 +151,7 @@ func (d *deployCharm) deploy(
 	}
 
 	ctx.Infof("%s", d.formatDeployingText(applicationName, charmName))
-	args := applicationapi.DeployArgs{
+	args := application.DeployArgs{
 		CharmID:          id,
 		CharmOrigin:      id.Origin,
 		Cons:             d.constraints,

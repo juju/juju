@@ -5,7 +5,6 @@ package modelupgrader
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -141,12 +140,12 @@ type ConfigSource interface {
 
 // AbortModelUpgrade returns not supported, as it's not possible to move
 // back to a prior version.
-func (m *ModelUpgraderAPI) AbortModelUpgrade(ctx stdcontext.Context, arg params.ModelParam) error {
+func (m *ModelUpgraderAPI) AbortModelUpgrade(ctx context.Context, arg params.ModelParam) error {
 	return errors.NotSupportedf("abort model upgrade")
 }
 
 // UpgradeModel upgrades a model.
-func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error) {
+func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error) {
 	m.logger.Tracef(context.TODO(), "UpgradeModel arg %#v", arg)
 	targetVersion := arg.TargetVersion
 	defer func() {

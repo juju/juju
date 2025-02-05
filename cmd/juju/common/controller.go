@@ -5,7 +5,6 @@ package common
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"io"
 	"strings"
@@ -36,12 +35,12 @@ var (
 )
 
 type listBlocksAPI interface {
-	List(stdcontext.Context) ([]params.Block, error)
+	List(context.Context) ([]params.Block, error)
 	Close() error
 }
 
 // getBlockAPI returns a block api for listing blocks.
-func getBlockAPI(ctx stdcontext.Context, c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
+func getBlockAPI(ctx context.Context, c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 	// Set a short dial timeout so WaitForAgentInitialisation can check
 	// ctx.Done() in its retry loop.
 	dialOpts := api.DefaultDialOpts()
@@ -56,7 +55,7 @@ func getBlockAPI(ctx stdcontext.Context, c *modelcmd.ModelCommandBase) (listBloc
 
 // tryAPI attempts to open the API and makes a trivial call
 // to check if the API is available yet.
-func tryAPI(ctx stdcontext.Context, c *modelcmd.ModelCommandBase) error {
+func tryAPI(ctx context.Context, c *modelcmd.ModelCommandBase) error {
 	client, err := blockAPI(ctx, c)
 	if err == nil {
 		_, err = client.List(ctx)
@@ -105,7 +104,7 @@ func WaitForAgentInitialisation(
 		IsFatalError: func(err error) bool {
 			return errors.Is(err, &unknownError{}) ||
 				retry.IsRetryStopped(err) ||
-				errors.Is(err, stdcontext.Canceled)
+				errors.Is(err, context.Canceled)
 		},
 		Func: func() error {
 			retryErr := tryAPI(ctx, c)
@@ -207,7 +206,7 @@ func BootstrapEndpointAddresses(
 
 // ValidateIaasController returns an error if the controller
 // is not an IAAS controller.
-func ValidateIaasController(ctx stdcontext.Context, c modelcmd.CommandBase, cmdName, controllerName string, store jujuclient.ClientStore) error {
+func ValidateIaasController(ctx context.Context, c modelcmd.CommandBase, cmdName, controllerName string, store jujuclient.ClientStore) error {
 	// Ensure controller model is cached.
 	controllerModel := jujuclient.JoinOwnerModelName(
 		names.NewUserTag(environs.AdminUser), bootstrap.ControllerModelName)

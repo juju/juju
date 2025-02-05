@@ -4,7 +4,7 @@
 package clientconfig
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -27,7 +27,7 @@ var logger = internallogger.GetLogger("juju.caas.kubernetes.clientconfig")
 type K8sCredentialResolver func(string, *clientcmdapi.Config, string) (*clientcmdapi.Config, error)
 
 // GetJujuAdminServiceAccountResolver returns a function for ensuring juju admin service account created with admin cluster role binding setup.
-func GetJujuAdminServiceAccountResolver(ctx stdcontext.Context, clock jujuclock.Clock) K8sCredentialResolver {
+func GetJujuAdminServiceAccountResolver(ctx context.Context, clock jujuclock.Clock) K8sCredentialResolver {
 	return func(credentialUID string, config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error) {
 		clientset, err := newK8sClientSet(config, contextName)
 		if err != nil {
@@ -97,29 +97,29 @@ func NewK8sClientConfig(
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read contexts from kubernetes config")
 	}
-	var context Context
+	var ctx Context
 	if contextName == "" {
 		contextName = config.CurrentContext
 	}
 	if clusterName != "" {
-		context, contextName, err = pickContextByClusterName(contexts, clusterName)
+		ctx, contextName, err = pickContextByClusterName(contexts, clusterName)
 		if err != nil {
 			return nil, errors.Annotatef(err, "picking context by cluster name %q", clusterName)
 		}
 	} else if contextName != "" {
-		context = contexts[contextName]
-		logger.Debugf(stdcontext.TODO(), "no cluster name specified, so use current context %q", config.CurrentContext)
+		ctx = contexts[contextName]
+		logger.Debugf(context.TODO(), "no cluster name specified, so use current context %q", config.CurrentContext)
 	}
 
-	if contextName == "" || context.isEmpty() {
+	if contextName == "" || ctx.isEmpty() {
 		return nil, errors.NewNotFound(nil,
 			fmt.Sprintf("no context found for context name: %q, cluster name: %q", contextName, clusterName))
 	}
 	// Exclude not related contexts.
-	contexts = map[string]Context{contextName: context}
+	contexts = map[string]Context{contextName: ctx}
 
 	// try find everything below based on context.
-	clouds, err := cloudsFromConfig(config, context.CloudName)
+	clouds, err := cloudsFromConfig(config, ctx.CloudName)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read clouds from kubernetes config")
 	}
@@ -132,8 +132,8 @@ func NewK8sClientConfig(
 			return nil, errors.Annotatef(err, "ensuring k8s credential %q with RBAC setup", credentialUID)
 		}
 	}
-	logger.Debugf(stdcontext.TODO(), "get credentials from kubeconfig")
-	credential, err := k8scloud.CredentialFromKubeConfig(context.CredentialName, config)
+	logger.Debugf(context.TODO(), "get credentials from kubeconfig")
+	credential, err := k8scloud.CredentialFromKubeConfig(ctx.CredentialName, config)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read credentials from kubernetes config")
 	}
@@ -142,7 +142,7 @@ func NewK8sClientConfig(
 		Contexts:       contexts,
 		CurrentContext: config.CurrentContext,
 		Clouds:         clouds,
-		Credentials:    map[string]cloud.Credential{context.CredentialName: credential},
+		Credentials:    map[string]cloud.Credential{ctx.CredentialName: credential},
 	}, nil
 }
 
@@ -247,6 +247,6 @@ func GetKubeConfigPath() string {
 		}
 		return configPath
 	}
-	logger.Debugf(stdcontext.TODO(), "The kubeconfig file path is %s", envFiles[0])
+	logger.Debugf(context.TODO(), "The kubeconfig file path is %s", envFiles[0])
 	return envFiles[0]
 }

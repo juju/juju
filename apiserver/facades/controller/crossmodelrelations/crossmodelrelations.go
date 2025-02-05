@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -59,7 +58,7 @@ type CrossModelRelationsAPIv3 struct {
 	relationStatusWatcher  relationStatusWatcherFunc
 	offerStatusWatcher     offerStatusWatcherFunc
 	consumedSecretsWatcher consumedSecretsWatcherFunc
-	logger                 corelogger.Logger
+	logger                 logger.Logger
 	modelID                model.UUID
 }
 
@@ -77,7 +76,7 @@ func NewCrossModelRelationsAPI(
 	relationStatusWatcher relationStatusWatcherFunc,
 	offerStatusWatcher offerStatusWatcherFunc,
 	consumedSecretsWatcher consumedSecretsWatcherFunc,
-	logger corelogger.Logger,
+	logger logger.Logger,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
 		st:                     st,

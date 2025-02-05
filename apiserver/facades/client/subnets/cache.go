@@ -5,7 +5,6 @@ package subnets
 
 import (
 	"context"
-	stdcontext "context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -79,7 +78,7 @@ func updateZones(ctx envcontext.ProviderCallContext, api Backing) (network.Avail
 // zonedEnviron returns a providercommon.ZonedEnviron instance from the current
 // model config. If the model does not support zones, an error satisfying
 // errors.IsNotSupported() will be returned.
-func zonedEnviron(ctx stdcontext.Context, api Backing) (providercommon.ZonedEnviron, error) {
+func zonedEnviron(ctx context.Context, api Backing) (providercommon.ZonedEnviron, error) {
 	env, err := environs.GetEnviron(ctx, api, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening environment")

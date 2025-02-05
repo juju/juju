@@ -11,11 +11,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 
 	"github.com/juju/juju/core/logger"
-	corelogger "github.com/juju/juju/core/logger"
 )
 
 type LoggingPolicy struct {
-	Logger corelogger.Logger
+	Logger logger.Logger
 }
 
 func (p *LoggingPolicy) Do(req *policy.Request) (*http.Response, error) {

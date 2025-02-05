@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/model/state"
@@ -61,8 +60,8 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 }
 
 // Execute the export and sets the environ version of the model.
-func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	modelUUID := coremodel.UUID(model.Tag().Id())
+func (e *exportOperation) Execute(ctx context.Context, m description.Model) error {
+	modelUUID := model.UUID(m.Tag().Id())
 	exportService := e.serviceGetter(modelUUID)
 	environVersion, err := exportService.GetEnvironVersion(ctx)
 	if err != nil {
@@ -71,6 +70,6 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			err,
 		)
 	}
-	model.SetEnvironVersion(environVersion)
+	m.SetEnvironVersion(environVersion)
 	return nil
 }

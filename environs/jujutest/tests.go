@@ -5,7 +5,6 @@ package jujutest
 
 import (
 	"context"
-	stdcontext "context"
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
@@ -64,7 +63,7 @@ type Tests struct {
 }
 
 // Open opens an instance of the testing environment.
-func (t *Tests) Open(c *gc.C, ctx stdcontext.Context, cfg *config.Config) environs.Environ {
+func (t *Tests) Open(c *gc.C, ctx context.Context, cfg *config.Config) environs.Environ {
 	e, err := environs.New(ctx, environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: cfg,
@@ -140,7 +139,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	ctx := stdcontext.WithValue(stdcontext.Background(), bootstrap.SimplestreamsFetcherContextKey, ss)
+	ctx := context.WithValue(context.Background(), bootstrap.SimplestreamsFetcherContextKey, ss)
 	t.BootstrapContext = envtesting.BootstrapContext(ctx, c)
 	t.ProviderCallContext = envcontext.WithoutCredentialInvalidator(ctx)
 }

@@ -22,14 +22,13 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	jujuhttp "github.com/juju/juju/internal/http"
-	coretesting "github.com/juju/juju/internal/testing"
-	jtesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type legacyLoginProviderSuite struct {
-	coretesting.BaseSuite
+	testing.BaseSuite
 
 	mockRootAPI  *MockRootAPI
 	mockAdminAPI *MockAdminAPI
@@ -60,7 +59,7 @@ func (s *legacyLoginProviderSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *legacyLoginProviderSuite) APIInfo() *api.Info {
 	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
 		var err error
-		if modelUUID != "" && modelUUID != jtesting.ModelTag.Id() {
+		if modelUUID != "" && modelUUID != testing.ModelTag.Id() {
 			err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
 		}
 		return s.mockRootAPI, err
@@ -68,9 +67,9 @@ func (s *legacyLoginProviderSuite) APIInfo() *api.Info {
 	s.AddCleanup(func(_ *gc.C) { srv.Close() })
 	info := &api.Info{
 		Addrs:          srv.Addrs,
-		CACert:         jtesting.CACert,
-		ControllerUUID: jtesting.ControllerTag.Id(),
-		ModelTag:       jtesting.ModelTag,
+		CACert:         testing.CACert,
+		ControllerUUID: testing.ControllerTag.Id(),
+		ModelTag:       testing.ModelTag,
 	}
 	return info
 }
@@ -91,8 +90,8 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
 			ClientVersion: jujuversion.Current.String(),
 		})
 		return params.LoginResult{
-			ControllerTag: jtesting.ControllerTag.String(),
-			ModelTag:      jtesting.ModelTag.String(),
+			ControllerTag: testing.ControllerTag.String(),
+			ModelTag:      testing.ModelTag.String(),
 			Servers:       [][]params.HostPort{},
 			ServerVersion: jujuversion.Current.String(),
 			PublicDNSName: "somewhere.example.com",
@@ -151,7 +150,7 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *gc.C) {
 
 // A separate suite for tests that don't need to connect to a controller.
 type legacyLoginProviderBasicSuite struct {
-	coretesting.BaseSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&legacyLoginProviderBasicSuite{})

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/logger"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -29,9 +28,9 @@ type Hub interface {
 type RequestObserver struct {
 	clock      clock.Clock
 	hub        Hub
-	logger     corelogger.Logger
-	connLogger corelogger.Logger
-	pingLogger corelogger.Logger
+	logger     logger.Logger
+	connLogger logger.Logger
+	pingLogger logger.Logger
 
 	// state represents information that's built up as methods on this
 	// type are called. We segregate this to ensure it's clear what
@@ -60,7 +59,7 @@ type RequestObserverContext struct {
 	Hub Hub
 
 	// Logger is the log to use to write log statements.
-	Logger corelogger.Logger
+	Logger logger.Logger
 }
 
 // NewRequestObserver returns a new RPCObserver.
@@ -154,8 +153,8 @@ func (n *RequestObserver) RPCObserver() rpc.Observer {
 // rpcObserver serves as a sink for RPC requests and responses.
 type rpcObserver struct {
 	clock        clock.Clock
-	logger       corelogger.Logger
-	pingLogger   corelogger.Logger
+	logger       logger.Logger
+	pingLogger   logger.Logger
 	id           uint64
 	tag          string
 	requestStart time.Time
