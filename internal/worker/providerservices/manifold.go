@@ -104,7 +104,7 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
 	}
-	w, ok := in.(*domainServicesWorker)
+	w, ok := in.(*servicesWorker)
 	if !ok {
 		return errors.Errorf("expected input of type dbWorker, got %T", in)
 	}
