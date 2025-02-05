@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -54,7 +55,7 @@ func create(size int) ChangeSet {
 	changes := make(ChangeSet, size)
 	for i := 0; i < size; i++ {
 		changes[i] = &changeEvent{
-			ctype:   changestream.Update,
+			ctype:   changestreamtesting.Update,
 			ns:      "test",
 			changed: fmt.Sprintf("uuid-%d", i),
 		}
@@ -103,7 +104,7 @@ func benchmarkSubscriptions(c *gc.C, numSubs, numEvents int, ns string) {
 
 	completed := make([]chan<- struct{}, numSubs)
 	for i := 0; i < numSubs; i++ {
-		sub, err := em.Subscribe(changestream.Namespace(ns, changestream.Update))
+		sub, err := em.Subscribe(changestream.Namespace(ns, changestreamtesting.Update))
 		c.Assert(err, gc.IsNil)
 
 		done := consume(c, sub)

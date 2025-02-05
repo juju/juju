@@ -12,7 +12,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/changestream"
+	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -59,7 +59,7 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *gc.C) {
 	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "foo",
 		changed: "1",
 	}}
@@ -91,7 +91,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNoteWitnessChangesWithCancelledC
 	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "foo",
 		changed: "1",
 	}}
@@ -132,7 +132,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithUnsub(c *gc
 	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "foo",
 		changed: "1",
 	}}
@@ -177,7 +177,7 @@ func (s *subscriptionSuite) TestSubscriptionDoesNotWitnessChangesWithDying(c *gc
 	defer workertest.CleanKill(c, sub)
 
 	changes := ChangeSet{changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "foo",
 		changed: "1",
 	}}

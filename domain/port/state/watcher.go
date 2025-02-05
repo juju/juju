@@ -28,7 +28,8 @@ func (st *State) InitialWatchMachineOpenedPortsStatement() string {
 	return "SELECT name FROM machine"
 }
 
-// GetMachineNamesForUnits returns a slice of machine names that host the provided units.
+// GetMachineNamesForUnits returns a slice of machine names that host the
+// provided units.
 func (st *State) GetMachineNamesForUnits(ctx context.Context, units []unit.UUID) ([]coremachine.Name, error) {
 	db, err := st.DB()
 	if err != nil {

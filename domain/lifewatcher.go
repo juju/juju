@@ -49,7 +49,7 @@ func LifeStringsWatcherMapperFunc(logger logger.Logger, lifeGetter LifeGetter) e
 		// set of ids we are interested in looking up the life for.
 		latest := make(map[string]life.Life)
 		for _, change := range events {
-			if change.Type() == changestream.Delete {
+			if change.Type() == changestream.Deleted {
 				latest[change.Changed()] = life.Dead
 				ids.Remove(change.Changed())
 			}

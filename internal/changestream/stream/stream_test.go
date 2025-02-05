@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -1301,40 +1302,40 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 
 	{ // Group ID: 0, Row ID: 1
 		ch := change{id: 1000, uuid: uuid0}
-		s.insertChangeForType(c, changestream.Create, ch)
+		s.insertChangeForType(c, changestreamtesting.Create, ch)
 		changes[0] = ch
 	}
 	{ // Group ID: 1, Row ID: 2
 		ch := change{id: 2000, uuid: uuid0}
-		s.insertChangeForType(c, changestream.Update, ch)
+		s.insertChangeForType(c, changestreamtesting.Update, ch)
 		// no witness changed.
 	}
 	{ // Group ID: 2, Row ID: 3
 		ch := change{id: 1000, uuid: uuid1}
-		s.insertChangeForType(c, changestream.Update, ch)
+		s.insertChangeForType(c, changestreamtesting.Update, ch)
 	}
 	{ // Group ID: 2, Row ID: 4
 		ch := change{id: 1000, uuid: uuid1}
-		s.insertChangeForType(c, changestream.Update, ch)
+		s.insertChangeForType(c, changestreamtesting.Update, ch)
 		// no witness changed.
 	}
 	{ // Group ID: 1, Row ID: 5
 		ch := change{id: 2000, uuid: uuid0}
-		s.insertChangeForType(c, changestream.Update, ch)
+		s.insertChangeForType(c, changestreamtesting.Update, ch)
 		// no witness changed.
 	}
 	{ // Group ID: 3, Row ID: 6
 		ch := change{id: 1000, uuid: uuid2}
-		s.insertChangeForType(c, changestream.Update, ch)
+		s.insertChangeForType(c, changestreamtesting.Update, ch)
 	}
 	{ // Group ID: 3, Row ID: 7
 		ch := change{id: 1000, uuid: uuid2}
-		s.insertChangeForType(c, changestream.Update, ch)
+		s.insertChangeForType(c, changestreamtesting.Update, ch)
 		changes[1] = ch
 	}
 	{ // Group ID: 1, Row ID: 8
 		ch := change{id: 2000, uuid: uuid0}
-		s.insertChangeForType(c, changestream.Update, ch)
+		s.insertChangeForType(c, changestreamtesting.Update, ch)
 		changes[2] = ch
 	}
 	{ // Group ID: 2, Row ID: 9
@@ -1343,7 +1344,7 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 		// so we should always witness a creation before an update. However,
 		// this part of the tests states that we will still witness the
 		// creation  after an update if something goes wrong.
-		s.insertChangeForType(c, changestream.Create, ch)
+		s.insertChangeForType(c, changestreamtesting.Create, ch)
 		changes[3] = ch
 	}
 
@@ -1358,10 +1359,10 @@ func (s *streamSuite) TestReadChangesWithMultipleChangesInterweavedGroupsCorrect
 	}
 
 	expected := []changeResults{
-		{changeType: changestream.Create, namespace: "foo", uuid: uuid0},
-		{changeType: changestream.Update, namespace: "foo", uuid: uuid2},
-		{changeType: changestream.Update, namespace: "bar", uuid: uuid0},
-		{changeType: changestream.Create, namespace: "foo", uuid: uuid1},
+		{changeType: changestreamtesting.Create, namespace: "foo", uuid: uuid0},
+		{changeType: changestreamtesting.Update, namespace: "foo", uuid: uuid2},
+		{changeType: changestreamtesting.Update, namespace: "bar", uuid: uuid0},
+		{changeType: changestreamtesting.Create, namespace: "foo", uuid: uuid1},
 	}
 
 	c.Logf("result %v", results)

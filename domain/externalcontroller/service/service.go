@@ -145,7 +145,7 @@ func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	if s.watcherFactory != nil {
 		return s.watcherFactory.NewUUIDsWatcher(
 			"external_controller",
-			changestream.Create|changestream.Update,
+			changestream.Changed,
 		)
 	}
 	return nil, errors.NotYetAvailablef("external controller watcher")

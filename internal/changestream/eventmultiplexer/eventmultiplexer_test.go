@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	"github.com/juju/juju/core/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -47,7 +48,7 @@ func (s *eventMultiplexerSuite) TestSubscribe(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.unsubscribe(c, sub)
@@ -70,11 +71,11 @@ func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
 	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectTerm(c, changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "topic",
 		changed: "1",
 	})
@@ -88,7 +89,7 @@ func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
 	}
 
 	c.Assert(changes, gc.HasLen, 1)
-	c.Check(changes[0].Type(), jc.DeepEquals, changestream.Create)
+	c.Check(changes[0].Type(), jc.DeepEquals, changestreamtesting.Create)
 	c.Check(changes[0].Namespace(), jc.DeepEquals, "topic")
 	c.Check(changes[0].Changed(), gc.Equals, "1")
 
@@ -96,7 +97,7 @@ func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
 }
 
 func (s *eventMultiplexerSuite) TestMultipleDispatch(c *gc.C) {
-	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Update))
+	s.testMultipleDispatch(c, changestream.Namespace("topic", changestreamtesting.Update))
 }
 
 func (s *eventMultiplexerSuite) TestMultipleDispatchWithNoOptions(c *gc.C) {
@@ -104,23 +105,23 @@ func (s *eventMultiplexerSuite) TestMultipleDispatchWithNoOptions(c *gc.C) {
 }
 
 func (s *eventMultiplexerSuite) TestMultipleDispatchWithMultipleMasks(c *gc.C) {
-	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Create|changestream.Update))
+	s.testMultipleDispatch(c, changestream.Namespace("topic", changestreamtesting.Create|changestreamtesting.Update))
 }
 
 func (s *eventMultiplexerSuite) TestMultipleDispatchWithMultipleOptions(c *gc.C) {
-	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Update), changestream.Namespace("topic", changestream.Create))
+	s.testMultipleDispatch(c, changestream.Namespace("topic", changestreamtesting.Update), changestream.Namespace("topic", changestreamtesting.Create))
 }
 
 func (s *eventMultiplexerSuite) TestMultipleDispatchWithOverlappingOptions(c *gc.C) {
-	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Update), changestream.Namespace("topic", changestream.Update|changestream.Create))
+	s.testMultipleDispatch(c, changestream.Namespace("topic", changestreamtesting.Update), changestream.Namespace("topic", changestreamtesting.Update|changestreamtesting.Create))
 }
 
 func (s *eventMultiplexerSuite) TestMultipleDispatchWithDuplicateOptions(c *gc.C) {
-	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Update), changestream.Namespace("topic", changestream.Update))
+	s.testMultipleDispatch(c, changestream.Namespace("topic", changestreamtesting.Update), changestream.Namespace("topic", changestreamtesting.Update))
 }
 
 func (s *eventMultiplexerSuite) TestSubscribeWithMatchingFilter(c *gc.C) {
-	s.testMultipleDispatch(c, changestream.FilteredNamespace("topic", changestream.Update, func(event changestream.ChangeEvent) bool {
+	s.testMultipleDispatch(c, changestream.FilteredNamespace("topic", changestreamtesting.Update, func(event changestream.ChangeEvent) bool {
 		return event.Namespace() == "topic"
 	}))
 }
@@ -143,7 +144,7 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *gc.C, opts ...changestre
 	defer workertest.CleanKill(c, queue)
 
 	s.expectTerm(c, changeEvent{
-		ctype:   changestream.Update,
+		ctype:   changestreamtesting.Update,
 		ns:      "topic",
 		changed: "1",
 	})
@@ -173,7 +174,7 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *gc.C, opts ...changestre
 			select {
 			case events := <-sub.Changes():
 				c.Assert(events, gc.HasLen, 1)
-				c.Check(events[0].Type(), jc.DeepEquals, changestream.Update)
+				c.Check(events[0].Type(), jc.DeepEquals, changestreamtesting.Update)
 				c.Check(events[0].Namespace(), jc.DeepEquals, "topic")
 			case <-time.After(testing.ShortWait):
 				c.Fatalf("timed out waiting for sub %d event", i)
@@ -211,11 +212,11 @@ func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectTerm(c, changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "topic",
 		changed: "1",
 	})
@@ -248,11 +249,11 @@ func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectEmptyTerm(c, changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "foo",
 		changed: "1",
 	})
@@ -291,14 +292,14 @@ func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
-	sub0, err := queue.Subscribe(changestream.Namespace("foo", changestream.Create))
+	sub0, err := queue.Subscribe(changestream.Namespace("foo", changestreamtesting.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
-	sub1, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+	sub1, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectTerm(c, changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "topic",
 		changed: "1",
 	})
@@ -345,11 +346,11 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectTerm(c, changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "topic",
 		changed: "1",
 	})
@@ -387,13 +388,13 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
-		sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+		sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, jc.ErrorIsNil)
 		subs[i] = sub
 	}
 
 	s.expectTerm(c, changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "topic",
 		changed: "1",
 	})
@@ -452,13 +453,13 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
 
-		sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+		sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, jc.ErrorIsNil)
 		subs[i] = sub
 	}
 
 	s.expectTerm(c, changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "topic",
 		changed: "1",
 	})
@@ -518,13 +519,13 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *gc.C) {
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
-		sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+		sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, jc.ErrorIsNil)
 		subs[i] = sub
 	}
 
 	s.expectTerm(c, changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "topic",
 		changed: "1",
 	})
@@ -588,13 +589,13 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *gc.C) {
 
 	subs := make([]changestream.Subscription, 2)
 	for i := 0; i < len(subs); i++ {
-		sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+		sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, jc.ErrorIsNil)
 		subs[i] = sub
 	}
 
 	s.expectTerm(c, changeEvent{
-		ctype:   changestream.Create,
+		ctype:   changestreamtesting.Create,
 		ns:      "topic",
 		changed: "1",
 	})
@@ -766,7 +767,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
 
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
-		sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+		sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 		c.Assert(err, jc.ErrorIsNil)
 
 		subs = append(subs, sub)
@@ -815,8 +816,8 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
 		sub, err := queue.Subscribe(
-			changestream.Namespace("topic", changestream.Create),
-			changestream.Namespace("foo", changestream.Update),
+			changestream.Namespace("topic", changestreamtesting.Create),
+			changestream.Namespace("foo", changestreamtesting.Update),
 		)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -866,8 +867,8 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
 		sub, err := queue.Subscribe(
-			changestream.Namespace("topic", changestream.Update),
-			changestream.Namespace("topic", changestream.Update),
+			changestream.Namespace("topic", changestreamtesting.Update),
+			changestream.Namespace("topic", changestreamtesting.Update),
 		)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -917,8 +918,8 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 	var subs []changestream.Subscription
 	for i := 0; i < 10; i++ {
 		sub, err := queue.Subscribe(
-			changestream.Namespace("topic", changestream.Create),
-			changestream.Namespace("topic", changestream.Update),
+			changestream.Namespace("topic", changestreamtesting.Create),
+			changestream.Namespace("topic", changestreamtesting.Update),
 		)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -965,7 +966,7 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
-	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
+	sub, err := queue.Subscribe(changestream.Namespace("topic", changestreamtesting.Create))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(queue.Report(), gc.DeepEquals, map[string]any{

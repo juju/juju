@@ -52,7 +52,7 @@ func (s *namespaceSuite) TestInitialStateSent(c *gc.C) {
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"random_namespace",
-			changestream.Create|changestream.Update|changestream.Delete,
+			changestream.All,
 		)},
 	).Return(s.sub, nil)
 
@@ -102,7 +102,7 @@ func (s *namespaceSuite) TestInitialStateSentByMapper(c *gc.C) {
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"random_namespace",
-			changestream.Create|changestream.Update|changestream.Delete,
+			changestream.All,
 		)},
 	).Return(s.sub, nil)
 
@@ -164,7 +164,7 @@ func (s *namespaceSuite) TestDeltasSent(c *gc.C) {
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"external_controller",
-			changestream.Create|changestream.Update|changestream.Delete,
+			changestream.All,
 		)},
 	).Return(s.sub, nil)
 
@@ -226,7 +226,7 @@ func (s *namespaceSuite) TestDeltasSentByMapper(c *gc.C) {
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"external_controller",
-			changestream.Create|changestream.Update|changestream.Delete,
+			changestream.All,
 		)},
 	).Return(s.sub, nil)
 
@@ -305,7 +305,7 @@ func (s *namespaceSuite) TestDeltasSentByMapperError(c *gc.C) {
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"external_controller",
-			changestream.Create|changestream.Update|changestream.Delete,
+			changestream.All,
 		)},
 	).Return(s.sub, nil)
 
@@ -363,7 +363,7 @@ func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	s.eventsource.EXPECT().Subscribe(
 		subscriptionOptionMatcher{changestream.Namespace(
 			"external_controller",
-			changestream.Create|changestream.Update|changestream.Delete,
+			changestream.All,
 		)},
 	).Return(s.sub, nil)
 

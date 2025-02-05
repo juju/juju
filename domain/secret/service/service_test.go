@@ -1868,7 +1868,7 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 		domainsecret.ApplicationOwners([]string{"mysql"}),
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
 	).Return("table", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Create, gomock.Any()).Return(mockStringWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Changed, gomock.Any()).Return(mockStringWatcher, nil)
 
 	s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) ([]string, error) {
 		c.Assert(appOwners, jc.SameContents, domainsecret.ApplicationOwners([]string{"mysql"}))
@@ -1936,8 +1936,8 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	mockAutoPruneWatcher.EXPECT().Wait().Return(nil).AnyTimes()
 	mockAutoPruneWatcher.EXPECT().Kill().AnyTimes()
 
-	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_revision_obsolete", changestream.Create, gomock.Any()).Return(mockObsoleteWatcher, nil)
-	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_metadata", changestream.Update, gomock.Any()).Return(mockAutoPruneWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_revision_obsolete", changestream.Changed, gomock.Any()).Return(mockObsoleteWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_metadata", changestream.Changed, gomock.Any()).Return(mockAutoPruneWatcher, nil)
 
 	svc := NewWatchableService(
 		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
@@ -1989,7 +1989,7 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	}
 	s.state.EXPECT().InitialWatchStatementForConsumedSecretsChange("mysql/0").Return("secret_revision", namespaceQuery)
 	s.state.EXPECT().InitialWatchStatementForConsumedRemoteSecretsChange("mysql/0").Return("secret_reference", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision", changestream.Create, gomock.Any()).Return(mockStringWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision", changestream.Changed, gomock.Any()).Return(mockStringWatcher, nil)
 	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_reference", changestream.All, gomock.Any()).Return(mockStringWatcherRemote, nil)
 
 	s.state.EXPECT().GetConsumedSecretURIsWithChanges(gomock.Any(),

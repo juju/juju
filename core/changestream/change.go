@@ -7,16 +7,36 @@ package changestream
 // The changes are bit flags so that they can be combined.
 type ChangeType int
 
+// Change types represent the internal type of change that has occurred.
+// These are not exposed publicly, this is by design, to prevent watchers
+// expecting a unique create event over a update event. This can lead to
+// faulty assumptions about the underlying data.
+//
+// Although, create and update are two separate types, they are combined
+// to represent a change in the underlying type. A update will always supersede
+// an update, and it is indicative of a change in the underlying type. A delete
+// is a separate type as it represents a deletion of the underlying type and
+// will supersede a create or update.
 const (
-	// Create represents a new row in the database.
-	Create ChangeType = 1 << iota
-	// Update represents an update to an existing row in the database.
-	Update
-	// Delete represents a row that has been deleted from the database.
-	Delete
-	// All represents any change to the namespace of interest.
-	All = Create | Update | Delete
+	// create represents a new row in the database.
+	create ChangeType = 1 << iota
+	// update represents an update to an existing row in the database.
+	update
+	// delete represents a row that has been deleted from the database.
+	delete
 )
+
+// Changed returns if the underlying type has changed. This will encompass
+// if a row has been created or updated. There is no distinction between the
+// two types of changes, only that the underlying type has changed.
+const Changed = create | update
+
+// Deleted returns if the underlying type has been deleted. This will encompass
+// if a row has been deleted from the database.
+const Deleted = delete
+
+// All returns all the types of changes that can be represented.
+const All = create | update | delete
 
 // ChangeEvent represents a new change set via the changestream.
 type ChangeEvent interface {
