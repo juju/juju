@@ -221,11 +221,15 @@ In normal operation, a unit will run at least the `install`, `start`, `config-ch
 
 When a charm is first deployed, the following hooks are executed in order before a charm reaches its operation phase:
 
-* storage-attached (if the unit has storage)
+* storage-attached (if the unit has storage) [1]
 * install
 * leader-elected (if the unit is a leader)
 * config-changed
 * start
+
+```{note}
+[1] Only machine charms have the behaviour where the `storage-attached` hook must run before the `install` hook. 
+```
 
 ### Operation phase
 
@@ -246,7 +250,13 @@ would ordinarily follow the upgrade-charm.)
 
 ### Tear down phase
 
-When an application is to be removed, the `stop` hook is the last hook to be run before the unit is destroyed.
+When a unit is to be removed, the following hooks are executed:
+
+* stop
+* storage-detaching | relation-broken (in any order)
+* remove
+
+The `remove` event is the last event a unit will ever see before being removed.
 
 ## Errors in hooks
 
@@ -283,7 +293,7 @@ Action hooks operate in an environment with additional environment variables ava
 
 The hook names that these kinds represent will be prefixed by the endpoint name; for example, `database-relation-joined`.
 
-For every relation defined by a charm, relation hook events are named after the charm relation:
+For every endpoint defined by a charm, relation hook events are named after the charm endpoint:
 
 * `<name>-relation-created`
 * `<name>-relation-joined`
@@ -291,7 +301,7 @@ For every relation defined by a charm, relation hook events are named after the 
 * `<name>-relation-departed`
 * `<name>-relation-broken`
 
-For each charm relation, any or all of the above relation hooks can be implemented.
+For each charm endpoint, any or all of the above relation hooks can be implemented.
 Relation hooks operate in an environment with additional environment variables available:
 
 * JUJU_RELATION holds the name of the relation. This is of limited value, because every relation hook already "knows" what charm relation it was written for; that is, in the `foo-relation-joined` hook, JUJU_RELATION is `foo`.
@@ -333,15 +343,44 @@ Secret hooks operate in an environment with additional environment variables ava
 * JUJU_SECRET_LABEL holds the label of the secret.
 * JUJU_SECRET_REVISION holds the revision of the secret.
 
+Secret hooks are used to:
+* inform the owner of a secret that a revision should be removed because it has expired.
+* inform the owner of a secret that it should be rotated because it has become stale.
+* inform the owner of a secret that unused revisions can safely be removed.
+* inform the observer of a secret that a new revision is available.
+
+The `secret-expired` hook is triggered when the secret's expiry time has been reached and the expired secret revision should be removed.
+The `secret-rotate` hook is triggered when a secret has become stale at the end of its rotation interval and a new revision should be created.
+The `secret-remove` hook is triggered when there are revisions of a secret that are no longer being tracked by any observers and can be safely removed.
+The `secret-changed` hook is triggered when there is a new revision available for a previously consumed secret.
+
 ### Storage hooks
 
 The hook names that these kinds represent will be prefixed by the storage name; for example, `database-storage-attached`.
 
+For every storage defined by a charm, storage hook events are named after the charm relation:
+
+* `<name>-storage-attached`
+* `<name>-storage-detaching`
+
+For each charm storage, any or all of the above storage hooks can be implemented.
 Storage hooks operate in an environment with additional environment variables available:
 
 * JUJU_STORAGE_ID holds the ID of the storage.
 * JUJU_STORAGE_LOCATION holds the path at which the storage is mounted.
 * JUJU_STORAGE_KIND holds the kind of storage (`block` or `filesystem`).
+
+The `storage-attached` hook is triggered when new storage is available for the charm to use.
+
+```{note}
+For machine charms, all `storage-attached` hooks will be run before the `install` event fires.
+This means that if any errors are encountered whilst performing the storage provisioning and attach operations, the charm will
+not receive the `install` event until such errors have been resolved.
+
+For kubernetes charms, any `storage-attached` hooks are run sometime after the `start` hook has completed.
+```
+
+The `storage-detaching` hook is triggered after the `stop` hook has completed and all such hooks will be run before triggering the `remove` hook.
 
 ### Upgrade series hook
 
@@ -1053,25 +1092,29 @@ TBA
 
 #### What triggers it?
 
-A secret owner publishing a new secret revision.
-
-#### Which hooks can be guaranteed to have fired before it, if any?
-
-TBA
+When a charm reads the content of a secret to which it has been granted access, it becomes an observer of that secret.
+Having become a secret observer, a charm receives the `secret-changed` event when the secret owner publishes a new secret revision.
+This event gives the consuming charm the chance to read the updated content of the latest secret revision.
 
 #### Which environment variables is it executed with? 
 
-TBA
+* JUJU_SECRET_ID holds the ID of the secret that has a new revision.
+* JUJU_SECRET_LABEL holds the label given to the secret by the observer. 
+
+The secret label can be set whenever a secret's content is read by passing `--label <label>` to the `secret-get` command.
+Thereafter, any subsequent `secret-changed` hooks will be run with this label.
 
 #### Who gets it?
 
-All units observing a secret.
+All units observing the affected secret.
 
 ```{note}
 Upon receiving that event (or at any time after that) an observer can choose to:
 
- - Start tracking the latest revision ("refresh")
- - Inspect the latest revision values, without tracking it just yet ("peek")
+ - Start tracking the latest revision by passing `--refresh` to the `secret-get` command.
+ - Inspect the latest revision value, without tracking it just yet by passing `--peek` to the `secret-get` command.
+ 
+ Without `--refresh` or `--peek`, the `secret-get` command continues to return the previously tracked revision, which may not be the latest.
 
 Once all observers have stopped tracking a specific outdated revision, the owner will receive a `secret-remove` hook to be notified of that fact, and can then remove that revision.
 ```
@@ -1084,15 +1127,22 @@ Once all observers have stopped tracking a specific outdated revision, the owner
 
 #### What triggers it?
 
-For a secret set up with an expiry date, the fact of the secret’s expiration time elapsing. 
+Secret expiration enables the charm to define a moment in time when the given secret is obsoleted and should effectively stop working.
+At that moment, juju will inform the charm via the secret-expired hook that the given secret is expiring, at which point the charm has a chance to remove that particular secret revision from the model with the `secret-remove` command.
 
-#### Which hooks can be guaranteed to have fired before it, if any?
+```{note}
+Until the charm indeed removes the expired secret revision, juju will continue to regularly call the `secret-expired` hook to notify that the secret revision is supposed to be dropped.
+```
 
 #### Which environment variables is it executed with? 
 
+* JUJU_SECRET_ID holds the ID of the secret that is expiring.
+* JUJU_SECRET_REVISION holds the revision that is expiring.
+* JUJU_SECRET_LABEL holds the label given to the secret by the owner.
+
 #### Who gets it?
 
-The secret owner.
+The secret owner. For application owned secrets, the unit leader is the owner.
 
 (hook-secret-remove)=
 ### `secret-remove`
@@ -1100,8 +1150,7 @@ The secret owner.
 
 #### Who gets it?
 
-The secret owner.
-
+The secret owner. For application owned secrets, the unit leader is the owner.
 
 #### What triggers it?
 
@@ -1114,15 +1163,11 @@ This situation can occur when:
 
 In short, the purpose of this event is to notify the owner of a secret that a specific revision of it is safe to remove: no charm is presently observing it or ever will be able to in the future.
 
-
-#### Which hooks can be guaranteed to have fired before it, if any?
-
-TBA
-
 #### Which environment variables is it executed with? 
 
-TBA
-
+* JUJU_SECRET_ID holds the ID of the secret that is expiring.
+* JUJU_SECRET_REVISION holds the revision that can be removed.
+* JUJU_SECRET_LABEL holds the label given to the secret by the owner.
 
 (hook-secret-rotate)=
 ### `secret-rotate`
@@ -1132,15 +1177,29 @@ TBA
 
 #### What triggers it?
 
-For a secret with a rotation policy, the secret's rotation policy elapsing -- the hook keeps firing until the secret has been rotated.
+Secret rotation enables the charm to define a moment in time when the given secret becomes stale and should be updated to generate a new revision.
+At that moment, juju will inform the charm via the `secret-rotate` hook that the given secret is stale, at which point the charm has a chance to add a new secret revision to the model with the `secret-set` command.
+Until the charm updates the secret to create a new revision, juju will continue to regularly call the `secret-rotate` hook to notify that the secret is supposed to be updated.
 
-#### Which hooks can be guaranteed to have fired before it, if any?
+```{tip}
+The secret rotation interval is specified using a named rotation policy, one of:
+* never
+* hourly
+* daily
+* weekly
+* monthly
+* quarterly
+* yearly
+```
 
 #### Which environment variables is it executed with? 
 
+* JUJU_SECRET_ID holds the ID of the secret that needs rotation.
+* JUJU_SECRET_LABEL holds the label given to the secret by the owner.
+
 #### Who gets it?
 
-The secret owner.
+The secret owner. For application owned secrets, the unit leader is the owner.
 
 (hook-start)=
 ### `start`
