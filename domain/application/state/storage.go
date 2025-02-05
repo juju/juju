@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -31,7 +32,7 @@ WHERE charm_uuid = $applicationDetails.charm_uuid
 
 	var storageMetadata []charmStorage
 	err = tx.Query(ctx, queryStmt, appDetails).GetAll(&storageMetadata)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return errors.Errorf("querying supported charm storage: %w", err)
 	}
 	supportedStorage := set.NewStrings()

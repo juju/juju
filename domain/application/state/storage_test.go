@@ -121,3 +121,17 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnrecognisedStorage(c *
 		chStorage, addStorageArgs), nil)
 	c.Assert(err, gc.ErrorMatches, `.*storage \["foo"\] is not supported`)
 }
+
+func (s *applicationStateSuite) TestCreateApplicationWithStorageButCharmHasNone(c *gc.C) {
+	addStorageArgs := []application.AddApplicationStorageArg{{
+		Name:  "foo",
+		Pool:  "rootfs",
+		Size:  20,
+		Count: 1,
+	}}
+	ctx := context.Background()
+
+	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
+		[]charm.Storage{}, addStorageArgs), nil)
+	c.Assert(err, gc.ErrorMatches, `.*storage \["foo"\] is not supported`)
+}
