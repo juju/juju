@@ -55,7 +55,7 @@ CREATE TABLE constraint_tag (
 CREATE TABLE constraint_space (
     constraint_uuid TEXT NOT NULL,
     space TEXT NOT NULL,
-    "exclude" BOOLEAN,
+    "exclude" BOOLEAN NOT NULL,
     CONSTRAINT fk_constraint_space_constraint
     FOREIGN KEY (constraint_uuid)
     REFERENCES "constraint" (uuid),
