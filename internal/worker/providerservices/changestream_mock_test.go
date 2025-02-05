@@ -7,7 +7,7 @@
 //
 
 // Package providerservicefactory is a generated GoMock package.
-package providerservicefactory
+package providerservices
 
 import (
 	reflect "reflect"
