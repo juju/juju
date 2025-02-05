@@ -668,7 +668,7 @@ func (s *applicationStateSuite) TestInsertUnitCloudContainer(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
-			ProviderId: "some-id",
+			ProviderID: "some-id",
 			Ports:      ptr([]string{"666", "667"}),
 			Address: ptr(application.ContainerAddress{
 				Device: application.ContainerDevice{
@@ -705,7 +705,7 @@ func (s *applicationStateSuite) assertContainerAddressValues(
 
 ) {
 	var (
-		gotProviderId string
+		gotProviderID string
 		gotValue      string
 		gotType       int
 		gotOrigin     int
@@ -723,7 +723,7 @@ JOIN ip_address a ON a.device_uuid = lld.uuid
 WHERE u.name=?`,
 
 			unitName).Scan(
-			&gotProviderId,
+			&gotProviderID,
 			&gotValue,
 			&gotType,
 			&gotOrigin,
@@ -733,7 +733,7 @@ WHERE u.name=?`,
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotProviderId, gc.Equals, providerID)
+	c.Assert(gotProviderID, gc.Equals, providerID)
 	c.Assert(gotValue, gc.Equals, addressValue)
 	c.Assert(gotType, gc.Equals, int(addressType))
 	c.Assert(gotOrigin, gc.Equals, int(addressOrigin))
@@ -778,7 +778,7 @@ func (s *applicationStateSuite) TestUpdateCAASUnitCloudContainer(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
-			ProviderId: "some-id",
+			ProviderID: "some-id",
 			Ports:      ptr([]string{"666", "668"}),
 			Address: ptr(application.ContainerAddress{
 				Device: application.ContainerDevice{
@@ -800,7 +800,7 @@ func (s *applicationStateSuite) TestUpdateCAASUnitCloudContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 
 	cc := application.UpdateCAASUnitParams{
-		ProviderId: ptr("another-id"),
+		ProviderID: ptr("another-id"),
 		Ports:      ptr([]string{"666", "667"}),
 		Address:    ptr("2001:db8::1"),
 	}
@@ -835,7 +835,7 @@ func (s *applicationStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
-			ProviderId: "some-id",
+			ProviderID: "some-id",
 			Ports:      ptr([]string{"666", "668"}),
 			Address: ptr(application.ContainerAddress{
 				Device: application.ContainerDevice{
@@ -896,7 +896,7 @@ func (s *applicationStateSuite) TestInsertUnit(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
-			ProviderId: "some-id",
+			ProviderID: "some-id",
 		},
 	}
 	ctx := context.Background()
@@ -931,7 +931,7 @@ func (s *applicationStateSuite) TestInsertCAASUnit(c *gc.C) {
 	p := application.RegisterCAASUnitArg{
 		UnitName:     unitName,
 		PasswordHash: "passwordhash",
-		ProviderId:   "some-id",
+		ProviderID:   "some-id",
 		Address:      ptr("10.6.6.6"),
 		Ports:        ptr([]string{"666"}),
 		OrderedScale: true,
@@ -966,7 +966,7 @@ func (s *applicationStateSuite) TestInsertCAASUnitAlreadyExists(c *gc.C) {
 	p := application.RegisterCAASUnitArg{
 		UnitName:     unitName,
 		PasswordHash: "passwordhash",
-		ProviderId:   "some-id",
+		ProviderID:   "some-id",
 		Address:      ptr("10.6.6.6"),
 		Ports:        ptr([]string{"666"}),
 		OrderedScale: true,
@@ -1092,7 +1092,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 		CloudContainer: &application.CloudContainer{
-			ProviderId: "provider-id",
+			ProviderID: "provider-id",
 			Ports:      ptr([]string{"666", "668"}),
 			Address: ptr(application.ContainerAddress{
 				Device: application.ContainerDevice{
@@ -1665,7 +1665,7 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 	}
 	ctx := context.Background()
 
-	err := s.state.AddUnits(ctx, appID, u)
+	err := s.state.AddUnits(ctx, appID, []application.AddUnitArg{u})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (

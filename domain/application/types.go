@@ -108,7 +108,7 @@ type ScaleState struct {
 
 // CloudService contains parameters for an application's cloud service.
 type CloudService struct {
-	ProviderId string
+	ProviderID string
 	Address    *ServiceAddress
 }
 
@@ -144,7 +144,7 @@ type PasswordInfo struct {
 
 // CloudContainer contains parameters for a unit's cloud container.
 type CloudContainer struct {
-	ProviderId string
+	ProviderID string
 	Address    *ContainerAddress
 	Ports      *[]string
 }
@@ -190,7 +190,7 @@ type InsertUnitArg struct {
 type RegisterCAASUnitArg struct {
 	UnitName     coreunit.Name
 	PasswordHash string
-	ProviderId   string
+	ProviderID   string
 	Address      *string
 	Ports        *[]string
 	OrderedScale bool
@@ -205,7 +205,7 @@ type UnitStatusArg struct {
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.
 type UpdateCAASUnitParams struct {
-	ProviderId           *string
+	ProviderID           *string
 	Address              *string
 	Ports                *[]string
 	AgentStatus          *StatusInfo[UnitAgentStatusType]
@@ -215,7 +215,7 @@ type UpdateCAASUnitParams struct {
 
 // CloudContainerParams contains parameters for a unit cloud container.
 type CloudContainerParams struct {
-	ProviderId    string
+	ProviderID    string
 	Address       *network.SpaceAddress
 	AddressOrigin *network.Origin
 	Ports         *[]string

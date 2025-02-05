@@ -7,6 +7,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -77,9 +78,19 @@ type AddUnitArg struct {
 type ImportUnitArg struct {
 	UnitName       coreunit.Name
 	PasswordHash   *string
-	AgentStatus    application.StatusInfo[application.UnitAgentStatusType]
-	WorkloadStatus application.StatusInfo[application.UnitWorkloadStatusType]
+	AgentStatus    status.StatusInfo
+	WorkloadStatus status.StatusInfo
 	CloudContainer *application.CloudContainerParams
+}
+
+// UpdateCAASUnitParams contains parameters for updating a CAAS unit.
+type UpdateCAASUnitParams struct {
+	ProviderID           *string
+	Address              *string
+	Ports                *[]string
+	AgentStatus          *status.StatusInfo
+	WorkloadStatus       *status.StatusInfo
+	CloudContainerStatus *status.StatusInfo
 }
 
 // ScalingState contains attributes that describes

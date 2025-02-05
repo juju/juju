@@ -77,7 +77,7 @@ func (s *statusSuite) TestUnitAgentStatusDBValues(c *gc.C) {
 // state packages.
 func (s *statusSuite) TestUnitWorkloadStatusDBValues(c *gc.C) {
 	db := s.DB()
-	rows, err := db.Query("SELECT id, status FROM unit_workload_status_value")
+	rows, err := db.Query("SELECT id, status FROM workload_status_value")
 	c.Assert(err, jc.ErrorIsNil)
 	defer rows.Close()
 

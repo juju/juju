@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
@@ -51,7 +50,7 @@ type ApplicationState interface {
 	CreateApplication(context.Context, string, application.AddApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
 
 	// AddUnits adds the specified units to the application.
-	AddUnits(context.Context, coreapplication.ID, ...application.AddUnitArg) error
+	AddUnits(context.Context, coreapplication.ID, []application.AddUnitArg) error
 
 	// InsertCAASUnit inserts the specified CAAS application unit, returning an
 	// error satisfying [applicationerrors.UnitAlreadyExists] if the unit exists.
@@ -267,7 +266,6 @@ func (s *Service) CreateApplication(
 		origin,
 		args.DownloadInfo,
 		args.ResolvedResources,
-		s.logger,
 	); err != nil {
 		return "", errors.Annotatef(err, "invalid application args")
 	}
@@ -292,7 +290,7 @@ func (s *Service) CreateApplication(
 	numUnits := len(units)
 	appArg.Scale = numUnits
 
-	unitArgs, err := s.makeUnitArgs(ctx, units)
+	unitArgs, err := s.makeUnitArgs(modelType, units)
 	if err != nil {
 		return "", errors.Annotatef(err, "making unit args")
 	}
@@ -310,7 +308,6 @@ func validateCreateApplicationParams(
 	origin corecharm.Origin,
 	downloadInfo *charm.DownloadInfo,
 	resolvedResources ResolvedResources,
-	logger logger.Logger,
 ) error {
 	if !isValidApplicationName(name) {
 		return applicationerrors.ApplicationNameNotValid
@@ -426,18 +423,13 @@ func makeCreateApplicationArgs(
 		return application.AddApplicationArg{}, fmt.Errorf("encoding charm source: %w", err)
 	}
 
-	architecture := encodeArchitecture(origin.Platform.Architecture)
-	if err != nil {
-		return application.AddApplicationArg{}, fmt.Errorf("encoding architecture: %w", err)
-	}
-
 	ch.Source = source
 	ch.ReferenceName = args.ReferenceName
 	ch.Revision = revision
 	ch.Hash = origin.Hash
 	ch.ArchivePath = args.CharmStoragePath
 	ch.ObjectStoreUUID = args.CharmObjectStoreUUID
-	ch.Architecture = architecture
+	ch.Architecture = encodeArchitecture(origin.Platform.Architecture)
 
 	// If we have a storage path, then we know the charm is available.
 	// This is passive for now, but once we update the application, the presence
@@ -468,31 +460,40 @@ func makeCreateApplicationArgs(
 }
 
 // AddUnits adds the specified units to the application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application
+// doesn't exist.
+// If no units are provided, it will return nil.
 func (s *Service) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
+	if !isValidApplicationName(appName) {
+		return applicationerrors.ApplicationNameNotValid
+	}
+
+	if len(units) == 0 {
+		return nil
+	}
+
 	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return internalerrors.Errorf("getting application %q id: %w", appName, err)
 	}
 
-	args, err := s.makeUnitArgs(ctx, units)
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return internalerrors.Errorf("getting model type: %w", err)
+	}
+
+	args, err := s.makeUnitArgs(modelType, units)
 	if err != nil {
 		return internalerrors.Errorf("making unit args: %w", err)
 	}
 
-	err = s.st.AddUnits(ctx, appUUID, args...)
-	if err != nil {
+	if err := s.st.AddUnits(ctx, appUUID, args); err != nil {
 		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
 	}
 	return nil
 }
 
-func (s *Service) makeUnitArgs(ctx context.Context, units []AddUnitArg) ([]application.AddUnitArg, error) {
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting model type")
-	}
-
+func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg) ([]application.AddUnitArg, error) {
 	now := ptr(s.clock.Now())
 	workloadMessage := corestatus.MessageInstallingAgent
 	if modelType == coremodel.IAAS {
@@ -677,7 +678,7 @@ func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args app
 	if args.PasswordHash == "" {
 		return errors.NotValidf("password hash")
 	}
-	if args.ProviderId == "" {
+	if args.ProviderID == "" {
 		return errors.NotValidf("provider id")
 	}
 	if !args.OrderedScale {
@@ -701,7 +702,7 @@ func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args app
 // UpdateCAASUnit updates the specified CAAS unit, returning an error
 // satisfying applicationerrors.ApplicationNotAlive if the unit's
 // application is not alive.
-func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params application.UpdateCAASUnitParams) error {
+func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params UpdateCAASUnitParams) error {
 	appName, err := names.UnitApplication(unitName.String())
 	if err != nil {
 		return errors.Trace(err)
@@ -714,7 +715,29 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 		return internalerrors.Errorf("application %q is not alive%w", appName, errors.Hide(applicationerrors.ApplicationNotAlive))
 	}
 
-	if err := s.st.UpdateCAASUnit(ctx, unitName, params); err != nil {
+	agentStatus, err := encodeUnitAgentStatus(params.AgentStatus)
+	if err != nil {
+		return internalerrors.Errorf("encoding agent status: %w", err)
+	}
+	workloadStatus, err := encodeUnitWorkloadStatus(params.WorkloadStatus)
+	if err != nil {
+		return internalerrors.Errorf("encoding workload status: %w", err)
+	}
+	cloudContainerStatus, err := encodeCloudContainerStatus(params.CloudContainerStatus)
+	if err != nil {
+		return internalerrors.Errorf("encoding cloud container status: %w", err)
+	}
+
+	cassUnitUpdate := application.UpdateCAASUnitParams{
+		ProviderID:           params.ProviderID,
+		Address:              params.Address,
+		Ports:                params.Ports,
+		AgentStatus:          agentStatus,
+		WorkloadStatus:       workloadStatus,
+		CloudContainerStatus: cloudContainerStatus,
+	}
+
+	if err := s.st.UpdateCAASUnit(ctx, unitName, cassUnitUpdate); err != nil {
 		return internalerrors.Errorf("updating caas unit %q: %w", unitName, err)
 	}
 	return nil

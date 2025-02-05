@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -172,7 +173,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 			UnitName:     "prometheus/0",
 			PasswordHash: ptr("passwordhash"),
 			CloudContainer: ptr(application.CloudContainerParams{
-				ProviderId: "provider-id",
+				ProviderID: "provider-id",
 				Address: ptr(network.SpaceAddress{
 					MachineAddress: network.MachineAddress{
 						Value: "10.6.6.6",
@@ -184,13 +185,13 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 				AddressOrigin: ptr(network.OriginProvider),
 				Ports:         ptr([]string{"6666"}),
 			}),
-			AgentStatus: application.StatusParams{
+			AgentStatus: status.StatusInfo{
 				Status:  "idle",
 				Message: "agent status",
 				Data:    map[string]any{"foo": "bar"},
 				Since:   ptr(updatedAt),
 			},
-			WorkloadStatus: application.StatusParams{
+			WorkloadStatus: status.StatusInfo{
 				Status:  "waiting",
 				Message: "workload status",
 				Data:    map[string]any{"foo": "bar"},

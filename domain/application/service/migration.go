@@ -165,7 +165,7 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
 func (s *MigrationService) ImportApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
-	if err := validateCreateApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin, args.DownloadInfo, args.ResolvedResources, s.logger); err != nil {
+	if err := validateCreateApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin, args.DownloadInfo, args.ResolvedResources); err != nil {
 		return errors.Annotatef(err, "invalid application args")
 	}
 
@@ -189,11 +189,20 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 
 	unitArgs := make([]application.InsertUnitArg, numUnits)
 	for i, u := range units {
+		agentStatus, err := encodeUnitAgentStatus(&u.AgentStatus)
+		if err != nil {
+			return errors.Annotatef(err, "encoding agent status for unit %q", u.UnitName)
+		}
+		workloadStatus, err := encodeUnitWorkloadStatus(&u.WorkloadStatus)
+		if err != nil {
+			return errors.Annotatef(err, "encoding workload status for unit %q", u.UnitName)
+		}
+
 		arg := application.InsertUnitArg{
 			UnitName: u.UnitName,
 			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus:    &u.AgentStatus,
-				WorkloadStatus: &u.WorkloadStatus,
+				AgentStatus:    agentStatus,
+				WorkloadStatus: workloadStatus,
 			},
 		}
 		if u.CloudContainer != nil {
@@ -222,7 +231,7 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 
 func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
 	result := &application.CloudContainer{
-		ProviderId: cloudContainer.ProviderId,
+		ProviderID: cloudContainer.ProviderID,
 		Ports:      cloudContainer.Ports,
 	}
 	if cloudContainer.Address != nil {

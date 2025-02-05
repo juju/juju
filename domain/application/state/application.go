@@ -395,7 +395,7 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 }
 
 // AddUnits adds the specified units to the application.
-func (st *State) AddUnits(ctx context.Context, appUUID coreapplication.ID, args ...application.AddUnitArg) error {
+func (st *State) AddUnits(ctx context.Context, appUUID coreapplication.ID, args []application.AddUnitArg) error {
 	if len(args) == 0 {
 		return nil
 	}
@@ -548,7 +548,7 @@ WHERE uuid = $unitPassword.uuid
 
 func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
 	result := &application.CloudContainer{
-		ProviderId: cloudContainer.ProviderId,
+		ProviderID: cloudContainer.ProviderID,
 		Ports:      cloudContainer.Ports,
 	}
 	if cloudContainer.Address != nil {
@@ -588,7 +588,7 @@ func (st *State) InsertCAASUnit(ctx context.Context, appUUID coreapplication.ID,
 	}
 
 	cloudContainerParams := application.CloudContainerParams{
-		ProviderId: arg.ProviderId,
+		ProviderID: arg.ProviderID,
 		Ports:      arg.Ports,
 	}
 	if arg.Address != nil {
@@ -651,6 +651,7 @@ func (st *State) insertCAASUnit(
 		return fmt.Errorf("unrequired unit %s is not assigned%w", arg.UnitName, jujuerrors.Hide(applicationerrors.UnitNotAssigned))
 	}
 
+	now := ptr(st.clock.Now())
 	insertArg := application.InsertUnitArg{
 		UnitName: arg.UnitName,
 		Password: &application.PasswordInfo{
@@ -658,30 +659,23 @@ func (st *State) insertCAASUnit(
 			HashAlgorithm: application.HashAlgorithmSHA256,
 		},
 		CloudContainer: cloudContainer,
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
+			},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: corestatus.MessageInstallingAgent,
+				Since:   now,
+			},
+		},
 	}
-	st.addNewUnitStatusToArg(&insertArg.UnitStatusArg, coremodel.CAAS)
 
-	_, err = st.insertUnit(ctx, tx, appID, insertArg)
-	if err != nil {
+	if _, err := st.insertUnit(ctx, tx, appID, insertArg); err != nil {
 		return errors.Errorf("inserting unit for CAAS application %q: %w", appID, err)
 	}
 	return nil
-}
-
-func (s *State) addNewUnitStatusToArg(arg *application.UnitStatusArg, modelType coremodel.ModelType) {
-	now := s.clock.Now()
-	arg.AgentStatus = &application.StatusInfo[application.UnitAgentStatusType]{
-		Status: application.UnitAgentStatusAllocating,
-		Since:  ptr(now),
-	}
-	arg.WorkloadStatus = &application.StatusInfo[application.UnitWorkloadStatusType]{
-		Status:  application.UnitWorkloadStatusWaiting,
-		Message: corestatus.MessageInstallingAgent,
-		Since:   ptr(now),
-	}
-	if modelType == coremodel.IAAS {
-		arg.WorkloadStatus.Message = corestatus.MessageWaitForMachine
-	}
 }
 
 // InsertUnit insert the specified application unit, returning an error
@@ -782,9 +776,9 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 	}
 
 	var cloudContainer *application.CloudContainer
-	if params.ProviderId != nil {
+	if params.ProviderID != nil {
 		cloudContainerParams := application.CloudContainerParams{
-			ProviderId: *params.ProviderId,
+			ProviderID: *params.ProviderID,
 			Ports:      params.Ports,
 		}
 		if params.Address != nil {
@@ -833,7 +827,7 @@ func (st *State) upsertUnitCloudContainer(
 ) error {
 	containerInfo := cloudContainer{
 		UnitUUID:   unitUUID,
-		ProviderID: cc.ProviderId,
+		ProviderID: cc.ProviderID,
 	}
 
 	queryStmt, err := st.Prepare(`
@@ -866,13 +860,13 @@ WHERE unit_uuid = $cloudContainer.unit_uuid
 		return errors.Errorf("looking up cloud container %q: %w", unitName, err)
 	}
 	if err == nil {
-		newProviderId := cc.ProviderId
-		if newProviderId != "" &&
-			containerInfo.ProviderID != newProviderId {
+		newProviderID := cc.ProviderID
+		if newProviderID != "" &&
+			containerInfo.ProviderID != newProviderID {
 			st.logger.Debugf(context.TODO(), "unit %q has provider id %q which changed to %q",
-				unitName, containerInfo.ProviderID, newProviderId)
+				unitName, containerInfo.ProviderID, newProviderID)
 		}
-		containerInfo.ProviderID = newProviderId
+		containerInfo.ProviderID = newProviderID
 		if err := tx.Query(ctx, updateStmt, containerInfo).Run(); err != nil {
 			return errors.Errorf("updating cloud container for unit %q: %w", unitName, err)
 		}

@@ -445,7 +445,7 @@ func (s *serviceSuite) TestReplaceCAASUnit(c *gc.C) {
 	args := application.RegisterCAASUnitArg{
 		UnitName:     "foo/1",
 		PasswordHash: "passwordhash",
-		ProviderId:   "provider-id",
+		ProviderID:   "provider-id",
 		Address:      ptr(address),
 		Ports:        ptr(ports),
 		OrderedScale: true,
@@ -471,7 +471,7 @@ func (s *serviceSuite) TestReplaceDeadCAASUnit(c *gc.C) {
 	args := application.RegisterCAASUnitArg{
 		UnitName:     "foo/1",
 		PasswordHash: "passwordhash",
-		ProviderId:   "provider-id",
+		ProviderID:   "provider-id",
 		OrderedScale: true,
 		OrderedId:    1,
 	}
@@ -493,7 +493,7 @@ func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {
 	args := application.RegisterCAASUnitArg{
 		UnitName:     "foo/1",
 		PasswordHash: "passwordhash",
-		ProviderId:   "provider-id",
+		ProviderID:   "provider-id",
 		Address:      &address,
 		Ports:        &ports,
 		OrderedScale: true,
@@ -510,7 +510,7 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
 	args := application.RegisterCAASUnitArg{
 		UnitName:     "foo/1",
 		PasswordHash: "passwordhash",
-		ProviderId:   "provider-id",
+		ProviderID:   "provider-id",
 		OrderedScale: true,
 		OrderedId:    666,
 	}
@@ -530,7 +530,7 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
 	args := application.RegisterCAASUnitArg{
 		UnitName:     "foo/1",
 		PasswordHash: "passwordhash",
-		ProviderId:   "provider-id",
+		ProviderID:   "provider-id",
 		OrderedScale: true,
 		OrderedId:    2,
 	}

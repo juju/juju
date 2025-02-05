@@ -11,10 +11,12 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -356,34 +358,12 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 
 	now := ptr(s.clock.Now())
-	u := application.InsertUnitArg{
-		UnitName:       "ubuntu/666",
-		CloudContainer: nil,
-		Password: ptr(application.PasswordInfo{
-			PasswordHash:  "passwordhash",
-			HashAlgorithm: 0,
-		}),
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status:  application.UnitAgentStatusIdle,
-				Message: "agent status",
-				Data:    []byte(`{"foo": "bar"}`),
-				Since:   now,
-			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusWaiting,
-				Message: "workload status",
-				Data:    []byte(`{"foo": "bar"}`),
-				Since:   now,
-			},
-		},
-	}
 	ch := domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
 			Name:  "ubuntu",
 			RunAs: "default",
 		},
-		Manifest: s.minimalManifest(c),
+		Manifest: s.minimalManifest(),
 		Config: domaincharm.Config{
 			Options: map[string]domaincharm.Option{
 				"foo": {
@@ -411,7 +391,12 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().InsertUnit(gomock.Any(), id, u)
+
+	var receivedUnitArgs application.InsertUnitArg
+	s.state.EXPECT().InsertUnit(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args application.InsertUnitArg) error {
+		receivedUnitArgs = args
+		return nil
+	})
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{
 		Options: map[string]charm.Option{
@@ -456,16 +441,16 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 	unitArg := ImportUnitArg{
 		UnitName:     "ubuntu/666",
 		PasswordHash: ptr("passwordhash"),
-		AgentStatus: application.StatusInfo[application.UnitAgentStatusType]{
-			Status:  application.UnitAgentStatusIdle,
+		AgentStatus: corestatus.StatusInfo{
+			Status:  corestatus.Idle,
 			Message: "agent status",
-			Data:    []byte(`{"foo": "bar"}`),
+			Data:    map[string]interface{}{"foo": "bar"},
 			Since:   now,
 		},
-		WorkloadStatus: application.StatusInfo[application.UnitWorkloadStatusType]{
-			Status:  application.UnitWorkloadStatusWaiting,
+		WorkloadStatus: corestatus.StatusInfo{
+			Status:  corestatus.Waiting,
 			Message: "workload status",
-			Data:    []byte(`{"foo": "bar"}`),
+			Data:    map[string]interface{}{"foo": "bar"},
 			Since:   now,
 		},
 		CloudContainer: nil,
@@ -491,6 +476,30 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	expectedUnitArgs := application.InsertUnitArg{
+		UnitName:       "ubuntu/666",
+		CloudContainer: nil,
+		Password: ptr(application.PasswordInfo{
+			PasswordHash:  "passwordhash",
+			HashAlgorithm: 0,
+		}),
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status:  application.UnitAgentStatusIdle,
+				Message: "agent status",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   now,
+			},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: "workload status",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   now,
+			},
+		},
+	}
+	c.Check(receivedUnitArgs, gc.DeepEquals, expectedUnitArgs)
 }
 
 func (s *migrationServiceSuite) TestRemoveImportedApplication(c *gc.C) {

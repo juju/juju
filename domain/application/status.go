@@ -9,7 +9,7 @@ import (
 
 // StatusID represents the status of an entity.
 type StatusID interface {
-	CloudContainerStatusType | UnitAgentStatusType | UnitWorkloadStatusType
+	UnsetStatusType | CloudContainerStatusType | UnitAgentStatusType | UnitWorkloadStatusType
 }
 
 // StatusInfo holds details about the status of an entity.
@@ -19,6 +19,13 @@ type StatusInfo[T StatusID] struct {
 	Data    []byte
 	Since   *time.Time
 }
+
+// UnsetStatusType represents the status of an entity that has not been set.
+type UnsetStatusType int
+
+const (
+	UnsetStatus UnsetStatusType = iota
+)
 
 // CloudContainerStatusType represents the status of a cloud container
 // as recorded in the cloud_container_status_value lookup table.

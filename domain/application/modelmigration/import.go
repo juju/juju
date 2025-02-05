@@ -91,8 +91,8 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	return nil
 }
 
-func makeStatusParam(statusVal description.Status) application.StatusInfo {
-	p := application.StatusInfo{
+func makeStatusParam(statusVal description.Status) corestatus.StatusInfo {
+	p := corestatus.StatusInfo{
 		Status:  corestatus.Status(statusVal.Value()),
 		Message: statusVal.Message(),
 		Data:    statusVal.Data(),
@@ -126,11 +126,12 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			if unit.PasswordHash() != "" {
 				arg.PasswordHash = ptr(unit.PasswordHash())
 			}
+
 			if cc := unit.CloudContainer(); cc != nil {
 				cldContainer := &application.CloudContainerParams{}
 				cldContainer.Address, cldContainer.AddressOrigin = i.makeAddress(cc.Address())
 				if cc.ProviderId() != "" {
-					cldContainer.ProviderId = cc.ProviderId()
+					cldContainer.ProviderID = cc.ProviderId()
 				}
 				if len(cc.Ports()) > 0 {
 					cldContainer.Ports = ptr(cc.Ports())
