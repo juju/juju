@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package providerservicefactory
+package providerservices
 
 import (
 	"github.com/juju/errors"
@@ -48,7 +48,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	w := &domainServicesWorker{
+	w := &servicesWorker{
 		servicesGetter: config.NewProviderServicesGetter(
 			config.NewProviderServices,
 			config.DBGetter,
@@ -62,27 +62,27 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
-// domainServicesWorker is a worker that holds a reference to a domain services.
+// servicesWorker is a worker that holds a reference to a domain services.
 // This doesn't actually create them dynamically, it just hands them out
 // when asked.
-type domainServicesWorker struct {
+type servicesWorker struct {
 	tomb tomb.Tomb
 
 	servicesGetter services.ProviderServicesGetter
 }
 
 // ServicesGetter returns the provider domain services getter.
-func (w *domainServicesWorker) ServicesGetter() services.ProviderServicesGetter {
+func (w *servicesWorker) ServicesGetter() services.ProviderServicesGetter {
 	return w.servicesGetter
 }
 
 // Kill kills the domain services worker.
-func (w *domainServicesWorker) Kill() {
+func (w *servicesWorker) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait waits for the domain services worker to stop.
-func (w *domainServicesWorker) Wait() error {
+func (w *servicesWorker) Wait() error {
 	return w.tomb.Wait()
 }
 

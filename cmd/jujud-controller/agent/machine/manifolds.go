@@ -101,7 +101,7 @@ import (
 	"github.com/juju/juju/internal/worker/objectstoreservices"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	prworker "github.com/juju/juju/internal/worker/presence"
-	"github.com/juju/juju/internal/worker/providerservicefactory"
+	"github.com/juju/juju/internal/worker/providerservices"
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 	psworker "github.com/juju/juju/internal/worker/pubsub"
@@ -716,12 +716,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewModelDomainServices:      workerdomainservices.NewProviderTrackerModelDomainServices,
 		}),
 
-		providerDomainServicesName: providerservicefactory.Manifold(providerservicefactory.ManifoldConfig{
+		providerDomainServicesName: providerservices.Manifold(providerservices.ManifoldConfig{
 			ChangeStreamName:          changeStreamName,
 			Logger:                    internallogger.GetLogger("juju.worker.providerservicefactory"),
-			NewWorker:                 providerservicefactory.NewWorker,
-			NewProviderServicesGetter: providerservicefactory.NewProviderServicesGetter,
-			NewProviderServices:       providerservicefactory.NewProviderServices,
+			NewWorker:                 providerservices.NewWorker,
+			NewProviderServicesGetter: providerservices.NewProviderServicesGetter,
+			NewProviderServices:       providerservices.NewProviderServices,
 		}),
 
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{

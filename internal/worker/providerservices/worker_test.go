@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package providerservicefactory
+package providerservices
 
 import (
 	"github.com/juju/errors"
@@ -64,8 +64,8 @@ func (s *workerSuite) TestWorkerServicesGetter(c *gc.C) {
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	srvFact, ok := w.(*domainServicesWorker)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement domainServicesWorker"))
+	srvFact, ok := w.(*servicesWorker)
+	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement servicesWorker"))
 
 	factory := srvFact.ServicesGetter()
 	c.Assert(factory, gc.NotNil)
