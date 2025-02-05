@@ -355,6 +355,7 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
+	now := ptr(s.clock.Now())
 	u := application.InsertUnitArg{
 		UnitName:       "ubuntu/666",
 		CloudContainer: nil,
@@ -363,21 +364,17 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 			HashAlgorithm: 0,
 		}),
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: 2,
-				StatusInfo: application.StatusInfo{
-					Message: "agent status",
-					Data:    map[string]string{"foo": "bar"},
-					Since:   s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status:  application.UnitAgentStatusIdle,
+				Message: "agent status",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: 3,
-				StatusInfo: application.StatusInfo{
-					Message: "workload status",
-					Data:    map[string]string{"foo": "bar"},
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: "workload status",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   now,
 			},
 		},
 	}
@@ -459,17 +456,17 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 	unitArg := ImportUnitArg{
 		UnitName:     "ubuntu/666",
 		PasswordHash: ptr("passwordhash"),
-		AgentStatus: application.StatusParams{
-			Status:  "idle",
+		AgentStatus: application.StatusInfo[application.UnitAgentStatusType]{
+			Status:  application.UnitAgentStatusIdle,
 			Message: "agent status",
-			Data:    map[string]any{"foo": "bar"},
-			Since:   ptr(s.clock.Now()),
+			Data:    []byte(`{"foo": "bar"}`),
+			Since:   now,
 		},
-		WorkloadStatus: application.StatusParams{
-			Status:  "waiting",
+		WorkloadStatus: application.StatusInfo[application.UnitWorkloadStatusType]{
+			Status:  application.UnitWorkloadStatusWaiting,
 			Message: "workload status",
-			Data:    map[string]any{"foo": "bar"},
-			Since:   ptr(s.clock.Now()),
+			Data:    []byte(`{"foo": "bar"}`),
+			Since:   now,
 		},
 		CloudContainer: nil,
 	}

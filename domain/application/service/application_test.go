@@ -58,21 +58,18 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
+	now := ptr(s.clock.Now())
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "installing agent",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: "waiting for machine",
+				Since:   now,
 			},
 		},
 	}}
@@ -437,21 +434,18 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
+	now := ptr(s.clock.Now())
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "waiting for machine",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: "waiting for machine",
+				Since:   now,
 			},
 		},
 	}}
@@ -548,21 +542,18 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 
 	id := applicationtesting.GenApplicationUUID(c)
 
+	now := ptr(s.clock.Now())
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "waiting for machine",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: "waiting for machine",
+				Since:   now,
 			},
 		},
 	}}
@@ -664,21 +655,18 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
+	now := ptr(s.clock.Now())
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "waiting for machine",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: "waiting for machine",
+				Since:   now,
 			},
 		},
 	}}
@@ -777,21 +765,18 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 
 	id := applicationtesting.GenApplicationUUID(c)
 
+	now := ptr(s.clock.Now())
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "waiting for machine",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: "waiting for machine",
+				Since:   now,
 			},
 		},
 	}}
@@ -976,24 +961,21 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	u := application.AddUnitArg{
+	now := ptr(s.clock.Now())
+	u := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "installing agent",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: "waiting for machine",
+				Since:   now,
 			},
 		},
-	}
+	}}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.state.EXPECT().AddUnits(gomock.Any(), appUUID, u).Return(nil)
@@ -1104,22 +1086,22 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 		ProviderId: ptr("provider-id"),
 		Address:    ptr("10.6.6.6"),
 		Ports:      ptr([]string{"666"}),
-		AgentStatus: ptr(application.StatusParams{
-			Status:  "idle",
+		AgentStatus: ptr(application.StatusInfo[application.UnitAgentStatusType]{
+			Status:  application.UnitAgentStatusAllocating,
 			Message: "agent status",
-			Data:    map[string]any{"foo": "bar"},
+			Data:    []byte(`{"foo": "bar"}`),
 			Since:   ptr(now),
 		}),
-		WorkloadStatus: ptr(application.StatusParams{
-			Status:  "waiting",
+		WorkloadStatus: ptr(application.StatusInfo[application.UnitWorkloadStatusType]{
+			Status:  application.UnitWorkloadStatusWaiting,
 			Message: "workload status",
-			Data:    map[string]any{"foo": "bar"},
+			Data:    []byte(`{"foo": "bar"}`),
 			Since:   ptr(now),
 		}),
-		CloudContainerStatus: ptr(application.StatusParams{
-			Status:  "running",
+		CloudContainerStatus: ptr(application.StatusInfo[application.CloudContainerStatusType]{
+			Status:  application.CloudContainerStatusRunning,
 			Message: "container status",
-			Data:    map[string]any{"foo": "bar"},
+			Data:    []byte(`{"foo": "bar"}`),
 			Since:   ptr(now),
 		}),
 	}

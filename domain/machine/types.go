@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/core/status"
 )
 
-// StatusInfo
+// StatusInfo contains the status information for a machine.
 type StatusInfo struct {
 	Status  status.Status
 	Message string

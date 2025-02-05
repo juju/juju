@@ -77,8 +77,8 @@ type AddUnitArg struct {
 type ImportUnitArg struct {
 	UnitName       coreunit.Name
 	PasswordHash   *string
-	AgentStatus    application.StatusParams
-	WorkloadStatus application.StatusParams
+	AgentStatus    application.StatusInfo[application.UnitAgentStatusType]
+	WorkloadStatus application.StatusInfo[application.UnitWorkloadStatusType]
 	CloudContainer *application.CloudContainerParams
 }
 

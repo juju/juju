@@ -204,21 +204,17 @@ func (s *applicationStateSuite) TesatCreateApplicationWithUnits(c *gc.C) {
 	us := []application.AddUnitArg{{
 		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusExecuting,
-				StatusInfo: application.StatusInfo{
-					Message: "test",
-					Data:    map[string]string{"foo": "bar"},
-					Since:   time.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status:  application.UnitAgentStatusExecuting,
+				Message: "test",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   ptr(time.Now()),
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusActive,
-				StatusInfo: application.StatusInfo{
-					Message: "test",
-					Data:    map[string]string{"foo": "bar"},
-					Since:   time.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusActive,
+				Message: "test",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   ptr(time.Now()),
 			},
 		},
 	}}
@@ -860,37 +856,37 @@ func (s *applicationStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	now := time.Now()
+	now := ptr(time.Now())
 	params := application.UpdateCAASUnitParams{
-		AgentStatus: ptr(application.StatusParams{
-			Status:  "idle",
+		AgentStatus: ptr(application.StatusInfo[application.UnitAgentStatusType]{
+			Status:  application.UnitAgentStatusIdle,
 			Message: "agent status",
-			Data:    map[string]any{"foo": "bar"},
-			Since:   ptr(now),
+			Data:    []byte(`{"foo": "bar"}`),
+			Since:   now,
 		}),
-		WorkloadStatus: ptr(application.StatusParams{
-			Status:  "waiting",
+		WorkloadStatus: ptr(application.StatusInfo[application.UnitWorkloadStatusType]{
+			Status:  application.UnitWorkloadStatusWaiting,
 			Message: "workload status",
-			Data:    map[string]any{"foo": "bar"},
-			Since:   ptr(now),
+			Data:    []byte(`{"foo": "bar"}`),
+			Since:   now,
 		}),
-		CloudContainerStatus: ptr(application.StatusParams{
-			Status:  "running",
+		CloudContainerStatus: ptr(application.StatusInfo[application.CloudContainerStatusType]{
+			Status:  application.CloudContainerStatusRunning,
 			Message: "container status",
-			Data:    map[string]any{"foo": "bar"},
-			Since:   ptr(now),
+			Data:    []byte(`{"foo": "bar"}`),
+			Since:   now,
 		}),
 	}
 	err = s.state.UpdateCAASUnit(context.Background(), "foo/666", params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
-		c, "unit_agent", unitUUID, int(application.UnitAgentStatusIdle), "agent status", now, map[string]string{"foo": "bar"},
+		c, "unit_agent", unitUUID, int(application.UnitAgentStatusIdle), "agent status", now, []byte(`{"foo": "bar"}`),
 	)
 	s.assertUnitStatus(
-		c, "unit_workload", unitUUID, int(application.UnitWorkloadStatusWaiting), "workload status", now, map[string]string{"foo": "bar"},
+		c, "unit_workload", unitUUID, int(application.UnitWorkloadStatusWaiting), "workload status", now, []byte(`{"foo": "bar"}`),
 	)
 	s.assertUnitStatus(
-		c, "cloud_container", unitUUID, int(application.CloudContainerStatusRunning), "container status", now, map[string]string{"foo": "bar"},
+		c, "cloud_container", unitUUID, int(application.CloudContainerStatusRunning), "container status", now, []byte(`{"foo": "bar"}`),
 	)
 }
 
@@ -957,7 +953,7 @@ WHERE u.name=?`,
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(providerId, gc.Equals, "some-id")
+	c.Check(providerId, gc.Equals, "some-id")
 }
 
 func (s *applicationStateSuite) TestInsertCAASUnitAlreadyExists(c *gc.C) {
@@ -1001,8 +997,8 @@ WHERE unit.name=?`,
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(providerId, gc.Equals, "some-id")
-	c.Assert(passwordHash, gc.Equals, "passwordhash")
+	c.Check(providerId, gc.Equals, "some-id")
+	c.Check(passwordHash, gc.Equals, "passwordhash")
 }
 
 func (s *applicationStateSuite) TestSetUnitPassword(c *gc.C) {
@@ -1034,8 +1030,8 @@ WHERE u.name=?`,
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(password, gc.Equals, "secret")
-	c.Assert(algorithmID, gc.Equals, 0)
+	c.Check(password, gc.Equals, "secret")
+	c.Check(algorithmID, gc.Equals, 0)
 }
 
 func (s *applicationStateSuite) TestGetUnitLife(c *gc.C) {
@@ -1046,7 +1042,7 @@ func (s *applicationStateSuite) TestGetUnitLife(c *gc.C) {
 
 	unitLife, err := s.state.GetUnitLife(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitLife, gc.Equals, life.Alive)
+	c.Check(unitLife, gc.Equals, life.Alive)
 }
 
 func (s *applicationStateSuite) TestGetUnitLifeNotFound(c *gc.C) {
@@ -1112,21 +1108,17 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 			}),
 		},
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusExecuting,
-				StatusInfo: application.StatusInfo{
-					Message: "test",
-					Data:    map[string]string{"foo": "bar"},
-					Since:   time.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status:  application.UnitAgentStatusExecuting,
+				Message: "test",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   ptr(time.Now()),
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusActive,
-				StatusInfo: application.StatusInfo{
-					Message: "test",
-					Data:    map[string]string{"foo": "bar"},
-					Since:   time.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusActive,
+				Message: "test",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   ptr(time.Now()),
 			},
 		},
 	}
@@ -1154,13 +1146,11 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.state.setCloudContainerStatus(ctx, tx, unitUUID, application.CloudContainerStatusStatusInfo{
-			StatusID: application.CloudContainerStatusBlocked,
-			StatusInfo: application.StatusInfo{
-				Message: "test",
-				Data:    map[string]string{"foo": "bar"},
-				Since:   time.Now(),
-			},
+		if err := s.state.setCloudContainerStatus(ctx, tx, unitUUID, &application.StatusInfo[application.CloudContainerStatusType]{
+			Status:  application.CloudContainerStatusBlocked,
+			Message: "test",
+			Data:    []byte(`{"foo": "bar"}`),
+			Since:   ptr(time.Now()),
 		}); err != nil {
 			return err
 		}
@@ -1185,17 +1175,14 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(gotIsLast, jc.IsFalse)
 
 	var (
-		unitCount                     int
-		containerCount                int
-		deviceCount                   int
-		addressCount                  int
-		portCount                     int
-		agentStatusCount              int
-		agentStatusDataCount          int
-		workloadStatusCount           int
-		workloadStatusDataCount       int
-		cloudContainerStatusCount     int
-		cloudContainerStatusDataCount int
+		unitCount                 int
+		containerCount            int
+		deviceCount               int
+		addressCount              int
+		portCount                 int
+		agentStatusCount          int
+		workloadStatusCount       int
+		cloudContainerStatusCount int
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", u1.UnitName).Scan(&unitCount); err != nil {
@@ -1216,35 +1203,23 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_agent_status WHERE unit_uuid=?", unitUUID).Scan(&agentStatusCount); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_agent_status_data WHERE unit_uuid=?", unitUUID).Scan(&agentStatusDataCount); err != nil {
-			return err
-		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_workload_status WHERE unit_uuid=?", unitUUID).Scan(&workloadStatusCount); err != nil {
-			return err
-		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_workload_status_data WHERE unit_uuid=?", unitUUID).Scan(&workloadStatusDataCount); err != nil {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_status WHERE unit_uuid=?", unitUUID).Scan(&cloudContainerStatusCount); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_status_data WHERE unit_uuid=?", unitUUID).Scan(&cloudContainerStatusDataCount); err != nil {
-			return err
-		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addressCount, gc.Equals, 0)
-	c.Assert(portCount, gc.Equals, 0)
-	c.Assert(deviceCount, gc.Equals, 0)
-	c.Assert(containerCount, gc.Equals, 0)
-	c.Assert(agentStatusCount, gc.Equals, 0)
-	c.Assert(agentStatusDataCount, gc.Equals, 0)
-	c.Assert(workloadStatusCount, gc.Equals, 0)
-	c.Assert(workloadStatusDataCount, gc.Equals, 0)
-	c.Assert(cloudContainerStatusCount, gc.Equals, 0)
-	c.Assert(cloudContainerStatusDataCount, gc.Equals, 0)
-	c.Assert(unitCount, gc.Equals, 0)
+	c.Check(addressCount, gc.Equals, 0)
+	c.Check(portCount, gc.Equals, 0)
+	c.Check(deviceCount, gc.Equals, 0)
+	c.Check(containerCount, gc.Equals, 0)
+	c.Check(agentStatusCount, gc.Equals, 0)
+	c.Check(workloadStatusCount, gc.Equals, 0)
+	c.Check(cloudContainerStatusCount, gc.Equals, 0)
+	c.Check(unitCount, gc.Equals, 0)
 }
 
 func (s *applicationStateSuite) TestDeleteUnitLastUnitAppAlive(c *gc.C) {
@@ -1329,7 +1304,7 @@ func (s *applicationStateSuite) TestGetApplicationIDByUnitName(c *gc.C) {
 
 	obtainedAppUUID, err := s.state.GetApplicationIDByUnitName(context.Background(), u1.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedAppUUID, gc.Equals, expectedAppUUID)
+	c.Check(obtainedAppUUID, gc.Equals, expectedAppUUID)
 }
 
 func (s *applicationStateSuite) TestGetApplicationIDByUnitNameUnitNotFound(c *gc.C) {
@@ -1343,7 +1318,7 @@ func (s *applicationStateSuite) TestGetCharmModifiedVersion(c *gc.C) {
 
 	charmModifiedVersion, err := s.state.GetCharmModifiedVersion(context.Background(), appUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmModifiedVersion, gc.Equals, 7)
+	c.Check(charmModifiedVersion, gc.Equals, 7)
 }
 
 func (s *applicationStateSuite) TestGetCharmModifiedVersionNull(c *gc.C) {
@@ -1351,7 +1326,7 @@ func (s *applicationStateSuite) TestGetCharmModifiedVersionNull(c *gc.C) {
 
 	charmModifiedVersion, err := s.state.GetCharmModifiedVersion(context.Background(), appUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charmModifiedVersion, gc.Equals, 0)
+	c.Check(charmModifiedVersion, gc.Equals, 0)
 }
 
 func (s *applicationStateSuite) TestGetCharmModifiedVersionApplicationNotFound(c *gc.C) {
@@ -1359,51 +1334,26 @@ func (s *applicationStateSuite) TestGetCharmModifiedVersionApplicationNotFound(c
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) assertUnitStatus(
-
-	c *gc.C, statusType, unitUUID coreunit.UUID, statusID int, message string, since time.Time, data map[string]string,
-
-) {
+func (s *applicationStateSuite) assertUnitStatus(c *gc.C, statusType, unitUUID coreunit.UUID, statusID int, message string, since *time.Time, data []byte) {
 	var (
 		gotStatusID int
 		gotMessage  string
-		gotSince    time.Time
-		gotData     = make(map[string]string)
+		gotSince    *time.Time
+		gotData     []byte
 	)
-	queryInfo := fmt.Sprintf(`
-
-SELECT status_id, message, updated_at FROM %s_status WHERE unit_uuid = ?
-
-	`, statusType)
-	queryData := fmt.Sprintf(`
-
-SELECT key, data FROM %s_status_data WHERE unit_uuid = ?
-
-		`, statusType)
+	queryInfo := fmt.Sprintf(`SELECT status_id, message, data, updated_at FROM %s_status WHERE unit_uuid = ?`, statusType)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := tx.QueryRowContext(ctx, queryInfo, unitUUID).
-			Scan(&gotStatusID, &gotMessage, &gotSince); err != nil {
+			Scan(&gotStatusID, &gotMessage, &gotData, &gotSince); err != nil {
 			return err
 		}
-		rows, err := tx.QueryContext(context.Background(), queryData, unitUUID)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var key, value string
-			if err := rows.Scan(&key, &value); err != nil {
-				return err
-			}
-			gotData[key] = value
-		}
-		return rows.Err()
+		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotStatusID, gc.Equals, statusID)
-	c.Assert(gotMessage, gc.Equals, message)
-	c.Assert(gotSince, jc.DeepEquals, since)
-	c.Assert(gotData, jc.DeepEquals, data)
+	c.Check(gotStatusID, gc.Equals, statusID)
+	c.Check(gotMessage, gc.Equals, message)
+	c.Check(gotSince, jc.DeepEquals, since)
+	c.Check(gotData, jc.DeepEquals, data)
 }
 
 func (s *applicationStateSuite) TestSetCloudContainerStatus(c *gc.C) {
@@ -1412,24 +1362,22 @@ func (s *applicationStateSuite) TestSetCloudContainerStatus(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 
-	status := application.CloudContainerStatusStatusInfo{
-		StatusID: application.CloudContainerStatusRunning,
-		StatusInfo: application.StatusInfo{
-			Message: "it's running",
-			Data:    map[string]string{"foo": "bar"},
-			Since:   time.Now(),
-		},
+	status := application.StatusInfo[application.CloudContainerStatusType]{
+		Status:  application.CloudContainerStatusRunning,
+		Message: "it's running",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
 	}
 
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, status)
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, &status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
-		c, "cloud_container", unitUUID, int(status.StatusID), status.Message, status.Since, status.Data)
+		c, "cloud_container", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
 }
 
 func (s *applicationStateSuite) TestSetUnitAgentStatus(c *gc.C) {
@@ -1438,24 +1386,22 @@ func (s *applicationStateSuite) TestSetUnitAgentStatus(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 
-	status := application.UnitAgentStatusInfo{
-		StatusID: application.UnitAgentStatusExecuting,
-		StatusInfo: application.StatusInfo{
-			Message: "it's executing",
-			Data:    map[string]string{"foo": "bar"},
-			Since:   time.Now(),
-		},
+	status := application.StatusInfo[application.UnitAgentStatusType]{
+		Status:  application.UnitAgentStatusExecuting,
+		Message: "it's executing",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
 	}
 
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setUnitAgentStatus(ctx, tx, unitUUID, status)
+		return s.state.setUnitAgentStatus(ctx, tx, unitUUID, &status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
-		c, "unit_agent", unitUUID, int(status.StatusID), status.Message, status.Since, status.Data)
+		c, "unit_agent", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
 }
 
 func (s *applicationStateSuite) TestSetUnitWorkloadStatus(c *gc.C) {
@@ -1464,24 +1410,22 @@ func (s *applicationStateSuite) TestSetUnitWorkloadStatus(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 
-	status := application.UnitWorkloadStatusInfo{
-		StatusID: application.UnitWorkloadStatusTerminated,
-		StatusInfo: application.StatusInfo{
-			Message: "it's terminated",
-			Data:    map[string]string{"foo": "bar"},
-			Since:   time.Now(),
-		},
+	status := application.StatusInfo[application.UnitWorkloadStatusType]{
+		Status:  application.UnitWorkloadStatusTerminated,
+		Message: "it's terminated",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
 	}
 
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setUnitWorkloadStatus(ctx, tx, unitUUID, status)
+		return s.state.setUnitWorkloadStatus(ctx, tx, unitUUID, &status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
-		c, "unit_workload", unitUUID, int(status.StatusID), status.Message, status.Since, status.Data)
+		c, "unit_workload", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
 }
 
 func (s *applicationStateSuite) TestGetApplicationScaleState(c *gc.C) {
@@ -1701,24 +1645,21 @@ func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
 func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
+	now := ptr(time.Now())
 	u := application.AddUnitArg{
 		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusExecuting,
-				StatusInfo: application.StatusInfo{
-					Message: "test",
-					Data:    map[string]string{"foo": "bar"},
-					Since:   time.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status:  application.UnitAgentStatusExecuting,
+				Message: "test",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusActive,
-				StatusInfo: application.StatusInfo{
-					Message: "test",
-					Data:    map[string]string{"foo": "bar"},
-					Since:   time.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusActive,
+				Message: "test",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   now,
 			},
 		},
 	}
@@ -1741,11 +1682,11 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 	c.Check(unitName, gc.Equals, "foo/666")
 	s.assertUnitStatus(
 		c, "unit_agent", coreunit.UUID(unitUUID),
-		int(u.UnitStatusArg.AgentStatus.StatusID), u.UnitStatusArg.AgentStatus.Message,
+		int(u.UnitStatusArg.AgentStatus.Status), u.UnitStatusArg.AgentStatus.Message,
 		u.UnitStatusArg.AgentStatus.Since, u.UnitStatusArg.AgentStatus.Data)
 	s.assertUnitStatus(
 		c, "unit_workload", coreunit.UUID(unitUUID),
-		int(u.UnitStatusArg.WorkloadStatus.StatusID), u.UnitStatusArg.WorkloadStatus.Message,
+		int(u.UnitStatusArg.WorkloadStatus.Status), u.UnitStatusArg.WorkloadStatus.Message,
 		u.UnitStatusArg.WorkloadStatus.Since, u.UnitStatusArg.WorkloadStatus.Data)
 }
 

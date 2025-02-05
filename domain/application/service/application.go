@@ -292,13 +292,9 @@ func (s *Service) CreateApplication(
 	numUnits := len(units)
 	appArg.Scale = numUnits
 
-	unitArgs := make([]application.AddUnitArg, numUnits)
-	for i, u := range units {
-		arg := application.AddUnitArg{
-			UnitName: u.UnitName,
-		}
-		s.addNewUnitStatusToArg(&arg.UnitStatusArg, modelType)
-		unitArgs[i] = arg
+	unitArgs, err := s.makeUnitArgs(ctx, units)
+	if err != nil {
+		return "", errors.Annotatef(err, "making unit args")
 	}
 
 	appID, err := s.st.CreateApplication(ctx, name, appArg, unitArgs)
@@ -471,46 +467,17 @@ func makeCreateApplicationArgs(
 	}, nil
 }
 
-func (s *Service) addNewUnitStatusToArg(arg *application.UnitStatusArg, modelType coremodel.ModelType) {
-	now := s.clock.Now()
-	arg.AgentStatus = application.UnitAgentStatusInfo{
-		StatusID: application.UnitAgentStatusAllocating,
-		StatusInfo: application.StatusInfo{
-			Since: now,
-		},
-	}
-	arg.WorkloadStatus = application.UnitWorkloadStatusInfo{
-		StatusID: application.UnitWorkloadStatusWaiting,
-		StatusInfo: application.StatusInfo{
-			Message: corestatus.MessageInstallingAgent,
-			Since:   now,
-		},
-	}
-	if modelType == coremodel.IAAS {
-		arg.WorkloadStatus.Message = corestatus.MessageWaitForMachine
-	}
-}
-
 // AddUnits adds the specified units to the application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 func (s *Service) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return errors.Annotatef(err, "getting model type")
-	}
-
-	args := make([]application.AddUnitArg, len(units))
-	for i, u := range units {
-		arg := application.AddUnitArg{
-			UnitName: u.UnitName,
-		}
-		s.addNewUnitStatusToArg(&arg.UnitStatusArg, modelType)
-		args[i] = arg
-	}
-
 	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return internalerrors.Errorf("getting application %q id: %w", appName, err)
+	}
+
+	args, err := s.makeUnitArgs(ctx, units)
+	if err != nil {
+		return internalerrors.Errorf("making unit args: %w", err)
 	}
 
 	err = s.st.AddUnits(ctx, appUUID, args...)
@@ -518,6 +485,40 @@ func (s *Service) AddUnits(ctx context.Context, appName string, units ...AddUnit
 		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
 	}
 	return nil
+}
+
+func (s *Service) makeUnitArgs(ctx context.Context, units []AddUnitArg) ([]application.AddUnitArg, error) {
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting model type")
+	}
+
+	now := ptr(s.clock.Now())
+	workloadMessage := corestatus.MessageInstallingAgent
+	if modelType == coremodel.IAAS {
+		workloadMessage = corestatus.MessageWaitForMachine
+	}
+
+	args := make([]application.AddUnitArg, len(units))
+	for i, u := range units {
+		arg := application.AddUnitArg{
+			UnitName: u.UnitName,
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+					Status: application.UnitAgentStatusAllocating,
+					Since:  now,
+				},
+				WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+					Status:  application.UnitWorkloadStatusWaiting,
+					Message: workloadMessage,
+					Since:   now,
+				},
+			},
+		}
+		args[i] = arg
+	}
+
+	return args, nil
 }
 
 // GetApplicationIDByUnitName returns the application ID for the named unit,

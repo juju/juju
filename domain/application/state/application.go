@@ -13,7 +13,6 @@ import (
 	"slices"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -671,18 +670,14 @@ func (st *State) insertCAASUnit(
 
 func (s *State) addNewUnitStatusToArg(arg *application.UnitStatusArg, modelType coremodel.ModelType) {
 	now := s.clock.Now()
-	arg.AgentStatus = application.UnitAgentStatusInfo{
-		StatusID: application.UnitAgentStatusAllocating,
-		StatusInfo: application.StatusInfo{
-			Since: now,
-		},
+	arg.AgentStatus = &application.StatusInfo[application.UnitAgentStatusType]{
+		Status: application.UnitAgentStatusAllocating,
+		Since:  ptr(now),
 	}
-	arg.WorkloadStatus = application.UnitWorkloadStatusInfo{
-		StatusID: application.UnitWorkloadStatusWaiting,
-		StatusInfo: application.StatusInfo{
-			Message: corestatus.MessageInstallingAgent,
-			Since:   now,
-		},
+	arg.WorkloadStatus = &application.StatusInfo[application.UnitWorkloadStatusType]{
+		Status:  application.UnitWorkloadStatusWaiting,
+		Message: corestatus.MessageInstallingAgent,
+		Since:   ptr(now),
 	}
 	if modelType == coremodel.IAAS {
 		arg.WorkloadStatus.Message = corestatus.MessageWaitForMachine
@@ -801,14 +796,6 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 		cloudContainer = makeCloudContainerArg(unitName, cloudContainerParams)
 	}
 
-	now := time.Now()
-	since := func(in *time.Time) time.Time {
-		if in != nil {
-			return *in
-		}
-		return now
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		toUpdate, err := st.getUnit(ctx, tx, unitName)
 		if err != nil {
@@ -821,45 +808,18 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 				return errors.Errorf("updating cloud container for unit %q: %w", unitName, err)
 			}
 		}
-		if params.AgentStatus != nil {
-			if err := st.setUnitAgentStatus(ctx, tx, toUpdate.UnitUUID, application.UnitAgentStatusInfo{
-				StatusID: application.MarshallUnitAgentStatus(params.AgentStatus.Status),
-				StatusInfo: application.StatusInfo{
-					Message: params.AgentStatus.Message,
-					Data: transform.Map(
-						params.AgentStatus.Data, func(k string, v any) (string, string) { return k, fmt.Sprint(v) }),
-					Since: since(params.AgentStatus.Since),
-				},
-			}); err != nil {
-				return errors.Errorf("saving unit %q agent status: %w", unitName, err)
-			}
+
+		if err := st.setUnitAgentStatus(ctx, tx, toUpdate.UnitUUID, params.AgentStatus); err != nil {
+			return errors.Errorf("saving unit %q agent status: %w", unitName, err)
 		}
-		if params.WorkloadStatus != nil {
-			if err := st.setUnitWorkloadStatus(ctx, tx, toUpdate.UnitUUID, application.UnitWorkloadStatusInfo{
-				StatusID: application.MarshallUnitWorkloadStatus(params.WorkloadStatus.Status),
-				StatusInfo: application.StatusInfo{
-					Message: params.WorkloadStatus.Message,
-					Data: transform.Map(
-						params.WorkloadStatus.Data, func(k string, v any) (string, string) { return k, fmt.Sprint(v) }),
-					Since: since(params.WorkloadStatus.Since),
-				},
-			}); err != nil {
-				return errors.Errorf("saving unit %q workload status: %w", unitName, err)
-			}
+
+		if err := st.setUnitWorkloadStatus(ctx, tx, toUpdate.UnitUUID, params.WorkloadStatus); err != nil {
+			return errors.Errorf("saving unit %q workload status: %w", unitName, err)
 		}
-		if params.CloudContainerStatus != nil {
-			if err := st.setCloudContainerStatus(ctx, tx, toUpdate.UnitUUID, application.CloudContainerStatusStatusInfo{
-				StatusID: application.MarshallCloudContainerStatus(params.CloudContainerStatus.Status),
-				StatusInfo: application.StatusInfo{
-					Message: params.CloudContainerStatus.Message,
-					Data: transform.Map(
-						params.CloudContainerStatus.Data, func(k string, v any) (string, string) { return k, fmt.Sprint(v) }),
-					Since: since(params.CloudContainerStatus.Since),
-				},
-			}); err != nil {
-				return errors.Errorf("saving unit %q cloud container status: %w", unitName, err)
-			}
+		if err := st.setCloudContainerStatus(ctx, tx, toUpdate.UnitUUID, params.CloudContainerStatus); err != nil {
+			return errors.Errorf("saving unit %q cloud container status: %w", unitName, err)
 		}
+
 		return nil
 	})
 	if err != nil {
@@ -1309,11 +1269,8 @@ func (st *State) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, 
 		"unit_state",
 		"unit_state_charm",
 		"unit_state_relation",
-		"unit_agent_status_data",
 		"unit_agent_status",
-		"unit_workload_status_data",
 		"unit_workload_status",
-		"cloud_container_status_data",
 		"cloud_container_status",
 	} {
 		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $minimalUnit.uuid`, table)
@@ -1724,60 +1681,24 @@ INSERT INTO cloud_service (*) VALUES ($cloudService.*)
 	return nil
 }
 
-type statusKeys []string
-
-// saveStatusData saves the status key value data for the specified unit in the
-// specified table. It's called from each different SaveStatus method which
-// previously has confirmed the unit UUID exists.
-func (st *State) saveStatusData(ctx context.Context, tx *sqlair.TX, table string, unitUUID coreunit.UUID, data map[string]string) error {
-	unit := minimalUnit{UUID: unitUUID}
-	var keys statusKeys
-	for k := range data {
-		keys = append(keys, k)
-	}
-
-	deleteStmt, err := st.Prepare(fmt.Sprintf(`
-DELETE FROM %s
-WHERE key NOT IN ($statusKeys[:])
-AND unit_uuid = $minimalUnit.uuid;
-`, table), keys, unit)
-	if err != nil {
-		return jujuerrors.Trace(err)
-	}
-
-	statusData := unitStatusData{UnitUUID: unitUUID}
-	upsertStmt, err := sqlair.Prepare(fmt.Sprintf(`
-INSERT INTO %s (*)
-VALUES ($unitStatusData.*)
-ON CONFLICT(unit_uuid, key) DO UPDATE SET
-    data = excluded.data;
-`, table), statusData)
-	if err != nil {
-		return jujuerrors.Trace(err)
-	}
-
-	if err := tx.Query(ctx, deleteStmt, keys, minimalUnit{}).Run(); err != nil {
-		return fmt.Errorf("removing %q status data for %q: %w", table, unitUUID, err)
-	}
-
-	for k, v := range data {
-		statusData.Key = k
-		statusData.Data = v
-		if err := tx.Query(ctx, upsertStmt, statusData).Run(); err != nil {
-			return fmt.Errorf("updating %q status data for %q: %w", table, unitUUID, err)
-		}
-	}
-	return nil
-}
-
 // SetCloudContainerStatusAtomic saves the given cloud container status, overwriting
 // any current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) setCloudContainerStatus(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, status application.CloudContainerStatusStatusInfo) error {
+func (st *State) setCloudContainerStatus(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, status *application.StatusInfo[application.CloudContainerStatusType]) error {
+	if status == nil {
+		return nil
+	}
+
+	statusID, err := encodeCloudContainerStatus(status.Status)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
-		StatusID:  int(status.StatusID),
+		StatusID:  statusID,
 		Message:   status.Message,
+		Data:      status.Data,
 		UpdatedAt: status.Since,
 	}
 	stmt, err := st.Prepare(`
@@ -1785,22 +1706,17 @@ INSERT INTO cloud_container_status (*) VALUES ($unitStatusInfo.*)
 ON CONFLICT(unit_uuid) DO UPDATE SET
     status_id = excluded.status_id,
     message = excluded.message,
-    updated_at = excluded.updated_at;
+    updated_at = excluded.updated_at,
+	data = excluded.data;
 `, statusInfo)
 	if err != nil {
 		return jujuerrors.Trace(err)
 	}
 
-	err = tx.Query(ctx, stmt, statusInfo).Run()
-	// This is purely defensive and is not expected in practice - the
-	// unitUUID is expected to be validated earlier in the atomic txn
-	// workflow.
-	if internaldatabase.IsErrConstraintForeignKey(err) {
+	if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 		return errors.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
-	}
-	err = st.saveStatusData(ctx, tx, "cloud_container_status_data", unitUUID, status.Data)
-	if err != nil {
-		return errors.Errorf("saving cloud container status for unit %q: %w", unitUUID, err)
+	} else if err != nil {
+		return jujuerrors.Trace(err)
 	}
 	return nil
 }
@@ -1808,11 +1724,21 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // setUnitAgentStatus saves the given unit agent status, overwriting any current
 // status data. If returns an error satisfying [applicationerrors.UnitNotFound]
 // if the unit doesn't exist.
-func (st *State) setUnitAgentStatus(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, status application.UnitAgentStatusInfo) error {
+func (st *State) setUnitAgentStatus(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, status *application.StatusInfo[application.UnitAgentStatusType]) error {
+	if status == nil {
+		return nil
+	}
+
+	statusID, err := encodeAgentStatus(status.Status)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
-		StatusID:  int(status.StatusID),
+		StatusID:  statusID,
 		Message:   status.Message,
+		Data:      status.Data,
 		UpdatedAt: status.Since,
 	}
 	stmt, err := st.Prepare(`
@@ -1820,21 +1746,17 @@ INSERT INTO unit_agent_status (*) VALUES ($unitStatusInfo.*)
 ON CONFLICT(unit_uuid) DO UPDATE SET
     status_id = excluded.status_id,
     message = excluded.message,
-    updated_at = excluded.updated_at;
+    updated_at = excluded.updated_at,
+	data = excluded.data;
 `, statusInfo)
 	if err != nil {
 		return jujuerrors.Trace(err)
 	}
 
-	err = tx.Query(ctx, stmt, statusInfo).Run()
-	// This is purely defensive and is not expected in practice - the unitUUID
-	// is expected to be validated earlier in the atomic txn workflow.
-	if internaldatabase.IsErrConstraintForeignKey(err) {
-		return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
-	}
-	err = st.saveStatusData(ctx, tx, "unit_agent_status_data", unitUUID, status.Data)
-	if err != nil {
-		return errors.Errorf("saving unit agent status for unit %q: %w", unitUUID, err)
+	if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+		return errors.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
+	} else if err != nil {
+		return jujuerrors.Trace(err)
 	}
 	return nil
 }
@@ -1842,11 +1764,21 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // setUnitWorkloadStatus saves the given unit workload status, overwriting any
 // current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) setUnitWorkloadStatus(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, status application.UnitWorkloadStatusInfo) error {
+func (st *State) setUnitWorkloadStatus(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, status *application.StatusInfo[application.UnitWorkloadStatusType]) error {
+	if status == nil {
+		return nil
+	}
+
+	statusID, err := encodeWorkloadStatus(status.Status)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
-		StatusID:  int(status.StatusID),
+		StatusID:  statusID,
 		Message:   status.Message,
+		Data:      status.Data,
 		UpdatedAt: status.Since,
 	}
 	stmt, err := st.Prepare(`
@@ -1854,22 +1786,17 @@ INSERT INTO unit_workload_status (*) VALUES ($unitStatusInfo.*)
 ON CONFLICT(unit_uuid) DO UPDATE SET
     status_id = excluded.status_id,
     message = excluded.message,
-    updated_at = excluded.updated_at;
+    updated_at = excluded.updated_at,
+	data = excluded.data;
 `, statusInfo)
 	if err != nil {
 		return jujuerrors.Trace(err)
 	}
 
-	err = tx.Query(ctx, stmt, statusInfo).Run()
-	// This is purely defensive and is not expected in practice - the
-	// unitUUID is expected to be validated earlier in the atomic txn
-	// workflow.
-	if internaldatabase.IsErrConstraintForeignKey(err) {
-		return fmt.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
-	}
-	err = st.saveStatusData(ctx, tx, "unit_workload_status_data", unitUUID, status.Data)
-	if err != nil {
-		return errors.Errorf("saving unit workload status for unit %q: %w", unitUUID, err)
+	if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+		return errors.Errorf("%w: %q", applicationerrors.UnitNotFound, unitUUID)
+	} else if err != nil {
+		return jujuerrors.Trace(err)
 	}
 	return nil
 }

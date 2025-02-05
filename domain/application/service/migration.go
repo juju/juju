@@ -192,14 +192,8 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		arg := application.InsertUnitArg{
 			UnitName: u.UnitName,
 			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus: application.UnitAgentStatusInfo{
-					StatusID:   application.MarshallUnitAgentStatus(u.AgentStatus.Status),
-					StatusInfo: s.makeUnitStatus(u.AgentStatus),
-				},
-				WorkloadStatus: application.UnitWorkloadStatusInfo{
-					StatusID:   application.MarshallUnitWorkloadStatus(u.WorkloadStatus.Status),
-					StatusInfo: s.makeUnitStatus(u.WorkloadStatus),
-				},
+				AgentStatus:    &u.AgentStatus,
+				WorkloadStatus: &u.WorkloadStatus,
 			},
 		}
 		if u.CloudContainer != nil {
@@ -265,24 +259,4 @@ func (s *MigrationService) RemoveImportedApplication(context.Context, string) er
 	// TODO (stickupkid): This is a placeholder for now, we need to implement
 	// this method.
 	return nil
-}
-
-func (s *MigrationService) makeUnitStatus(in application.StatusParams) application.StatusInfo {
-	si := application.StatusInfo{
-		Message: in.Message,
-		Since:   s.clock.Now(),
-	}
-	if in.Since != nil {
-		si.Since = *in.Since
-	}
-	if len(in.Data) > 0 {
-		si.Data = make(map[string]string)
-		for k, v := range in.Data {
-			if v == nil {
-				continue
-			}
-			si.Data[k] = fmt.Sprintf("%v", v)
-		}
-	}
-	return si
 }

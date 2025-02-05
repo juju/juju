@@ -4,12 +4,9 @@
 package application
 
 import (
-	"time"
-
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -202,23 +199,8 @@ type RegisterCAASUnitArg struct {
 
 // UnitStatusArg contains parameters for updating a unit status in state.
 type UnitStatusArg struct {
-	AgentStatus    UnitAgentStatusInfo
-	WorkloadStatus UnitWorkloadStatusInfo
-}
-
-// StatusInfo holds details about the status of an entity.
-type StatusInfo struct {
-	Message string
-	Data    map[string]string
-	Since   time.Time
-}
-
-// StatusParams contains parameters for setting unit status.
-type StatusParams struct {
-	Status  corestatus.Status
-	Message string
-	Data    map[string]any
-	Since   *time.Time
+	AgentStatus    *StatusInfo[UnitAgentStatusType]
+	WorkloadStatus *StatusInfo[UnitWorkloadStatusType]
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.
@@ -226,9 +208,9 @@ type UpdateCAASUnitParams struct {
 	ProviderId           *string
 	Address              *string
 	Ports                *[]string
-	AgentStatus          *StatusParams
-	WorkloadStatus       *StatusParams
-	CloudContainerStatus *StatusParams
+	AgentStatus          *StatusInfo[UnitAgentStatusType]
+	WorkloadStatus       *StatusInfo[UnitWorkloadStatusType]
+	CloudContainerStatus *StatusInfo[CloudContainerStatusType]
 }
 
 // CloudContainerParams contains parameters for a unit cloud container.
@@ -237,27 +219,6 @@ type CloudContainerParams struct {
 	Address       *network.SpaceAddress
 	AddressOrigin *network.Origin
 	Ports         *[]string
-}
-
-// CloudContainerStatusStatusInfo holds a cloud container status
-// and associated information.
-type CloudContainerStatusStatusInfo struct {
-	StatusID CloudContainerStatusType
-	StatusInfo
-}
-
-// UnitAgentStatusInfo holds a unit agent status
-// and associated information.
-type UnitAgentStatusInfo struct {
-	StatusID UnitAgentStatusType
-	StatusInfo
-}
-
-// UnitWorkloadStatusInfo holds a unit workload status
-// and associated information.
-type UnitWorkloadStatusInfo struct {
-	StatusID UnitWorkloadStatusType
-	StatusInfo
 }
 
 // CharmDownloadInfo contains parameters for downloading a charm.

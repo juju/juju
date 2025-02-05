@@ -91,8 +91,8 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	return nil
 }
 
-func makeStatusParam(statusVal description.Status) application.StatusParams {
-	p := application.StatusParams{
+func makeStatusParam(statusVal description.Status) application.StatusInfo {
+	p := application.StatusInfo{
 		Status:  corestatus.Status(statusVal.Value()),
 		Message: statusVal.Message(),
 		Data:    statusVal.Data(),
