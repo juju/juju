@@ -73,6 +73,7 @@ func (s *environSuite) TestSubnetsSuccessNew(c *gc.C) {
 					ID: to.Ptr("provider-sub-id"),
 					Properties: &armnetwork.SubnetPropertiesFormat{
 						AddressPrefixes: []*string{
+							to.Ptr("fd00:27e8:ed0b::/64"),
 							to.Ptr("10.0.0.0/24"),
 						},
 					},

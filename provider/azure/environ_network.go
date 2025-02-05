@@ -94,11 +94,19 @@ func (env *azureEnviron) allSubnets(ctx context.ProviderCallContext) ([]network.
 			continue
 		}
 		addressPrefix := sub.Properties.AddressPrefix
-		if addressPrefix == nil && len(sub.Properties.AddressPrefixes) > 0 {
-			if len(sub.Properties.AddressPrefixes) > 1 {
-				logger.Warningf("subnet %q has multiple address prefixes, using the first", id)
+		if addressPrefix == nil || *addressPrefix == "" {
+			for _, prefix := range sub.Properties.AddressPrefixes {
+				if prefix == nil {
+					continue
+				}
+				addrType, err := network.CIDRAddressType(*prefix)
+				// We only care about IPv4 addresses.
+				if err == nil && addrType == network.IPv4Address {
+					addressPrefix = prefix
+					break
+				}
+
 			}
-			addressPrefix = sub.Properties.AddressPrefixes[0]
 		}
 		// An empty CIDR is no use to us, so guard against it.
 		cidr := toValue(addressPrefix)
