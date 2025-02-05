@@ -261,6 +261,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		secretbackendbootstrap.CreateDefaultBackends(model.ModelType(modelType)),
 		controllerModelCreateFunc,
 		modelbootstrap.CreateReadOnlyModel(controllerModelUUID, controllerUUID),
+		modelbootstrap.SetModelConstraints(stateParams.ModelConstraints),
 		modelconfigbootstrap.SetModelConfig(controllerModelUUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),
 	}
 	if !isCAAS {
