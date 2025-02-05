@@ -1,5 +1,5 @@
-(style-guide)=
-# Style Guide
+(styleguide)=
+# Styleguide
 
 This document is a guide to aid juju-core reviewers.
 
@@ -15,31 +15,31 @@ This document is a guide to aid juju-core reviewers.
 
 ## Pull Requests
 
-A Pull Request (PR) needs a justification. This could be: 
+A Pull Request (PR) needs a justification. This could be:
 
 - An issue, ie “Fixes LP 12349000”
 - A description justifying the change
 - A link to a design document or mailing list discussion
 
-PRs should be kept as small as possible, addressing one discrete issue outlined 
-in the PR justification. The smaller the diff, the better. 
+PRs should be kept as small as possible, addressing one discrete issue outlined
+in the PR justification. The smaller the diff, the better.
 
-If your PR addresses several distinct issues, please split the proposal into one 
-PR per issue. 
+If your PR addresses several distinct issues, please split the proposal into one
+PR per issue.
 
-Once your PR is up and reviewed, don't comment on the review saying "i've done this", 
+Once your PR is up and reviewed, don't comment on the review saying "i've done this",
 unless you've pushed the code.
 
 ## Comments
 
-Comments should be full sentences with one space after a period, proper 
+Comments should be full sentences with one space after a period, proper
 capitalization and punctuation.
 
-Avoid adding non-useful information, such as flagging the layout of a file with 
-block comments or explaining behaviour that is immediately evident from reading 
+Avoid adding non-useful information, such as flagging the layout of a file with
+block comments or explaining behaviour that is immediately evident from reading
 the code.
 
-All exported symbols (names, functions, methods, types, constants and variables) 
+All exported symbols (names, functions, methods, types, constants and variables)
 must have a comment.
 
 Anything that is unintuitive at first sight must have a comment, such as:
@@ -48,7 +48,7 @@ Anything that is unintuitive at first sight must have a comment, such as:
 - the breaking of a convention (e.g. not handling an error)
 - a particular behaviour the reader would have to think 'more deeply' about to understand
 
-Top-level name comments start with the name of the thing. For example, a top-level, 
+Top-level name comments start with the name of the thing. For example, a top-level,
 exported function:
 
 ```go
@@ -59,11 +59,11 @@ func AwesomeFunc(i int) (string, error) {
 }
 ```
 
-A TODO comment needs to be linked to a bug in Launchpad. Include the lp bug number in 
+A TODO comment needs to be linked to a bug in Launchpad. Include the lp bug number in
 the TODO with the following format:
 
 ```go
-// TODO(username) yyyy-mm-dd bug #1234567 
+// TODO(username) yyyy-mm-dd bug #1234567
 ```
 
 e.g.
@@ -72,7 +72,7 @@ e.g.
 // TODO(axw) 2013-09-24 bug #1229507
 ```
 
-Each file must have a copyright notice. The copyright notice must include the year 
+Each file must have a copyright notice. The copyright notice must include the year
 the file was created and the year the file was last updated, if applicable.
 
 ```go
@@ -82,19 +82,19 @@ the file was created and the year the file was last updated, if applicable.
 package main
 ```
 
-Note that the blank line following the notice separates the comment from the package, 
+Note that the blank line following the notice separates the comment from the package,
 ensuring it does not appear in godoc.
 
 ## Functions
 
-What the function does should be evident by its signature. 
+What the function does should be evident by its signature.
 
-How a function does what it does should also be clear. If a function is large 
-and verbose, breaking apart it's business logic into helper functions can make 
-it easier to read. Conversely, if the function's logic is too opaque, 
+How a function does what it does should also be clear. If a function is large
+and verbose, breaking apart it's business logic into helper functions can make
+it easier to read. Conversely, if the function's logic is too opaque,
 in-lining a helper function or variable may help.
 
-If a function has named return values in it's signature, it should use a 
+If a function has named return values in it's signature, it should use a
 bare return:
 
 ```go
@@ -106,7 +106,7 @@ func AwesomeFunc(i int) (s string, err error) {
 
 ## Errors
 
-The text of error messages should be lower case without a trailing period, 
+The text of error messages should be lower case without a trailing period,
 because they are often included in other strings or output:
 
 ```go
@@ -117,8 +117,8 @@ return fmt.Errorf("Cannot read  config %q.", configFilePath)
 return fmt.Errorf("cannot read agent config %q", configFilePath)
 ```
 
-If a function call only returns an error, assign and handle the error 
-within one if statement (unless doing so makes the code harder to read, 
+If a function call only returns an error, assign and handle the error
+within one if statement (unless doing so makes the code harder to read,
 for example if the line of the function call is already quite long):
 
 ```go
@@ -159,13 +159,13 @@ See [github.com/juju/errors/annotation.go](github.com/juju/errors/annotation.go)
 
 - Please read ../doc/how-to-write-tests.txt
 - Each test should test a discrete behaviour and is idempotent
-- The behaviour being tested is clear from the function name, as well as the 
+- The behaviour being tested is clear from the function name, as well as the
   expected result (i.e. success or failure)
-- Repeated boilerplate in test functions is extracted into it's own 
+- Repeated boilerplate in test functions is extracted into it's own
   helper function or `SetUpTest`
 - External functionality, that is not being directly tested, should be mocked out
 
-Variables in other modules are not patched directly. Instead, create a local 
+Variables in other modules are not patched directly. Instead, create a local
 variable and patch that:
 
 ```go
@@ -187,7 +187,7 @@ func (s *SomeSuite) TestSomethingc(c *gc.C) {
 }
 ```
 
-If your test functions are under `package_test` and they need to test something 
+If your test functions are under `package_test` and they need to test something
 from package that is not exported, create an exported alias to it in `export_test.go`:
 
 ```go

@@ -1,5 +1,5 @@
 (architectural-overview)=
-# Juju Architectural Overview
+# Juju architectural overview
 
 
 ## Audience
@@ -10,7 +10,7 @@ light on detail, because the precise mechanisms of various components' operation
 expected to change much faster than the general interactions between components.
 
 
-## The View From Space
+## The view From space
 
 A Juju model is a distributed system comprising:
 
@@ -31,7 +31,7 @@ forget that *everything* described in this document is merely supporting infrast
 geared towards the successful deployment and configuration of the workloads that solve
 actual problems for actual users).
 
-## Juju Components
+## Juju components
 
 Here's the various high level parts of Juju system and how they interact:
 
@@ -110,7 +110,7 @@ There are a number of *clients* which interact with Juju using the Juju
 API. These include the `juju` command line tool.
 
 
-## The Mongo Data Store (aka "state")
+## The Mongo data store (aka "state")
 
 There's a lot of *detail* to cover, but there's not much to say from an architectural
 standpoint. We use a mongodb replicaset to support HA; we use the `mgo` package from

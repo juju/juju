@@ -5,8 +5,7 @@
 This document describes the circumstances in which fundamental state entities
 are created, from the perspective of the CLI.
 
-juju deploy
------------
+## `juju deploy`
 
 The `juju deploy` command always creates services, may create relations, and
 may also create units and machines.
@@ -23,8 +22,7 @@ may also create units and machines.
   * If units were created, machines may also be created, as below.
 
 
-juju add-unit
--------------
+## `juju add-unit`
 
 The `juju add-unit` command applies only to principal services. It always
 creates units, and may create machines. Different providers assign units to
@@ -35,8 +33,7 @@ existing machine without assigned units.
   * New units can only be added to Alive services.
 
 
-juju integrate
------------------
+## `juju integrate`
 
 The `juju integrate` command creates relations, and may -- if the relation
 has container scope, by virtue of one or more endpoints having container scope

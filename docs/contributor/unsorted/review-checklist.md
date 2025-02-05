@@ -1,12 +1,12 @@
-(reviewing-checklist)=
-# Reviewing Checklist
+(review-checklist)=
+# Review checklist
 
 A list of common (not exhaustive) mistakes to check for when reviewing. For further details please consult the [Style Guide](/docs/contributions/style-guide.md).
 
 
 ## General
 
-- A PR needs a justification. This could be: 
+- A PR needs a justification. This could be:
     + An issue, ie “Fixes LP 12349000”.
     + A description justifying the change.
     + A link to a design document or mailing list discussion.

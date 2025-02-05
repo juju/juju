@@ -1,5 +1,5 @@
-(providers)=
-# Implementing providers
+(implementing-environment-providers)=
+# Implementing envionment providers
 
 This document describes how to implement an environment provider for Juju. For the remainder of this document we will
 use the term "provider" to mean "environment provider", but be aware that there are additional types of providers (e.g.

@@ -1,6 +1,5 @@
-(how-to-write-tests)=
-How to write tests
-==================
+(write-tests)=
+# Write tests
 
 On the whole, new or updated code will not pass review unless there are tests
 associated with the code.  For code additions, the tests should cover as much
@@ -10,8 +9,7 @@ code should be identified when requesting a review to show that there is already
 test coverage, and that the refactoring didn't break anything.
 
 
-go test and gocheck
--------------------
+## go test and gocheck
 
 The `go test` command is used to run the tests.  Juju uses the `gocheck` package
 ("gopkg.in/check.v1") to provide a checkers and assert methods for the test
@@ -31,8 +29,7 @@ import (
 ```
 
 
-setting up tests for new packages
----------------------------------
+## Setting up tests for new packages
 
 Lets say we are creating a new provider for "magic" cloud, and we have a package
 called "magic" that lives at "github.com/juju/juju/provider/magic".  The
@@ -87,8 +84,7 @@ A general rule is not to setup mongo for a package unless you really
 need to as it is extra overhead.
 
 
-writing the test files
-----------------------
+## Writing the test files
 
 Normally there will be a test file for each file with code in the package.
 For a file called `config.go` there should be a test file called `config_test.go`.
@@ -134,8 +130,7 @@ func ConfigNamespace(cfg *config.Config) string {
 }
 ```
 
-Suites and Juju base suites
----------------------------
+## Suites and Juju base suites
 
 With gocheck tests are grouped into Suites. Each suite has distinct
 set-up and tear-down logic.  Suites are often composed of other suites
@@ -210,8 +205,7 @@ network access in it, it is a good idea to use the BaseSuite as a base:
    the logging output
 
 
-Patching variables and the environment
---------------------------------------
+## Patching variables and the environment
 
 Inside a test, and assuming that the Suite has a CleanupSuite somewhere
 in the composition tree, there are a few very helpful functions.
@@ -233,8 +227,7 @@ func (s *someTest) TestFubar(c *gc.C) {
 PatchValue works with any matching type. This includes function variables.
 
 
-Checkers
---------
+## Checkers
 
 Checkers are a core concept of `gocheck` and will feel familiar to anyone
 who has used the python testtools.  Assertions are made on the gocheck.C
@@ -304,8 +297,7 @@ The matchers there include (not an exclusive list):
 
 
 
-Good tests
-----------
+## Good tests
 
 Good tests should be:
   * small and obviously correct

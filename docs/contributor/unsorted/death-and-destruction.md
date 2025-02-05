@@ -52,8 +52,8 @@ transactions and either diagnose definite failure or retry until the operation
 succeeds (or, perhaps, finally error out pleading excessive contention).
 
 
-juju remove-machine
--------------------
+## `juju remove-machine`
+
 
 Removing a machine involves a single transaction defined as follows:
 
@@ -78,8 +78,7 @@ Removing a machine involves a single transaction defined as follows:
   * Delete the machine document.
 
 
-juju remove-unit
-----------------
+## `juju remove-unit`
 
 Removing a unit involves a single transaction defined as follows:
 
@@ -112,8 +111,7 @@ Removing a unit involves a single transaction, defined as follows:
     application.
 
 
-juju remove-relation
----------------------
+## `juju remove-relation`
 
 Removing a relation involves a single transaction defined as follows:
 
@@ -163,8 +161,7 @@ for sure that the relation -- and hence both applications -- are still Alive).
     its relation count; otherwise remove the counterpart application.
 
 
-juju remove-application
------------------------
+## `juju remove-application`
 
 Removing an application involves a single transaction defined as follows:
 

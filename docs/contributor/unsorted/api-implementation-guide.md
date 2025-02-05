@@ -1,16 +1,5 @@
-(juju-api-implementation-guide)=
-# Juju API Implementation Guide
-
-## Status
-
-*Work in Progress*
-
-## Contents
-
-1. [Introduction](#introduction)
-2. [Organization](#organization)
-3. [Versioning](#versioning)
-4. [Patterns](#patterns)
+(api-implementation-guide)=
+# API Implementation Guide
 
 ## Introduction
 

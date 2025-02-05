@@ -1,6 +1,5 @@
 (lts-update-issues)=
-LTS Update Issues
-=================
+# LTS update issues
 
 When we update ubuntu LTS versions we run into some issues updating tests. When updating from Trusty to Xenial we attempted to simplify future updates. There are still a few places that need modification when an LTS update happends. `grep -r LTS-dependent` at the top of the core repo to find the locations that are expected to require updates at the next LTS release. As of this writing that would be in the following files:
 
