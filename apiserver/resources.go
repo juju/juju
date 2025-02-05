@@ -13,80 +13,80 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	api "github.com/juju/juju/api/client/resources"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
-	"github.com/juju/juju/core/resource"
+	coreresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/domain/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
-// noopResourceShim is a placeholder for noopResourceBackend until
-// the resource domain is used by the resourcesMigrationUploadHandler.
-type noopResourceBackend struct{}
-
-func (noopResourceBackend) OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error) {
-	return resource.Resource{}, nil, errors.NotImplementedf("OpenResource")
+type resourceServiceGetter struct {
+	ctxt httpContext
 }
 
-func (noopResourceBackend) GetResource(applicationID, name string) (resource.Resource, error) {
-	return resource.Resource{}, errors.NotImplementedf("GetResource")
+func (a *resourceServiceGetter) Resource(r *http.Request) (ResourceService, error) {
+	domainServices, err := a.ctxt.domainServicesForRequest(r.Context())
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return domainServices.Resource(), nil
 }
 
-func (noopResourceBackend) GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error) {
-	return resource.Resource{}, errors.NotImplementedf("GetPendingResource")
+type resourceOpenerGetter func(r *http.Request, tagKinds ...string) (coreresource.Opener, error)
+
+func (rog resourceOpenerGetter) Opener(r *http.Request, tagKinds ...string) (coreresource.Opener, error) {
+	return rog(r, tagKinds...)
 }
 
-func (noopResourceBackend) SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ bool) (resource.Resource, error) {
-	return resource.Resource{}, errors.NotImplementedf("SetResource")
-}
-
-func (noopResourceBackend) UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
-	return resource.Resource{}, errors.NotImplementedf("UpdatePendingResource")
-}
-
-// ResourcesBackend is the functionality of Juju's state needed for the resources API.
-type ResourcesBackend interface {
-	// OpenResource returns the identified resource and its content.
-	OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error)
-
-	// GetResource returns the identified resource.
-	GetResource(applicationID, name string) (resource.Resource, error)
-
-	// GetPendingResource returns the identified resource.
-	GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error)
-
-	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader, _ bool) (resource.Resource, error)
-
-	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
-	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
-}
-
-// ResourcesHandler is the HTTP handler for client downloads and
+// ResourceHandler is the HTTP handler for client downloads and
 // uploads of resources.
-type ResourcesHandler struct {
-	StateAuthFunc     func(*http.Request, ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error)
-	ChangeAllowedFunc func(context.Context) error
+type ResourceHandler struct {
+	authFunc              func(*http.Request, ...string) (names.Tag, error)
+	changeAllowedFunc     func(context.Context) error
+	resourceServiceGetter ResourceServiceGetter
+}
+
+// NewResourceHandler returns a new HTTP client resource handler.
+func NewResourceHandler(
+	authFunc func(*http.Request, ...string) (names.Tag, error),
+	changeAllowedFunc func(context.Context) error,
+	resourceServiceGetter ResourceServiceGetter,
+) *ResourceHandler {
+	return &ResourceHandler{
+		authFunc:              authFunc,
+		changeAllowedFunc:     changeAllowedFunc,
+		resourceServiceGetter: resourceServiceGetter,
+	}
 }
 
 // ServeHTTP implements http.Handler.
-func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	backend, poolhelper, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
+func (h *ResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	tag, err := h.authFunc(req, names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
 	if err != nil {
 		if err := sendError(resp, err); err != nil {
 			logger.Errorf(context.TODO(), "%v", err)
 		}
 		return
 	}
-	defer poolhelper.Release()
+
+	resourceService, err := h.resourceServiceGetter.Resource(req)
+	if err != nil {
+		if err := sendError(resp, err); err != nil {
+			logger.Errorf(context.TODO(), "returning error to user: %v", err)
+		}
+		return
+	}
 
 	switch req.Method {
 	case "GET":
-		reader, size, err := h.download(backend, req)
+		reader, size, err := h.download(resourceService, req)
 		if err != nil {
 			if err := sendError(resp, err); err != nil {
 				logger.Errorf(context.TODO(), "%v", err)
@@ -102,13 +102,13 @@ func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request
 			logger.Errorf(context.TODO(), "resource download failed: %v", err)
 		}
 	case "PUT":
-		if err := h.ChangeAllowedFunc(req.Context()); err != nil {
+		if err := h.changeAllowedFunc(req.Context()); err != nil {
 			if err := sendError(resp, err); err != nil {
 				logger.Errorf(context.TODO(), "%v", err)
 			}
 			return
 		}
-		response, err := h.upload(backend, req, tagToUsername(tag))
+		response, err := h.upload(resourceService, req, tagToUsername(tag))
 		if err != nil {
 			if err := sendError(resp, err); err != nil {
 				logger.Errorf(context.TODO(), "%v", err)
@@ -119,79 +119,125 @@ func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request
 			logger.Errorf(req.Context(), "%v", err)
 		}
 	default:
-		if err := sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
+		if err := sendError(resp, jujuerrors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
 			logger.Errorf(context.TODO(), "%v", err)
 		}
 	}
 }
 
-func (h *ResourcesHandler) download(backend ResourcesBackend, req *http.Request) (io.ReadCloser, int64, error) {
-	defer req.Body.Close()
-
+func (h *ResourceHandler) download(service ResourceService, req *http.Request) (io.ReadCloser, int64, error) {
 	query := req.URL.Query()
 	application := query.Get(":application")
 	name := query.Get(":resource")
 
-	resource, reader, err := backend.OpenResource(application, name)
-	return reader, resource.Size, errors.Trace(err)
+	uuid, err := service.GetResourceUUIDByApplicationAndResourceName(req.Context(), application, name)
+	if errors.Is(err, resourceerrors.ResourceNotFound) {
+		return nil, 0, jujuerrors.NotFoundf("resource %s of application %s", name, application)
+	} else if errors.Is(err, resourceerrors.ApplicationNotFound) {
+		return nil, 0, jujuerrors.NotFoundf("application %s", application)
+	} else if err != nil {
+		return nil, 0, fmt.Errorf("getting resource uuid: %w", err)
+	}
+
+	res, reader, err := service.OpenResource(req.Context(), uuid)
+	if errors.Is(err, resourceerrors.ResourceNotFound) {
+		return nil, 0, jujuerrors.NotFoundf("resource %s of application %s", name, application)
+	} else if errors.Is(err, resourceerrors.StoredResourceNotFound) {
+		return nil, 0, jujuerrors.NotFoundf("resource %s of application %s has no blob downloaded on controller", name, application)
+	} else if err != nil {
+		return nil, 0, errors.Errorf("opening resource %s for application %s: %w", name, application, err)
+	}
+	return reader, res.Size, errors.Capture(err)
 }
 
-func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, username string) (*params.UploadResult, error) {
-	defer req.Body.Close()
-
-	uploaded, err := h.readResource(backend, req)
+func (h *ResourceHandler) upload(service ResourceService, req *http.Request, username string) (*params.UploadResult, error) {
+	uploaded, err := h.getUploadedResource(service, req)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
-	// UpdatePendingResource does the same as SetResource (just calls setResource) except SetResouce just blanks PendingID.
-	var stored resource.Resource
-	if uploaded.PendingID != "" {
-		stored, err = backend.UpdatePendingResource(uploaded.Application, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
-	} else {
-		stored, err = backend.SetResource(uploaded.Application, username, uploaded.Resource, uploaded.Data, true)
-	}
-
+	err = service.StoreResourceAndIncrementCharmModifiedVersion(
+		req.Context(),
+		resource.StoreResourceArgs{
+			ResourceUUID:    uploaded.uuid,
+			Reader:          req.Body,
+			RetrievedBy:     username,
+			RetrievedByType: coreresource.User,
+			Size:            uploaded.size,
+			Fingerprint:     uploaded.fingerprint,
+			Origin:          charmresource.OriginUpload,
+			Revision:        -1,
+		},
+	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Errorf("storing resource %s of application %s: %w", uploaded.resourceName, uploaded.applicationName, err)
 	}
 
-	result := &params.UploadResult{
-		Resource: api.Resource2API(stored),
+	res, err := service.GetResource(req.Context(), uploaded.uuid)
+	if err != nil {
+		return nil, errors.Errorf("getting uploaded resource details: %w", err)
 	}
-	return result, nil
+
+	return &params.UploadResult{
+		Resource: encodeResource(res),
+	}, nil
+}
+
+// encodeResource converts a [coreresource.Resource] into
+// a [params.Resource] struct.
+func encodeResource(res coreresource.Resource) params.Resource {
+	return params.Resource{
+		CharmResource:   api.CharmResource2API(res.Resource),
+		UUID:            res.UUID.String(),
+		ApplicationName: res.ApplicationName,
+		Username:        res.RetrievedBy,
+		Timestamp:       res.Timestamp,
+	}
 }
 
 // uploadedResource holds both the information about an uploaded
 // resource and the reader containing its data.
 type uploadedResource struct {
-	// Application is the name of the application associated with the resource.
-	Application string
+	// uuid is the resource UUID.
+	uuid coreresource.UUID
 
-	// PendingID is the resource-specific sub-ID for a pending resource.
-	PendingID string
+	// applicationName is the Name of the application associated with the resource.
+	applicationName string
 
-	// Resource is the information about the resource.
-	Resource charmresource.Resource
+	// resourceName is the name of the resource.
+	resourceName string
 
-	// Data holds the resource blob.
-	Data io.ReadCloser
+	// size is the size of the resource blob.
+	size int64
+
+	// fingerprint is the hash of the resource blob.
+	fingerprint charmresource.Fingerprint
 }
 
-// readResource extracts the relevant info from the request.
-func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Request) (*uploadedResource, error) {
+// getUploadedResource reads the resource from the request, validates that it is
+// known to the controller and validates the uploaded blobs contents.
+func (h *ResourceHandler) getUploadedResource(resourceService ResourceService, req *http.Request) (*uploadedResource, error) {
 	uReq, err := extractUploadRequest(req)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
-	var res resource.Resource
-	if uReq.PendingID != "" {
-		res, err = backend.GetPendingResource(uReq.Application, uReq.Name, uReq.PendingID)
-	} else {
-		res, err = backend.GetResource(uReq.Application, uReq.Name)
+
+	uuid, err := resourceService.GetResourceUUIDByApplicationAndResourceName(req.Context(), uReq.Application, uReq.Name)
+	if errors.Is(err, resourceerrors.ResourceNotFound) {
+		return nil, jujuerrors.NotFoundf("resource %s of application %s", uReq.Name, uReq.Application)
+	} else if errors.Is(err, resourceerrors.ApplicationNotFound) {
+		return nil, jujuerrors.NotFoundf("application %s", uReq.Application)
+	} else if err != nil {
+		return nil, errors.Errorf("getting resource uuid: %w", err)
 	}
-	if err != nil {
-		return nil, errors.Trace(err)
+
+	res, err := resourceService.GetResource(req.Context(), uuid)
+	if errors.Is(err, resourceerrors.ResourceNotFound) {
+		return nil, jujuerrors.NotFoundf("resource %s of application %s", uReq.Name, uReq.Application)
+	} else if errors.Is(err, resourceerrors.ApplicationNotFound) {
+		return nil, jujuerrors.NotFoundf("application %s", uReq.Application)
+	} else if err != nil {
+		return nil, errors.Errorf("getting resource details: %w", err)
 	}
 
 	switch res.Type {
@@ -202,44 +248,18 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 		}
 	}
 
-	chRes, err := updateResource(res.Resource, uReq.Fingerprint, uReq.Size)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &uploadedResource{
-		Application: uReq.Application,
-		PendingID:   uReq.PendingID,
-		Resource:    chRes,
-		Data:        req.Body,
+		uuid:            res.UUID,
+		applicationName: uReq.Application,
+		resourceName:    res.Resource.Name,
+		size:            uReq.Size,
+		fingerprint:     uReq.Fingerprint,
 	}, nil
-}
-
-// updateResource returns a copy of the provided resource, updated with
-// the given information.
-func updateResource(res charmresource.Resource, fp charmresource.Fingerprint, size int64) (charmresource.Resource, error) {
-	res.Origin = charmresource.OriginUpload
-	res.Revision = 0
-	res.Fingerprint = fp
-	res.Size = size
-
-	if err := res.Validate(); err != nil {
-		return res, errors.Trace(err)
-	}
-	return res, nil
 }
 
 // extractUploadRequest pulls the required info from the HTTP request.
 func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 	var ur api.UploadRequest
-
-	if req.Header.Get(api.HeaderContentLength) == "" {
-		size := req.ContentLength
-		// size will be negative if there is no content.
-		if size < 0 {
-			size = 0
-		}
-		req.Header.Set(api.HeaderContentLength, fmt.Sprint(size))
-	}
 
 	ctype := req.Header.Get(api.HeaderContentType)
 	if ctype != api.ContentTypeRaw {
@@ -247,23 +267,21 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 	}
 
 	application, name := extractEndpointDetails(req.URL)
-	fingerprint := req.Header.Get(api.HeaderContentSha384) // This parallels "Content-MD5".
-	sizeRaw := req.Header.Get(api.HeaderContentLength)
-	pendingID := req.URL.Query().Get(api.QueryParamPendingID)
+	fingerprint := req.Header.Get(api.HeaderContentSha384)
 
 	fp, err := charmresource.ParseFingerprint(fingerprint)
 	if err != nil {
-		return ur, errors.Annotate(err, "invalid fingerprint")
+		return ur, errors.Errorf("parsing fingerprint: %w", err)
 	}
 
 	filename, err := extractFilename(req)
 	if err != nil {
-		return ur, errors.Trace(err)
+		return ur, errors.Capture(err)
 	}
 
-	size, err := strconv.ParseInt(sizeRaw, 10, 64)
+	size, err := extractSize(req)
 	if err != nil {
-		return ur, errors.Annotate(err, "invalid size")
+		return ur, errors.Capture(err)
 	}
 
 	ur = api.UploadRequest{
@@ -272,7 +290,6 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 		Filename:    filename,
 		Size:        size,
 		Fingerprint: fp,
-		PendingID:   pendingID,
 	}
 	return ur, nil
 }
@@ -288,40 +305,55 @@ func extractEndpointDetails(url *url.URL) (application, name string) {
 func extractFilename(req *http.Request) (string, error) {
 	disp := req.Header.Get(api.HeaderContentDisposition)
 
-	// the first value returned here is the media type name (e.g. "form-data"),
+	// The first value returned here is the media type Name (e.g. "form-data"),
 	// but we don't really care.
 	_, vals, err := mime.ParseMediaType(disp)
 	if err != nil {
-		return "", errors.Annotate(err, "badly formatted Content-Disposition")
+		return "", errors.Errorf("badly formatted Content-Disposition: %w", err)
 	}
 
 	param, ok := vals[api.FilenameParamForContentDispositionHeader]
 	if !ok {
-		return "", errors.Errorf("missing filename in resource upload request")
+		return "", errors.Errorf("missing %q in resource upload request",
+			api.FilenameParamForContentDispositionHeader)
 	}
 
-	filename, err := decodeParam(param)
+	// Decode param, possibly encoded in base64.
+	var filename string
+	filename, err = new(mime.WordDecoder).Decode(param)
 	if err != nil {
-		return "", errors.Annotatef(err, "couldn't decode filename %q from upload request", param)
+		// If encoding is not required, the encoder will return the original string.
+		// However, the decoder doesn't expect that, so it barfs on non-encoded
+		// strings. To detect if a string was not encoded, we simply try encoding
+		// again, if it returns the same string, we know it wasn't encoded.
+		if param == mime.BEncoding.Encode("utf-8", param) {
+			filename = param
+		} else {
+			return "", errors.Errorf("decoding filename %q from upload request: %w", param, err)
+		}
 	}
+
 	return filename, nil
 }
 
-func decodeParam(s string) (string, error) {
-	decoded, err := new(mime.WordDecoder).Decode(s)
-
-	// If encoding is not required, the encoder will return the original string.
-	// However, the decoder doesn't expect that, so it barfs on non-encoded
-	// strings. To detect if a string was not encoded, we simply try encoding
-	// again, if it returns the same string, we know it wasn't encoded.
-	if err != nil && s == encodeParam(s) {
-		return s, nil
+func extractSize(req *http.Request) (int64, error) {
+	var size int64
+	if req.Header.Get(api.HeaderContentLength) == "" {
+		size = req.ContentLength
+		// size will be negative if there is no content.
+		if size < 0 {
+			size = 0
+		}
+		return size, nil
 	}
-	return decoded, err
-}
 
-func encodeParam(s string) string {
-	return mime.BEncoding.Encode("utf-8", s)
+	sizeRaw := req.Header.Get(api.HeaderContentLength)
+	var err error
+	size, err = strconv.ParseInt(sizeRaw, 10, 64)
+	if err != nil {
+		return 0, errors.Errorf("parsing size: %w", err)
+	}
+	return size, nil
 }
 
 func tagToUsername(tag names.Tag) string {

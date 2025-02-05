@@ -15,9 +15,9 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination registration_environs_mock_test.go github.com/juju/juju/environs ConnectorInfo
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination registration_proxy_mock_test.go github.com/juju/juju/internal/proxy Proxier
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination provider_factory_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory
-//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination resource_opener_mock_test.go github.com/juju/juju/core/resource Opener
+//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination resource_opener_mock_test.go github.com/juju/juju/core/resource Opener
 //go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination application_service_mock_test.go github.com/juju/juju/apiserver ApplicationServiceGetter,ApplicationService
-//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination resource_service_mock_test.go github.com/juju/juju/apiserver ResourceServiceGetter,ResourceService
+//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver -destination resource_service_mock_test.go github.com/juju/juju/apiserver ResourceServiceGetter,ResourceService,ResourceOpenerGetter
 
 func TestPackage(t *testing.T) {
 	coretesting.MgoTestPackage(t)

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/rpc/params"
 )
 
 type deployRepositorySuite struct {
@@ -56,11 +57,18 @@ func (s *deployRepositorySuite) TestResolveResourcesNoResourcesOverride(c *gc.C)
 	validator := s.expectValidator()
 
 	// Act
-	result, err := validator.resolveResources(context.Background(), charmURL, origin, map[string]string{}, resMeta)
+	result, resourceToUpload, err := validator.resolveResources(
+		context.Background(),
+		charmURL,
+		origin,
+		map[string]string{},
+		resMeta,
+	)
 	c.Assert(err, gc.IsNil, gc.Commentf("(Act) unexpected error occurred"))
 
 	// Assert
 	c.Check(result, gc.DeepEquals, expectedResult, gc.Commentf("(Assert) expected result did not match"))
+	c.Check(resourceToUpload, gc.IsNil, gc.Commentf("(Assert) expected resourcesToUpload did not match"))
 }
 
 func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c *gc.C) {
@@ -68,28 +76,37 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c 
 
 	// Arrange
 	resMeta := map[string]resource.Meta{
-		"override-revision-to-2":    {Name: "override-revision-to-2"},
-		"no-override":               {Name: "no-override"},
-		"override-revision-to-file": {Name: "override-revision-to-file"},
+		"override-revision-to-2":         {Name: "override-revision-to-2", Type: resource.TypeFile},
+		"no-override":                    {Name: "no-override", Type: resource.TypeFile},
+		"override-revision-to-file":      {Name: "override-revision-to-file", Type: resource.TypeFile},
+		"override-revision-to-container": {Name: "override-revision-to-container", Type: resource.TypeContainerImage},
 	}
 	deployResArg := map[string]string{
-		"override-revision-to-2":    "2",
-		"override-revision-to-file": "./toad.txt",
+		"override-revision-to-2":         "2",
+		"override-revision-to-file":      "./toad.txt",
+		"override-revision-to-container": "public.repo.com/a/b:latest",
 	}
 	mockRepoExpectedInput := []resource.Resource{
-		{Meta: resource.Meta{Name: "override-revision-to-2"}, Origin: resource.OriginStore, Revision: 2},
-		{Meta: resource.Meta{Name: "no-override"}, Origin: resource.OriginStore, Revision: -1},
-		{Meta: resource.Meta{Name: "override-revision-to-file"}, Origin: resource.OriginUpload, Revision: -1},
+		{Meta: resource.Meta{Name: "override-revision-to-2", Type: resource.TypeFile}, Origin: resource.OriginStore, Revision: 2},
+		{Meta: resource.Meta{Name: "no-override", Type: resource.TypeFile}, Origin: resource.OriginStore, Revision: -1},
+		{Meta: resource.Meta{Name: "override-revision-to-file", Type: resource.TypeFile}, Origin: resource.OriginUpload, Revision: -1},
+		{Meta: resource.Meta{Name: "override-revision-to-container", Type: resource.TypeContainerImage}, Origin: resource.OriginUpload, Revision: -1},
 	}
 	mockRepoResult := []resource.Resource{
 		{Meta: resource.Meta{Name: "override-revision-to-2"}, Origin: resource.OriginStore, Revision: 2},
 		{Meta: resource.Meta{Name: "no-override"}, Origin: resource.OriginStore, Revision: 1},
 		{Meta: resource.Meta{Name: "override-revision-to-file"}, Origin: resource.OriginUpload, Revision: -1},
+		{Meta: resource.Meta{Name: "override-revision-to-container"}, Origin: resource.OriginUpload, Revision: -1},
 	}
 	expectedResult := applicationservice.ResolvedResources{
 		{Name: "override-revision-to-2", Origin: resource.OriginStore, Revision: ptr(2)},
 		{Name: "no-override", Origin: resource.OriginStore, Revision: ptr(1)},
 		{Name: "override-revision-to-file", Origin: resource.OriginUpload, Revision: nil},
+		{Name: "override-revision-to-container", Origin: resource.OriginUpload, Revision: nil},
+	}
+	expectedResourcesToUpload := []*params.PendingResourceUpload{
+		{Name: "override-revision-to-file", Filename: "./toad.txt", Type: "file"},
+		{Name: "override-revision-to-container", Filename: "public.repo.com/a/b:latest", Type: "oci-image"},
 	}
 	charmURL := charm.MustParseURL("ch:ubuntu-0")
 	origin := corecharm.Origin{
@@ -103,11 +120,18 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c 
 	validator := s.expectValidator()
 
 	// Act
-	result, err := validator.resolveResources(context.Background(), charmURL, origin, deployResArg, resMeta)
+	result, resourcesToUpload, err := validator.resolveResources(
+		context.Background(),
+		charmURL,
+		origin,
+		deployResArg,
+		resMeta,
+	)
 	c.Assert(err, gc.IsNil, gc.Commentf("(Act) unexpected error occurred"))
 
 	// Assert
 	c.Check(result, gc.DeepEquals, expectedResult, gc.Commentf("(Assert) expected result did not match"))
+	c.Check(resourcesToUpload, jc.SameContents, expectedResourcesToUpload, gc.Commentf("(Assert) expected resourceToUpload did not match"))
 }
 
 func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharmRepositoryResolve(c *gc.C) {
@@ -127,7 +151,7 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharm
 	validator := s.expectValidator()
 
 	// Act
-	_, err := validator.resolveResources(context.Background(), charmURL, origin, map[string]string{}, resMeta)
+	_, _, err := validator.resolveResources(context.Background(), charmURL, origin, map[string]string{}, resMeta)
 
 	// Assert
 	c.Check(err, jc.ErrorIs, mockRepoError,
