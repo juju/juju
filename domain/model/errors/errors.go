@@ -24,6 +24,10 @@ const (
 	// constraints have been set for the model but they are requested.
 	ConstraintsNotFound = errors.ConstError("model constraints not found")
 
+	// ModelConstraintNotFound describes an error that occurs when a model constraint does not
+	// have a constraint configured.
+	ModelConstraintNotFound = errors.ConstError("model constraint not found")
+
 	// ModelNamespaceNotFound describes an error that occurs when no database
 	// namespace for a model exists.
 	ModelNamespaceNotFound = errors.ConstError("model namespace not found")

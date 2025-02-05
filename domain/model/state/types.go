@@ -11,11 +11,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // dbModel represents the state of a model.
@@ -429,4 +432,228 @@ type dbModelState struct {
 	CredentialInvalid       bool   `db:"cloud_credential_invalid"`
 	CredentialInvalidReason string `db:"cloud_credential_invalid_reason"`
 	Migrating               bool   `db:"migrating"`
+}
+
+// dbModelConstraint represents a single row from the model_constraint table.
+type dbModelConstraint struct {
+	ModelUUID      string `db:"model_uuid"`
+	ConstraintUUID string `db:"constraint_uuid"`
+}
+
+// dbConstraint represents a single row within the v_constraint view.
+type dbConstraint struct {
+	Arch             sql.NullString `db:"arch"`
+	CPUCores         sql.NullInt64  `db:"cpu_cores"`
+	CPUPower         sql.NullInt64  `db:"cpu_power"`
+	Mem              sql.NullInt64  `db:"mem"`
+	RootDisk         sql.NullInt64  `db:"root_disk"`
+	RootDiskSource   sql.NullString `db:"root_disk_source"`
+	InstanceRole     sql.NullString `db:"instance_role"`
+	InstanceType     sql.NullString `db:"instance_type"`
+	ContainerType    sql.NullString `db:"container_type"`
+	VirtType         sql.NullString `db:"virt_type"`
+	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
+	ImageID          sql.NullString `db:"image_id"`
+}
+
+// dbConstraintInsert is used to supply insert values into the constraint table.
+type dbConstraintInsert struct {
+	UUID             string         `db:"uuid"`
+	Arch             sql.NullString `db:"arch"`
+	CPUCores         sql.NullInt64  `db:"cpu_cores"`
+	CPUPower         sql.NullInt64  `db:"cpu_power"`
+	Mem              sql.NullInt64  `db:"mem"`
+	RootDisk         sql.NullInt64  `db:"root_disk"`
+	RootDiskSource   sql.NullString `db:"root_disk_source"`
+	InstanceRole     sql.NullString `db:"instance_role"`
+	InstanceType     sql.NullString `db:"instance_type"`
+	ContainerTypeId  sql.NullInt64  `db:"container_type_id"`
+	VirtType         sql.NullString `db:"virt_type"`
+	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
+	ImageID          sql.NullString `db:"image_id"`
+}
+
+// constraintsToDBInsert is responsible for taking a constraints value and
+// transforming the values into a [dbConstraintInsert] object.
+func constraintsToDBInsert(
+	uuid uuid.UUID,
+	consValue constraints.Value) dbConstraintInsert {
+	return dbConstraintInsert{
+		UUID: uuid.String(),
+		Arch: sql.NullString{
+			String: deref(consValue.Arch),
+			Valid:  consValue.Arch != nil,
+		},
+		CPUCores: sql.NullInt64{
+			Int64: int64(deref(consValue.CpuCores)),
+			Valid: consValue.CpuCores != nil,
+		},
+		CPUPower: sql.NullInt64{
+			Int64: int64(deref(consValue.CpuPower)),
+			Valid: consValue.CpuPower != nil,
+		},
+		Mem: sql.NullInt64{
+			Int64: int64(deref(consValue.Mem)),
+			Valid: consValue.Mem != nil,
+		},
+		RootDisk: sql.NullInt64{
+			Int64: int64(deref(consValue.RootDisk)),
+			Valid: consValue.RootDisk != nil,
+		},
+		RootDiskSource: sql.NullString{
+			String: deref(consValue.RootDiskSource),
+			Valid:  consValue.RootDiskSource != nil,
+		},
+		InstanceRole: sql.NullString{
+			String: deref(consValue.InstanceRole),
+			Valid:  consValue.InstanceRole != nil,
+		},
+		InstanceType: sql.NullString{
+			String: deref(consValue.InstanceType),
+			Valid:  consValue.InstanceType != nil,
+		},
+		VirtType: sql.NullString{
+			String: deref(consValue.VirtType),
+			Valid:  consValue.VirtType != nil,
+		},
+		AllocatePublicIP: sql.NullBool{
+			Bool:  deref(consValue.AllocatePublicIP),
+			Valid: consValue.AllocatePublicIP != nil,
+		},
+		ImageID: sql.NullString{
+			String: deref(consValue.ImageID),
+			Valid:  consValue.ImageID != nil,
+		},
+	}
+}
+
+func ptr[T any](i T) *T {
+	return &i
+}
+
+// deref returns the dereferenced value of T if T is not nil. Otherwise the zero
+// value of T is returned.
+func deref[T any](i *T) T {
+	if i == nil {
+		var v T
+		return v
+	}
+	return *i
+}
+
+func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace, zones []dbConstraintZone) (constraints.Value, error) {
+	consVal := constraints.Value{}
+	if c.Arch.Valid {
+		consVal.Arch = &c.Arch.String
+	}
+	if c.CPUCores.Valid {
+		consVal.CpuCores = ptr(uint64(c.CPUCores.Int64))
+	}
+	if c.CPUPower.Valid {
+		consVal.CpuPower = ptr(uint64(c.CPUPower.Int64))
+	}
+	if c.Mem.Valid {
+		consVal.Mem = ptr(uint64(c.Mem.Int64))
+	}
+	if c.RootDisk.Valid {
+		consVal.RootDisk = ptr(uint64(c.RootDisk.Int64))
+	}
+	if c.RootDiskSource.Valid {
+		consVal.RootDiskSource = &c.RootDiskSource.String
+	}
+	if c.InstanceRole.Valid {
+		consVal.InstanceRole = &c.InstanceRole.String
+	}
+	if c.InstanceType.Valid {
+		consVal.InstanceType = &c.InstanceType.String
+	}
+	if c.VirtType.Valid {
+		consVal.VirtType = &c.VirtType.String
+	}
+	// We only set allocate public ip when it is true and not nil. The reason
+	// for this is no matter what the dqlite driver will always return false
+	// out of the database even when the value is NULL.
+	if c.AllocatePublicIP.Valid && c.AllocatePublicIP.Bool {
+		consVal.AllocatePublicIP = &c.AllocatePublicIP.Bool
+	}
+	if c.ImageID.Valid {
+		consVal.ImageID = &c.ImageID.String
+	}
+	if c.ContainerType.Valid {
+		containerType := instance.ContainerType(c.ContainerType.String)
+		consVal.Container = &containerType
+	}
+
+	consTags := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		consTags = append(consTags, tag.Tag)
+	}
+	// Only set constraint tags if there are tags in the database value.
+	if len(consTags) != 0 {
+		consVal.Tags = &consTags
+	}
+
+	consSpaces := make([]string, 0, len(spaces))
+	for _, space := range spaces {
+		consSpaces = append(consSpaces, space.Space)
+	}
+	// Only set constraint spaces if there are spaces in the database value.
+	if len(consSpaces) != 0 {
+		consVal.Spaces = &consSpaces
+	}
+
+	consZones := make([]string, 0, len(zones))
+	for _, zone := range zones {
+		consZones = append(consZones, zone.Zone)
+	}
+	// Only set constraint zones if there are zones in the database value.
+	if len(consZones) != 0 {
+		consVal.Zones = &consZones
+	}
+
+	return consVal, nil
+}
+
+// dbAggregateCount is a type to store the result for counting the number of
+// rows returned by a select query.
+type dbAggregateCount struct {
+	Count int `db:"count"`
+}
+
+// dbContainerTypeId represents the id of a container type as found in the
+// container_type table.
+type dbContainerTypeId struct {
+	Id int64 `db:"id"`
+}
+
+// dbContainerTypeValue represents a container type value from the
+// container_type table.
+type dbContainerTypeValue struct {
+	Value string `db:"value"`
+}
+
+// dbConstraintTag represents a row from either the constraint_tag table or
+// v_model_constraint_tag view.
+type dbConstraintTag struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Tag            string `db:"tag"`
+}
+
+// dbConstraintSpace represents a row from either the constraint_space table or
+// v_model_constraint_space view.
+type dbConstraintSpace struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Space          string `db:"space"`
+}
+
+// dbConstraintZone represents a row from either the constraint_zone table or
+// v_model_constraint_zone view.
+type dbConstraintZone struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Zone           string `db:"zone"`
+}
+
+// dbConstraintUUID represents a constraint uuid within the database.
+type dbConstraintUUID struct {
+	UUID string `db:"uuid"`
 }

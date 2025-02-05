@@ -17,8 +17,10 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -106,12 +108,221 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	return nil
 }
 
+func (s *ModelState) getModelUUID(ctx context.Context, tx *sqlair.TX) (coremodel.UUID, error) {
+	var modelUUID dbUUID
+	stmt, err := s.Prepare(`SELECT &dbUUID.uuid FROM model;`, modelUUID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt).Get(&modelUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", errors.New("model does not exist").Add(modelerrors.NotFound)
+	}
+	if err != nil {
+		return "", errors.Errorf("getting model uuid: %w", err)
+	}
+
+	return coremodel.UUID(modelUUID.UUID), nil
+}
+
 // GetModelConstraints returns the currently set constraints for the model.
 // The following error types can be expected:
 // - [modelerrors.NotFound]: when no model exists to set constraints for.
+// - [modelerrors.ConstraintsNotFound]: when no model constraints have been
+// set for the model.
 func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
-	// TODO: Implement this method.
-	return constraints.Value{}, nil
+	db, err := s.DB()
+	if err != nil {
+		return constraints.Value{}, errors.Capture(err)
+	}
+
+	selectTagStmt, err := s.Prepare(
+		"SELECT &dbConstraintTag.* FROM v_model_constraint_tag", dbConstraintTag{},
+	)
+	if err != nil {
+		return constraints.Value{}, errors.Capture(err)
+	}
+
+	selectSpaceStmt, err := s.Prepare(
+		"SELECT &dbConstraintSpace.* FROM v_model_constraint_space", dbConstraintSpace{},
+	)
+	if err != nil {
+		return constraints.Value{}, errors.Capture(err)
+	}
+
+	selectZoneStmt, err := s.Prepare(
+		"SELECT &dbConstraintZone.* FROM v_model_constraint_zone", dbConstraintZone{})
+	if err != nil {
+		return constraints.Value{}, errors.Capture(err)
+	}
+
+	var (
+		cons   dbConstraint
+		tags   []dbConstraintTag
+		spaces []dbConstraintSpace
+		zones  []dbConstraintZone
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := s.getModelUUID(ctx, tx)
+		if err != nil {
+			return errors.Errorf("checking if model exists: %w", err)
+		}
+
+		cons, err = s.getModelConstraints(ctx, tx)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, selectTagStmt).GetAll(&tags)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting constraint tags: %w", err)
+		}
+		err = tx.Query(ctx, selectSpaceStmt).GetAll(&spaces)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting constraint spaces: %w", err)
+		}
+		err = tx.Query(ctx, selectZoneStmt).GetAll(&zones)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting constraint zones: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return constraints.Value{}, errors.Capture(err)
+	}
+	return cons.toValue(tags, spaces, zones)
+}
+
+// getModelConstraintsUUID returns the constraint uuid that is active for the
+// model. If model does not have any constraints then an error satisfying
+// [modelerrors.ConstraintsNotFound] is returned.
+func (s *ModelState) getModelConstraintsUUID(
+	ctx context.Context,
+	tx *sqlair.TX,
+) (string, error) {
+	var constraintUUID dbConstraintUUID
+
+	stmt, err := s.Prepare(
+		"SELECT &dbConstraintUUID.* FROM v_model_constraint",
+		constraintUUID,
+	)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt).Get(&constraintUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", errors.New(
+			"no constraints set for model",
+		).Add(modelerrors.ConstraintsNotFound)
+	} else if err != nil {
+		return "", errors.Errorf("getting constraint UUID for model: %w", err)
+	}
+
+	return constraintUUID.UUID, nil
+}
+
+// getModelConstraints returns the values set in the constraints table for the
+// current model. If no constraints are currently set
+// for the model an error satisfying [modelerrors.ConstraintsNotFound] will be
+// returned.
+func (s *ModelState) getModelConstraints(
+	ctx context.Context,
+	tx *sqlair.TX,
+) (dbConstraint, error) {
+	var constraint dbConstraint
+
+	stmt, err := s.Prepare("SELECT &dbConstraint.* FROM v_model_constraint", constraint)
+	if err != nil {
+		return dbConstraint{}, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt).Get(&constraint)
+	if errors.Is(err, sql.ErrNoRows) {
+		return dbConstraint{}, errors.New(
+			"no constraints set for model",
+		).Add(modelerrors.ConstraintsNotFound)
+	}
+	if err != nil {
+		return dbConstraint{}, errors.Errorf("getting model constraints: %w", err)
+	}
+	return constraint, nil
+}
+
+// deleteModelConstraints deletes all constraints currently set on the current
+// model. If no constraints are set for the current model or no model exists
+// then no error is raised.
+func (s *ModelState) deleteModelConstraints(
+	ctx context.Context,
+	tx *sqlair.TX,
+) error {
+	constraintUUID, err := s.getModelConstraintsUUID(ctx, tx)
+	if errors.Is(err, modelerrors.ConstraintsNotFound) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting constraints uuid for model: %w", err)
+	}
+
+	stmt, err := s.Prepare(`DELETE FROM model_constraint`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt).Run()
+	if err != nil {
+		return errors.Errorf("delete constraints %q for model: %w", constraintUUID, err)
+	}
+
+	dbConstraintUUID := dbConstraintUUID{UUID: constraintUUID}
+
+	stmt, err = s.Prepare(
+		"DELETE FROM constraint_tag WHERE constraint_uuid = $dbConstraintUUID.uuid",
+		dbConstraintUUID,
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, dbConstraintUUID).Run()
+	if err != nil {
+		return errors.Errorf("deleting model constraint %q tags: %w", constraintUUID, err)
+	}
+
+	stmt, err = s.Prepare(
+		"DELETE FROM constraint_space WHERE constraint_uuid = $dbConstraintUUID.uuid",
+		dbConstraintUUID,
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, dbConstraintUUID).Run()
+	if err != nil {
+		return errors.Errorf("deleting model constraint %q spaces: %w", constraintUUID, err)
+	}
+
+	stmt, err = s.Prepare(
+		"DELETE FROM constraint_zone WHERE constraint_uuid = $dbConstraintUUID.uuid",
+		dbConstraintUUID,
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, dbConstraintUUID).Run()
+	if err != nil {
+		return errors.Errorf("deleting model constraint %q zones: %w", constraintUUID, err)
+	}
+
+	stmt, err = s.Prepare(
+		`DELETE FROM "constraint" WHERE uuid = $dbConstraintUUID.uuid`,
+		dbConstraintUUID,
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, dbConstraintUUID).Run()
+	if err != nil {
+		return errors.Errorf("deleting model constraint %q: %w", constraintUUID, err)
+	}
+	return nil
 }
 
 // SetModelConstraints sets the model constraints to the new values removing
@@ -123,7 +334,255 @@ func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value
 // constraints is invalid.
 // - [modelerrors.NotFound]: when no model exists to set constraints for.
 func (s *ModelState) SetModelConstraints(ctx context.Context, consValue constraints.Value) error {
-	// TODO: Implement this method.
+	db, err := s.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	constraintsUUID, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Errorf("generating new model constraint uuid: %w", err)
+	}
+
+	constraintInsertValues := constraintsToDBInsert(constraintsUUID, consValue)
+
+	selectContainerTypeStmt, err := s.Prepare(`
+SELECT &dbContainerTypeId.*
+FROM container_type
+WHERE value = $dbContainerTypeValue.value
+`, dbContainerTypeId{}, dbContainerTypeValue{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertModelConstraintStmt, err := s.Prepare(
+		"INSERT INTO model_constraint (*) VALUES ($dbModelConstraint.*)",
+		dbModelConstraint{},
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertConstraintStmt, err := s.Prepare(
+		`INSERT INTO "constraint" (*) VALUES($dbConstraintInsert.*)`,
+		constraintInsertValues,
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		modelUUID, err := s.getModelUUID(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting model uuid: %w", err)
+		}
+
+		err = s.deleteModelConstraints(ctx, tx)
+		if err != nil {
+			return errors.Errorf("deleting existing model constraints: %w", err)
+		}
+
+		if consValue.Container != nil {
+			containerTypeId := dbContainerTypeId{}
+			err = tx.Query(ctx, selectContainerTypeStmt, dbContainerTypeValue{
+				Value: string(*consValue.Container),
+			}).Get(&containerTypeId)
+
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf(
+					"container type %q is not valid",
+					*consValue.Container,
+				).Add(machineerrors.InvalidContainerType)
+			} else if err != nil {
+				return errors.Errorf(
+					"finding container type %q id: %w",
+					string(*consValue.Container), err,
+				)
+			}
+
+			constraintInsertValues.ContainerTypeId = sql.NullInt64{
+				Int64: containerTypeId.Id,
+				Valid: true,
+			}
+		}
+
+		err = tx.Query(ctx, insertConstraintStmt, constraintInsertValues).Run()
+		if err != nil {
+			return errors.Errorf("setting new constraints for model: %w", err)
+		}
+
+		err = tx.Query(ctx, insertModelConstraintStmt, dbModelConstraint{
+			ModelUUID:      modelUUID.String(),
+			ConstraintUUID: constraintsUUID.String(),
+		}).Run()
+		if err != nil {
+			return errors.Errorf("setting model constraints: %w", err)
+		}
+
+		if consValue.Tags != nil {
+			err = s.insertConstraintTags(ctx, tx, constraintsUUID, *consValue.Tags)
+			if err != nil {
+				return errors.Errorf("setting constraint tags for model: %w", err)
+			}
+		}
+
+		if consValue.Spaces != nil {
+			err = s.insertContraintSpaces(ctx, tx, constraintsUUID, *consValue.Spaces)
+			if err != nil {
+				return errors.Errorf("setting constraint spaces for model: %w", err)
+			}
+		}
+
+		if consValue.Zones != nil {
+			err = s.insertContraintZones(ctx, tx, constraintsUUID, *consValue.Zones)
+			if err != nil {
+				return errors.Errorf("setting constraint zones for model: %w", err)
+			}
+		}
+		return nil
+	})
+}
+
+// insertConstraintTags is responsible for setting the specified tags for the
+// supplied constraint uuid. Any previously set tags for the constraint UUID
+// will not be removed. Any conflicts that exist between what has been set to be
+// set will result in an error and not be handled.
+func (s *ModelState) insertConstraintTags(
+	ctx context.Context,
+	tx *sqlair.TX,
+	constraintUUID uuid.UUID,
+	tags []string,
+) error {
+	if len(tags) == 0 {
+		return nil
+	}
+
+	insertConstraintTagStmt, err := s.Prepare(
+		"INSERT INTO constraint_tag (*) VALUES ($dbConstraintTag.*)",
+		dbConstraintTag{},
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	data := make([]dbConstraintTag, 0, len(tags))
+	for _, tag := range tags {
+		data = append(data, dbConstraintTag{
+			ConstraintUUID: constraintUUID.String(),
+			Tag:            tag,
+		})
+	}
+	err = tx.Query(ctx, insertConstraintTagStmt, data).Run()
+	if err != nil {
+		return errors.Errorf("inserting constraint %q tags %w", constraintUUID, err)
+	}
+	return nil
+}
+
+// insertConstraintSpaces is responsible for setting the specified network
+// spaces as constraints for the provided constraint uuid. Any previously set
+// spaces for the constraint UUID will not be removed. Any conflicts that exist
+// between what has been set to be set will result in an error and not be
+// handled.
+// If one or more of the spaces provided does not exist an error satisfying
+// [networkerrors.SpaceNotFound] will be returned.
+func (s *ModelState) insertContraintSpaces(
+	ctx context.Context,
+	tx *sqlair.TX,
+	constraintUUID uuid.UUID,
+	spaces []string,
+) error {
+	if len(spaces) == 0 {
+		return nil
+	}
+
+	spaceVals := make(sqlair.S, 0, len(spaces))
+	for _, space := range spaces {
+		spaceVals = append(spaceVals, space)
+	}
+	spaceCount := dbAggregateCount{}
+
+	spacesExistStmt, err := s.Prepare(`
+SELECT count(name) AS &dbAggregateCount.count
+FROM space
+WHERE name in ($S[:])
+`, spaceCount, spaceVals)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, spacesExistStmt, spaceVals).Get(&spaceCount)
+	if err != nil {
+		return errors.Errorf(
+			"checking that spaces for constraint %q exist: %w",
+			constraintUUID, err,
+		)
+	}
+
+	if spaceCount.Count != len(spaceVals) {
+		return errors.Errorf(
+			"inserting constraints %q spaces, space(s) %v does not exist",
+			constraintUUID, spaces,
+		).Add(networkerrors.SpaceNotFound)
+	}
+
+	insertConstraintSpaceStmt, err := s.Prepare(
+		"INSERT INTO constraint_space (*) VALUES ($dbConstraintSpace.*)",
+		dbConstraintSpace{},
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	data := make([]dbConstraintSpace, 0, len(spaces))
+	for _, space := range spaces {
+		data = append(data, dbConstraintSpace{
+			ConstraintUUID: constraintUUID.String(),
+			Space:          space,
+		})
+	}
+
+	err = tx.Query(ctx, insertConstraintSpaceStmt, data).Run()
+	if err != nil {
+		return errors.Errorf("inserting constraint %q space(s): %w", constraintUUID, err)
+	}
+
+	return nil
+}
+
+// insertConstraintZones is responsible for setting the specified zones as
+// constraints on the provided constraint uuid. Any previously set zones for the
+// constraint UUID will not be removed. Any conflicts that exist between what
+// has been set to be set will result in an error and not be handled.
+func (s *ModelState) insertContraintZones(
+	ctx context.Context,
+	tx *sqlair.TX,
+	constraintUUID uuid.UUID,
+	zones []string,
+) error {
+	if len(zones) == 0 {
+		return nil
+	}
+
+	insertConstraintZoneStmt, err := s.Prepare(
+		"INSERT INTO constraint_zone (*) VALUES ($dbConstraintZone.*)",
+		dbConstraintZone{},
+	)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	data := make([]dbConstraintZone, 0, len(zones))
+	for _, zone := range zones {
+		data = append(data, dbConstraintZone{
+			ConstraintUUID: constraintUUID.String(),
+			Zone:           zone,
+		})
+	}
+	err = tx.Query(ctx, insertConstraintZoneStmt, data).Run()
+	if err != nil {
+		return errors.Errorf("inserting constraint zone: %w", err)
+	}
 	return nil
 }
 
