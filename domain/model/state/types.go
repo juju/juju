@@ -434,6 +434,7 @@ type dbModelState struct {
 	Migrating               bool   `db:"migrating"`
 }
 
+// dbModelConstraint represents a single row from the model_constraint table.
 type dbModelConstraint struct {
 	ModelUUID      string `db:"model_uuid"`
 	ConstraintUUID string `db:"constraint_uuid"`
@@ -534,10 +535,10 @@ func ptr[T any](i T) *T {
 // value of T is returned.
 func deref[T any](i *T) T {
 	if i == nil {
-		return *new(T)
+		var v T
+		return v
 	}
-	var v T
-	return v
+	return *i
 }
 
 func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace, zones []dbConstraintZone) (constraints.Value, error) {
@@ -631,16 +632,22 @@ type dbContainerTypeValue struct {
 	Value string `db:"value"`
 }
 
+// dbConstraintTag represents a row from either the constraint_tag table or
+// v_model_constraint_tag view.
 type dbConstraintTag struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 	Tag            string `db:"tag"`
 }
 
+// dbConstraintSpace represents a row from either the constraint_space table or
+// v_model_constraint_space view.
 type dbConstraintSpace struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 	Space          string `db:"space"`
 }
 
+// dbConstraintZone represents a row from either the constraint_zone table or
+// v_model_constraint_zone view.
 type dbConstraintZone struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 	Zone           string `db:"zone"`
