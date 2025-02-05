@@ -42,6 +42,7 @@ type OpenerSuite struct {
 	resourceFingerprint  charmresource.Fingerprint
 	resourceSize         int64
 	resourceReader       io.ReadCloser
+	resourceRevision     int
 	charmURL             *charm.URL
 	charmOrigin          state.CharmOrigin
 	resourceClient       *MockResourceClient
@@ -66,8 +67,8 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 				Name: "wal-e",
 				Type: 1,
 			},
-			Origin:      2,
-			Revision:    0,
+			Origin:      charmresource.OriginStore,
+			Revision:    s.resourceRevision,
 			Fingerprint: s.resourceFingerprint,
 			Size:        s.resourceSize,
 		},
@@ -106,8 +107,8 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 				Name: "wal-e",
 				Type: 1,
 			},
-			Origin:      2,
-			Revision:    0,
+			Origin:      charmresource.OriginStore,
+			Revision:    s.resourceRevision,
 			Fingerprint: s.resourceFingerprint,
 			Size:        s.resourceSize,
 		},
@@ -179,8 +180,8 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 				Name: "wal-e",
 				Type: 1,
 			},
-			Origin:      2,
-			Revision:    0,
+			Origin:      charmresource.OriginStore,
+			Revision:    s.resourceRevision,
 			Fingerprint: s.resourceFingerprint,
 			Size:        s.resourceSize,
 		},
@@ -236,6 +237,7 @@ func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
 
 	s.resourceContent = "the resource content"
 	s.resourceSize = int64(len(s.resourceContent))
+	s.resourceRevision = 3
 	var err error
 	s.resourceFingerprint, err = charmresource.GenerateFingerprint(strings.NewReader(s.resourceContent))
 	c.Assert(err, jc.ErrorIsNil)
@@ -309,6 +311,8 @@ func (s *OpenerSuite) expectServiceMethods(
 			RetrievedByType: retrevedByType,
 			Size:            s.resourceSize,
 			Fingerprint:     s.resourceFingerprint,
+			Origin:          charmresource.OriginStore,
+			Revision:        s.resourceRevision,
 		},
 	)
 
