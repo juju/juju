@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/domain"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
+	modeldomain "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -131,30 +131,32 @@ func getModelUUID(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX) 
 // - [modelerrors.NotFound]: when no model exists to set constraints for.
 // - [modelerrors.ConstraintsNotFound]: when no model constraints have been
 // set for the model.
-func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
+func (s *ModelState) GetModelConstraints(
+	ctx context.Context,
+) (modeldomain.Constraints, error) {
 	db, err := s.DB()
 	if err != nil {
-		return constraints.Value{}, errors.Capture(err)
+		return modeldomain.Constraints{}, errors.Capture(err)
 	}
 
 	selectTagStmt, err := s.Prepare(
 		"SELECT &dbConstraintTag.* FROM v_model_constraint_tag", dbConstraintTag{},
 	)
 	if err != nil {
-		return constraints.Value{}, errors.Capture(err)
+		return modeldomain.Constraints{}, errors.Capture(err)
 	}
 
 	selectSpaceStmt, err := s.Prepare(
 		"SELECT &dbConstraintSpace.* FROM v_model_constraint_space", dbConstraintSpace{},
 	)
 	if err != nil {
-		return constraints.Value{}, errors.Capture(err)
+		return modeldomain.Constraints{}, errors.Capture(err)
 	}
 
 	selectZoneStmt, err := s.Prepare(
 		"SELECT &dbConstraintZone.* FROM v_model_constraint_zone", dbConstraintZone{})
 	if err != nil {
-		return constraints.Value{}, errors.Capture(err)
+		return modeldomain.Constraints{}, errors.Capture(err)
 	}
 
 	var (
@@ -188,8 +190,9 @@ func (s *ModelState) GetModelConstraints(ctx context.Context) (constraints.Value
 		return nil
 	})
 	if err != nil {
-		return constraints.Value{}, errors.Capture(err)
+		return modeldomain.Constraints{}, errors.Capture(err)
 	}
+
 	return cons.toValue(tags, spaces, zones)
 }
 
@@ -335,13 +338,18 @@ func deleteModelConstraints(
 // - [machineerrors.InvalidContainerType]: when the container type set on the
 // constraints is invalid.
 // - [modelerrors.NotFound]: when no model exists to set constraints for.
-func SetModelConstraints(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX, consValue constraints.Value) error {
+func SetModelConstraints(
+	ctx context.Context,
+	preparer domain.Preparer,
+	tx *sqlair.TX,
+	cons modeldomain.Constraints,
+) error {
 	constraintsUUID, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Errorf("generating new model constraint uuid: %w", err)
 	}
 
-	constraintInsertValues := constraintsToDBInsert(constraintsUUID, consValue)
+	constraintInsertValues := constraintsToDBInsert(constraintsUUID, cons)
 
 	selectContainerTypeStmt, err := preparer.Prepare(`
 SELECT &dbContainerTypeId.*
@@ -373,21 +381,21 @@ WHERE value = $dbContainerTypeValue.value
 		return errors.Errorf("deleting existing model constraints: %w", err)
 	}
 
-	if consValue.Container != nil {
+	if cons.Container != nil {
 		containerTypeId := dbContainerTypeId{}
 		err = tx.Query(ctx, selectContainerTypeStmt, dbContainerTypeValue{
-			Value: string(*consValue.Container),
+			Value: string(*cons.Container),
 		}).Get(&containerTypeId)
 
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"container type %q is not valid",
-				*consValue.Container,
+				*cons.Container,
 			).Add(machineerrors.InvalidContainerType)
 		} else if err != nil {
 			return errors.Errorf(
 				"finding container type %q id: %w",
-				string(*consValue.Container), err,
+				string(*cons.Container), err,
 			)
 		}
 
@@ -415,22 +423,22 @@ WHERE value = $dbContainerTypeValue.value
 		return errors.Errorf("setting model constraints: %w", err)
 	}
 
-	if consValue.Tags != nil {
-		err = insertConstraintTags(ctx, preparer, tx, constraintsUUID, *consValue.Tags)
+	if cons.Tags != nil {
+		err = insertConstraintTags(ctx, preparer, tx, constraintsUUID, *cons.Tags)
 		if err != nil {
 			return errors.Errorf("setting constraint tags for model: %w", err)
 		}
 	}
 
-	if consValue.Spaces != nil {
-		err = insertContraintSpaces(ctx, preparer, tx, constraintsUUID, *consValue.Spaces)
+	if cons.Spaces != nil {
+		err = insertContraintSpaces(ctx, preparer, tx, constraintsUUID, *cons.Spaces)
 		if err != nil {
 			return errors.Errorf("setting constraint spaces for model: %w", err)
 		}
 	}
 
-	if consValue.Zones != nil {
-		err = insertContraintZones(ctx, preparer, tx, constraintsUUID, *consValue.Zones)
+	if cons.Zones != nil {
+		err = insertContraintZones(ctx, preparer, tx, constraintsUUID, *cons.Zones)
 		if err != nil {
 			return errors.Errorf("setting constraint zones for model: %w", err)
 		}
@@ -446,14 +454,17 @@ WHERE value = $dbContainerTypeValue.value
 // - [machineerrors.InvalidContainerType]: when the container type set on the
 // constraints is invalid.
 // - [modelerrors.NotFound]: when no model exists to set constraints for.
-func (s *ModelState) SetModelConstraints(ctx context.Context, consValue constraints.Value) error {
+func (s *ModelState) SetModelConstraints(
+	ctx context.Context,
+	cons modeldomain.Constraints,
+) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return SetModelConstraints(ctx, s, tx, consValue)
+		return SetModelConstraints(ctx, s, tx, cons)
 	})
 }
 
@@ -506,7 +517,7 @@ func insertContraintSpaces(
 	preparer domain.Preparer,
 	tx *sqlair.TX,
 	constraintUUID uuid.UUID,
-	spaces []string,
+	spaces []modeldomain.SpaceConstraint,
 ) error {
 	if len(spaces) == 0 {
 		return nil
@@ -514,7 +525,7 @@ func insertContraintSpaces(
 
 	spaceVals := make(sqlair.S, 0, len(spaces))
 	for _, space := range spaces {
-		spaceVals = append(spaceVals, space)
+		spaceVals = append(spaceVals, space.SpaceName)
 	}
 	spaceCount := dbAggregateCount{}
 
@@ -554,7 +565,8 @@ WHERE name in ($S[:])
 	for _, space := range spaces {
 		data = append(data, dbConstraintSpace{
 			ConstraintUUID: constraintUUID.String(),
-			Space:          space,
+			Space:          space.SpaceName,
+			Exclude:        space.Exclude,
 		})
 	}
 

@@ -11,13 +11,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	modeldomain "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -477,52 +477,53 @@ type dbConstraintInsert struct {
 // transforming the values into a [dbConstraintInsert] object.
 func constraintsToDBInsert(
 	uuid uuid.UUID,
-	consValue constraints.Value) dbConstraintInsert {
+	constraints modeldomain.Constraints,
+) dbConstraintInsert {
 	return dbConstraintInsert{
 		UUID: uuid.String(),
 		Arch: sql.NullString{
-			String: deref(consValue.Arch),
-			Valid:  consValue.Arch != nil,
+			String: deref(constraints.Arch),
+			Valid:  constraints.Arch != nil,
 		},
 		CPUCores: sql.NullInt64{
-			Int64: int64(deref(consValue.CpuCores)),
-			Valid: consValue.CpuCores != nil,
+			Int64: int64(deref(constraints.CpuCores)),
+			Valid: constraints.CpuCores != nil,
 		},
 		CPUPower: sql.NullInt64{
-			Int64: int64(deref(consValue.CpuPower)),
-			Valid: consValue.CpuPower != nil,
+			Int64: int64(deref(constraints.CpuPower)),
+			Valid: constraints.CpuPower != nil,
 		},
 		Mem: sql.NullInt64{
-			Int64: int64(deref(consValue.Mem)),
-			Valid: consValue.Mem != nil,
+			Int64: int64(deref(constraints.Mem)),
+			Valid: constraints.Mem != nil,
 		},
 		RootDisk: sql.NullInt64{
-			Int64: int64(deref(consValue.RootDisk)),
-			Valid: consValue.RootDisk != nil,
+			Int64: int64(deref(constraints.RootDisk)),
+			Valid: constraints.RootDisk != nil,
 		},
 		RootDiskSource: sql.NullString{
-			String: deref(consValue.RootDiskSource),
-			Valid:  consValue.RootDiskSource != nil,
+			String: deref(constraints.RootDiskSource),
+			Valid:  constraints.RootDiskSource != nil,
 		},
 		InstanceRole: sql.NullString{
-			String: deref(consValue.InstanceRole),
-			Valid:  consValue.InstanceRole != nil,
+			String: deref(constraints.InstanceRole),
+			Valid:  constraints.InstanceRole != nil,
 		},
 		InstanceType: sql.NullString{
-			String: deref(consValue.InstanceType),
-			Valid:  consValue.InstanceType != nil,
+			String: deref(constraints.InstanceType),
+			Valid:  constraints.InstanceType != nil,
 		},
 		VirtType: sql.NullString{
-			String: deref(consValue.VirtType),
-			Valid:  consValue.VirtType != nil,
+			String: deref(constraints.VirtType),
+			Valid:  constraints.VirtType != nil,
 		},
 		AllocatePublicIP: sql.NullBool{
-			Bool:  deref(consValue.AllocatePublicIP),
-			Valid: consValue.AllocatePublicIP != nil,
+			Bool:  deref(constraints.AllocatePublicIP),
+			Valid: constraints.AllocatePublicIP != nil,
 		},
 		ImageID: sql.NullString{
-			String: deref(consValue.ImageID),
-			Valid:  consValue.ImageID != nil,
+			String: deref(constraints.ImageID),
+			Valid:  constraints.ImageID != nil,
 		},
 	}
 }
@@ -541,47 +542,51 @@ func deref[T any](i *T) T {
 	return *i
 }
 
-func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace, zones []dbConstraintZone) (constraints.Value, error) {
-	consVal := constraints.Value{}
+func (c dbConstraint) toValue(
+	tags []dbConstraintTag,
+	spaces []dbConstraintSpace,
+	zones []dbConstraintZone,
+) (modeldomain.Constraints, error) {
+	rval := modeldomain.Constraints{}
 	if c.Arch.Valid {
-		consVal.Arch = &c.Arch.String
+		rval.Arch = &c.Arch.String
 	}
 	if c.CPUCores.Valid {
-		consVal.CpuCores = ptr(uint64(c.CPUCores.Int64))
+		rval.CpuCores = ptr(uint64(c.CPUCores.Int64))
 	}
 	if c.CPUPower.Valid {
-		consVal.CpuPower = ptr(uint64(c.CPUPower.Int64))
+		rval.CpuPower = ptr(uint64(c.CPUPower.Int64))
 	}
 	if c.Mem.Valid {
-		consVal.Mem = ptr(uint64(c.Mem.Int64))
+		rval.Mem = ptr(uint64(c.Mem.Int64))
 	}
 	if c.RootDisk.Valid {
-		consVal.RootDisk = ptr(uint64(c.RootDisk.Int64))
+		rval.RootDisk = ptr(uint64(c.RootDisk.Int64))
 	}
 	if c.RootDiskSource.Valid {
-		consVal.RootDiskSource = &c.RootDiskSource.String
+		rval.RootDiskSource = &c.RootDiskSource.String
 	}
 	if c.InstanceRole.Valid {
-		consVal.InstanceRole = &c.InstanceRole.String
+		rval.InstanceRole = &c.InstanceRole.String
 	}
 	if c.InstanceType.Valid {
-		consVal.InstanceType = &c.InstanceType.String
+		rval.InstanceType = &c.InstanceType.String
 	}
 	if c.VirtType.Valid {
-		consVal.VirtType = &c.VirtType.String
+		rval.VirtType = &c.VirtType.String
 	}
 	// We only set allocate public ip when it is true and not nil. The reason
 	// for this is no matter what the dqlite driver will always return false
 	// out of the database even when the value is NULL.
 	if c.AllocatePublicIP.Valid {
-		consVal.AllocatePublicIP = &c.AllocatePublicIP.Bool
+		rval.AllocatePublicIP = &c.AllocatePublicIP.Bool
 	}
 	if c.ImageID.Valid {
-		consVal.ImageID = &c.ImageID.String
+		rval.ImageID = &c.ImageID.String
 	}
 	if c.ContainerType.Valid {
 		containerType := instance.ContainerType(c.ContainerType.String)
-		consVal.Container = &containerType
+		rval.Container = &containerType
 	}
 
 	consTags := make([]string, 0, len(tags))
@@ -590,16 +595,19 @@ func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace
 	}
 	// Only set constraint tags if there are tags in the database value.
 	if len(consTags) != 0 {
-		consVal.Tags = &consTags
+		rval.Tags = &consTags
 	}
 
-	consSpaces := make([]string, 0, len(spaces))
+	consSpaces := make([]modeldomain.SpaceConstraint, 0, len(spaces))
 	for _, space := range spaces {
-		consSpaces = append(consSpaces, space.Space)
+		consSpaces = append(consSpaces, modeldomain.SpaceConstraint{
+			SpaceName: space.Space,
+			Exclude:   space.Exclude,
+		})
 	}
 	// Only set constraint spaces if there are spaces in the database value.
 	if len(consSpaces) != 0 {
-		consVal.Spaces = &consSpaces
+		rval.Spaces = &consSpaces
 	}
 
 	consZones := make([]string, 0, len(zones))
@@ -608,10 +616,10 @@ func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace
 	}
 	// Only set constraint zones if there are zones in the database value.
 	if len(consZones) != 0 {
-		consVal.Zones = &consZones
+		rval.Zones = &consZones
 	}
 
-	return consVal, nil
+	return rval, nil
 }
 
 // dbAggregateCount is a type to store the result for counting the number of
@@ -644,6 +652,7 @@ type dbConstraintTag struct {
 type dbConstraintSpace struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 	Space          string `db:"space"`
+	Exclude        bool   `db:"exclude"`
 }
 
 // dbConstraintZone represents a row from either the constraint_zone table or
