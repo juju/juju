@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	jujuversion "github.com/juju/juju/core/version"
@@ -151,6 +152,15 @@ func CreateReadOnlyModel(
 
 		return modelDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			return state.CreateReadOnlyModel(ctx, args, preparer{}, tx)
+		})
+	}
+}
+
+// SetModelConstraints sets the constraints for the controller model.
+func SetModelConstraints(constraints constraints.Value) internaldatabase.BootstrapOpt {
+	return func(ctx context.Context, controller, model database.TxnRunner) error {
+		return model.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			return state.SetModelConstraints(ctx, preparer{}, tx, constraints)
 		})
 	}
 }
