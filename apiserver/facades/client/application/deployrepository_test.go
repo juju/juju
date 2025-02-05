@@ -131,7 +131,7 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c 
 
 	// Assert
 	c.Check(result, gc.DeepEquals, expectedResult, gc.Commentf("(Assert) expected result did not match"))
-	c.Check(resourcesToUpload, gc.DeepEquals, expectedResourcesToUpload, gc.Commentf("(Assert) expected resourceToUpload did not match"))
+	c.Check(resourcesToUpload, jc.SameContents, expectedResourcesToUpload, gc.Commentf("(Assert) expected resourceToUpload did not match"))
 }
 
 func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharmRepositoryResolve(c *gc.C) {
