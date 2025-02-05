@@ -1325,7 +1325,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {
 		c.Fatal("cannot write to metadata.yaml")
 	}
 	_, err = s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
-	c.Assert(err, gc.ErrorMatches, `cannot refresh "riak" to "myriak"`)
+	c.Assert(err, gc.ErrorMatches, `(?m).*refreshing "local:riak-7" to "local:myriak-7".*is not supported.*`)
 }
 
 type mockAPIConnection struct {

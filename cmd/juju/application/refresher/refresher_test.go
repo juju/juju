@@ -249,10 +249,6 @@ func (s *localCharmRefresherSuite) TestRefresh(c *gc.C) {
 	curl := charm.MustParseURL(ref)
 
 	ch := NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{
-		Name: "meshuggah",
-	})
-
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmAdder.EXPECT().AddLocalCharm(curl, ch, false).Return(curl, nil)
 
@@ -268,6 +264,63 @@ func (s *localCharmRefresherSuite) TestRefresh(c *gc.C) {
 	charmID, err := task.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charmID.URL, gc.Equals, curl)
+	c.Assert(charmID.Origin.Source, gc.Equals, corecharm.Local)
+}
+
+func (s *localCharmRefresherSuite) TestRefreshChangesNameErrs(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	oldRef := "ch:meshuggahcopy"
+	oldCurl := charm.MustParseURL(oldRef)
+
+	newRef := "local:meshuggah"
+	newCurl := charm.MustParseURL(newRef)
+
+	ch := NewMockCharm(ctrl)
+	charmAdder := NewMockCharmAdder(ctrl)
+
+	charmRepo := NewMockCharmRepository(ctrl)
+	charmRepo.EXPECT().NewCharmAtPath(newRef).Return(ch, newCurl, nil)
+
+	cfg := refresherConfigWithOrigin(oldCurl, newRef, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
+
+	refresher := (&factory{}).maybeReadLocal(charmAdder, charmRepo)
+	task, err := refresher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = task.Refresh()
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, `(?m)By refreshing .* to .* it looks like you're changing the charm itself, which is not supported.*`)
+}
+
+func (s *localCharmRefresherSuite) TestRefreshChangesNameAllowedWithForce(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	oldRef := "ch:meshuggahcopy"
+	oldCurl := charm.MustParseURL(oldRef)
+
+	newRef := "local:meshuggah"
+	newCurl := charm.MustParseURL(newRef)
+
+	ch := NewMockCharm(ctrl)
+	charmAdder := NewMockCharmAdder(ctrl)
+	charmAdder.EXPECT().AddLocalCharm(newCurl, ch, true).Return(newCurl, nil)
+
+	charmRepo := NewMockCharmRepository(ctrl)
+	charmRepo.EXPECT().NewCharmAtPath(newRef).Return(ch, newCurl, nil)
+
+	cfg := refresherConfigWithOrigin(oldCurl, newRef, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
+	cfg.Force = true
+
+	refresher := (&factory{}).maybeReadLocal(charmAdder, charmRepo)
+	task, err := refresher(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	charmID, err := task.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(charmID.URL, gc.Equals, newCurl)
 	c.Assert(charmID.Origin.Source, gc.Equals, corecharm.Local)
 }
 

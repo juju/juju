@@ -162,14 +162,18 @@ func (d *localCharmRefresher) Allowed(_ RefresherConfig) (bool, error) {
 	return true, nil
 }
 
+var charmNameChangeError = `
+By refreshing %q to %q it looks like you're changing the charm itself, which is not supported.
+
+Use the --force flag to override.`[1:]
+
 // Refresh a given local charm.
 // Bundles are not supported as there is no physical representation in Juju.
 func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 	ch, newURL, err := d.charmRepo.NewCharmAtPath(d.charmRef)
 	if err == nil {
-		newName := ch.Meta().Name
-		if newName != d.charmURL.Name {
-			return nil, errors.Errorf("cannot refresh %q to %q", d.charmURL.Name, newName)
+		if newURL.Name != d.charmURL.Name && !d.force {
+			return nil, errors.Errorf(charmNameChangeError, d.charmURL, newURL)
 		}
 		addedURL, err := d.charmAdder.AddLocalCharm(newURL, ch, d.force)
 		if err != nil {
