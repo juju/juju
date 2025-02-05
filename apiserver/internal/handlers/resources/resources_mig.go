@@ -1,11 +1,10 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package resources
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/url"
 
@@ -13,116 +12,33 @@ import (
 
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/resource"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
-
-// ApplicationServiceGetter is an interface for getting an ApplicationService.
-type ApplicationServiceGetter interface {
-	// Application returns the model's application service.
-	Application(*http.Request) (ApplicationService, error)
-}
-
-// ApplicationService defines operations related to managing applications.
-type ApplicationService interface {
-	// GetApplicationIDByName returns an application ID by application name. It
-	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
-
-	// GetApplicationIDByUnitName returns the application ID for the named unit.
-	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
-
-	// GetUnitUUID returns the UUID for the named unit.
-	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
-}
-
-// ResourceService defines operations related to managing application resources.
-type ResourceService interface {
-	// GetResourceUUIDByApplicationAndResourceName returns the ID of the application
-	// resource specified by natural key of application and resource Name.
-	// The following error types can be expected to be returned:
-	//   - [resourceerrors.ResourceNotFound] if the specified resource does not
-	//     exist.
-	//   - [resourceerrors.ApplicationNotFound] if the specified application
-	//     does not exist.
-	GetResourceUUIDByApplicationAndResourceName(
-		ctx context.Context,
-		appName string,
-		resName string,
-	) (coreresource.UUID, error)
-
-	// GetResource returns the identified application resource.
-	// The following error types can be expected to be returned:
-	//   - [resourceerrors.ResourceNotFound] if the specified resource does not
-	//     exist.
-	GetResource(
-		ctx context.Context,
-		resourceUUID coreresource.UUID,
-	) (coreresource.Resource, error)
-
-	// OpenResource returns the details of and a reader for the resource.
-	// The following error types can be expected to be returned:
-	//   - [resourceerrors.ResourceNotFound] if the specified resource does not
-	//     exist.
-	//   - [resourceerrors.StoredResourceNotFound] if the specified resource is
-	//     not in the resource store.
-	OpenResource(
-		ctx context.Context,
-		resourceUUID coreresource.UUID,
-	) (coreresource.Resource, io.ReadCloser, error)
-
-	// StoreResource adds the application resource to blob storage and updates the
-	// metadata. It also sets the retrival information for the resource.
-	StoreResource(
-		ctx context.Context,
-		args resource.StoreResourceArgs,
-	) error
-
-	// StoreResourceAndIncrementCharmModifiedVersion adds the application resource to blob storage and updates the
-	// metadata. It also sets the retrival information for the resource.
-	StoreResourceAndIncrementCharmModifiedVersion(
-		ctx context.Context,
-		args resource.StoreResourceArgs,
-	) error
-
-	// GetApplicationResourceID returns the ID of the application resource
-	// specified by the application and resource name.
-	GetApplicationResourceID(
-		ctx context.Context,
-		args resource.GetApplicationResourceIDArgs,
-	) (coreresource.UUID, error)
-
-	// SetUnitResource records that the unit is using the resource.
-	SetUnitResource(
-		ctx context.Context,
-		resourceUUID coreresource.UUID,
-		unitUUID coreunit.UUID,
-	) error
-}
-
-// ResourceServiceGetter is an interface for retrieving a ResourceService
-// instance.
-type ResourceServiceGetter interface {
-	// Resource retrieves a ResourceService for handling resource-related
-	// operations.
-	Resource(*http.Request) (ResourceService, error)
-}
-
-// Resources represents the methods required to migrate a
-// resource blob.
-type Resources interface {
-	SetUnitResource(string, string, charmresource.Resource) (coreresource.Resource, error)
-	SetResource(string, string, charmresource.Resource, io.Reader, bool) (coreresource.Resource, error)
-}
 
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
 type resourcesMigrationUploadHandler struct {
 	resourceServiceGetter    ResourceServiceGetter
 	applicationServiceGetter ApplicationServiceGetter
+	logger                   logger.Logger
+}
+
+// NewResourceMigrationUploadHandler returns a new HTTP handler for resources
+// uploads during model migrations.
+func NewResourceMigrationUploadHandler(
+	applicationServiceGetter ApplicationServiceGetter,
+	resourceServiceGetter ResourceServiceGetter,
+	logger logger.Logger,
+) *resourcesMigrationUploadHandler {
+	return &resourcesMigrationUploadHandler{
+		applicationServiceGetter: applicationServiceGetter,
+		resourceServiceGetter:    resourceServiceGetter,
+		logger:                   logger,
+	}
 }
 
 // ServeHTTP handles HTTP requests by delegating to ServePost for POST requests
@@ -136,8 +52,8 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 		err = errors.MethodNotAllowedf("method not allowed: %s", r.Method)
 	}
 	if err != nil {
-		if err := sendError(w, internalerrors.Capture(err)); err != nil {
-			logger.Errorf(context.TODO(), "cannot return error to user: %v", err)
+		if err := internalhttp.SendError(w, internalerrors.Capture(err), h.logger); err != nil {
+			h.logger.Errorf(context.TODO(), "cannot return error to user: %v", err)
 		}
 	}
 }
@@ -291,16 +207,4 @@ func getUploadTarget(
 	// Resolve target by appName
 	target.appID, err = service.GetApplicationIDByName(ctx, appName)
 	return target, internalerrors.Capture(err)
-}
-
-type migratingResourceServiceGetter struct {
-	ctxt httpContext
-}
-
-func (a *migratingResourceServiceGetter) Resource(r *http.Request) (ResourceService, error) {
-	domainServices, err := a.ctxt.domainServicesDuringMigrationForRequest(r)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-	return domainServices.Resource(), nil
 }

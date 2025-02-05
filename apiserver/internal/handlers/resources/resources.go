@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package resources
 
 import (
 	"context"
@@ -18,6 +18,7 @@ import (
 
 	api "github.com/juju/juju/api/client/resources"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
+	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
@@ -26,31 +27,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type resourceServiceGetter struct {
-	ctxt httpContext
-}
-
-func (a *resourceServiceGetter) Resource(r *http.Request) (ResourceService, error) {
-	domainServices, err := a.ctxt.domainServicesForRequest(r.Context())
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return domainServices.Resource(), nil
-}
-
-type resourceOpenerGetter func(r *http.Request, tagKinds ...string) (coreresource.Opener, error)
-
-func (rog resourceOpenerGetter) Opener(r *http.Request, tagKinds ...string) (coreresource.Opener, error) {
-	return rog(r, tagKinds...)
-}
-
 // ResourceHandler is the HTTP handler for client downloads and
 // uploads of resources.
 type ResourceHandler struct {
 	authFunc              func(*http.Request, ...string) (names.Tag, error)
 	changeAllowedFunc     func(context.Context) error
 	resourceServiceGetter ResourceServiceGetter
+	logger                logger.Logger
 }
 
 // NewResourceHandler returns a new HTTP client resource handler.
@@ -58,11 +41,13 @@ func NewResourceHandler(
 	authFunc func(*http.Request, ...string) (names.Tag, error),
 	changeAllowedFunc func(context.Context) error,
 	resourceServiceGetter ResourceServiceGetter,
+	logger logger.Logger,
 ) *ResourceHandler {
 	return &ResourceHandler{
 		authFunc:              authFunc,
 		changeAllowedFunc:     changeAllowedFunc,
 		resourceServiceGetter: resourceServiceGetter,
+		logger:                logger,
 	}
 }
 
@@ -70,16 +55,16 @@ func NewResourceHandler(
 func (h *ResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	tag, err := h.authFunc(req, names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
 	if err != nil {
-		if err := sendError(resp, err); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+		if err := internalhttp.SendError(resp, err, h.logger); err != nil {
+			h.logger.Errorf(context.TODO(), "%v", err)
 		}
 		return
 	}
 
 	resourceService, err := h.resourceServiceGetter.Resource(req)
 	if err != nil {
-		if err := sendError(resp, err); err != nil {
-			logger.Errorf(context.TODO(), "returning error to user: %v", err)
+		if err := internalhttp.SendError(resp, err, h.logger); err != nil {
+			h.logger.Errorf(context.TODO(), "returning error to user: %v", err)
 		}
 		return
 	}
@@ -88,8 +73,8 @@ func (h *ResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request)
 	case "GET":
 		reader, size, err := h.download(resourceService, req)
 		if err != nil {
-			if err := sendError(resp, err); err != nil {
-				logger.Errorf(context.TODO(), "%v", err)
+			if err := internalhttp.SendError(resp, err, h.logger); err != nil {
+				h.logger.Errorf(context.TODO(), "%v", err)
 			}
 			return
 		}
@@ -99,28 +84,28 @@ func (h *ResourceHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request)
 		header.Set("Content-Length", fmt.Sprint(size))
 		resp.WriteHeader(http.StatusOK)
 		if _, err := io.Copy(resp, reader); err != nil {
-			logger.Errorf(context.TODO(), "resource download failed: %v", err)
+			h.logger.Errorf(context.TODO(), "resource download failed: %v", err)
 		}
 	case "PUT":
 		if err := h.changeAllowedFunc(req.Context()); err != nil {
-			if err := sendError(resp, err); err != nil {
-				logger.Errorf(context.TODO(), "%v", err)
+			if err := internalhttp.SendError(resp, err, h.logger); err != nil {
+				h.logger.Errorf(context.TODO(), "%v", err)
 			}
 			return
 		}
 		response, err := h.upload(resourceService, req, tagToUsername(tag))
 		if err != nil {
-			if err := sendError(resp, err); err != nil {
-				logger.Errorf(context.TODO(), "%v", err)
+			if err := internalhttp.SendError(resp, err, h.logger); err != nil {
+				h.logger.Errorf(context.TODO(), "%v", err)
 			}
 			return
 		}
 		if err := internalhttp.SendStatusAndJSON(resp, http.StatusOK, &response); err != nil {
-			logger.Errorf(req.Context(), "%v", err)
+			h.logger.Errorf(req.Context(), "%v", err)
 		}
 	default:
-		if err := sendError(resp, jujuerrors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+		if err := internalhttp.SendError(resp, jujuerrors.MethodNotAllowedf("unsupported method: %q", req.Method), h.logger); err != nil {
+			h.logger.Errorf(context.TODO(), "%v", err)
 		}
 	}
 }
