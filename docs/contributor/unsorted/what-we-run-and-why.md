@@ -1,6 +1,6 @@
-(provisioning)=
-What We Run, and Why
-====================
+(what-we-run-and-why)=
+# What We Run, and Why
+
 
 Expressed as compactly as possible, the Provisioner is responsible for making
 sure that non-Dead machine entities in state have agents running on live
@@ -11,8 +11,7 @@ However, the choice of exactly what we deploy involves some subtleties. At the
 Provisioner level, it's simple: the series and the constraints we pass to the
 Environ.StartInstance come from the machine entity. But how did they get there?
 
-Series
-------
+## Series
 
 Individual charms are released for different possible target series; juju
 should guarantee that charms for series X are only ever run on series X.
@@ -25,8 +24,7 @@ by their principals, on the same machine, in response to the creation of
 subordinate relations. We therefore restrict subordinate relations such that
 they can only be created between services with matching series.
 
-Constraints
------------
+## Constraints
 
 Constraints are stored for models, services, units, and machines, but
 unit constraints are not currently exposed because they're not needed outside
@@ -66,8 +64,7 @@ controlled by their principal units. There's only ever one machine to which
 that subordinate could (and must) be deployed, and to restrict that further
 by means of constraints will only confuse people.
 
-Placement
----------
+## Placement
 
 Placement is the term given to allocating a unit to a specific machine.
 This is achieved with the `--to` option in the `deploy` and `add-unit`
@@ -85,8 +82,7 @@ At the time of writing, the currently implemented provider-specific placement di
   - Availability Zone: both the AWS and OpenStack providers support `zone=<zone>`, directing the provisioner to start an instance in the specified availability zone.
   - MAAS: `<hostname>` directs the MAAS provider to acquire the node with the specified hostname.
 
-Availability Zone Spread
-------------------------
+## Availability zone spread
 
 For Juju providers that know about Availability Zones, instances will be automatically spread across the healthy availability zones to maximise service availability. This is achieved by having Juju:
 
@@ -104,8 +100,7 @@ The AWS and OpenStack implementations are both based on the `provider/common.Zon
   - unless a placement directive is specified, the provider's `StartInstance` must allocate an instance to one of the healthy availability zones. Some providers may restrict availability zones in ways that cannot be detected ahead of time, so it may be necessary to attempt each zone in turn (in order of least-to-most populous);
   - the provider must implement `state.InstanceDistributor` so that units are assigned to machines based on their availability zone allocations.
 
-Machine Status and Provisioning Errors (current)
-------------------------------------------------
+## Machine status and provisioning errors (current)
 
 In the light of time pressure, a unit assigned to a machine that has not been
 provisioned can be removed directly by calling `juju destroy-unit`. Any
@@ -127,8 +122,7 @@ removal. However:
 directly, or indirectly via the provisioner; the best place to implement this
 functionality is not clear).
 
-Machine Status and Provisioning Errors (WIP)
---------------------------------------------
+## Machine status and provisioning errors (WIP)
 
 [TODO: figure this out; not yet implemented, somewhat speculative... in
 particular, use of "resolved" may be inappropriate. Consider adding a

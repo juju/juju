@@ -8,7 +8,7 @@ immeasurably helpful, I have found a few more things that help me reproduce and 
 includes an updated script which adds a counter and timing to the output. I find it useful to know how long it took to
 trigger a race, or how long it was stressed without triggering.
 
-I also install [stress](http://linux.die.net/man/1/stress) to create contention on cpus, ram, io, etc.     
+I also install [stress](http://linux.die.net/man/1/stress) to create contention on cpus, ram, io, etc.
 E.g. ```stress --cpu 8 --io 4 --vm 2 -d 2 --timeout 60m```. I imagine this would be nice to randomize in the script(s)
 linked in the first paragraph.
 

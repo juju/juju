@@ -1,4 +1,4 @@
-(txn-example)=
+(mongo-txn-example)=
 # Mongo TXN example
 <!-- TODO(gfouillet): do not merge into 4.0, or delete whenever merged (reason: related to mongodb) -->
 

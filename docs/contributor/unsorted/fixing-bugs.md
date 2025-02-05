@@ -1,5 +1,5 @@
 (fixing-bugs)=
-# Juju and bug fixes
+# Fixing bugs
 
 When fixing a bug that affects more than a single branch the prefered
 process for fixing the bug is to perform the work against the oldest

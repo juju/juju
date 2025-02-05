@@ -1,6 +1,6 @@
-(config-structs)=
-The config-struct idiom
-=======================
+(implementing-effective-config-structs)=
+# Implementing effective config-structs
+
 
 As we work to make our dependencies more explicit across the board, we've been
 converging on a useful default pattern to follow when creating or modifying

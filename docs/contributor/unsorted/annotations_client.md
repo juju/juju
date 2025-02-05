@@ -1,5 +1,5 @@
 (annotations_client)=
-# ANNOTATION CLIENT
+# Annotations client
 
 New annotations client is available from 1.22 effectively deprecating
 annotations in old client.

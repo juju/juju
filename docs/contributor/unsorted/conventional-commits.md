@@ -86,7 +86,7 @@ Fixes #123
 
 The PR title, where a conventional commit is introduced, should be the same format as a first line of a commit description: `<type>(optional <scope>): <description>`. In case this commit is core/base/most significant for this PR.
 
-### Footer and Multi-paragraph Body
+## Footer and Multi-paragraph Body
 ### Juju-Specific Scopes
 
 Define specific scopes relevant to the Juju project to enhance clarity. Examples include:

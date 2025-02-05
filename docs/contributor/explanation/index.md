@@ -1,8 +1,9 @@
 (explanation)=
 # Explanation
 
-TBA
-
 ```{toctree}
+:titlesonly:
+:glob:
 
+*
 ```

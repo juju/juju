@@ -1,13 +1,12 @@
 (hacking-state)=
-Hacking the juju-core/state package
-===================================
+# Hacking the juju-core/state package
+
 
 This document remains a work in progress; it's an attempt to capture
 the various conventions and things to bear in mind that aren't
 necessarily written down anywhere else.
 
-return values: ok vs err
-------------------------
+## Return values: ok vs err
 
 By convention, anything that could reasonably fail must use a separate
 channel to communicate the failure. Broadly speaking, methods that can
@@ -17,8 +16,7 @@ missing) are expected to return a bool for consistency's sake, even if
 the type of the return value is such that failure can be signalled in-
 band.
 
-changes to entities
--------------------
+## Changes to entities
 
 Entity objects reflect remote state that may change at any time, but we
 don't want to make that too obvious. By convention, the only methods
@@ -35,8 +33,7 @@ is simple enough that there's no Clone() method, but it would be kinda
 nice to implement them in our Copious Free Time; I think there are
 places outside state that would also find it useful.
 
-care and feeding of mgo/txn
----------------------------
+## Care and feeding of mgo/txn
 
 Just about all our writes to mongodb are mediated by the mgo/txn
 package, and using this correctly demands some care. Not all the code
@@ -92,8 +89,7 @@ transaction based on more recent state and try again. If ErrAborteds
 just keep coming, give up; there's an ErrExcessiveContention that
 helps to describe the situation.
 
-watching entities, and select groups thereof
---------------------------------------------
+## Watching entities, and selecting groups thereof
 
 The mgo/txn log enables very convenient notifications of changes to
 particular documents and groups thereof. The state/watcher package

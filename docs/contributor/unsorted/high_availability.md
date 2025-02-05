@@ -1,20 +1,18 @@
-(high_availability)=
-High Availability (HA)
-======================
-
+(high-availability)=
+# High Availability (HA)
 
 High Availability in general terms means that we have 3 or more (up to 7)
 State Machines, each one of which can be used as the master.
 
 This is an overview of how it works:
 
-### Mongo
+## Mongo
 _Mongo_ is always started in [replicaset mode](http://docs.mongodb.org/manual/replication/).
 
  If not in HA, this will behave as if it were a single mongodb and, in practical
 terms there is no difference with a regular setup.
 
-### Voting
+## Voting
 
 A voting member of the replicaset is a one that has a say in which member is master.
 
@@ -23,7 +21,7 @@ A non-voting member is just a storage backup.
 Currently we don't support non-voting members; instead when a member is non-voting it
 means that said controller is going to be removed entirely.
 
-### Ensure availability
+## Ensure availability
 
 There is a `ensure-availabiity` command for juju, it takes `-n` (minimum number
  of state machines) as an optional parameter; if it's not provided it will
