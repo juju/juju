@@ -536,7 +536,8 @@ func deref[T any](i *T) T {
 	if i == nil {
 		return *new(T)
 	}
-	return *i
+	var v T
+	return v
 }
 
 func (c dbConstraint) toValue(tags []dbConstraintTag, spaces []dbConstraintSpace, zones []dbConstraintZone) (constraints.Value, error) {
