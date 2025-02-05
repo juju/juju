@@ -46,6 +46,7 @@ prepare_k8s() {
 	namespace=juju-secrets
 	serviceaccount=default
 	microk8s.kubectl create ns ${namespace} --dry-run=client -o yaml | microk8s.kubectl apply -f -
+	microk8s.kubectl create --save-config -n ${namespace} serviceaccount ${serviceaccount} --dry-run=client -o yaml | microk8s.kubectl apply -f -
 	microk8s.kubectl create --save-config clusterrole juju-secrets --verb='*' \
 		--resource=namespaces,secrets,serviceaccounts,serviceaccounts/token,clusterroles,clusterrolebindings --dry-run=client -o yaml | microk8s.kubectl apply -f -
 	microk8s.kubectl create --save-config clusterrolebinding juju-secrets --clusterrole=juju-secrets \

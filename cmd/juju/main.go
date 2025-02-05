@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/debug/coveruploader"
 	_ "github.com/juju/juju/internal/provider/all" // Import the providers.
 )
 
@@ -20,6 +21,7 @@ func init() {
 }
 
 func main() {
+	coveruploader.Enable()
 	_, err := loggo.ReplaceDefaultWriter(cmd.NewWarningWriter(os.Stderr))
 	if err != nil {
 		panic(err)

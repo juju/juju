@@ -3,7 +3,7 @@
 
 > See also: {ref}`log`
 <!--
-Make sure to also cover 
+Make sure to also cover
 
 logging-output:
   description: 'The logging output destination: database and/or syslog. (default "")'
@@ -18,7 +18,7 @@ debug-log
 
 Cover how to filter the output: debug-log --level
 
-- Configure the logging level (agent and model logs) 
+- Configure the logging level (agent and model logs)
 
 model-config --logging-config
 
@@ -29,7 +29,7 @@ model-config --logging-config
 - Inspect the audit log
 
 1. SSH into a controller machine
-2. View the log 
+2. View the log
 
 
 - View a list of all the log files
@@ -57,7 +57,7 @@ In a machine deployment, this will output logs for all the Juju machine and unit
 <entity (machine or unit)> <timestamp> <log level> <Juju module> <message>
 ```
 
-In Kubernetes deployments, this will not show any logs below the model level. 
+In Kubernetes deployments, this will not show any logs below the model level.
 
 
 The command has various options that allow you to control the length, appearance, amount and type of detail.
@@ -181,7 +181,7 @@ The exception to the streaming is when limiting the output (option '--limit'; se
 
 Juju logging is hierarchical and can be granular.
 
-#### machine 
+#### machine
 ```<root>``` refers to all logs related to a juju machine, including controller operation when applied to the controller model.
 #### unit
 ```unit``` refers to all logs related to a juju unit.
@@ -201,15 +201,15 @@ These are modules of the juju code base. See advanced filtering for more informa
 
 Juju saves or discards logs according to the value of the model config key `logging-config`. Therefore, `logging-config` needs to be set before the events you want to collect logs for (i.e. before attempting to reproduce a bug).
 
-**Set values.** 
+**Set values.**
 
-- **To change the logging configuration for machine and unit agents**: <br> Run the `model-config` command with the `logging-config` key set to a `"`-enclosed, semi-colon-separated list of `<filter>=<verbosity level>` pairs. 
+- **To change the logging configuration for machine and unit agents**: <br> Run the `model-config` command with the `logging-config` key set to a `"`-enclosed, semi-colon-separated list of `<filter>=<verbosity level>` pairs.
 
 <!--
 , where the subkeys include `<root>` = the machine agent, `unit` = the unit agent, and `<label>` is a log label, and the values are log verbosity levels. For example, to change the log level of the unit agent from the default `DEBUG` to the more verbose `TRACE`, run:
 -->
 
-````{dropdown} Examplea 
+````{dropdown} Examples
 
 Set machine agent logs to `WARNING` and unit agent logs to `TRACE`:
 
@@ -217,7 +217,7 @@ Set machine agent logs to `WARNING` and unit agent logs to `TRACE`:
 juju model-config logging-config="<root>=WARNING;unit=TRACE"
 ```
 
-Sett unit agent logs for unit `0` of `mysql` to `DEBUG`:
+Set unit agent logs for unit `0` of `mysql` to `DEBUG`:
 
 ```text
 juju model-config logging-config="unit.mysql/0=DEBUG"
@@ -228,12 +228,12 @@ juju model-config logging-config="unit.mysql/0=DEBUG"
 
 > See more: {ref}`configure-a-model`, {ref}`model-config-logging-config`
 
-```{caution} 
-**To avoid filling up the database unnecessarily:** 
+```{caution}
+**To avoid filling up the database unnecessarily:**
 <br>When verbose logging is no longer needed,  return logging to normal levels!
 ```
 
-- **To change the logging configuration on a per-unit-agent basis:** 
+- **To change the logging configuration on a per-unit-agent basis:**
 
 1.  SSH into the unit's machine. E.g., for `mysql/0`:
 
@@ -319,10 +319,10 @@ An initial 100 (maximum) existing log lines will be forwarded.
 > See more: {ref}`configure-a-model`
 
 ````{tip}
-You can configure remote logging *and* enable log forwarding on *all* the controller's models in one step by running 
+You can configure remote logging *and* enable log forwarding on *all* the controller's models in one step by running
 
 ```text
-juju bootstrap <cloud> --config mylogconfig.yaml --config logforward-enabled=True 
+juju bootstrap <cloud> --config mylogconfig.yaml --config logforward-enabled=True
 ```
 ````
 
@@ -339,7 +339,7 @@ Only applicable for machines -- for Kubernetes logs are written directly to `std
 To view the Juju log files in a Juju machine:
 
 
-1. Open a shell into the machine: 
+1. Open a shell into the machine:
 
 (1a) If Juju can connect to the machine (i.e., the output contains `Connected to <IP address>`) and the machine is fully provisioned, use `juju ssh`. For example, to connect to machine 0:
 
@@ -359,7 +359,7 @@ Here, `<juju-data-dir>` defaults to `~/.local/share/juju`, but if you’ve set t
 (1c) If Juju *cannot* connect to the machine (i.e., the command never reaches `Connected to <IP address>`), use cloud-specific tools. For example, for the LXD cloud:
 
 ```text
-lxc exec {ref}`container-name] bash
+lxc exec <container name> bash
 ```
 
 or, for the MicroK8s cloud:

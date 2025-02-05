@@ -1,6 +1,5 @@
 (death-and-destruction)=
-Death and Destruction
-=====================
+# Death and destruction
 
 This document describes in detail the operations associated with the destruction
 and removal of the fundamental state entities, and what agents are responsible

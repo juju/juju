@@ -19,6 +19,7 @@ import (
 	"github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/debug/coveruploader"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
@@ -170,6 +171,7 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 }
 
 func main() {
+	coveruploader.Enable()
 	os.Exit(Main(os.Args))
 }
 
