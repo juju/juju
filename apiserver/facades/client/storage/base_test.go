@@ -4,7 +4,7 @@
 package storage_test
 
 import (
-	context "context"
+	"context"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	blockcommand "github.com/juju/juju/domain/blockcommand"
+	"github.com/juju/juju/domain/blockcommand"
 	jujustorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -71,14 +71,18 @@ func (s *baseStorageSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.registry = jujustorage.StaticProviderRegistry{Providers: map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.poolsInUse = []string{}
 
-	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.blockDeviceGetter, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter, s.blockCommandService)
-	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.blockDeviceGetter, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter, s.blockCommandService)
+	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.blockDeviceGetter,
+		s.storageService, s.storageRegistryGetter, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter,
+		s.blockCommandService)
+	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.blockDeviceGetter,
+		s.storageService, s.storageRegistryGetter, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter,
+		s.blockCommandService)
 
 	return ctrl
 }
 
-func (s *baseStorageSuite) storageMetadata(context.Context) (storage.StorageService, jujustorage.ProviderRegistry, error) {
-	return s.storageService, s.registry, nil
+func (s *baseStorageSuite) storageRegistryGetter(context.Context) (jujustorage.ProviderRegistry, error) {
+	return s.registry, nil
 }
 
 // TODO(axw) get rid of assertCalls, use stub directly everywhere.

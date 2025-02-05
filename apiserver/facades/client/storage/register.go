@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/internal/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -29,15 +28,6 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageMetadata := func(stdCtx context.Context) (StorageService, storage.ProviderRegistry, error) {
-		domainServices := ctx.DomainServices()
-		storageService := domainServices.Storage()
-		registry, err := storageService.GetStorageRegistry(stdCtx)
-		if err != nil {
-			return nil, nil, errors.Annotatef(err, "getting storage registry")
-		}
-		return domainServices.Storage(), registry, nil
-	}
 
 	domainServices := ctx.DomainServices()
 	storageAccessor, err := getStorageAccessor(st)
@@ -50,8 +40,10 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
+	storageService := domainServices.Storage()
 	return NewStorageAPI(
 		stateShim{st}, model.Type(),
-		storageAccessor, domainServices.BlockDevice(), storageMetadata, authorizer,
+		storageAccessor, domainServices.BlockDevice(), storageService,
+		storageService.GetStorageRegistry, authorizer,
 		credentialcommon.CredentialInvalidatorGetter(ctx), domainServices.BlockCommand()), nil
 }
