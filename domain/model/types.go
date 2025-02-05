@@ -94,10 +94,10 @@ type Constraints struct {
 type SpaceConstraint struct {
 	// Excluded indicates that this space should not be available to the
 	// machine.
-	Excluded bool
+	Exclude bool
 
-	// Name is the name of the space.
-	Name string
+	// SpaceName is the name of the space.
+	SpaceName string
 }
 
 // GlobalModelCreationArgs supplies the information required for
