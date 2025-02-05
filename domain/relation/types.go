@@ -19,27 +19,27 @@ type Endpoint struct {
 type RelationData struct {
 	// InScope returns a boolean to indicate whether this unit has successfully
 	// joined the relation.
-	InScope bool `yaml:"in-scope"`
+	InScope bool
 	// UnitData are the settings for the relation and current unit,
 	// set by an individual unit.
-	UnitData map[string]interface{} `yaml:"data"` // unit settings
+	UnitData map[string]interface{} // unit settings
 }
 
 // EndpointRelationData holds information about a relation to a given endpoint.
 type EndpointRelationData struct {
 	// RelationID is the integer internal relation key used by relation hooks
 	// to identify a relation.
-	RelationID int `json:"relation-id"`
+	RelationID int
 	// Endpoint is the name of the endpoint defined in the current application.
-	Endpoint string `json:"endpoint"`
+	Endpoint string
 	// RelatedEndpoint is the name of the endpoint defined in the counterpart application.
-	RelatedEndpoint string `json:"related-endpoint"`
+	RelatedEndpoint string
 	// ApplicationData are the settings for the relation and current application,
 	// set by the leader unit.
-	ApplicationData map[string]interface{} `yaml:"application-relation-data"`
+	ApplicationData map[string]interface{}
 	// UnitRelationData are the settings for the relation and current unit,
 	// set by an individual unit.
-	UnitRelationData map[string]RelationData `json:"unit-relation-data"`
+	UnitRelationData map[string]RelationData
 }
 
 // Watcher is implemented by all watchers; the actual
