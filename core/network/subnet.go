@@ -141,10 +141,9 @@ func (s SubnetInfos) GetByCIDR(cidr string) (SubnetInfos, error) {
 		return matching, nil
 	}
 
-	// Some providers (e.g. equinix) carve subnets into smaller CIDRs and
-	// assign addresses from the carved subnets to the machines. If we were
-	// not able to find a direct CIDR match fallback to a CIDR is sub-CIDR
-	// of check.
+	// Some providers carve subnets into smaller CIDRs and assign addresses from
+	// the carved subnets to the machines. If we were not able to find a direct
+	// CIDR match fallback to a CIDR is sub-CIDR of check.
 	firstIP, lastIP, err := IPRangeForCIDR(cidr)
 	if err != nil {
 		return nil, errors.Annotatef(err, "unable to extract first and last IP addresses from CIDR %q", cidr)

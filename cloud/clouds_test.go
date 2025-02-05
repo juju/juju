@@ -24,7 +24,7 @@ type cloudSuite struct {
 var _ = gc.Suite(&cloudSuite{})
 
 var publicCloudNames = []string{
-	"aws", "aws-china", "aws-gov", "equinix", "google", "azure", "azure-china", "oracle",
+	"aws", "aws-china", "aws-gov", "google", "azure", "azure-china", "oracle",
 }
 
 func parsePublicClouds(c *gc.C) map[string]cloud.Cloud {
@@ -65,8 +65,8 @@ func (s *cloudSuite) TestParseCloudsEndpointDenormalisation(c *gc.C) {
 
 func (s *cloudSuite) TestParseCloudsAuthTypes(c *gc.C) {
 	clouds := parsePublicClouds(c)
-	equinix := clouds["equinix"]
-	c.Assert(equinix.AuthTypes, jc.SameContents, cloud.AuthTypes{"access-key"})
+	google := clouds["google"]
+	c.Assert(google.AuthTypes, jc.SameContents, cloud.AuthTypes{"jsonfile", "oauth2"})
 }
 
 func (s *cloudSuite) TestParseCloudsConfig(c *gc.C) {

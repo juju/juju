@@ -1867,7 +1867,6 @@ aws-china
 aws-gov                                       
 azure                                         
 azure-china                                   
-equinix                                       
 google                                        
 oracle                                        
 ?(localhost\s+)?(microk8s\s+)?
@@ -1926,7 +1925,6 @@ aws-china
 aws-gov                                       
 azure                                         
 azure-china                                   
-equinix                                       
 google                                        
 oracle                                        
 ?(localhost\s+)?(microk8s\s+)?

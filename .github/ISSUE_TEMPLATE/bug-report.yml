@@ -31,7 +31,6 @@ body:
       options:
         - AWS
         - Azure
-        - Equinix
         - GCP
         - Kubernetes
         - LXD
