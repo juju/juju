@@ -93,8 +93,23 @@ func (env *azureEnviron) allSubnets(ctx context.ProviderCallContext) ([]network.
 		if sub.Properties == nil {
 			continue
 		}
+		addressPrefix := sub.Properties.AddressPrefix
+		if addressPrefix == nil || *addressPrefix == "" {
+			for _, prefix := range sub.Properties.AddressPrefixes {
+				if prefix == nil {
+					continue
+				}
+				addrType, err := network.CIDRAddressType(*prefix)
+				// We only care about IPv4 addresses.
+				if err == nil && addrType == network.IPv4Address {
+					addressPrefix = prefix
+					break
+				}
+
+			}
+		}
 		// An empty CIDR is no use to us, so guard against it.
-		cidr := toValue(sub.Properties.AddressPrefix)
+		cidr := toValue(addressPrefix)
 		if cidr == "" {
 			logger.Debugf("ignoring subnet %q with empty address prefix", id)
 			continue
