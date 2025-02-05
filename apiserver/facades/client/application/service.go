@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
@@ -37,6 +38,7 @@ type Services struct {
 	PortService               PortService
 	StorageService            StorageService
 	StubService               StubService
+	RelationService           RelationService
 }
 
 // Validate checks that all the services are set.
@@ -64,6 +66,9 @@ func (s Services) Validate() error {
 	}
 	if s.StubService == nil {
 		return errors.NotValidf("empty StubService")
+	}
+	if s.RelationService == nil {
+		return errors.NotValidf("empty RelationService")
 	}
 	return nil
 }
@@ -236,4 +241,25 @@ type Leadership interface {
 	// in order to support state.ApplicationLeaders for legacy leases.
 	// When legacy leases are removed, so can the error return.
 	Leaders() (map[string]string, error)
+}
+
+// RelationService is used to
+type RelationService interface {
+	// AddRelation takes two endpoint identifiers of the form
+	// <application>[:<endpoint>]. The identifiers will be used to infer two
+	// endpoint between applications on the model. A new relation will be created
+	// between these endpoints and the details of the endpoint returned.
+	//
+	// If the identifiers do not uniquely specify a relation, an error will be
+	// returned.
+	AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error)
+
+	// AddPeerRelation takes an identifier of the form <application>[:<endpoint>].
+	// The identifier will be used to infer a peer endpoint on an application on the
+	// model. A new peer relation will be created on this endpoint and the endpoint
+	// returned.
+	//
+	// If the identifier does not specify a peer relation, an error will be
+	// returned.
+	AddPeerRelation(ctx context.Context, ep string) (relation.Endpoint, error)
 }

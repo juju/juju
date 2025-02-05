@@ -6,7 +6,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"net"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -87,6 +86,7 @@ type APIBase struct {
 	portService        PortService
 	stubService        StubService
 	storageService     StorageService
+	relationService    RelationService
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
@@ -190,6 +190,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			PortService:               domainServices.Port(),
 			StorageService:            storageService,
 			StubService:               domainServices.Stub(),
+			RelationService:           domainServices.Relation(),
 		},
 		storageAccess,
 		ctx.Auth(),
@@ -267,6 +268,7 @@ func NewAPIBase(
 		networkService:            services.NetworkService,
 		portService:               services.PortService,
 		storageService:            services.StorageService,
+		relationService:           services.RelationService,
 		stubService:               services.StubService,
 
 		logger: logger,
@@ -1747,74 +1749,61 @@ func (api *APIBase) SetConstraints(ctx context.Context, args params.SetConstrain
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_ params.AddRelationResults, err error) {
 	if err := api.checkCanWrite(ctx); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
+		return params.AddRelationResults{}, internalerrors.Capture(err)
 	}
 	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
+		return params.AddRelationResults{}, internalerrors.Capture(err)
 	}
 
-	var rel Relation
-	defer func() {
-		if err != nil && rel != nil {
-			if err := rel.Destroy(api.store); err != nil {
-				api.logger.Errorf(context.TODO(), "cannot destroy aborted relation %q: %v", rel.Tag().Id(), err)
-			}
-		}
-	}()
-
-	inEps, err := api.backend.InferEndpoints(args.Endpoints...)
-	if err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
-	}
-
-	// Validate any CIDRs.
-	for _, cidr := range args.ViaCIDRs {
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return params.AddRelationResults{}, errors.Trace(err)
-		}
-		if cidr == "0.0.0.0/0" {
-			return params.AddRelationResults{}, errors.Errorf("CIDR %q not allowed", cidr)
-		}
-	}
 	if len(args.ViaCIDRs) > 0 {
-		var isCrossModel bool
-		for _, ep := range inEps {
-			_, err = api.backend.RemoteApplication(ep.ApplicationName)
-			if err == nil {
-				isCrossModel = true
-				break
-			} else if !errors.Is(err, errors.NotFound) {
-				return params.AddRelationResults{}, errors.Trace(err)
-			}
-		}
-		if !isCrossModel {
-			return params.AddRelationResults{}, errors.NotSupportedf("integration via subnets for non cross model relations")
-		}
-	}
-
-	if rel, err = api.backend.AddRelation(inEps...); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
-	}
-	if _, err := api.backend.SaveEgressNetworks(rel.Tag().Id(), args.ViaCIDRs); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
+		return params.AddRelationResults{}, errors.NotSupportedf("integration via subnets is only for cross model relations which are")
 	}
 
 	outEps := make(map[string]params.CharmRelation)
-	for _, inEp := range inEps {
-		outEp, err := rel.Endpoint(inEp.ApplicationName)
+	switch len(args.Endpoints) {
+	case 0:
+		return params.AddRelationResults{}, errors.BadRequestf("missing relation endpoints")
+		// One endpoint sepcified means we are looking for a peer relation.
+	case 1:
+		ep, err := api.relationService.AddPeerRelation(
+			ctx, args.Endpoints[0],
+		)
 		if err != nil {
-			return params.AddRelationResults{}, errors.Trace(err)
+			return params.AddRelationResults{}, internalerrors.Errorf(
+				"adding peer relation on endpoint %q: %w",
+				args.Endpoints[0], err,
+			)
 		}
-		outEps[inEp.ApplicationName] = params.CharmRelation{
-			Name:      outEp.Relation.Name,
-			Role:      string(outEp.Relation.Role),
-			Interface: outEp.Relation.Interface,
-			Optional:  outEp.Relation.Optional,
-			Limit:     outEp.Relation.Limit,
-			Scope:     string(outEp.Relation.Scope),
+		outEps[ep.ApplicationID.String()] = encodeRelation(ep.Relation)
+	case 2:
+		ep1, ep2, err := api.relationService.AddRelation(
+			ctx, args.Endpoints[0], args.Endpoints[1],
+		)
+		if err != nil {
+			return params.AddRelationResults{}, internalerrors.Errorf(
+				"adding relation between endpoints %q and %q: %w",
+				args.Endpoints[0], args.Endpoints[1], err,
+			)
 		}
+		outEps[ep1.ApplicationID.String()] = encodeRelation(ep1.Relation)
+		outEps[ep2.ApplicationID.String()] = encodeRelation(ep2.Relation)
+	default:
+		return params.AddRelationResults{}, errors.BadRequestf("too many relation endpoints")
 	}
+
 	return params.AddRelationResults{Endpoints: outEps}, nil
+}
+
+// encodeRelation encodes a relation for sending over the wire.
+func encodeRelation(rel charm.Relation) params.CharmRelation {
+	return params.CharmRelation{
+		Name:      rel.Name,
+		Role:      string(rel.Role),
+		Interface: rel.Interface,
+		Optional:  rel.Optional,
+		Limit:     rel.Limit,
+		Scope:     string(rel.Scope),
+	}
 }
 
 // DestroyRelation removes the relation between the
@@ -1824,39 +1813,26 @@ func (api *APIBase) DestroyRelation(ctx context.Context, args params.DestroyRela
 		return err
 	}
 	if err := api.check.RemoveAllowed(ctx); err != nil {
-		return errors.Trace(err)
+		return internalerrors.Capture(err)
 	}
-	var rel Relation
-	if len(args.Endpoints) > 0 {
-		rel, err = api.backend.InferActiveRelation(args.Endpoints...)
-	} else {
-		rel, err = api.backend.Relation(args.RelationId)
-	}
-	if err != nil {
-		return err
-	}
-	force := args.Force != nil && *args.Force
-	errs, err := rel.DestroyWithForce(force, common.MaxWait(args.MaxWait))
-	if len(errs) != 0 {
-		api.logger.Warningf(context.TODO(), "operational errors destroying relation %v: %v", rel.Tag().Id(), errs)
-	}
-	return err
+
+	return errors.NotImplemented
 }
 
 // SetRelationsSuspended sets the suspended status of the specified relations.
 func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.RelationSuspendedArgs) (params.ErrorResults, error) {
 	var statusResults params.ErrorResults
 	if err := api.checkCanWrite(ctx); err != nil {
-		return statusResults, errors.Trace(err)
+		return statusResults, internalerrors.Capture(err)
 	}
 	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return statusResults, errors.Trace(err)
+		return statusResults, internalerrors.Capture(err)
 	}
 
 	changeOne := func(arg params.RelationSuspendedArg) error {
 		rel, err := api.backend.Relation(arg.RelationId)
 		if err != nil {
-			return errors.Trace(err)
+			return internalerrors.Capture(err)
 		}
 		if rel.Suspended() == arg.Suspended {
 			return nil
@@ -1868,7 +1844,7 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 		if oc != nil && !arg.Suspended && rel.Suspended() {
 			ok, err := commoncrossmodel.CheckCanConsume(ctx, api.authorizer, api.backend.ControllerTag(), names.NewModelTag(api.modelInfo.UUID.String()), oc)
 			if err != nil {
-				return errors.Trace(err)
+				return internalerrors.Capture(err)
 			}
 			if !ok {
 				return apiservererrors.ErrPerm
@@ -1881,7 +1857,7 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 		}
 		err = rel.SetSuspended(arg.Suspended, message)
 		if err != nil {
-			return errors.Trace(err)
+			return internalerrors.Capture(err)
 		}
 
 		statusValue := status.Joining
