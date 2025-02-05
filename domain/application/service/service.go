@@ -235,7 +235,7 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 	}
 	currentScale := scaleState.Scale
 
-	mask := changestream.Create | changestream.Update
+	mask := changestream.Changed
 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		newScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
@@ -258,7 +258,7 @@ func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Contex
 	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		table,
-		changestream.Create|changestream.Update,
+		changestream.Changed,
 		query,
 		func(ctx context.Context, _ database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			return s.watchApplicationsWithPendingCharmsMapper(ctx, changes)

@@ -75,7 +75,7 @@ func (s *WatchableService) WatchModelMachines() (watcher.StringsWatcher, error) 
 	table, stmt := s.st.InitialWatchModelMachinesStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		table,
-		changestream.Create|changestream.Update,
+		changestream.Changed,
 		eventsource.InitialNamespaceChanges(stmt),
 		uuidToNameMapper(noContainersFilter),
 	)
@@ -120,7 +120,7 @@ func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid string) 
 	machines := set.NewStrings(uuids...)
 	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
 		"machine_requires_reboot",
-		changestream.Create|changestream.Delete,
+		changestream.All,
 		eventsource.FilterEvents(func(event changestream.ChangeEvent) bool {
 			return machines.Contains(event.Changed())
 		}),

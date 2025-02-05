@@ -678,7 +678,7 @@ func (s *WatchableService) WatchSecretBackendRotationChanges(context.Context) (w
 
 // WatchSecretBackendChanged notifies when the model secret backend has changed.
 func (s *WatchableService) WatchModelSecretBackendChanged(_ context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
-	w, err := s.watcherFactory.NewValueWatcher("model_secret_backend", modelUUID.String(), changestream.Update)
+	w, err := s.watcherFactory.NewValueWatcher("model_secret_backend", modelUUID.String(), changestream.Changed)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

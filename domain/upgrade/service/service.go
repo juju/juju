@@ -155,7 +155,6 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 		return nil, errors.Trace(err)
 	}
 
-	mask := changestream.Create | changestream.Update
 	mapper := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		ready, err := s.st.AllProvisionedControllersReady(ctx, upgradeUUID)
 		if err != nil {
@@ -167,7 +166,7 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 		}
 		return nil, nil
 	}
-	return s.watcherFactory.NewValueMapperWatcher("upgrade_info_controller_node", upgradeUUID.String(), mask, mapper)
+	return s.watcherFactory.NewValueMapperWatcher("upgrade_info_controller_node", upgradeUUID.String(), changestream.Changed, mapper)
 }
 
 // WatchForUpgradeState creates a watcher which notifies when the upgrade
@@ -177,7 +176,6 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 		return nil, errors.Trace(err)
 	}
 
-	mask := changestream.Create | changestream.Update
 	mapper := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		info, err := s.st.UpgradeInfo(ctx, upgradeUUID)
 		if err != nil {
@@ -188,5 +186,5 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 		}
 		return nil, nil
 	}
-	return s.watcherFactory.NewValueMapperWatcher("upgrade_info", upgradeUUID.String(), mask, mapper)
+	return s.watcherFactory.NewValueMapperWatcher("upgrade_info", upgradeUUID.String(), changestream.Changed, mapper)
 }

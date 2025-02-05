@@ -49,7 +49,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	wLocal, err := s.watcherFactory.NewNamespaceWatcher(
 		// We are only interested in CREATE changes because
 		// the secret_revision.revision is immutable anyway.
-		tableLocal, changestream.Create, queryLocal,
+		tableLocal, changestream.Changed, queryLocal,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -112,7 +112,7 @@ func (s *WatchableService) WatchObsolete(_ context.Context, owners ...CharmSecre
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	table, query := s.secretState.InitialWatchStatementForObsoleteRevision(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
-		table, changestream.Create, query,
+		table, changestream.Changed, query,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -206,14 +206,14 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 	}
 
 	wObsolete, err := s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		"secret_revision_obsolete", changestream.Create, mapper,
+		"secret_revision_obsolete", changestream.Changed, mapper,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	wAutoPrune, err := s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		"secret_metadata", changestream.Update, mapper,
+		"secret_metadata", changestream.Changed, mapper,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

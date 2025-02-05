@@ -96,7 +96,7 @@ func (s *MemoryState) SetModelConfig(
 	if err != nil {
 		return fmt.Errorf("getting model config keys")
 	}
-	return s.FeedChange(ctx, "model_config", changestream.Create, changes)
+	return s.FeedChange(ctx, "model_config", changestream.Changed, changes)
 }
 
 // UpdateModelConfig is responsible for both inserting, updating and
@@ -124,7 +124,7 @@ func (s *MemoryState) UpdateModelConfig(
 		return fmt.Errorf("getting model config keys")
 	}
 	changes = append(changes, remove...)
-	return s.FeedChange(ctx, "model_config", changestream.Update, changes)
+	return s.FeedChange(ctx, "model_config", changestream.Changed, changes)
 }
 
 // SpaceExists checks if the space identified by the given space name exists.

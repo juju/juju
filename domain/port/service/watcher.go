@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // WatchableService provides the API for managing the opened ports for units, as
@@ -55,29 +56,31 @@ type WatcherFactory interface {
 
 // WatcherState describes the methods that the service needs for its watchers.
 type WatcherState interface {
-	// WatchOpenedPortsTable returns the name of the table that should be watched
+	// WatchOpenedPortsTable returns the name of the table that should be
+	// watched
 	WatchOpenedPortsTable() string
 
-	// InitialWatchMachineOpenedPortsStatement returns the query to load the initial
-	// event for the WatchMachineOpenedPorts watcher
+	// InitialWatchMachineOpenedPortsStatement returns the query to load the
+	// initial event for the WatchMachineOpenedPorts watcher
 	InitialWatchMachineOpenedPortsStatement() string
 
 	// GetMachineNamesForUnits returns map from endpoint uuids to the uuids of
 	// the machines which host that endpoint for each provided endpoint uuid.
 	GetMachineNamesForUnits(context.Context, []unit.UUID) ([]coremachine.Name, error)
 
-	// FilterEndpointsForApplication returns the subset of provided endpoint uuids
-	// that are associated with the provided application.
+	// FilterUnitUUIDsForApplication returns the subset of provided endpoint
+	// uuids that are associated with the provided application.
 	FilterUnitUUIDsForApplication(context.Context, []unit.UUID, coreapplication.ID) (set.Strings, error)
 }
 
-// WatchMachineOpenedPorts returns a strings watcher for opened ports. This watcher
-// emits events for changes to the opened ports table. Each emitted event
-// contains the machine name which is associated with the changed port range.
+// WatchMachineOpenedPorts returns a strings watcher for opened ports. This
+// watcher emits events for changes to the opened ports table. Each emitted
+// event contains the machine name which is associated with the changed port
+// range.
 func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		s.st.WatchOpenedPortsTable(),
-		changestream.Create|changestream.Delete,
+		changestream.All,
 		eventsource.InitialNamespaceChanges(s.st.InitialWatchMachineOpenedPortsStatement()),
 		s.endpointToMachineMapper,
 	)
@@ -89,46 +92,71 @@ func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher
 func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (watcher.NotifyWatcher, error) {
 	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
 		s.st.WatchOpenedPortsTable(),
-		changestream.Create|changestream.Delete,
+		changestream.All,
 		s.filterForApplication(applicationUUID),
 	)
 }
 
-// endpointToMachineMapper is an eventsource.Mapper that maps a slice of
-// changestream.ChangeEvent containing endpoint UUIDs to a slice of
-// changestream.ChanegEvent containing the names of the machines the corresponding
-// endpoint is located on.
+// endpointToMachineMapper maps endpoint uuids to the machine names that host
+// the endpoint.
 func (s *WatchableService) endpointToMachineMapper(
 	ctx context.Context, db database.TxnRunner, events []changestream.ChangeEvent,
 ) ([]changestream.ChangeEvent, error) {
-
-	unitUUIDs, err := transform.SliceOrErr(events, func(e changestream.ChangeEvent) (unit.UUID, error) {
-		return unit.ParseID(e.Changed())
-	})
-	if err != nil {
-		return nil, err
+	if len(events) == 0 {
+		return nil, nil
 	}
 
-	machineNames, err := s.st.GetMachineNamesForUnits(ctx, unitUUIDs)
-	if err != nil {
-		return nil, err
+	var indexes []indexed
+	unique := make(map[unit.UUID]struct{})
+	for _, event := range events {
+		id, err := unit.ParseID(event.Changed())
+		if err != nil {
+			return nil, err
+		}
+
+		indexes = append(indexes, indexed{event: event, id: id})
+		unique[id] = struct{}{}
 	}
 
-	newEvents := make([]changestream.ChangeEvent, 0, len(machineNames))
-	for _, machineName := range machineNames {
-		newEvents = append(newEvents, changeEventShim{
-			changeType: changestream.Update,
-			namespace:  "machine",
-			changed:    machineName.String(),
-		})
+	// This is suboptimal, we need the unit.UUID in the result so we can map
+	// it back to the id.
+	reference := make(map[unit.UUID]coremachine.Name)
+	for id := range unique {
+		machineNames, err := s.st.GetMachineNamesForUnits(ctx, []unit.UUID{id})
+		if err != nil {
+			return nil, err
+		} else if len(machineNames) != 1 {
+			return nil, errors.Errorf("expected exactly one machine for unit %q, got %d", id, len(machineNames))
+		}
+
+		reference[id] = machineNames[0]
 	}
 
-	return newEvents, nil
+	result := make([]changestream.ChangeEvent, len(indexes))
+	for i, event := range indexes {
+		name, ok := reference[event.id]
+		if !ok {
+			return nil, errors.Errorf("no machine found for unit %q", event.id)
+		}
+
+		result[i] = maskedChangeEvent{
+			ChangeEvent: event.event,
+			namespace:   "machine",
+			machineName: name.String(),
+		}
+	}
+
+	return result, nil
 }
 
-// filterForApplication returns an eventsource.Mapper that filters events emitted
-// by port range changes to only include events for port range changes corresponding
-// to the given application
+type indexed struct {
+	event changestream.ChangeEvent
+	id    unit.UUID
+}
+
+// filterForApplication returns an eventsource.Mapper that filters events
+// emitted by port range changes to only include events for port range changes
+// corresponding to the given application
 func (s *WatchableService) filterForApplication(applicationUUID coreapplication.ID) eventsource.Mapper {
 	return func(
 		ctx context.Context, db database.TxnRunner, events []changestream.ChangeEvent,
@@ -154,28 +182,23 @@ func (s *WatchableService) filterForApplication(applicationUUID coreapplication.
 	}
 }
 
-// changeEventShim implements changestream.ChangeEvent and allows the
+// maskedChangeEvent implements changestream.ChangeEvent and allows the
 // substituting of events in an implementation of eventsource.Mapper.
-type changeEventShim struct {
-	changeType changestream.ChangeType
-	namespace  string
-	changed    string
-}
-
-// Type returns the type of change (create, update, delete).
-func (e changeEventShim) Type() changestream.ChangeType {
-	return e.changeType
+type maskedChangeEvent struct {
+	changestream.ChangeEvent
+	namespace   string
+	machineName string
 }
 
 // Namespace returns the namespace of the change. This is normally the
 // table name.
-func (e changeEventShim) Namespace() string {
+func (e maskedChangeEvent) Namespace() string {
 	return e.namespace
 }
 
 // Changed returns the changed value of event. This logically can be
 // the primary key of the row that was changed or the field of the change
 // that was changed.
-func (e changeEventShim) Changed() string {
-	return e.changed
+func (e maskedChangeEvent) Changed() string {
+	return e.machineName
 }
