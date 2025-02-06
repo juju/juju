@@ -5,7 +5,6 @@ package ec2
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -38,7 +37,7 @@ func (environProvider) Version() int {
 }
 
 // Open is specified in the EnvironProvider interface.
-func (p environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (p environProvider) Open(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf(context.TODO(), "opening model %q", args.Config.Name())
 
 	e := newEnviron()

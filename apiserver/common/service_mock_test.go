@@ -10,7 +10,7 @@
 package common_test
 
 import (
-	context "context"
+	"context"
 	reflect "reflect"
 
 	instance "github.com/juju/juju/core/instance"

@@ -4,7 +4,7 @@
 package status
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -36,7 +36,7 @@ func NewStatusHistoryCommand() cmd.Command {
 
 // HistoryAPI is the API surface for the show-status-log command.
 type HistoryAPI interface {
-	StatusHistory(ctx stdcontext.Context, kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error)
+	StatusHistory(ctx context.Context, kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error)
 	Close() error
 }
 
@@ -200,7 +200,7 @@ type DetailedStatus struct {
 // History holds the status results.
 type History []DetailedStatus
 
-func (c *statusHistoryCommand) getAPI(ctx stdcontext.Context) (HistoryAPI, error) {
+func (c *statusHistoryCommand) getAPI(ctx context.Context) (HistoryAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}

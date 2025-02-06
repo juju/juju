@@ -18,10 +18,8 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/model"
-	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/objectstore"
-	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/providertracker"
 	coreuser "github.com/juju/juju/core/user"
@@ -37,7 +35,6 @@ import (
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	backendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
-	domainservicefactory "github.com/juju/juju/domain/services"
 	domainservices "github.com/juju/juju/domain/services"
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
@@ -74,7 +71,7 @@ type DomainServicesSuite struct {
 
 	// ControllerModelUUID is the unique id for the controller model. If not set
 	// will be set during test set up.
-	ControllerModelUUID coremodel.UUID
+	ControllerModelUUID model.UUID
 
 	// ControllerConfig is the controller configuration, including its UUID. If
 	// not set will be set to the default testing value during test set up.
@@ -82,7 +79,7 @@ type DomainServicesSuite struct {
 
 	// DefaultModelUUID is the unique id for the default model. If not set
 	// will be set during test set up.
-	DefaultModelUUID coremodel.UUID
+	DefaultModelUUID model.UUID
 
 	// ProviderTracker is the provider tracker to use in the domain services.
 	ProviderTracker providertracker.ProviderFactory
@@ -187,12 +184,12 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 		Cloud:        s.CloudName,
 		CloudRegion:  "dummy-region",
 		Credential:   s.CredentialKey,
-		Name:         coremodel.ControllerModelName,
+		Name:         model.ControllerModelName,
 		Owner:        s.AdminUserUUID,
 	}
 
 	fn := modelbootstrap.CreateGlobalModelRecord(s.ControllerModelUUID, controllerArgs)
-	c.Assert(backendbootstrap.CreateDefaultBackends(coremodel.IAAS)(
+	c.Assert(backendbootstrap.CreateDefaultBackends(model.IAAS)(
 		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String())), jc.ErrorIsNil)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
@@ -234,7 +231,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 
 // DomainServicesGetter provides an implementation of the DomainServicesGetter
 // interface to use in tests. This includes the dummy storage registry.
-func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore coreobjectstore.ObjectStore, leaseManager lease.Checker) DomainServicesGetterFunc {
+func (s *DomainServicesSuite) DomainServicesGetter(c *gc.C, objectStore objectstore.ObjectStore, leaseManager lease.Checker) DomainServicesGetterFunc {
 	return s.DomainServicesGetterWithStorageRegistry(c, objectStore, leaseManager, storage.ChainedProviderRegistry{
 		// Using the dummy storage provider for testing purposes isn't
 		// ideal. We should potentially use a mock storage provider
@@ -252,8 +249,8 @@ type domainServices struct {
 // DomainServicesGetterWithStorageRegistry provides an implementation of the
 // DomainServicesGetterWithStorageRegistry interface to use in tests with the
 // additional storage provider.
-func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, objectStore coreobjectstore.ObjectStore, leaseManager lease.Checker, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
-	return func(modelUUID coremodel.UUID) services.DomainServices {
+func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, objectStore objectstore.ObjectStore, leaseManager lease.Checker, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
+	return func(modelUUID model.UUID) services.DomainServices {
 		clock := clock.WallClock
 		logger := loggertesting.WrapCheckLog(c)
 		controllerServices := domainservices.NewControllerServices(databasetesting.ConstFactory(s.TxnRunner()), stubDBDeleter{}, clock, logger)
@@ -262,7 +259,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 			databasetesting.ConstFactory(s.TxnRunner()),
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
 			s.ProviderTracker,
-			modelObjectStoreGetter(func(ctx context.Context) (coreobjectstore.ObjectStore, error) {
+			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
 				return objectStore, nil
 			}),
 			modelStorageRegistryGetter(func(ctx context.Context) (storage.ProviderRegistry, error) {
@@ -285,8 +282,8 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 // ObjectStoreServicesGetter provides an implementation of the
 // ObjectStoreServicesGetter interface to use in tests.
 func (s *DomainServicesSuite) ObjectStoreServicesGetter(c *gc.C) ObjectStoreServicesGetterFunc {
-	return func(modelUUID coremodel.UUID) services.ObjectStoreServices {
-		return domainservicefactory.NewObjectStoreServices(
+	return func(modelUUID model.UUID) services.ObjectStoreServices {
+		return domainservices.NewObjectStoreServices(
 			databasetesting.ConstFactory(s.TxnRunner()),
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
 			loggertesting.WrapCheckLog(c),
@@ -296,7 +293,7 @@ func (s *DomainServicesSuite) ObjectStoreServicesGetter(c *gc.C) ObjectStoreServ
 
 // NoopObjectStore returns a no-op implementation of the ObjectStore interface.
 // This is useful when the test does not require any object store functionality.
-func (s *DomainServicesSuite) NoopObjectStore(c *gc.C) coreobjectstore.ObjectStore {
+func (s *DomainServicesSuite) NoopObjectStore(c *gc.C) objectstore.ObjectStore {
 	return TestingObjectStore{}
 }
 
@@ -326,25 +323,25 @@ func (s *DomainServicesSuite) SetUpTest(c *gc.C) {
 
 // DomainServicesGetterFunc is a convenience type for translating a getter
 // function into the DomainServicesGetter interface.
-type DomainServicesGetterFunc func(coremodel.UUID) services.DomainServices
+type DomainServicesGetterFunc func(model.UUID) services.DomainServices
 
 // ServicesForModel implements the DomainServicesGetter interface.
-func (s DomainServicesGetterFunc) ServicesForModel(modelUUID coremodel.UUID) services.DomainServices {
+func (s DomainServicesGetterFunc) ServicesForModel(modelUUID model.UUID) services.DomainServices {
 	return s(modelUUID)
 }
 
 // ObjectStoreServicesGetterFunc is a convenience type for translating a getter
 // function into the ObjectStoreServicesGetter interface.
-type ObjectStoreServicesGetterFunc func(coremodel.UUID) services.ObjectStoreServices
+type ObjectStoreServicesGetterFunc func(model.UUID) services.ObjectStoreServices
 
 // ServicesForModel implements the ObjectStoreServicesGetter interface.
-func (s ObjectStoreServicesGetterFunc) ServicesForModel(modelUUID coremodel.UUID) services.ObjectStoreServices {
+func (s ObjectStoreServicesGetterFunc) ServicesForModel(modelUUID model.UUID) services.ObjectStoreServices {
 	return s(modelUUID)
 }
 
-type modelObjectStoreGetter func(context.Context) (coreobjectstore.ObjectStore, error)
+type modelObjectStoreGetter func(context.Context) (objectstore.ObjectStore, error)
 
-func (s modelObjectStoreGetter) GetObjectStore(ctx context.Context) (coreobjectstore.ObjectStore, error) {
+func (s modelObjectStoreGetter) GetObjectStore(ctx context.Context) (objectstore.ObjectStore, error) {
 	return s(ctx)
 }
 

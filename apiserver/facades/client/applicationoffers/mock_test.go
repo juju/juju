@@ -4,7 +4,7 @@
 package applicationoffers_test
 
 import (
-	stdcontext "context"
+	"context"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -340,7 +340,7 @@ type mockBakeryService struct {
 	caveats map[string][]checkers.Caveat
 }
 
-func (s *mockBakeryService) NewMacaroon(ctx stdcontext.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
+func (s *mockBakeryService) NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", caveats)
 	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
 	if err != nil {
@@ -360,6 +360,6 @@ func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authenticati
 	return s, nil
 }
 
-func getFakeControllerInfo(ctx stdcontext.Context) ([]string, string, error) {
+func getFakeControllerInfo(ctx context.Context) ([]string, string, error) {
 	return []string{"192.168.1.1:17070"}, testing.CACert, nil
 }

@@ -4,7 +4,7 @@
 package objectstores3caller
 
 import (
-	context "context"
+	"context"
 	"sync/atomic"
 	time "time"
 

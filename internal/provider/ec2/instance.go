@@ -5,7 +5,6 @@ package ec2
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -155,7 +154,7 @@ func (inst *sdkInstance) IngressRules(ctx envcontext.ProviderCallContext, machin
 type FetchInstanceClient interface {
 	// DescribeInstanceTypes is the same func as that of the ec2 client. See:
 	// https://github.com/aws/aws-sdk-go-v2/blob/service/ec2/v1.123.0/service/ec2/api_op_DescribeInstanceTypes.go#L21
-	DescribeInstanceTypes(stdcontext.Context, *ec2.DescribeInstanceTypesInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypesOutput, error)
+	DescribeInstanceTypes(context.Context, *ec2.DescribeInstanceTypesInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypesOutput, error)
 }
 
 // FetchInstanceTypeInfo is responsible for fetching all of the

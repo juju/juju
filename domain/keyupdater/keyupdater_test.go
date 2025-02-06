@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
-	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -58,15 +57,15 @@ func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
 	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := accessState.AddUser(
 		context.Background(), s.userID,
-		coreuser.AdminUserName,
-		coreuser.AdminUserName.Name(),
+		user.AdminUserName,
+		user.AdminUserName.Name(),
 		false,
 		s.userID,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudName := "test"
-	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
+	fn := cloudbootstrap.InsertCloud(user.AdminUserName, cloud.Cloud{
 		Name:      cloudName,
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
@@ -79,7 +78,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
 	fn = credentialbootstrap.InsertCredential(credential.Key{
 		Cloud: cloudName,
 		Name:  credentialName,
-		Owner: coreuser.AdminUserName,
+		Owner: user.AdminUserName,
 	},
 		cloud.NewCredential(cloud.EmptyAuthType, nil),
 	)
@@ -96,7 +95,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
 		Credential: credential.Key{
 			Cloud: cloudName,
 			Name:  credentialName,
-			Owner: coreuser.AdminUserName,
+			Owner: user.AdminUserName,
 		},
 		Name:  "test",
 		Owner: s.userID,
@@ -177,7 +176,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 	)
 
 	harness.AddTest(func(c *gc.C) {
-		err = userSvc.DisableUserAuthentication(ctx, coreuser.AdminUserName)
+		err = userSvc.DisableUserAuthentication(ctx, user.AdminUserName)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -191,7 +190,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 	})
 
 	harness.AddTest(func(c *gc.C) {
-		err = userSvc.EnableUserAuthentication(ctx, coreuser.AdminUserName)
+		err = userSvc.EnableUserAuthentication(ctx, user.AdminUserName)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -207,7 +206,7 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 	})
 
 	harness.AddTest(func(c *gc.C) {
-		err = userSvc.RemoveUser(ctx, coreuser.AdminUserName)
+		err = userSvc.RemoveUser(ctx, user.AdminUserName)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()

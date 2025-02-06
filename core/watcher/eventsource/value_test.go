@@ -4,7 +4,7 @@
 package eventsource
 
 import (
-	context "context"
+	"context"
 	"time"
 
 	"github.com/juju/errors"

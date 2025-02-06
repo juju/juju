@@ -6,7 +6,6 @@ package jujuc
 import (
 	"bytes"
 	"context"
-	stdcontext "context"
 	"fmt"
 	"io"
 	"net"
@@ -183,7 +182,7 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	// TODO(wallyworld) - We should not allow direct construction of cmd.Context
 	// since this can result in the embedded context.Context being nil.
 	ctx := &cmd.Context{
-		Context: stdcontext.Background(),
+		Context: context.Background(),
 		Dir:     req.Dir,
 		Stdin:   stdin,
 		Stdout:  &stdout,

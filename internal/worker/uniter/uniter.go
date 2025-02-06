@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
@@ -444,16 +443,16 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.logger.Child("leadership"),
 			),
 			CreatedRelations: relation.NewCreatedRelationResolver(
-				u.relationStateTracker, u.logger.Child("relation", corelogger.CMR)),
+				u.relationStateTracker, u.logger.Child("relation", logger.CMR)),
 			Relations: relation.NewRelationResolver(
-				u.relationStateTracker, u.unit, u.logger.Child("relation", corelogger.CMR)),
+				u.relationStateTracker, u.unit, u.logger.Child("relation", logger.CMR)),
 			Storage: storage.NewResolver(
 				u.logger.Child("storage"), u.storage, u.modelType),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
 			Secrets: secrets.NewSecretsResolver(
-				u.logger.Child("secrets", corelogger.SECRETS),
+				u.logger.Child("secrets", logger.SECRETS),
 				u.secretsTracker,
 				watcher.RotateSecretCompleted,
 				watcher.ExpireRevisionCompleted,
@@ -797,7 +796,7 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 	secretsTracker, err := secrets.NewSecrets(
 		ctx,
 		u.secretsClient, unitTag, u.unit,
-		u.logger.Child("secrets", corelogger.SECRETS),
+		u.logger.Child("secrets", logger.SECRETS),
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create secrets tracker")

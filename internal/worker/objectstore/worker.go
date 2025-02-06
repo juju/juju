@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -33,7 +32,7 @@ const (
 // lifecycle of the objectStore is managed.
 type TrackedObjectStore interface {
 	worker.Worker
-	coreobjectstore.ObjectStore
+	objectstore.ObjectStore
 }
 
 // WorkerConfig encapsulates the configuration options for the
@@ -44,9 +43,9 @@ type WorkerConfig struct {
 	RootBucket                 string
 	Clock                      clock.Clock
 	Logger                     logger.Logger
-	S3Client                   coreobjectstore.Client
+	S3Client                   objectstore.Client
 	NewObjectStoreWorker       internalobjectstore.ObjectStoreWorkerFunc
-	ObjectStoreType            coreobjectstore.BackendType
+	ObjectStoreType            objectstore.BackendType
 	ControllerMetadataService  MetadataService
 	ModelMetadataServiceGetter MetadataServiceGetter
 	ModelClaimGetter           ModelClaimGetter
@@ -186,13 +185,13 @@ func (w *objectStoreWorker) Wait() error {
 }
 
 // GetObjectStore returns a objectStore for the given namespace.
-func (w *objectStoreWorker) GetObjectStore(ctx context.Context, namespace string) (coreobjectstore.ObjectStore, error) {
+func (w *objectStoreWorker) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
 	// First check if we've already got the objectStore worker already running.
 	// If we have, then return out quickly. The objectStoreRunner is the cache,
 	// so there is no need to have an in-memory cache here.
 	if objectStore, err := w.workerFromCache(namespace); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
-			return nil, coreobjectstore.ErrObjectStoreDying
+			return nil, objectstore.ErrObjectStoreDying
 		}
 
 		return nil, errors.Trace(err)
@@ -209,7 +208,7 @@ func (w *objectStoreWorker) GetObjectStore(ctx context.Context, namespace string
 	select {
 	case w.objectStoreRequests <- req:
 	case <-w.catacomb.Dying():
-		return nil, coreobjectstore.ErrObjectStoreDying
+		return nil, objectstore.ErrObjectStoreDying
 	case <-ctx.Done():
 		return nil, errors.Trace(ctx.Err())
 	}
@@ -223,7 +222,7 @@ func (w *objectStoreWorker) GetObjectStore(ctx context.Context, namespace string
 			return nil, errors.Trace(err)
 		}
 	case <-w.catacomb.Dying():
-		return nil, coreobjectstore.ErrObjectStoreDying
+		return nil, objectstore.ErrObjectStoreDying
 	case <-ctx.Done():
 		return nil, errors.Trace(ctx.Err())
 	}
@@ -237,13 +236,13 @@ func (w *objectStoreWorker) GetObjectStore(ctx context.Context, namespace string
 	if tracked == nil {
 		return nil, errors.NotFoundf("objectstore")
 	}
-	return tracked.(coreobjectstore.ObjectStore), nil
+	return tracked.(objectstore.ObjectStore), nil
 }
 
-func (w *objectStoreWorker) workerFromCache(namespace string) (coreobjectstore.ObjectStore, error) {
+func (w *objectStoreWorker) workerFromCache(namespace string) (objectstore.ObjectStore, error) {
 	// If the worker already exists, return the existing worker early.
 	if objectStore, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return objectStore.(coreobjectstore.ObjectStore), nil
+		return objectStore.(objectstore.ObjectStore), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the runner is dead due to this worker dying.
 		select {

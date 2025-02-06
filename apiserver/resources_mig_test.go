@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/core/resource"
-	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/unit"
 	domainresource "github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/rpc/params"
@@ -276,7 +275,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *gc.
 	query.Add("timestamp", "not-placeholder")
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(coreresource.Resource{}, errors.New(
+	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(resource.Resource{}, errors.New(
 		"cannot get resource"))
 
 	// Act
@@ -301,7 +300,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationWithPlaceholder(c *gc.C
 	})
 
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(coreresource.Resource{
+	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(resource.Resource{
 		UUID:      "res-uuid",
 		Timestamp: now,
 	}, nil)
@@ -345,9 +344,9 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
 		RetrievedBy:     "testapp-id",
-		RetrievedByType: coreresource.Application,
+		RetrievedByType: resource.Application,
 	}).Return(nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(coreresource.Resource{
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
 		UUID:      "res-uuid",
 		Timestamp: now,
 	}, nil)
@@ -386,7 +385,7 @@ func (s *resourcesUploadSuite) TestServeUploadUnitWithPlaceholder(c *gc.C) {
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
 	s.resourceService.EXPECT().SetUnitResource(gomock.Any(), resource.UUID("res-uuid"),
 		unit.UUID("testunit-id")).Return(nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(coreresource.Resource{
+	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(resource.Resource{
 		UUID:      "res-uuid",
 		Timestamp: now,
 	}, nil)
@@ -433,9 +432,9 @@ func (s *resourcesUploadSuite) TestServeUploadUnit(c *gc.C) {
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
 		RetrievedBy:     "testunit-id",
-		RetrievedByType: coreresource.Unit,
+		RetrievedByType: resource.Unit,
 	}).Return(nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(coreresource.Resource{
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
 		UUID:      "res-uuid",
 		Timestamp: now,
 	}, nil)

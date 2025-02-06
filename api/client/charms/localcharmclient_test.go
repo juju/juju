@@ -21,13 +21,12 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
 )
 
 type addCharmSuite struct {
-	coretesting.BaseSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&addCharmSuite{})

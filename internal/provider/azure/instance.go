@@ -5,7 +5,6 @@ package azure
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"strings"
 
@@ -184,7 +183,7 @@ type securityGroupInfo struct {
 // primarySecurityGroupInfo returns info for the NIC's primary corenetwork.Address
 // for the internal virtual network, and any security group on the subnet.
 // The address is used to identify the machine in network security rules.
-func primarySecurityGroupInfo(ctx stdcontext.Context, env *azureEnviron, nic *armnetwork.Interface) (*securityGroupInfo, error) {
+func primarySecurityGroupInfo(ctx context.Context, env *azureEnviron, nic *armnetwork.Interface) (*securityGroupInfo, error) {
 	if nic == nil || nic.Properties == nil {
 		return nil, errors.NotFoundf("internal network address or security group")
 	}
@@ -237,11 +236,11 @@ func primarySecurityGroupInfo(ctx stdcontext.Context, env *azureEnviron, nic *ar
 
 // getSecurityGroupInfo gets the security group information for
 // each NIC on the instance.
-func (inst *azureInstance) getSecurityGroupInfo(ctx stdcontext.Context) ([]securityGroupInfo, error) {
+func (inst *azureInstance) getSecurityGroupInfo(ctx context.Context) ([]securityGroupInfo, error) {
 	return getSecurityGroupInfoForInterfaces(ctx, inst.env, inst.networkInterfaces)
 }
 
-func getSecurityGroupInfoForInterfaces(ctx stdcontext.Context, env *azureEnviron, networkInterfaces []*armnetwork.Interface) ([]securityGroupInfo, error) {
+func getSecurityGroupInfoForInterfaces(ctx context.Context, env *azureEnviron, networkInterfaces []*armnetwork.Interface) ([]securityGroupInfo, error) {
 	groupsByName := make(map[string]securityGroupInfo)
 	for _, nic := range networkInterfaces {
 		info, err := primarySecurityGroupInfo(ctx, env, nic)

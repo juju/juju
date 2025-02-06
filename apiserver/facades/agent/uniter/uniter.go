@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
-	corewatcher "github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/unitstate"
@@ -2951,7 +2950,7 @@ func (u *UniterAPIv20) Watch(ctx context.Context, args params.Entities) (params.
 			continue
 		}
 
-		var watcher corewatcher.NotifyWatcher
+		var watcher watcher.NotifyWatcher
 		switch tag.(type) {
 		case names.ApplicationTag:
 			watcher, err = u.applicationService.WatchApplication(ctx, tag.Id())
@@ -2971,7 +2970,7 @@ func (u *UniterAPIv20) Watch(ctx context.Context, args params.Entities) (params.
 }
 
 // watchUnit returns a state notify watcher for the given unit.
-func (u *UniterAPI) watchUnit(tag names.Tag) (corewatcher.NotifyWatcher, error) {
+func (u *UniterAPI) watchUnit(tag names.Tag) (watcher.NotifyWatcher, error) {
 	entity0, err := u.st.FindEntity(tag)
 	if err != nil {
 		return nil, err

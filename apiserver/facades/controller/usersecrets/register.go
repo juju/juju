@@ -4,7 +4,7 @@
 package usersecrets
 
 import (
-	stdcontext "context"
+	"context"
 	"reflect"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -15,13 +15,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("UserSecretsManager", 1, func(stdCtx stdcontext.Context, ctx facade.ModelContext) (facade.Facade, error) {
+	registry.MustRegister("UserSecretsManager", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewUserSecretsManager(stdCtx, ctx)
 	}, reflect.TypeOf((*UserSecretsManager)(nil)))
 }
 
 // NewUserSecretsManager creates a UserSecretsManager.
-func NewUserSecretsManager(stdCtx stdcontext.Context, ctx facade.ModelContext) (*UserSecretsManager, error) {
+func NewUserSecretsManager(stdCtx context.Context, ctx facade.ModelContext) (*UserSecretsManager, error) {
 	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}

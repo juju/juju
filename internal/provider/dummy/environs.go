@@ -5,7 +5,6 @@ package dummy
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"os"
 	"runtime"
@@ -292,7 +291,7 @@ func (*environProvider) Version() int {
 	return 0
 }
 
-func (p *environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (p *environProvider) Open(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	ecfg, err := p.newConfig(ctx, args.Config)

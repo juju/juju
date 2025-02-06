@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/client"
-	apiclient "github.com/juju/juju/api/client/client"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -229,7 +228,7 @@ type ModelCommand interface {
 	NewControllerAPIRoot(ctx context.Context) (api.Connection, error)
 	ModelDetails(ctx context.Context) (string, *jujuclient.ModelDetails, error)
 	NewAPIRoot(ctx context.Context) (api.Connection, error)
-	NewAPIClient(ctx context.Context) (*apiclient.Client, error)
+	NewAPIClient(ctx context.Context) (*client.Client, error)
 	ModelIdentifier() (string, error)
 }
 

@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
-	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/status"
 	domainmodel "github.com/juju/juju/domain/model"
@@ -26,7 +25,7 @@ import (
 type statusSuite struct {
 	testing.IsolationSuite
 
-	modelUUID        coremodel.UUID
+	modelUUID        model.UUID
 	modelInfoService *MockModelInfoService
 }
 

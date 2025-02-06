@@ -4,7 +4,7 @@
 package gce
 
 import (
-	stdcontext "context"
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -105,14 +105,14 @@ var _ environs.NetworkingEnviron = (*environ)(nil)
 // Function entry points defined as variables so they can be overridden
 // for testing purposes.
 var (
-	newConnection = func(ctx stdcontext.Context, conn google.ConnectionConfig, creds *google.Credentials) (gceConnection, error) {
+	newConnection = func(ctx context.Context, conn google.ConnectionConfig, creds *google.Credentials) (gceConnection, error) {
 		return google.Connect(ctx, conn, creds)
 	}
 	destroyEnv = common.Destroy
 	bootstrap  = common.Bootstrap
 )
 
-func newEnviron(ctx stdcontext.Context, cloud environscloudspec.CloudSpec, cfg *config.Config) (*environ, error) {
+func newEnviron(ctx context.Context, cloud environscloudspec.CloudSpec, cfg *config.Config) (*environ, error) {
 	ecfg, err := newConfig(ctx, cfg, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
@@ -136,7 +136,7 @@ func newEnviron(ctx stdcontext.Context, cloud environscloudspec.CloudSpec, cfg *
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (e *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.CloudSpec) error {
+func (e *environ) SetCloudSpec(_ context.Context, spec environscloudspec.CloudSpec) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
@@ -171,7 +171,7 @@ func (e *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.Clou
 	}
 
 	// TODO (stickupkid): Pass the context through the method call.
-	ctx := stdcontext.Background()
+	ctx := context.Background()
 
 	// Connect and authenticate.
 	var err error
@@ -201,7 +201,7 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 }
 
 // SetConfig updates the env's configuration.
-func (env *environ) SetConfig(ctx stdcontext.Context, cfg *config.Config) error {
+func (env *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 

@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
-	corearch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/oci"
@@ -164,14 +163,14 @@ func (s *imagesSuite) TestNewInstanceImageUbuntu(c *gc.C) {
 		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
 	}
 
-	imgType, arch, err := oci.NewInstanceImage(image, &s.testCompartment)
+	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	c.Check(imgType.ImageType, gc.Equals, oci.ImageTypeGeneric)
 	c.Check(imgType.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 	c.Check(imgType.CompartmentId, gc.NotNil)
 	c.Check(*imgType.CompartmentId, gc.Equals, s.testCompartment)
 	c.Check(imgType.Id, gc.Equals, s.testImageID)
-	c.Check(arch, gc.Equals, corearch.AMD64)
+	c.Check(a, gc.Equals, arch.AMD64)
 }
 
 // TestNewInstanceImageUbuntuMinimalNotSupported is testing that if an image
@@ -239,14 +238,14 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64(c *gc.C) {
 		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-aarch64-2018.01.11-0"),
 	}
 
-	imgType, arch, err := oci.NewInstanceImage(image, &s.testCompartment)
+	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	c.Check(imgType.ImageType, gc.Equals, oci.ImageTypeGeneric)
 	c.Check(imgType.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 	c.Check(imgType.CompartmentId, gc.NotNil)
 	c.Check(*imgType.CompartmentId, gc.Equals, s.testCompartment)
 	c.Check(imgType.Id, gc.Equals, s.testImageID)
-	c.Check(arch, gc.Equals, corearch.ARM64)
+	c.Check(a, gc.Equals, arch.ARM64)
 }
 
 func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64OnDisplayName(c *gc.C) {
@@ -258,14 +257,14 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64OnDisplayName(c *gc.C) {
 		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-aarch64-2018.01.11-0"),
 	}
 
-	imgType, arch, err := oci.NewInstanceImage(image, &s.testCompartment)
+	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	c.Check(imgType.ImageType, gc.Equals, oci.ImageTypeGeneric)
 	c.Check(imgType.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
 	c.Check(imgType.CompartmentId, gc.NotNil)
 	c.Check(*imgType.CompartmentId, gc.Equals, s.testCompartment)
 	c.Check(imgType.Id, gc.Equals, s.testImageID)
-	c.Check(arch, gc.Equals, corearch.ARM64)
+	c.Check(a, gc.Equals, arch.ARM64)
 }
 
 func (s *imagesSuite) TestNewInstanceImageUnknownOS(c *gc.C) {
@@ -355,18 +354,18 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	// ubuntu should be ignored.
 	c.Check(imageMap[jammy], gc.HasLen, 2)
 	// Two images on each arch
-	c.Check(imageMap[jammy][corearch.AMD64], gc.HasLen, 2)
-	c.Check(imageMap[jammy][corearch.ARM64], gc.HasLen, 2)
+	c.Check(imageMap[jammy][arch.AMD64], gc.HasLen, 2)
+	c.Check(imageMap[jammy][arch.ARM64], gc.HasLen, 2)
 
 	timeStamp, _ := time.Parse("2006.01.02", "2018.01.12")
 
 	// Check that the first image in the array is the newest one
-	c.Assert(imageMap[jammy][corearch.AMD64][0].Version.TimeStamp, gc.Equals, timeStamp)
-	c.Assert(imageMap[jammy][corearch.ARM64][0].Version.TimeStamp, gc.Equals, timeStamp)
+	c.Assert(imageMap[jammy][arch.AMD64][0].Version.TimeStamp, gc.Equals, timeStamp)
+	c.Assert(imageMap[jammy][arch.ARM64][0].Version.TimeStamp, gc.Equals, timeStamp)
 
 	// Check that InstanceTypes are set
-	c.Assert(imageMap[jammy][corearch.AMD64][0].InstanceTypes, gc.HasLen, 5)
-	c.Assert(imageMap[jammy][corearch.ARM64][0].InstanceTypes, gc.HasLen, 5)
+	c.Assert(imageMap[jammy][arch.AMD64][0].InstanceTypes, gc.HasLen, 5)
+	c.Assert(imageMap[jammy][arch.ARM64][0].InstanceTypes, gc.HasLen, 5)
 }
 
 func (s *imagesSuite) TestRefreshImageCacheFetchFromCache(c *gc.C) {
@@ -440,7 +439,7 @@ func (s *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *gc.C) {
 	imageMap := imgCache.ImageMap()
 
 	jammy := corebase.MakeDefaultBase("ubuntu", "22.04")
-	c.Check(imageMap[jammy][corearch.AMD64][0].Id, gc.Equals, "fakeUbuntu1")
+	c.Check(imageMap[jammy][arch.AMD64][0].Id, gc.Equals, "fakeUbuntu1")
 }
 
 func (s *imagesSuite) TestImageMetadataFromCache(c *gc.C) {
@@ -452,7 +451,7 @@ func (s *imagesSuite) TestImageMetadataFromCache(c *gc.C) {
 		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
 	}
 
-	imgType, arch, err := oci.NewInstanceImage(image, &s.testCompartment)
+	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	instanceTypes := []instances.InstanceType{
 		{
@@ -465,19 +464,19 @@ func (s *imagesSuite) TestImageMetadataFromCache(c *gc.C) {
 	jammy := corebase.MakeDefaultBase("ubuntu", "22.04")
 	images := map[corebase.Base]map[string][]oci.InstanceImage{
 		jammy: {
-			corearch.AMD64: {
+			arch.AMD64: {
 				imgType,
 			},
 		},
 	}
 	cache.SetImages(images)
-	metadata := cache.ImageMetadata(jammy, arch, "")
+	metadata := cache.ImageMetadata(jammy, a, "")
 	c.Assert(metadata, gc.HasLen, 1)
 	// generic images default to ImageTypeVM
 	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeVM))
 
 	// explicitly set ImageTypeBM on generic images
-	metadata = cache.ImageMetadata(jammy, arch, string(oci.ImageTypeBM))
+	metadata = cache.ImageMetadata(jammy, a, string(oci.ImageTypeBM))
 	c.Assert(metadata, gc.HasLen, 1)
 	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeBM))
 }
@@ -491,7 +490,7 @@ func (s *imagesSuite) TestImageMetadataSpecificImageType(c *gc.C) {
 		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-Gen2-GPU-2018.01.11-0"),
 	}
 
-	imgType, arch, err := oci.NewInstanceImage(image, &s.testCompartment)
+	imgType, a, err := oci.NewInstanceImage(image, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	instanceTypes := []instances.InstanceType{
 		{
@@ -504,19 +503,19 @@ func (s *imagesSuite) TestImageMetadataSpecificImageType(c *gc.C) {
 	jammy := corebase.MakeDefaultBase("ubuntu", "22.04")
 	images := map[corebase.Base]map[string][]oci.InstanceImage{
 		jammy: {
-			corearch.AMD64: {
+			arch.AMD64: {
 				imgType,
 			},
 		},
 	}
 	cache.SetImages(images)
-	metadata := cache.ImageMetadata(jammy, arch, "")
+	metadata := cache.ImageMetadata(jammy, a, "")
 	c.Assert(metadata, gc.HasLen, 1)
 	// generic images default to ImageTypeVM
 	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeGPU))
 
 	// explicitly set ImageTypeBM on generic images
-	metadata = cache.ImageMetadata(jammy, arch, string(oci.ImageTypeBM))
+	metadata = cache.ImageMetadata(jammy, a, string(oci.ImageTypeBM))
 	c.Assert(metadata, gc.HasLen, 1)
 	c.Assert(metadata[0].VirtType, gc.Equals, string(oci.ImageTypeGPU))
 }

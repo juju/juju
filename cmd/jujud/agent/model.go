@@ -33,7 +33,6 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/upgrade"
 	internalworker "github.com/juju/juju/internal/worker"
-	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/logsender"
 )
@@ -78,7 +77,7 @@ func (m *ModelCommand) Init(args []string) error {
 	m.runner = worker.NewRunner(worker.RunnerParams{
 		IsFatal:       agenterrors.IsFatal,
 		MoreImportant: agenterrors.MoreImportant,
-		RestartDelay:  jworker.RestartDelay,
+		RestartDelay:  internalworker.RestartDelay,
 		Logger:        internalworker.WrapLogger(logger),
 	})
 	return nil

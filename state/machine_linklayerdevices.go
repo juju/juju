@@ -16,7 +16,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 )
 
 // LinkLayerDevice returns the link-layer device matching the given name. An
@@ -69,12 +68,12 @@ func (m *Machine) forEachLinkLayerDeviceDoc(
 // the link layer devices belonging to this machine. These can be used
 // to identify the devices when interacting with the provider
 // directly (for example, releasing container addresses).
-func (m *Machine) AllProviderInterfaceInfos() ([]corenetwork.ProviderInterfaceInfo, error) {
+func (m *Machine) AllProviderInterfaceInfos() ([]network.ProviderInterfaceInfo, error) {
 	devices, err := m.AllLinkLayerDevices()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]corenetwork.ProviderInterfaceInfo, len(devices))
+	result := make([]network.ProviderInterfaceInfo, len(devices))
 	for i, device := range devices {
 		result[i].InterfaceName = device.Name()
 		result[i].HardwareAddress = device.MACAddress()
@@ -103,7 +102,7 @@ func (m *Machine) removeAllLinkLayerDevicesOps() ([]txn.Op, error) {
 		removeOps := removeLinkLayerDeviceUnconditionallyOps(resultDoc.DocID)
 		ops = append(ops, removeOps...)
 		if resultDoc.ProviderID != "" {
-			providerId := corenetwork.Id(resultDoc.ProviderID)
+			providerId := network.Id(resultDoc.ProviderID)
 			op := m.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", providerId)
 			ops = append(ops, op)
 		}
@@ -126,10 +125,10 @@ type LinkLayerDeviceArgs struct {
 
 	// ProviderID is a provider-specific ID of the device. Empty when not
 	// supported by the provider. Cannot be cleared once set.
-	ProviderID corenetwork.Id
+	ProviderID network.Id
 
 	// Type is the type of the underlying link-layer device.
-	Type corenetwork.LinkLayerDeviceType
+	Type network.LinkLayerDeviceType
 
 	// MACAddress is the media access control address for the device.
 	MACAddress string
@@ -149,7 +148,7 @@ type LinkLayerDeviceArgs struct {
 
 	// If this is device is part of a virtual switch, this field indicates
 	// the type of switch (e.g. an OVS bridge ) this port belongs to.
-	VirtualPortType corenetwork.VirtualPortType
+	VirtualPortType network.VirtualPortType
 }
 
 // AddLinkLayerDeviceOps returns transaction operations for adding the input
@@ -370,7 +369,7 @@ func (m *Machine) setDevicesFromDocsOps(newDocs []linkLayerDeviceDoc) ([]txn.Op,
 func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) ([]txn.Op, error) {
 	var ops []txn.Op
 	if newDoc.ProviderID != "" {
-		id := corenetwork.Id(newDoc.ProviderID)
+		id := network.Id(newDoc.ProviderID)
 		ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
 	}
 	return append(ops, insertLinkLayerDeviceDocOp(newDoc)), nil
@@ -429,7 +428,7 @@ func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceD
 		}
 		if existingDoc.ProviderID != newDoc.ProviderID {
 			// Need to insert the new provider id in providerIDsC
-			id := corenetwork.Id(newDoc.ProviderID)
+			id := network.Id(newDoc.ProviderID)
 			ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
 		}
 	}
@@ -443,19 +442,19 @@ type LinkLayerDeviceAddress struct {
 	DeviceName string
 
 	// ConfigMethod is the method used to configure this address.
-	ConfigMethod corenetwork.AddressConfigType
+	ConfigMethod network.AddressConfigType
 
 	// ProviderID is the provider-specific ID of the address. Empty when not
 	// supported. Cannot be changed once set to non-empty.
-	ProviderID corenetwork.Id
+	ProviderID network.Id
 
 	// ProviderNetworkID is the provider-specific network ID of the address.
 	// It can be left empty if not supported or known.
-	ProviderNetworkID corenetwork.Id
+	ProviderNetworkID network.Id
 
 	// ProviderSubnetID is the provider-specific subnet ID to which the
 	// device is attached.
-	ProviderSubnetID corenetwork.Id
+	ProviderSubnetID network.Id
 
 	// CIDRAddress is the IP address assigned to the device, in CIDR format
 	// (e.g. 10.20.30.5/24 or fc00:1234::/64).
@@ -479,7 +478,7 @@ type LinkLayerDeviceAddress struct {
 	// it is set using precedence, with "provider" overriding "machine".
 	// It is used to determine whether the address is no longer recognised
 	// and is safe to remove.
-	Origin corenetwork.Origin
+	Origin network.Origin
 
 	// IsSecondary if true, indicates that this address is
 	// not the primary address associated with the NIC.
@@ -581,7 +580,7 @@ func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) 
 	if args.DeviceName == "" {
 		return errors.NotValidf("empty DeviceName")
 	}
-	if !corenetwork.IsValidLinkLayerDeviceName(args.DeviceName) {
+	if !network.IsValidLinkLayerDeviceName(args.DeviceName) {
 		logger.Warningf(context.TODO(),
 			"address %q on machine %q has invalid device name %q (using anyway)",
 			args.CIDRAddress, m.Id(), args.DeviceName,
@@ -722,11 +721,11 @@ func (m *Machine) maybeAddAddressProviderIDOps(
 			return nil, nil
 		}
 		return nil, errors.Annotatef(
-			newProviderIDNotUniqueError(corenetwork.Id(doc.ProviderID)), "multiple addresses %q, %q", addr, doc.Value)
+			newProviderIDNotUniqueError(network.Id(doc.ProviderID)), "multiple addresses %q, %q", addr, doc.Value)
 	}
 
 	providerIDAddrs[doc.ProviderID] = doc.Value
-	return []txn.Op{m.st.networkEntityGlobalKeyOp("address", corenetwork.Id(doc.ProviderID))}, nil
+	return []txn.Op{m.st.networkEntityGlobalKeyOp("address", network.Id(doc.ProviderID))}, nil
 }
 
 // RemoveAllAddresses removes all assigned addresses to all devices of the
@@ -770,7 +769,7 @@ func (m *Machine) AllSpaces(allSubnets network.SubnetInfos) (set.Strings, error)
 	spaces := set.NewStrings()
 	callback := func(doc *ipAddressDoc) {
 		// Don't bother with these. They are not in a space.
-		if doc.ConfigMethod == corenetwork.ConfigLoopback || doc.SubnetCIDR == "" {
+		if doc.ConfigMethod == network.ConfigLoopback || doc.SubnetCIDR == "" {
 			return
 		}
 

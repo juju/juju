@@ -9,7 +9,6 @@ import (
 	"github.com/juju/description/v8"
 
 	"github.com/juju/juju/core/model"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/keymanager/service"
@@ -36,12 +35,12 @@ type ExportService interface {
 }
 
 // Execute the migration of the model's authorized keys.
-func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	modelUUID := coremodel.UUID(model.Tag().Id())
+func (e *exportOperation) Execute(ctx context.Context, m description.Model) error {
+	modelUUID := model.UUID(m.Tag().Id())
 	if err := modelUUID.Validate(); err != nil {
 		return errors.Errorf(
 			"exporting authorized keys for model %q: %w",
-			model.Tag(), err,
+			m.Tag(), err,
 		)
 	}
 
@@ -54,7 +53,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	for userName, userKeys := range usersKeys {
-		model.AddAuthorizedKeys(description.UserAuthorizedKeysArgs{
+		m.AddAuthorizedKeys(description.UserAuthorizedKeysArgs{
 			Username:       userName.String(),
 			AuthorizedKeys: userKeys,
 		})

@@ -4,7 +4,7 @@
 package spaces_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"sort"
 
@@ -62,7 +62,7 @@ func (s *APISuite) TestCreateSpacesFailInvalidTag(c *gc.C) {
 		},
 	}
 
-	res, err := s.API.CreateSpaces(stdcontext.Background(), args)
+	res, err := s.API.CreateSpaces(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, jc.DeepEquals, expected)
 }
@@ -91,7 +91,7 @@ func (s *APISuite) TestCreateSpacesFailInvalidCIDR(c *gc.C) {
 		},
 	}
 
-	res, err := s.API.CreateSpaces(stdcontext.Background(), args)
+	res, err := s.API.CreateSpaces(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, jc.DeepEquals, expected)
 }
@@ -162,7 +162,7 @@ func (s *APISuite) TestCreateSpacesSuccess(c *gc.C) {
 	s.NetworkService.EXPECT().AddSpace(gomock.Any(), space1)
 
 	expected := params.ErrorResults{Results: []params.ErrorResult{{}, {}}}
-	res, err := s.API.CreateSpaces(stdcontext.Background(), args)
+	res, err := s.API.CreateSpaces(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, jc.DeepEquals, expected)
 }
@@ -202,7 +202,7 @@ func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
 		},
 	}}
 
-	res, err := s.API.ShowSpace(stdcontext.Background(), args)
+	res, err := s.API.ShowSpace(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, jc.DeepEquals, expected)
 }
@@ -218,7 +218,7 @@ func (s *APISuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
-	res, err := s.API.ShowSpace(stdcontext.Background(), args)
+	res, err := s.API.ShowSpace(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("fetching space %q: %v", args.Entities[0].Tag, bamErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -235,7 +235,7 @@ func (s *APISuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
-	res, err := s.API.ShowSpace(stdcontext.Background(), args)
+	res, err := s.API.ShowSpace(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("fetching space \"space-default\": %v", bamErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -253,7 +253,7 @@ func (s *APISuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
 
 	args := s.getShowSpaceArg("default")
 
-	res, err := s.API.ShowSpace(stdcontext.Background(), args)
+	res, err := s.API.ShowSpace(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("fetching applications: %v", expErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -272,7 +272,7 @@ func (s *APISuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any())
 
 	args := s.getShowSpaceArg("default")
-	res, err := s.API.ShowSpace(stdcontext.Background(), args)
+	res, err := s.API.ShowSpace(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("fetching machine count: %v", bamErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -287,7 +287,7 @@ func (s *APISuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
 	from, to := "bla", "blub"
 	args := s.getRenameArgs(from, to)
 
-	res, err := s.API.RenameSpace(stdcontext.Background(), args)
+	res, err := s.API.RenameSpace(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("space %q already exists", to)
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -304,7 +304,7 @@ func (s *APISuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
 
 	args := s.getRenameArgs(from, to)
 
-	res, err := s.API.RenameSpace(stdcontext.Background(), args)
+	res, err := s.API.RenameSpace(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("retrieving space %q: %v", to, bamErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -327,7 +327,7 @@ func (s *APISuite) TestRenameSpaceErrorRename(c *gc.C) {
 	)
 	s.NetworkService.EXPECT().UpdateSpace(gomock.Any(), "bla-space-id", "blub").Return(bamErr)
 
-	res, err := s.API.RenameSpace(stdcontext.Background(), args)
+	res, err := s.API.RenameSpace(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, ".*"+bamErr.Error())
 }
@@ -340,7 +340,7 @@ func (s *APISuite) TestRenameAlphaSpaceError(c *gc.C) {
 
 	args := s.getRenameArgs(from, to)
 
-	res, err := s.API.RenameSpace(stdcontext.Background(), args)
+	res, err := s.API.RenameSpace(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, `the "alpha" space cannot be renamed`)
 }
@@ -360,7 +360,7 @@ func (s *APISuite) TestRenameSpaceSuccess(c *gc.C) {
 	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), "bla").Return(fromSpace, nil)
 	s.NetworkService.EXPECT().UpdateSpace(gomock.Any(), fromSpace.ID, "blub").Return(nil)
 
-	res, err := s.API.RenameSpace(stdcontext.Background(), args)
+	res, err := s.API.RenameSpace(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Error, gc.IsNil)
 }
@@ -373,7 +373,7 @@ func (s *APISuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) {
 
 	args := s.getRenameArgs(from, to)
 
-	res, err := s.API.RenameSpace(stdcontext.Background(), args)
+	res, err := s.API.RenameSpace(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "modifying provider-sourced spaces not supported")
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult(nil)})
 }
@@ -398,7 +398,7 @@ func (s *APISuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
 	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), tag.Id()).Return(space, nil)
 	s.NetworkService.EXPECT().RemoveSpace(gomock.Any(), space.ID)
 
-	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
+	res, err := s.API.RemoveSpace(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{}}})
@@ -427,7 +427,7 @@ func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 	s.NetworkService.EXPECT().SpaceByName(gomock.Any(), tag.Id()).Return(space, nil)
 	s.NetworkService.EXPECT().RemoveSpace(gomock.Any(), space.ID)
 
-	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
+	res, err := s.API.RemoveSpace(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{}}})
@@ -459,7 +459,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
 	}}}
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 
-	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
+	res, err := s.API.RemoveSpace(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, expected)
@@ -488,7 +488,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 
-	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
+	res, err := s.API.RemoveSpace(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, expected)
@@ -523,7 +523,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
 
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 
-	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
+	res, err := s.API.RemoveSpace(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Constraints, jc.SameContents, expected.Results[0].Constraints)
@@ -570,7 +570,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 	}}}
 	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any())
 
-	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
+	res, err := s.API.RemoveSpace(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Constraints, jc.SameContents, expected.Results[0].Constraints)
@@ -605,7 +605,7 @@ func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
 
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{}}}
 
-	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
+	res, err := s.API.RemoveSpace(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, expected)
@@ -619,7 +619,7 @@ func (s *APISuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) {
 
 	args, _ := s.getRemoveArgs(space, false)
 
-	_, err := s.API.RemoveSpace(stdcontext.Background(), args)
+	_, err := s.API.RemoveSpace(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "modifying provider-sourced spaces not supported")
 }
 
@@ -878,7 +878,7 @@ func (s *LegacySuite) TestShowSpaceError(c *gc.C) {
 	s.makeAPI(c)
 
 	entities := params.Entities{}
-	_, err := s.facade.ShowSpace(stdcontext.Background(), entities)
+	_, err := s.facade.ShowSpace(context.Background(), entities)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -891,7 +891,7 @@ func (s *LegacySuite) TestCreateSpacesGetProviderError(c *gc.C) {
 	s.makeAPI(c)
 
 	args := params.CreateSpacesParams{}
-	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
+	_, err := s.facade.CreateSpaces(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
 	var paramsErr *params.Error
 	c.Assert(errors.As(err, &paramsErr), jc.IsTrue)
@@ -905,7 +905,7 @@ func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.NotSupportedf("spaces"))
 
 	args := params.CreateSpacesParams{}
-	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
+	_, err := s.facade.CreateSpaces(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
 }
 
@@ -988,7 +988,7 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(retrievedSpaces, nil)
 	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
 
-	result, err := s.facade.ListSpaces(stdcontext.Background())
+	result, err := s.facade.ListSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, expected)
 }
@@ -999,7 +999,7 @@ func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
 	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(false, errors.Errorf("environ boom"))
 	s.makeAPI(c)
 
-	_, err := s.facade.ListSpaces(stdcontext.Background())
+	_, err := s.facade.ListSpaces(context.Background())
 	c.Assert(err, gc.ErrorMatches, "environ boom")
 }
 
@@ -1020,7 +1020,7 @@ func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
 
-	results, err := s.facade.ListSpaces(stdcontext.Background())
+	results, err := s.facade.ListSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	for i, space := range results.Results {
 		errmsg := fmt.Sprintf("fetching subnets: space%d subnets failed", i)
@@ -1046,7 +1046,7 @@ func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
 
-	results, err := s.facade.ListSpaces(stdcontext.Background())
+	results, err := s.facade.ListSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	for i, space := range results.Results {
 		if i == 1 {
@@ -1064,7 +1064,7 @@ func (s *LegacySuite) TestListSpacesNotSupportedError(c *gc.C) {
 	s.networkService.EXPECT().SupportsSpaces(gomock.Any()).
 		Return(false, errors.NotSupportedf("spaces"))
 
-	_, err := s.facade.ListSpaces(stdcontext.Background())
+	_, err := s.facade.ListSpaces(context.Background())
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
 }
 
@@ -1073,7 +1073,7 @@ func (s *LegacySuite) TestCreateSpacesBlocked(c *gc.C) {
 	s.makeAPI(c)
 
 	s.blockChecker.SetErrors(apiservererrors.ServerError(apiservererrors.OperationBlockedError("test block")))
-	_, err := s.facade.CreateSpaces(stdcontext.Background(), params.CreateSpacesParams{})
+	_, err := s.facade.CreateSpaces(context.Background(), params.CreateSpacesParams{})
 	c.Assert(err, gc.ErrorMatches, "test block")
 	c.Assert(err, jc.Satisfies, params.IsCodeOperationBlocked)
 }
@@ -1082,12 +1082,12 @@ type mockBlockChecker struct {
 	jtesting.Stub
 }
 
-func (c *mockBlockChecker) ChangeAllowed(ctx stdcontext.Context) error {
+func (c *mockBlockChecker) ChangeAllowed(ctx context.Context) error {
 	c.MethodCall(c, "ChangeAllowed")
 	return c.NextErr()
 }
 
-func (c *mockBlockChecker) RemoveAllowed(ctx stdcontext.Context) error {
+func (c *mockBlockChecker) RemoveAllowed(ctx context.Context) error {
 	c.MethodCall(c, "RemoveAllowed")
 	return c.NextErr()
 }

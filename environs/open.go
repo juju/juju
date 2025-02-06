@@ -4,7 +4,7 @@
 package environs
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/errors"
 
@@ -16,7 +16,7 @@ import (
 const AdminUser = "admin"
 
 // New returns a new environment based on the provided configuration.
-func New(ctx stdcontext.Context, args OpenParams) (Environ, error) {
+func New(ctx context.Context, args OpenParams) (Environ, error) {
 	p, err := Provider(args.Cloud.Type)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -25,7 +25,7 @@ func New(ctx stdcontext.Context, args OpenParams) (Environ, error) {
 }
 
 // Open creates an Environ instance and errors if the provider is not for a cloud.
-func Open(ctx stdcontext.Context, p EnvironProvider, args OpenParams) (Environ, error) {
+func Open(ctx context.Context, p EnvironProvider, args OpenParams) (Environ, error) {
 	if envProvider, ok := p.(CloudEnvironProvider); !ok {
 		return nil, errors.NotValidf("cloud environ provider %T", p)
 	} else {

@@ -5,7 +5,6 @@ package httpserver
 
 import (
 	"context"
-	stdcontext "context"
 	"crypto/tls"
 	"time"
 
@@ -49,7 +48,7 @@ type ManifoldConfig struct {
 
 	Logger logger.Logger
 
-	GetControllerConfig func(stdcontext.Context, ControllerConfigGetter) (controller.Config, error)
+	GetControllerConfig func(context.Context, ControllerConfigGetter) (controller.Config, error)
 	NewTLSConfig        func(string, string, autocert.Cache, SNIGetterFunc, logger.Logger) *tls.Config
 	NewWorker           func(Config) (worker.Worker, error)
 }
@@ -158,7 +157,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	newCtx, cancel := stdcontext.WithCancel(ctx)
+	newCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	controllerConfig, err := config.GetControllerConfig(newCtx, controllerDomainServices.ControllerConfig())

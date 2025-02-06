@@ -5,7 +5,6 @@ package storageprovisioner
 
 import (
 	"context"
-	stdcontext "context"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -125,7 +124,7 @@ func machineBlockDevicesChanged(ctx context.Context, deps *dependencies) error {
 		return nil
 	}
 	deps.config.Logger.Debugf(context.TODO(), "refreshing mounted filesystems: %#v", toUpdate)
-	_, err = deps.managedFilesystemSource.AttachFilesystems(deps.config.CloudCallContextFunc(stdcontext.Background()), toUpdate)
+	_, err = deps.managedFilesystemSource.AttachFilesystems(deps.config.CloudCallContextFunc(context.Background()), toUpdate)
 	return err
 }
 

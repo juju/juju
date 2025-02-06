@@ -5,7 +5,6 @@ package storageprovisioner
 
 import (
 	"context"
-	stdcontext "context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -22,7 +21,7 @@ import (
 // watching for the lifecycle state changes
 // (including addition) of applications.
 type ApplicationWatcher interface {
-	WatchApplications(stdcontext.Context) (watcher.StringsWatcher, error)
+	WatchApplications(context.Context) (watcher.StringsWatcher, error)
 }
 
 // NewCaasWorker starts and returns a new CAAS storage provisioner worker.
@@ -155,6 +154,6 @@ func (p *provisioner) loop() error {
 	}
 }
 
-func (p *provisioner) scopedContext() (stdcontext.Context, stdcontext.CancelFunc) {
-	return stdcontext.WithCancel(p.catacomb.Context(stdcontext.Background()))
+func (p *provisioner) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(p.catacomb.Context(context.Background()))
 }

@@ -5,7 +5,6 @@ package oci_test
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"time"
 
@@ -301,7 +300,7 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 	s.spec = fakeCloudSpec()
 
 	config := newConfig(c, jujutesting.Attrs{"compartment-id": s.testCompartment})
-	env, err := environs.Open(stdcontext.Background(), s.provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: config,
 	})

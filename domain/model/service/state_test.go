@@ -15,7 +15,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/version"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
@@ -213,7 +212,7 @@ func (d *dummyState) ListAllModels(
 
 func (d *dummyState) ListModelsForUser(
 	_ context.Context,
-	userID coreuser.UUID,
+	userID user.UUID,
 ) ([]coremodel.Model, error) {
 	rval := []coremodel.Model{}
 	for _, m := range d.models {

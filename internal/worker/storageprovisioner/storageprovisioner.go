@@ -5,7 +5,6 @@ package storageprovisioner
 
 import (
 	"context"
-	stdcontext "context"
 	"time"
 
 	"github.com/juju/errors"
@@ -35,56 +34,56 @@ var newManagedFilesystemSource = provider.NewManagedFilesystemSource
 type VolumeAccessor interface {
 	// WatchBlockDevices watches for changes to the block devices of the
 	// specified machine.
-	WatchBlockDevices(stdcontext.Context, names.MachineTag) (watcher.NotifyWatcher, error)
+	WatchBlockDevices(context.Context, names.MachineTag) (watcher.NotifyWatcher, error)
 
 	// WatchVolumes watches for changes to volumes that this storage
 	// provisioner is responsible for.
-	WatchVolumes(ctx stdcontext.Context, scope names.Tag) (watcher.StringsWatcher, error)
+	WatchVolumes(ctx context.Context, scope names.Tag) (watcher.StringsWatcher, error)
 
 	// WatchVolumeAttachments watches for changes to volume attachments
 	// that this storage provisioner is responsible for.
-	WatchVolumeAttachments(ctx stdcontext.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
+	WatchVolumeAttachments(ctx context.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
 
 	// WatchVolumeAttachmentPlans watches for changes to volume attachments
 	// destined for this machine. It allows the machine agent to do any extra
 	// initialization of the attachment, such as logging into the iSCSI target
-	WatchVolumeAttachmentPlans(ctx stdcontext.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
+	WatchVolumeAttachmentPlans(ctx context.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
 
 	// Volumes returns details of volumes with the specified tags.
-	Volumes(stdcontext.Context, []names.VolumeTag) ([]params.VolumeResult, error)
+	Volumes(context.Context, []names.VolumeTag) ([]params.VolumeResult, error)
 
 	// VolumeBlockDevices returns details of block devices corresponding to
 	// the specified volume attachment IDs.
-	VolumeBlockDevices(stdcontext.Context, []params.MachineStorageId) ([]params.BlockDeviceResult, error)
+	VolumeBlockDevices(context.Context, []params.MachineStorageId) ([]params.BlockDeviceResult, error)
 
 	// VolumeAttachments returns details of volume attachments with
 	// the specified tags.
-	VolumeAttachments(stdcontext.Context, []params.MachineStorageId) ([]params.VolumeAttachmentResult, error)
+	VolumeAttachments(context.Context, []params.MachineStorageId) ([]params.VolumeAttachmentResult, error)
 
-	VolumeAttachmentPlans(stdcontext.Context, []params.MachineStorageId) ([]params.VolumeAttachmentPlanResult, error)
+	VolumeAttachmentPlans(context.Context, []params.MachineStorageId) ([]params.VolumeAttachmentPlanResult, error)
 
 	// VolumeParams returns the parameters for creating the volumes
 	// with the specified tags.
-	VolumeParams(stdcontext.Context, []names.VolumeTag) ([]params.VolumeParamsResult, error)
+	VolumeParams(context.Context, []names.VolumeTag) ([]params.VolumeParamsResult, error)
 
 	// RemoveVolumeParams returns the parameters for destroying or
 	// releasing the volumes with the specified tags.
-	RemoveVolumeParams(stdcontext.Context, []names.VolumeTag) ([]params.RemoveVolumeParamsResult, error)
+	RemoveVolumeParams(context.Context, []names.VolumeTag) ([]params.RemoveVolumeParamsResult, error)
 
 	// VolumeAttachmentParams returns the parameters for creating the
 	// volume attachments with the specified tags.
-	VolumeAttachmentParams(stdcontext.Context, []params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error)
+	VolumeAttachmentParams(context.Context, []params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error)
 
 	// SetVolumeInfo records the details of newly provisioned volumes.
-	SetVolumeInfo(stdcontext.Context, []params.Volume) ([]params.ErrorResult, error)
+	SetVolumeInfo(context.Context, []params.Volume) ([]params.ErrorResult, error)
 
 	// SetVolumeAttachmentInfo records the details of newly provisioned
 	// volume attachments.
-	SetVolumeAttachmentInfo(stdcontext.Context, []params.VolumeAttachment) ([]params.ErrorResult, error)
+	SetVolumeAttachmentInfo(context.Context, []params.VolumeAttachment) ([]params.ErrorResult, error)
 
-	CreateVolumeAttachmentPlans(ctx stdcontext.Context, volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error)
-	RemoveVolumeAttachmentPlan(stdcontext.Context, []params.MachineStorageId) ([]params.ErrorResult, error)
-	SetVolumeAttachmentPlanBlockInfo(ctx stdcontext.Context, volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error)
+	CreateVolumeAttachmentPlans(ctx context.Context, volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error)
+	RemoveVolumeAttachmentPlan(context.Context, []params.MachineStorageId) ([]params.ErrorResult, error)
+	SetVolumeAttachmentPlanBlockInfo(ctx context.Context, volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error)
 }
 
 // FilesystemAccessor defines an interface used to allow a storage provisioner
@@ -92,47 +91,47 @@ type VolumeAccessor interface {
 type FilesystemAccessor interface {
 	// WatchFilesystems watches for changes to filesystems that this
 	// storage provisioner is responsible for.
-	WatchFilesystems(ctx stdcontext.Context, scope names.Tag) (watcher.StringsWatcher, error)
+	WatchFilesystems(ctx context.Context, scope names.Tag) (watcher.StringsWatcher, error)
 
 	// WatchFilesystemAttachments watches for changes to filesystem attachments
 	// that this storage provisioner is responsible for.
-	WatchFilesystemAttachments(ctx stdcontext.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
+	WatchFilesystemAttachments(ctx context.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
 
 	// Filesystems returns details of filesystems with the specified tags.
-	Filesystems(stdcontext.Context, []names.FilesystemTag) ([]params.FilesystemResult, error)
+	Filesystems(context.Context, []names.FilesystemTag) ([]params.FilesystemResult, error)
 
 	// FilesystemAttachments returns details of filesystem attachments with
 	// the specified tags.
-	FilesystemAttachments(stdcontext.Context, []params.MachineStorageId) ([]params.FilesystemAttachmentResult, error)
+	FilesystemAttachments(context.Context, []params.MachineStorageId) ([]params.FilesystemAttachmentResult, error)
 
 	// FilesystemParams returns the parameters for creating the filesystems
 	// with the specified tags.
-	FilesystemParams(stdcontext.Context, []names.FilesystemTag) ([]params.FilesystemParamsResult, error)
+	FilesystemParams(context.Context, []names.FilesystemTag) ([]params.FilesystemParamsResult, error)
 
 	// RemoveFilesystemParams returns the parameters for destroying or
 	// releasing the filesystems with the specified tags.
-	RemoveFilesystemParams(stdcontext.Context, []names.FilesystemTag) ([]params.RemoveFilesystemParamsResult, error)
+	RemoveFilesystemParams(context.Context, []names.FilesystemTag) ([]params.RemoveFilesystemParamsResult, error)
 
 	// FilesystemAttachmentParams returns the parameters for creating the
 	// filesystem attachments with the specified tags.
-	FilesystemAttachmentParams(stdcontext.Context, []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error)
+	FilesystemAttachmentParams(context.Context, []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error)
 
 	// SetFilesystemInfo records the details of newly provisioned filesystems.
-	SetFilesystemInfo(stdcontext.Context, []params.Filesystem) ([]params.ErrorResult, error)
+	SetFilesystemInfo(context.Context, []params.Filesystem) ([]params.ErrorResult, error)
 
 	// SetFilesystemAttachmentInfo records the details of newly provisioned
 	// filesystem attachments.
-	SetFilesystemAttachmentInfo(stdcontext.Context, []params.FilesystemAttachment) ([]params.ErrorResult, error)
+	SetFilesystemAttachmentInfo(context.Context, []params.FilesystemAttachment) ([]params.ErrorResult, error)
 }
 
 // MachineAccessor defines an interface used to allow a storage provisioner
 // worker to perform machine related operations.
 type MachineAccessor interface {
 	// WatchMachine watches for changes to the specified machine.
-	WatchMachine(stdcontext.Context, names.MachineTag) (watcher.NotifyWatcher, error)
+	WatchMachine(context.Context, names.MachineTag) (watcher.NotifyWatcher, error)
 
 	// InstanceIds returns the instance IDs of each machine.
-	InstanceIds(stdcontext.Context, []names.MachineTag) ([]params.StringResult, error)
+	InstanceIds(context.Context, []names.MachineTag) ([]params.StringResult, error)
 }
 
 // LifecycleManager defines an interface used to enable a storage provisioner
@@ -140,23 +139,23 @@ type MachineAccessor interface {
 // attachments.
 type LifecycleManager interface {
 	// Life returns the lifecycle state of the specified entities.
-	Life(stdcontext.Context, []names.Tag) ([]params.LifeResult, error)
+	Life(context.Context, []names.Tag) ([]params.LifeResult, error)
 
 	// Remove removes the specified entities from state.
-	Remove(stdcontext.Context, []names.Tag) ([]params.ErrorResult, error)
+	Remove(context.Context, []names.Tag) ([]params.ErrorResult, error)
 
 	// AttachmentLife returns the lifecycle state of the specified
 	// machine/entity attachments.
-	AttachmentLife(stdcontext.Context, []params.MachineStorageId) ([]params.LifeResult, error)
+	AttachmentLife(context.Context, []params.MachineStorageId) ([]params.LifeResult, error)
 
 	// RemoveAttachments removes the specified machine/entity attachments
 	// from state.
-	RemoveAttachments(stdcontext.Context, []params.MachineStorageId) ([]params.ErrorResult, error)
+	RemoveAttachments(context.Context, []params.MachineStorageId) ([]params.ErrorResult, error)
 }
 
 // StatusSetter defines an interface used to set the status of entities.
 type StatusSetter interface {
-	SetStatus(stdcontext.Context, []params.EntityStatusArgs) error
+	SetStatus(context.Context, []params.EntityStatusArgs) error
 }
 
 // NewStorageProvisioner returns a Worker which manages
@@ -407,8 +406,8 @@ func (w *storageProvisioner) processDependentChanges(ctx context.Context, deps *
 	}
 }
 
-func (w *storageProvisioner) scopedContext() (stdcontext.Context, stdcontext.CancelFunc) {
-	return stdcontext.WithCancel(w.catacomb.Context(stdcontext.Background()))
+func (w *storageProvisioner) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
 // processSchedule executes scheduled operations.

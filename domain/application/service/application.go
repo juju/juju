@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
-	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -142,7 +141,7 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFoundError] is returned.
 	// If the charm for the application does not exist, an error satisfying
 	// [applicationerrors.CharmNotFoundError] is returned.
-	GetCharmByApplicationID(context.Context, coreapplication.ID) (domaincharm.Charm, error)
+	GetCharmByApplicationID(context.Context, coreapplication.ID) (charm.Charm, error)
 
 	// GetCharmIDByApplicationName returns a charm ID by application name. It
 	// returns an error if the charm can not be found by the name. This can also
@@ -313,7 +312,7 @@ func validateCreateApplicationParams(
 	name, referenceName string,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
-	downloadInfo *domaincharm.DownloadInfo,
+	downloadInfo *charm.DownloadInfo,
 	resolvedResources ResolvedResources,
 	logger logger.Logger,
 ) error {
@@ -796,14 +795,14 @@ func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (core
 // Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
 // [applicationerrors.ApplicationNotFound] if the application is not found, and
 // [applicationerrors.CharmNotFound] if the charm is not found.
-func (s *Service) GetCharmLocatorByApplicationName(ctx context.Context, name string) (domaincharm.CharmLocator, error) {
+func (s *Service) GetCharmLocatorByApplicationName(ctx context.Context, name string) (charm.CharmLocator, error) {
 	if !isValidApplicationName(name) {
-		return domaincharm.CharmLocator{}, applicationerrors.ApplicationNameNotValid
+		return charm.CharmLocator{}, applicationerrors.ApplicationNameNotValid
 	}
 
 	charmID, err := s.st.GetCharmIDByApplicationName(ctx, name)
 	if err != nil {
-		return domaincharm.CharmLocator{}, errors.Trace(err)
+		return charm.CharmLocator{}, errors.Trace(err)
 	}
 
 	locator, err := s.getCharmLocatorByID(ctx, charmID)
@@ -833,50 +832,50 @@ func (s *Service) GetCharmModifiedVersion(ctx context.Context, id coreapplicatio
 // returned.
 func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplication.ID) (
 	internalcharm.Charm,
-	domaincharm.CharmLocator,
+	charm.CharmLocator,
 	error,
 ) {
 	if err := id.Validate(); err != nil {
-		return nil, domaincharm.CharmLocator{}, internalerrors.Errorf("application ID: %w%w", err, errors.Hide(applicationerrors.ApplicationIDNotValid))
+		return nil, charm.CharmLocator{}, internalerrors.Errorf("application ID: %w%w", err, errors.Hide(applicationerrors.ApplicationIDNotValid))
 	}
 
-	charm, err := s.st.GetCharmByApplicationID(ctx, id)
+	ch, err := s.st.GetCharmByApplicationID(ctx, id)
 	if err != nil {
-		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
 	// The charm needs to be decoded into the internalcharm.Charm type.
 
-	metadata, err := decodeMetadata(charm.Metadata)
+	metadata, err := decodeMetadata(ch.Metadata)
 	if err != nil {
-		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	manifest, err := decodeManifest(charm.Manifest)
+	manifest, err := decodeManifest(ch.Manifest)
 	if err != nil {
-		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	actions, err := decodeActions(charm.Actions)
+	actions, err := decodeActions(ch.Actions)
 	if err != nil {
-		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	config, err := decodeConfig(charm.Config)
+	config, err := decodeConfig(ch.Config)
 	if err != nil {
-		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	lxdProfile, err := decodeLXDProfile(charm.LXDProfile)
+	lxdProfile, err := decodeLXDProfile(ch.LXDProfile)
 	if err != nil {
-		return nil, domaincharm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
-	locator := domaincharm.CharmLocator{
-		Name:         charm.ReferenceName,
-		Revision:     charm.Revision,
-		Source:       charm.Source,
-		Architecture: charm.Architecture,
+	locator := charm.CharmLocator{
+		Name:         ch.ReferenceName,
+		Revision:     ch.Revision,
+		Source:       ch.Source,
+		Architecture: ch.Architecture,
 	}
 
 	return internalcharm.NewCharmBase(
@@ -1374,7 +1373,7 @@ func getTrustSettingFromConfig(cfg map[string]string) (bool, error) {
 	return b, nil
 }
 
-func encodeApplicationConfig(cfg config.ConfigAttributes, charmConfig domaincharm.Config) (map[string]application.ApplicationConfig, error) {
+func encodeApplicationConfig(cfg config.ConfigAttributes, charmConfig charm.Config) (map[string]application.ApplicationConfig, error) {
 	// If there is no config, then we can just return nil.
 	if len(cfg) == 0 {
 		return nil, nil

@@ -5,7 +5,6 @@ package agentbootstrap
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/clock"
@@ -55,7 +54,7 @@ import (
 // DqliteInitializerFunc is a function that initializes the dqlite database
 // for the controller.
 type DqliteInitializerFunc func(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	mgr database.BootstrapNodeManager,
 	modelUUID model.UUID,
 	logger logger.Logger,
@@ -177,7 +176,7 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 // Initialize returns the newly initialized state and bootstrap machine.
 // If it fails, the state may well be irredeemably compromised.
 // TODO (stickupkid): Split this function into testable smaller functions.
-func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller, resultErr error) {
+func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, resultErr error) {
 	agentConfig := b.agentConfig
 	if agentConfig.Tag().Id() != agent.BootstrapControllerId || !coreagent.IsAllowedControllerTag(agentConfig.Tag().Kind()) {
 		return nil, errors.Errorf("InitializeState not called with bootstrap controller's configuration")
@@ -418,7 +417,7 @@ func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCred
 }
 
 func (b *AgentBootstrap) getEnviron(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	controllerUUID string,
 	cloudSpec environscloudspec.CloudSpec,
 	modelConfig *config.Config,
@@ -499,7 +498,7 @@ func (b *AgentBootstrap) initBootstrapMachine(
 
 // initControllerCloudService creates cloud service for controller service.
 func (b *AgentBootstrap) initControllerCloudService(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	cloudSpec environscloudspec.CloudSpec,
 	provider environs.EnvironProvider,
 	st *state.State,

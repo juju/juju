@@ -4,7 +4,7 @@
 package state
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -42,7 +42,7 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	var validator constraints.Validator
 	if st.policy != nil {
 		var err error
-		validator, err = st.policy.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(stdcontext.Background()))
+		validator, err = st.policy.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 		if errors.Is(err, errors.NotImplemented) {
 			validator = constraints.NewValidator()
 		} else if err != nil {
@@ -83,11 +83,11 @@ func (st *State) validateConstraints(cons constraints.Value) ([]string, error) {
 // Used for tests.
 type noopStoragePoolGetter struct{}
 
-func (noopStoragePoolGetter) GetStorageRegistry(ctx stdcontext.Context) (storage.ProviderRegistry, error) {
+func (noopStoragePoolGetter) GetStorageRegistry(ctx context.Context) (storage.ProviderRegistry, error) {
 	return storage.StaticProviderRegistry{}, nil
 }
 
-func (noopStoragePoolGetter) GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error) {
+func (noopStoragePoolGetter) GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error) {
 	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 }
 

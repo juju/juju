@@ -6,7 +6,6 @@ package controller
 import (
 	"bytes"
 	"context"
-	stdcontext "context"
 	"fmt"
 	"text/template"
 	"time"
@@ -668,7 +667,7 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromAPI(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	api destroyControllerAPI,
 	controllerModelConfigAPI modelConfigAPI,
 ) (environs.Environ, error) {

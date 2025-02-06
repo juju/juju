@@ -4,7 +4,7 @@
 package resource
 
 import (
-	context "context"
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"

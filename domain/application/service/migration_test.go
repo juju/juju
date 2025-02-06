@@ -21,7 +21,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/charm"
-	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -113,7 +112,7 @@ func (s *migrationServiceSuite) TestGetCharm(c *gc.C) {
 
 	metadata, locator, err := s.service.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata.Meta(), gc.DeepEquals, &internalcharm.Meta{
+	c.Check(metadata.Meta(), gc.DeepEquals, &charm.Meta{
 		Name: "foo",
 
 		// Notice that the RunAs field becomes empty string when being returned.

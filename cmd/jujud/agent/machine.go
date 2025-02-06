@@ -5,7 +5,6 @@ package agent
 
 import (
 	"context"
-	stdcontext "context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -72,7 +71,6 @@ import (
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
 	internalworker "github.com/juju/juju/internal/worker"
-	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/introspection"
@@ -252,7 +250,7 @@ func MachineAgentFactoryFn(
 			worker.NewRunner(worker.RunnerParams{
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
-				RestartDelay:  jworker.RestartDelay,
+				RestartDelay:  internalworker.RestartDelay,
 				Logger:        internalworker.WrapLogger(logger),
 			}),
 			looputil.NewLoopDeviceManager(),
@@ -499,10 +497,10 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	close(a.workersStarted)
 	err = a.runner.Wait()
 	switch errors.Cause(err) {
-	case jworker.ErrRebootMachine:
+	case internalworker.ErrRebootMachine:
 		logger.Infof(context.TODO(), "Caught reboot error")
 		err = a.executeRebootOrShutdown(params.ShouldReboot)
-	case jworker.ErrShutdownMachine:
+	case internalworker.ErrShutdownMachine:
 		logger.Infof(context.TODO(), "Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
@@ -633,7 +631,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	}
 	// We return ErrRebootMachine so the agent will simply exit without error
 	// pending reboot/shutdown.
-	return jworker.ErrRebootMachine
+	return internalworker.ErrRebootMachine
 }
 
 func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
@@ -647,7 +645,7 @@ var (
 	newBroker   = broker.New
 )
 
-func (a *MachineAgent) machineStartup(ctx stdcontext.Context, apiConn api.Connection, logger corelogger.Logger) error {
+func (a *MachineAgent) machineStartup(ctx context.Context, apiConn api.Connection, logger corelogger.Logger) error {
 	logger.Tracef(context.TODO(), "machineStartup called")
 	// CAAS agents do not have machines.
 	if a.isCaasAgent {
@@ -680,7 +678,7 @@ func (a *noopStatusSetter) SetStatus(_ context.Context, _ status.Status, _ strin
 	return nil
 }
 
-func (a *MachineAgent) statusSetter(ctx stdcontext.Context, apiCaller base.APICaller) (upgradesteps.StatusSetter, error) {
+func (a *MachineAgent) statusSetter(ctx context.Context, apiCaller base.APICaller) (upgradesteps.StatusSetter, error) {
 	if a.isCaasAgent || a.agentTag.Kind() != names.MachineTagKind {
 		// TODO - support set status for controller agents
 		return &noopStatusSetter{}, nil
@@ -689,7 +687,7 @@ func (a *MachineAgent) statusSetter(ctx stdcontext.Context, apiCaller base.APICa
 	return machinerAPI.Machine(ctx, a.Tag().(names.MachineTag))
 }
 
-func (a *MachineAgent) machine(ctx stdcontext.Context, apiConn api.Connection) (*apimachiner.Machine, error) {
+func (a *MachineAgent) machine(ctx context.Context, apiConn api.Connection) (*apimachiner.Machine, error) {
 	machinerAPI := apimachiner.NewClient(apiConn)
 	agentConfig := a.CurrentConfig()
 
@@ -700,10 +698,10 @@ func (a *MachineAgent) machine(ctx stdcontext.Context, apiConn api.Connection) (
 	return machinerAPI.Machine(ctx, tag)
 }
 
-func (a *MachineAgent) recordAgentStartInformation(ctx stdcontext.Context, apiConn api.Connection, hostname string) error {
+func (a *MachineAgent) recordAgentStartInformation(ctx context.Context, apiConn api.Connection, hostname string) error {
 	m, err := a.machine(ctx, apiConn)
 	if errors.Is(err, errors.NotFound) || err == nil && m.Life() == life.Dead {
-		return jworker.ErrTerminateAgent
+		return internalworker.ErrTerminateAgent
 	}
 	if err != nil {
 		return errors.Annotatef(err, "cannot load machine %s from state", a.CurrentConfig().Tag())
@@ -724,7 +722,7 @@ func (a *MachineAgent) Restart() error {
 
 // validateMigration is called by the migrationminion to help check
 // that the agent will be ok when connected to a new controller.
-func (a *MachineAgent) validateMigration(ctx stdcontext.Context, apiCaller base.APICaller) error {
+func (a *MachineAgent) validateMigration(ctx context.Context, apiCaller base.APICaller) error {
 	// TODO(mjs) - more extensive checks to come.
 	var err error
 	// TODO(controlleragent) - add k8s controller check.
@@ -737,7 +735,7 @@ func (a *MachineAgent) validateMigration(ctx stdcontext.Context, apiCaller base.
 
 // setupContainerSupport determines what containers can be run on this machine and
 // passes the result to the juju controller.
-func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Connection, logger corelogger.Logger) error {
+func (a *MachineAgent) setupContainerSupport(ctx context.Context, st api.Connection, logger corelogger.Logger) error {
 	logger.Tracef(context.TODO(), "setupContainerSupport called")
 	pr := apiprovisioner.NewClient(st)
 	mTag, ok := a.CurrentConfig().Tag().(names.MachineTag)
@@ -752,7 +750,7 @@ func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Conn
 		return errors.Errorf("expected 1 result, got %d", len(result))
 	}
 	if errors.Is(err, errors.NotFound) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
-		return jworker.ErrTerminateAgent
+		return internalworker.ErrTerminateAgent
 	}
 	m := result[0].Machine
 

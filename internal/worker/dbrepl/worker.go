@@ -19,7 +19,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/database"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database/client"
 	"github.com/juju/juju/internal/database/dqlite"
@@ -49,7 +48,7 @@ type DBGetter interface {
 // WorkerConfig encapsulates the configuration options for the
 // dbaccessor worker.
 type WorkerConfig struct {
-	DBGetter coredatabase.DBGetter
+	DBGetter database.DBGetter
 	Logger   logger.Logger
 	Stdout   io.Writer
 	Stderr   io.Writer
@@ -80,7 +79,7 @@ type dbReplWorker struct {
 	cfg  WorkerConfig
 	tomb tomb.Tomb
 
-	dbGetter         coredatabase.DBGetter
+	dbGetter         database.DBGetter
 	controllerDB     database.TxnRunner
 	currentDB        database.TxnRunner
 	currentNamespace string

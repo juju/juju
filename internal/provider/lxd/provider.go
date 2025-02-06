@@ -5,7 +5,6 @@ package lxd
 
 import (
 	"context"
-	stdcontext "context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -145,7 +144,7 @@ func (*environProvider) Version() int {
 }
 
 // Open implements environs.EnvironProvider.
-func (p *environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (p *environProvider) Open(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -202,7 +201,7 @@ func (p *environProvider) ValidateCloud(ctx context.Context, spec environsclouds
 }
 
 // Validate implements environs.EnvironProvider.
-func (*environProvider) Validate(ctx stdcontext.Context, cfg, old *config.Config) (valid *config.Config, err error) {
+func (*environProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
 	if _, err := newValidConfig(ctx, cfg); err != nil {
 		return nil, errors.Annotate(err, "invalid base config")
 	}

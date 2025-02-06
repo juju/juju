@@ -5,7 +5,6 @@ package machineundertaker
 
 import (
 	"context"
-	stdcontext "context"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -22,10 +21,10 @@ import (
 // Facade defines the interface we require from the machine undertaker
 // facade.
 type Facade interface {
-	WatchMachineRemovals(stdcontext.Context) (watcher.NotifyWatcher, error)
-	AllMachineRemovals(stdcontext.Context) ([]names.MachineTag, error)
-	GetProviderInterfaceInfo(stdcontext.Context, names.MachineTag) ([]network.ProviderInterfaceInfo, error)
-	CompleteRemoval(stdcontext.Context, names.MachineTag) error
+	WatchMachineRemovals(context.Context) (watcher.NotifyWatcher, error)
+	AllMachineRemovals(context.Context) ([]names.MachineTag, error)
+	GetProviderInterfaceInfo(context.Context, names.MachineTag) ([]network.ProviderInterfaceInfo, error)
+	CompleteRemoval(context.Context, names.MachineTag) error
 }
 
 // AddressReleaser defines the interface we need from the environment
@@ -64,14 +63,14 @@ func NewWorker(api Facade, env environs.Environ, credentialAPI common.Credential
 
 // SetUp (part of watcher.NotifyHandler) starts watching for machine
 // removals.
-func (u *Undertaker) SetUp(ctx stdcontext.Context) (watcher.NotifyWatcher, error) {
+func (u *Undertaker) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 	u.Logger.Infof(context.TODO(), "setting up machine undertaker")
 	return u.API.WatchMachineRemovals(ctx)
 }
 
 // Handle (part of watcher.NotifyHandler) cleans up provider resources
 // and removes machines that have been marked for removal.
-func (u *Undertaker) Handle(ctx stdcontext.Context) error {
+func (u *Undertaker) Handle(ctx context.Context) error {
 	removals, err := u.API.AllMachineRemovals(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -98,7 +97,7 @@ func (u *Undertaker) Handle(ctx stdcontext.Context) error {
 // MaybeReleaseAddresses releases any addresses that have been
 // allocated to this machine by the provider (if the provider supports
 // that).
-func (u *Undertaker) MaybeReleaseAddresses(ctx stdcontext.Context, machine names.MachineTag) error {
+func (u *Undertaker) MaybeReleaseAddresses(ctx context.Context, machine names.MachineTag) error {
 	if u.Releaser == nil {
 		// This environ doesn't support releasing addresses.
 		return nil
@@ -115,7 +114,7 @@ func (u *Undertaker) MaybeReleaseAddresses(ctx stdcontext.Context, machine names
 		u.Logger.Debugf(context.TODO(), "%s has no addresses to release", machine)
 		return nil
 	}
-	err = u.Releaser.ReleaseContainerAddresses(u.CallContextFunc(stdcontext.Background()), interfaceInfos)
+	err = u.Releaser.ReleaseContainerAddresses(u.CallContextFunc(context.Background()), interfaceInfos)
 	// Some providers say they support networking but don't
 	// actually support container addressing; don't freak out
 	// about those.

@@ -5,7 +5,6 @@ package agent
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"io"
 	"net"
@@ -383,7 +382,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 func getAddressesForMongo(
 	isCAAS bool,
 	env environs.BootstrapEnviron,
-	ctx stdcontext.Context,
+	ctx context.Context,
 	args instancecfg.StateInitializationParams,
 ) (network.ProviderAddresses, error) {
 	if isCAAS {
@@ -435,7 +434,7 @@ func ensureKeys(
 	return nil
 }
 
-func (c *BootstrapCommand) startMongo(ctx stdcontext.Context, isCAAS bool, addrs network.ProviderAddresses, agentConfig agent.Config) error {
+func (c *BootstrapCommand) startMongo(ctx context.Context, isCAAS bool, addrs network.ProviderAddresses, agentConfig agent.Config) error {
 	logger.Debugf(context.TODO(), "starting mongo")
 
 	info, ok := agentConfig.MongoInfo()

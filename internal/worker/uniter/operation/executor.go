@@ -5,7 +5,6 @@ package operation
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"runtime/pprof"
 
@@ -60,7 +59,7 @@ func (e ExecutorConfig) validate() error {
 // NewExecutor returns an Executor which takes its starting state from
 // the controller, and records state changes there. If no saved state
 // exists, the executor's starting state will be the supplied InitialState.
-func NewExecutor(ctx stdcontext.Context, unitName string, cfg ExecutorConfig) (Executor, error) {
+func NewExecutor(ctx context.Context, unitName string, cfg ExecutorConfig) (Executor, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}

@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -15,7 +14,6 @@ import (
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/machine"
-	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
@@ -76,7 +74,7 @@ type CredentialValidationContext struct {
 // valid for any models which want to use it.
 type CredentialValidator interface {
 	Validate(
-		ctx stdcontext.Context,
+		ctx context.Context,
 		validationContext CredentialValidationContext,
 		credentialKey corecredential.Key,
 		credential *cloud.Credential,
@@ -94,7 +92,7 @@ func NewCredentialValidator() CredentialValidator {
 // Validate checks if a new cloud credential could be valid for a model whose
 // details are defined in the context.
 func (v defaultCredentialValidator) Validate(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	validationContext CredentialValidationContext,
 	key corecredential.Key,
 	cred *cloud.Credential,
@@ -118,7 +116,7 @@ func (v defaultCredentialValidator) Validate(
 	}
 }
 
-func checkCAASModelCredential(ctx stdcontext.Context, brokerParams environs.OpenParams) ([]error, error) {
+func checkCAASModelCredential(ctx context.Context, brokerParams environs.OpenParams) ([]error, error) {
 	broker, err := newCAASBroker(ctx, brokerParams)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -130,7 +128,7 @@ func checkCAASModelCredential(ctx stdcontext.Context, brokerParams environs.Open
 	return nil, nil
 }
 
-func checkIAASModelCredential(ctx stdcontext.Context, machineState MachineState, machineService MachineService, openParams environs.OpenParams, checkCloudInstances bool) ([]error, error) {
+func checkIAASModelCredential(ctx context.Context, machineState MachineState, machineService MachineService, openParams environs.OpenParams, checkCloudInstances bool) ([]error, error) {
 	env, err := newEnv(ctx, openParams)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -145,7 +143,7 @@ func checkIAASModelCredential(ctx stdcontext.Context, machineState MachineState,
 // checkMachineInstances compares model machines from state with
 // the ones reported by the provider using supplied credential.
 // This only makes sense for non-k8s providers.
-func checkMachineInstances(ctx stdcontext.Context, machineState MachineState, machineService MachineService, provider CloudProvider, checkCloudInstances bool) ([]error, error) {
+func checkMachineInstances(ctx context.Context, machineState MachineState, machineService MachineService, provider CloudProvider, checkCloudInstances bool) ([]error, error) {
 	// Get machines from state
 	machines, err := machineState.AllMachines()
 	if err != nil {
@@ -155,18 +153,18 @@ func checkMachineInstances(ctx stdcontext.Context, machineState MachineState, ma
 	var results []error
 
 	machinesByInstance := make(map[string]string)
-	for _, machine := range machines {
-		if machine.IsContainer() {
+	for _, m := range machines {
+		if m.IsContainer() {
 			// Containers don't correspond to instances at the
 			// provider level.
 			continue
 		}
-		if manual, err := machine.IsManual(); err != nil {
+		if manual, err := m.IsManual(); err != nil {
 			return nil, errors.Trace(err)
 		} else if manual {
 			continue
 		}
-		machineUUID, err := machineService.GetMachineUUID(ctx, coremachine.Name(machine.Id()))
+		machineUUID, err := machineService.GetMachineUUID(ctx, machine.Name(m.Id()))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -176,10 +174,10 @@ func checkMachineInstances(ctx stdcontext.Context, machineState MachineState, ma
 			// to know about it.
 			continue
 		} else if err != nil {
-			results = append(results, errors.Annotatef(err, "getting instance id for machine %s", machine.Id()))
+			results = append(results, errors.Annotatef(err, "getting instance id for machine %s", m.Id()))
 			continue
 		}
-		machinesByInstance[instanceId] = machine.Id()
+		machinesByInstance[instanceId] = m.Id()
 	}
 
 	// Check that we can see all machines' instances regardless of their state as perceived by the cloud, i.e.

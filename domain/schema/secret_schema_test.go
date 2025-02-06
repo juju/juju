@@ -4,7 +4,7 @@
 package schema
 
 import (
-	context "context"
+	"context"
 	"database/sql"
 	"fmt"
 

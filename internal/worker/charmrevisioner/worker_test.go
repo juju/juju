@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/charm"
-	corecharm "github.com/juju/juju/core/charm"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	http "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
@@ -754,7 +753,7 @@ func (s *WorkerSuite) TestStoreNewCharmRevisionsNoResource(c *gc.C) {
 					Architectures: []string{"amd64"},
 				}},
 			},
-			DownloadInfo: corecharm.DownloadInfo{
+			DownloadInfo: charm.DownloadInfo{
 				CharmhubIdentifier: "abc123",
 				DownloadURL:        "https://example.com/foo",
 				DownloadSize:       123,
@@ -776,7 +775,7 @@ func (s *WorkerSuite) TestStoreNewCharmRevisionsNoResource(c *gc.C) {
 			nil, nil,
 		),
 
-		Source:        corecharm.CharmHub,
+		Source:        charm.CharmHub,
 		ReferenceName: "foo",
 		Revision:      43,
 		DownloadInfo: &applicationcharm.DownloadInfo{

@@ -33,7 +33,6 @@ import (
 	domainresource "github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
-	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
@@ -512,7 +511,7 @@ func (w *revisionUpdateWorker) storeNewCharmRevision(ctx context.Context, info l
 	origin := essentialMetadata.ResolvedOrigin
 
 	charmID, warnings, err := service.ReserveCharmRevision(ctx, applicationcharm.ReserveCharmRevisionArgs{
-		Charm: internalcharm.NewCharmBase(
+		Charm: charm.NewCharmBase(
 			essentialMetadata.Meta,
 			essentialMetadata.Manifest,
 			essentialMetadata.Config,
@@ -630,7 +629,7 @@ func (w *revisionUpdateWorker) refreshResponseToCharmhubResult(response transpor
 		return charmhubResult{}, internalerrors.Capture(err)
 	}
 
-	channel, err := internalcharm.ParseChannelNormalize(response.EffectiveChannel)
+	channel, err := charm.ParseChannelNormalize(response.EffectiveChannel)
 	if err != nil {
 		return charmhubResult{}, internalerrors.Errorf("parsing effective channel %q: %w", response.EffectiveChannel, err)
 	}
@@ -768,13 +767,13 @@ func encodeOSType(t application.OSType) (string, error) {
 func encodeRisk(r application.ChannelRisk) (string, error) {
 	switch r {
 	case application.RiskStable:
-		return internalcharm.Stable.String(), nil
+		return charm.Stable.String(), nil
 	case application.RiskCandidate:
-		return internalcharm.Candidate.String(), nil
+		return charm.Candidate.String(), nil
 	case application.RiskBeta:
-		return internalcharm.Beta.String(), nil
+		return charm.Beta.String(), nil
 	case application.RiskEdge:
-		return internalcharm.Edge.String(), nil
+		return charm.Edge.String(), nil
 	default:
 		return "", internalerrors.Errorf("unsupported risk %v", r)
 	}

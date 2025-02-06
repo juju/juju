@@ -5,7 +5,6 @@ package ec2
 
 import (
 	"context"
-	stdcontext "context"
 	stderrors "errors"
 	"fmt"
 	"net/http"
@@ -33,8 +32,8 @@ import (
 // instanceProfileClient is a subset interface of the ec2 client for attaching
 // Instance Profiles to ec2 machines.
 type instanceProfileClient interface {
-	AssociateIamInstanceProfile(stdcontext.Context, *ec2.AssociateIamInstanceProfileInput, ...func(*ec2.Options)) (*ec2.AssociateIamInstanceProfileOutput, error)
-	DescribeIamInstanceProfileAssociations(stdcontext.Context, *ec2.DescribeIamInstanceProfileAssociationsInput, ...func(*ec2.Options)) (*ec2.DescribeIamInstanceProfileAssociationsOutput, error)
+	AssociateIamInstanceProfile(context.Context, *ec2.AssociateIamInstanceProfileInput, ...func(*ec2.Options)) (*ec2.AssociateIamInstanceProfileOutput, error)
+	DescribeIamInstanceProfileAssociations(context.Context, *ec2.DescribeIamInstanceProfileAssociationsInput, ...func(*ec2.Options)) (*ec2.DescribeIamInstanceProfileAssociationsOutput, error)
 }
 
 // IAMClient is a subset interface of the AWS IAM client. This interface aims
@@ -49,24 +48,24 @@ type IAMClient interface {
 	//
 	// You must also update the controllerRolePolicy document found in
 	// iam_docs.go.
-	AddRoleToInstanceProfile(stdcontext.Context, *iam.AddRoleToInstanceProfileInput, ...func(*iam.Options)) (*iam.AddRoleToInstanceProfileOutput, error)
-	CreateInstanceProfile(stdcontext.Context, *iam.CreateInstanceProfileInput, ...func(*iam.Options)) (*iam.CreateInstanceProfileOutput, error)
-	CreateRole(stdcontext.Context, *iam.CreateRoleInput, ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
-	DeleteInstanceProfile(stdcontext.Context, *iam.DeleteInstanceProfileInput, ...func(*iam.Options)) (*iam.DeleteInstanceProfileOutput, error)
-	DeleteRole(stdcontext.Context, *iam.DeleteRoleInput, ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
-	DeleteRolePolicy(stdcontext.Context, *iam.DeleteRolePolicyInput, ...func(*iam.Options)) (*iam.DeleteRolePolicyOutput, error)
-	GetInstanceProfile(stdcontext.Context, *iam.GetInstanceProfileInput, ...func(*iam.Options)) (*iam.GetInstanceProfileOutput, error)
-	GetRole(stdcontext.Context, *iam.GetRoleInput, ...func(*iam.Options)) (*iam.GetRoleOutput, error)
-	ListInstanceProfiles(stdcontext.Context, *iam.ListInstanceProfilesInput, ...func(*iam.Options)) (*iam.ListInstanceProfilesOutput, error)
-	ListRolePolicies(stdcontext.Context, *iam.ListRolePoliciesInput, ...func(*iam.Options)) (*iam.ListRolePoliciesOutput, error)
-	ListRoles(stdcontext.Context, *iam.ListRolesInput, ...func(*iam.Options)) (*iam.ListRolesOutput, error)
-	PutRolePolicy(stdcontext.Context, *iam.PutRolePolicyInput, ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error)
-	RemoveRoleFromInstanceProfile(stdcontext.Context, *iam.RemoveRoleFromInstanceProfileInput, ...func(*iam.Options)) (*iam.RemoveRoleFromInstanceProfileOutput, error)
+	AddRoleToInstanceProfile(context.Context, *iam.AddRoleToInstanceProfileInput, ...func(*iam.Options)) (*iam.AddRoleToInstanceProfileOutput, error)
+	CreateInstanceProfile(context.Context, *iam.CreateInstanceProfileInput, ...func(*iam.Options)) (*iam.CreateInstanceProfileOutput, error)
+	CreateRole(context.Context, *iam.CreateRoleInput, ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
+	DeleteInstanceProfile(context.Context, *iam.DeleteInstanceProfileInput, ...func(*iam.Options)) (*iam.DeleteInstanceProfileOutput, error)
+	DeleteRole(context.Context, *iam.DeleteRoleInput, ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
+	DeleteRolePolicy(context.Context, *iam.DeleteRolePolicyInput, ...func(*iam.Options)) (*iam.DeleteRolePolicyOutput, error)
+	GetInstanceProfile(context.Context, *iam.GetInstanceProfileInput, ...func(*iam.Options)) (*iam.GetInstanceProfileOutput, error)
+	GetRole(context.Context, *iam.GetRoleInput, ...func(*iam.Options)) (*iam.GetRoleOutput, error)
+	ListInstanceProfiles(context.Context, *iam.ListInstanceProfilesInput, ...func(*iam.Options)) (*iam.ListInstanceProfilesOutput, error)
+	ListRolePolicies(context.Context, *iam.ListRolePoliciesInput, ...func(*iam.Options)) (*iam.ListRolePoliciesOutput, error)
+	ListRoles(context.Context, *iam.ListRolesInput, ...func(*iam.Options)) (*iam.ListRolesOutput, error)
+	PutRolePolicy(context.Context, *iam.PutRolePolicyInput, ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error)
+	RemoveRoleFromInstanceProfile(context.Context, *iam.RemoveRoleFromInstanceProfileInput, ...func(*iam.Options)) (*iam.RemoveRoleFromInstanceProfileOutput, error)
 }
 
 // IAMClientFunc defines a type that can generate an AWS IAMClient from a
 // provided cloudspec.
-type IAMClientFunc = func(stdcontext.Context, cloudspec.CloudSpec, ...ClientOption) (IAMClient, error)
+type IAMClientFunc = func(context.Context, cloudspec.CloudSpec, ...ClientOption) (IAMClient, error)
 
 const (
 	// setProfileAssociationDelay is the delay between retry attempts when.
@@ -88,7 +87,7 @@ const (
 // iamClientFunc implements the IAMClientFunc type and is used internally by
 // Juju for creating an IAM client.
 func iamClientFunc(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	spec cloudspec.CloudSpec,
 	clientOptions ...ClientOption,
 ) (IAMClient, error) {
@@ -108,7 +107,7 @@ func controllerPath(controllerUUID string) string {
 // deleteInstanceProfile is a convience method for removing instance profile by
 // first detaching all roles from the profile then deleting.
 func deleteInstanceProfile(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	client IAMClient,
 	instanceProfile iamtypes.InstanceProfile,
 ) error {
@@ -133,7 +132,7 @@ func deleteInstanceProfile(
 // deleteRole is a convience method for delete a role and it's associated
 // inline policies.
 func deleteRole(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	client IAMClient,
 	roleName string,
 ) error {
@@ -179,7 +178,7 @@ func deleteRole(
 // ensureControllerInstanceProfile ensures that a controller Instance Profile
 // has been created for the supplied controller name in the specified AWS cloud.
 func ensureControllerInstanceProfile(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	client IAMClient,
 	controllerName,
 	controllerUUID string,
@@ -253,7 +252,7 @@ func ensureControllerInstanceProfile(
 }
 
 func ensureControllerInstanceRole(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	client IAMClient,
 	controllerName,
 	controllerUUID string,
@@ -325,7 +324,7 @@ func ensureControllerInstanceRole(
 // profile for a supplied name. This is used to subsequently fetch the ARN of
 // the InstanceProfile.
 func findInstanceProfileFromName(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	client IAMClient,
 	name string,
 ) (*iamtypes.InstanceProfile, error) {
@@ -344,7 +343,7 @@ func findInstanceProfileFromName(
 }
 
 func listInstanceProfilesForController(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	client IAMClient,
 	controllerUUID string,
 ) ([]iamtypes.InstanceProfile, error) {
@@ -378,7 +377,7 @@ func listInstanceProfilesForController(
 }
 
 func listRolesForController(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	client IAMClient,
 	controllerUUID string,
 ) ([]iamtypes.Role, error) {
@@ -422,7 +421,7 @@ func isAWSHTTPErrorCode(err error, statusCode int) bool {
 }
 
 func findRoleFromName(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	client IAMClient,
 	name string,
 ) (*iamtypes.Role, error) {

@@ -5,7 +5,6 @@ package lxd
 
 import (
 	"context"
-	stdcontext "context"
 	"net"
 	"net/url"
 	"runtime"
@@ -65,7 +64,7 @@ type environ struct {
 }
 
 func newEnviron(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	p *environProvider,
 	spec environscloudspec.CloudSpec,
 	cfg *config.Config,
@@ -162,7 +161,7 @@ func (env *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (env *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.CloudSpec) error {
+func (env *environ) SetCloudSpec(_ context.Context, spec environscloudspec.CloudSpec) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 

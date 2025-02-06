@@ -4,7 +4,7 @@
 package modelmanager_test
 
 import (
-	stdcontext "context"
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -32,7 +32,6 @@ import (
 	_ "github.com/juju/juju/internal/provider/maas"
 	_ "github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/testing"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	jtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -62,7 +61,7 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	var err error
-	s.controllerUUID, err = uuid.UUIDFromString(coretesting.ControllerTag.Id())
+	s.controllerUUID, err = uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	adminUser := "admin"
@@ -83,7 +82,7 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
 
 	api, err := modelmanager.NewModelManagerAPI(
-		stdcontext.Background(),
+		context.Background(),
 		s.st, nil, &mockState{},
 		s.controllerUUID,
 		modelmanager.Services{
@@ -120,7 +119,7 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		stdcontext.Background(),
+		context.Background(),
 		s.st, nil, &mockState{},
 		s.controllerUUID,
 		modelmanager.Services{
@@ -171,7 +170,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 		},
 	}}, nil)
 
-	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
+	result, err := s.api.ListModelSummaries(context.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ModelSummaryResults{
 		Results: []params.ModelSummaryResult{
@@ -229,7 +228,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
 		UnitCount:    10,
 	}}, nil)
 
-	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{
+	result, err := s.api.ListModelSummaries(context.Background(), params.ModelSummariesRequest{
 		UserTag: s.adminUser.String(),
 		All:     true,
 	})
@@ -271,14 +270,14 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesDenied(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
-	_, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: other.String()})
+	_, err := s.api.ListModelSummaries(context.Background(), params.ModelSummariesRequest{UserTag: other.String()})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesInvalidUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: "invalid"})
+	_, err := s.api.ListModelSummaries(context.Background(), params.ModelSummariesRequest{UserTag: "invalid"})
 	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
@@ -287,7 +286,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesDomainError(c *gc.C) {
 
 	errMsg := "captain error for ModelSummariesForUser"
 	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), coreuser.AdminUserName).Return(nil, errors.New(errMsg))
-	_, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
+	_, err := s.api.ListModelSummaries(context.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, gc.ErrorMatches, errMsg)
 }
 
@@ -295,7 +294,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesNoModelsForUser(c *gc.C)
 	defer s.setupMocks(c).Finish()
 
 	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), coreuser.AdminUserName).Return(nil, nil)
-	results, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
+	results, err := s.api.ListModelSummaries(context.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }

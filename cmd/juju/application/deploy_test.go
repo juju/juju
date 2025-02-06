@@ -54,7 +54,6 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
-	apiparams "github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -1719,7 +1718,7 @@ func withLocalBundleCharmDeployable(
 		},
 		error(nil),
 	)
-	fakeAPI.Call("ListSpaces").Returns([]apiparams.Space{}, error(nil))
+	fakeAPI.Call("ListSpaces").Returns([]params.Space{}, error(nil))
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
 			URL:    url.String(),

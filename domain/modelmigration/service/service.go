@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs/envcontext"
-	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
 )
@@ -106,7 +105,7 @@ func (s *Service) AdoptResources(
 	}
 
 	err = provider.AdoptResources(
-		environscontext.WithoutCredentialInvalidator(ctx),
+		envcontext.WithoutCredentialInvalidator(ctx),
 		controllerUUID,
 		sourceControllerVersion,
 	)
