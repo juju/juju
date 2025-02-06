@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
@@ -285,4 +286,80 @@ type ModelState struct {
 	HasInvalidCloudCredential bool
 	// InvalidCloudCredentialReason is a string that describes the reason for the model's cloud credential being invalid.
 	InvalidCloudCredentialReason string
+}
+
+// FromCoreConstraints is responsible for converting a [constraints.Value] to a
+// [Constraints] object.
+func FromCoreConstraints(coreCons constraints.Value) Constraints {
+	rval := Constraints{
+		Arch:             coreCons.Arch,
+		Container:        coreCons.Container,
+		CpuCores:         coreCons.CpuCores,
+		CpuPower:         coreCons.CpuPower,
+		Mem:              coreCons.Mem,
+		RootDisk:         coreCons.RootDisk,
+		RootDiskSource:   coreCons.RootDiskSource,
+		Tags:             coreCons.Tags,
+		InstanceRole:     coreCons.InstanceRole,
+		InstanceType:     coreCons.InstanceType,
+		VirtType:         coreCons.VirtType,
+		Zones:            coreCons.Zones,
+		AllocatePublicIP: coreCons.AllocatePublicIP,
+		ImageID:          coreCons.ImageID,
+	}
+
+	if coreCons.Spaces == nil {
+		return rval
+	}
+
+	spaces := make([]SpaceConstraint, 0, len(*coreCons.Spaces))
+	// Set included spaces
+	for _, incSpace := range coreCons.IncludeSpaces() {
+		spaces = append(spaces, SpaceConstraint{
+			SpaceName: incSpace,
+			Exclude:   false,
+		})
+	}
+
+	// Set excluded spaces
+	for _, exSpace := range coreCons.ExcludeSpaces() {
+		spaces = append(spaces, SpaceConstraint{
+			SpaceName: exSpace,
+			Exclude:   true,
+		})
+	}
+	rval.Spaces = &spaces
+
+	return rval
+}
+
+// ToCoreConstraints is responsible for converting a [Constraints] value to a
+// [constraints.Value].
+func ToCoreConstraints(cons Constraints) constraints.Value {
+	rval := constraints.Value{
+		Arch:             cons.Arch,
+		Container:        cons.Container,
+		CpuCores:         cons.CpuCores,
+		CpuPower:         cons.CpuPower,
+		Mem:              cons.Mem,
+		RootDisk:         cons.RootDisk,
+		RootDiskSource:   cons.RootDiskSource,
+		Tags:             cons.Tags,
+		InstanceRole:     cons.InstanceRole,
+		InstanceType:     cons.InstanceType,
+		VirtType:         cons.VirtType,
+		Zones:            cons.Zones,
+		AllocatePublicIP: cons.AllocatePublicIP,
+		ImageID:          cons.ImageID,
+	}
+
+	if cons.Spaces == nil {
+		return rval
+	}
+
+	for _, space := range *cons.Spaces {
+		rval.AddSpace(space.SpaceName, space.Exclude)
+	}
+
+	return rval
 }
