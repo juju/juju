@@ -443,6 +443,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_subnet_insert",
 		"trg_log_subnet_update",
 
+		"trg_log_relation_application_setting_delete",
+		"trg_log_relation_application_setting_insert",
+		"trg_log_relation_application_setting_update",
+
 		"trg_log_unit_delete",
 		"trg_log_unit_insert",
 		"trg_log_unit_update",

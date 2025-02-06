@@ -15,7 +15,6 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -27,14 +26,18 @@ type State interface {
 	// GetRelationEndpointUUID retrieves the unique identifier for a specific
 	// relation endpoint based on the provided arguments.
 	GetRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (corerelation.EndpointUUID, error)
+
+	// WatchRelationApplicationSettingTable provides the table name to set up
+	// watchers for relation application settings.
+	WatchRelationApplicationSettingTable() string
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
 type WatcherFactory interface {
-	// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
-	// for events based on the input change mask and mapper.
-	NewNamespaceNotifyMapperWatcher(
-		namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
+	// NewValueWatcher creates a watcher for the specified namespace and UUID,
+	// observing changes matching the provided mask.
+	NewValueWatcher(
+		namespace, uuid string, changeMask changestream.ChangeType,
 	) (watcher.NotifyWatcher, error)
 }
 
@@ -296,7 +299,16 @@ func (s *WatchableService) WatchApplicationSettings(
 	relationUUID corerelation.UUID,
 	applicationID application.ID,
 ) (watcher.NotifyWatcher, error) {
-	return nil, errors.NotImplemented
+	relationEndpointUUID, err := s.getRelationEndpointUUID(ctx, relation.GetRelationEndpointUUIDArgs{
+		RelationUUID:  relationUUID,
+		ApplicationID: applicationID,
+	})
+	if err != nil {
+		return nil, internalerrors.Capture(internalerrors.Errorf("watch application settings: %w", err))
+	}
+	return s.watcherFactory.NewValueWatcher(
+		s.st.WatchRelationApplicationSettingTable(), relationEndpointUUID.String(),
+		changestream.All)
 }
 
 // WatchLifeSuspendedStatus returns a watcher that notifies of changes to the life
