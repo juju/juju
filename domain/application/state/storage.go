@@ -10,8 +10,10 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/storage"
 )
 
 // insertStorage constructs inserts storage directive records for the application.
@@ -72,4 +74,24 @@ VALUES ($storageToAdd.*)`, storageToAdd{})
 		return errors.Capture(err)
 	}
 	return nil
+}
+
+func (st *State) AttachStorage(ctx context.Context, storageID storage.ID, unitUUID coreunit.UUID) error {
+	//TODO implement me
+	return errors.New("not implemented")
+}
+
+func (st *State) AddStorageForUnit(ctx context.Context, storageName storage.Name, unitUUID coreunit.UUID, stor storage.Directive) ([]storage.ID, error) {
+	//TODO implement me
+	return nil, errors.New("not implemented")
+}
+
+func (st *State) DetachStorageForUnit(ctx context.Context, storageID storage.ID, unitUUID coreunit.UUID) error {
+	//TODO implement me
+	return errors.New("not implemented")
+}
+
+func (st *State) DetachStorage(ctx context.Context, storageID storage.ID) error {
+	//TODO implement me
+	return errors.New("not implemented")
 }

@@ -76,6 +76,10 @@ const (
 	// that is still alive.
 	UnitIsAlive = errors.ConstError("unit is alive")
 
+	// UnitNotAlive describes an error that occurs when trying to update
+	// a unit that is not alive.
+	UnitNotAlive = errors.ConstError("unit is not alive")
+
 	// InvalidApplicationState describes an error where the application state is
 	// invalid. There are missing required fields.
 	InvalidApplicationState = errors.ConstError("invalid application state")
@@ -214,4 +218,34 @@ const (
 	// provided space constraints do not exist or the container type is not
 	// supported.
 	InvalidApplicationConstraints = errors.ConstError("invalid application constraints")
+)
+
+const (
+	// StorageAttachmentAlreadyExistsError describes an error that occurs when
+	// a storage attachment already exists.
+	StorageAttachmentAlreadyExistsError = errors.ConstError("storage attachment already exists")
+
+	// WrongStorageOwnerError describes an error that occurs when
+	// a storage owner differs from the node to which it is being attached.
+	WrongStorageOwnerError = errors.ConstError("wrong storage owner")
+
+	// StorageNotAlive describes an error that occurs when
+	// a storage is not alive.
+	StorageNotAlive = errors.ConstError("storage not alive")
+
+	// StorageNameNotSupported describes an error that occurs when
+	// a storage name is not supported by the charm.
+	StorageNameNotSupported = errors.ConstError("storage name not supported")
+
+	// InvalidStorageCount describes an error that occurs when
+	// a storage attachment would violate charm expectations for cardinality.
+	InvalidStorageCount = errors.ConstError("invalid storage count")
+
+	// StorageNotDetachable describes an error that occurs when
+	// a storage does not support being detached.
+	StorageNotDetachable = errors.ConstError("storage cannot be detached")
+
+	// InvalidStorageMountPoint describes an error that occurs when
+	// a storage attachment's location cannot be mounted on the node.
+	InvalidStorageMountPoint = errors.ConstError("invalid storage mount point")
 )

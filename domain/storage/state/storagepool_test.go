@@ -23,8 +23,8 @@ type storagePoolSuite struct {
 
 var _ = gc.Suite(&storagePoolSuite{})
 
-func newStoragePoolState(factory coredatabase.TxnRunnerFactory) *StoragePoolState {
-	return &StoragePoolState{
+func newStoragePoolState(factory coredatabase.TxnRunnerFactory) *State {
+	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}
 }

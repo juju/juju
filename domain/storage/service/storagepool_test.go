@@ -23,7 +23,7 @@ import (
 type storagePoolServiceSuite struct {
 	testing.IsolationSuite
 
-	state    *MockStoragePoolState
+	state    *MockState
 	registry storage.ProviderRegistry
 }
 
@@ -34,7 +34,7 @@ const validationError = errors.ConstError("missing attribute foo")
 func (s *storagePoolServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.state = NewMockStoragePoolState(ctrl)
+	s.state = NewMockState(ctrl)
 
 	s.registry = storage.ChainedProviderRegistry{storage.StaticProviderRegistry{
 		Providers: map[storage.ProviderType]storage.Provider{

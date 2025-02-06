@@ -72,3 +72,16 @@ func DefaultStoragePools(registry storage.ProviderRegistry) ([]*storage.Config, 
 	}
 	return result, nil
 }
+
+// ModelDetails describes details about a model.
+type ModelDetails struct {
+	ModelUUID      string `db:"uuid"`
+	ControllerUUID string `db:"controller_uuid"`
+}
+
+// FilesystemInfo describes information about a filesystem.
+type FilesystemInfo struct {
+	storage.FilesystemInfo
+	Pool          string
+	BackingVolume *storage.VolumeInfo
+}

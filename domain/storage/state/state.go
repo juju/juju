@@ -8,17 +8,15 @@ import (
 	"github.com/juju/juju/domain"
 )
 
-// State represents database interactions dealing with storage pools.
+// State represents database interactions dealing with storage.
 type State struct {
-	*StoragePoolState
+	*domain.StateBase
 }
 
 // NewState returns a new storage state
 // based on the input database factory method.
 func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
-		StoragePoolState: &StoragePoolState{
-			StateBase: domain.NewStateBase(factory),
-		},
+		StateBase: domain.NewStateBase(factory),
 	}
 }
