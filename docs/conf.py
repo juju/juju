@@ -298,30 +298,64 @@ latex_elements = ast.literal_eval(latex_config.replace("$PROJECT", project))
 # Auto-generation of documentation
 ##################################
 
+def _version_from_version_string(version):
+    """Get a tuple of version from a juju version string.
+
+    Note that release of juju use Major.Minor.Patch (eg, 3.6.0) but releases will use Major.Minor-betaBeta.
+    This returns a tuple of either (3,6,0) or (3, 6, 'beta5').
+    If neither can be found, this returns None
+    """
+    version_re = re.compile('(?P<major>\d+)\.(?P<minor>\d+)(\.(?P<patch>\d+)|-(?P<beta>beta\d+))')
+    m = version_re.match(version)
+    if m is None:
+        return None
+    patch = m['patch']
+    if patch is None:
+        patch = m['beta']
+    else:
+        patch = int(patch)
+    return (int(m['major']), int(m['minor']), patch)
+
+def _extract_version_from_version_go(version_file):
+    """Extract the version string from a juju version.go file"""
+    # Note that this assumes Major and Minor are integers, but patch might be an integer or something like beta5.
+    version_re = re.compile('const version = "(?P<version>[^"]*)"')
+    for line in version_file:
+        m = version_re.match(line)
+        if m is None:
+            continue
+        return _version_from_version_string(m['version'])
+    return None
+
+
 def get_tree_juju_version():
     """Read the version of juju as reported by the juju branch that we're building."""
-    version_re = re.compile('const version = "(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)"')
-    # TODO: (jam) This is only true for Juju 3.6, 4.0 has it in a different location
-    with open('../version/version.go', 'rt') as version_file:
-        for line in version_file:
-            m = version_re.match(line)
-            if m is None:
-                continue
-            return (int(m['major']), int(m['minor']), int(m['patch']))
-    raise RuntimeError("could not determine the version of Juju for this directory")
-    return None
+    try:
+        # This is the location in Juju 3.6
+        with open('../version/version.go', 'rt') as version_file:
+            version = _extract_version_from_version_go(version_file)
+    except FileNotFoundError:
+        # This is the location in Juju 4.0
+        with open('../core/version/version.go', 'rt') as version_file:
+            version = _extract_version_from_version_go(version_file)
+    if version is None:
+        raise RuntimeError("could not determine the version of Juju for this directory")
+    return version
 
 
 def get_juju_version():
     """Check to see what version of Juju we are running."""
-
-    version_re = re.compile('(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)-.*')
+    # There is probably more that could be done here about all the possible
+    # version strings juju spits out, but this should cover stripping things
+    # like 'genericlinux' and the architecture out.
+    version_re = re.compile('(?P<version>.*)-genericlinux.*')
     result = subprocess.run(['juju', 'version'], capture_output=True, text=True)
     full_string = result.stdout.rstrip()
     m = version_re.match(full_string)
     if m is None:
         raise RuntimeError("could not determine the version of Juju in $PATH: {!r}".format(full_string))
-    return (int(m['major']), int(m['minor']), int(m['patch']))
+    return _version_from_version_string(m['version'])
+
 
 def generate_cli_docs():
     cli_dir = "user/reference/juju-cli/"
