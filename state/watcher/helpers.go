@@ -34,12 +34,13 @@ func Stop(w Stopper, t *tomb.Tomb) {
 
 // EnsureErr returns the error with which w died. Calling it will also
 // return an error if w is still running or was stopped cleanly.
+// Deprecated: This function is deprecated. Use apiserver/internal/EnsureRegisterWatcher
 func EnsureErr(w Errer) error {
 	err := w.Err()
 	if err == nil {
-		return errors.Errorf("expected an error from %v, got nil", w)
+		return errors.Errorf("expected an error from watcher, got nil")
 	} else if err == tomb.ErrStillAlive {
-		return errors.Annotatef(err, "expected %v to be stopped", w)
+		return errors.Annotatef(err, "expected watcher to be stopped")
 	}
 	return errors.Trace(err)
 }
