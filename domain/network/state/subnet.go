@@ -333,7 +333,8 @@ WHERE  subnet_uuid = $M.id;`
 }
 
 // GetSubnetsByCIDR returns the subnets by CIDR.
-// Deprecated, this method should be removed when we re-work the API for moving
+//
+// Deprecated: this method should be removed when we re-work the API for moving
 // subnets.
 func (st *State) GetSubnetsByCIDR(
 	ctx context.Context,

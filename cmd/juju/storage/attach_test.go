@@ -94,7 +94,8 @@ type fakeEntityAttacher struct {
 
 func (f *fakeEntityAttacher) new(ctx context.Context) (storage.EntityAttacherCloser, error) {
 	f.MethodCall(f, "NewEntityAttacherCloser")
-	return f, f.NextErr()
+	err := f.NextErr()
+	return f, err
 }
 
 func (f *fakeEntityAttacher) Close() error {

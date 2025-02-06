@@ -415,7 +415,8 @@ func (s *mockBakeryService) NewMacaroon(ctx context.Context, version bakery.Vers
 
 func (s *mockBakeryService) ExpireStorageAfter(t time.Duration) (authentication.ExpirableStorageBakery, error) {
 	s.MethodCall(s, "ExpireStorageAfter", t)
-	return s, s.NextErr()
+	err := s.NextErr()
+	return s, err
 }
 
 type mockAuthorizer struct{}

@@ -44,8 +44,8 @@ func NewStateTrackerForTest(c *gc.C, cfg StateTrackerForTestConfig) (RelationSta
 		logger:          loggertesting.WrapCheckLogWithLevel(c, logger.DEBUG),
 		newRelationer:   cfg.NewRelationerFunc,
 	}
-
-	return rst, rst.loadInitialState(stdcontext.Background())
+	err := rst.loadInitialState(stdcontext.Background())
+	return rst, err
 }
 
 func NewStateTrackerForSyncScopesTest(c *gc.C, cfg StateTrackerForTestConfig) (RelationStateTracker, error) {

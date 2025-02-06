@@ -59,7 +59,8 @@ func As(err error, target any) bool {
 //	}
 func AsType[T error](err error) (T, bool) {
 	var zero T
-	return zero, As(err, &zero)
+	as := As(err, &zero)
+	return zero, as
 }
 
 // Errorf implements a straight through proxy for [pkg/fmt.Errorf]. The one

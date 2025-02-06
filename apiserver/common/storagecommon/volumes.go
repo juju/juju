@@ -85,7 +85,8 @@ func StoragePoolConfig(ctx context.Context, name string, storagePoolGetter Stora
 	} else if err != nil {
 		return "", nil, errors.Annotatef(err, "getting pool %q", name)
 	}
-	return pool.Provider(), pool, nil
+	provider := pool.Provider()
+	return provider, pool, nil
 }
 
 // VolumesToState converts a slice of params.Volume to a mapping

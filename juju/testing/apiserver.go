@@ -152,7 +152,8 @@ type ApiServerSuite struct {
 	ControllerUUID string
 
 	// InstancePrechecker is used to validate instance creation.
-	// DEPRECATED: This will be removed in the future.
+	//
+	// Deprecated: This will be removed in the future.
 	InstancePrechecker func(*gc.C, *state.State) environs.InstancePrechecker
 }
 

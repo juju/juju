@@ -2032,7 +2032,7 @@ type provisionStorage struct{}
 
 func (s provisionStorage) step(c *gc.C, ctx *testContext) {
 	ctx.stateMu.Lock()
-	ctx.stateMu.Unlock()
+	defer ctx.stateMu.Unlock()
 	for si := range ctx.storage {
 		ctx.storage[si].attached = true
 	}

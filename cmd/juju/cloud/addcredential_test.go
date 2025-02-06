@@ -82,7 +82,8 @@ func (s *addCredentialSuite) runCmd(c *gc.C, stdin io.Reader, args ...string) (*
 	}
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = stdin
-	return ctx, addCmd, addCmd.Run(ctx)
+	err = addCmd.Run(ctx)
+	return ctx, addCmd, err
 }
 
 func (s *addCredentialSuite) run(c *gc.C, stdin io.Reader, args ...string) (*cmd.Context, error) {

@@ -85,7 +85,8 @@ type fakeEntityDetacher struct {
 
 func (f *fakeEntityDetacher) new(ctx context.Context) (storage.EntityDetacherCloser, error) {
 	f.MethodCall(f, "NewEntityDetacherCloser")
-	return f, f.NextErr()
+	err := f.NextErr()
+	return f, err
 }
 
 func (f *fakeEntityDetacher) Close() error {

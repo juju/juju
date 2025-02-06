@@ -187,7 +187,7 @@ func (ctx *Context) Errorf(format string, params ...interface{}) {
 // WriteError will output the formatted text to the writer with
 // a colored ERROR like the logging would.
 //
-// DEPRECATED: Use ctx.Errorf instead
+// Deprecated: Use ctx.Errorf instead
 func WriteError(writer io.Writer, err error) {
 	w := ansiterm.NewWriter(writer)
 	ansiterm.Foreground(ansiterm.BrightRed).Fprintf(w, "ERROR")
@@ -315,7 +315,7 @@ func (i *Info) HelpWithSuperFlags(superF *gnuflag.FlagSet, f *gnuflag.FlagSet) [
 		filteredSuperF := gnuflag.NewFlagSetWithFlagKnownAs("", gnuflag.ContinueOnError, superF.FlagKnownAs)
 		contains := func(one string) bool {
 			for _, a := range i.ShowSuperFlags {
-				if strings.ToLower(one) == strings.ToLower(a) {
+				if strings.EqualFold(one, a) {
 					return true
 				}
 			}

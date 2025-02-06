@@ -33,7 +33,15 @@ linters-settings:
   gocritic:
     disable-all: true
     enabled-checks:
+      - badLock
+      - boolExprSimplify
+      - captLocal
+      - caseOrder
+      - deprecatedComment
       - dupImport
+      - docStub
+      - equalFold
+      - evalOrder
   revive:
     rules:
       - name: unexported-naming
