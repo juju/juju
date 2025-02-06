@@ -12,6 +12,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
+	modeldomain "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -41,7 +42,7 @@ type ModelState interface {
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
 	// - [modelerrors.ConstraintsNotFound]: when no model constraints have been
 	// set for the model.
-	GetModelConstraints(context.Context) (constraints.Value, error)
+	GetModelConstraints(context.Context) (modeldomain.Constraints, error)
 
 	// SetModelConstraints sets the model constraints to the new values removing
 	// any previously set values.
@@ -51,7 +52,7 @@ type ModelState interface {
 	// - [machineerrors.InvalidContainerType]: when the container type set on
 	// the constraints is invalid.
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
-	SetModelConstraints(ctx context.Context, cons constraints.Value) error
+	SetModelConstraints(context.Context, modeldomain.Constraints) error
 }
 
 // ControllerState is the controller state required by this service. This is the
@@ -103,8 +104,11 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Val
 	// what the caller of this service requires.
 	if errors.Is(err, modelerrors.ConstraintsNotFound) {
 		return constraints.Value{}, nil
+	} else if err != nil {
+		return constraints.Value{}, err
 	}
-	return cons, err
+
+	return model.ToCoreConstraints(cons), nil
 }
 
 // SetModelConstraints sets the model constraints to the new values removing
@@ -117,7 +121,9 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Val
 // - [github.com/juju/juju/domain/machine/errors.InvalidContainerType]: when
 // the container type being set in the model constraint isn't valid.
 func (s *ModelService) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
-	return s.modelSt.SetModelConstraints(ctx, cons)
+	modelCons := model.FromCoreConstraints(cons)
+
+	return s.modelSt.SetModelConstraints(ctx, modelCons)
 }
 
 // GetModelInfo returns the readonly model information for the model in
