@@ -923,3 +923,32 @@ func (s *ConstraintsSuite) TestHasAny(c *gc.C) {
 		c.Check(obtained, jc.DeepEquals, t.expected)
 	}
 }
+
+// TestAddSpaceNilSlice is testing that if we add a space to a
+// [constraints.Value] that has a nil space slice a new slice is allocated.
+func (s *ConstraintsSuite) TestAddSpaceNilSlice(c *gc.C) {
+	val := constraints.Value{}
+	val.AddSpace("space1", false)
+	val.AddSpace("space2", true)
+
+	c.Check(*val.Spaces, jc.DeepEquals, []string{"space1", "^space2"})
+}
+
+// TestAddSpaceAppend is testing that if we add a space to an existing slice
+// the value is appended correctly.
+func (s *ConstraintsSuite) TestAddSpaceAppend(c *gc.C) {
+	existingSpaces := []string{"space1", "^space2"}
+	val := constraints.Value{
+		Spaces: &existingSpaces,
+	}
+
+	val.AddSpace("space3", true)
+	val.AddSpace("space4", false)
+
+	c.Check(*val.Spaces, jc.DeepEquals, []string{
+		"space1",
+		"^space2",
+		"^space3",
+		"space4",
+	})
+}
