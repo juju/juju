@@ -208,7 +208,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 
 	if err := f.applicationService.RegisterCAASUnit(ctx, appName, application.RegisterCAASUnitArg{
 		UnitName:     unitName,
-		ProviderId:   containerID,
+		ProviderID:   containerID,
 		PasswordHash: passwordHash,
 		Address:      upsert.Address,
 		Ports:        upsert.Ports,

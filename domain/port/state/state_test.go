@@ -104,7 +104,7 @@ func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.U
 	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = applicationSt.AddUnits(ctx, appID, application.AddUnitArg{UnitName: unitName})
+	err = applicationSt.AddUnits(ctx, appID, []application.AddUnitArg{{UnitName: unitName}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unitCount++
 

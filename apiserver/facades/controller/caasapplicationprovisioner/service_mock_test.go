@@ -19,7 +19,6 @@ import (
 	model "github.com/juju/juju/core/model"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
-	application "github.com/juju/juju/domain/application"
 	charm "github.com/juju/juju/domain/application/charm"
 	service "github.com/juju/juju/domain/application/service"
 	config "github.com/juju/juju/environs/config"
@@ -358,7 +357,7 @@ func (mr *MockApplicationServiceMockRecorder) SetApplicationScalingState(arg0, a
 }
 
 // UpdateCAASUnit mocks base method.
-func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 application.UpdateCAASUnitParams) error {
+func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 service.UpdateCAASUnitParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCAASUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

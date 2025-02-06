@@ -1411,7 +1411,7 @@ func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, 
 func processUnitParams(unitParams params.ApplicationUnitParams) applicationservice.UpdateCAASUnitParams {
 	agentStatus, cloudContainerStatus := updateStatus(unitParams)
 	return applicationservice.UpdateCAASUnitParams{
-		ProviderId:           &unitParams.ProviderId,
+		ProviderID:           &unitParams.ProviderId,
 		Address:              &unitParams.Address,
 		Ports:                &unitParams.Ports,
 		AgentStatus:          agentStatus,
@@ -1421,7 +1421,7 @@ func processUnitParams(unitParams params.ApplicationUnitParams) applicationservi
 
 func legacyUnitParams(unitParams *applicationservice.UpdateCAASUnitParams) state.UnitUpdateProperties {
 	result := state.UnitUpdateProperties{
-		ProviderId: unitParams.ProviderId,
+		ProviderId: unitParams.ProviderID,
 		Address:    unitParams.Address,
 		Ports:      unitParams.Ports,
 	}
