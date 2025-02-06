@@ -206,6 +206,9 @@ linkcheck_anchors_ignore_for_url = [r"https://github\.com/.*"]
 extensions = [
     'canonical_sphinx',
     'sphinx_design',
+    # Make it possible to link to related RTD projects using their internal anchors
+    # with, e.g., {external+ops:ref}`manage-configurations`:
+    'sphinx.ext.intersphinx',
     ]
 
 
@@ -266,6 +269,20 @@ rst_prolog = """
 
 if "discourse_prefix" not in html_context and "discourse" in html_context:
     html_context["discourse_prefix"] = html_context["discourse"] + "/t/"
+
+
+##################################
+# sphinx.ext.intersphinx options #
+##################################
+
+intersphinx_mapping = {
+    # 'juju': ('https://canonical-juju.readthedocs-hosted.com/en/latest/', None),
+    'tfjuju': ('https://canonical-terraform-provider-juju.readthedocs-hosted.com/en/latest/', None),
+    'pyjuju': ('https://pythonlibjuju.readthedocs.io/en/latest/', None),
+    'jaas': ('https://canonical-jaas-documentation.readthedocs-hosted.com/en/latest/', None),
+    'charmcraft': ('https://canonical-charmcraft.readthedocs-hosted.com/en/latest/', None),
+    'ops': ('https://ops.readthedocs.io/en/latest/', None),
+}
 
 #####################
 # PDF configuration #
