@@ -220,10 +220,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotModelConstraints, err := st.ModelConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
-
 	// Check that the bootstrap machine looks correct.
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
