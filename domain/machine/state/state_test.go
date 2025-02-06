@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -213,7 +212,11 @@ func (s *stateSuite) TestDeleteMachineStatus(c *gc.C) {
 	bdUUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd, bdUUID, "666")
 
-	s.state.SetMachineStatus(context.Background(), "666", domainmachine.StatusInfo{Status: status.Started, Message: "started", Data: []byte(`{"key": "data"}`)})
+	s.state.SetMachineStatus(context.Background(), "666", domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status:  domainmachine.MachineStatusStarted,
+		Message: "started",
+		Data:    []byte(`{"key": "data"}`),
+	})
 
 	err = s.state.DeleteMachine(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
@@ -306,8 +309,8 @@ func (s *stateSuite) TestGetMachineStatusSuccess(c *gc.C) {
 
 	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedStatus, gc.DeepEquals, domainmachine.StatusInfo{
-		Status:  status.Started,
+	c.Check(obtainedStatus, gc.DeepEquals, domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status:  domainmachine.MachineStatusStarted,
 		Message: "started",
 		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
 	})
@@ -329,8 +332,8 @@ func (s *stateSuite) TestGetMachineStatusSuccessWithData(c *gc.C) {
 
 	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedStatus, gc.DeepEquals, domainmachine.StatusInfo{
-		Status:  status.Started,
+	c.Check(obtainedStatus, gc.DeepEquals, domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status:  domainmachine.MachineStatusStarted,
 		Message: "started",
 		Data:    []byte(`{"key":"data"}`),
 		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
@@ -360,7 +363,11 @@ func (s *stateSuite) TestSetMachineStatusSuccess(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "123")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedStatus := domainmachine.StatusInfo{Status: status.Started, Message: "started", Since: ptr(time.Now().UTC())}
+	expectedStatus := domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status:  domainmachine.MachineStatusStarted,
+		Message: "started",
+		Since:   ptr(time.Now().UTC()),
+	}
 	err = s.state.SetMachineStatus(context.Background(), "666", expectedStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -375,8 +382,8 @@ func (s *stateSuite) TestSetMachineStatusSuccessWithData(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "123")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedStatus := domainmachine.StatusInfo{
-		Status:  status.Started,
+	expectedStatus := domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status:  domainmachine.MachineStatusStarted,
 		Message: "started",
 		Data:    []byte(`{"key": "data"}`),
 		Since:   ptr(time.Now().UTC()),
@@ -392,7 +399,9 @@ func (s *stateSuite) TestSetMachineStatusSuccessWithData(c *gc.C) {
 // TestSetMachineStatusNotFoundError asserts that a NotFound error is returned
 // when the machine is not found.
 func (s *stateSuite) TestSetMachineStatusNotFoundError(c *gc.C) {
-	err := s.state.SetMachineStatus(context.Background(), "666", domainmachine.StatusInfo{Status: status.Started})
+	err := s.state.SetMachineStatus(context.Background(), "666", domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status: domainmachine.MachineStatusStarted,
+	})
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 

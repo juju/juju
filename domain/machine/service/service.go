@@ -69,21 +69,21 @@ type State interface {
 	// machine.
 	// It returns MachineNotFound if the machine does not exist.
 	// It returns a StatusNotSet if the instance status is not set.
-	GetInstanceStatus(context.Context, machine.Name) (domainmachine.StatusInfo, error)
+	GetInstanceStatus(context.Context, machine.Name) (domainmachine.StatusInfo[domainmachine.InstanceStatusType], error)
 
 	// SetInstanceStatus sets the cloud specific instance status for this
 	// machine.
 	// It returns MachineNotFound if the machine does not exist.
-	SetInstanceStatus(context.Context, machine.Name, domainmachine.StatusInfo) error
+	SetInstanceStatus(context.Context, machine.Name, domainmachine.StatusInfo[domainmachine.InstanceStatusType]) error
 
 	// GetMachineStatus returns the status of the specified machine.
 	// It returns MachineNotFound if the machine does not exist.
 	// It returns a StatusNotSet if the status is not set.
-	GetMachineStatus(context.Context, machine.Name) (domainmachine.StatusInfo, error)
+	GetMachineStatus(context.Context, machine.Name) (domainmachine.StatusInfo[domainmachine.MachineStatusType], error)
 
 	// SetMachineStatus sets the status of the specified machine.
 	// It returns MachineNotFound if the machine does not exist.
-	SetMachineStatus(context.Context, machine.Name, domainmachine.StatusInfo) error
+	SetMachineStatus(context.Context, machine.Name, domainmachine.StatusInfo[domainmachine.MachineStatusType]) error
 
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
@@ -264,19 +264,7 @@ func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Nam
 		return status.StatusInfo{}, errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineName)
 	}
 
-	var data map[string]any
-	if len(instanceStatus.Data) > 0 {
-		if err := json.Unmarshal(instanceStatus.Data, &data); err != nil {
-			return status.StatusInfo{}, errors.Annotatef(err, "unmarshalling instance data for machine %q", machineName)
-		}
-	}
-
-	return status.StatusInfo{
-		Status:  instanceStatus.Status,
-		Message: instanceStatus.Message,
-		Data:    data,
-		Since:   instanceStatus.Since,
-	}, nil
+	return decodeInstanceStatus(instanceStatus)
 }
 
 // SetInstanceStatus sets the cloud specific instance status for this machine.
@@ -287,21 +275,12 @@ func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Nam
 		return machineerrors.InvalidStatus
 	}
 
-	var data []byte
-	if len(status.Data) > 0 {
-		var err error
-		data, err = json.Marshal(status.Data)
-		if err != nil {
-			return errors.Annotatef(err, "marshalling instance data for machine %q", machineName)
-		}
+	instanceStatus, err := encodeInstanceStatus(status)
+	if err != nil {
+		return errors.Annotatef(err, "encoding status for machine %q", machineName)
 	}
 
-	if err := s.st.SetInstanceStatus(ctx, machineName, domainmachine.StatusInfo{
-		Status:  status.Status,
-		Message: status.Message,
-		Data:    data,
-		Since:   status.Since,
-	}); err != nil {
+	if err := s.st.SetInstanceStatus(ctx, machineName, instanceStatus); err != nil {
 		return errors.Annotatef(err, "setting cloud instance status for machine %q", machineName)
 	}
 	return nil
@@ -323,12 +302,7 @@ func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name
 		}
 	}
 
-	return status.StatusInfo{
-		Status:  machineStatus.Status,
-		Message: machineStatus.Message,
-		Data:    data,
-		Since:   machineStatus.Since,
-	}, nil
+	return decodeMachineStatus(machineStatus)
 }
 
 // SetMachineStatus sets the status of the specified machine. It returns
@@ -339,20 +313,12 @@ func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name
 		return machineerrors.InvalidStatus
 	}
 
-	var data []byte
-	if len(status.Data) > 0 {
-		var err error
-		data, err = json.Marshal(status.Data)
-		if err != nil {
-			return errors.Annotatef(err, "marshalling machine data for machine %q", machineName)
-		}
+	machineStatus, err := encodeMachineStatus(status)
+	if err != nil {
+		return errors.Annotatef(err, "encoding status for machine %q", machineName)
 	}
-	if err := s.st.SetMachineStatus(ctx, machineName, domainmachine.StatusInfo{
-		Status:  status.Status,
-		Message: status.Message,
-		Data:    data,
-		Since:   status.Since,
-	}); err != nil {
+
+	if err := s.st.SetMachineStatus(ctx, machineName, machineStatus); err != nil {
 		return errors.Annotatef(err, "setting machine status for machine %q", machineName)
 	}
 	return nil

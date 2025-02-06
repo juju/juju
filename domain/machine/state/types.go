@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -172,39 +172,39 @@ func (s machineName) nameSliceTransform() machine.Name {
 	return s.Name
 }
 
-func decodeMachineStatus(s string) (status.Status, error) {
-	var result status.Status
+func decodeMachineStatus(s string) (domainmachine.MachineStatusType, error) {
+	var result domainmachine.MachineStatusType
 	switch s {
 	case "error":
-		result = status.Error
+		result = domainmachine.MachineStatusError
 	case "started":
-		result = status.Started
+		result = domainmachine.MachineStatusStarted
 	case "pending":
-		result = status.Pending
+		result = domainmachine.MachineStatusPending
 	case "stopped":
-		result = status.Stopped
+		result = domainmachine.MachineStatusStopped
 	case "down":
-		result = status.Down
+		result = domainmachine.MachineStatusDown
 	case "":
-		result = status.Unknown
+		result = domainmachine.MachineStatusUnknown
 	default:
-		return status.Unknown, errors.Errorf("unknown status %q", s)
+		return -1, errors.Errorf("unknown status %q", s)
 	}
 	return result, nil
 }
 
-func encodeMachineStatus(s status.Status) (int, error) {
+func encodeMachineStatus(s domainmachine.MachineStatusType) (int, error) {
 	var result int
 	switch s {
-	case status.Error:
+	case domainmachine.MachineStatusError:
 		result = 0
-	case status.Started:
+	case domainmachine.MachineStatusStarted:
 		result = 1
-	case status.Pending:
+	case domainmachine.MachineStatusPending:
 		result = 2
-	case status.Stopped:
+	case domainmachine.MachineStatusStopped:
 		result = 3
-	case status.Down:
+	case domainmachine.MachineStatusDown:
 		result = 4
 	default:
 		return -1, errors.Errorf("unknown status %q", s)
@@ -212,33 +212,33 @@ func encodeMachineStatus(s status.Status) (int, error) {
 	return result, nil
 }
 
-func decodeCloudInstanceStatus(s string) (status.Status, error) {
-	var result status.Status
+func decodeCloudInstanceStatus(s string) (domainmachine.InstanceStatusType, error) {
+	var result domainmachine.InstanceStatusType
 	switch s {
 	case "unknown", "":
-		result = status.Empty
+		result = domainmachine.InstanceStatusUnset
 	case "allocating":
-		result = status.Allocating
+		result = domainmachine.InstanceStatusAllocating
 	case "running":
-		result = status.Running
+		result = domainmachine.InstanceStatusRunning
 	case "provisioning error":
-		result = status.ProvisioningError
+		result = domainmachine.InstanceStatusProvisioningError
 	default:
-		return status.Unknown, errors.Errorf("unknown status %q", s)
+		return 0, errors.Errorf("unknown status %q", s)
 	}
 	return result, nil
 }
 
-func encodeCloudInstanceStatus(s status.Status) (int, error) {
+func encodeCloudInstanceStatus(s domainmachine.InstanceStatusType) (int, error) {
 	var result int
 	switch s {
-	case status.Empty:
+	case domainmachine.InstanceStatusUnset:
 		result = 0
-	case status.Allocating:
+	case domainmachine.InstanceStatusAllocating:
 		result = 1
-	case status.Running:
+	case domainmachine.InstanceStatusRunning:
 		result = 2
-	case status.ProvisioningError:
+	case domainmachine.InstanceStatusProvisioningError:
 		result = 3
 	default:
 		return -1, errors.Errorf("unknown status %q", s)

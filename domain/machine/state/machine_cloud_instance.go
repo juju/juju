@@ -332,10 +332,10 @@ WHERE  machine_uuid = $machineUUID.uuid;`
 // It returns NotFound if the machine does not exist.
 // It returns a StatusNotSet if the instance status is not set.
 // Idempotent.
-func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (domainmachine.StatusInfo, error) {
+func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (domainmachine.StatusInfo[domainmachine.InstanceStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
-		return domainmachine.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo[domainmachine.InstanceStatusType]{}, errors.Trace(err)
 	}
 
 	nameIdent := machineName{Name: mName}
@@ -344,7 +344,7 @@ func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (dom
 	uuidQuery := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name`
 	uuidQueryStmt, err := st.Prepare(uuidQuery, nameIdent, uuid)
 	if err != nil {
-		return domainmachine.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo[domainmachine.InstanceStatusType]{}, errors.Trace(err)
 	}
 
 	var status machineStatus
@@ -354,7 +354,7 @@ FROM v_machine_cloud_instance_status AS st
 WHERE st.machine_uuid = $machineUUID.uuid`
 	statusCombinedQueryStmt, err := st.Prepare(statusCombinedQuery, uuid, status)
 	if err != nil {
-		return domainmachine.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo[domainmachine.InstanceStatusType]{}, errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -377,7 +377,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 		return nil
 	})
 	if err != nil {
-		return domainmachine.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo[domainmachine.InstanceStatusType]{}, errors.Trace(err)
 	}
 
 	// Convert the internal status id from the
@@ -385,7 +385,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 	// type.
 	machineStatus, err := decodeCloudInstanceStatus(status.Status)
 	if err != nil {
-		return domainmachine.StatusInfo{}, errors.Annotatef(err, "decoding cloud instance status for machine %q", mName)
+		return domainmachine.StatusInfo[domainmachine.InstanceStatusType]{}, errors.Annotatef(err, "decoding cloud instance status for machine %q", mName)
 	}
 
 	var since time.Time
@@ -395,7 +395,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 		since = st.clock.Now()
 	}
 
-	return domainmachine.StatusInfo{
+	return domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
 		Status:  machineStatus,
 		Message: status.Message,
 		Since:   &since,
@@ -406,7 +406,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 // SetInstanceStatus sets the cloud specific instance status for this
 // machine.
 // It returns [machineerrors.MachineNotFound] if the machine does not exist.
-func (st *State) SetInstanceStatus(ctx context.Context, mName machine.Name, newStatus domainmachine.StatusInfo) error {
+func (st *State) SetInstanceStatus(ctx context.Context, mName machine.Name, newStatus domainmachine.StatusInfo[domainmachine.InstanceStatusType]) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)

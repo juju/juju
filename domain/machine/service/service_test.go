@@ -305,8 +305,8 @@ func (s *serviceSuite) TestGetMachineStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expectedStatus := status.StatusInfo{Status: status.Started}
-	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return(domainmachine.StatusInfo{
-		Status: status.Started,
+	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return(domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status: domainmachine.MachineStatusStarted,
 	}, nil)
 
 	machineStatus, err := NewService(s.state).GetMachineStatus(context.Background(), "666")
@@ -320,7 +320,7 @@ func (s *serviceSuite) TestGetMachineStatusError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return(domainmachine.StatusInfo{}, rErr)
+	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return(domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, rErr)
 
 	machineStatus, err := NewService(s.state).GetMachineStatus(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, rErr)
@@ -332,8 +332,8 @@ func (s *serviceSuite) TestSetMachineStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newStatus := status.StatusInfo{Status: status.Started}
-	s.state.EXPECT().SetMachineStatus(gomock.Any(), cmachine.Name("666"), domainmachine.StatusInfo{
-		Status: status.Started,
+	s.state.EXPECT().SetMachineStatus(gomock.Any(), cmachine.Name("666"), domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status: domainmachine.MachineStatusStarted,
 	}).Return(nil)
 
 	err := NewService(s.state).SetMachineStatus(context.Background(), "666", newStatus)
@@ -347,8 +347,8 @@ func (s *serviceSuite) TestSetMachineStatusError(c *gc.C) {
 
 	newStatus := status.StatusInfo{Status: status.Started}
 	rErr := errors.New("boom")
-	s.state.EXPECT().SetMachineStatus(gomock.Any(), cmachine.Name("666"), domainmachine.StatusInfo{
-		Status: status.Started,
+	s.state.EXPECT().SetMachineStatus(gomock.Any(), cmachine.Name("666"), domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status: domainmachine.MachineStatusStarted,
 	}).Return(rErr)
 
 	err := NewService(s.state).SetMachineStatus(context.Background(), "666", newStatus)
@@ -367,8 +367,8 @@ func (s *serviceSuite) TestGetInstanceStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	expectedStatus := status.StatusInfo{Status: status.Running}
-	s.state.EXPECT().GetInstanceStatus(gomock.Any(), cmachine.Name("666")).Return(domainmachine.StatusInfo{
-		Status: status.Running,
+	s.state.EXPECT().GetInstanceStatus(gomock.Any(), cmachine.Name("666")).Return(domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status: domainmachine.InstanceStatusRunning,
 	}, nil)
 
 	instanceStatus, err := NewService(s.state).GetInstanceStatus(context.Background(), "666")
@@ -382,7 +382,7 @@ func (s *serviceSuite) TestGetInstanceStatusError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetInstanceStatus(gomock.Any(), cmachine.Name("666")).Return(domainmachine.StatusInfo{}, rErr)
+	s.state.EXPECT().GetInstanceStatus(gomock.Any(), cmachine.Name("666")).Return(domainmachine.StatusInfo[domainmachine.InstanceStatusType]{}, rErr)
 
 	instanceStatus, err := NewService(s.state).GetInstanceStatus(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, rErr)
@@ -395,8 +395,8 @@ func (s *serviceSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	newStatus := status.StatusInfo{Status: status.Running}
-	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), domainmachine.StatusInfo{
-		Status: status.Running,
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status: domainmachine.InstanceStatusRunning,
 	}).Return(nil)
 
 	err := NewService(s.state).SetInstanceStatus(context.Background(), "666", newStatus)
@@ -410,8 +410,8 @@ func (s *serviceSuite) TestSetInstanceStatusError(c *gc.C) {
 
 	rErr := errors.New("boom")
 	newStatus := status.StatusInfo{Status: status.Running}
-	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), domainmachine.StatusInfo{
-		Status: status.Running,
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status: domainmachine.InstanceStatusRunning,
 	}).Return(rErr)
 
 	err := NewService(s.state).SetInstanceStatus(context.Background(), "666", newStatus)

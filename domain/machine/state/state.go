@@ -334,10 +334,10 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 // It returns MachineNotFound if the machine does not exist.
 // It returns a StatusNotSet if the status is not set.
 // Idempotent.
-func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (domainmachine.StatusInfo, error) {
+func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (domainmachine.StatusInfo[domainmachine.MachineStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
-		return domainmachine.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, errors.Trace(err)
 	}
 
 	nameIdent := machineName{Name: mName}
@@ -346,7 +346,7 @@ func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (doma
 	uuidQuery := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE name = $machineName.name;`
 	uuidQueryStmt, err := st.Prepare(uuidQuery, nameIdent, uuid)
 	if err != nil {
-		return domainmachine.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, errors.Trace(err)
 	}
 
 	var status machineStatus
@@ -357,7 +357,7 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 `
 	statusCombinedQueryStmt, err := st.Prepare(statusQuery, uuid, status)
 	if err != nil {
-		return domainmachine.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -381,14 +381,14 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 	})
 
 	if err != nil {
-		return domainmachine.StatusInfo{}, errors.Trace(err)
+		return domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, errors.Trace(err)
 	}
 
 	// Convert the internal status id from the (machine_status_value table)
 	// into the core status.Status type.
 	machineStatus, err := decodeMachineStatus(status.Status)
 	if err != nil {
-		return domainmachine.StatusInfo{}, errors.Annotatef(err, "decoding machine status for machine %q", mName)
+		return domainmachine.StatusInfo[domainmachine.MachineStatusType]{}, errors.Annotatef(err, "decoding machine status for machine %q", mName)
 	}
 
 	var since time.Time
@@ -398,7 +398,7 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 		since = st.clock.Now()
 	}
 
-	return domainmachine.StatusInfo{
+	return domainmachine.StatusInfo[domainmachine.MachineStatusType]{
 		Status:  machineStatus,
 		Message: status.Message,
 		Since:   &since,
@@ -408,7 +408,7 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 
 // SetMachineStatus sets the status of the specified machine.
 // It returns MachineNotFound if the machine does not exist.
-func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newStatus domainmachine.StatusInfo) error {
+func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newStatus domainmachine.StatusInfo[domainmachine.MachineStatusType]) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)

@@ -1,3 +1,6 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package service
 
 import (
@@ -79,9 +82,13 @@ func encodeCloudContainerStatus(s *status.StatusInfo) (*application.StatusInfo[a
 		return nil, err
 	}
 
-	bytes, err := json.Marshal(s.Data)
-	if err != nil {
-		return nil, errors.Errorf("marshalling status data: %w", err)
+	var bytes []byte
+	if len(s.Data) > 0 {
+		var err error
+		bytes, err = json.Marshal(s.Data)
+		if err != nil {
+			return nil, errors.Errorf("marshalling status data: %w", err)
+		}
 	}
 
 	return &application.StatusInfo[application.CloudContainerStatusType]{
@@ -103,9 +110,13 @@ func encodeUnitAgentStatus(s *status.StatusInfo) (*application.StatusInfo[applic
 		return nil, err
 	}
 
-	bytes, err := json.Marshal(s.Data)
-	if err != nil {
-		return nil, errors.Errorf("marshalling status data: %w", err)
+	var bytes []byte
+	if len(s.Data) > 0 {
+		var err error
+		bytes, err = json.Marshal(s.Data)
+		if err != nil {
+			return nil, errors.Errorf("marshalling status data: %w", err)
+		}
 	}
 
 	return &application.StatusInfo[application.UnitAgentStatusType]{
@@ -127,9 +138,13 @@ func encodeUnitWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[app
 		return nil, err
 	}
 
-	bytes, err := json.Marshal(s.Data)
-	if err != nil {
-		return nil, errors.Errorf("marshalling status data: %w", err)
+	var bytes []byte
+	if len(s.Data) > 0 {
+		var err error
+		bytes, err = json.Marshal(s.Data)
+		if err != nil {
+			return nil, errors.Errorf("marshalling status data: %w", err)
+		}
 	}
 
 	return &application.StatusInfo[application.UnitWorkloadStatusType]{

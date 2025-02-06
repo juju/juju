@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/status"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -243,10 +242,10 @@ func (s *stateSuite) TestDeleteInstanceDataWithStatus(c *gc.C) {
 	machineUUID := s.ensureInstance(c, "42")
 
 	// Add a status with data for this instance
-	s.state.SetInstanceStatus(context.Background(), "42", domainmachine.StatusInfo{
-		Status:  status.Running,
+	s.state.SetInstanceStatus(context.Background(), "42", domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusAllocating,
 		Message: "running",
-		Data:    []byte(`{"key": "data"}`),
+		Data:    []byte(`{"key":"data"}`),
 		Since:   ptr(time.Now().UTC()),
 	})
 
@@ -307,8 +306,8 @@ func (s *stateSuite) TestGetInstanceStatusSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
-	expectedStatus := domainmachine.StatusInfo{
-		Status:  status.Running,
+	expectedStatus := domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusRunning,
 		Message: "running",
 		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
 	}
@@ -329,8 +328,8 @@ func (s *stateSuite) TestGetInstanceStatusSuccessWithData(c *gc.C) {
 
 	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
-	expectedStatus := domainmachine.StatusInfo{
-		Status:  status.Running,
+	expectedStatus := domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusRunning,
 		Message: "running",
 		Data:    []byte(`{"key": "data"}`),
 		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
@@ -362,7 +361,10 @@ func (s *stateSuite) TestGetInstanceStatusStatusNotSetError(c *gc.C) {
 func (s *stateSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	s.ensureInstance(c, "666")
 
-	expectedStatus := domainmachine.StatusInfo{Status: status.Running, Message: "running"}
+	expectedStatus := domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusRunning,
+		Message: "running",
+	}
 	err := s.state.SetInstanceStatus(context.Background(), "666", expectedStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -377,8 +379,8 @@ func (s *stateSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 func (s *stateSuite) TestSetInstanceStatusSuccessWithData(c *gc.C) {
 	s.ensureInstance(c, "666")
 
-	expectedStatus := domainmachine.StatusInfo{
-		Status:  status.Running,
+	expectedStatus := domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusRunning,
 		Message: "running",
 		Data:    []byte(`{"key": "data"}`),
 		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
@@ -394,7 +396,10 @@ func (s *stateSuite) TestSetInstanceStatusSuccessWithData(c *gc.C) {
 // TestSetInstanceStatusError asserts that SetInstanceStatus returns a NotFound
 // error when the given machine cannot be found.
 func (s *stateSuite) TestSetInstanceStatusError(c *gc.C) {
-	err := s.state.SetInstanceStatus(context.Background(), "666", domainmachine.StatusInfo{Status: status.Running, Message: "running"})
+	err := s.state.SetInstanceStatus(context.Background(), "666", domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusRunning,
+		Message: "running",
+	})
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
@@ -424,7 +429,7 @@ func (s *stateSuite) TestInstanceStatusValues(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		statusValues = append(statusValues, statusValue)
 	}
-	c.Check(statusValues, gc.HasLen, 4)
+	c.Assert(statusValues, gc.HasLen, 4)
 	c.Check(statusValues[0].ID, gc.Equals, 0)
 	c.Check(statusValues[0].Name, gc.Equals, "unknown")
 	c.Check(statusValues[1].ID, gc.Equals, 1)
