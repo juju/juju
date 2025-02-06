@@ -5,9 +5,22 @@ package relation
 
 import (
 	"github.com/juju/juju/core/application"
+	corerelation "github.com/juju/juju/core/relation"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
 )
+
+// GetRelationEndpointUUIDArgs represents the arguments required to retrieve
+// the UUID of a relation endpoint.
+type GetRelationEndpointUUIDArgs struct {
+	// ApplicationID identifies the unique identifier of the application
+	// associated with the expected endpoint.
+	ApplicationID application.ID
+
+	// RelationUUID represents the unique identifier for the relation associated
+	// with the expected endpoint.
+	RelationUUID corerelation.UUID
+}
 
 // Endpoint represents one endpoint of a relation.
 type Endpoint struct {
