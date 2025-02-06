@@ -785,7 +785,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
-			AgentName:              agentName,
 			StateName:              stateName,
 			Logger:                 loggo.GetLogger("juju.worker.sshserver"),
 			NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
