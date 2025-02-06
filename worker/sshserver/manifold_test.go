@@ -11,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/worker/sshserver"
 	"github.com/juju/juju/worker/sshserver/mocks"
 )
@@ -24,9 +23,8 @@ var _ = gc.Suite(&manifoldSuite{})
 func newManifoldConfig(l *mocks.MockLogger, modifier func(cfg *sshserver.ManifoldConfig)) *sshserver.ManifoldConfig {
 	cfg := &sshserver.ManifoldConfig{
 		StateName:              "state",
-		AgentName:              "agent",
 		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
-		NewServerWorker:        func(sshserver.ServerWorkerConfig, bool) (*sshserver.ServerWorker, error) { return nil, nil },
+		NewServerWorker:        func(sshserver.ServerWorkerConfig) (*sshserver.ServerWorker, error) { return nil, nil },
 		Logger:                 l,
 	}
 
@@ -49,7 +47,6 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	// Entirely missing.
 	cfg = newManifoldConfig(mockLogger, func(cfg *sshserver.ManifoldConfig) {
 		cfg.StateName = ""
-		cfg.AgentName = ""
 		cfg.NewServerWrapperWorker = nil
 		cfg.NewServerWorker = nil
 		cfg.Logger = nil
@@ -59,12 +56,6 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	// Missing state name.
 	cfg = newManifoldConfig(mockLogger, func(cfg *sshserver.ManifoldConfig) {
 		cfg.StateName = ""
-	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
-
-	// Missing agent name.
-	cfg = newManifoldConfig(mockLogger, func(cfg *sshserver.ManifoldConfig) {
-		cfg.AgentName = ""
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
@@ -93,26 +84,25 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockLogger := mocks.NewMockLogger(ctrl)
-	mockAgent := mocks.NewMockAgent(ctrl)
-	mockAgentConfig := mocks.NewMockConfig(ctrl)
 	mockState := mocks.NewMockStateTracker(ctrl)
 
-	mockAgent.EXPECT().CurrentConfig().Return(mockAgentConfig).AnyTimes()
-	mockAgentConfig.EXPECT().StateServingInfo().Return(controller.StateServingInfo{}, true).Times(1)
 	mockState.EXPECT().Use().Times(1)
 
+	// Setup the manifold
 	manifold := sshserver.Manifold(sshserver.ManifoldConfig{
-		AgentName:              "agent-name",
 		StateName:              "state",
 		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
-		NewServerWorker:        func(sshserver.ServerWorkerConfig, bool) (*sshserver.ServerWorker, error) { return nil, nil },
+		NewServerWorker:        func(sshserver.ServerWorkerConfig) (*sshserver.ServerWorker, error) { return nil, nil },
 		Logger:                 mockLogger,
 	})
 
+	// Check the inputs are as expected
+	c.Assert(manifold.Inputs, gc.DeepEquals, []string{"state"})
+
+	// Start the worker
 	worker, err := manifold.Start(
 		dt.StubContext(nil, map[string]interface{}{
-			"state":      mockState,
-			"agent-name": mockAgent,
+			"state": mockState,
 		}),
 	)
 	c.Assert(err, gc.IsNil)

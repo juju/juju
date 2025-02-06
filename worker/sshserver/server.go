@@ -4,13 +4,11 @@
 package sshserver
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
 	"io"
 	"net"
-	"time"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
@@ -21,6 +19,10 @@ import (
 // ServerWorkerConfig holds the configuration required by the server worker.
 type ServerWorkerConfig struct {
 	Logger Logger
+	// Listener holds a listener to provide the server. Should you wish to run
+	// the server on a pre-existing listener, you can provide it here. Otherwise,
+	// leave this value nil and a listener will be spawned.
+	Listener net.Listener
 }
 
 // Validate validates the workers configuration is as expected.
@@ -43,7 +45,7 @@ type ServerWorker struct {
 }
 
 // NewServerWorker returns a running embedded SSH server.
-func NewServerWorker(config ServerWorkerConfig, startServer bool) (*ServerWorker, error) {
+func NewServerWorker(config ServerWorkerConfig) (*ServerWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -68,9 +70,7 @@ func NewServerWorker(config ServerWorkerConfig, startServer bool) (*ServerWorker
 
 	s.Server.AddHostKey(signer)
 
-	if startServer {
-		s.tomb.Go(s.loop)
-	}
+	s.tomb.Go(s.loop)
 
 	return s, nil
 }
@@ -88,16 +88,24 @@ func (s *ServerWorker) Wait() error {
 func (s *ServerWorker) loop() error {
 	go func() {
 		<-s.tomb.Dying()
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		if err := s.Server.Shutdown(ctx); err != nil {
+		if err := s.Server.Close(); err != nil {
 			// There's really not a lot we can do if the shutdown fails,
 			// either due to a timeout or another reason. So we simply log it.
 			s.config.Logger.Errorf("failed to shutdown server: %v", err)
 		}
 	}()
-	return s.Server.ListenAndServe()
+
+	var err error
+	if s.config.Listener != nil {
+		err = s.Server.Serve(s.config.Listener)
+	} else {
+		err = s.Server.ListenAndServe()
+	}
+	if errors.Is(err, ssh.ErrServerClosed) {
+		return nil
+	}
+	return err
+
 }
 
 func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {

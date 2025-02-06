@@ -8,7 +8,6 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 )
 
@@ -18,19 +17,13 @@ type SystemStateGetter interface {
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
 type ServerWrapperWorkerConfig struct {
-	StateInfo       controller.StateServingInfo
 	StatePool       SystemStateGetter
-	NewServerWorker func(ServerWorkerConfig, bool) (*ServerWorker, error)
+	NewServerWorker func(ServerWorkerConfig) (*ServerWorker, error)
 	Logger          Logger
 }
 
 // Validate validates the workers configuration is as expected.
 func (c ServerWrapperWorkerConfig) Validate() error {
-	// TODO(ale8k): Once the PR for implementing configuration is merged, check
-	// the host key is populated here only. For now, this check is better than nothing.
-	if c.StateInfo == (controller.StateServingInfo{}) {
-		return errors.NotValidf("StateInfo is required")
-	}
 	if c.StatePool == nil {
 		return errors.NotValidf("StatePool is required")
 	}
@@ -90,7 +83,7 @@ func (ssw *serverWrapperWorker) Wait() error {
 func (ssw *serverWrapperWorker) loop() error {
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
 		Logger: ssw.config.Logger,
-	}, true)
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -127,7 +120,7 @@ func (ssw *serverWrapperWorker) loop() error {
 			// Start the server again.
 			srv, err = ssw.config.NewServerWorker(ServerWorkerConfig{
 				Logger: ssw.config.Logger,
-			}, true)
+			})
 			if err != nil {
 				return errors.Trace(err)
 			}

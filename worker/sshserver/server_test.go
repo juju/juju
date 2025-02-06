@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 
 	"github.com/juju/testing"
+	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
@@ -46,15 +47,13 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 
 	// Firstly, start the server on an in-memory listener
 	listener := bufconn.Listen(8 * 1024)
-	server, err := sshserver.NewServerWorker(sshserver.ServerWorkerConfig{
-		Logger: mockLogger,
-	}, false)
-	c.Assert(err, gc.IsNil)
 
-	go func() {
-		err := server.Server.Serve(listener)
-		c.Assert(err, gc.IsNil)
-	}()
+	server, err := sshserver.NewServerWorker(sshserver.ServerWorkerConfig{
+		Logger:   mockLogger,
+		Listener: listener,
+	})
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, server)
 
 	// Dial the in-memory listener
 	conn, err := listener.Dial()
@@ -98,4 +97,8 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	output, err := terminatingSession.CombinedOutput("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(output), gc.Equals, "Your final destination is: 1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local as user: ubuntu\n")
+
+	// Server isn't gracefully closed, it's forcefully closed. All connections ended
+	// from server side.
+	workertest.CleanKill(c, server)
 }

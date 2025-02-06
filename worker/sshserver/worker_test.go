@@ -7,12 +7,13 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/worker/sshserver"
 	"github.com/juju/juju/worker/sshserver/mocks"
+	"github.com/juju/testing"
 )
 
 type workerSuite struct {
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -23,12 +24,9 @@ func newServerWrapperWorkerConfig(
 	modifier func(*sshserver.ServerWrapperWorkerConfig),
 ) *sshserver.ServerWrapperWorkerConfig {
 	cfg := &sshserver.ServerWrapperWorkerConfig{
-		NewServerWorker: func(sshserver.ServerWorkerConfig, bool) (*sshserver.ServerWorker, error) { return nil, nil },
+		NewServerWorker: func(sshserver.ServerWorkerConfig) (*sshserver.ServerWorker, error) { return nil, nil },
 		Logger:          l,
 		StatePool:       s,
-		StateInfo: controller.StateServingInfo{
-			APIPort: 1234, // Fill in so it acts as non-zero value.
-		},
 	}
 
 	modifier(cfg)
@@ -62,16 +60,6 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 		mockStateGetter,
 		func(cfg *sshserver.ServerWrapperWorkerConfig) {
 			cfg.StatePool = nil
-		},
-	)
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
-
-	// Test no StateServingInfo.
-	cfg = newServerWrapperWorkerConfig(
-		mockLogger,
-		mockStateGetter,
-		func(cfg *sshserver.ServerWrapperWorkerConfig) {
-			cfg.StateInfo = controller.StateServingInfo{}
 		},
 	)
 	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
