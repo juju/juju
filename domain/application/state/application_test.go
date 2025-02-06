@@ -3131,6 +3131,28 @@ func (s *applicationStateSuite) TestConstraintPartial(c *gc.C) {
 	})
 }
 
+func (s *applicationStateSuite) TestConstraintSingleValue(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		addConstraintStmt := `INSERT INTO "constraint" (uuid, cpu_cores) VALUES (?, ?)`
+		_, err := tx.ExecContext(ctx, addConstraintStmt, "constraint-uuid", 2)
+		if err != nil {
+			return err
+		}
+		addAppConstraintStmt := `INSERT INTO application_constraint (application_uuid, constraint_uuid) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, addAppConstraintStmt, id, "constraint-uuid")
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cons, jc.DeepEquals, constraints.Value{
+		CpuCores: ptr(uint64(2)),
+	})
+}
+
 func (s *applicationStateSuite) TestConstraintEmpty(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
@@ -3344,6 +3366,28 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousZones(c *gc.C)
 	cons, err = s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*cons.Tags, jc.SameContents, []string{"tag0", "tag1"})
+}
+
+func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Value{
+		Zones: ptr([]string{"zone0", "zone1"}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(*cons.Zones, jc.SameContents, []string{"zone0", "zone1"})
+
+	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Value{
+		Zones: ptr([]string{"zone3"}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err = s.state.GetApplicationConstraints(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(*cons.Zones, jc.SameContents, []string{"zone3"})
 }
 
 func (s *applicationStateSuite) TestSetConstraintsApplicationNotFound(c *gc.C) {

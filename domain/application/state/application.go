@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	jujuerrors "github.com/juju/errors"
 
@@ -3276,9 +3277,9 @@ func decodeConstraints(cons applicationConstraints) constraints.Value {
 	}
 
 	// Unique spaces, tags and zones:
-	spaces := make(map[string]string)
-	tags := make(map[string]string)
-	zones := make(map[string]string)
+	spaces := set.NewStrings()
+	tags := set.NewStrings()
+	zones := set.NewStrings()
 
 	for _, row := range cons {
 		if row.Arch.Valid {
@@ -3323,36 +3324,27 @@ func decodeConstraints(cons applicationConstraints) constraints.Value {
 			res.ImageID = &row.ImageID.String
 		}
 		if row.Space.Valid {
-			spaces[row.Space.String] = row.Space.String
+			spaces.Add(row.Space.String)
 		}
 		if row.Tag.Valid {
-			tags[row.Tag.String] = row.Tag.String
+			tags.Add(row.Tag.String)
 		}
 		if row.Zone.Valid {
-			zones[row.Zone.String] = row.Zone.String
+			zones.Add(row.Zone.String)
 		}
 	}
 
 	// Add the unique spaces, tags and zones to the result:
 	if len(spaces) > 0 {
-		spacesSlice := make([]string, 0, len(spaces))
-		for _, space := range spaces {
-			spacesSlice = append(spacesSlice, space)
-		}
+		spacesSlice := spaces.SortedValues()
 		res.Spaces = &spacesSlice
 	}
 	if len(tags) > 0 {
-		tagsSlice := make([]string, 0, len(tags))
-		for _, tag := range tags {
-			tagsSlice = append(tagsSlice, tag)
-		}
+		tagsSlice := tags.SortedValues()
 		res.Tags = &tagsSlice
 	}
 	if len(zones) > 0 {
-		zonesSlice := make([]string, 0, len(zones))
-		for _, zone := range zones {
-			zonesSlice = append(zonesSlice, zone)
-		}
+		zonesSlice := zones.SortedValues()
 		res.Zones = &zonesSlice
 	}
 
@@ -3373,8 +3365,8 @@ func encodeConstraints(constraintUUID string, cons constraints.Value, containerT
 		InstanceRole:     cons.InstanceRole,
 		InstanceType:     cons.InstanceType,
 		VirtType:         cons.VirtType,
-		AllocatePublicIP: cons.AllocatePublicIP,
 		ImageID:          cons.ImageID,
+		AllocatePublicIP: cons.AllocatePublicIP,
 	}
 	if cons.Container != nil {
 		res.ContainerTypeID = &containerTypeID

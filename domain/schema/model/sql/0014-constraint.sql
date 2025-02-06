@@ -1,3 +1,7 @@
+-- The allocate_public_ip column shold have been a (nullable) boolean, but
+-- there is currently a bug somewhere between dqlite and go-dqlite that returns
+-- a false boolean instead a null. Since the driver will correctly map a INT
+-- to a boolean, then we can safely use it here as a workaround.
 CREATE TABLE "constraint" (
     uuid TEXT NOT NULL PRIMARY KEY,
     arch TEXT,
@@ -10,12 +14,12 @@ CREATE TABLE "constraint" (
     instance_type TEXT,
     container_type_id INT,
     virt_type TEXT,
-    allocate_public_ip BOOLEAN,
+    allocate_public_ip INT,
     image_id TEXT,
     CONSTRAINT fk_constraint_container_type
     FOREIGN KEY (container_type_id)
     REFERENCES container_type (id)
-);
+) STRICT;
 
 -- v_constraint represents a view of the constraints in the model with foreign
 -- keys resolved for the viewer.
