@@ -772,3 +772,12 @@ type applicationUUID struct {
 type constraintUUID struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 }
+
+// These structs are only needed to check existence before adding constraints.
+type spaceName struct {
+	Name string `db:"name"`
+}
+
+type spaceUUID struct {
+	UUID string `db:"uuid"`
+}

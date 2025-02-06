@@ -3089,6 +3089,13 @@ WHERE application_uuid = $applicationUUID.application_uuid
 		return errors.Errorf("preparing select application constraint uuid query: %w", err)
 	}
 
+	// Check that spaces provided as constraints do exist in the space table.
+	selectSpaceQuery := `SELECT &spaceUUID.uuid FROM space WHERE name = $spaceName.name`
+	selectSpaceStmt, err := st.Prepare(selectSpaceQuery, spaceUUID{}, spaceName{})
+	if err != nil {
+		return errors.Errorf("preparing select space query: %w", err)
+	}
+
 	// Cleanup all previous tags, spaces and zones from their join tables.
 	deleteConstraintTagsQuery := `DELETE FROM constraint_tag WHERE constraint_uuid = $constraintUUID.constraint_uuid`
 	deleteConstraintTagsStmt, err := st.Prepare(deleteConstraintTagsQuery, constraintUUID{})
@@ -3169,8 +3176,9 @@ ON CONFLICT (application_uuid) DO NOTHING
 
 		var containerTypeID containerTypeID
 		if cons.Container != nil {
-			err := tx.Query(ctx, selectContainerTypeIDStmt, containerTypeVal{Value: string(*cons.Container)}).Get(&containerTypeID)
+			err = tx.Query(ctx, selectContainerTypeIDStmt, containerTypeVal{Value: string(*cons.Container)}).Get(&containerTypeID)
 			if errors.Is(err, sql.ErrNoRows) {
+				st.logger.Warningf(ctx, "cannot set constraints, container type %q does not exist", *cons.Container)
 				return applicationerrors.InvalidApplicationConstraints
 			}
 			if err != nil {
@@ -3216,13 +3224,19 @@ ON CONFLICT (application_uuid) DO NOTHING
 
 		if cons.Spaces != nil {
 			for _, space := range *cons.Spaces {
-				constraintSpace := setConstraintSpace{ConstraintUUID: cUUIDStr, Space: space}
-				err := tx.Query(ctx, insertConstraintSpacesStmt, constraintSpace).Run()
-				// Space is not found.
-				if internaldatabase.IsErrConstraintForeignKey(err) {
+				// Make sure the space actually exists.
+				var spaceUUID spaceUUID
+				err := tx.Query(ctx, selectSpaceStmt, spaceName{Name: space}).Get(&spaceUUID)
+				if errors.Is(err, sql.ErrNoRows) {
+					st.logger.Warningf(ctx, "cannot set constraints, space %q does not exist", space)
 					return applicationerrors.InvalidApplicationConstraints
 				}
 				if err != nil {
+					return errors.Capture(err)
+				}
+
+				constraintSpace := setConstraintSpace{ConstraintUUID: cUUIDStr, Space: space}
+				if err := tx.Query(ctx, insertConstraintSpacesStmt, constraintSpace).Run(); err != nil {
 					return errors.Capture(err)
 				}
 			}
