@@ -17,10 +17,16 @@ import (
 
 // ProviderState describes retrieval and persistence methods for storage.
 type ProviderState interface {
-	// CloudCredential returns the cloud credential for the given name, cloud, owner.
+	// CloudCredential returns the cloud credential for the given name, cloud,
+	// owner.
 	CloudCredential(ctx context.Context, key corecredential.Key) (credential.CloudCredentialResult, error)
 
-	// WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
+	// InvalidateCloudCredential marks the cloud credential for the given name,
+	// cloud, owner as invalid.
+	InvalidateCloudCredential(ctx context.Context, key corecredential.Key, reason string) error
+
+	// WatchCredential returns a new NotifyWatcher watching for changes to the
+	// specified credential.
 	WatchCredential(
 		ctx context.Context,
 		getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
@@ -57,6 +63,15 @@ func (s *ProviderService) CloudCredential(ctx context.Context, key corecredentia
 	cred.Invalid = credInfo.Invalid
 	cred.InvalidReason = credInfo.InvalidReason
 	return cred, nil
+}
+
+// InvalidateCredential marks the cloud credential for the given name, cloud,
+// owner as invalid.
+func (s *ProviderService) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) error {
+	if err := key.Validate(); err != nil {
+		return errors.Annotatef(err, "invalid id invalidating cloud credential")
+	}
+	return s.st.InvalidateCloudCredential(ctx, key, reason)
 }
 
 // WatchableProviderService provides the API for working with credentials and

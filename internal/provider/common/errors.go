@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 )
 
@@ -55,4 +56,13 @@ func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx env
 // HandleCredentialError determines if a given error relates to an invalid credential.
 func HandleCredentialError(isAuthError func(error) bool, err error, ctx envcontext.ProviderCallContext) {
 	MaybeHandleCredentialError(isAuthError, err, ctx)
+}
+
+// CredentialInvalidatorContext returns a provider call context.
+// This is a stop gap until we can remove all the ProviderCallContexts.
+// Deprecated: this should be removed.
+func CredentialInvalidatorContext(ctx context.Context, invalidator environs.ModelCredentialInvalidator) envcontext.ProviderCallContext {
+	return envcontext.WithCredentialInvalidator(ctx, func(ctx context.Context, reason string) error {
+		return invalidator.InvalidateModelCredential(ctx, environs.InvalidationReason(reason))
+	})
 }

@@ -181,9 +181,10 @@ func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, get
 		}
 
 		broker, err := newProvider(ctx, environs.OpenParams{
-			ControllerUUID: getter.ControllerUUID().String(),
-			Cloud:          cloudSpec,
-			Config:         cfg,
+			ControllerUUID:        getter.ControllerUUID().String(),
+			Cloud:                 cloudSpec,
+			Config:                cfg,
+			CredentialInvalidator: getter.CredentialInvalidator(),
 		})
 		if err != nil {
 			return nil, environscloudspec.CloudSpec{}, errors.Annotate(err, "cannot create caas broker")

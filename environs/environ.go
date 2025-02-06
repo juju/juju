@@ -16,6 +16,7 @@ import (
 type EnvironConfigGetter interface {
 	ModelConfig(context.Context) (*config.Config, error)
 	CloudSpec(context.Context) (environscloudspec.CloudSpec, error)
+	CredentialInvalidator() ModelCredentialInvalidator
 }
 
 // NewEnvironFunc is the type of a function that, given a model config,
@@ -44,8 +45,9 @@ func GetEnvironAndCloud(ctx context.Context, getter EnvironConfigGetter, newEnvi
 	}
 
 	env, err := newEnviron(ctx, OpenParams{
-		Cloud:  cloudSpec,
-		Config: modelConfig,
+		Cloud:                 cloudSpec,
+		Config:                modelConfig,
+		CredentialInvalidator: getter.CredentialInvalidator(),
 	})
 	if err != nil {
 		return nil, nil, errors.Annotatef(

@@ -87,6 +87,20 @@ type CloudEnvironProvider interface {
 	Open(context.Context, OpenParams) (Environ, error)
 }
 
+// InvalidationReason is a reason for invalidating a credential.
+type InvalidationReason string
+
+func (r InvalidationReason) String() string {
+	return string(r)
+}
+
+// ModelCredentialInvalidator defines a point of use interface for invalidating
+// a model credential.
+type ModelCredentialInvalidator interface {
+	// InvalidateModelCredential invalidate cloud credential for the model.
+	InvalidateModelCredential(context.Context, InvalidationReason) error
+}
+
 // OpenParams contains the parameters for EnvironProvider.Open.
 type OpenParams struct {
 	// ControllerUUID is the controller UUID.
@@ -97,6 +111,12 @@ type OpenParams struct {
 
 	// Config is the base configuration for the provider.
 	Config *config.Config
+
+	// CredentialInvalidator is used to invalidate any credentials
+	// that are no longer valid. It is the responsibility of the
+	// provider to call this function when a credential is no longer
+	// valid.
+	CredentialInvalidator ModelCredentialInvalidator
 }
 
 // ProviderSchema can be implemented by a provider to provide

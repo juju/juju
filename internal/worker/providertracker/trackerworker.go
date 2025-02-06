@@ -357,16 +357,22 @@ func (g providerGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudS
 	return environscloudspec.MakeCloudSpec(*modelCloud, g.model.CloudRegion, modelCredentials)
 }
 
+// CredentialInvalidator returns the credential invalidator for the model.
+func (g providerGetter) CredentialInvalidator() environs.ModelCredentialInvalidator {
+	return g
+}
+
+// InvalidateModelCredential invalidates the cloud credential for the model.
+func (g providerGetter) InvalidateModelCredential(ctx context.Context, reason environs.InvalidationReason) error {
+	return g.credentialService.InvalidateCredential(ctx, credentialKey(g.model), reason.String())
+}
+
 func modelCredentials(ctx context.Context, credentialService CredentialService, model coremodel.ModelInfo) (*cloud.Credential, error) {
 	if model.CredentialName == "" {
 		return nil, nil
 	}
 
-	credentialValue, err := credentialService.CloudCredential(ctx, credential.Key{
-		Cloud: model.Cloud,
-		Owner: model.CredentialOwner,
-		Name:  model.CredentialName,
-	})
+	credentialValue, err := credentialService.CloudCredential(ctx, credentialKey(model))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -379,4 +385,12 @@ func modelCredentials(ctx context.Context, credentialService CredentialService, 
 	)
 	return &cloudCredential, nil
 
+}
+
+func credentialKey(model coremodel.ModelInfo) credential.Key {
+	return credential.Key{
+		Cloud: model.Cloud,
+		Owner: model.CredentialOwner,
+		Name:  model.CredentialName,
+	}
 }

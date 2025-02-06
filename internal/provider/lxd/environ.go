@@ -44,8 +44,9 @@ type environ struct {
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
 
-	cloud    environscloudspec.CloudSpec
-	provider *environProvider
+	cloud                 environscloudspec.CloudSpec
+	provider              *environProvider
+	credentialInvalidator environs.ModelCredentialInvalidator
 
 	name string
 	uuid string
@@ -68,6 +69,7 @@ func newEnviron(
 	p *environProvider,
 	spec environscloudspec.CloudSpec,
 	cfg *config.Config,
+	credentialInvalidator environs.ModelCredentialInvalidator,
 ) (*environ, error) {
 	ecfg, err := newValidConfig(ctx, cfg)
 	if err != nil {
@@ -80,12 +82,13 @@ func newEnviron(
 	}
 
 	env := &environ{
-		provider:     p,
-		cloud:        spec,
-		name:         ecfg.Name(),
-		uuid:         ecfg.UUID(),
-		namespace:    namespace,
-		ecfgUnlocked: ecfg,
+		provider:              p,
+		cloud:                 spec,
+		credentialInvalidator: credentialInvalidator,
+		name:                  ecfg.Name(),
+		uuid:                  ecfg.UUID(),
+		namespace:             namespace,
+		ecfgUnlocked:          ecfg,
 	}
 	env.base = common.DefaultProvider{Env: env}
 
@@ -223,12 +226,12 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.
 // known environment.
 func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
 	if err := env.base.DestroyEnv(ctx); err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
 		return errors.Trace(err)
 	}
 	if env.storageSupported() {
 		if err := destroyModelFilesystems(env); err != nil {
-			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			common.HandleCredentialError(IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
 			return errors.Annotate(err, "destroying LXD filesystems for model")
 		}
 	}
@@ -241,12 +244,12 @@ func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, contro
 		return errors.Trace(err)
 	}
 	if err := env.destroyHostedModelResources(controllerUUID); err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
 		return errors.Trace(err)
 	}
 	if env.storageSupported() {
 		if err := destroyControllerFilesystems(env, controllerUUID); err != nil {
-			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			common.HandleCredentialError(IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
 			return errors.Annotate(err, "destroying LXD filesystems for controller")
 		}
 	}
