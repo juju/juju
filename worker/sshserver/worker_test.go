@@ -4,12 +4,12 @@
 package sshserver_test
 
 import (
+	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/sshserver"
 	"github.com/juju/juju/worker/sshserver/mocks"
-	"github.com/juju/testing"
 )
 
 type workerSuite struct {
