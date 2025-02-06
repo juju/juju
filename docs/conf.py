@@ -1,6 +1,7 @@
 import ast
 import datetime
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -297,10 +298,43 @@ latex_elements = ast.literal_eval(latex_config.replace("$PROJECT", project))
 # Auto-generation of documentation
 ##################################
 
+def get_tree_juju_version():
+    """Read the version of juju as reported by the juju branch that we're building."""
+    version_re = re.compile('const version = "(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)"')
+    # TODO: (jam) This is only true for Juju 3.6, 4.0 has it in a different location
+    with open('../version/version.go', 'rt') as version_file:
+        for line in version_file:
+            m = version_re.match(line)
+            if m is None:
+                continue
+            return (int(m['major']), int(m['minor']), int(m['patch']))
+    raise RuntimeError("could not determine the version of Juju for this directory")
+    return None
+
+
+def get_juju_version():
+    """Check to see what version of Juju we are running."""
+
+    version_re = re.compile('(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)-.*')
+    result = subprocess.run(['juju', 'version'], capture_output=True, text=True)
+    full_string = result.stdout.rstrip()
+    m = version_re.match(full_string)
+    if m is None:
+        raise RuntimeError("could not determine the version of Juju in $PATH: {!r}".format(full_string))
+    return (int(m['major']), int(m['minor']), int(m['patch']))
+
 def generate_cli_docs():
     cli_dir = "user/reference/juju-cli/"
     generated_cli_docs_dir = cli_dir + "list-of-juju-cli-commands/"
     cli_index_header = cli_dir + 'cli_index'
+
+    tree_version = get_tree_juju_version()
+    juju_version = get_juju_version()
+    if tree_version != juju_version:
+        print("refusing to rebuild docs with a mismatched juju version. Found juju {}.{}.{} in $PATH, but the tree reports version {}.{}.{}".format(*(juju_version + tree_version)))
+        raise RuntimeError("mismatched juju and tree versions")
+    else:
+        print("generating cli command docs using juju version found in path: {}.{}.{}".format(*juju_version))
 
     # Remove existing cli folder to regenerate it
     if os.path.exists(generated_cli_docs_dir):
@@ -327,8 +361,8 @@ def generate_cli_docs():
     subprocess.run(['cp', cli_index_header, generated_cli_docs_dir + 'index.md'])
 
 
-    result = subprocess.run(['juju', 'version'], capture_output=True, text=True)
-    print("generated cli command docs using juju version found in path: " + result.stdout.rstrip())
+    tree_version = get_tree_juju_version()
+    print("tree version is: {}.{}.{}".format(*tree_version))
 
 def generate_controller_config_docs():
     config_reference_dir = 'user/reference/configuration/'
