@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 	"text/template"
 
@@ -624,7 +625,6 @@ func (c *registerCommand) secretKeyLogin(
 		logger.Infof("opening api connection: %s", err)
 		return nil, controllerUnreachableError(controllerName, controllerDetails.APIEndpoints)
 	}
-	apiAddr := conn.Addr()
 	defer func() {
 		if closeErr := conn.Close(); closeErr != nil {
 			if err == nil {
@@ -638,8 +638,10 @@ func (c *registerCommand) secretKeyLogin(
 	// Using the address we connected to above, perform the request.
 	// A success response will include a macaroon cookie that we can
 	// use to log in with.
-	urlString := fmt.Sprintf("https://%s/register", apiAddr)
-	httpReq, err := http.NewRequest("POST", urlString, r)
+	url := conn.Addr()
+	url.Scheme = "https"
+	url.Path = path.Join(url.Path, "register")
+	httpReq, err := http.NewRequest("POST", url.String(), r)
 	if err != nil {
 		return nil, errors.Annotatef(err, "internal error: creating new http request")
 	}

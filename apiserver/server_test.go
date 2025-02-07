@@ -108,7 +108,8 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	ipv4State, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ipv4State.Close()
-	c.Assert(ipv4State.Addr(), gc.Equals, net.JoinHostPort("localhost", portString))
+	ipv4Addr := ipv4State.Addr()
+	c.Assert(ipv4Addr.String(), gc.Equals, "wss://"+net.JoinHostPort("localhost", portString))
 	c.Assert(ipv4State.APIHostPorts(), jc.DeepEquals, []network.MachineHostPorts{
 		network.NewMachineHostPorts(port, "localhost"),
 	})
@@ -120,7 +121,8 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	ipv6State, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ipv6State.Close()
-	c.Assert(ipv6State.Addr(), gc.Equals, net.JoinHostPort("::1", portString))
+	ipv6Addr := ipv6State.Addr()
+	c.Assert(ipv6Addr.String(), gc.Equals, "wss://"+net.JoinHostPort("::1", portString))
 	c.Assert(ipv6State.APIHostPorts(), jc.DeepEquals, []network.MachineHostPorts{
 		network.NewMachineHostPorts(port, "::1"),
 	})

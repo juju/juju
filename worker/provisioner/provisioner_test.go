@@ -6,6 +6,7 @@ package provisioner_test
 import (
 	stdcontext "context"
 	"fmt"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -336,9 +337,10 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 
 				if checkPossibleTools != nil {
 					for _, t := range o.PossibleTools {
-						url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-							s.st.Addr(), coretesting.ModelTag.Id(), t.Version)
-						c.Check(t.URL, gc.Equals, url)
+						url := s.st.Addr()
+						url.Scheme = "https"
+						url.Path = path.Join(url.Path, "model", coretesting.ModelTag.Id(), "tools", t.Version.String())
+						c.Check(t.URL, gc.Equals, url.String())
 						t.URL = ""
 					}
 					for _, t := range checkPossibleTools {

@@ -4,8 +4,8 @@
 package upgrader_test
 
 import (
-	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	stdtesting "testing"
 	"time"
@@ -230,8 +230,10 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), newTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	newTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.4.5-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
+	url := s.APIState.Addr()
+	url.Scheme = "https"
+	url.Path = path.Join(url.Path, "model", coretesting.ModelTag.Id(), "tools", "5.4.5-ubuntu-amd64")
+	newTools.URL = url.String()
 	envtesting.CheckTools(c, foundTools, newTools)
 }
 
@@ -367,8 +369,10 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	downgradeTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.3.3-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
+	url := s.APIState.Addr()
+	url.Scheme = "https"
+	url.Path = path.Join(url.Path, "model", coretesting.ModelTag.Id(), "tools", "5.3.3-ubuntu-amd64")
+	downgradeTools.URL = url.String()
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
@@ -421,8 +425,10 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	downgradeTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.4.2-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
+	url := s.APIState.Addr()
+	url.Scheme = "https"
+	url.Path = path.Join(url.Path, "model", coretesting.ModelTag.Id(), "tools", "5.4.2-ubuntu-amd64")
+	downgradeTools.URL = url.String()
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
@@ -458,8 +464,10 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToPriorMinorVersion(c *gc.C) 
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), prevTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	prevTools.URL = fmt.Sprintf("https://%s/model/%s/tools/5.3.0-ubuntu-amd64",
-		s.APIState.Addr(), coretesting.ModelTag.Id())
+	url := s.APIState.Addr()
+	url.Scheme = "https"
+	url.Path = path.Join(url.Path, "model", coretesting.ModelTag.Id(), "tools", "5.3.0-ubuntu-amd64")
+	prevTools.URL = url.String()
 	envtesting.CheckTools(c, foundTools, prevTools)
 }
 

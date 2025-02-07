@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	gopath "path"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -22,20 +23,23 @@ import (
 // HTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
 // client pointing to the API server "/model/:uuid/" path.
 func (s *state) HTTPClient() (*httprequest.Client, error) {
-	baseURL, err := s.apiEndpoint("/", "")
+	apiPath, err := apiPath(s.modelTag.Id(), "/")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return s.httpClient(baseURL)
+	url := s.Addr()
+	url.Scheme = s.serverScheme
+	url.Path = gopath.Join(url.Path, apiPath)
+
+	return s.httpClient(url)
 }
 
 // RootHTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
 // client pointing to the API server root path.
 func (s *state) RootHTTPClient() (*httprequest.Client, error) {
-	return s.httpClient(&url.URL{
-		Scheme: s.serverScheme,
-		Host:   s.Addr(),
-	})
+	url := s.Addr()
+	url.Scheme = s.serverScheme
+	return s.httpClient(url)
 }
 
 func (s *state) httpClient(baseURL *url.URL) (*httprequest.Client, error) {

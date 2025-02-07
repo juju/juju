@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/network"
@@ -34,12 +35,7 @@ func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	// Replace the IP address in the URL with the
-	// host name so that tests can check it more
-	// easily.
-	u, _ := url.Parse(result.urlStr)
-	u.Host = result.addr
-	return result.conn, u.String(), nil
+	return result.conn, result.dialAddr.String(), nil
 }
 
 // CookieURL returns the cookie URL of the connection.
@@ -73,19 +69,19 @@ type TestingStateParams struct {
 // NewTestingState creates an api.State object that can be used for testing. It
 // isn't backed onto an actual API server, so actual RPC methods can't be
 // called on it. But it can be used for testing general behaviour.
-func NewTestingState(params TestingStateParams) Connection {
+func NewTestingState(c *gc.C, params TestingStateParams) Connection {
 	var modelTag names.ModelTag
 	if params.ModelTag != "" {
 		t, err := names.ParseModelTag(params.ModelTag)
-		if err != nil {
-			panic("invalid model tag")
-		}
+		c.Assert(err, gc.IsNil)
 		modelTag = t
 	}
+	url, err := url.Parse(params.Address)
+	c.Assert(err, gc.IsNil)
 	st := &state{
 		client:         params.RPCConnection,
 		clock:          params.Clock,
-		addr:           params.Address,
+		addr:           url,
 		modelTag:       modelTag,
 		hostPorts:      params.APIHostPorts,
 		facadeVersions: params.FacadeVersions,

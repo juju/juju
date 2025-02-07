@@ -4,7 +4,7 @@
 package upgrader_test
 
 import (
-	"fmt"
+	"path"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -258,9 +258,10 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 		c.Check(results.Results, gc.HasLen, 1)
 		c.Assert(results.Results[0].Error, gc.IsNil)
 		agentTools := results.Results[0].ToolsList[0]
-		url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-			s.APIState.Addr(), coretesting.ModelTag.Id(), current)
-		c.Check(agentTools.URL, gc.Equals, url)
+		url := s.APIState.Addr()
+		url.Scheme = "https"
+		url.Path = path.Join(url.Path, "model", coretesting.ModelTag.Id(), "tools", current.String())
+		c.Check(agentTools.URL, gc.Equals, url.String())
 		c.Check(agentTools.Version, gc.DeepEquals, current)
 	}
 	assertTools()

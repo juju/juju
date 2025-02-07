@@ -30,8 +30,8 @@ type state struct {
 	conn   jsoncodec.JSONConn
 	clock  clock.Clock
 
-	// addr is the address used to connect to the API server.
-	addr string
+	// addr is the URL used to connect to the root of the API server.
+	addr *url.URL
 
 	// ipAddr is the IP address used to connect to the API server.
 	ipAddr string
@@ -148,24 +148,18 @@ func (st *state) setLoginResult(p *LoginResultParams) error {
 	st.modelAccess = p.modelAccess
 
 	hostPorts := p.servers
-	// if the connection is not proxied then we will add the connection address
-	// to host ports
-	if !st.IsProxied() {
-		hostPorts, err = addAddress(p.servers, st.addr)
+	// If the connection is not proxied then we will add the connection address
+	// to host ports. Additionally if the connection address includes a path,
+	// it can't be added to host ports as it will lose the path so skip the
+	// address in scenarios where we connect through a load-balancer.
+	if !st.IsProxied() && st.addr.Path == "" {
+		hostPorts, err = addAddress(p.servers, st.addr.Host)
 		if err != nil {
 			if clerr := st.Close(); clerr != nil {
 				err = errors.Annotatef(err, "error closing state: %v", clerr)
 			}
 			return err
 		}
-	}
-	st.hostPorts = hostPorts
-
-	if err != nil {
-		if clerr := st.Close(); clerr != nil {
-			err = errors.Annotatef(err, "error closing state: %v", clerr)
-		}
-		return err
 	}
 	st.hostPorts = hostPorts
 

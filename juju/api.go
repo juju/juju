@@ -6,7 +6,10 @@ package juju
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"reflect"
+	"slices"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -134,12 +137,16 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 	if v, ok := st.ServerVersion(); ok {
 		agentVersion = v.String()
 	}
+
 	params := UpdateControllerParams{
-		AgentVersion:      agentVersion,
-		AddrConnectedTo:   st.Addr(),
-		IPAddrConnectedTo: st.IPAddr(),
-		CurrentHostPorts:  hostPorts,
-		DNSCache:          dnsCache,
+		AgentVersion:     agentVersion,
+		CurrentHostPorts: hostPorts,
+		DNSCache:         dnsCache,
+		CurrentConnection: &currentConnection{
+			Proxied:   st.IsProxied(),
+			Address:   st.Addr(),
+			IPAddress: st.IPAddr(),
+		},
 	}
 	if host := st.PublicDNSName(); host != "" {
 		params.PublicDNSName = &host
@@ -285,6 +292,21 @@ func addrsChanged(a, b []string) (bool, bool) {
 	return outOfOrder, false
 }
 
+// currentConnection represents information
+// about a recently established connection.
+type currentConnection struct {
+	// Proxied indicates if the connection was proxied.
+	Proxied bool
+
+	// Address is an API address that has been recently
+	// connected to.
+	Address *url.URL
+
+	// IPAddress is the IP address of Address
+	// that has been recently connected to.
+	IPAddress string
+}
+
 // UpdateControllerParams holds values used to update a controller details
 // after bootstrap or a login operation.
 type UpdateControllerParams struct {
@@ -294,13 +316,9 @@ type UpdateControllerParams struct {
 	// CurrentHostPorts are the available api addresses.
 	CurrentHostPorts []network.MachineHostPorts
 
-	// AddrConnectedTo (when set) is an API address that has been recently
-	// connected to.
-	AddrConnectedTo string
-
-	// IPAddrConnected to (when set) is the IP address of AddrConnectedTo
-	// that has been recently connected to.
-	IPAddrConnectedTo string
+	// CurrentConnection provides information on the address
+	// we are connected to.
+	CurrentConnection *currentConnection
 
 	// Proxier
 	Proxier proxy.Proxier
@@ -337,18 +355,7 @@ func updateControllerDetailsFromLogin(
 	controllerName string, details *jujuclient.ControllerDetails,
 	params UpdateControllerParams,
 ) error {
-	hostPorts := usableHostPorts(params.CurrentHostPorts).Strings()
-	// Move the connected-to host (if present) to the front of the address list.
-	host, _, err := net.SplitHostPort(params.AddrConnectedTo)
-	if err == nil {
-		moveToFront(host, hostPorts)
-	}
-	// Move the IP address used to the front of the DNS cache entry
-	// (if present) so that it will be the first address dialed.
-	ipHost, _, err := net.SplitHostPort(params.IPAddrConnectedTo)
-	if err == nil {
-		moveToFront(ipHost, params.DNSCache[host])
-	}
+	addresses := makeUsableAddresses(&params)
 
 	newDetails := new(jujuclient.ControllerDetails)
 	*newDetails = *details
@@ -360,7 +367,7 @@ func updateControllerDetailsFromLogin(
 	}
 
 	newDetails.AgentVersion = params.AgentVersion
-	newDetails.APIEndpoints = hostPorts
+	newDetails.APIEndpoints = addresses
 	newDetails.DNSCache = params.DNSCache
 	if params.MachineCount != nil {
 		newDetails.MachineCount = params.MachineCount
@@ -381,8 +388,43 @@ func updateControllerDetailsFromLogin(
 	} else if reordered {
 		logger.Tracef("API endpoints reordered from %v to %v", details.APIEndpoints, newDetails.APIEndpoints)
 	}
-	err = store.UpdateController(controllerName, *newDetails)
+	err := store.UpdateController(controllerName, *newDetails)
 	return errors.Trace(err)
+}
+
+// makeUsableAddresses returns a list of controller addresses
+// in a format appropriate for persisting in the Juju client store.
+// The addresses will be a URL but omit any scheme i.e. <domain>:<port>/<path>
+// The addresses are filtered to only those unique and usable.
+// Finally, the params.DNSCache will be updated.
+func makeUsableAddresses(params *UpdateControllerParams) []string {
+	addresses := usableHostPorts(params.CurrentHostPorts).Strings()
+
+	// Ignore the currently connected address if there is no current
+	// connection (during bootstrap) or if the connection is proxied.
+	if params.CurrentConnection == nil ||
+		params.CurrentConnection.Address == nil ||
+		params.CurrentConnection.Proxied {
+		return addresses
+	}
+
+	connectedUrl := params.CurrentConnection.Address
+	urlWithoutScheme := connectedUrl.Host + connectedUrl.RequestURI()
+	urlWithoutScheme, _ = strings.CutSuffix(urlWithoutScheme, "/")
+
+	// Move the connected-to host to the front of the address list.
+	if !slices.Contains(addresses, urlWithoutScheme) {
+		addresses = slices.Insert(addresses, 0, urlWithoutScheme)
+	}
+
+	// Move the IP address used to the front of the DNS cache entry
+	// so that it will be the first address dialed.
+	ipHost, _, err := net.SplitHostPort(params.CurrentConnection.IPAddress)
+	if err == nil {
+		host := connectedUrl.Hostname()
+		moveToFront(ipHost, params.DNSCache[host])
+	}
+	return addresses
 }
 
 // dnsCacheMap implements api.DNSCache by
