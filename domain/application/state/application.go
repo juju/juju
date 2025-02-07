@@ -546,6 +546,15 @@ WHERE uuid = $unitPassword.uuid
 	return nil
 }
 
+// GetUnitStatus returns the status of the specified unit.
+func (st *State) GetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID) (*application.StatusInfo[application.UnitWorkloadStatusType], error) {
+	return nil, errors.Errorf("not implemented")
+}
+
+func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status *application.StatusInfo[application.UnitWorkloadStatusType]) error {
+	return errors.Errorf("not implemented")
+}
+
 func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
 	result := &application.CloudContainer{
 		ProviderID: cloudContainer.ProviderID,
