@@ -5,4 +5,4 @@
 // components of a virtual hostname. Currently only intended
 // for use by the SSH proxy feature, hostnames can reference
 // machines, units, and pods.
-package hostname
+package virtualhostname

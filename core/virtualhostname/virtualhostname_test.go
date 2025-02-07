@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package hostname
+package virtualhostname
 
 import (
 	"testing"
@@ -94,7 +94,7 @@ func (s *HostnameSuite) TestParseHostname(c *gc.C) {
 	}
 	for i, tC := range testCases {
 		c.Logf("test %d: %s", i, tC.desc)
-		res, err := ParseHostname(tC.hostname)
+		res, err := Parse(tC.hostname)
 		if tC.expectedErr == "" {
 			c.Assert(err, gc.IsNil)
 			c.Assert(res, gc.DeepEquals, tC.result)

@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package hostname
+package virtualhostname
 
 import (
 	"fmt"
@@ -87,10 +87,10 @@ var (
 	hostnameMatcher = regexp.MustCompile(`^(?:(?<containername>[a-zA-Z0-9-]+)\.)?(?<unitnumber>\d+)\.(?:(?<appname>[a-zA-Z0-9-]+)\.)?(?<modeluuid>[0-9a-fA-F-]+)\.(?<domain>[a-zA-Z0-9.-]+)$`)
 )
 
-// ParseHostname parses a virtual Juju hostname
+// Parse parses a virtual Juju hostname
 // that references entities like machines, units
 // and containers.
-func ParseHostname(hostname string) (Info, error) {
+func Parse(hostname string) (Info, error) {
 	match := hostnameMatcher.FindStringSubmatch(hostname)
 	if match == nil {
 		return Info{}, ErrNoMatch
