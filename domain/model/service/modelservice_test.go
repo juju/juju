@@ -63,13 +63,6 @@ func (s *modelServiceSuite) TestGetModelConstraints(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	cons := constraints.Value{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
-	}
 	modelConstraints := model.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
@@ -87,6 +80,14 @@ func (s *modelServiceSuite) TestGetModelConstraints(c *gc.C) {
 	)
 	result, err := svc.GetModelConstraints(context.Background())
 	c.Check(err, jc.ErrorIsNil)
+
+	cons := constraints.Value{
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
+	}
 	c.Check(result, gc.DeepEquals, cons)
 }
 
@@ -137,14 +138,6 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	cons := constraints.Value{
-		Arch:      ptr("amd64"),
-		Container: ptr(instance.NONE),
-		CpuCores:  ptr(uint64(4)),
-		Mem:       ptr(uint64(1024)),
-		RootDisk:  ptr(uint64(1024)),
-		Spaces:    ptr([]string{"space1", "^space2"}),
-	}
 	modelCons := model.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
@@ -168,6 +161,15 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
 		s.mockModelState,
 		s.environVersionProviderGetter(),
 	)
+
+	cons := constraints.Value{
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.NONE),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
+		Spaces:    ptr([]string{"space1", "^space2"}),
+	}
 	err := svc.SetModelConstraints(context.Background(), cons)
 	c.Check(err, jc.ErrorIsNil)
 }
