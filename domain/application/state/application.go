@@ -1701,7 +1701,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
     status_id = excluded.status_id,
     message = excluded.message,
     updated_at = excluded.updated_at,
-	data = excluded.data;
+    data = excluded.data;
 `, statusInfo)
 	if err != nil {
 		return jujuerrors.Trace(err)
@@ -1741,7 +1741,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
     status_id = excluded.status_id,
     message = excluded.message,
     updated_at = excluded.updated_at,
-	data = excluded.data;
+    data = excluded.data;
 `, statusInfo)
 	if err != nil {
 		return jujuerrors.Trace(err)
@@ -1781,7 +1781,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
     status_id = excluded.status_id,
     message = excluded.message,
     updated_at = excluded.updated_at,
-	data = excluded.data;
+    data = excluded.data;
 `, statusInfo)
 	if err != nil {
 		return jujuerrors.Trace(err)
@@ -2774,7 +2774,7 @@ AND key IN ($S[:]);
 INSERT INTO application_setting (*)
 VALUES ($setApplicationSettings.*)
 ON CONFLICT(application_uuid) DO UPDATE SET
-	trust = excluded.trust;
+    trust = excluded.trust;
 `
 
 	appStmt, err := st.Prepare(appQuery, ident)
