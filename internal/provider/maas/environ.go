@@ -849,7 +849,7 @@ func (env *maasEnviron) waitForNodeDeployment(ctx envcontext.ProviderCallContext
 		if errors.Is(err, errors.NotProvisioned) {
 			return true
 		}
-		if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+		if denied := common.HandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 			return true
 		}
 		return false
@@ -954,7 +954,7 @@ func (env *maasEnviron) releaseNodes(ctx envcontext.ProviderCallContext, ids []i
 	}
 	err := env.maasController.ReleaseMachines(args)
 
-	denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx)
+	denied := common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 	switch {
 	case err == nil:
 		return nil
@@ -990,7 +990,7 @@ func (env *maasEnviron) releaseNodesIndividually(ctx envcontext.ProviderCallCont
 		if err != nil {
 			lastErr = err
 			logger.Errorf(context.TODO(), "error while releasing node %v (%v)", id, err)
-			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			if denied := common.HandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				break
 			}
 		}

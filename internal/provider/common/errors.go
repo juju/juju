@@ -39,9 +39,9 @@ var AuthorisationFailureStatusCodes = set.NewInts(
 	http.StatusProxyAuthRequired,
 )
 
-// MaybeHandleCredentialError determines if a given error relates to an invalid credential.
+// HandleCredentialError determines if a given error relates to an invalid credential.
 // If it is, the credential is invalidated and the return bool is true.
-func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx envcontext.ProviderCallContext) bool {
+func HandleCredentialError(isAuthError func(error) bool, err error, ctx envcontext.ProviderCallContext) bool {
 	denied := isAuthError(errors.Cause(err))
 	if denied {
 		converted := fmt.Errorf("cloud denied access: %w", CredentialNotValidError(err))
@@ -51,11 +51,6 @@ func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx env
 		}
 	}
 	return denied
-}
-
-// HandleCredentialError determines if a given error relates to an invalid credential.
-func HandleCredentialError(isAuthError func(error) bool, err error, ctx envcontext.ProviderCallContext) {
-	MaybeHandleCredentialError(isAuthError, err, ctx)
 }
 
 // CredentialInvalidatorContext returns a provider call context.

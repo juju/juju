@@ -67,7 +67,7 @@ func (s *ErrorsSuite) TestNoValidation(c *gc.C) {
 	isAuthF := func(e error) bool {
 		return true
 	}
-	denied := common.MaybeHandleCredentialError(isAuthF, authFailureError, envcontext.WithoutCredentialInvalidator(context.Background()))
+	denied := common.HandleCredentialError(isAuthF, authFailureError, envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
 	c.Assert(denied, jc.IsTrue)
 }
@@ -79,7 +79,7 @@ func (s *ErrorsSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
 		return errors.New("kaboom")
 	})
-	denied := common.MaybeHandleCredentialError(isAuthF, authFailureError, ctx)
+	denied := common.HandleCredentialError(isAuthF, authFailureError, ctx)
 	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored cloud credential on the controller")
 	c.Assert(denied, jc.IsTrue)
 }
@@ -113,7 +113,7 @@ func (s *ErrorsSuite) checkPermissionHandling(c *gc.C, e error, handled bool) {
 		return nil
 	})
 
-	denied := common.MaybeHandleCredentialError(isAuthF, e, ctx)
+	denied := common.HandleCredentialError(isAuthF, e, ctx)
 	c.Assert(called, gc.Equals, handled)
 	c.Assert(denied, gc.Equals, handled)
 }
