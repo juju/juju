@@ -208,11 +208,11 @@ func (v *Value) AddSpace(space string, excluded bool) {
 func (v *Value) extractItems(field []string, included bool) []string {
 	var items []string
 	for _, name := range field {
-		prefixed := strings.HasPrefix(name, excludedPrefix)
-		if prefixed && !included {
+		isExcluded := strings.HasPrefix(name, excludedPrefix)
+		if isExcluded && !included {
 			// has prefix and we want negatives.
 			items = append(items, strings.TrimPrefix(name, excludedPrefix))
-		} else if !prefixed && included {
+		} else if !isExcluded && included {
 			// no prefix and we want positives.
 			items = append(items, name)
 		}
