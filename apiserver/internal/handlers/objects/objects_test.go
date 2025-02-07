@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/state"
 )
 
 const (
@@ -149,16 +148,6 @@ func (s *objectsHandlerSuite) TestServeGetNotFound(c *gc.C) {
 
 func (s *objectsHandlerSuite) expectObjectStore() {
 	s.objectStoreGetter.EXPECT().ObjectStore(gomock.Any()).Return(s.objectStore, nil)
-}
-
-func (s *objectsHandlerSuite) expectModelState() {
-	s.stateGetter.EXPECT().GetState(gomock.Any()).Return(s.modelState, nil)
-	s.modelState.EXPECT().Release().Return(true)
-}
-
-func (s *objectsHandlerSuite) expectModel() {
-	s.modelState.EXPECT().Model().Return(s.model, nil)
-	s.model.EXPECT().MigrationMode().Return(state.MigrationModeNone)
 }
 
 func (s *objectsHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
