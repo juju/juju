@@ -1181,6 +1181,54 @@ func (s *applicationServiceSuite) TestSetUnitPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *applicationServiceSuite) TestGetWorkloadUnitStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
+		&application.StatusInfo[application.UnitWorkloadStatusType]{
+			Status:  application.UnitWorkloadStatusActive,
+			Message: "doink",
+			Data:    []byte(`{"foo":"bar"}`),
+			Since:   &now,
+		}, nil)
+
+	obtained, err := s.service.GetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+}
+
+func (s *applicationServiceSuite) TestSetWorkloadUnitStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, &application.StatusInfo[application.UnitWorkloadStatusType]{
+		Status:  application.UnitWorkloadStatusActive,
+		Message: "doink",
+		Data:    []byte(`{"foo":"bar"}`),
+		Since:   &now,
+	})
+
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

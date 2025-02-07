@@ -70,6 +70,12 @@ type ApplicationState interface {
 	// SetUnitPassword updates the password for the specified unit UUID.
 	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
 
+	// GetUnitWorkloadStatus returns the workload status of the specified unit.
+	GetUnitWorkloadStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.UnitWorkloadStatusType], error)
+
+	// SetUnitWorkloadStatus sets the workload status of the specified unit.
+	SetUnitWorkloadStatus(context.Context, coreunit.UUID, *application.StatusInfo[application.UnitWorkloadStatusType]) error
+
 	// DeleteUnit deletes the specified unit.
 	// If the unit's application is Dying and no
 	// other references to it exist, true is returned to
@@ -773,6 +779,34 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, p
 		PasswordHash:  password,
 		HashAlgorithm: application.HashAlgorithmSHA256,
 	})
+}
+
+// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
+// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	agentStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return decodeUnitWorkloadStatus(agentStatus)
+}
+
+// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
+// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name, status *corestatus.StatusInfo) error {
+	workloadStatus, err := encodeUnitWorkloadStatus(status)
+	if err != nil {
+		return internalerrors.Errorf("encoding workload status: %w", err)
+	}
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return s.st.SetUnitWorkloadStatus(ctx, unitUUID, workloadStatus)
 }
 
 // DeleteApplication deletes the specified application, returning an error
