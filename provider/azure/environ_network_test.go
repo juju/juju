@@ -26,7 +26,7 @@ func (s *environSuite) TestSubnetsInstanceIDError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
-func (s *environSuite) TestSubnetsSuccess(c *gc.C) {
+func (s *environSuite) TestSubnetsSuccessOld(c *gc.C) {
 	env := s.openEnviron(c)
 
 	// We wait for common resource creation, then query subnets
@@ -39,6 +39,43 @@ func (s *environSuite) TestSubnetsSuccess(c *gc.C) {
 					ID: to.Ptr("provider-sub-id"),
 					Properties: &armnetwork.SubnetPropertiesFormat{
 						AddressPrefix: to.Ptr("10.0.0.0/24"),
+					},
+				},
+				{
+					// Result without an address prefix is ignored.
+					Properties: &armnetwork.SubnetPropertiesFormat{},
+				},
+			},
+		}),
+	}
+
+	netEnv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsTrue)
+
+	subs, err := netEnv.Subnets(s.callCtx, instance.UnknownId, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(subs, gc.HasLen, 1)
+	c.Check(subs[0].ProviderId, gc.Equals, corenetwork.Id("provider-sub-id"))
+	c.Check(subs[0].CIDR, gc.Equals, "10.0.0.0/24")
+}
+
+func (s *environSuite) TestSubnetsSuccessNew(c *gc.C) {
+	env := s.openEnviron(c)
+
+	// We wait for common resource creation, then query subnets
+	// in the default virtual network created for every model.
+	s.sender = azuretesting.Senders{
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: []*armnetwork.Subnet{
+				{
+					ID: to.Ptr("provider-sub-id"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefixes: []*string{
+							to.Ptr("fd00:27e8:ed0b::/64"),
+							to.Ptr("10.0.0.0/24"),
+						},
 					},
 				},
 				{
