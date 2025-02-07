@@ -46,7 +46,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		return result, errors.Trace(err)
 	}
 
-	env, err := environs.GetEnviron(ctx, api.configGetter, environs.New)
+	env, err := environs.GetEnviron(ctx, api.configGetter, environs.NoopEnvironCredentialInvalidator{}, environs.New)
 	if err != nil {
 		return result, errors.Annotate(err, "retrieving environ")
 	}

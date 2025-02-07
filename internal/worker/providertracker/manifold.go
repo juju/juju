@@ -35,6 +35,10 @@ type ProviderConfigGetter interface {
 
 	// ControllerUUID returns the UUID of the controller.
 	ControllerUUID() uuid.UUID
+
+	// CredentialInvalidator returns a function that invalidates the credentials
+	// for the model.
+	CredentialInvalidator() environs.ModelCredentialInvalidator
 }
 
 // IAASProviderFunc is a function that returns a IAAS provider.
@@ -157,7 +161,7 @@ func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, get
 		// We can't use newProvider directly, as type invariance prevents us
 		// from using it with the environs.GetEnvironAndCloud function.
 		// Just wrap it in a closure to work around this.
-		provider, spec, err := environs.GetEnvironAndCloud(ctx, getter, func(ctx context.Context, op environs.OpenParams) (environs.Environ, error) {
+		provider, spec, err := environs.GetEnvironAndCloud(ctx, getter, getter, func(ctx context.Context, op environs.OpenParams) (environs.Environ, error) {
 			return newProvider(ctx, op)
 		})
 		if err != nil {

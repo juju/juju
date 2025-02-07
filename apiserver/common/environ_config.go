@@ -28,6 +28,6 @@ func EnvironFuncForModel(model stateenvirons.Model, cloudService CloudService,
 		}
 	}
 	return func(ctx context.Context) (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(ctx, configGetter, environs.New)
+		return environs.GetEnviron(ctx, configGetter, environs.NoopEnvironCredentialInvalidator{}, environs.New)
 	}
 }

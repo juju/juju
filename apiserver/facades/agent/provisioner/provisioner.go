@@ -153,7 +153,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	if isCaasModel {
 		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	} else {
-		env, err = environs.GetEnviron(stdCtx, configGetter, environs.New)
+		env, err = environs.GetEnviron(stdCtx, configGetter, environs.NoopEnvironCredentialInvalidator{}, environs.New)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -215,7 +215,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 
 	newEnviron := func(ctx context.Context) (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(ctx, configGetter, environs.New)
+		return environs.GetEnviron(ctx, configGetter, environs.NoopEnvironCredentialInvalidator{}, environs.New)
 	}
 
 	api.InstanceIdGetter = common.NewInstanceIdGetter(domainServices.Machine(), getAuthFunc)
@@ -1104,7 +1104,7 @@ func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access
 // for working with containers.
 func (api *ProvisionerAPI) prepareContainerAccessEnvironment(ctx context.Context) (environs.Environ, *state.Machine, common.AuthFunc, error) {
-	env, err := environs.GetEnviron(ctx, api.configGetter, environs.New)
+	env, err := environs.GetEnviron(ctx, api.configGetter, environs.NoopEnvironCredentialInvalidator{}, environs.New)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
