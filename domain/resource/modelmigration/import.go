@@ -28,16 +28,18 @@ type Coordinator interface {
 // RegisterImport registers the import operations with the given coordinator.
 func RegisterImport(
 	coordinator Coordinator,
+	clock clock.Clock,
 	logger logger.Logger,
 ) {
 	coordinator.Add(&importOperation{
+		clock:  clock,
 		logger: logger,
 	})
 }
 
-// ResourceService provides a subset of the resource domain service methods
+// ImportService provides a subset of the resource domain service methods
 // needed for resource import.
-type ResourceService interface {
+type ImportService interface {
 	// ImportResources sets resources imported in migration. It first builds all the
 	// resources to insert from the arguments, then inserts them at the end so as to
 	// wait as long as possible before turning into a write transaction.
@@ -47,7 +49,7 @@ type ResourceService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	resourceService ResourceService
+	resourceService ImportService
 
 	clock  clock.Clock
 	logger logger.Logger

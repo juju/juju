@@ -46,7 +46,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c))
+	RegisterImport(s.coordinator, nil, loggertesting.WrapCheckLog(c))
 }
 
 func (s *importSuite) TestEmptyImport(c *gc.C) {

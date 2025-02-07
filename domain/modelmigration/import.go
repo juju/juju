@@ -59,7 +59,7 @@ func ImportOperations(
 	network.RegisterImport(coordinator, logger.Child("network"))
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	application.RegisterImport(coordinator, storageRegistryGetter, clock, logger.Child("application"))
-	resource.RegisterImport(coordinator, logger.Child("resource"))
+	resource.RegisterImport(coordinator, clock, logger.Child("resource"))
 	port.RegisterImport(coordinator, logger.Child("port"))
 	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
 	// TODO(storage) - we need to break out storage pools and import BEFORE applications.
