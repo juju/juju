@@ -1,5 +1,5 @@
 (architectural-overview)=
-# Juju Architectural Overview
+# Juju architectural overview
 
 
 ## Audience
@@ -10,7 +10,7 @@ light on detail, because the precise mechanisms of various components' operation
 expected to change much faster than the general interactions between components.
 
 
-## The View From Space
+## The view From space
 
 A Juju model is a distributed system comprising:
 
@@ -31,7 +31,7 @@ forget that *everything* described in this document is merely supporting infrast
 geared towards the successful deployment and configuration of the workloads that solve
 actual problems for actual users).
 
-## Juju Components
+## Juju components
 
 Here's the various high level parts of Juju system and how they interact:
 

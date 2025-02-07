@@ -1,5 +1,5 @@
-(juju-api-design-specification)=
-# Juju API Design Specification
+(api-design-specification)=
+# API Design Specification
 
 ## Status
 
@@ -18,30 +18,30 @@
 
 ### Purpose
 
-The *Juju API* is the central interface to control the functionality of Juju. It 
-is used by the command line tools as well as by the Juju Dashboard. This document 
+The *Juju API* is the central interface to control the functionality of Juju. It
+is used by the command line tools as well as by the Juju Dashboard. This document
 describes the API design for developers maintaining and extending the API.
 
 ### Scope
 
 Juju's working model is based on the description of a wanted environment in a
-DBMS. Different workers observe the changes of this description and perform the 
-needed actions so that the reality is matching. Goal of the API is to provide a 
-secure, scalable, and high-available way to perform the needed changes or queries 
-with different clients like the Juju CLI, which is written in Go, or the Juju 
-Dashboard, which is written in JavaScript. Additionally the API provides multiple versions 
+DBMS. Different workers observe the changes of this description and perform the
+needed actions so that the reality is matching. Goal of the API is to provide a
+secure, scalable, and high-available way to perform the needed changes or queries
+with different clients like the Juju CLI, which is written in Go, or the Juju
+Dashboard, which is written in JavaScript. Additionally the API provides multiple versions
 of its functionality for a predictable behavior in environments with a mixed set of
 clients.
 
 ### Overview
 
-This document provides a detailed specification of 
+This document provides a detailed specification of
 
-- the basic components of the API, 
+- the basic components of the API,
 - the types of requests,
-- the data format of requests and responses, 
-- the marshaling and unmarshaling of requests and responses, 
-- the dispatching of requests to their according business logic, and 
+- the data format of requests and responses,
+- the marshaling and unmarshaling of requests and responses,
+- the dispatching of requests to their according business logic, and
 - the versioning of the API functionality.
 
 ### Reference Material
@@ -50,8 +50,8 @@ This document provides a detailed specification of
 
 ### Definitions and Acronyms
 
-- **Facade** A registered and versioned type which is addressed by API 
-  requests. It creates an instance providing a set of methods for one 
+- **Facade** A registered and versioned type which is addressed by API
+  requests. It creates an instance providing a set of methods for one
   entity or a cohesive functionality.
 - **JSON** JavaScript Object Notation
 - **RPC** Remote Procedure Calls
@@ -61,28 +61,28 @@ This document provides a detailed specification of
 ## Requirements
 
 - As a user of Trusty, I want to be able to bootstrap a model today, and be
-  able to trust that in 2 years I will still be able to access/control/update that 
+  able to trust that in 2 years I will still be able to access/control/update that
   model even when I’ve upgraded my juju client tools.
-- As a group with heterogeneous clients, we want to be able to bootstrap a new 
+- As a group with heterogeneous clients, we want to be able to bootstrap a new
   model, and trust that all clients are still able to connect and manage the
   model.
 - As a user with a new Juju client, I want to be able to bootstrap a new model
   and have access to all the latest features for that model. (HA, User accounts,
   etc.)
-- As an Agent, I want to be able to communicate with the API server to be able to perform 
-  my regular tasks, and be able to upgrade to stay in sync with the desired agent version. 
-  It is expected that we won’t always be able to stay in perfect synchronization, 
+- As an Agent, I want to be able to communicate with the API server to be able to perform
+  my regular tasks, and be able to upgrade to stay in sync with the desired agent version.
+  It is expected that we won’t always be able to stay in perfect synchronization,
   especially in an environment with heterogeneous architectures and platforms.
-- As a developer, I want to be able to make a change to an existing named API in such 
-  a fashion that new clients are able to make use of the new functionality, but older 
+- As a developer, I want to be able to make a change to an existing named API in such
+  a fashion that new clients are able to make use of the new functionality, but older
   clients can still use the API in a compatible fashion.
 
 ## System Overview
 
 ### WebSockets
 
-The major functionality of the Juju API is based on a request/response model 
-using WebSockets as communication layer. Each client connects to the API server 
+The major functionality of the Juju API is based on a request/response model
+using WebSockets as communication layer. Each client connects to the API server
 of the model. In case of high-availability a model provides multiple
 API servers and a client connects to one of them.
 
@@ -94,7 +94,7 @@ to identify responses to asynchronous requests.
 This part of the API handles two different major types of requests:
 
 1. simple requests, which may return a response, and
-2. watcher requests for the observation of changes to collections or individual 
+2. watcher requests for the observation of changes to collections or individual
    entities.
 
 Watcher requests are also request/response calls. But they create server-side
@@ -107,7 +107,7 @@ Beside the communication using WebSockets there are several parts of the
 API using standard HTTP requests. Individual handlers registered for the
 according paths care for those requests.
 
-The first one is the charm handler, which supports HTTP POST to add a local 
+The first one is the charm handler, which supports HTTP POST to add a local
 charm to the store provider and HTTP GET to retrieve or list charm files. The
 second one is the agent binaries handler, which supports HTTP POST for the upload of
 agent binaries to the API server. Last but not least the API provides a backup handler
@@ -125,25 +125,25 @@ send it back as an answer to the caller.
 
 The *API server* subsystem implements the server side of the API. It provides a root
 object for the *RPC* subsystem using a global registry. Here factory methods are registered
-for request types and versions. 
+for request types and versions.
 
-When receiving a request the *RPC* uses a defined finder method of the root object 
-interface to retrieve a *method caller* instance matching to the type, version and 
-request information that are part of the request. In case of success the *RPC* executes 
+When receiving a request the *RPC* uses a defined finder method of the root object
+interface to retrieve a *method caller* instance matching to the type, version and
+request information that are part of the request. In case of success the *RPC* executes
 a call of that method together with an optional ID of the typed instance and also
-optional arguments. The root object of the *API server* returns a method caller 
+optional arguments. The root object of the *API server* returns a method caller
 which uses the factory method registered for type and version. This factory method
-is called with the *state*, *resources* and an *authorizer* as arguments. The resources 
-hold all the resources for a connection and will be cleaned up when the connection 
-terminates. The authorizer represents a value that can be asked for authorization 
-information on its associated authenticated entity. It allows an API 
+is called with the *state*, *resources* and an *authorizer* as arguments. The resources
+hold all the resources for a connection and will be cleaned up when the connection
+terminates. The authorizer represents a value that can be asked for authorization
+information on its associated authenticated entity. It allows an API
 implementation to ask questions about the client that is currently connected.
 
 The result of calling the factory method is an initialized new instance of the request
 type to handle the request itself. The *RPC* subsystem maps the request name, which is
-part of the request, to one of the methods of this instance. There is a number of valid 
-methods signatures, depending on the possible combination of calling parameters, responses, 
-and errors (see description in *Component Design*). 
+part of the request, to one of the methods of this instance. There is a number of valid
+methods signatures, depending on the possible combination of calling parameters, responses,
+and errors (see description in *Component Design*).
 
 *TODO: Go API client description.*
 
@@ -165,7 +165,7 @@ Core package for the API is [rpc](https://github.com/juju/juju/tree/master/rpc).
 It defines the `Codec` interface for the reading and writing of messages in an RPC
 session and the `MethodFinder` interface to retrieve the method to call for a request.
 The endpoint type `Conn` uses implementations of `Codec` and `MethodFinder`. This way
-diferent implementations can be used. 
+diferent implementations can be used.
 
 The standard `Codec` is implemented in [jsoncodec](https://github.com/juju/juju/tree/master/rpc/jsoncodec).
 It uses WebSockets for communication and JSON for encoding. The standard `MethodFinder`
@@ -200,7 +200,7 @@ depending on the combination of parameter, result, and error.
 - `RequestMethod(ParameterType) error`
 
 Both `ParameterType` and `ResultType` have to be structs. Possible results and
-errors are marshaled again to JSON and wrapped into an envelope containing also the 
+errors are marshaled again to JSON and wrapped into an envelope containing also the
 request identifier.
 
 #### Example
@@ -237,8 +237,8 @@ The returned `Server` instance holds the server side of the API. After starting
 the server several handlers are registered. One of them is the API server
 by registering `Server.apiHandler()` as handler function. It receives the
 HTTP request and starts the individual WebSockets connection. Inside of
-`Server.serveConn()` it uses the WebSocket to etablish the RPC using 
-the JSON codec. 
+`Server.serveConn()` it uses the WebSocket to etablish the RPC using
+the JSON codec.
 
 In case of a valid model UUID a new server controller instance is
 created using `apiserver.initialRoot` with an `apiserver.srvAdmin` for the

@@ -17,7 +17,7 @@ another worker.
 In Juju, a **worker** is, in its simplest form, a goroutine. Almost always, it watches for events and performs or dispatches work based on those events. (This is the essence of an agent-based system.) We never proactively emit events to workers – they’re just always watching and responding to changes (perform tasks based on the declared Juju status; the workers responsible for a unit / the uniter they watch state and then fire hooks to the charm).**
 -->
 
-# List of workers run by the dependency engine
+## List of workers run by the dependency engine
 
 In Juju, the term "worker" is most commonly used to denote types whose instances are run by the dependency engine. These
 types are defined by the worker packages listeds below.
@@ -686,7 +686,7 @@ model events. The uniter worker sets up the various components which make that h
 loop.
 
 <!--
-A unit worker, is a state-machine that manages a unit's workload operations in a unit agent. It is single-threaded, and runs a sequence of functions called *modes*. 
+A unit worker, is a state-machine that manages a unit's workload operations in a unit agent. It is single-threaded, and runs a sequence of functions called *modes*.
 
 There are two fundamental components of a unit worker:
 

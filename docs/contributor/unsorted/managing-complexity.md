@@ -1,7 +1,6 @@
 (managing-complexity)=
+# Managing complexity
 
-On Complexity
-=============
 
 Complexity kills software. Successfully developing software for the long term
 is an exercise in managing complexity; once the whole picture becomes too big
@@ -13,8 +12,7 @@ very hard to estimate work accurately, and each of those is a serious problem
 in its own right.
 
 
-Management from above
-----------------------
+## Management from above
 
 The most reassuring approach to managing complexity is to tie it down by sheer
 weight of definition. Surely, if the desired system can be described, it can
@@ -38,8 +36,7 @@ And therefore it doesn't solve the big problems alluded to above, and we need
 to look elsewhere.
 
 
-Management from below
----------------------
+## Management from below
 
 So, what are these "subtle threads" that cause all the problems? They are,
 literally, dependencies. Some of them are declared and thus relatively easy
@@ -66,11 +63,9 @@ develop the good taste, mature judgement, and unreasoning paranoia that leads
 to Good Code.
 
 
-Everything will fail
-====================
+## Everything will fail
 
-TLDR
-----
+**TLDR:**
 
 * Assume that your inputs will deliver pathological nonsense, and your
   clients will ignore any contract your code documents. Fail safe, in
@@ -86,8 +81,7 @@ TLDR
   deserves care and attention, and deterministic testing of pathological
   situations.
 
-Background
-----------
+**Background:**
 
 Everything will fail. The hardware will fail; the network will fail; the power
 will fail. Those are the easy ones. Your code will fail; your colleagues' code
@@ -126,11 +120,10 @@ you don't keep your list of collaborators nice and short; but *everything*
 will be hard if you don't do that.
 
 
-Streamline your dependencies
-============================
+### Streamline your dependencies
 
-TLDR
-----
+
+**TLDR:**
 
 * Make your dependencies explicit.
     * This is IMPORTANT. The more hidden dependencies you have, the less
@@ -143,8 +136,7 @@ TLDR
       very easy to miss, so they should be avoided wherever possible.
     * Per-file considerations also apply.
 
-Background
-----------
+**Background:**
 
 Our puny human brains can only think about a few things at once. To correctly
 interact with a piece of code requires that you understand its relationships
@@ -178,11 +170,9 @@ the package, but some of them modify it, and there's no way to tell which
 without inspecting all of them.
 
 
-Write in layers
-===============
+## Write in layers
 
-TLDR
-----
+**TLDR:**
 
 * In an ideal world, you should be able to make a given change in a clear
   sequence of steps:
@@ -213,8 +203,7 @@ TLDR
       representation of the business rules, and that probably doesn't exist.
     * No easy answer. Keep reading.
 
-Background
-----------
+**Background:**
 
 The decision to tie the business rules to the storage layer was made very early
 in the project's life, and has proven very hard to shake. The CLI and agents
@@ -235,8 +224,7 @@ Please consider the ultimate purpose of each piece of code you write, and do
 your utmost to put it in the appropriate layer.
 
 
-Model
------
+### Model
 
 This layer does not exist in any concrete form. Elements of it are scattered at
 the top level of the source tree (network, instance, etc) and probably elsewhere;
@@ -251,8 +239,7 @@ complex synchronisation inside state (or be aware that you're taking on a very
 tricky project).
 
 
-Persistence
------------
+### Persistence
 
 This layer is implemented in and under the top-level state package. It's not
 just managing a representation of the business rules: it *is* the business rules.
@@ -284,8 +271,7 @@ very hard to untangle.
 * If you see opportunities to extract business rules, investigate them if
   you like, but keep the changes small-scale to begin with.
 
-Services
---------
+### Services
 
 ...think "SOA", not so much juju services.
 
@@ -306,8 +292,7 @@ single package. That's silly; we should have a bunch of subpackages broken up
 according to the various capabilities they provide.
 
 
-Facades
--------
+### Facades
 
 ...these are a bit like services as well, especially because a lot of them have
 their service-layer implementations baked in directly. The job of a facade should
@@ -331,8 +316,7 @@ and changing facades is a hassle, because we need to support every version of
 every facade we've ever used, for an uncomfortably long time.
 
 
-Params
-------
+### Params
 
 Currently loosely organised under `apiserver/params`, this layer should have
 almost no logic, but should contain static, immutable, unchanging representations
@@ -344,8 +328,7 @@ field names, or field types. And, yeah, without logic it's not really a "layer";
 more a representation of the boundary between the facades and the api clients.
 
 
-Clients
--------
+### Clients
 
 Currently loosely organised under `api`, many of the client packages are a
 dreadful mess. As noted above, the CLI and the agents were originally using
@@ -365,8 +348,7 @@ model/params translation layer, with version tracking -- and work to slim down
 those that currently exist.
 
 
-Workers
--------
+### Workers
 
 Ultimately, workers should be manipulating pure model code, and communicating
 with the api server in that language; today, they're pretty casual about using
@@ -381,8 +363,7 @@ types, and running algorithms purely in those terms, will let us extract that
 logic and write smaller, more reliable workers.
 
 
-Further thoughts
-----------------
+### Further thoughts
 
 The terrifyingly tight coupling of the model objects to their persistence
 concerns has an impact that distorts the whole codebase. We can, and should,
@@ -392,19 +373,16 @@ extract business rules and types into model packages, and develop techniques
 that let us reliably render them for mgo/txn persistence.
 
 
-Know your field
-===============
+## Know your field
 
-TLDR
-----
+**TLDR:**
 
 * Lots of smart people have written lots of smart things about software.
 * Also, lots of dumb things. Read lots of both.
 * Learn the difference. Cultivate good taste. If possible, evolve into
   pure energy and ascend to a higher state of being.
 
-Background
-----------
+**Background:**
 
 Seriously. Here's a ludicrously incomplete list of things worth reading.
 

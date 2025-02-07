@@ -18,7 +18,7 @@ acyclic graphs of [workers](worker.md) (i.e., workers and their dependencies, i.
 
 <!-- TOC -->
 
-# List of most important `dependency` package constructs
+## List of most important `dependency` package constructs
 
 This section lists all the most relevant `dependency` package constructs, following a top-down order (going from agent
 to worker).
