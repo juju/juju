@@ -135,12 +135,6 @@ type unitStatusInfo struct {
 	UpdatedAt *time.Time    `db:"updated_at"`
 }
 
-type unitStatusData struct {
-	UnitUUID coreunit.UUID `db:"unit_uuid"`
-	Key      string        `db:"key"`
-	Data     string        `db:"data"`
-}
-
 type cloudContainer struct {
 	UnitUUID   coreunit.UUID `db:"unit_uuid"`
 	ProviderID string        `db:"provider_id"`

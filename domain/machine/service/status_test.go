@@ -14,7 +14,6 @@ import (
 
 type statusSuite struct {
 	testing.IsolationSuite
-	state *MockState
 }
 
 var _ = gc.Suite(&statusSuite{})

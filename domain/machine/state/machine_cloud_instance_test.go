@@ -306,6 +306,7 @@ func (s *stateSuite) TestGetInstanceStatusSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
+	c.Assert(err, jc.ErrorIsNil)
 	expectedStatus := domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
 		Status:  domainmachine.InstanceStatusRunning,
 		Message: "running",

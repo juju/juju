@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	envconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -472,14 +471,14 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 		},
 	}
 
-	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), coreunit.Name("gitlab/0"), applicationservice.UpdateCAASUnitParams{
+	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), coreunit.Name("gitlab/0"), service.UpdateCAASUnitParams{
 		ProviderID:           strPtr("gitlab-0"),
 		Address:              strPtr("address"),
 		Ports:                &[]string{"port"},
 		AgentStatus:          &status.StatusInfo{Status: status.Idle},
 		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "message"},
 	})
-	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), coreunit.Name("gitlab/1"), applicationservice.UpdateCAASUnitParams{
+	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), coreunit.Name("gitlab/1"), service.UpdateCAASUnitParams{
 		ProviderID:           strPtr("gitlab-1"),
 		Address:              strPtr("another-address"),
 		Ports:                &[]string{"another-port"},
@@ -631,14 +630,14 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 		},
 	}
 
-	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), coreunit.Name("gitlab/0"), applicationservice.UpdateCAASUnitParams{
+	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), coreunit.Name("gitlab/0"), service.UpdateCAASUnitParams{
 		ProviderID:           strPtr("gitlab-0"),
 		Address:              strPtr("address"),
 		Ports:                &[]string{"port"},
 		AgentStatus:          &status.StatusInfo{Status: status.Idle},
 		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "message"},
 	})
-	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), coreunit.Name("gitlab/1"), applicationservice.UpdateCAASUnitParams{
+	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), coreunit.Name("gitlab/1"), service.UpdateCAASUnitParams{
 		ProviderID:           strPtr("gitlab-1"),
 		Address:              strPtr("another-address"),
 		Ports:                &[]string{"another-port"},
