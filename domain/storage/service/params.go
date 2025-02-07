@@ -4,6 +4,7 @@
 package service
 
 import (
+	"github.com/juju/juju/core/storage"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -21,5 +22,5 @@ type ImportStorageParams struct {
 	ProviderId string
 
 	// StorageName is the name to assign to the imported storage.
-	StorageName internalstorage.Name
+	StorageName storage.Name
 }

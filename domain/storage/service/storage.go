@@ -25,8 +25,8 @@ type StorageState interface {
 	GetModelDetails() (storage.ModelDetails, error)
 	// ImportFilesystem associates a filesystem (either native or volume backed) hosted by a cloud provider
 	// with a new storage instance (and storage pool) in a model.
-	ImportFilesystem(ctx context.Context, name internalstorage.Name,
-		filesystem storage.FilesystemInfo) (internalstorage.ID, error)
+	ImportFilesystem(ctx context.Context, name corestorage.Name,
+		filesystem storage.FilesystemInfo) (corestorage.ID, error)
 }
 
 // StorageService defines a service for storage related behaviour.
@@ -43,13 +43,16 @@ type StorageService struct {
 // - [storageerrors.InvalidPoolNameError]: when the supplied pool name is invalid.
 func (s *StorageService) ImportFilesystem(
 	ctx context.Context, credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter, arg ImportStorageParams,
-) (internalstorage.ID, error) {
+) (corestorage.ID, error) {
 	if arg.Kind != internalstorage.StorageKindFilesystem {
 		// TODO(axw) implement support for volumes.
 		return "", errors.Errorf("storage kind %q not supported", arg.Kind.String()).Add(coreerrors.NotSupported)
 	}
 	if !internalstorage.IsValidPoolName(arg.Pool) {
 		return "", errors.Errorf("pool name %q not valid", arg.Pool).Add(storageerrors.InvalidPoolNameError)
+	}
+	if err := arg.StorageName.Validate(); err != nil {
+		return "", errors.Capture(err)
 	}
 
 	poolDetails, err := s.st.GetStoragePoolByName(ctx, arg.Pool)

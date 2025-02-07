@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/internal/errors"
@@ -76,22 +77,22 @@ VALUES ($storageToAdd.*)`, storageToAdd{})
 	return nil
 }
 
-func (st *State) AttachStorage(ctx context.Context, storageID storage.ID, unitUUID coreunit.UUID) error {
+func (st *State) AttachStorage(ctx context.Context, storageID corestorage.ID, unitUUID coreunit.UUID) error {
 	//TODO implement me
 	return errors.New("not implemented")
 }
 
-func (st *State) AddStorageForUnit(ctx context.Context, storageName storage.Name, unitUUID coreunit.UUID, stor storage.Directive) ([]storage.ID, error) {
+func (st *State) AddStorageForUnit(ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, stor storage.Directive) ([]corestorage.ID, error) {
 	//TODO implement me
 	return nil, errors.New("not implemented")
 }
 
-func (st *State) DetachStorageForUnit(ctx context.Context, storageID storage.ID, unitUUID coreunit.UUID) error {
+func (st *State) DetachStorageForUnit(ctx context.Context, storageID corestorage.ID, unitUUID coreunit.UUID) error {
 	//TODO implement me
 	return errors.New("not implemented")
 }
 
-func (st *State) DetachStorage(ctx context.Context, storageID storage.ID) error {
+func (st *State) DetachStorage(ctx context.Context, storageID corestorage.ID) error {
 	//TODO implement me
 	return errors.New("not implemented")
 }

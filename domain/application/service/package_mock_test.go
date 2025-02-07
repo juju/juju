@@ -10,28 +10,30 @@
 package service
 
 import (
-	context "context"
-	io "io"
-	reflect "reflect"
+	"context"
+	"io"
+	"reflect"
 
-	application "github.com/juju/juju/core/application"
-	assumes "github.com/juju/juju/core/assumes"
-	changestream "github.com/juju/juju/core/changestream"
-	charm "github.com/juju/juju/core/charm"
-	model "github.com/juju/juju/core/model"
-	network "github.com/juju/juju/core/network"
-	unit "github.com/juju/juju/core/unit"
-	watcher "github.com/juju/juju/core/watcher"
-	eventsource "github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/version/v2"
+	"go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
+	storage2 "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	application0 "github.com/juju/juju/domain/application"
-	architecture "github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/domain/application/architecture"
 	charm0 "github.com/juju/juju/domain/application/charm"
-	store "github.com/juju/juju/domain/application/charm/store"
-	life "github.com/juju/juju/domain/life"
-	storage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/domain/application/charm/store"
+	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/storage"
 	storage0 "github.com/juju/juju/internal/storage"
-	version "github.com/juju/version/v2"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockState is a mock of State interface.
@@ -58,10 +60,10 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddStorageForUnit mocks base method.
-func (m *MockState) AddStorageForUnit(arg0 context.Context, arg1 storage0.Name, arg2 unit.UUID, arg3 storage0.Directive) ([]storage0.ID, error) {
+func (m *MockState) AddStorageForUnit(arg0 context.Context, arg1 storage2.Name, arg2 unit.UUID, arg3 storage0.Directive) ([]storage2.ID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddStorageForUnit", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].([]storage0.ID)
+	ret0, _ := ret[0].([]storage2.ID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -79,19 +81,19 @@ type MockStateAddStorageForUnitCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateAddStorageForUnitCall) Return(arg0 []storage0.ID, arg1 error) *MockStateAddStorageForUnitCall {
+func (c *MockStateAddStorageForUnitCall) Return(arg0 []storage2.ID, arg1 error) *MockStateAddStorageForUnitCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddStorageForUnitCall) Do(f func(context.Context, storage0.Name, unit.UUID, storage0.Directive) ([]storage0.ID, error)) *MockStateAddStorageForUnitCall {
+func (c *MockStateAddStorageForUnitCall) Do(f func(context.Context, storage2.Name, unit.UUID, storage0.Directive) ([]storage2.ID, error)) *MockStateAddStorageForUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddStorageForUnitCall) DoAndReturn(f func(context.Context, storage0.Name, unit.UUID, storage0.Directive) ([]storage0.ID, error)) *MockStateAddStorageForUnitCall {
+func (c *MockStateAddStorageForUnitCall) DoAndReturn(f func(context.Context, storage2.Name, unit.UUID, storage0.Directive) ([]storage2.ID, error)) *MockStateAddStorageForUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -140,7 +142,7 @@ func (c *MockStateAddUnitsCall) DoAndReturn(f func(context.Context, application.
 }
 
 // AttachStorage mocks base method.
-func (m *MockState) AttachStorage(arg0 context.Context, arg1 storage0.ID, arg2 unit.UUID) error {
+func (m *MockState) AttachStorage(arg0 context.Context, arg1 storage2.ID, arg2 unit.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AttachStorage", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -166,13 +168,13 @@ func (c *MockStateAttachStorageCall) Return(arg0 error) *MockStateAttachStorageC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAttachStorageCall) Do(f func(context.Context, storage0.ID, unit.UUID) error) *MockStateAttachStorageCall {
+func (c *MockStateAttachStorageCall) Do(f func(context.Context, storage2.ID, unit.UUID) error) *MockStateAttachStorageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAttachStorageCall) DoAndReturn(f func(context.Context, storage0.ID, unit.UUID) error) *MockStateAttachStorageCall {
+func (c *MockStateAttachStorageCall) DoAndReturn(f func(context.Context, storage2.ID, unit.UUID) error) *MockStateAttachStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -332,7 +334,7 @@ func (c *MockStateDeleteUnitCall) DoAndReturn(f func(context.Context, unit.Name)
 }
 
 // DetachStorage mocks base method.
-func (m *MockState) DetachStorage(arg0 context.Context, arg1 storage0.ID) error {
+func (m *MockState) DetachStorage(arg0 context.Context, arg1 storage2.ID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DetachStorage", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -358,19 +360,19 @@ func (c *MockStateDetachStorageCall) Return(arg0 error) *MockStateDetachStorageC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDetachStorageCall) Do(f func(context.Context, storage0.ID) error) *MockStateDetachStorageCall {
+func (c *MockStateDetachStorageCall) Do(f func(context.Context, storage2.ID) error) *MockStateDetachStorageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDetachStorageCall) DoAndReturn(f func(context.Context, storage0.ID) error) *MockStateDetachStorageCall {
+func (c *MockStateDetachStorageCall) DoAndReturn(f func(context.Context, storage2.ID) error) *MockStateDetachStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DetachStorageForUnit mocks base method.
-func (m *MockState) DetachStorageForUnit(arg0 context.Context, arg1 storage0.ID, arg2 unit.UUID) error {
+func (m *MockState) DetachStorageForUnit(arg0 context.Context, arg1 storage2.ID, arg2 unit.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DetachStorageForUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -396,13 +398,13 @@ func (c *MockStateDetachStorageForUnitCall) Return(arg0 error) *MockStateDetachS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDetachStorageForUnitCall) Do(f func(context.Context, storage0.ID, unit.UUID) error) *MockStateDetachStorageForUnitCall {
+func (c *MockStateDetachStorageForUnitCall) Do(f func(context.Context, storage2.ID, unit.UUID) error) *MockStateDetachStorageForUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDetachStorageForUnitCall) DoAndReturn(f func(context.Context, storage0.ID, unit.UUID) error) *MockStateDetachStorageForUnitCall {
+func (c *MockStateDetachStorageForUnitCall) DoAndReturn(f func(context.Context, storage2.ID, unit.UUID) error) *MockStateDetachStorageForUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/internal/storage"
 )
 
 func (s State) GetModelDetails() (domainstorage.ModelDetails, error) {

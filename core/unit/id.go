@@ -23,16 +23,6 @@ func NewUUID() (UUID, error) {
 	return UUID(id.String()), nil
 }
 
-// MustNewUUID is a convince function for generating a new unit uuid
-// and panics on error. Only used in tests.
-func MustNewUUID() UUID {
-	uuid, err := NewUUID()
-	if err != nil {
-		panic(err)
-	}
-	return uuid
-}
-
 // ParseID returns a new UUID from the given string. If the string is not a valid
 // uuid an error satisfying [errors.NotValid] will be returned.
 func ParseID(value string) (UUID, error) {

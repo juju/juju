@@ -10,12 +10,13 @@
 package service
 
 import (
-	context "context"
-	reflect "reflect"
+	"context"
+	"reflect"
 
-	storage "github.com/juju/juju/domain/storage"
-	storage0 "github.com/juju/juju/internal/storage"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
+
+	storage0 "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain/storage"
 )
 
 // MockState is a mock of State interface.

@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/errors"
+	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/envcontext"
@@ -76,6 +77,34 @@ func noopModelCredentialInvalidatorGetter() (envcontext.ModelCredentialInvalidat
 	}, nil
 }
 
+func (s *storageSuite) TestImportFilesystemValidate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service(c).ImportFilesystem(context.Background(), noopModelCredentialInvalidatorGetter, ImportStorageParams{
+		Kind:        storage.StorageKindFilesystem,
+		Pool:        "elastic",
+		ProviderId:  "provider-id",
+		StorageName: "0",
+	})
+	c.Assert(err, jc.ErrorIs, corestorage.InvalidStorageName)
+
+	_, err = s.service(c).ImportFilesystem(context.Background(), noopModelCredentialInvalidatorGetter, ImportStorageParams{
+		Kind:        storage.StorageKindFilesystem,
+		Pool:        "0",
+		ProviderId:  "provider-id",
+		StorageName: "pgdata",
+	})
+	c.Assert(err, jc.ErrorIs, storageerrors.InvalidPoolNameError)
+
+	_, err = s.service(c).ImportFilesystem(context.Background(), noopModelCredentialInvalidatorGetter, ImportStorageParams{
+		Kind:        storage.StorageKindBlock,
+		Pool:        "elastic",
+		ProviderId:  "provider-id",
+		StorageName: "pgdata",
+	})
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+}
+
 func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -100,7 +129,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		Size:         123,
 	}, nil)
 
-	s.state.EXPECT().ImportFilesystem(gomock.Any(), storage.Name("pgdata"), domainstorage.FilesystemInfo{
+	s.state.EXPECT().ImportFilesystem(gomock.Any(), corestorage.Name("pgdata"), domainstorage.FilesystemInfo{
 		FilesystemInfo: storage.FilesystemInfo{
 			FilesystemId: "provider-id",
 			Size:         123,
@@ -115,7 +144,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		StorageName: "pgdata",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, storage.ID("pgdata/0"))
+	c.Assert(result, gc.Equals, corestorage.ID("pgdata/0"))
 }
 
 func (s *storageSuite) TestImportFilesystemUsingStoragePool(c *gc.C) {
@@ -145,7 +174,7 @@ func (s *storageSuite) TestImportFilesystemUsingStoragePool(c *gc.C) {
 		Size:         123,
 	}, nil)
 
-	s.state.EXPECT().ImportFilesystem(gomock.Any(), storage.Name("pgdata"), domainstorage.FilesystemInfo{
+	s.state.EXPECT().ImportFilesystem(gomock.Any(), corestorage.Name("pgdata"), domainstorage.FilesystemInfo{
 		FilesystemInfo: storage.FilesystemInfo{
 			FilesystemId: "provider-id",
 			Size:         123,
@@ -160,7 +189,7 @@ func (s *storageSuite) TestImportFilesystemUsingStoragePool(c *gc.C) {
 		StorageName: "pgdata",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, storage.ID("pgdata/0"))
+	c.Assert(result, gc.Equals, corestorage.ID("pgdata/0"))
 }
 
 func (s *storageSuite) TestImportFilesystemNotSupported(c *gc.C) {
@@ -212,7 +241,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 		Persistent: true,
 	}, nil)
 
-	s.state.EXPECT().ImportFilesystem(gomock.Any(), storage.Name("pgdata"), domainstorage.FilesystemInfo{
+	s.state.EXPECT().ImportFilesystem(gomock.Any(), corestorage.Name("pgdata"), domainstorage.FilesystemInfo{
 		FilesystemInfo: storage.FilesystemInfo{
 			Size: 123,
 		},
@@ -233,7 +262,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 		StorageName: "pgdata",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, storage.ID("pgdata/0"))
+	c.Assert(result, gc.Equals, corestorage.ID("pgdata/0"))
 }
 
 func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *gc.C) {
