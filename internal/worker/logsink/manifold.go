@@ -135,6 +135,8 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	switch outPointer := out.(type) {
 	case *logger.ModelLogger:
 		*outPointer = inWorker
+	case *logger.LoggerContextGetter:
+		*outPointer = inWorker
 	default:
 		return errors.Errorf("out should be *logger.Logger; got %T", out)
 	}

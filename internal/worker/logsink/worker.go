@@ -15,7 +15,6 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/objectstore"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -23,6 +22,12 @@ const (
 	// States which report the state of the worker.
 	stateStarted = "started"
 )
+
+// LogSinkWriter is a writer that writes log records to a log sink.
+type LogSinkWriter interface {
+	logger.LogWriterCloser
+	logger.LoggerContext
+}
 
 // Config defines the attributes used to create a log sink worker.
 type Config struct {
@@ -75,57 +80,20 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 
 // GetLogWriter returns a log writer for the specified model UUID.
 func (w *LogSink) GetLogWriter(ctx context.Context, modelUUID string) (logger.LogWriterCloser, error) {
-	// First check if we've already got the logger worker already running.
-	// If we have, then return out quickly. The loggerRunner is the cache,
-	// so there is no need to have an in-memory cache here.
-	if sink, err := w.workerFromCache(modelUUID); err != nil {
-		if errors.Is(err, w.catacomb.ErrDying()) {
-			return nil, logger.ErrLoggerDying
-		}
-
-		return nil, errors.Trace(err)
-	} else if sink != nil {
-		return sink, nil
-	}
-
-	// Enqueue the request as it's either starting up and we need to wait longer
-	// or it's not running and we need to start it.
-	req := request{
-		namespace: modelUUID,
-		done:      make(chan error),
-	}
-	select {
-	case w.requests <- req:
-	case <-w.catacomb.Dying():
-		return nil, logger.ErrLoggerDying
-	case <-ctx.Done():
-		return nil, errors.Trace(ctx.Err())
-	}
-
-	// Wait for the worker loop to indicate it's done.
-	select {
-	case err := <-req.done:
-		// If we know we've got an error, just return that error before
-		// attempting to ask the objectStoreRunnerWorker.
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	case <-w.catacomb.Dying():
-		return nil, objectstore.ErrObjectStoreDying
-	case <-ctx.Done():
-		return nil, errors.Trace(ctx.Err())
-	}
-
-	// This will return a not found error if the request was not honoured.
-	// The error will be logged - we don't crash this worker for bad calls.
-	tracked, err := w.runner.Worker(modelUUID, w.catacomb.Dying())
+	sink, err := w.getLogSink(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if tracked == nil {
-		return nil, errors.NotFoundf("logger")
+	return sink, nil
+}
+
+// GetLoggerContext returns a logger context for the specified namespace.
+func (w *LogSink) GetLoggerContext(ctx context.Context, namespace string) (logger.LoggerContext, error) {
+	sink, err := w.getLogSink(ctx, namespace)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return tracked.(logger.LogWriterCloser), nil
+	return sink, nil
 }
 
 // RemoveLogWriter closes then removes a log writer by model UUID.
@@ -171,10 +139,64 @@ func (w *LogSink) loop() error {
 	}
 }
 
-func (w *LogSink) workerFromCache(namespace string) (logger.LogWriterCloser, error) {
+func (w *LogSink) getLogSink(ctx context.Context, namespace string) (LogSinkWriter, error) {
+	// First check if we've already got the logger worker already running.
+	// If we have, then return out quickly. The loggerRunner is the cache,
+	// so there is no need to have an in-memory cache here.
+	if sink, err := w.workerFromCache(namespace); err != nil {
+		if errors.Is(err, w.catacomb.ErrDying()) {
+			return nil, logger.ErrLoggerDying
+		}
+
+		return nil, errors.Trace(err)
+	} else if sink != nil {
+		return sink, nil
+	}
+
+	// Enqueue the request as it's either starting up and we need to wait longer
+	// or it's not running and we need to start it.
+	req := request{
+		namespace: namespace,
+		done:      make(chan error),
+	}
+	select {
+	case w.requests <- req:
+	case <-w.catacomb.Dying():
+		return nil, logger.ErrLoggerDying
+	case <-ctx.Done():
+		return nil, errors.Trace(ctx.Err())
+	}
+
+	// Wait for the worker loop to indicate it's done.
+	select {
+	case err := <-req.done:
+		// If we know we've got an error, just return that error before
+		// attempting to ask the objectStoreRunnerWorker.
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	case <-w.catacomb.Dying():
+		return nil, logger.ErrLoggerDying
+	case <-ctx.Done():
+		return nil, errors.Trace(ctx.Err())
+	}
+
+	// This will return a not found error if the request was not honoured.
+	// The error will be logged - we don't crash this worker for bad calls.
+	tracked, err := w.runner.Worker(namespace, w.catacomb.Dying())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if tracked == nil {
+		return nil, errors.NotFoundf("logger")
+	}
+	return tracked.(LogSinkWriter), nil
+}
+
+func (w *LogSink) workerFromCache(namespace string) (LogSinkWriter, error) {
 	// If the worker already exists, return the existing worker early.
 	if objectStore, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return objectStore.(logger.LogWriterCloser), nil
+		return objectStore.(LogSinkWriter), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the runner is dead due to this worker dying.
 		select {

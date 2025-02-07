@@ -223,6 +223,12 @@ type ModelLogger interface {
 	RemoveLogWriter(modelUUID string) error
 }
 
+// LoggerContextGetter is an interface that is used to get a LoggerContext.
+type LoggerContextGetter interface {
+	// GetLoggerContext returns a LoggerContext for the given name.
+	GetLoggerContext(ctx context.Context, namespace string) (LoggerContext, error)
+}
+
 // LogWriterForModelFunc is a function which returns a log writer for a given model.
 type LogWriterForModelFunc func(ctx context.Context, modelUUID string) (LogWriterCloser, error)
 
