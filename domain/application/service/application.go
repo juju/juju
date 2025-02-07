@@ -16,6 +16,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -246,6 +247,24 @@ type ApplicationState interface {
 	// InitialWatchStatementApplicationConfigHash returns the initial namespace
 	// query for the application config hash watcher.
 	InitialWatchStatementApplicationConfigHash(appName string) (string, eventsource.NamespaceQuery)
+
+	// GetApplicationConstraints returns the application constraints for the
+	// specified application ID.
+	// Empty constraints are returned if no constraints exist for the given
+	// application ID.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
+
+	// SetApplicationConstraints sets the application constraints for the
+	// specified application ID.
+	// This method overwrites the full constraints on every call.
+	// If invalid constraints are provided (e.g. invalid container type or
+	// non-existing space), a [applicationerrors.InvalidApplicationConstraints]
+	// error is returned.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error
 }
 
 // CreateApplication creates the specified application and units if required,
@@ -1388,6 +1407,21 @@ func (s *Service) SetApplicationConfig(ctx context.Context, appID coreapplicatio
 	return s.st.SetApplicationConfigAndSettings(ctx, appID, charmID, encodedConfig, application.ApplicationSettings{
 		Trust: trust,
 	})
+}
+
+// GetApplicationConstraints returns the application constraints for the
+// specified application ID.
+// Empty constraints are returned if no constraints exist for the given
+// application ID.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error) {
+	if err := appID.Validate(); err != nil {
+		return constraints.Value{}, internalerrors.Errorf("application ID: %w", err)
+	}
+
+	cons, err := s.st.GetApplicationConstraints(ctx, appID)
+	return cons, internalerrors.Capture(err)
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (bool, error) {

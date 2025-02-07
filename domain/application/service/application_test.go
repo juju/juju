@@ -23,6 +23,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/constraints"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -2051,4 +2052,114 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
 		Version:     &agentVersion,
 	})
 	c.Check(features, jc.DeepEquals, fs)
+}
+
+func (s *providerServiceSuite) TestGetApplicationConstraintsInvalidAppID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetApplicationConstraints(context.Background(), "bad-app-id")
+	c.Assert(err, gc.ErrorMatches, "application ID: id \"bad-app-id\" not valid")
+}
+
+func (s *providerServiceSuite) TestSetApplicationConstraintsInvalidAppID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetApplicationConstraints(context.Background(), "bad-app-id", constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, "application ID: id \"bad-app-id\" not valid")
+}
+
+func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *gc.C) {
+	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, jujuerrors.NotSupported
+	})
+	defer ctrl.Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Value{}).Return(nil)
+
+	err := s.service.SetApplicationConstraints(context.Background(), id, constraints.Value{})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestSetConstraintsValidatorNotImplemented(c *gc.C) {
+	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	})
+	defer ctrl.Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, jujuerrors.NotImplemented)
+	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Value{}).Return(nil)
+
+	err := s.service.SetApplicationConstraints(context.Background(), id, constraints.Value{})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *gc.C) {
+	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	})
+	defer ctrl.Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, errors.New("boom"))
+
+	err := s.service.SetApplicationConstraints(context.Background(), id, constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *providerServiceSuite) TestSetConstraintsValidateError(c *gc.C) {
+	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	})
+	defer ctrl.Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	validator := NewMockValidator(ctrl)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
+	validator.EXPECT().Validate(gomock.Any()).Return(nil, errors.New("boom"))
+
+	err := s.service.SetApplicationConstraints(context.Background(), id, constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *gc.C) {
+	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	})
+	defer ctrl.Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	validator := NewMockValidator(ctrl)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
+	validator.EXPECT().Validate(gomock.Any()).Return([]string{"arch", "mem"}, nil)
+	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))}).Return(nil)
+
+	err := s.service.SetApplicationConstraints(context.Background(), id, constraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(c.GetTestLog(), jc.Contains, "unsupported constraints: arch,mem")
+}
+
+func (s *providerServiceSuite) TestSetConstraints(c *gc.C) {
+	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	})
+	defer ctrl.Finish()
+
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	validator := NewMockValidator(ctrl)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
+	validator.EXPECT().Validate(gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))}).Return(nil)
+
+	err := s.service.SetApplicationConstraints(context.Background(), id, constraints.Value{Arch: ptr("amd64"), Mem: ptr(uint64(8))})
+	c.Assert(err, jc.ErrorIsNil)
 }
