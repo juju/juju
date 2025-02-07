@@ -138,7 +138,7 @@ func GetNewEnvironFunc(newEnviron environs.NewEnvironFunc) NewEnvironFunc {
 			CredentialService:  credentialService,
 			ModelConfigService: modelConfigService,
 		}
-		return environs.GetEnviron(context.TODO(), g, newEnviron)
+		return environs.GetEnviron(context.TODO(), g, environs.NoopEnvironCredentialInvalidator{}, newEnviron)
 	}
 }
 
@@ -160,9 +160,10 @@ func GetNewCAASBrokerFunc(newBroker caas.NewContainerBrokerFunc) NewCAASBrokerFu
 			return nil, errors.Trace(err)
 		}
 		return newBroker(context.TODO(), environs.OpenParams{
-			ControllerUUID: m.ControllerUUID(),
-			Cloud:          cloudSpec,
-			Config:         cfg,
+			ControllerUUID:        m.ControllerUUID(),
+			Cloud:                 cloudSpec,
+			Config:                cfg,
+			CredentialInvalidator: environs.NoopModelCredentialInvalidator{},
 		})
 	}
 }

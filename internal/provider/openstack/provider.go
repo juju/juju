@@ -1834,7 +1834,7 @@ func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerU
 		if err != nil {
 			logger.Errorf(context.TODO(), "error updating controller tag for instance %s: %v", instance.Id(), err)
 			failed = append(failed, instance.Id().String())
-			if denied := common.HandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			if denied := common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx); denied {
 				// If we have an invvalid credential, there is no need to proceed: we'll fail 100%.
 				break
 			}
@@ -1891,7 +1891,7 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx envcontext.P
 		if err != nil {
 			logger.Errorf(context.TODO(), "error updating controller tag for volume %s: %v", volumeId, err)
 			failed = append(failed, volumeId)
-			if denied := common.HandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			if denied := common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx); denied {
 				// If we have an invvalid credential, there is no need to proceed: we'll fail 100%.
 				break
 			}
@@ -2157,7 +2157,7 @@ func (e *Environ) terminateInstances(ctx envcontext.ProviderCallContext, ids []i
 	}
 	if err != nil {
 		logger.Debugf(context.TODO(), "error retrieving security groups for %v: %v", ids, err)
-		if denied := common.HandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+		if denied := common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx); denied {
 			// We'll likely fail all subsequent calls if we have an invalid credential.
 			return errors.Trace(err)
 		}
@@ -2185,7 +2185,7 @@ func (e *Environ) terminateInstances(ctx envcontext.ProviderCallContext, ids []i
 			if firstErr == nil {
 				firstErr = err
 			}
-			if denied := common.HandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			if denied := common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx); denied {
 				// We'll likely fail all subsequent calls if we have an invalid credential.
 				return errors.Trace(err)
 			}

@@ -235,7 +235,7 @@ func (s *cinderVolumeSource) CreateVolumes(
 		volume, err := s.createVolume(ctx, arg)
 		if err != nil {
 			results[i].Error = errors.Trace(err)
-			if denied := common.HandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			if denied := common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx); denied {
 				// If it is an unauthorised error, no need to continue since we will 100% fail...
 				break
 			}
@@ -543,7 +543,7 @@ func (s *cinderVolumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, a
 		attachment, err := s.attachVolume(arg)
 		if err != nil {
 			results[i].Error = errors.Trace(err)
-			if denial := common.HandleCredentialError(IsAuthorisationFailure, err, ctx); denial {
+			if denial := common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx); denial {
 				// We do not want to continue here as we'll 100% fail if we got unauthorised error.
 				break
 			}

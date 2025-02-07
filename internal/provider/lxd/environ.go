@@ -226,12 +226,12 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.
 // known environment.
 func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
 	if err := env.base.DestroyEnv(ctx); err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
+		common.HandleCredentialError(ctx, IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
 		return errors.Trace(err)
 	}
 	if env.storageSupported() {
 		if err := destroyModelFilesystems(env); err != nil {
-			common.HandleCredentialError(IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
+			common.HandleCredentialError(ctx, IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
 			return errors.Annotate(err, "destroying LXD filesystems for model")
 		}
 	}
@@ -244,12 +244,12 @@ func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, contro
 		return errors.Trace(err)
 	}
 	if err := env.destroyHostedModelResources(controllerUUID); err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
+		common.HandleCredentialError(ctx, IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
 		return errors.Trace(err)
 	}
 	if env.storageSupported() {
 		if err := destroyControllerFilesystems(env, controllerUUID); err != nil {
-			common.HandleCredentialError(IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
+			common.HandleCredentialError(ctx, IsAuthorisationFailure, err, common.CredentialInvalidatorContext(ctx, env.credentialInvalidator))
 			return errors.Annotate(err, "destroying LXD filesystems for controller")
 		}
 	}
@@ -315,7 +315,7 @@ func (env *environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (netwo
 
 	nodes, err := server.GetClusterMembers()
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx)
 		return nil, errors.Annotate(err, "listing cluster members")
 	}
 	aZones := make(network.AvailabilityZones, len(nodes))

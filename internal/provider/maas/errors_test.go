@@ -32,6 +32,7 @@ func (s *ErrorSuite) SetUpTest(c *gc.C) {
 
 func (s *ErrorSuite) TestNoValidation(c *gc.C) {
 	denied := common.HandleCredentialError(
+		context.Background(),
 		IsAuthorisationFailure, s.maasError, envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
 	c.Assert(denied, jc.IsTrue)
@@ -41,7 +42,7 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
 		return errors.New("kaboom")
 	})
-	denied := common.HandleCredentialError(IsAuthorisationFailure, s.maasError, ctx)
+	denied := common.HandleCredentialError(ctx, IsAuthorisationFailure, s.maasError, ctx)
 	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored cloud credential on the controller")
 	c.Assert(denied, jc.IsTrue)
 }
@@ -85,7 +86,7 @@ func (s *ErrorSuite) checkMaasPermissionHandling(c *gc.C, handled bool) {
 		return nil
 	})
 
-	denied := common.HandleCredentialError(IsAuthorisationFailure, s.maasError, ctx)
+	denied := common.HandleCredentialError(ctx, IsAuthorisationFailure, s.maasError, ctx)
 	c.Assert(called, gc.Equals, handled)
 	c.Assert(denied, gc.Equals, handled)
 }
