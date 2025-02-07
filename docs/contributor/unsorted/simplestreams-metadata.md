@@ -57,8 +57,7 @@ URL associated with each path component):
 The index file must be called "index.(s)json" (sjson for signed). The various product files are
 named according to the Path values contained in the index file.
 
-Agent Binary Metadata Contents
-=======================
+## Agent Binary Metadata Contents
 
 Agent binary metadata uses a simplestreams content type of "content-download".
 The product ID is formed as follows:
