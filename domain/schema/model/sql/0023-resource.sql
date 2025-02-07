@@ -66,6 +66,15 @@ CREATE TABLE application_resource (
     REFERENCES resource (uuid)
 );
 
+-- Links a resource to an application which does not exist yet.
+CREATE TABLE pending_application_resource (
+    resource_uuid TEXT NOT NULL PRIMARY KEY,
+    application_name TEXT NOT NULL,
+    CONSTRAINT fk_resource_uuid
+    FOREIGN KEY (resource_uuid)
+    REFERENCES resource (uuid)
+);
+
 CREATE TABLE resource_retrieved_by_type (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
@@ -155,7 +164,6 @@ CREATE TABLE resource_image_store (
     FOREIGN KEY (store_storage_key)
     REFERENCES resource_container_image_metadata_store (storage_key)
 );
-
 
 CREATE VIEW v_application_resource AS
 SELECT
