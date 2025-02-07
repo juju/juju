@@ -1680,7 +1680,7 @@ func (c *MockApplicationServiceSetUnitPasswordCall) DoAndReturn(f func(context.C
 }
 
 // UpdateCAASUnit mocks base method.
-func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 application0.UpdateCAASUnitParams) error {
+func (m *MockApplicationService) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 service.UpdateCAASUnitParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCAASUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1706,13 +1706,13 @@ func (c *MockApplicationServiceUpdateCAASUnitCall) Return(arg0 error) *MockAppli
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceUpdateCAASUnitCall) Do(f func(context.Context, unit.Name, application0.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
+func (c *MockApplicationServiceUpdateCAASUnitCall) Do(f func(context.Context, unit.Name, service.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceUpdateCAASUnitCall) DoAndReturn(f func(context.Context, unit.Name, application0.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
+func (c *MockApplicationServiceUpdateCAASUnitCall) DoAndReturn(f func(context.Context, unit.Name, service.UpdateCAASUnitParams) error) *MockApplicationServiceUpdateCAASUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

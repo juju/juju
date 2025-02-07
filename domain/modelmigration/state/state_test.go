@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -67,7 +68,7 @@ func (s *migrationSuite) TestGetControllerUUID(c *gc.C) {
 func (s *migrationSuite) TestGetAllInstanceIDs(c *gc.C) {
 	// Add two different instances.
 	db := s.DB()
-	machineState := machinestate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	err := machineState.CreateMachine(context.Background(), "666", "0", "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)

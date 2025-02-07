@@ -57,22 +57,17 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddUnits mocks base method.
-func (m *MockState) AddUnits(arg0 context.Context, arg1 application.ID, arg2 ...application0.AddUnitArg) error {
+func (m *MockState) AddUnits(arg0 context.Context, arg1 application.ID, arg2 []application0.AddUnitArg) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "AddUnits", varargs...)
+	ret := m.ctrl.Call(m, "AddUnits", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddUnits indicates an expected call of AddUnits.
-func (mr *MockStateMockRecorder) AddUnits(arg0, arg1 any, arg2 ...any) *MockStateAddUnitsCall {
+func (mr *MockStateMockRecorder) AddUnits(arg0, arg1, arg2 any) *MockStateAddUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnits", reflect.TypeOf((*MockState)(nil).AddUnits), varargs...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnits", reflect.TypeOf((*MockState)(nil).AddUnits), arg0, arg1, arg2)
 	return &MockStateAddUnitsCall{Call: call}
 }
 
@@ -88,13 +83,13 @@ func (c *MockStateAddUnitsCall) Return(arg0 error) *MockStateAddUnitsCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddUnitsCall) Do(f func(context.Context, application.ID, ...application0.AddUnitArg) error) *MockStateAddUnitsCall {
+func (c *MockStateAddUnitsCall) Do(f func(context.Context, application.ID, []application0.AddUnitArg) error) *MockStateAddUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddUnitsCall) DoAndReturn(f func(context.Context, application.ID, ...application0.AddUnitArg) error) *MockStateAddUnitsCall {
+func (c *MockStateAddUnitsCall) DoAndReturn(f func(context.Context, application.ID, []application0.AddUnitArg) error) *MockStateAddUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

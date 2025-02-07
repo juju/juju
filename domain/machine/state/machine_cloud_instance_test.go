@@ -5,13 +5,14 @@ package state
 
 import (
 	"context"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/status"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -54,14 +55,14 @@ func (s *stateSuite) TestGetHardwareCharacteristicsWithoutAvailabilityZone(c *gc
 		instance.Id("123"),
 		"",
 		&instance.HardwareCharacteristics{
-			Arch:           strptr("arm64"),
-			Mem:            uintptr(1024),
-			RootDisk:       uintptr(256),
-			RootDiskSource: strptr("/test"),
-			CpuCores:       uintptr(4),
-			CpuPower:       uintptr(75),
-			Tags:           strsliceptr([]string{"tag1", "tag2"}),
-			VirtType:       strptr("virtual-machine"),
+			Arch:           ptr("arm64"),
+			Mem:            ptr[uint64](1024),
+			RootDisk:       ptr[uint64](256),
+			RootDiskSource: ptr("/test"),
+			CpuCores:       ptr[uint64](4),
+			CpuPower:       ptr[uint64](75),
+			Tags:           ptr([]string{"tag1", "tag2"}),
+			VirtType:       ptr("virtual-machine"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,14 +116,14 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 		instance.Id("1"),
 		"one",
 		&instance.HardwareCharacteristics{
-			Arch:             strptr("arm64"),
-			Mem:              uintptr(1024),
-			RootDisk:         uintptr(256),
-			CpuCores:         uintptr(4),
-			CpuPower:         uintptr(75),
-			Tags:             strsliceptr([]string{"tag1", "tag2"}),
-			AvailabilityZone: strptr("az-1"),
-			VirtType:         strptr("virtual-machine"),
+			Arch:             ptr("arm64"),
+			Mem:              ptr[uint64](1024),
+			RootDisk:         ptr[uint64](256),
+			CpuCores:         ptr[uint64](4),
+			CpuPower:         ptr[uint64](75),
+			Tags:             ptr([]string{"tag1", "tag2"}),
+			AvailabilityZone: ptr("az-1"),
+			VirtType:         ptr("virtual-machine"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -190,7 +191,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *gc.C) {
 		instance.Id("1"),
 		"one",
 		&instance.HardwareCharacteristics{
-			Arch: strptr("arm64"),
+			Arch: ptr("arm64"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -202,7 +203,7 @@ func (s *stateSuite) TestSetInstanceDataAlreadyExists(c *gc.C) {
 		instance.Id("1"),
 		"one",
 		&instance.HardwareCharacteristics{
-			Arch: strptr("amd64"),
+			Arch: ptr("amd64"),
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, "machine cloud instance already exists.*")
@@ -241,41 +242,29 @@ func (s *stateSuite) TestDeleteInstanceDataWithStatus(c *gc.C) {
 	machineUUID := s.ensureInstance(c, "42")
 
 	// Add a status with data for this instance
-	s.state.SetInstanceStatus(context.Background(), "42", status.StatusInfo{Status: status.Running, Message: "running", Data: map[string]interface{}{"key": "data"}})
+	s.state.SetInstanceStatus(context.Background(), "42", domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusAllocating,
+		Message: "running",
+		Data:    []byte(`{"key":"data"}`),
+		Since:   ptr(time.Now().UTC()),
+	})
 
 	err := s.state.DeleteMachineCloudInstance(context.Background(), machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that all rows've been deleted from the status tables.
 	var status int
-	var statusData int
 	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM machine_cloud_instance_status WHERE machine_uuid=?", "123").Scan(&status)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, 0)
-
-	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM machine_cloud_instance_status_data WHERE machine_uuid=?", "123").Scan(&statusData)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(statusData, gc.Equals, 0)
-}
-
-func strptr(s string) *string {
-	return &s
-}
-
-func uintptr(u uint64) *uint64 {
-	return &u
-}
-
-func strsliceptr(s []string) *[]string {
-	return &s
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status, gc.Equals, 0)
 }
 
 func (s *stateSuite) TestInstanceIdSuccess(c *gc.C) {
 	machineUUID := s.ensureInstance(c, "666")
 
 	instanceId, err := s.state.InstanceID(context.Background(), machineUUID)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(instanceId, gc.Equals, "123")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(instanceId, gc.Equals, "123")
 }
 
 func (s *stateSuite) TestInstanceIdError(c *gc.C) {
@@ -283,14 +272,14 @@ func (s *stateSuite) TestInstanceIdError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.InstanceID(context.Background(), "666")
-	c.Check(err, jc.ErrorIs, machineerrors.NotProvisioned)
+	c.Assert(err, jc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 func (s *stateSuite) TestInstanceNameSuccess(c *gc.C) {
 	machineUUID := s.ensureInstance(c, "666")
 
 	instanceID, displayName, err := s.state.InstanceIDAndName(context.Background(), machineUUID)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceID, gc.Equals, "123")
 	c.Assert(displayName, gc.Equals, "one-two-three")
 }
@@ -300,7 +289,7 @@ func (s *stateSuite) TestInstanceNameError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = s.state.InstanceIDAndName(context.Background(), "666")
-	c.Check(err, jc.ErrorIs, machineerrors.NotProvisioned)
+	c.Assert(err, jc.ErrorIs, machineerrors.NotProvisioned)
 }
 
 // TestGetInstanceStatusSuccess asserts the happy path of InstanceStatus at the
@@ -313,14 +302,17 @@ func (s *stateSuite) TestGetInstanceStatusSuccess(c *gc.C) {
 	// Add a status value for this machine into the
 	// machine_cloud_instance_status table using the machineUUID and the status
 	// value 2 for "running" (from machine_cloud_instance_status_value table).
-	_, err := db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status VALUES('"+machineUUID+"', '2', 'running', '2024-07-12 12:00:00')")
+	_, err := db.ExecContext(context.Background(), `INSERT INTO machine_cloud_instance_status VALUES(?, '2', 'running', NULL, '2024-07-12 12:00:00')`, machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
-	expectedStatus := status.StatusInfo{Status: status.Running, Message: "running"}
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
-	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedStatus := domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusRunning,
+		Message: "running",
+		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
+	}
+	c.Check(obtainedStatus, gc.DeepEquals, expectedStatus)
 }
 
 // TestGetInstanceStatusSuccessWithData asserts the happy path of InstanceStatus
@@ -332,20 +324,18 @@ func (s *stateSuite) TestGetInstanceStatusSuccessWithData(c *gc.C) {
 	// Add a status value for this machine into the
 	// machine_cloud_instance_status table using the machineUUID and the status
 	// value 2 for "running" (from machine_cloud_instance_status_value table).
-	_, err := db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status VALUES('"+machineUUID+"', '2', 'running', '2024-07-12 12:00:00')")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add some status data for this machine into the
-	// machine_cloud_instance_status_data table.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status_data VALUES('"+machineUUID+"', 'key', 'data')")
+	_, err := db.ExecContext(context.Background(), `INSERT INTO machine_cloud_instance_status VALUES(?, '2', 'running', '{"key": "data"}', '2024-07-12 12:00:00')`, machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
-	expectedStatus := status.StatusInfo{Status: status.Running, Message: "running", Data: map[string]interface{}{"key": "data"}}
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
-	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
-	c.Assert(obtainedStatus.Data, gc.DeepEquals, expectedStatus.Data)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedStatus := domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusRunning,
+		Message: "running",
+		Data:    []byte(`{"key": "data"}`),
+		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
+	}
+	c.Check(obtainedStatus, gc.DeepEquals, expectedStatus)
 }
 
 // TestGetInstanceStatusNotFoundError asserts that GetInstanceStatus returns a
@@ -364,7 +354,7 @@ func (s *stateSuite) TestGetInstanceStatusStatusNotSetError(c *gc.C) {
 	// Don't add a status value for this instance into the
 	// machine_cloud_instance_status table.
 	_, err := s.state.GetInstanceStatus(context.Background(), "666")
-	c.Check(err, jc.ErrorIs, machineerrors.StatusNotSet)
+	c.Assert(err, jc.ErrorIs, machineerrors.StatusNotSet)
 }
 
 // TestSetInstanceStatusSuccess asserts the happy path of SetInstanceStatus at
@@ -372,12 +362,15 @@ func (s *stateSuite) TestGetInstanceStatusStatusNotSetError(c *gc.C) {
 func (s *stateSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	s.ensureInstance(c, "666")
 
-	expectedStatus := status.StatusInfo{Status: status.Running, Message: "running"}
+	expectedStatus := domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusRunning,
+		Message: "running",
+	}
 	err := s.state.SetInstanceStatus(context.Background(), "666", expectedStatus)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
 	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
 }
@@ -387,22 +380,28 @@ func (s *stateSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 func (s *stateSuite) TestSetInstanceStatusSuccessWithData(c *gc.C) {
 	s.ensureInstance(c, "666")
 
-	expectedStatus := status.StatusInfo{Status: status.Running, Message: "running", Data: map[string]interface{}{"key": "data"}}
+	expectedStatus := domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusRunning,
+		Message: "running",
+		Data:    []byte(`{"key": "data"}`),
+		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
+	}
 	err := s.state.SetInstanceStatus(context.Background(), "666", expectedStatus)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
-	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
-	c.Assert(obtainedStatus.Data, gc.DeepEquals, expectedStatus.Data)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedStatus, gc.DeepEquals, expectedStatus)
 }
 
 // TestSetInstanceStatusError asserts that SetInstanceStatus returns a NotFound
 // error when the given machine cannot be found.
 func (s *stateSuite) TestSetInstanceStatusError(c *gc.C) {
-	err := s.state.SetInstanceStatus(context.Background(), "666", status.StatusInfo{})
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	err := s.state.SetInstanceStatus(context.Background(), "666", domainmachine.StatusInfo[domainmachine.InstanceStatusType]{
+		Status:  domainmachine.InstanceStatusRunning,
+		Message: "running",
+	})
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestInstanceStatusValues asserts the keys and values in the
@@ -431,7 +430,7 @@ func (s *stateSuite) TestInstanceStatusValues(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		statusValues = append(statusValues, statusValue)
 	}
-	c.Check(statusValues, gc.HasLen, 4)
+	c.Assert(statusValues, gc.HasLen, 4)
 	c.Check(statusValues[0].ID, gc.Equals, 0)
 	c.Check(statusValues[0].Name, gc.Equals, "unknown")
 	c.Check(statusValues[1].ID, gc.Equals, 1)
@@ -461,15 +460,15 @@ func (s *stateSuite) ensureInstance(c *gc.C, mName machine.Name) string {
 		instance.Id("123"),
 		"one-two-three",
 		&instance.HardwareCharacteristics{
-			Arch:             strptr("arm64"),
-			Mem:              uintptr(1024),
-			RootDisk:         uintptr(256),
-			RootDiskSource:   strptr("/test"),
-			CpuCores:         uintptr(4),
-			CpuPower:         uintptr(75),
-			Tags:             strsliceptr([]string{"tag1", "tag2"}),
-			AvailabilityZone: strptr("az-1"),
-			VirtType:         strptr("virtual-machine"),
+			Arch:             ptr("arm64"),
+			Mem:              ptr[uint64](1024),
+			RootDisk:         ptr[uint64](256),
+			RootDiskSource:   ptr("/test"),
+			CpuCores:         ptr[uint64](4),
+			CpuPower:         ptr[uint64](75),
+			Tags:             ptr([]string{"tag1", "tag2"}),
+			AvailabilityZone: ptr("az-1"),
+			VirtType:         ptr("virtual-machine"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

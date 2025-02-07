@@ -7,8 +7,10 @@ import (
 	"context"
 	"database/sql"
 	"sort"
+	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -17,8 +19,8 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -53,7 +55,7 @@ func (s *stateSuite) runQuery(query string) error {
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
 // TestCreateMachine asserts the happy path of CreateMachine at the state layer.
@@ -71,7 +73,7 @@ func (s *stateSuite) TestCreateMachine(c *gc.C) {
 		}
 		return nil
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineName, gc.Equals, "666")
 }
 
@@ -82,7 +84,7 @@ func (s *stateSuite) TestCreateMachineAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.CreateMachine(context.Background(), "666", "", "")
-	c.Check(err, jc.ErrorIs, machineerrors.MachineAlreadyExists)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineAlreadyExists)
 }
 
 // TestCreateMachineWithParentSuccess asserts the happy path of
@@ -94,7 +96,7 @@ func (s *stateSuite) TestCreateMachineWithParentSuccess(c *gc.C) {
 
 	// Create the machine with the created parent
 	err = s.state.CreateMachineWithParent(context.Background(), "667", "666", "4", "2")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the newly created machine with parent has been created.
 	var (
@@ -114,7 +116,7 @@ WHERE   parent.parent_uuid = 1
 		}
 		return nil
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineName, gc.Equals, "667")
 }
 
@@ -122,7 +124,7 @@ WHERE   parent.parent_uuid = 1
 // when the parent machine is not found.
 func (s *stateSuite) TestCreateMachineWithParentNotFound(c *gc.C) {
 	err := s.state.CreateMachineWithParent(context.Background(), "667", "666", "4", "2")
-	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestCreateMachineWithparentAlreadyExists asserts that a MachineAlreadyExists
@@ -132,7 +134,7 @@ func (s *stateSuite) TestCreateMachineWithParentAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.CreateMachineWithParent(context.Background(), "666", "357", "4", "2")
-	c.Check(err, jc.ErrorIs, machineerrors.MachineAlreadyExists)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineAlreadyExists)
 }
 
 // TestGetMachineParentUUIDGrandParentNotAllowed asserts that a
@@ -174,7 +176,7 @@ func (s *stateSuite) TestDeleteMachine(c *gc.C) {
 	s.insertBlockDevice(c, bd, bdUUID, "666")
 
 	err = s.state.DeleteMachine(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var machineCount int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -184,7 +186,7 @@ func (s *stateSuite) TestDeleteMachine(c *gc.C) {
 		}
 		return nil
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineCount, gc.Equals, 0)
 }
 
@@ -210,27 +212,25 @@ func (s *stateSuite) TestDeleteMachineStatus(c *gc.C) {
 	bdUUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd, bdUUID, "666")
 
-	s.state.SetMachineStatus(context.Background(), "666", status.StatusInfo{Status: status.Started, Message: "started", Data: map[string]interface{}{"key": "data"}})
+	s.state.SetMachineStatus(context.Background(), "666", domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status:  domainmachine.MachineStatusStarted,
+		Message: "started",
+		Data:    []byte(`{"key": "data"}`),
+	})
 
 	err = s.state.DeleteMachine(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 
 	var status int
-	var statusData int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine_status WHERE machine_uuid=?", "123").Scan(&status)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = tx.QueryRowContext(ctx, "SELECT count(*) FROM machine_status_data WHERE machine_uuid=?", "123").Scan(&statusData)
-		if err != nil {
-			return errors.Trace(err)
-		}
 		return nil
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, 0)
-	c.Assert(statusData, gc.Equals, 0)
 }
 
 func (s *stateSuite) insertBlockDevice(c *gc.C, bd blockdevice.BlockDevice, blockDeviceUUID, machineId string) {
@@ -264,7 +264,7 @@ func (s *stateSuite) TestGetMachineLifeSuccess(c *gc.C) {
 
 	obtainedLife, err := s.state.GetMachineLife(context.Background(), "666")
 	expectedLife := life.Alive
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*obtainedLife, gc.Equals, expectedLife)
 }
 
@@ -304,14 +304,16 @@ func (s *stateSuite) TestGetMachineStatusSuccess(c *gc.C) {
 	// Add a status value for this machine into the
 	// machine_status table using the machineUUID and the status
 	// value 2 for "running" (from machine_cloud_instance_status_value table).
-	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_status VALUES('123', '1', 'started', '2024-07-12 12:00:00')")
+	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_status VALUES('123', '1', 'started', NULL, '2024-07-12 12:00:00')")
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
-	expectedStatus := status.StatusInfo{Status: status.Started, Message: "started"}
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
-	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedStatus, gc.DeepEquals, domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status:  domainmachine.MachineStatusStarted,
+		Message: "started",
+		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
+	})
 }
 
 // TestGetMachineStatusWithData asserts the happy path of GetMachineStatus at
@@ -325,19 +327,17 @@ func (s *stateSuite) TestGetMachineStatusSuccessWithData(c *gc.C) {
 	// Add a status value for this machine into the
 	// machine_status table using the machineUUID and the status
 	// value 2 for "running" (from machine_cloud_instance_status_value table).
-	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_status VALUES('123', '1', 'started', '2024-07-12 12:00:00')")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add some status data for this machine into the machine_status_data table.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_status_data VALUES('123', 'key', 'data')")
+	_, err = db.ExecContext(context.Background(), `INSERT INTO machine_status VALUES('123', '1', 'started', '{"key":"data"}',  '2024-07-12 12:00:00')`)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
-	expectedStatus := status.StatusInfo{Status: status.Started, Message: "started", Data: map[string]interface{}{"key": "data"}}
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
-	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
-	c.Assert(obtainedStatus.Data, gc.DeepEquals, expectedStatus.Data)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedStatus, gc.DeepEquals, domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status:  domainmachine.MachineStatusStarted,
+		Message: "started",
+		Data:    []byte(`{"key":"data"}`),
+		Since:   ptr(time.Date(2024, 7, 12, 12, 0, 0, 0, time.UTC)),
+	})
 }
 
 // TestGetMachineStatusNotFoundError asserts that a NotFound error is returned
@@ -363,14 +363,17 @@ func (s *stateSuite) TestSetMachineStatusSuccess(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "123")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedStatus := status.StatusInfo{Status: status.Started, Message: "started"}
+	expectedStatus := domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status:  domainmachine.MachineStatusStarted,
+		Message: "started",
+		Since:   ptr(time.Now().UTC()),
+	}
 	err = s.state.SetMachineStatus(context.Background(), "666", expectedStatus)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
-	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedStatus, gc.DeepEquals, expectedStatus)
 }
 
 // TestSetMachineStatusSuccessWithData asserts the happy path of
@@ -379,21 +382,26 @@ func (s *stateSuite) TestSetMachineStatusSuccessWithData(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "123")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedStatus := status.StatusInfo{Status: status.Started, Message: "started", Data: map[string]interface{}{"key": "data"}}
+	expectedStatus := domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status:  domainmachine.MachineStatusStarted,
+		Message: "started",
+		Data:    []byte(`{"key": "data"}`),
+		Since:   ptr(time.Now().UTC()),
+	}
 	err = s.state.SetMachineStatus(context.Background(), "666", expectedStatus)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
-	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
-	c.Assert(obtainedStatus.Data, gc.DeepEquals, expectedStatus.Data)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedStatus, gc.DeepEquals, expectedStatus)
 }
 
 // TestSetMachineStatusNotFoundError asserts that a NotFound error is returned
 // when the machine is not found.
 func (s *stateSuite) TestSetMachineStatusNotFoundError(c *gc.C) {
-	err := s.state.SetMachineStatus(context.Background(), "666", status.StatusInfo{})
+	err := s.state.SetMachineStatus(context.Background(), "666", domainmachine.StatusInfo[domainmachine.MachineStatusType]{
+		Status: domainmachine.MachineStatusStarted,
+	})
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
@@ -423,7 +431,7 @@ func (s *stateSuite) TestMachineStatusValues(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		statusValues = append(statusValues, statusValue)
 	}
-	c.Check(statusValues, gc.HasLen, 5)
+	c.Assert(statusValues, gc.HasLen, 5)
 	c.Check(statusValues[0].ID, gc.Equals, 0)
 	c.Check(statusValues[0].Name, gc.Equals, "error")
 	c.Check(statusValues[1].ID, gc.Equals, 1)
@@ -439,52 +447,47 @@ func (s *stateSuite) TestMachineStatusValues(c *gc.C) {
 // TestMachineStatusValuesConversion asserts the conversions to and from the
 // core status values and the internal status values for machine stay intact.
 func (s *stateSuite) TestMachineStatusValuesConversion(c *gc.C) {
-
-	// Assert that toCoreMachineStatusValues returns the correct status value
 	tests := []struct {
-		statusValue int
-		expected    status.Status
+		statusValue string
+		expected    int
 	}{
-		{0, status.Error},
-		{1, status.Started},
-		{2, status.Pending},
-		{3, status.Stopped},
-		{4, status.Down},
+		{statusValue: "error", expected: 0},
+		{statusValue: "started", expected: 1},
+		{statusValue: "pending", expected: 2},
+		{statusValue: "stopped", expected: 3},
+		{statusValue: "down", expected: 4},
 	}
 
 	for _, test := range tests {
-		status := machineStatusWithData{StatusID: test.statusValue}
-		c.Check(status.toCoreMachineStatusValue(), gc.Equals, test.expected)
-	}
-
-	// Assert that fromCoreMachineStatusValues returns the correct status value
-	for _, test := range tests {
-		c.Check(fromCoreMachineStatusValue(test.expected), gc.Equals, test.statusValue)
+		a, err := decodeMachineStatus(test.statusValue)
+		c.Assert(err, jc.ErrorIsNil)
+		b, err := encodeMachineStatus(a)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(b, gc.Equals, test.expected)
 	}
 }
 
-// TestInstanceStatusValuesConversion asserts the conversions to and from the core status values and the internal status values for instances stay intact.
+// TestInstanceStatusValuesConversion asserts the conversions to and from the
+// core status values and the internal status values for instances stay intact.
 func (s *stateSuite) TestInstanceStatusValuesConversion(c *gc.C) {
-
-	// Assert that toCoreInstanceStatusValues returns the correct status value
 	tests := []struct {
-		statusValue int
-		expected    status.Status
+		statusValue string
+		expected    int
 	}{
-		{0, status.Empty},
-		{1, status.Allocating},
-		{2, status.Running},
-		{3, status.ProvisioningError},
+		{statusValue: "", expected: 0},
+		{statusValue: "unknown", expected: 0},
+		{statusValue: "allocating", expected: 1},
+		{statusValue: "running", expected: 2},
+		{statusValue: "provisioning error", expected: 3},
 	}
 
 	for _, test := range tests {
-		status := machineStatusWithData{StatusID: test.statusValue}
-		c.Check(status.toCoreInstanceStatusValue(), gc.Equals, test.expected)
-	}
+		a, err := decodeCloudInstanceStatus(test.statusValue)
+		c.Assert(err, jc.ErrorIsNil)
 
-	// Assert that fromCoreInstanceStatusValues returns the correct status value
-	for _, test := range tests {
-		c.Check(fromCoreInstanceStatusValue(test.expected), gc.Equals, test.statusValue)
+		b, err := encodeCloudInstanceStatus(a)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(b, gc.Equals, test.expected)
 	}
 }
 
@@ -496,16 +499,16 @@ func (s *stateSuite) TestSetMachineLifeSuccess(c *gc.C) {
 
 	// Assert the life status is initially Alive
 	obtainedLife, err := s.state.GetMachineLife(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*obtainedLife, gc.Equals, life.Alive)
 
 	// Set the machine's life to Dead
 	err = s.state.SetMachineLife(context.Background(), "666", life.Dead)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert we get the Dead as the machine's new life status.
 	obtainedLife, err = s.state.GetMachineLife(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*obtainedLife, gc.Equals, life.Dead)
 }
 
@@ -520,7 +523,7 @@ func (s *stateSuite) TestSetMachineLifeNotFoundError(c *gc.C) {
 // if there are no machines.
 func (s *stateSuite) TestListAllMachinesEmpty(c *gc.C) {
 	machines, err := s.state.AllMachineNames(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 0)
 }
 
@@ -551,7 +554,7 @@ func (s *stateSuite) TestIsControllerSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	isController, err := s.state.IsMachineController(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isController, gc.Equals, false)
 
 	db := s.DB()
@@ -564,7 +567,7 @@ WHERE name = $1;
 	_, err = db.ExecContext(context.Background(), updateIsController, "666")
 	c.Assert(err, jc.ErrorIsNil)
 	isController, err = s.state.IsMachineController(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isController, gc.Equals, true)
 }
 
@@ -588,7 +591,7 @@ func (s *stateSuite) TestGetMachineParentUUIDSuccess(c *gc.C) {
 
 	// Get the parent UUID of the machine.
 	parentUUID, err := s.state.GetMachineParentUUID(context.Background(), "456")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(parentUUID, gc.Equals, "123")
 }
 
@@ -616,13 +619,13 @@ func (s *stateSuite) TestMarkMachineForRemovalSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.MarkMachineForRemoval(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var machineUUID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT machine_uuid FROM machine_removals WHERE machine_uuid=?", "123").Scan(&machineUUID)
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineUUID, gc.Equals, "123")
 }
 
@@ -633,10 +636,10 @@ func (s *stateSuite) TestMarkMachineForRemovalSuccessIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.MarkMachineForRemoval(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.MarkMachineForRemoval(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	machines, err := s.state.GetAllMachineRemovals(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -660,7 +663,7 @@ func (s *stateSuite) TestGetAllMachineRemovalsSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.MarkMachineForRemoval(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	machines, err := s.state.GetAllMachineRemovals(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -672,7 +675,7 @@ func (s *stateSuite) TestGetAllMachineRemovalsSuccess(c *gc.C) {
 // empty list if there are no machines marked for removal.
 func (s *stateSuite) TestGetAllMachineRemovalsEmpty(c *gc.C) {
 	machines, err := s.state.GetAllMachineRemovals(context.Background())
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 0)
 }
 
@@ -689,10 +692,10 @@ func (s *stateSuite) TestGetSomeMachineRemovals(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.MarkMachineForRemoval(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.MarkMachineForRemoval(context.Background(), "668")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	machines, err := s.state.GetAllMachineRemovals(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -723,7 +726,7 @@ func (s *stateSuite) TestKeepInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	isController, err := s.state.ShouldKeepInstance(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isController, gc.Equals, false)
 
 	db := s.DB()
@@ -735,7 +738,7 @@ WHERE  name = $1`
 	_, err = db.ExecContext(context.Background(), updateIsController, "666")
 	c.Assert(err, jc.ErrorIsNil)
 	isController, err = s.state.ShouldKeepInstance(context.Background(), "666")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isController, gc.Equals, true)
 }
 

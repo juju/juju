@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v8"
 
 	"github.com/juju/juju/core/instance"
@@ -19,8 +20,9 @@ import (
 )
 
 // RegisterExport registers the export operations with the given coordinator.
-func RegisterExport(coordinator Coordinator, logger logger.Logger) {
+func RegisterExport(coordinator Coordinator, clock clock.Clock, logger logger.Logger) {
 	coordinator.Add(&exportOperation{
+		clock:  clock,
 		logger: logger,
 	})
 }
@@ -48,6 +50,7 @@ type exportOperation struct {
 	modelmigration.BaseOperation
 
 	service ExportService
+	clock   clock.Clock
 	logger  logger.Logger
 }
 
@@ -57,7 +60,7 @@ func (e *exportOperation) Name() string {
 }
 
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
-	e.service = service.NewService(state.NewState(scope.ModelDB(), e.logger))
+	e.service = service.NewService(state.NewState(scope.ModelDB(), e.clock, e.logger))
 	return nil
 }
 

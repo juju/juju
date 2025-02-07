@@ -582,15 +582,10 @@ func encodePlatform(platform corecharm.Platform) (application.Platform, error) {
 		return application.Platform{}, errors.Trace(err)
 	}
 
-	arch := encodeArchitecture(platform.Architecture)
-	if err != nil {
-		return application.Platform{}, errors.Trace(err)
-	}
-
 	return application.Platform{
 		Channel:      platform.Channel,
 		OSType:       ostype,
-		Architecture: arch,
+		Architecture: encodeArchitecture(platform.Architecture),
 	}, nil
 }
 

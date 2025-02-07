@@ -37,9 +37,9 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -1138,7 +1138,7 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 		return nil
 	}
 
-	unitUpdateParams := make(map[coreunit.Name]application.UpdateCAASUnitParams, len(unitUpdates))
+	unitUpdateParams := make(map[coreunit.Name]applicationservice.UpdateCAASUnitParams, len(unitUpdates))
 	unitUpdate := state.UpdateUnitsOperation{}
 	processedFilesystemIds := set.NewStrings()
 	for _, unitParams := range unitUpdates {
@@ -1408,10 +1408,10 @@ func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, 
 	return nil
 }
 
-func processUnitParams(unitParams params.ApplicationUnitParams) application.UpdateCAASUnitParams {
+func processUnitParams(unitParams params.ApplicationUnitParams) applicationservice.UpdateCAASUnitParams {
 	agentStatus, cloudContainerStatus := updateStatus(unitParams)
-	return application.UpdateCAASUnitParams{
-		ProviderId:           &unitParams.ProviderId,
+	return applicationservice.UpdateCAASUnitParams{
+		ProviderID:           &unitParams.ProviderId,
 		Address:              &unitParams.Address,
 		Ports:                &unitParams.Ports,
 		AgentStatus:          agentStatus,
@@ -1419,9 +1419,9 @@ func processUnitParams(unitParams params.ApplicationUnitParams) application.Upda
 	}
 }
 
-func legacyUnitParams(unitParams *application.UpdateCAASUnitParams) state.UnitUpdateProperties {
+func legacyUnitParams(unitParams *applicationservice.UpdateCAASUnitParams) state.UnitUpdateProperties {
 	result := state.UnitUpdateProperties{
-		ProviderId: unitParams.ProviderId,
+		ProviderId: unitParams.ProviderID,
 		Address:    unitParams.Address,
 		Ports:      unitParams.Ports,
 	}
@@ -1446,8 +1446,8 @@ func legacyUnitParams(unitParams *application.UpdateCAASUnitParams) state.UnitUp
 
 // updateStatus constructs the agent and cloud container status values.
 func updateStatus(params params.ApplicationUnitParams) (
-	agentStatus *application.StatusParams,
-	cloudContainerStatus *application.StatusParams,
+	agentStatus *status.StatusInfo,
+	cloudContainerStatus *status.StatusInfo,
 ) {
 	var containerStatus status.Status
 	switch status.Status(params.Status) {
@@ -1457,19 +1457,19 @@ func updateStatus(params params.ApplicationUnitParams) (
 		return nil, nil
 	case status.Allocating:
 		// The container runtime has decided to restart the pod.
-		agentStatus = &application.StatusParams{
+		agentStatus = &status.StatusInfo{
 			Status:  status.Allocating,
 			Message: params.Info,
 		}
 		containerStatus = status.Waiting
 	case status.Running:
 		// A pod has finished starting so the workload is now active.
-		agentStatus = &application.StatusParams{
+		agentStatus = &status.StatusInfo{
 			Status: status.Idle,
 		}
 		containerStatus = status.Running
 	case status.Error:
-		agentStatus = &application.StatusParams{
+		agentStatus = &status.StatusInfo{
 			Status:  status.Error,
 			Message: params.Info,
 			Data:    params.Data,
@@ -1477,11 +1477,11 @@ func updateStatus(params params.ApplicationUnitParams) (
 		containerStatus = status.Error
 	case status.Blocked:
 		containerStatus = status.Blocked
-		agentStatus = &application.StatusParams{
+		agentStatus = &status.StatusInfo{
 			Status: status.Idle,
 		}
 	}
-	cloudContainerStatus = &application.StatusParams{
+	cloudContainerStatus = &status.StatusInfo{
 		Status:  containerStatus,
 		Message: params.Info,
 		Data:    params.Data,

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/config"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -58,21 +59,18 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
+	now := ptr(s.clock.Now())
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "installing agent",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: corestatus.MessageInstallingAgent,
+				Since:   now,
 			},
 		},
 	}}
@@ -86,7 +84,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 				"baz": {Name: "baz", Type: applicationcharm.ResourceTypeFile},
 			},
 		},
-		Manifest:        s.minimalManifest(c),
+		Manifest:        s.minimalManifest(),
 		ReferenceName:   "ubuntu",
 		Source:          applicationcharm.CharmHubSource,
 		Revision:        42,
@@ -130,7 +128,12 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
-	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app, us).Return(id, nil)
+
+	var receivedArgs []application.AddUnitArg
+	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ application.AddApplicationArg, args []application.AddUnitArg) (coreapplication.ID, error) {
+		receivedArgs = args
+		return id, nil
+	})
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -188,6 +191,7 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 		},
 	}, a)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(receivedArgs, jc.DeepEquals, us)
 }
 
 func (s *applicationServiceSuite) TestCreateApplicationWithInvalidApplicationName(c *gc.C) {
@@ -437,21 +441,18 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
+	now := ptr(s.clock.Now())
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "waiting for machine",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: "waiting for machine",
+				Since:   now,
 			},
 		},
 	}}
@@ -470,7 +471,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 				},
 			},
 		},
-		Manifest:      s.minimalManifest(c),
+		Manifest:      s.minimalManifest(),
 		ReferenceName: "foo",
 		Source:        applicationcharm.LocalSource,
 		Revision:      42,
@@ -548,21 +549,18 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 
 	id := applicationtesting.GenApplicationUUID(c)
 
+	now := ptr(s.clock.Now())
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "waiting for machine",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: corestatus.MessageWaitForMachine,
+				Since:   now,
 			},
 		},
 	}}
@@ -581,7 +579,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 				},
 			},
 		},
-		Manifest:      s.minimalManifest(c),
+		Manifest:      s.minimalManifest(),
 		ReferenceName: "foo",
 		Source:        applicationcharm.CharmHubSource,
 		Revision:      42,
@@ -664,21 +662,18 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 
 	id := applicationtesting.GenApplicationUUID(c)
 
+	now := ptr(s.clock.Now())
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "waiting for machine",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: "waiting for machine",
+				Since:   now,
 			},
 		},
 	}}
@@ -697,7 +692,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 				},
 			},
 		},
-		Manifest:      s.minimalManifest(c),
+		Manifest:      s.minimalManifest(),
 		ReferenceName: "foo",
 		Source:        applicationcharm.CharmHubSource,
 		Revision:      42,
@@ -777,21 +772,18 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 
 	id := applicationtesting.GenApplicationUUID(c)
 
+	now := ptr(s.clock.Now())
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "waiting for machine",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: "waiting for machine",
+				Since:   now,
 			},
 		},
 	}}
@@ -810,7 +802,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 				},
 			},
 		},
-		Manifest:      s.minimalManifest(c),
+		Manifest:      s.minimalManifest(),
 		ReferenceName: "foo",
 		Source:        applicationcharm.CharmHubSource,
 		Revision:      42,
@@ -976,33 +968,36 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	u := application.AddUnitArg{
+	now := ptr(s.clock.Now())
+	u := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: application.UnitAgentStatusInfo{
-				StatusID: application.UnitAgentStatusAllocating,
-				StatusInfo: application.StatusInfo{
-					Since: s.clock.Now(),
-				},
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
 			},
-			WorkloadStatus: application.UnitWorkloadStatusInfo{
-				StatusID: application.UnitWorkloadStatusWaiting,
-				StatusInfo: application.StatusInfo{
-					Message: "installing agent",
-					Since:   s.clock.Now(),
-				},
+			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
+				Status:  application.UnitWorkloadStatusWaiting,
+				Message: corestatus.MessageInstallingAgent,
+				Since:   now,
 			},
 		},
-	}
+	}}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.state.EXPECT().AddUnits(gomock.Any(), appUUID, u).Return(nil)
+
+	var received []application.AddUnitArg
+	s.state.EXPECT().AddUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args []application.AddUnitArg) error {
+		received = args
+		return nil
+	})
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
 	err := s.service.AddUnits(context.Background(), "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(received, jc.DeepEquals, u)
 }
 
 func (s *applicationServiceSuite) TestGetUnitUUID(c *gc.C) {
@@ -1035,7 +1030,7 @@ func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 	p := application.RegisterCAASUnitArg{
 		UnitName:     coreunit.Name("foo/666"),
 		PasswordHash: "passwordhash",
-		ProviderId:   "provider-id",
+		ProviderID:   "provider-id",
 		Address:      ptr("10.6.6.6"),
 		Ports:        ptr([]string{"666"}),
 		OrderedScale: true,
@@ -1052,7 +1047,7 @@ func (s *applicationServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 var unitParams = application.RegisterCAASUnitArg{
 	UnitName:     coreunit.Name("foo/666"),
 	PasswordHash: "passwordhash",
-	ProviderId:   "provider-id",
+	ProviderID:   "provider-id",
 	OrderedScale: true,
 	OrderedId:    1,
 }
@@ -1079,7 +1074,7 @@ func (s *applicationServiceSuite) TestRegisterCAASUnitMissingProviderID(c *gc.C)
 	defer s.setupMocks(c).Finish()
 
 	p := unitParams
-	p.ProviderId = ""
+	p.ProviderID = ""
 	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, gc.ErrorMatches, "provider id not valid")
 }
@@ -1100,35 +1095,65 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 	unitName := coreunit.Name("foo/666")
 	now := time.Now()
 
-	params := application.UpdateCAASUnitParams{
-		ProviderId: ptr("provider-id"),
+	expected := application.UpdateCAASUnitParams{
+		ProviderID: ptr("provider-id"),
 		Address:    ptr("10.6.6.6"),
 		Ports:      ptr([]string{"666"}),
-		AgentStatus: ptr(application.StatusParams{
-			Status:  "idle",
+		AgentStatus: ptr(application.StatusInfo[application.UnitAgentStatusType]{
+			Status:  application.UnitAgentStatusAllocating,
 			Message: "agent status",
-			Data:    map[string]any{"foo": "bar"},
+			Data:    []byte(`{"foo":"bar"}`),
 			Since:   ptr(now),
 		}),
-		WorkloadStatus: ptr(application.StatusParams{
-			Status:  "waiting",
+		WorkloadStatus: ptr(application.StatusInfo[application.UnitWorkloadStatusType]{
+			Status:  application.UnitWorkloadStatusWaiting,
 			Message: "workload status",
-			Data:    map[string]any{"foo": "bar"},
+			Data:    []byte(`{"foo":"bar"}`),
 			Since:   ptr(now),
 		}),
-		CloudContainerStatus: ptr(application.StatusParams{
-			Status:  "running",
+		CloudContainerStatus: ptr(application.StatusInfo[application.CloudContainerStatusType]{
+			Status:  application.CloudContainerStatusRunning,
 			Message: "container status",
-			Data:    map[string]any{"foo": "bar"},
+			Data:    []byte(`{"foo":"bar"}`),
+			Since:   ptr(now),
+		}),
+	}
+
+	params := UpdateCAASUnitParams{
+		ProviderID: ptr("provider-id"),
+		Address:    ptr("10.6.6.6"),
+		Ports:      ptr([]string{"666"}),
+		AgentStatus: ptr(corestatus.StatusInfo{
+			Status:  corestatus.Allocating,
+			Message: "agent status",
+			Data:    map[string]interface{}{"foo": "bar"},
+			Since:   ptr(now),
+		}),
+		WorkloadStatus: ptr(corestatus.StatusInfo{
+			Status:  corestatus.Waiting,
+			Message: "workload status",
+			Data:    map[string]interface{}{"foo": "bar"},
+			Since:   ptr(now),
+		}),
+		CloudContainerStatus: ptr(corestatus.StatusInfo{
+			Status:  corestatus.Running,
+			Message: "container status",
+			Data:    map[string]interface{}{"foo": "bar"},
 			Since:   ptr(now),
 		}),
 	}
 
 	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(appID, life.Alive, nil)
-	s.state.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, params)
+
+	var unitArgs application.UpdateCAASUnitParams
+	s.state.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreunit.Name, args application.UpdateCAASUnitParams) error {
+		unitArgs = args
+		return nil
+	})
 
 	err := s.service.UpdateCAASUnit(context.Background(), unitName, params)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(unitArgs, jc.DeepEquals, expected)
 }
 
 func (s *applicationServiceSuite) TestUpdateCAASUnitNotAlive(c *gc.C) {
@@ -1137,7 +1162,7 @@ func (s *applicationServiceSuite) TestUpdateCAASUnitNotAlive(c *gc.C) {
 	id := applicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetApplicationLife(gomock.Any(), "foo").Return(id, life.Dying, nil)
 
-	err := s.service.UpdateCAASUnit(context.Background(), coreunit.Name("foo/666"), application.UpdateCAASUnitParams{})
+	err := s.service.UpdateCAASUnit(context.Background(), coreunit.Name("foo/666"), UpdateCAASUnitParams{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 

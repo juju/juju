@@ -138,6 +138,7 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	s.machineService = service.NewWatchableService(
 		state.NewState(
 			func() (database.TxnRunner, error) { return factory() },
+			clock.WallClock,
 			loggertesting.WrapCheckLog(c),
 		),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),

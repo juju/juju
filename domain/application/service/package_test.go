@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -48,12 +46,6 @@ type baseSuite struct {
 	clock                 *testclock.Clock
 
 	service *ProviderService
-}
-
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
-	return s.setupMocksWithAtomic(c, func(ctx domain.AtomicContext) error {
-		return errors.NotImplementedf("not implemented")
-	})
 }
 
 func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context) (Provider, error)) *gomock.Controller {
@@ -92,7 +84,7 @@ func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context)
 }
 
 // Deprecated: atomic context is deprecated.
-func (s *baseSuite) setupMocksWithAtomic(c *gc.C, fn func(domain.AtomicContext) error) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelID = modeltesting.GenModelUUID(c)
@@ -129,7 +121,7 @@ func (s *baseSuite) setupMocksWithAtomic(c *gc.C, fn func(domain.AtomicContext) 
 	return ctrl
 }
 
-func (s *baseSuite) minimalManifest(c *gc.C) charm.Manifest {
+func (s *baseSuite) minimalManifest() charm.Manifest {
 	return charm.Manifest{
 		Bases: []charm.Base{
 			{

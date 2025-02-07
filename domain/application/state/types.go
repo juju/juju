@@ -11,6 +11,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/internal/errors"
 )
 
 // These structs represent the persistent block device entity schema in the database.
@@ -130,13 +131,8 @@ type unitStatusInfo struct {
 	UnitUUID  coreunit.UUID `db:"unit_uuid"`
 	StatusID  int           `db:"status_id"`
 	Message   string        `db:"message"`
-	UpdatedAt time.Time     `db:"updated_at"`
-}
-
-type unitStatusData struct {
-	UnitUUID coreunit.UUID `db:"unit_uuid"`
-	Key      string        `db:"key"`
-	Data     string        `db:"data"`
+	Data      []byte        `db:"data"`
+	UpdatedAt *time.Time    `db:"updated_at"`
 }
 
 type cloudContainer struct {
@@ -203,12 +199,12 @@ type charmReferenceNameRevisionSource struct {
 	Source        int    `db:"source_id"`
 }
 
-// charmAvailable is used to get the available status of a charm.
+// charmAvailable is used to get the available application.UnitWorkloadStatusType a charm.
 type charmAvailable struct {
 	Available bool `db:"available"`
 }
 
-// charmSubordinate is used to get the subordinate status of a charm.
+// charmSubordinate is used to get the subordinate application.UnitWorkloadStatusType a charm.
 type charmSubordinate struct {
 	Subordinate bool `db:"subordinate"`
 }
@@ -787,4 +783,59 @@ type spaceName struct {
 
 type spaceUUID struct {
 	UUID string `db:"uuid"`
+}
+
+func encodeCloudContainerStatus(s application.CloudContainerStatusType) (int, error) {
+	switch s {
+	case application.CloudContainerStatusWaiting:
+		return 0, nil
+	case application.CloudContainerStatusBlocked:
+		return 1, nil
+	case application.CloudContainerStatusRunning:
+		return 2, nil
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
+	}
+}
+
+func encodeAgentStatus(s application.UnitAgentStatusType) (int, error) {
+	switch s {
+	case application.UnitAgentStatusAllocating:
+		return 0, nil
+	case application.UnitAgentStatusExecuting:
+		return 1, nil
+	case application.UnitAgentStatusIdle:
+		return 2, nil
+	case application.UnitAgentStatusError:
+		return 3, nil
+	case application.UnitAgentStatusFailed:
+		return 4, nil
+	case application.UnitAgentStatusLost:
+		return 5, nil
+	case application.UnitAgentStatusRebooting:
+		return 6, nil
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
+	}
+}
+
+func encodeWorkloadStatus(s application.UnitWorkloadStatusType) (int, error) {
+	switch s {
+	case application.UnitWorkloadStatusUnset:
+		return 0, nil
+	case application.UnitWorkloadStatusUnknown:
+		return 1, nil
+	case application.UnitWorkloadStatusMaintenance:
+		return 2, nil
+	case application.UnitWorkloadStatusWaiting:
+		return 3, nil
+	case application.UnitWorkloadStatusBlocked:
+		return 4, nil
+	case application.UnitWorkloadStatusActive:
+		return 5, nil
+	case application.UnitWorkloadStatusTerminated:
+		return 6, nil
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
+	}
 }

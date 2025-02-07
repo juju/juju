@@ -65,7 +65,7 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	credential.RegisterExport(e.coordinator, e.logger.Child("credential"))
 	network.RegisterExport(e.coordinator, e.logger.Child("network"))
 	externalcontroller.RegisterExport(e.coordinator)
-	machine.RegisterExport(e.coordinator, e.logger.Child("machine"))
+	machine.RegisterExport(e.coordinator, e.clock, e.logger.Child("machine"))
 	blockdevice.RegisterExport(e.coordinator, e.logger.Child("blockdevice"))
 	storage.RegisterExport(e.coordinator, registry, e.logger.Child("storage"))
 	secret.RegisterExport(e.coordinator, e.logger.Child("secret"))

@@ -4,12 +4,14 @@
 package state
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
+	"github.com/juju/juju/internal/errors"
 )
 
 // instanceData represents the struct to be inserted into the instance_data
@@ -97,18 +99,23 @@ type instanceIDAndDisplayName struct {
 	Name string `db:"display_name"`
 }
 
-// machineStatusData represents the struct to be used for the status and status
-// data columns of status and status_data tables for both machine and machine
-// cloud instances within the sqlair statements in the machine domain.
-type machineStatusWithData struct {
-	StatusID int        `db:"status_id"`
-	Message  string     `db:"message"`
-	Updated  *time.Time `db:"updated_at"`
-	Key      string     `db:"key"`
-	Data     string     `db:"data"`
+// machineStatus represents the struct to be used for the status.
+type machineStatus struct {
+	Status  string       `db:"status"`
+	Message string       `db:"message"`
+	Data    []byte       `db:"data"`
+	Updated sql.NullTime `db:"updated_at"`
 }
 
-type machineStatusData []machineStatusWithData
+// setMachineStatus represents the struct to be used for the columns of the
+// machine_status table within the sqlair statements in the machine domain.
+type setMachineStatus struct {
+	MachineUUID string     `db:"machine_uuid"`
+	StatusID    int        `db:"status_id"`
+	Message     string     `db:"message"`
+	Data        []byte     `db:"data"`
+	Updated     *time.Time `db:"updated_at"`
+}
 
 // availabilityZoneName represents the struct to be used for the name column
 // within the sqlair statements in the availability_zone table.
@@ -165,89 +172,78 @@ func (s machineName) nameSliceTransform() machine.Name {
 	return s.Name
 }
 
-// dataMapTransformFunc is a function that is used to transform a slice of
-// machineStatusWithData into a map.
-func (s machineStatusWithData) dataMapTransformFunc() (string, interface{}) {
-	return s.Key, s.Data
-}
-
-// dataSliceTransformFunc is a function that is used to transform a map into a
-// slice of machineStatusWithData.
-func dataSliceTransformFunc(key string, value interface{}) []machineStatusWithData {
-	return []machineStatusWithData{{Key: key, Data: value.(string)}}
-}
-
-// toCoreMachineStatusValue converts an internal status used by machines (per
-// the machine_status_value table) into a core type status.Status.
-func (s *machineStatusWithData) toCoreMachineStatusValue() status.Status {
-	var out status.Status
-	switch s.StatusID {
-	case 0:
-		out = status.Error
-	case 1:
-		out = status.Started
-	case 2:
-		out = status.Pending
-	case 3:
-		out = status.Stopped
-	case 4:
-		out = status.Down
-	}
-	return out
-}
-
-// fromCoreMachineStatusValue converts a status.Status to an internal status
-// used by machines (per the machine_status_value table).
-func fromCoreMachineStatusValue(s status.Status) int {
-	var internalStatus int
+func decodeMachineStatus(s string) (domainmachine.MachineStatusType, error) {
+	var result domainmachine.MachineStatusType
 	switch s {
-	case status.Error:
-		internalStatus = 0
-	case status.Started:
-		internalStatus = 1
-	case status.Pending:
-		internalStatus = 2
-	case status.Stopped:
-		internalStatus = 3
-	case status.Down:
-		internalStatus = 4
+	case "error":
+		result = domainmachine.MachineStatusError
+	case "started":
+		result = domainmachine.MachineStatusStarted
+	case "pending":
+		result = domainmachine.MachineStatusPending
+	case "stopped":
+		result = domainmachine.MachineStatusStopped
+	case "down":
+		result = domainmachine.MachineStatusDown
+	case "":
+		result = domainmachine.MachineStatusUnknown
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
 	}
-	return internalStatus
+	return result, nil
 }
 
-// toCoreInstanceStatusValue converts an internal status used by machine cloud
-// instances (per the machine_cloud_instance_status_value table) into a core type
-// status.Status.
-func (s *machineStatusWithData) toCoreInstanceStatusValue() status.Status {
-	var out status.Status
-	switch s.StatusID {
-	case 0:
-		out = status.Empty
-	case 1:
-		out = status.Allocating
-	case 2:
-		out = status.Running
-	case 3:
-		out = status.ProvisioningError
-	}
-	return out
-}
-
-// fromCoreInstanceStatusValue converts a status.Status to an internal status
-// used by machine cloud instances (per the machine_cloud_instance_status_value table).
-func fromCoreInstanceStatusValue(s status.Status) int {
-	var internalStatus int
+func encodeMachineStatus(s domainmachine.MachineStatusType) (int, error) {
+	var result int
 	switch s {
-	case status.Empty:
-		internalStatus = 0
-	case status.Allocating:
-		internalStatus = 1
-	case status.Running:
-		internalStatus = 2
-	case status.ProvisioningError:
-		internalStatus = 3
+	case domainmachine.MachineStatusError:
+		result = 0
+	case domainmachine.MachineStatusStarted:
+		result = 1
+	case domainmachine.MachineStatusPending:
+		result = 2
+	case domainmachine.MachineStatusStopped:
+		result = 3
+	case domainmachine.MachineStatusDown:
+		result = 4
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
 	}
-	return internalStatus
+	return result, nil
+}
+
+func decodeCloudInstanceStatus(s string) (domainmachine.InstanceStatusType, error) {
+	var result domainmachine.InstanceStatusType
+	switch s {
+	case "unknown", "":
+		result = domainmachine.InstanceStatusUnset
+	case "allocating":
+		result = domainmachine.InstanceStatusAllocating
+	case "running":
+		result = domainmachine.InstanceStatusRunning
+	case "provisioning error":
+		result = domainmachine.InstanceStatusProvisioningError
+	default:
+		return 0, errors.Errorf("unknown status %q", s)
+	}
+	return result, nil
+}
+
+func encodeCloudInstanceStatus(s domainmachine.InstanceStatusType) (int, error) {
+	var result int
+	switch s {
+	case domainmachine.InstanceStatusUnset:
+		result = 0
+	case domainmachine.InstanceStatusAllocating:
+		result = 1
+	case domainmachine.InstanceStatusRunning:
+		result = 2
+	case domainmachine.InstanceStatusProvisioningError:
+		result = 3
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
+	}
+	return result, nil
 }
 
 // createMachineArgs represents the struct to be used for the input parameters

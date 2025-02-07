@@ -161,7 +161,7 @@ func (s *ModelServices) Config() *modelconfigservice.WatchableService {
 // Machine returns the model's machine service.
 func (s *ModelServices) Machine() *machineservice.WatchableService {
 	return machineservice.NewWatchableService(
-		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("machine")),
+		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, s.logger.Child("machine")),
 		s.modelWatcherFactory("machine"),
 		providertracker.ProviderRunner[machineservice.Provider](s.providerFactory, s.modelUUID.String()),
 	)

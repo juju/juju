@@ -526,7 +526,7 @@ func (s *charmServiceSuite) TestCharmManifest(c *gc.C) {
 		Source:   charm.CharmHubSource,
 	}
 	s.state.EXPECT().GetCharmID(gomock.Any(), locator.Name, locator.Revision, locator.Source).Return(id, nil)
-	s.state.EXPECT().GetCharmManifest(gomock.Any(), id).Return(s.minimalManifest(c), nil)
+	s.state.EXPECT().GetCharmManifest(gomock.Any(), id).Return(s.minimalManifest(), nil)
 
 	manifest, err := s.service.GetCharmManifest(context.Background(), locator)
 	c.Assert(err, jc.ErrorIsNil)
@@ -767,7 +767,7 @@ func (s *charmServiceSuite) TestSetCharm(c *gc.C) {
 			Name:  "foo",
 			RunAs: "default",
 		},
-		Manifest:      s.minimalManifest(c),
+		Manifest:      s.minimalManifest(),
 		ReferenceName: "baz",
 		Source:        charm.LocalSource,
 		Revision:      1,
@@ -846,7 +846,7 @@ func (s *charmServiceSuite) TestSetCharmCharmhub(c *gc.C) {
 			Name:  "foo",
 			RunAs: "default",
 		},
-		Manifest:      s.minimalManifest(c),
+		Manifest:      s.minimalManifest(),
 		ReferenceName: "baz",
 		Source:        charm.CharmHubSource,
 		Revision:      1,
