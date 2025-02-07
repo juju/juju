@@ -2,8 +2,8 @@ Thanks for your interest in Juju! Contributions like yours make good projects
 great.
 
 # TL;DR
-- Bug reports should be filed on [Launchpad](https://bugs.launchpad.net/juju/+bugs),
-  not GitHub. Please check that your bug has not already been reported.
+- Bug reports should be filed on GitHub [juju/juju](https://github.com/juju/juju/issues).
+  Please check that your bug has not already been reported.
 - When opening a pull request:
   - Check that all your [commits are signed](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).
   - Use [Conventional Commits](#conventional-commits) for commit messages.
@@ -29,10 +29,10 @@ Contents
 Quick links
 ===========
 
-Issue tracker: https://bugs.launchpad.net/juju/+bugs
+Issue tracker: https://github.com/juju/juju/issues
 
 Documentation:
-* https://juju.is/docs
+* https://canonical-juju.readthedocs-hosted.com/en/latest/
 * [source tree docs](docs/dev)
 
 Community:
@@ -102,7 +102,7 @@ For information on setting up and using `git`, check out the following:
 GitHub
 ------
 
-The upstream Juju repository is hosted on [Github](http://github.com). Patches
+The upstream Juju repository is hosted on [GitHub](http://github.com). Patches
 to Juju are contributed through pull requests (more on that in the
 [Pushing](#pushing) section). So you should have a github account and a fork
 there. The following steps will help you get that ready:
@@ -357,7 +357,7 @@ The title of the PR should match the form of the title of a conventional commit.
 This can be the title of the most significant commit in the PR.
 
 Make sure to add a clear description of why and what has been changed, and
-include the Launchpad bug number if one exists.
+include the GitHub issue number or Launchpad bug number if one exists.
 
 It is often helpful to mention newly created proposals on the Discourse forum,
 especially if you would like a specific developer to be aware of the proposal.
@@ -384,27 +384,10 @@ passes, please follow these steps:
 
 1. Ensure your Git commits are signed by an email that you can access
    (you can't use the `@users.noreply.github.com` email that GitHub provides).
-2. Create an account on [Launchpad](https://launchpad.net/), if you don't
-   already have one.
-3. Ensure the email you used for Git commits is a **verified** email on your
-   Launchpad account. To do this:
-   - Go to your Launchpad homepage (`launchpad.net/~[username]`).
-   - Check the addresses listed under the **Email** heading. If your Git email
-     is listed, you're good.
-   - If not, click "Change email settings".
-   - Add your Git email as a new address.
-   - Follow the instructions to verify your email.
-4. Visit the [CLA website](https://ubuntu.com/legal/contributors), scroll down
+2. Visit the [CLA website](https://ubuntu.com/legal/contributors), scroll down
    and press "Sign the contributor agreement".
-5. Read the agreement and fill in your contact details. Ensure that you provide
-   your Launchpad username in the "Launchpad id" box.
-6. Press "I agree" to sign the CLA.
-
-Eventually, your Launchpad account should be added to the
-["Canonical Contributor Agreement" team](https://launchpad.net/~contributor-agreement-canonical).
-You will see it listed under "Memberships" on your Launchpad homepage.
-Once this happens, the CLA check will pass, and we will happily review
-your contribution.
+3. Read the agreement and fill in your contact details.
+4. Press "I agree" to sign the CLA.
 
 
 Sanity checking PRs and unit tests
@@ -474,7 +457,7 @@ Community
 =========
 
 The Juju community is growing and you have a number of options for interacting
-beyond the workflow and the [issue tracker](https://bugs.launchpad.net/juju/+bugs).
+beyond the [juju/juju](https://github.com/juju/juju) GitHub repository.
 
 Use the following links to contact the community:
 
