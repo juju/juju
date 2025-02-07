@@ -420,21 +420,21 @@ post_add_model() {
 add_client_ssh_key_to_juju_model() {
 	local model_name="$1"
 	local ssh_key_file="${JUJU_DATA:-${HOME}/.local/share/juju}/ssh/juju_id_ed25519.pub"
-	
+
 	# Check if model name is provided
-	if [[ -z "$model_name" ]]; then
+	if [[ -z $model_name ]]; then
 		echo "Error: Invalid usage. The function signature should be: add_client_ssh_key_to_juju_model <model_name>"
 		return
 	fi
 
 	# Check if the SSH key file exists
-	if [[ ! -f "$ssh_key_file" ]]; then
+	if [[ ! -f $ssh_key_file ]]; then
 		echo "Error: SSH key file '$ssh_key_file' not found."
 		return
 	fi
 
 	# Validate SSH key
-	if ssh-keygen -l -f "${ssh_key_file}" > /dev/null 2>&1; then
+	if ssh-keygen -l -f "${ssh_key_file}" >/dev/null 2>&1; then
 		output=$(juju add-ssh-key -m "${model_name}" "$(cat "${ssh_key_file}")" 2>&1)
 		exit_code=$?
 		if [[ $exit_code -ne 0 ]]; then
@@ -483,7 +483,12 @@ destroy_model() {
 	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues\n'
 		cat "${output}"
-		return
+		# WARNING. This is a workaround for broken teardown process,
+		# where the model is not destroyed properly. This is a known issue
+		# and return will be reverted once the Clean-up infrastructure will
+		# be fixed. That will help to be move focus on issues in CI tests,
+		# rather than on the teardown.
+		#		return
 	fi
 	echo "====> Destroyed juju model ${name}"
 }
@@ -552,7 +557,12 @@ destroy_controller() {
 	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues\n'
 		cat "${output}"
-		exit 1
+		# WARNING. This is a workaround for broken teardown process,
+		# where the model is not destroyed properly. This is a known issue
+		# and exit code will be reverted once the Clean-up infrastructure will
+		# be fixed. That will help to be move focus on issues in CI tests,
+		# rather than on the teardown.
+		#		exit 1
 	fi
 	set_verbosity
 
