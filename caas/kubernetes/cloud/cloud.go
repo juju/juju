@@ -116,7 +116,8 @@ func CloudFromKubeConfigContext(
 		return newCloud, errors.NotFoundf("kubernetes cluster %q associated with context %q",
 			context.Cluster, ctxName)
 	}
-	return newCloud, buildCloudFromCluster(&newCloud, cluster)
+	err := buildCloudFromCluster(&newCloud, cluster)
+	return newCloud, err
 }
 
 // CloudFromKubeConfigContextReader constructs a Juju cloud object using the
@@ -156,8 +157,8 @@ func CloudFromKubeConfigCluster(
 	if !exists {
 		return newCloud, errors.NotFoundf("kubernetes cluster %q not found", clusterName)
 	}
-
-	return newCloud, buildCloudFromCluster(&newCloud, cluster)
+	err := buildCloudFromCluster(&newCloud, cluster)
+	return newCloud, err
 }
 
 // CloudFromKubeConfigClusterReader attempts to construct a Juju cloud object

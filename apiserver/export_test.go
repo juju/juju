@@ -161,7 +161,8 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	return h, h.Resources()
+	resources := h.Resources()
+	return h, resources
 }
 
 type StubDomainServicesGetter struct{}

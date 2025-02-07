@@ -145,7 +145,8 @@ type fakeStorageRemover struct {
 
 func (f *fakeStorageRemover) new(ctx context.Context) (storage.StorageRemoverCloser, error) {
 	f.MethodCall(f, "NewStorageRemoverCloser")
-	return f, f.NextErr()
+	err := f.NextErr()
+	return f, err
 }
 
 func (f *fakeStorageRemover) Close() error {

@@ -21,7 +21,8 @@ import (
 // NewStateManager creates a new StateManager instance.
 func NewStateManager(ctx context.Context, rw UnitStateReadWriter, logger logger.Logger) (StateManager, error) {
 	mgr := &stateManager{unitStateRW: rw, logger: logger}
-	return mgr, mgr.initialize(ctx)
+	err := mgr.initialize(ctx)
+	return mgr, err
 }
 
 type stateManager struct {

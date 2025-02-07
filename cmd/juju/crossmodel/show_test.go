@@ -74,7 +74,7 @@ func (s *showSuite) TestShowNameOnly(c *gc.C) {
 func (s *showSuite) TestShowNameAndEnvvarOnly(c *gc.C) {
 	// Ensure envvar (fred/model) overrides CurrentModel (fred/test)
 	os.Setenv(osenv.JujuModelEnvKey, "fred/model")
-	defer func() { os.Unsetenv(osenv.JujuModelEnvKey) }()
+	defer func() { _ = os.Unsetenv(osenv.JujuModelEnvKey) }()
 	s.assertShowYaml(c, "db2")
 }
 

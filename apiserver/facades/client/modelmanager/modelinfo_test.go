@@ -1149,7 +1149,8 @@ func (st *mockState) AllModelUUIDs() ([]string, error) {
 
 func (st *mockState) GetBackend(modelUUID string) (common.ModelManagerBackend, func() bool, error) {
 	st.MethodCall(st, "GetBackend", modelUUID)
-	return st, func() bool { return true }, st.NextErr()
+	err := st.NextErr()
+	return st, func() bool { return true }, err
 }
 
 func (st *mockState) GetModel(modelUUID string) (common.Model, func() bool, error) {
@@ -1175,7 +1176,8 @@ func (st *mockState) AllFilesystems() ([]state.Filesystem, error) {
 func (st *mockState) NewModel(args state.ModelArgs) (common.Model, common.ModelManagerBackend, error) {
 	st.MethodCall(st, "NewModel", args)
 	st.model.tag = names.NewModelTag(args.Config.UUID())
-	return st.model, st, st.NextErr()
+	err := st.NextErr()
+	return st.model, st, err
 }
 
 func (st *mockState) ControllerTag() names.ControllerTag {

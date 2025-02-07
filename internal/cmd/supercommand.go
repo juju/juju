@@ -648,9 +648,9 @@ func (c *SuperCommand) FindClosestSubCommand(name string) (string, Command, bool
 	matchedName := matches[0].Name
 	matchedValue := matches[0].Value
 
-	// If the matched value is less than the length+1 of the string, fail the
+	// If the matched value is less or equal to the length of the string, fail the
 	// match.
-	if _, ok := c.subcmds[matchedName]; ok && matchedName != "" && matchedValue < len(matchedName)+1 {
+	if _, ok := c.subcmds[matchedName]; ok && matchedName != "" && matchedValue <= len(matchedName) {
 		return matchedName, c.subcmds[matchedName].command, true
 	}
 	return "", nil, false

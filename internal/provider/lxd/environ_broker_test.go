@@ -85,7 +85,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 		if spec.Config[containerlxd.NetworkConfigKey] != "" {
 			return false
 		}
-		return !(len(spec.Devices) > 0)
+		return len(spec.Devices) == 0
 	}
 
 	exp := svr.EXPECT()
