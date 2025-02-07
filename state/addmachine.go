@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	sshkeys "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/storage"
 )
 
@@ -91,6 +92,10 @@ type MachineTemplate struct {
 	// principals holds the principal units that will
 	// associated with the machine.
 	principals []string
+
+	// VirtualHostKey holds an SSH host key used when making
+	// a controller-proxied SSH session to the machine.
+	VirtualHostKey []byte
 }
 
 // HostVolumeParams holds the parameters for creating a volume and
@@ -131,9 +136,14 @@ func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId stri
 // AddMachine adds a machine with the given series and jobs.
 // It is deprecated and around for testing purposes only.
 func (st *State) AddMachine(base Base, jobs ...MachineJob) (*Machine, error) {
+	virtualHostKey, err := sshkeys.NewMarshalledED25519()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	ms, err := st.AddMachines(MachineTemplate{
-		Base: base,
-		Jobs: jobs,
+		Base:           base,
+		Jobs:           jobs,
+		VirtualHostKey: virtualHostKey,
 	})
 	if err != nil {
 		return nil, err
@@ -316,8 +326,15 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if isController(mdoc) {
 		prereqOps = append(prereqOps, addControllerNodeOp(st, mdoc.Id, false))
 	}
+	ops := append(prereqOps, machineOp)
 
-	return mdoc, append(prereqOps, machineOp), nil
+	addvirtualHostKeyOps, err := newMachineVirtualHostKeysOps(st, mdoc.Id, template.VirtualHostKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	ops = append(ops, addvirtualHostKeyOps...)
+
+	return mdoc, ops, nil
 }
 
 // supportsContainerType reports whether the machine supports the given

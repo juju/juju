@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	sshkeys "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
@@ -446,6 +447,10 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		hardware = *args.BootstrapMachineHardwareCharacteristics
 	}
 
+	virtualHostKey, err := sshkeys.NewMarshalledED25519()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	base, err := coreos.HostBase()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -458,6 +463,7 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		HardwareCharacteristics: hardware,
 		Jobs:                    jobs,
 		DisplayName:             args.BootstrapMachineDisplayName,
+		VirtualHostKey:          virtualHostKey,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")

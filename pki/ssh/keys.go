@@ -13,7 +13,7 @@ import (
 	"encoding/pem"
 
 	"github.com/juju/errors"
-	"golang.org/x/crypto/ssh"
+	gossh "golang.org/x/crypto/ssh"
 )
 
 type KeyProfile func() (crypto.PrivateKey, error)
@@ -49,6 +49,22 @@ func ED25519() (crypto.PrivateKey, error) {
 	return pk, err
 }
 
+func MarshalPrivateKey(privateKey crypto.PrivateKey) ([]byte, error) {
+	pemKey, err := gossh.MarshalPrivateKey(privateKey, "")
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to marshal private key")
+	}
+	return pem.EncodeToMemory(pemKey), nil
+}
+
+func UnmarshalPrivateKey(data []byte) (crypto.PrivateKey, error) {
+	privateKey, err := gossh.ParsePrivateKey(data)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to unmarshal private key")
+	}
+	return privateKey, nil
+}
+
 var hostKeyProfiles = []KeyProfile{
 	RSA2048,
 	ECDSAP256,
@@ -69,18 +85,12 @@ func GenerateHostKeys() ([]crypto.PrivateKey, error) {
 	return res, nil
 }
 
-// GenerateED25519KeyString generates a new ED25519 private key and returns it as a PEM encoded string.
-func GenerateED25519KeyString() (string, error) {
-	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+// NewMarshalledED25519 is a convenience function wrapping a call to
+// create a new ED25519 private key and then marhsalling the result.
+func NewMarshalledED25519() ([]byte, error) {
+	privateKey, err := ED25519()
 	if err != nil {
-		return "", errors.Annotate(err, "failed to generate ED25519 key")
+		return nil, err
 	}
-
-	pemKey, err := ssh.MarshalPrivateKey(privateKey, "")
-	if err != nil {
-		return "", errors.Annotate(err, "failed to marshal private key")
-	}
-
-	pemString := string(pem.EncodeToMemory(pemKey))
-	return pemString, nil
+	return MarshalPrivateKey(privateKey)
 }

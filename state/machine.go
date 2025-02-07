@@ -1140,6 +1140,8 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	ops = append(ops, filesystemOps...)
 	ops = append(ops, volumeOps...)
+	ops = append(ops, removeMachineVirtualHostKeyOps(m.st, m.Id())...)
+
 	return ops, nil
 }
 

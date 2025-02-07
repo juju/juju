@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
+	sshkeys "github.com/juju/juju/pki/ssh"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/tools"
@@ -935,7 +936,14 @@ func (u *Unit) removeOps(asserts bson.D, op *ForcedOperation, destroyStorage boo
 		// If we cannot find application, no amount of force will succeed after this point.
 		return nil, err
 	}
-	return app.removeUnitOps(u, asserts, op, destroyStorage)
+	ops, err := app.removeUnitOps(u, asserts, op, destroyStorage)
+	if err != nil {
+		return nil, err
+	}
+	if u.modelType == ModelTypeCAAS {
+		ops = append(ops, removeUnitVirtualHostKeysOps(u.st, u.UnitTag().Id())...)
+	}
+	return ops, nil
 }
 
 var unitHasNoSubordinates = bson.D{{
@@ -2127,6 +2135,11 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	} else if err != nil {
 		return err
 	}
+	// This should live in a business logic layer when creating new machines.
+	virtualHostKey, err := sshkeys.NewMarshalledED25519()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	var m *Machine
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -2139,9 +2152,10 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 			}
 		}
 		template := MachineTemplate{
-			Base:        u.doc.Base,
-			Constraints: *cons,
-			Jobs:        []MachineJob{JobHostUnits},
+			Base:           u.doc.Base,
+			Constraints:    *cons,
+			Jobs:           []MachineJob{JobHostUnits},
+			VirtualHostKey: virtualHostKey,
 		}
 		var ops []txn.Op
 		m, ops, err = u.assignToNewMachineOps(template, host.Id, *cons.Container)
@@ -2174,6 +2188,12 @@ func (u *Unit) assignToNewMachine(placement string) error {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
+	// This should live in a business logic layer when creating new machines.
+	virtualHostKey, err := sshkeys.NewMarshalledED25519()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var m *Machine
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var err error
@@ -2206,6 +2226,7 @@ func (u *Unit) assignToNewMachine(placement string) error {
 			VolumeAttachments:     storageParams.volumeAttachments,
 			Filesystems:           storageParams.filesystems,
 			FilesystemAttachments: storageParams.filesystemAttachments,
+			VirtualHostKey:        virtualHostKey,
 		}
 		// Get the ops necessary to create a new machine, and the
 		// machine doc that will be added with those operations

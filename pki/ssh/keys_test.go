@@ -56,10 +56,10 @@ func (s *KeySuite) TestGenerateHostKeys(c *gc.C) {
 }
 
 func (s *KeySuite) TestGenerateED25519KeyString(c *gc.C) {
-	keyStr, err := ssh.GenerateED25519KeyString()
+	keyStr, err := ssh.NewMarshalledED25519()
 	c.Assert(err, gc.IsNil)
 
-	signer, err := gossh.ParsePrivateKey([]byte(keyStr))
+	signer, err := gossh.ParsePrivateKey(keyStr)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(signer.PublicKey().Type(), gc.Equals, "ssh-ed25519")
