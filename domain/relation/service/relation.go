@@ -161,14 +161,14 @@ func (s *Service) GetRelationStatus(
 	return corestatus.StatusInfo{}, errors.NotImplemented
 }
 
-// RelationString returns a key identifier for the given relation UUID.
+// GetRelationString returns a key identifier for the given relation UUID.
 // The key describes the relation defined by endpoints in sorted order.
 // Note: See the state.relationKey() function.
 func (s *Service) GetRelationString(ctx context.Context, relationUUID corerelation.UUID) string {
 	return ""
 }
 
-// RelationTag returns the tag for the given relation UUID.
+// GetRelationTag returns the tag for the given relation UUID.
 func (s *Service) GetRelationTag(ctx context.Context, relationUUID corerelation.UUID) names.Tag {
 	return names.NewRelationTag(s.GetRelationString(ctx, relationUUID))
 }
@@ -183,7 +183,7 @@ func (s *Service) GetRelationUnit(
 	return "", errors.NotImplemented
 }
 
-// GetRelationApplicationSettings returns the application settings for the
+// GetRelationUnitSettings returns the application settings for the
 // given unit and relation identifier combination.
 func (s *Service) GetRelationUnitSettings(
 	ctx context.Context,
@@ -231,7 +231,7 @@ func (s *Service) RelationUnitInScope(ctx context.Context, relationUnitUUID core
 	return false, errors.NotImplemented
 }
 
-// RelationUnitInScope returns a boolean to indicate whether the given
+// RelationUnitValid returns a boolean to indicate whether the given
 // relation unit is in scope.
 func (s *Service) RelationUnitValid(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (bool, error) {
 	return false, errors.NotImplemented
