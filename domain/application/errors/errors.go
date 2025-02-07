@@ -204,4 +204,10 @@ const (
 	// ApplicationHasDifferentCharm describes an error that occurs when the
 	// application has a different charm.
 	ApplicationHasDifferentCharm = errors.ConstError("application has different charm")
+
+	// InvalidApplicationConstraints describes an error that occurs when the
+	// application constraints are not valid. This happens when if the
+	// provided space constraints do not exist or the container type is not
+	// supported.
+	InvalidApplicationConstraints = errors.ConstError("invalid application constraints")
 )

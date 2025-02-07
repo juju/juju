@@ -288,6 +288,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_application_charm_download_info",
 		"v_application_config",
 		"v_application_resource",
+		"v_application_constraint",
 		"v_charm_annotation_index",
 		"v_charm_config",
 		"v_charm_container",
