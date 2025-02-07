@@ -15,15 +15,15 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("ModelConfig", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		facade, err := makeFacadeV3(stdCtx, ctx)
+	registry.MustRegister("ModelConfig", 3, func(_ context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		facade, err := makeFacadeV3(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("registering model config client facade: %w", err)
 		}
 		return facade, nil
 	}, reflect.TypeOf((*ModelConfigAPIV3)(nil)))
-	registry.MustRegister("ModelConfig", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		facade, err := makeFacade(stdCtx, ctx)
+	registry.MustRegister("ModelConfig", 4, func(_ context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		facade, err := makeFacade(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("registering model config client facade: %w", err)
 		}
@@ -32,7 +32,7 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 // makeFacade is used for API registration.
-func makeFacade(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAPI, error) {
+func makeFacade(ctx facade.ModelContext) (*ModelConfigAPI, error) {
 	auth := ctx.Auth()
 
 	model, err := ctx.State().Model()
@@ -45,12 +45,8 @@ func makeFacade(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAP
 
 	configService := domainServices.Config()
 	modelSericve := domainServices.ModelInfo()
-	modelInfo, err := modelSericve.GetModelInfo(stdCtx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return NewModelConfigAPI(
-		modelInfo.UUID,
+		ctx.ModelUUID(),
 		NewStateBackend(model),
 		modelSecretBackend, configService, modelSericve, auth,
 		domainServices.BlockCommand(),
@@ -58,8 +54,8 @@ func makeFacade(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAP
 }
 
 // makeFacadeV3 is used for API registration.
-func makeFacadeV3(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAPIV3, error) {
-	api, err := makeFacade(stdCtx, ctx)
+func makeFacadeV3(ctx facade.ModelContext) (*ModelConfigAPIV3, error) {
+	api, err := makeFacade(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

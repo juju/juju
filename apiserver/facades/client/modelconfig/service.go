@@ -28,6 +28,7 @@ type ModelService interface {
 	// It returns an empty Value if the model does not have any constraints
 	// configured.
 	GetModelConstraints(ctx context.Context) (constraints.Value, error)
+
 	// SetModelConstraints sets the model constraints to the new values removing
 	// any previously set constraints.
 	//
@@ -44,6 +45,7 @@ type ModelService interface {
 type ModelSecretBackendService interface {
 	// GetModelSecretBackend returns the name of the secret backend configured for the model.
 	GetModelSecretBackend(ctx context.Context) (string, error)
+
 	// SetModelSecretBackend sets the secret backend for the model.
 	SetModelSecretBackend(ctx context.Context, backendName string) error
 }
