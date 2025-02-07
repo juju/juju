@@ -3,7 +3,7 @@
 # Debugging races
 ## Triggering unit test races
 
-Someone pointed me to the stress test script in `juju/scripts/unit-test/stress-race.bash`. While it was
+Someone pointed me to the stress test script: `juju/scripts/unit-test/stress-race.bash`. While it was
 immeasurably helpful, I have found a few more things that help me reproduce and instrument races. The previous link also
 includes an updated script which adds a counter and timing to the output. I find it useful to know how long it took to
 trigger a race, or how long it was stressed without triggering.
@@ -15,6 +15,10 @@ linked in the first paragraph.
 ```{tip}
 It has been noticed that, if the test runs 100 times without failure, things are probably all right.
 ```
+```{note}
+There are also tools like https://github.com/ColinIanKing/stress-ng which provide stress on your host system while you run other things.
+```
+
 
 ## AWS
 
