@@ -41,6 +41,11 @@ func (m *MockLinkLayerDevice) EXPECT() *MockLinkLayerDeviceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLinkLayerDevice) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Addresses mocks base method.
 func (m *MockLinkLayerDevice) Addresses() ([]*state.Address, error) {
 	m.ctrl.T.Helper()

@@ -39,6 +39,11 @@ func (m *MockStorageRegistryWorker) EXPECT() *MockStorageRegistryWorkerMockRecor
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStorageRegistryWorker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Kill mocks base method.
 func (m *MockStorageRegistryWorker) Kill() {
 	m.ctrl.T.Helper()

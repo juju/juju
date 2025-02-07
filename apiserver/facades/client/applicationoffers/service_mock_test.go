@@ -45,6 +45,11 @@ func (m *MockAccessService) EXPECT() *MockAccessServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAccessService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CreatePermission mocks base method.
 func (m *MockAccessService) CreatePermission(arg0 context.Context, arg1 permission.UserAccessSpec) (permission.UserAccess, error) {
 	m.ctrl.T.Helper()
@@ -300,6 +305,11 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetCharmLocatorByApplicationName mocks base method.
 func (m *MockApplicationService) GetCharmLocatorByApplicationName(arg0 context.Context, arg1 string) (charm.CharmLocator, error) {
 	m.ctrl.T.Helper()
@@ -401,6 +411,11 @@ func (m *MockModelDomainServicesGetter) EXPECT() *MockModelDomainServicesGetterM
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelDomainServicesGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DomainServicesForModel mocks base method.
 func (m *MockModelDomainServicesGetter) DomainServicesForModel(arg0 model.UUID) applicationoffers.ModelDomainServices {
 	m.ctrl.T.Helper()
@@ -460,6 +475,11 @@ func NewMockModelDomainServices(ctrl *gomock.Controller) *MockModelDomainService
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelDomainServices) EXPECT() *MockModelDomainServicesMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelDomainServices) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Application mocks base method.

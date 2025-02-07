@@ -41,6 +41,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ClaimLease mocks base method.
 func (m *MockState) ClaimLease(arg0 context.Context, arg1 uuid.UUID, arg2 lease.Key, arg3 lease.Request) error {
 	m.ctrl.T.Helper()

@@ -42,6 +42,11 @@ func (m *MockUpgradeService) EXPECT() *MockUpgradeServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUpgradeService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ActiveUpgrade mocks base method.
 func (m *MockUpgradeService) ActiveUpgrade(arg0 context.Context) (upgrade0.UUID, error) {
 	m.ctrl.T.Helper()

@@ -41,6 +41,11 @@ func (m *MockKeyUpdaterService) EXPECT() *MockKeyUpdaterServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockKeyUpdaterService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetAuthorisedKeysForMachine mocks base method.
 func (m *MockKeyUpdaterService) GetAuthorisedKeysForMachine(arg0 context.Context, arg1 machine.Name) ([]string, error) {
 	m.ctrl.T.Helper()

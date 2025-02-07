@@ -44,6 +44,11 @@ func (m *MockDiscoveryInterface) EXPECT() *MockDiscoveryInterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDiscoveryInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // OpenAPISchema mocks base method.
 func (m *MockDiscoveryInterface) OpenAPISchema() (*openapi_v2.Document, error) {
 	m.ctrl.T.Helper()

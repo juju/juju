@@ -38,6 +38,11 @@ func (m *MockAgentConfigReader) EXPECT() *MockAgentConfigReaderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAgentConfigReader) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ReadConfig mocks base method.
 func (m *MockAgentConfigReader) ReadConfig(arg0 string) error {
 	m.ctrl.T.Helper()

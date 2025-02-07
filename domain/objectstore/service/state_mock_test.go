@@ -43,6 +43,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetMetadata mocks base method.
 func (m *MockState) GetMetadata(arg0 context.Context, arg1 string) (objectstore.Metadata, error) {
 	m.ctrl.T.Helper()
@@ -336,6 +341,11 @@ func NewMockWatcherFactory(ctrl *gomock.Controller) *MockWatcherFactory {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockWatcherFactory) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // NewNamespaceWatcher mocks base method.

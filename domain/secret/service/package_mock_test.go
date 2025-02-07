@@ -51,6 +51,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllRemoteSecrets mocks base method.
 func (m *MockState) AllRemoteSecrets(arg0 context.Context) ([]secret.RemoteSecretInfo, error) {
 	m.ctrl.T.Helper()
@@ -2319,6 +2324,11 @@ func (m *MockSecretBackendState) EXPECT() *MockSecretBackendStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretBackendState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddSecretBackendReference mocks base method.
 func (m *MockSecretBackendState) AddSecretBackendReference(arg0 context.Context, arg1 *secrets.ValueRef, arg2 model.UUID, arg3 string) (func() error, error) {
 	m.ctrl.T.Helper()
@@ -2539,6 +2549,11 @@ func NewMockWatcherFactory(ctrl *gomock.Controller) *MockWatcherFactory {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockWatcherFactory) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // NewNamespaceNotifyMapperWatcher mocks base method.

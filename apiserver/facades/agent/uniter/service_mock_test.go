@@ -46,6 +46,11 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DeleteUnit mocks base method.
 func (m *MockApplicationService) DeleteUnit(arg0 context.Context, arg1 unit.Name) error {
 	m.ctrl.T.Helper()

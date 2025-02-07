@@ -40,6 +40,11 @@ func (m *MockSecretBackendManagerFacade) EXPECT() *MockSecretBackendManagerFacad
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretBackendManagerFacade) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // RotateBackendTokens mocks base method.
 func (m *MockSecretBackendManagerFacade) RotateBackendTokens(ctx context.Context, info ...string) error {
 	m.ctrl.T.Helper()

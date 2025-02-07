@@ -40,6 +40,11 @@ func (m *MockDBusAPI) EXPECT() *MockDBusAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDBusAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockDBusAPI) Close() {
 	m.ctrl.T.Helper()
@@ -448,6 +453,11 @@ func NewMockFileSystemOps(ctrl *gomock.Controller) *MockFileSystemOps {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFileSystemOps) EXPECT() *MockFileSystemOpsMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFileSystemOps) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Remove mocks base method.

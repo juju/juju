@@ -40,6 +40,11 @@ func (m *MockSharedIndexInformer) EXPECT() *MockSharedIndexInformerMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSharedIndexInformer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddEventHandler mocks base method.
 func (m *MockSharedIndexInformer) AddEventHandler(arg0 cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 	m.ctrl.T.Helper()

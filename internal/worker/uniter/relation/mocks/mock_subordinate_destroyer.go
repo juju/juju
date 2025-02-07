@@ -39,6 +39,11 @@ func (m *MockSubordinateDestroyer) EXPECT() *MockSubordinateDestroyerMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSubordinateDestroyer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DestroyAllSubordinates mocks base method.
 func (m *MockSubordinateDestroyer) DestroyAllSubordinates(arg0 context.Context) error {
 	m.ctrl.T.Helper()

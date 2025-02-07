@@ -39,6 +39,11 @@ func (m *MockRemoteServer) EXPECT() *MockRemoteServerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRemoteServer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Connection mocks base method.
 func (m *MockRemoteServer) Connection() api.Connection {
 	m.ctrl.T.Helper()

@@ -44,6 +44,11 @@ func (m *MockOperation) EXPECT() *MockOperationMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockOperation) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Commit mocks base method.
 func (m *MockOperation) Commit(arg0 context.Context, arg1 operation.State) (*operation.State, error) {
 	m.ctrl.T.Helper()
@@ -332,6 +337,11 @@ func NewMockFactory(ctrl *gomock.Controller) *MockFactory {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFactory) EXPECT() *MockFactoryMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFactory) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // NewAcceptLeadership mocks base method.
@@ -823,6 +833,11 @@ func NewMockCallbacks(ctrl *gomock.Controller) *MockCallbacks {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCallbacks) EXPECT() *MockCallbacksMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCallbacks) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ActionStatus mocks base method.

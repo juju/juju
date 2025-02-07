@@ -41,6 +41,11 @@ func (m *MockPrecheckBackend) EXPECT() *MockPrecheckBackendMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockPrecheckBackend) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllApplications mocks base method.
 func (m *MockPrecheckBackend) AllApplications() ([]migration.PrecheckApplication, error) {
 	m.ctrl.T.Helper()

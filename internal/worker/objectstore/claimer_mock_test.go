@@ -40,6 +40,11 @@ func (m *MockClaimer) EXPECT() *MockClaimerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClaimer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Claim mocks base method.
 func (m *MockClaimer) Claim(arg0 context.Context, arg1 string) (objectstore.ClaimExtender, error) {
 	m.ctrl.T.Helper()

@@ -40,6 +40,11 @@ func (m *MockBackendService) EXPECT() *MockBackendServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBackendService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // RotateBackendToken mocks base method.
 func (m *MockBackendService) RotateBackendToken(ctx context.Context, backendID string) error {
 	m.ctrl.T.Helper()

@@ -42,6 +42,11 @@ func (m *MockRefresherFactory) EXPECT() *MockRefresherFactoryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRefresherFactory) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Run mocks base method.
 func (m *MockRefresherFactory) Run(arg0 context.Context, arg1 RefresherConfig) (*CharmID, error) {
 	m.ctrl.T.Helper()
@@ -102,6 +107,11 @@ func NewMockRefresher(ctrl *gomock.Controller) *MockRefresher {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRefresher) EXPECT() *MockRefresherMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRefresher) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Allowed mocks base method.
@@ -243,6 +253,11 @@ func (m *MockCharmResolver) EXPECT() *MockCharmResolverMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmResolver) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ResolveCharm mocks base method.
 func (m *MockCharmResolver) ResolveCharm(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin, arg3 bool) (*charm0.URL, charm.Origin, []base.Base, error) {
 	m.ctrl.T.Helper()
@@ -305,6 +320,11 @@ func NewMockCharmRepository(ctrl *gomock.Controller) *MockCharmRepository {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmRepository) EXPECT() *MockCharmRepositoryMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmRepository) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // NewCharmAtPath mocks base method.

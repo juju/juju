@@ -38,6 +38,11 @@ func (m *MockStringsWatcher) EXPECT() *MockStringsWatcherMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStringsWatcher) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Changes mocks base method.
 func (m *MockStringsWatcher) Changes() <-chan []string {
 	m.ctrl.T.Helper()
@@ -171,6 +176,11 @@ func NewMockNotifyWatcher(ctrl *gomock.Controller) *MockNotifyWatcher {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNotifyWatcher) EXPECT() *MockNotifyWatcherMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNotifyWatcher) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Changes mocks base method.

@@ -38,6 +38,11 @@ func (m *MockGetter) EXPECT() *MockGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Get mocks base method.
 func (m *MockGetter) Get(arg0 string, arg1 any) error {
 	m.ctrl.T.Helper()

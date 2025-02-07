@@ -39,6 +39,11 @@ func (m *MockStateTracker) EXPECT() *MockStateTrackerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStateTracker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Done mocks base method.
 func (m *MockStateTracker) Done() error {
 	m.ctrl.T.Helper()

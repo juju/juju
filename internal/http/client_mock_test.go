@@ -41,6 +41,11 @@ func (m *MockRequestRecorder) EXPECT() *MockRequestRecorderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRequestRecorder) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Record mocks base method.
 func (m *MockRequestRecorder) Record(arg0 string, arg1 *url.URL, arg2 *http.Response, arg3 time.Duration) {
 	m.ctrl.T.Helper()
@@ -134,6 +139,11 @@ func NewMockRoundTripper(ctrl *gomock.Controller) *MockRoundTripper {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRoundTripper) EXPECT() *MockRoundTripperMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRoundTripper) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // RoundTrip mocks base method.

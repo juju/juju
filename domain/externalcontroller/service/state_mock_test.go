@@ -40,6 +40,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Controller mocks base method.
 func (m *MockState) Controller(arg0 context.Context, arg1 string) (*crossmodel.ControllerInfo, error) {
 	m.ctrl.T.Helper()

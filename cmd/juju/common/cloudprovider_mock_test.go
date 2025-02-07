@@ -45,6 +45,11 @@ func (m *MockTestCloudProvider) EXPECT() *MockTestCloudProviderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTestCloudProvider) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CloudSchema mocks base method.
 func (m *MockTestCloudProvider) CloudSchema() *jsonschema.Schema {
 	m.ctrl.T.Helper()

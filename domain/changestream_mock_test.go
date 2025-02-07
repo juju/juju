@@ -39,6 +39,11 @@ func (m *MockSubscription) EXPECT() *MockSubscriptionMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSubscription) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Changes mocks base method.
 func (m *MockSubscription) Changes() <-chan []changestream.ChangeEvent {
 	m.ctrl.T.Helper()
@@ -172,6 +177,11 @@ func NewMockEventSource(ctrl *gomock.Controller) *MockEventSource {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockEventSource) EXPECT() *MockEventSourceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEventSource) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Subscribe mocks base method.

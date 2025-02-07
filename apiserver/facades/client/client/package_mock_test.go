@@ -44,6 +44,11 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBackend) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddRelation mocks base method.
 func (m *MockBackend) AddRelation(arg0 ...relation.Endpoint) (*state.Relation, error) {
 	m.ctrl.T.Helper()

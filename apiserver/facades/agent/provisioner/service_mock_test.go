@@ -44,6 +44,11 @@ func (m *MockAgentProvisionerService) EXPECT() *MockAgentProvisionerServiceMockR
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAgentProvisionerService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ContainerConfig mocks base method.
 func (m *MockAgentProvisionerService) ContainerConfig(arg0 context.Context) (container.Config, error) {
 	m.ctrl.T.Helper()
@@ -184,6 +189,11 @@ func (m *MockKeyUpdaterService) EXPECT() *MockKeyUpdaterServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockKeyUpdaterService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetInitialAuthorisedKeysForContainer mocks base method.
 func (m *MockKeyUpdaterService) GetInitialAuthorisedKeysForContainer(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -244,6 +254,11 @@ func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetCharmLXDProfile mocks base method.

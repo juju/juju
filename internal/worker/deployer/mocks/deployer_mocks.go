@@ -44,6 +44,11 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Machine mocks base method.
 func (m *MockClient) Machine(arg0 names.MachineTag) (deployer.Machine, error) {
 	m.ctrl.T.Helper()
@@ -145,6 +150,11 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachine) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // WatchUnits mocks base method.
 func (m *MockMachine) WatchUnits(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
@@ -205,6 +215,11 @@ func NewMockUnit(ctrl *gomock.Controller) *MockUnit {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUnit) EXPECT() *MockUnitMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUnit) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Life mocks base method.

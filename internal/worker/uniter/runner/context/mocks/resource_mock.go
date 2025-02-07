@@ -41,6 +41,11 @@ func (m *MockOpenedResourceClient) EXPECT() *MockOpenedResourceClientMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockOpenedResourceClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetResource mocks base method.
 func (m *MockOpenedResourceClient) GetResource(arg0 context.Context, arg1 string) (resource.Resource, io.ReadCloser, error) {
 	m.ctrl.T.Helper()

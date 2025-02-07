@@ -39,6 +39,11 @@ func (m *MockStream) EXPECT() *MockStreamMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStream) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Dying mocks base method.
 func (m *MockStream) Dying() <-chan struct{} {
 	m.ctrl.T.Helper()

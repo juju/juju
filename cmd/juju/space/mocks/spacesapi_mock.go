@@ -41,6 +41,11 @@ func (m *MockSpaceAPI) EXPECT() *MockSpaceAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSpaceAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddSpace mocks base method.
 func (m *MockSpaceAPI) AddSpace(arg0 context.Context, arg1 string, arg2 []string, arg3 bool) error {
 	m.ctrl.T.Helper()
@@ -334,6 +339,11 @@ func (m *MockSubnetAPI) EXPECT() *MockSubnetAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSubnetAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // SubnetsByCIDR mocks base method.
 func (m *MockSubnetAPI) SubnetsByCIDR(arg0 context.Context, arg1 []string) ([]params.SubnetsResult, error) {
 	m.ctrl.T.Helper()
@@ -394,6 +404,11 @@ func NewMockAPI(ctrl *gomock.Controller) *MockAPI {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAPI) EXPECT() *MockAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AddSpace mocks base method.

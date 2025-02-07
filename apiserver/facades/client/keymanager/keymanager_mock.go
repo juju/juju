@@ -39,6 +39,11 @@ func (m *MockBlockChecker) EXPECT() *MockBlockCheckerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBlockChecker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ChangeAllowed mocks base method.
 func (m *MockBlockChecker) ChangeAllowed(arg0 context.Context) error {
 	m.ctrl.T.Helper()

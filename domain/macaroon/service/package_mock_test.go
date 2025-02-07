@@ -42,6 +42,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // FindLatestKey mocks base method.
 func (m *MockState) FindLatestKey(arg0 context.Context, arg1, arg2, arg3, arg4 time.Time) (macaroon.RootKey, error) {
 	m.ctrl.T.Helper()

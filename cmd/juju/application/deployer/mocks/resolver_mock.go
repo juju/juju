@@ -42,6 +42,11 @@ func (m *MockResolver) EXPECT() *MockResolverMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResolver) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetBundle mocks base method.
 func (m *MockResolver) GetBundle(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin, arg3 string) (charm0.Bundle, error) {
 	m.ctrl.T.Helper()

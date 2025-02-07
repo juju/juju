@@ -41,6 +41,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // EnsureUnitStateRecord mocks base method.
 func (m *MockState) EnsureUnitStateRecord(arg0 domain.AtomicContext, arg1 string) error {
 	m.ctrl.T.Helper()

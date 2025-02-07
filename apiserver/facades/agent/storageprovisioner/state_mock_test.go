@@ -40,6 +40,11 @@ func (m *MockFilesystemAttachment) EXPECT() *MockFilesystemAttachmentMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFilesystemAttachment) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Filesystem mocks base method.
 func (m *MockFilesystemAttachment) Filesystem() names.FilesystemTag {
 	m.ctrl.T.Helper()
@@ -253,6 +258,11 @@ func NewMockVolumeAttachment(ctrl *gomock.Controller) *MockVolumeAttachment {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockVolumeAttachment) EXPECT() *MockVolumeAttachmentMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockVolumeAttachment) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Host mocks base method.
@@ -470,6 +480,11 @@ func (m *MockEntityFinder) EXPECT() *MockEntityFinderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEntityFinder) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // FindEntity mocks base method.
 func (m *MockEntityFinder) FindEntity(arg0 names.Tag) (state.Entity, error) {
 	m.ctrl.T.Helper()
@@ -530,6 +545,11 @@ func NewMockLifer(ctrl *gomock.Controller) *MockLifer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLifer) EXPECT() *MockLiferMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLifer) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Life mocks base method.

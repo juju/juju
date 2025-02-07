@@ -45,6 +45,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // FilterUnitUUIDsForApplication mocks base method.
 func (m *MockState) FilterUnitUUIDsForApplication(arg0 context.Context, arg1 []unit.UUID, arg2 application.ID) (set.Strings, error) {
 	m.ctrl.T.Helper()

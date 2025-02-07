@@ -38,6 +38,11 @@ func (m *MockUnlocker) EXPECT() *MockUnlockerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUnlocker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Unlock mocks base method.
 func (m *MockUnlocker) Unlock() {
 	m.ctrl.T.Helper()

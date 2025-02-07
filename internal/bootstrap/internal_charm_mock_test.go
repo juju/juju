@@ -39,6 +39,11 @@ func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharm) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Actions mocks base method.
 func (m *MockCharm) Actions() *charm.Actions {
 	m.ctrl.T.Helper()

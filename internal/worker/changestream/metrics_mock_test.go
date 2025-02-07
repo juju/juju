@@ -39,6 +39,11 @@ func (m *MockRegisterer) EXPECT() *MockRegistererMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRegisterer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // MustRegister mocks base method.
 func (m *MockRegisterer) MustRegister(arg0 ...prometheus.Collector) {
 	m.ctrl.T.Helper()

@@ -52,6 +52,11 @@ func (m *MockEnviron) EXPECT() *MockEnvironMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEnviron) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AdoptResources mocks base method.
 func (m *MockEnviron) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 version.Number) error {
 	m.ctrl.T.Helper()
@@ -848,6 +853,11 @@ func NewMockNetworkingEnviron(ctrl *gomock.Controller) *MockNetworkingEnviron {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworkingEnviron) EXPECT() *MockNetworkingEnvironMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkingEnviron) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AdoptResources mocks base method.
@@ -1998,6 +2008,11 @@ func (m *MockCloudEnvironProvider) EXPECT() *MockCloudEnvironProviderMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCloudEnvironProvider) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CloudSchema mocks base method.
 func (m *MockCloudEnvironProvider) CloudSchema() *jsonschema.Schema {
 	m.ctrl.T.Helper()
@@ -2365,6 +2380,11 @@ func NewMockInstanceTypesFetcher(ctrl *gomock.Controller) *MockInstanceTypesFetc
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockInstanceTypesFetcher) EXPECT() *MockInstanceTypesFetcherMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInstanceTypesFetcher) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // InstanceTypes mocks base method.

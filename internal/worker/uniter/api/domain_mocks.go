@@ -47,6 +47,11 @@ func (m *MockUnit) EXPECT() *MockUnitMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUnit) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Application mocks base method.
 func (m *MockUnit) Application(arg0 context.Context) (Application, error) {
 	m.ctrl.T.Helper()
@@ -1690,6 +1695,11 @@ func (m *MockRelation) EXPECT() *MockRelationMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRelation) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Endpoint mocks base method.
 func (m *MockRelation) Endpoint(arg0 context.Context) (*uniter.Endpoint, error) {
 	m.ctrl.T.Helper()
@@ -2169,6 +2179,11 @@ func (m *MockRelationUnit) EXPECT() *MockRelationUnitMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRelationUnit) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplicationSettings mocks base method.
 func (m *MockRelationUnit) ApplicationSettings(arg0 context.Context) (*uniter.Settings, error) {
 	m.ctrl.T.Helper()
@@ -2459,6 +2474,11 @@ func NewMockApplication(ctrl *gomock.Controller) *MockApplication {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplication) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // CharmModifiedVersion mocks base method.
@@ -2791,6 +2811,11 @@ func NewMockCharm(ctrl *gomock.Controller) *MockCharm {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharm) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ArchiveSha256 mocks base method.

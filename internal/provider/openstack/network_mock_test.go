@@ -43,6 +43,11 @@ func (m *MockSSLHostnameConfig) EXPECT() *MockSSLHostnameConfigMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSSLHostnameConfig) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // SSLHostnameVerification mocks base method.
 func (m *MockSSLHostnameConfig) SSLHostnameVerification() bool {
 	m.ctrl.T.Helper()
@@ -102,6 +107,11 @@ func NewMockNetworking(ctrl *gomock.Controller) *MockNetworking {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworking) EXPECT() *MockNetworkingMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworking) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AllocatePublicIP mocks base method.
@@ -399,6 +409,11 @@ func (m *MockNetworkingBase) EXPECT() *MockNetworkingBaseMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkingBase) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // client mocks base method.
 func (m *MockNetworkingBase) client() NetworkingAuthenticatingClient {
 	m.ctrl.T.Helper()
@@ -572,6 +587,11 @@ func NewMockNetworkingNeutron(ctrl *gomock.Controller) *MockNetworkingNeutron {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworkingNeutron) EXPECT() *MockNetworkingNeutronMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkingNeutron) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AllocateFloatingIPV2 mocks base method.
@@ -920,6 +940,11 @@ func (m *MockNetworkingAuthenticatingClient) EXPECT() *MockNetworkingAuthenticat
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkingAuthenticatingClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // TenantId mocks base method.
 func (m *MockNetworkingAuthenticatingClient) TenantId() string {
 	m.ctrl.T.Helper()
@@ -979,6 +1004,11 @@ func NewMockNetworkingNova(ctrl *gomock.Controller) *MockNetworkingNova {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworkingNova) EXPECT() *MockNetworkingNovaMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkingNova) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetServer mocks base method.
@@ -1041,6 +1071,11 @@ func NewMockNetworkingEnvironConfig(ctrl *gomock.Controller) *MockNetworkingEnvi
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworkingEnvironConfig) EXPECT() *MockNetworkingEnvironConfigMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkingEnvironConfig) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // externalNetwork mocks base method.

@@ -39,6 +39,11 @@ func (m *MockRemoveCloudAPI) EXPECT() *MockRemoveCloudAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRemoveCloudAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockRemoveCloudAPI) Close() error {
 	m.ctrl.T.Helper()

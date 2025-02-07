@@ -41,6 +41,11 @@ func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockR
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ControllerConfig mocks base method.
 func (m *MockControllerConfigService) ControllerConfig(arg0 context.Context) (controller.Config, error) {
 	m.ctrl.T.Helper()

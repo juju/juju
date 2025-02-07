@@ -90,6 +90,11 @@ func (m *MockInterface) EXPECT() *MockInterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AdmissionregistrationV1 mocks base method.
 func (m *MockInterface) AdmissionregistrationV1() v1.AdmissionregistrationV1Interface {
 	m.ctrl.T.Helper()

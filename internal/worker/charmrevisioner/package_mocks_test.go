@@ -49,6 +49,11 @@ func (m *MockCharmhubClient) EXPECT() *MockCharmhubClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmhubClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // RefreshWithMetricsOnly mocks base method.
 func (m *MockCharmhubClient) RefreshWithMetricsOnly(arg0 context.Context, arg1 charmhub.Metrics) error {
 	m.ctrl.T.Helper()
@@ -147,6 +152,11 @@ func NewMockModelConfigService(ctrl *gomock.Controller) *MockModelConfigService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelConfigService) EXPECT() *MockModelConfigServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ModelConfig mocks base method.
@@ -248,6 +258,11 @@ func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetApplicationIDByName mocks base method.
@@ -391,6 +406,11 @@ func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetModelMetrics mocks base method.
 func (m *MockModelService) GetModelMetrics(arg0 context.Context) (model.ModelMetrics, error) {
 	m.ctrl.T.Helper()
@@ -451,6 +471,11 @@ func NewMockResourceService(ctrl *gomock.Controller) *MockResourceService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockResourceService) EXPECT() *MockResourceServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // SetRepositoryResources mocks base method.

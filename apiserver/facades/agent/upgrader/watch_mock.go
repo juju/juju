@@ -42,6 +42,11 @@ func (m *MockModelAgentService) EXPECT() *MockModelAgentServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelAgentService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetMachineTargetAgentVersion mocks base method.
 func (m *MockModelAgentService) GetMachineTargetAgentVersion(arg0 context.Context, arg1 machine.Name) (version.Number, error) {
 	m.ctrl.T.Helper()

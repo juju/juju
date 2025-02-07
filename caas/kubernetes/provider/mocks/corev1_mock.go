@@ -50,6 +50,11 @@ func (m *MockEventInterface) EXPECT() *MockEventInterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEventInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Apply mocks base method.
 func (m *MockEventInterface) Apply(arg0 context.Context, arg1 *v12.EventApplyConfiguration, arg2 v11.ApplyOptions) (*v1.Event, error) {
 	m.ctrl.T.Helper()
@@ -619,6 +624,11 @@ func NewMockCoreV1Interface(ctrl *gomock.Controller) *MockCoreV1Interface {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCoreV1Interface) EXPECT() *MockCoreV1InterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCoreV1Interface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ComponentStatuses mocks base method.
@@ -1290,6 +1300,11 @@ func (m *MockNamespaceInterface) EXPECT() *MockNamespaceInterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNamespaceInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Apply mocks base method.
 func (m *MockNamespaceInterface) Apply(arg0 context.Context, arg1 *v12.NamespaceApplyConfiguration, arg2 v11.ApplyOptions) (*v1.Namespace, error) {
 	m.ctrl.T.Helper()
@@ -1744,6 +1759,11 @@ func NewMockPodInterface(ctrl *gomock.Controller) *MockPodInterface {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPodInterface) EXPECT() *MockPodInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockPodInterface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.
@@ -2468,6 +2488,11 @@ func (m *MockServiceInterface) EXPECT() *MockServiceInterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockServiceInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Apply mocks base method.
 func (m *MockServiceInterface) Apply(arg0 context.Context, arg1 *v12.ServiceApplyConfiguration, arg2 v11.ApplyOptions) (*v1.Service, error) {
 	m.ctrl.T.Helper()
@@ -2923,6 +2948,11 @@ func (m *MockConfigMapInterface) EXPECT() *MockConfigMapInterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockConfigMapInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Apply mocks base method.
 func (m *MockConfigMapInterface) Apply(arg0 context.Context, arg1 *v12.ConfigMapApplyConfiguration, arg2 v11.ApplyOptions) (*v1.ConfigMap, error) {
 	m.ctrl.T.Helper()
@@ -3298,6 +3328,11 @@ func NewMockPersistentVolumeInterface(ctrl *gomock.Controller) *MockPersistentVo
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPersistentVolumeInterface) EXPECT() *MockPersistentVolumeInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockPersistentVolumeInterface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.
@@ -3755,6 +3790,11 @@ func (m *MockPersistentVolumeClaimInterface) EXPECT() *MockPersistentVolumeClaim
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockPersistentVolumeClaimInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Apply mocks base method.
 func (m *MockPersistentVolumeClaimInterface) Apply(arg0 context.Context, arg1 *v12.PersistentVolumeClaimApplyConfiguration, arg2 v11.ApplyOptions) (*v1.PersistentVolumeClaim, error) {
 	m.ctrl.T.Helper()
@@ -4210,6 +4250,11 @@ func (m *MockSecretInterface) EXPECT() *MockSecretInterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Apply mocks base method.
 func (m *MockSecretInterface) Apply(arg0 context.Context, arg1 *v12.SecretApplyConfiguration, arg2 v11.ApplyOptions) (*v1.Secret, error) {
 	m.ctrl.T.Helper()
@@ -4585,6 +4630,11 @@ func NewMockNodeInterface(ctrl *gomock.Controller) *MockNodeInterface {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNodeInterface) EXPECT() *MockNodeInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNodeInterface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.

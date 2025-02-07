@@ -46,6 +46,11 @@ func (m *MockNetworkingV1Interface) EXPECT() *MockNetworkingV1InterfaceMockRecor
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkingV1Interface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // IngressClasses mocks base method.
 func (m *MockNetworkingV1Interface) IngressClasses() v12.IngressClassInterface {
 	m.ctrl.T.Helper()
@@ -219,6 +224,11 @@ func NewMockIngressV1Interface(ctrl *gomock.Controller) *MockIngressV1Interface 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockIngressV1Interface) EXPECT() *MockIngressV1InterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockIngressV1Interface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.
@@ -674,6 +684,11 @@ func NewMockIngressClassInterface(ctrl *gomock.Controller) *MockIngressClassInte
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockIngressClassInterface) EXPECT() *MockIngressClassInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockIngressClassInterface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.

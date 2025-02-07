@@ -40,6 +40,11 @@ func (m *MockHTTPDoer) EXPECT() *MockHTTPDoerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockHTTPDoer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Do mocks base method.
 func (m *MockHTTPDoer) Do(arg0 context.Context, arg1 *http.Request, arg2 any) error {
 	m.ctrl.T.Helper()

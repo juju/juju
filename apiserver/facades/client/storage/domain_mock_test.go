@@ -42,6 +42,11 @@ func (m *MockStorageService) EXPECT() *MockStorageServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStorageService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CreateStoragePool mocks base method.
 func (m *MockStorageService) CreateStoragePool(arg0 context.Context, arg1 string, arg2 storage0.ProviderType, arg3 service.PoolAttrs) error {
 	m.ctrl.T.Helper()

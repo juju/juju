@@ -42,6 +42,11 @@ func (m *MockCoordinator) EXPECT() *MockCoordinatorMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCoordinator) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Add mocks base method.
 func (m *MockCoordinator) Add(arg0 modelmigration.Operation) {
 	m.ctrl.T.Helper()
@@ -99,6 +104,11 @@ func NewMockImportService(ctrl *gomock.Controller) *MockImportService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockImportService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // CreateStoragePool mocks base method.
@@ -160,6 +170,11 @@ func NewMockExportService(ctrl *gomock.Controller) *MockExportService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockExportService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AllStoragePools mocks base method.

@@ -45,6 +45,11 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockImportService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ImportApplication mocks base method.
 func (m *MockImportService) ImportApplication(arg0 context.Context, arg1 string, arg2 service.ImportApplicationArgs) error {
 	m.ctrl.T.Helper()
@@ -142,6 +147,11 @@ func NewMockExportService(ctrl *gomock.Controller) *MockExportService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockExportService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetApplicationConfigAndSettings mocks base method.

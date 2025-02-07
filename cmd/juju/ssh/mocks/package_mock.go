@@ -54,6 +54,11 @@ func (m *MockContext) EXPECT() *MockContextMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockContext) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Deadline mocks base method.
 func (m *MockContext) Deadline() (time.Time, bool) {
 	m.ctrl.T.Helper()
@@ -416,6 +421,11 @@ func (m *MockLeaderAPI) EXPECT() *MockLeaderAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLeaderAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockLeaderAPI) Close() error {
 	m.ctrl.T.Helper()
@@ -514,6 +524,11 @@ func NewMockSSHClientAPI(ctrl *gomock.Controller) *MockSSHClientAPI {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSSHClientAPI) EXPECT() *MockSSHClientAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSSHClientAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AllAddresses mocks base method.
@@ -811,6 +826,11 @@ func (m *MockSSHControllerAPI) EXPECT() *MockSSHControllerAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSSHControllerAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ControllerConfig mocks base method.
 func (m *MockSSHControllerAPI) ControllerConfig(arg0 context.Context) (controller.Config, error) {
 	m.ctrl.T.Helper()
@@ -871,6 +891,11 @@ func NewMockStatusClientAPI(ctrl *gomock.Controller) *MockStatusClientAPI {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStatusClientAPI) EXPECT() *MockStatusClientAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStatusClientAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Close mocks base method.
@@ -971,6 +996,11 @@ func NewMockCloudCredentialAPI(ctrl *gomock.Controller) *MockCloudCredentialAPI 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCloudCredentialAPI) EXPECT() *MockCloudCredentialAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCloudCredentialAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // BestAPIVersion mocks base method.
@@ -1148,6 +1178,11 @@ func NewMockApplicationAPI(ctrl *gomock.Controller) *MockApplicationAPI {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationAPI) EXPECT() *MockApplicationAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Close mocks base method.
@@ -1329,6 +1364,11 @@ func (m *MockCharmAPI) EXPECT() *MockCharmAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CharmInfo mocks base method.
 func (m *MockCharmAPI) CharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
@@ -1427,6 +1467,11 @@ func NewMockModelCommand(ctrl *gomock.Controller) *MockModelCommand {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelCommand) EXPECT() *MockModelCommandMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelCommand) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ModelDetails mocks base method.

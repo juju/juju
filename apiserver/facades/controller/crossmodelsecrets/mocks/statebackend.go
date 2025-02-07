@@ -38,6 +38,11 @@ func (m *MockStateBackend) EXPECT() *MockStateBackendMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStateBackend) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // HasEndpoint mocks base method.
 func (m *MockStateBackend) HasEndpoint(arg0, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()

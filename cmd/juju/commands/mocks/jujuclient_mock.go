@@ -42,6 +42,11 @@ func (m *MockClientStore) EXPECT() *MockClientStoreMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClientStore) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AccountDetails mocks base method.
 func (m *MockClientStore) AccountDetails(arg0 string) (*jujuclient.AccountDetails, error) {
 	m.ctrl.T.Helper()
@@ -1071,6 +1076,11 @@ func NewMockCookieJar(ctrl *gomock.Controller) *MockCookieJar {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCookieJar) EXPECT() *MockCookieJarMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCookieJar) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Cookies mocks base method.

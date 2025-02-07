@@ -48,6 +48,11 @@ func (m *MockEnviron) EXPECT() *MockEnvironMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEnviron) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AdoptResources mocks base method.
 func (m *MockEnviron) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 version.Number) error {
 	m.ctrl.T.Helper()
@@ -846,6 +851,11 @@ func (m *MockCloudDestroyer) EXPECT() *MockCloudDestroyerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCloudDestroyer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Destroy mocks base method.
 func (m *MockCloudDestroyer) Destroy(arg0 envcontext.ProviderCallContext) error {
 	m.ctrl.T.Helper()
@@ -905,6 +915,11 @@ func NewMockCloudSpecSetter(ctrl *gomock.Controller) *MockCloudSpecSetter {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCloudSpecSetter) EXPECT() *MockCloudSpecSetterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCloudSpecSetter) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // SetCloudSpec mocks base method.

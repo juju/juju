@@ -39,6 +39,11 @@ func (m *MockInstanceConfigurator) EXPECT() *MockInstanceConfiguratorMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInstanceConfigurator) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ChangeIngressRules mocks base method.
 func (m *MockInstanceConfigurator) ChangeIngressRules(arg0 string, arg1 bool, arg2 firewall.IngressRules) error {
 	m.ctrl.T.Helper()

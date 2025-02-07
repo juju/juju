@@ -42,6 +42,11 @@ func (m *MockModelUpgraderAPI) EXPECT() *MockModelUpgraderAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelUpgraderAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockModelUpgraderAPI) Close() error {
 	m.ctrl.T.Helper()

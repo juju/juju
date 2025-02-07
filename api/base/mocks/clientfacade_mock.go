@@ -44,6 +44,11 @@ func (m *MockAPICallCloser) EXPECT() *MockAPICallCloserMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAPICallCloser) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // APICall mocks base method.
 func (m *MockAPICallCloser) APICall(arg0 context.Context, arg1 string, arg2 int, arg3, arg4 string, arg5, arg6 any) error {
 	m.ctrl.T.Helper()
@@ -412,6 +417,11 @@ func NewMockClientFacade(ctrl *gomock.Controller) *MockClientFacade {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClientFacade) EXPECT() *MockClientFacadeMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClientFacade) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // BestAPIVersion mocks base method.

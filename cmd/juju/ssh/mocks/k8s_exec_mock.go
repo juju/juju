@@ -41,6 +41,11 @@ func (m *MockExecutor) EXPECT() *MockExecutorMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockExecutor) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Copy mocks base method.
 func (m *MockExecutor) Copy(arg0 context.Context, arg1 exec.CopyParams, arg2 <-chan struct{}) error {
 	m.ctrl.T.Helper()

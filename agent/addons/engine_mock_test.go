@@ -38,6 +38,11 @@ func (m *MockMetricSink) EXPECT() *MockMetricSinkMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMetricSink) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // RecordStart mocks base method.
 func (m *MockMetricSink) RecordStart(arg0 string) {
 	m.ctrl.T.Helper()

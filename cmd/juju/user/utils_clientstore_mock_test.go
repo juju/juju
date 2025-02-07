@@ -40,6 +40,11 @@ func (m *MockClientStore) EXPECT() *MockClientStoreMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClientStore) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AccountDetails mocks base method.
 func (m *MockClientStore) AccountDetails(arg0 string) (*jujuclient.AccountDetails, error) {
 	m.ctrl.T.Helper()

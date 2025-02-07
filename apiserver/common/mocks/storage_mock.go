@@ -41,6 +41,11 @@ func (m *MockStorageCloser) EXPECT() *MockStorageCloserMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStorageCloser) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Add mocks base method.
 func (m *MockStorageCloser) Add(arg0 context.Context, arg1 io.Reader, arg2 binarystorage.Metadata) error {
 	m.ctrl.T.Helper()

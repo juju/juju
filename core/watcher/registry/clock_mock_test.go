@@ -40,6 +40,11 @@ func (m *MockClock) EXPECT() *MockClockMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClock) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // After mocks base method.
 func (m *MockClock) After(arg0 time.Duration) <-chan time.Time {
 	m.ctrl.T.Helper()

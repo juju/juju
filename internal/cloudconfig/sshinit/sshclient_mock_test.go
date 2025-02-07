@@ -39,6 +39,11 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Command mocks base method.
 func (m *MockClient) Command(arg0 string, arg1 []string, arg2 *ssh.Options) *ssh.Cmd {
 	m.ctrl.T.Helper()

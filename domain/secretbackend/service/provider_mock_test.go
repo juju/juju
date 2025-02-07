@@ -41,6 +41,11 @@ func (m *MockSecretBackendProvider) EXPECT() *MockSecretBackendProviderMockRecor
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretBackendProvider) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CleanupModel mocks base method.
 func (m *MockSecretBackendProvider) CleanupModel(arg0 context.Context, arg1 *provider.ModelBackendConfig) error {
 	m.ctrl.T.Helper()
@@ -292,6 +297,11 @@ func NewMockSecretsBackend(ctrl *gomock.Controller) *MockSecretsBackend {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSecretsBackend) EXPECT() *MockSecretsBackendMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretsBackend) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // DeleteContent mocks base method.

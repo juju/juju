@@ -39,6 +39,11 @@ func (m *MockExpiryStore) EXPECT() *MockExpiryStoreMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockExpiryStore) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ExpireLeases mocks base method.
 func (m *MockExpiryStore) ExpireLeases(arg0 context.Context) error {
 	m.ctrl.T.Helper()

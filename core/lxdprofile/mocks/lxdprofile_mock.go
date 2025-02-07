@@ -39,6 +39,11 @@ func (m *MockLXDProfiler) EXPECT() *MockLXDProfilerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLXDProfiler) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // LXDProfile mocks base method.
 func (m *MockLXDProfiler) LXDProfile() lxdprofile.LXDProfile {
 	m.ctrl.T.Helper()
@@ -98,6 +103,11 @@ func NewMockLXDProfile(ctrl *gomock.Controller) *MockLXDProfile {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLXDProfile) EXPECT() *MockLXDProfileMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLXDProfile) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Empty mocks base method.

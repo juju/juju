@@ -40,6 +40,11 @@ func (m *MockClaimer) EXPECT() *MockClaimerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClaimer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // BlockUntilLeadershipReleased mocks base method.
 func (m *MockClaimer) BlockUntilLeadershipReleased(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()

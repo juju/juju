@@ -47,6 +47,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddUser mocks base method.
 func (m *MockState) AddUser(arg0 context.Context, arg1 user.UUID, arg2 user.Name, arg3 string, arg4 bool, arg5 user.UUID) error {
 	m.ctrl.T.Helper()

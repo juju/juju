@@ -43,6 +43,11 @@ func (m *MockLXDProfiler) EXPECT() *MockLXDProfilerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLXDProfiler) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AssignLXDProfiles mocks base method.
 func (m *MockLXDProfiler) AssignLXDProfiles(arg0 string, arg1 []string, arg2 []lxdprofile.ProfilePost) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -180,6 +185,11 @@ func NewMockInstanceBroker(ctrl *gomock.Controller) *MockInstanceBroker {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockInstanceBroker) EXPECT() *MockInstanceBrokerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInstanceBroker) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AllInstances mocks base method.

@@ -43,6 +43,11 @@ func (m *MockDBApp) EXPECT() *MockDBAppMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDBApp) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Address mocks base method.
 func (m *MockDBApp) Address() string {
 	m.ctrl.T.Helper()
@@ -332,6 +337,11 @@ func NewMockNodeManager(ctrl *gomock.Controller) *MockNodeManager {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNodeManager) EXPECT() *MockNodeManagerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNodeManager) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ClusterServers mocks base method.
@@ -856,6 +866,11 @@ func (m *MockTrackedDB) EXPECT() *MockTrackedDBMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTrackedDB) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Kill mocks base method.
 func (m *MockTrackedDB) Kill() {
 	m.ctrl.T.Helper()
@@ -1029,6 +1044,11 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Cluster mocks base method.
 func (m *MockClient) Cluster(arg0 context.Context) ([]dqlite.NodeInfo, error) {
 	m.ctrl.T.Helper()
@@ -1128,6 +1148,11 @@ func NewMockClusterConfig(ctrl *gomock.Controller) *MockClusterConfig {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClusterConfig) EXPECT() *MockClusterConfigMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClusterConfig) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // DBBindAddresses mocks base method.

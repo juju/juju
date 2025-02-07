@@ -41,6 +41,11 @@ func (m *MockSpan) EXPECT() *MockSpanMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSpan) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddEvent mocks base method.
 func (m *MockSpan) AddEvent(arg0 string, arg1 ...trace.EventOption) {
 	m.ctrl.T.Helper()

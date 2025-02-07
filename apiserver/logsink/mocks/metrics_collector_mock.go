@@ -39,6 +39,11 @@ func (m *MockMetricsCollector) EXPECT() *MockMetricsCollectorMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMetricsCollector) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Connections mocks base method.
 func (m *MockMetricsCollector) Connections() prometheus.Gauge {
 	m.ctrl.T.Helper()

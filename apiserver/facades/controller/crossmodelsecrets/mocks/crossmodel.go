@@ -39,6 +39,11 @@ func (m *MockCrossModelState) EXPECT() *MockCrossModelStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCrossModelState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetRemoteApplicationTag mocks base method.
 func (m *MockCrossModelState) GetRemoteApplicationTag(arg0 string) (names.Tag, error) {
 	m.ctrl.T.Helper()

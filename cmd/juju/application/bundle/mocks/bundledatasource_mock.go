@@ -39,6 +39,11 @@ func (m *MockBundleDataSource) EXPECT() *MockBundleDataSourceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBundleDataSource) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // BasePath mocks base method.
 func (m *MockBundleDataSource) BasePath() string {
 	m.ctrl.T.Helper()

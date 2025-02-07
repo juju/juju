@@ -41,6 +41,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetAnnotations mocks base method.
 func (m *MockState) GetAnnotations(arg0 context.Context, arg1 annotations.ID) (map[string]string, error) {
 	m.ctrl.T.Helper()

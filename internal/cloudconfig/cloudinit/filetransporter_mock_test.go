@@ -38,6 +38,11 @@ func (m *MockFileTransporter) EXPECT() *MockFileTransporterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFileTransporter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // SendBytes mocks base method.
 func (m *MockFileTransporter) SendBytes(arg0 string, arg1 []byte) string {
 	m.ctrl.T.Helper()

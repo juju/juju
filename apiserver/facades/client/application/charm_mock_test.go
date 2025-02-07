@@ -39,6 +39,11 @@ func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharm) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Actions mocks base method.
 func (m *MockCharm) Actions() *charm.Actions {
 	m.ctrl.T.Helper()
@@ -288,6 +293,11 @@ func NewMockCharmMeta(ctrl *gomock.Controller) *MockCharmMeta {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmMeta) EXPECT() *MockCharmMetaMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmMeta) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Manifest mocks base method.

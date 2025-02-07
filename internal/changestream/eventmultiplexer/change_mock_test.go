@@ -39,6 +39,11 @@ func (m *MockTerm) EXPECT() *MockTermMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTerm) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Changes mocks base method.
 func (m *MockTerm) Changes() []changestream.ChangeEvent {
 	m.ctrl.T.Helper()

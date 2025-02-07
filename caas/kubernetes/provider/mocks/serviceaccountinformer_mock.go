@@ -40,6 +40,11 @@ func (m *MockServiceAccountInformer) EXPECT() *MockServiceAccountInformerMockRec
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockServiceAccountInformer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Informer mocks base method.
 func (m *MockServiceAccountInformer) Informer() cache.SharedIndexInformer {
 	m.ctrl.T.Helper()

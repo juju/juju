@@ -42,6 +42,11 @@ func (m *MockInstanceMutaterAPI) EXPECT() *MockInstanceMutaterAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInstanceMutaterAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Machine mocks base method.
 func (m *MockInstanceMutaterAPI) Machine(arg0 context.Context, arg1 names.MachineTag) (instancemutater.MutaterMachine, error) {
 	m.ctrl.T.Helper()

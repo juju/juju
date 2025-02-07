@@ -40,6 +40,11 @@ func (m *MockBlockCommandService) EXPECT() *MockBlockCommandServiceMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBlockCommandService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetBlockSwitchedOn mocks base method.
 func (m *MockBlockCommandService) GetBlockSwitchedOn(arg0 context.Context, arg1 blockcommand.BlockType) (string, error) {
 	m.ctrl.T.Helper()

@@ -39,6 +39,11 @@ func (m *MockRootAPI) EXPECT() *MockRootAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRootAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Admin mocks base method.
 func (m *MockRootAPI) Admin(id string) (AdminAPI, error) {
 	m.ctrl.T.Helper()
@@ -99,6 +104,11 @@ func NewMockAdminAPI(ctrl *gomock.Controller) *MockAdminAPI {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAdminAPI) EXPECT() *MockAdminAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAdminAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Login mocks base method.

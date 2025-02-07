@@ -44,6 +44,11 @@ func (m *MockResourceServiceGetter) EXPECT() *MockResourceServiceGetterMockRecor
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceServiceGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Resource mocks base method.
 func (m *MockResourceServiceGetter) Resource(arg0 *http.Request) (ResourceService, error) {
 	m.ctrl.T.Helper()
@@ -104,6 +109,11 @@ func NewMockResourceService(ctrl *gomock.Controller) *MockResourceService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockResourceService) EXPECT() *MockResourceServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetApplicationResourceID mocks base method.
@@ -398,6 +408,11 @@ func NewMockResourceOpenerGetter(ctrl *gomock.Controller) *MockResourceOpenerGet
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockResourceOpenerGetter) EXPECT() *MockResourceOpenerGetterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceOpenerGetter) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Opener mocks base method.

@@ -41,6 +41,11 @@ func (m *MockBundleReader) EXPECT() *MockBundleReaderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBundleReader) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Read mocks base method.
 func (m *MockBundleReader) Read(arg0 context.Context, arg1 charm.BundleInfo, arg2 <-chan struct{}) (charm.Bundle, error) {
 	m.ctrl.T.Helper()
@@ -101,6 +106,11 @@ func NewMockBundleInfo(ctrl *gomock.Controller) *MockBundleInfo {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBundleInfo) EXPECT() *MockBundleInfoMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBundleInfo) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ArchiveSha256 mocks base method.
@@ -201,6 +211,11 @@ func NewMockBundle(ctrl *gomock.Controller) *MockBundle {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBundle) EXPECT() *MockBundleMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBundle) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ArchiveMembers mocks base method.

@@ -38,6 +38,11 @@ func (m *MockMongoSnapService) EXPECT() *MockMongoSnapServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMongoSnapService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ConfigOverride mocks base method.
 func (m *MockMongoSnapService) ConfigOverride() error {
 	m.ctrl.T.Helper()

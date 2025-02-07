@@ -45,6 +45,11 @@ func (m *MockDynamicInterface) EXPECT() *MockDynamicInterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDynamicInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Resource mocks base method.
 func (m *MockDynamicInterface) Resource(arg0 schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
 	m.ctrl.T.Helper()
@@ -104,6 +109,11 @@ func NewMockResourceInterface(ctrl *gomock.Controller) *MockResourceInterface {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockResourceInterface) EXPECT() *MockResourceInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceInterface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.
@@ -584,6 +594,11 @@ func NewMockNamespaceableResourceInterface(ctrl *gomock.Controller) *MockNamespa
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNamespaceableResourceInterface) EXPECT() *MockNamespaceableResourceInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNamespaceableResourceInterface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.

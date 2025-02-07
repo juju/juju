@@ -50,6 +50,11 @@ func (m *MockContainerMachine) EXPECT() *MockContainerMachineMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockContainerMachine) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AvailabilityZone mocks base method.
 func (m *MockContainerMachine) AvailabilityZone(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
@@ -229,6 +234,11 @@ func (m *MockContainerMachineGetter) EXPECT() *MockContainerMachineGetterMockRec
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockContainerMachineGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Machines mocks base method.
 func (m *MockContainerMachineGetter) Machines(arg0 context.Context, arg1 ...names.MachineTag) ([]containerprovisioner.ContainerMachineResult, error) {
 	m.ctrl.T.Helper()
@@ -294,6 +304,11 @@ func NewMockContainerProvisionerAPI(ctrl *gomock.Controller) *MockContainerProvi
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockContainerProvisionerAPI) EXPECT() *MockContainerProvisionerAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockContainerProvisionerAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ContainerConfig mocks base method.
@@ -591,6 +606,11 @@ func (m *MockControllerAPI) EXPECT() *MockControllerAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // APIAddresses mocks base method.
 func (m *MockControllerAPI) APIAddresses(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -846,6 +866,11 @@ func NewMockMachinesAPI(ctrl *gomock.Controller) *MockMachinesAPI {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachinesAPI) EXPECT() *MockMachinesAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachinesAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Machines mocks base method.

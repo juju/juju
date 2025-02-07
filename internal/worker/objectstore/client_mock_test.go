@@ -41,6 +41,11 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Session mocks base method.
 func (m *MockClient) Session(arg0 context.Context, arg1 func(context.Context, objectstore.Session) error) error {
 	m.ctrl.T.Helper()
@@ -100,6 +105,11 @@ func NewMockSession(ctrl *gomock.Controller) *MockSession {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSession) EXPECT() *MockSessionMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSession) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // CreateBucket mocks base method.

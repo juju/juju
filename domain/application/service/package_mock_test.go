@@ -56,6 +56,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddUnits mocks base method.
 func (m *MockState) AddUnits(arg0 context.Context, arg1 application.ID, arg2 ...application0.AddUnitArg) error {
 	m.ctrl.T.Helper()
@@ -2654,6 +2659,11 @@ func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockWatcherFactory) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // NewNamespaceMapperWatcher mocks base method.
 func (m *MockWatcherFactory) NewNamespaceMapperWatcher(arg0 string, arg1 changestream.ChangeType, arg2 eventsource.NamespaceQuery, arg3 eventsource.Mapper) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
@@ -2833,6 +2843,11 @@ func (m *MockAgentVersionGetter) EXPECT() *MockAgentVersionGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAgentVersionGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetModelTargetAgentVersion mocks base method.
 func (m *MockAgentVersionGetter) GetModelTargetAgentVersion(arg0 context.Context, arg1 model.UUID) (version.Number, error) {
 	m.ctrl.T.Helper()
@@ -2895,6 +2910,11 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockProvider) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // SupportedFeatures mocks base method.
 func (m *MockProvider) SupportedFeatures() (assumes.FeatureSet, error) {
 	m.ctrl.T.Helper()
@@ -2955,6 +2975,11 @@ func NewMockCharmStore(ctrl *gomock.Controller) *MockCharmStore {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmStore) EXPECT() *MockCharmStoreMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmStore) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Get mocks base method.

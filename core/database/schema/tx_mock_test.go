@@ -40,6 +40,11 @@ func (m *MockTx) EXPECT() *MockTxMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTx) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ExecContext mocks base method.
 func (m *MockTx) ExecContext(arg0 context.Context, arg1 string, arg2 ...any) (sql.Result, error) {
 	m.ctrl.T.Helper()

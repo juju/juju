@@ -46,6 +46,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllCloudCredentialsForOwner mocks base method.
 func (m *MockState) AllCloudCredentialsForOwner(arg0 context.Context, arg1 user.Name) (map[credential.Key]credential0.CloudCredentialResult, error) {
 	m.ctrl.T.Helper()
@@ -379,6 +384,11 @@ func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockWatcherFactory) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // NewValueWatcher mocks base method.
 func (m *MockWatcherFactory) NewValueWatcher(arg0, arg1 string, arg2 changestream.ChangeType) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
@@ -439,6 +449,11 @@ func NewMockMachineService(ctrl *gomock.Controller) *MockMachineService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachineService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetMachineUUID mocks base method.
@@ -540,6 +555,11 @@ func NewMockMachineState(ctrl *gomock.Controller) *MockMachineState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachineState) EXPECT() *MockMachineStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachineState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AllMachines mocks base method.

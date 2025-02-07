@@ -41,6 +41,11 @@ func (m *MockTxnRunner) EXPECT() *MockTxnRunnerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTxnRunner) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // StdTxn mocks base method.
 func (m *MockTxnRunner) StdTxn(arg0 context.Context, arg1 func(context.Context, *sql.Tx) error) error {
 	m.ctrl.T.Helper()

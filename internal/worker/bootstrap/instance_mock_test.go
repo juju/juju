@@ -41,6 +41,11 @@ func (m *MockInstance) EXPECT() *MockInstanceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInstance) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Addresses mocks base method.
 func (m *MockInstance) Addresses(arg0 envcontext.ProviderCallContext) (network.ProviderAddresses, error) {
 	m.ctrl.T.Helper()

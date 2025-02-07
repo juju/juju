@@ -46,6 +46,11 @@ func (m *MockServer) EXPECT() *MockServerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockServer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AliveContainers mocks base method.
 func (m *MockServer) AliveContainers(arg0 string) ([]lxd0.Container, error) {
 	m.ctrl.T.Helper()
@@ -2077,6 +2082,11 @@ func (m *MockServerFactory) EXPECT() *MockServerFactoryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockServerFactory) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // InsecureRemoteServer mocks base method.
 func (m *MockServerFactory) InsecureRemoteServer(arg0 CloudSpec) (Server, error) {
 	m.ctrl.T.Helper()
@@ -2256,6 +2266,11 @@ func (m *MockInterfaceAddress) EXPECT() *MockInterfaceAddressMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInterfaceAddress) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // InterfaceAddress mocks base method.
 func (m *MockInterfaceAddress) InterfaceAddress(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
@@ -2316,6 +2331,11 @@ func NewMockCertificateReadWriter(ctrl *gomock.Controller) *MockCertificateReadW
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCertificateReadWriter) EXPECT() *MockCertificateReadWriterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCertificateReadWriter) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Read mocks base method.
@@ -2419,6 +2439,11 @@ func (m *MockCertificateGenerator) EXPECT() *MockCertificateGeneratorMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCertificateGenerator) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Generate mocks base method.
 func (m *MockCertificateGenerator) Generate(arg0, arg1 bool) ([]byte, []byte, error) {
 	m.ctrl.T.Helper()
@@ -2480,6 +2505,11 @@ func NewMockLXCConfigReader(ctrl *gomock.Controller) *MockLXCConfigReader {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLXCConfigReader) EXPECT() *MockLXCConfigReaderMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLXCConfigReader) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ReadCert mocks base method.

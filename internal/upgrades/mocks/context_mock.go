@@ -41,6 +41,11 @@ func (m *MockContext) EXPECT() *MockContextMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockContext) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // APIContext mocks base method.
 func (m *MockContext) APIContext() upgrades.Context {
 	m.ctrl.T.Helper()

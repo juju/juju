@@ -39,6 +39,11 @@ func (m *MockCharmMetadata) EXPECT() *MockCharmMetadataMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmMetadata) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Assumes mocks base method.
 func (m *MockCharmMetadata) Assumes() string {
 	m.ctrl.T.Helper()
@@ -822,6 +827,11 @@ func (m *MockCharmMetadataRelation) EXPECT() *MockCharmMetadataRelationMockRecor
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmMetadataRelation) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Interface mocks base method.
 func (m *MockCharmMetadataRelation) Interface() string {
 	m.ctrl.T.Helper()
@@ -1071,6 +1081,11 @@ func NewMockCharmMetadataStorage(ctrl *gomock.Controller) *MockCharmMetadataStor
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmMetadataStorage) EXPECT() *MockCharmMetadataStorageMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmMetadataStorage) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // CountMax mocks base method.
@@ -1476,6 +1491,11 @@ func (m *MockCharmMetadataDevice) EXPECT() *MockCharmMetadataDeviceMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmMetadataDevice) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CountMax mocks base method.
 func (m *MockCharmMetadataDevice) CountMax() int {
 	m.ctrl.T.Helper()
@@ -1689,6 +1709,11 @@ func (m *MockCharmMetadataResource) EXPECT() *MockCharmMetadataResourceMockRecor
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmMetadataResource) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Description mocks base method.
 func (m *MockCharmMetadataResource) Description() string {
 	m.ctrl.T.Helper()
@@ -1862,6 +1887,11 @@ func NewMockCharmMetadataContainer(ctrl *gomock.Controller) *MockCharmMetadataCo
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmMetadataContainer) EXPECT() *MockCharmMetadataContainerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmMetadataContainer) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Gid mocks base method.
@@ -2039,6 +2069,11 @@ func (m *MockCharmMetadataContainerMount) EXPECT() *MockCharmMetadataContainerMo
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmMetadataContainerMount) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Location mocks base method.
 func (m *MockCharmMetadataContainerMount) Location() string {
 	m.ctrl.T.Helper()
@@ -2138,6 +2173,11 @@ func (m *MockCharmManifest) EXPECT() *MockCharmManifestMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmManifest) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Bases mocks base method.
 func (m *MockCharmManifest) Bases() []description.CharmManifestBase {
 	m.ctrl.T.Helper()
@@ -2197,6 +2237,11 @@ func NewMockCharmManifestBase(ctrl *gomock.Controller) *MockCharmManifestBase {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmManifestBase) EXPECT() *MockCharmManifestBaseMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmManifestBase) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Architectures mocks base method.
@@ -2336,6 +2381,11 @@ func (m *MockCharmActions) EXPECT() *MockCharmActionsMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmActions) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Actions mocks base method.
 func (m *MockCharmActions) Actions() map[string]description.CharmAction {
 	m.ctrl.T.Helper()
@@ -2395,6 +2445,11 @@ func NewMockCharmAction(ctrl *gomock.Controller) *MockCharmAction {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmAction) EXPECT() *MockCharmActionMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmAction) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Description mocks base method.
@@ -2572,6 +2627,11 @@ func (m *MockCharmConfigs) EXPECT() *MockCharmConfigsMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmConfigs) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Configs mocks base method.
 func (m *MockCharmConfigs) Configs() map[string]description.CharmConfig {
 	m.ctrl.T.Helper()
@@ -2631,6 +2691,11 @@ func NewMockCharmConfig(ctrl *gomock.Controller) *MockCharmConfig {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmConfig) EXPECT() *MockCharmConfigMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmConfig) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Default mocks base method.

@@ -41,6 +41,11 @@ func (m *MockFilesystem) EXPECT() *MockFilesystemMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFilesystem) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Create mocks base method.
 func (m *MockFilesystem) Create(arg0 string) (*os.File, error) {
 	m.ctrl.T.Helper()
@@ -256,6 +261,11 @@ func NewMockReadSeekCloser(ctrl *gomock.Controller) *MockReadSeekCloser {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockReadSeekCloser) EXPECT() *MockReadSeekCloserMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockReadSeekCloser) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Close mocks base method.

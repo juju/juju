@@ -41,6 +41,11 @@ func (m *MockRemoveMachineAPI) EXPECT() *MockRemoveMachineAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRemoveMachineAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // BestAPIVersion mocks base method.
 func (m *MockRemoveMachineAPI) BestAPIVersion() int {
 	m.ctrl.T.Helper()

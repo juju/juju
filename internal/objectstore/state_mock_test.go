@@ -41,6 +41,11 @@ func (m *MockClaimer) EXPECT() *MockClaimerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClaimer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Claim mocks base method.
 func (m *MockClaimer) Claim(arg0 context.Context, arg1 string) (ClaimExtender, error) {
 	m.ctrl.T.Helper()
@@ -141,6 +146,11 @@ func (m *MockClaimExtender) EXPECT() *MockClaimExtenderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClaimExtender) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Duration mocks base method.
 func (m *MockClaimExtender) Duration() time.Duration {
 	m.ctrl.T.Helper()
@@ -238,6 +248,11 @@ func NewMockHashFileSystemAccessor(ctrl *gomock.Controller) *MockHashFileSystemA
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockHashFileSystemAccessor) EXPECT() *MockHashFileSystemAccessorMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockHashFileSystemAccessor) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // DeleteByHash mocks base method.

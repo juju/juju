@@ -42,6 +42,11 @@ func (m *MockModelMigration) EXPECT() *MockModelMigrationMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelMigration) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Attempt mocks base method.
 func (m *MockModelMigration) Attempt() int {
 	m.ctrl.T.Helper()
@@ -713,6 +718,11 @@ func NewMockNotifyWatcher(ctrl *gomock.Controller) *MockNotifyWatcher {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNotifyWatcher) EXPECT() *MockNotifyWatcherMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNotifyWatcher) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Changes mocks base method.

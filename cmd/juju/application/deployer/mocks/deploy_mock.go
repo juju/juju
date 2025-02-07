@@ -54,6 +54,11 @@ func (m *MockDeployerAPI) EXPECT() *MockDeployerAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDeployerAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // APICall mocks base method.
 func (m *MockDeployerAPI) APICall(arg0 context.Context, arg1 string, arg2 int, arg3, arg4 string, arg5, arg6 any) error {
 	m.ctrl.T.Helper()
@@ -1604,6 +1609,11 @@ func (m *MockCharmReader) EXPECT() *MockCharmReaderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmReader) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // NewCharmAtPath mocks base method.
 func (m *MockCharmReader) NewCharmAtPath(arg0 string) (charm0.Charm, *charm0.URL, error) {
 	m.ctrl.T.Helper()
@@ -1665,6 +1675,11 @@ func NewMockDeployConfigFlag(ctrl *gomock.Controller) *MockDeployConfigFlag {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDeployConfigFlag) EXPECT() *MockDeployConfigFlagMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDeployConfigFlag) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AbsoluteFileNames mocks base method.

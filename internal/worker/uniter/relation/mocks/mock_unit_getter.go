@@ -41,6 +41,11 @@ func (m *MockUnitGetter) EXPECT() *MockUnitGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUnitGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Unit mocks base method.
 func (m *MockUnitGetter) Unit(arg0 context.Context, arg1 names.UnitTag) (api.Unit, error) {
 	m.ctrl.T.Helper()

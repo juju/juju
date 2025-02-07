@@ -40,6 +40,11 @@ func (m *MockModelObjectStoreGetter) EXPECT() *MockModelObjectStoreGetterMockRec
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelObjectStoreGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetObjectStore mocks base method.
 func (m *MockModelObjectStoreGetter) GetObjectStore(arg0 context.Context) (objectstore.ObjectStore, error) {
 	m.ctrl.T.Helper()

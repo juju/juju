@@ -41,6 +41,11 @@ func (m *MockStateTrackerClient) EXPECT() *MockStateTrackerClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStateTrackerClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Relation mocks base method.
 func (m *MockStateTrackerClient) Relation(arg0 context.Context, arg1 names.RelationTag) (api.Relation, error) {
 	m.ctrl.T.Helper()

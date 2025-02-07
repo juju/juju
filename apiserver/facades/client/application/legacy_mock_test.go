@@ -48,6 +48,11 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBackend) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddApplication mocks base method.
 func (m *MockBackend) AddApplication(arg0 state.AddApplicationArgs, arg1 objectstore.ObjectStore) (Application, error) {
 	m.ctrl.T.Helper()
@@ -703,6 +708,11 @@ func NewMockApplication(ctrl *gomock.Controller) *MockApplication {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplication) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AddUnit mocks base method.
@@ -1687,6 +1697,11 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModel) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CloudCredentialTag mocks base method.
 func (m *MockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	m.ctrl.T.Helper()
@@ -1937,6 +1952,11 @@ func NewMockCaasBrokerInterface(ctrl *gomock.Controller) *MockCaasBrokerInterfac
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCaasBrokerInterface) EXPECT() *MockCaasBrokerInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCaasBrokerInterface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ValidateStorageClass mocks base method.

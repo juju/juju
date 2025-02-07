@@ -39,6 +39,11 @@ func (m *MockShimExec) EXPECT() *MockShimExecMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockShimExec) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // RunCommands mocks base method.
 func (m *MockShimExec) RunCommands(arg0 exec.RunParams) (*exec.ExecResponse, error) {
 	m.ctrl.T.Helper()

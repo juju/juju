@@ -41,6 +41,11 @@ func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockWatcherFactory) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // NewNamespaceWatcher mocks base method.
 func (m *MockWatcherFactory) NewNamespaceWatcher(arg0 string, arg1 changestream.ChangeType, arg2 eventsource.NamespaceQuery) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()

@@ -42,6 +42,11 @@ func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetModel mocks base method.
 func (m *MockControllerState) GetModel(arg0 context.Context, arg1 model.UUID) (model.Model, error) {
 	m.ctrl.T.Helper()
@@ -143,6 +148,11 @@ func (m *MockEnvironVersionProvider) EXPECT() *MockEnvironVersionProviderMockRec
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEnvironVersionProvider) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Version mocks base method.
 func (m *MockEnvironVersionProvider) Version() int {
 	m.ctrl.T.Helper()
@@ -202,6 +212,11 @@ func NewMockModelState(ctrl *gomock.Controller) *MockModelState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Create mocks base method.

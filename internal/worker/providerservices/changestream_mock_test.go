@@ -39,6 +39,11 @@ func (m *MockWatchableDBGetter) EXPECT() *MockWatchableDBGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockWatchableDBGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetWatchableDB mocks base method.
 func (m *MockWatchableDBGetter) GetWatchableDB(arg0 string) (changestream.WatchableDB, error) {
 	m.ctrl.T.Helper()

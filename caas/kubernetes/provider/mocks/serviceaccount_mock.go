@@ -45,6 +45,11 @@ func (m *MockServiceAccountInterface) EXPECT() *MockServiceAccountInterfaceMockR
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockServiceAccountInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Apply mocks base method.
 func (m *MockServiceAccountInterface) Apply(arg0 context.Context, arg1 *v12.ServiceAccountApplyConfiguration, arg2 v11.ApplyOptions) (*v10.ServiceAccount, error) {
 	m.ctrl.T.Helper()

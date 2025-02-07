@@ -44,6 +44,11 @@ func (m *MockCharmAdder) EXPECT() *MockCharmAdderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmAdder) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddCharm mocks base method.
 func (m *MockCharmAdder) AddCharm(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin, arg3 bool) (charm.Origin, error) {
 	m.ctrl.T.Helper()
@@ -183,6 +188,11 @@ func (m *MockCharmsAPI) EXPECT() *MockCharmsAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmsAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetDownloadInfo mocks base method.
 func (m *MockCharmsAPI) GetDownloadInfo(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin) (charms.DownloadInfo, error) {
 	m.ctrl.T.Helper()
@@ -284,6 +294,11 @@ func (m *MockDownloadBundleClient) EXPECT() *MockDownloadBundleClientMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDownloadBundleClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Download mocks base method.
 func (m *MockDownloadBundleClient) Download(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (*charmhub.Digest, error) {
 	m.ctrl.T.Helper()
@@ -349,6 +364,11 @@ func NewMockCharmReader(ctrl *gomock.Controller) *MockCharmReader {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmReader) EXPECT() *MockCharmReaderMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmReader) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ReadBundleArchive mocks base method.

@@ -39,6 +39,11 @@ func (m *MockAuthorizer) EXPECT() *MockAuthorizerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAuthorizer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AuthController mocks base method.
 func (m *MockAuthorizer) AuthController() bool {
 	m.ctrl.T.Helper()

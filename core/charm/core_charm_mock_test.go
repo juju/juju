@@ -38,6 +38,11 @@ func (m *MockSelectorModelConfig) EXPECT() *MockSelectorModelConfigMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSelectorModelConfig) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DefaultBase mocks base method.
 func (m *MockSelectorModelConfig) DefaultBase() (string, bool) {
 	m.ctrl.T.Helper()

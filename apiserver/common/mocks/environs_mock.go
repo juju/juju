@@ -44,6 +44,11 @@ func (m *MockBootstrapEnviron) EXPECT() *MockBootstrapEnvironMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBootstrapEnviron) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Bootstrap mocks base method.
 func (m *MockBootstrapEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 envcontext.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()

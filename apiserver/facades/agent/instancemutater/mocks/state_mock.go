@@ -40,6 +40,11 @@ func (m *MockEntityFinder) EXPECT() *MockEntityFinderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEntityFinder) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // FindEntity mocks base method.
 func (m *MockEntityFinder) FindEntity(arg0 names.Tag) (state.Entity, error) {
 	m.ctrl.T.Helper()
@@ -102,6 +107,11 @@ func (m *MockEntity) EXPECT() *MockEntityMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEntity) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Tag mocks base method.
 func (m *MockEntity) Tag() names.Tag {
 	m.ctrl.T.Helper()
@@ -161,6 +171,11 @@ func NewMockLifer(ctrl *gomock.Controller) *MockLifer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLifer) EXPECT() *MockLiferMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLifer) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Life mocks base method.

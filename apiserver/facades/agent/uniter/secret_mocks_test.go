@@ -41,6 +41,11 @@ func (m *MockSecretService) EXPECT() *MockSecretServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CreateCharmSecret mocks base method.
 func (m *MockSecretService) CreateCharmSecret(arg0 context.Context, arg1 *secrets.URI, arg2 service.CreateCharmSecretParams) error {
 	m.ctrl.T.Helper()

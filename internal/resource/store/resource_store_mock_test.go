@@ -41,6 +41,11 @@ func (m *MockResourceStore) EXPECT() *MockResourceStoreMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceStore) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Get mocks base method.
 func (m *MockResourceStore) Get(arg0 context.Context, arg1 string) (io.ReadCloser, int64, error) {
 	m.ctrl.T.Helper()

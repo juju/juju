@@ -40,6 +40,11 @@ func (m *MockFirstPartyCaveatChecker) EXPECT() *MockFirstPartyCaveatCheckerMockR
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFirstPartyCaveatChecker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CheckFirstPartyCaveat mocks base method.
 func (m *MockFirstPartyCaveatChecker) CheckFirstPartyCaveat(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()

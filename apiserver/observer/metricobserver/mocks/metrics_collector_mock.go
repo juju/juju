@@ -40,6 +40,11 @@ func (m *MockMetricsCollector) EXPECT() *MockMetricsCollectorMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMetricsCollector) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // APIRequestDuration mocks base method.
 func (m *MockMetricsCollector) APIRequestDuration() metricobserver.SummaryVec {
 	m.ctrl.T.Helper()
@@ -99,6 +104,11 @@ func NewMockSummaryVec(ctrl *gomock.Controller) *MockSummaryVec {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSummaryVec) EXPECT() *MockSummaryVecMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSummaryVec) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // With mocks base method.

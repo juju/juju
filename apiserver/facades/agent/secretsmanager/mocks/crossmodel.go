@@ -44,6 +44,11 @@ func (m *MockCrossModelState) EXPECT() *MockCrossModelStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCrossModelState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetMacaroon mocks base method.
 func (m *MockCrossModelState) GetMacaroon(arg0 names.Tag) (*macaroon.Macaroon, error) {
 	m.ctrl.T.Helper()
@@ -182,6 +187,11 @@ func NewMockCrossModelSecretsClient(ctrl *gomock.Controller) *MockCrossModelSecr
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCrossModelSecretsClient) EXPECT() *MockCrossModelSecretsClientMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCrossModelSecretsClient) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Close mocks base method.

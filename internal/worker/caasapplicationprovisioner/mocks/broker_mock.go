@@ -41,6 +41,11 @@ func (m *MockCAASBroker) EXPECT() *MockCAASBrokerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCAASBroker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AnnotateUnit mocks base method.
 func (m *MockCAASBroker) AnnotateUnit(arg0 context.Context, arg1, arg2 string, arg3 names.UnitTag) error {
 	m.ctrl.T.Helper()

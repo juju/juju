@@ -39,6 +39,11 @@ func (m *MockSizeGetter) EXPECT() *MockSizeGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSizeGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Get mocks base method.
 func (m *MockSizeGetter) Get(arg0 int) *remotecommand.TerminalSize {
 	m.ctrl.T.Helper()

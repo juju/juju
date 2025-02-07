@@ -42,6 +42,11 @@ func (m *MockCharmClient) EXPECT() *MockCharmClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CharmInfo mocks base method.
 func (m *MockCharmClient) CharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()

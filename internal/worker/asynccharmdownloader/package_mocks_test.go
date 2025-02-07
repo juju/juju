@@ -44,6 +44,11 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetAsyncCharmDownloadInfo mocks base method.
 func (m *MockApplicationService) GetAsyncCharmDownloadInfo(arg0 context.Context, arg1 application.ID) (application0.CharmDownloadInfo, error) {
 	m.ctrl.T.Helper()
@@ -181,6 +186,11 @@ func NewMockDownloader(ctrl *gomock.Controller) *MockDownloader {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDownloader) EXPECT() *MockDownloaderMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDownloader) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Download mocks base method.

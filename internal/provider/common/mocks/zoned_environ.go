@@ -48,6 +48,11 @@ func (m *MockZonedEnviron) EXPECT() *MockZonedEnvironMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockZonedEnviron) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AdoptResources mocks base method.
 func (m *MockZonedEnviron) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 version.Number) error {
 	m.ctrl.T.Helper()

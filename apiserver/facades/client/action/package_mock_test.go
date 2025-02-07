@@ -43,6 +43,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllApplications mocks base method.
 func (m *MockState) AllApplications() ([]*state.Application, error) {
 	m.ctrl.T.Helper()
@@ -297,6 +302,11 @@ func NewMockModel(ctrl *gomock.Controller) *MockModel {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModel) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ActionByTag mocks base method.
@@ -669,6 +679,11 @@ func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetCharmActions mocks base method.

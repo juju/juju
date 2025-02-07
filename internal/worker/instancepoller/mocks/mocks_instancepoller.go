@@ -46,6 +46,11 @@ func (m *MockEnviron) EXPECT() *MockEnvironMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEnviron) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Instances mocks base method.
 func (m *MockEnviron) Instances(arg0 envcontext.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
@@ -145,6 +150,11 @@ func NewMockMachine(ctrl *gomock.Controller) *MockMachine {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachine) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Id mocks base method.

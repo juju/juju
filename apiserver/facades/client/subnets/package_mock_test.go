@@ -43,6 +43,11 @@ func (m *MockBacking) EXPECT() *MockBackingMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBacking) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AvailabilityZones mocks base method.
 func (m *MockBacking) AvailabilityZones() (network.AvailabilityZones, error) {
 	m.ctrl.T.Helper()
@@ -257,6 +262,11 @@ func NewMockNetworkService(ctrl *gomock.Controller) *MockNetworkService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetAllSpaces mocks base method.

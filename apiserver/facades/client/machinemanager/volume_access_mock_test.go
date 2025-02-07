@@ -40,6 +40,11 @@ func (m *MockVolumeAccess) EXPECT() *MockVolumeAccessMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockVolumeAccess) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // StorageInstanceVolume mocks base method.
 func (m *MockVolumeAccess) StorageInstanceVolume(arg0 names.StorageTag) (state.Volume, error) {
 	m.ctrl.T.Helper()

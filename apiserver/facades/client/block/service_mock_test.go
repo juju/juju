@@ -42,6 +42,11 @@ func (m *MockBlockCommandService) EXPECT() *MockBlockCommandServiceMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBlockCommandService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetBlocks mocks base method.
 func (m *MockBlockCommandService) GetBlocks(arg0 context.Context) ([]blockcommand.Block, error) {
 	m.ctrl.T.Helper()
@@ -178,6 +183,11 @@ func NewMockAuthorizer(ctrl *gomock.Controller) *MockAuthorizer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAuthorizer) EXPECT() *MockAuthorizerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAuthorizer) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // HasPermission mocks base method.

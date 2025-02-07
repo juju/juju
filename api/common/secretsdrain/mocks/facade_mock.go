@@ -40,6 +40,11 @@ func (m *MockFacadeCaller) EXPECT() *MockFacadeCallerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFacadeCaller) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // BestAPIVersion mocks base method.
 func (m *MockFacadeCaller) BestAPIVersion() int {
 	m.ctrl.T.Helper()

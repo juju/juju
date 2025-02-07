@@ -40,6 +40,11 @@ func (m *MockOpener) EXPECT() *MockOpenerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockOpener) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // OpenResource mocks base method.
 func (m *MockOpener) OpenResource(arg0 context.Context, arg1 string) (resource.Opened, error) {
 	m.ctrl.T.Helper()

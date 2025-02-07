@@ -39,6 +39,11 @@ func (m *MockCredentialAPI) EXPECT() *MockCredentialAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCredentialAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // InvalidateModelCredential mocks base method.
 func (m *MockCredentialAPI) InvalidateModelCredential(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()

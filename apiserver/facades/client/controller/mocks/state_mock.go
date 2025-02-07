@@ -42,6 +42,11 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBackend) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllModelUUIDs mocks base method.
 func (m *MockBackend) AllModelUUIDs() ([]string, error) {
 	m.ctrl.T.Helper()
@@ -298,6 +303,11 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplication) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CharmConfig mocks base method.
 func (m *MockApplication) CharmConfig() (charm.Settings, error) {
 	m.ctrl.T.Helper()
@@ -435,6 +445,11 @@ func NewMockRelation(ctrl *gomock.Controller) *MockRelation {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRelation) EXPECT() *MockRelationMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRelation) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ApplicationSettings mocks base method.

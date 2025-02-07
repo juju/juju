@@ -40,6 +40,11 @@ func (m *MockListSecretBackendsAPI) EXPECT() *MockListSecretBackendsAPIMockRecor
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockListSecretBackendsAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockListSecretBackendsAPI) Close() error {
 	m.ctrl.T.Helper()
@@ -138,6 +143,11 @@ func NewMockAddSecretBackendsAPI(ctrl *gomock.Controller) *MockAddSecretBackends
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAddSecretBackendsAPI) EXPECT() *MockAddSecretBackendsAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAddSecretBackendsAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AddSecretBackend mocks base method.
@@ -239,6 +249,11 @@ func (m *MockRemoveSecretBackendsAPI) EXPECT() *MockRemoveSecretBackendsAPIMockR
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRemoveSecretBackendsAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockRemoveSecretBackendsAPI) Close() error {
 	m.ctrl.T.Helper()
@@ -338,6 +353,11 @@ func (m *MockUpdateSecretBackendsAPI) EXPECT() *MockUpdateSecretBackendsAPIMockR
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUpdateSecretBackendsAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockUpdateSecretBackendsAPI) Close() error {
 	m.ctrl.T.Helper()
@@ -435,6 +455,11 @@ func NewMockModelSecretBackendAPI(ctrl *gomock.Controller) *MockModelSecretBacke
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelSecretBackendAPI) EXPECT() *MockModelSecretBackendAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelSecretBackendAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Close mocks base method.

@@ -47,6 +47,11 @@ func (m *MockRemoteRelationsState) EXPECT() *MockRemoteRelationsStateMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRemoteRelationsState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddRelation mocks base method.
 func (m *MockRemoteRelationsState) AddRelation(arg0 ...relation.Endpoint) (crossmodel.Relation, error) {
 	m.ctrl.T.Helper()
@@ -1045,6 +1050,11 @@ func (m *MockControllerConfigAPI) EXPECT() *MockControllerConfigAPIMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ControllerAPIInfoForModels mocks base method.
 func (m *MockControllerConfigAPI) ControllerAPIInfoForModels(arg0 context.Context, arg1 params.Entities) (params.ControllerAPIInfoResults, error) {
 	m.ctrl.T.Helper()
@@ -1146,6 +1156,11 @@ func (m *MockExternalControllerService) EXPECT() *MockExternalControllerServiceM
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockExternalControllerService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // UpdateExternalController mocks base method.
 func (m *MockExternalControllerService) UpdateExternalController(arg0 context.Context, arg1 crossmodel0.ControllerInfo) error {
 	m.ctrl.T.Helper()
@@ -1205,6 +1220,11 @@ func NewMockSecretService(ctrl *gomock.Controller) *MockSecretService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSecretService) EXPECT() *MockSecretServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // UpdateRemoteSecretRevision mocks base method.

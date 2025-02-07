@@ -39,6 +39,11 @@ func (m *MockSecretTriggerWatcher) EXPECT() *MockSecretTriggerWatcherMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretTriggerWatcher) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Changes mocks base method.
 func (m *MockSecretTriggerWatcher) Changes() <-chan []watcher.SecretTriggerChange {
 	m.ctrl.T.Helper()

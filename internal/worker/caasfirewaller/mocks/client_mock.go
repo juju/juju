@@ -43,6 +43,11 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplicationCharmInfo mocks base method.
 func (m *MockClient) ApplicationCharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
@@ -300,6 +305,11 @@ func (m *MockCAASFirewallerAPI) EXPECT() *MockCAASFirewallerAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCAASFirewallerAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplicationCharmInfo mocks base method.
 func (m *MockCAASFirewallerAPI) ApplicationCharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
@@ -516,6 +526,11 @@ func NewMockLifeGetter(ctrl *gomock.Controller) *MockLifeGetter {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLifeGetter) EXPECT() *MockLifeGetterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLifeGetter) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Life mocks base method.

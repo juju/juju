@@ -44,6 +44,11 @@ func (m *MockMutaterContext) EXPECT() *MockMutaterContextMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMutaterContext) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // KillWithError mocks base method.
 func (m *MockMutaterContext) KillWithError(arg0 error) {
 	m.ctrl.T.Helper()

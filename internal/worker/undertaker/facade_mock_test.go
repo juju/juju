@@ -43,6 +43,11 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFacade) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CloudSpec mocks base method.
 func (m *MockFacade) CloudSpec(arg0 context.Context) (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()

@@ -41,6 +41,11 @@ func (m *MockAPIAddresser) EXPECT() *MockAPIAddresserMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAPIAddresser) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // APIHostPorts mocks base method.
 func (m *MockAPIAddresser) APIHostPorts(arg0 context.Context) ([]network.ProviderHostPorts, error) {
 	m.ctrl.T.Helper()

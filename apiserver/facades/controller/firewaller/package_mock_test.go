@@ -45,6 +45,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Application mocks base method.
 func (m *MockState) Application(arg0 string) (firewall.Application, error) {
 	m.ctrl.T.Helper()
@@ -452,6 +457,11 @@ func NewMockControllerConfigAPI(ctrl *gomock.Controller) *MockControllerConfigAP
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerConfigAPI) EXPECT() *MockControllerConfigAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ControllerAPIInfoForModels mocks base method.

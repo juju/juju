@@ -38,6 +38,11 @@ func (m *MockSnapManager) EXPECT() *MockSnapManagerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSnapManager) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ChangeChannel mocks base method.
 func (m *MockSnapManager) ChangeChannel(arg0, arg1 string) error {
 	m.ctrl.T.Helper()

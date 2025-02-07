@@ -43,6 +43,11 @@ func (m *MockProviderServices) EXPECT() *MockProviderServicesMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockProviderServices) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Cloud mocks base method.
 func (m *MockProviderServices) Cloud() *service.WatchableProviderService {
 	m.ctrl.T.Helper()
@@ -216,6 +221,11 @@ func NewMockProviderServicesGetter(ctrl *gomock.Controller) *MockProviderService
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockProviderServicesGetter) EXPECT() *MockProviderServicesGetterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockProviderServicesGetter) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ServicesForModel mocks base method.

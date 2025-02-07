@@ -45,6 +45,11 @@ func (m *MockApplicationOps) EXPECT() *MockApplicationOpsMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationOps) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AppAlive mocks base method.
 func (m *MockApplicationOps) AppAlive(arg0 context.Context, arg1 string, arg2 caas.Application, arg3 string, arg4 *caas.ApplicationConfig, arg5 caasapplicationprovisioner.CAASProvisionerFacade, arg6 clock.Clock, arg7 logger.Logger) error {
 	m.ctrl.T.Helper()

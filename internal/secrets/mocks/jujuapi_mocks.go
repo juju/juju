@@ -42,6 +42,11 @@ func (m *MockJujuAPIClient) EXPECT() *MockJujuAPIClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockJujuAPIClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetBackendConfigForDrain mocks base method.
 func (m *MockJujuAPIClient) GetBackendConfigForDrain(arg0 context.Context, arg1 *string) (*provider.ModelBackendConfig, string, error) {
 	m.ctrl.T.Helper()
@@ -224,6 +229,11 @@ func NewMockSecretsState(ctrl *gomock.Controller) *MockSecretsState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSecretsState) EXPECT() *MockSecretsStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretsState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetSecretValue mocks base method.

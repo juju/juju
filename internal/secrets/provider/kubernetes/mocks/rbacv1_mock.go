@@ -46,6 +46,11 @@ func (m *MockRbacV1Interface) EXPECT() *MockRbacV1InterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRbacV1Interface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ClusterRoleBindings mocks base method.
 func (m *MockRbacV1Interface) ClusterRoleBindings() v12.ClusterRoleBindingInterface {
 	m.ctrl.T.Helper()
@@ -137,6 +142,11 @@ func NewMockClusterRoleBindingInterface(ctrl *gomock.Controller) *MockClusterRol
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClusterRoleBindingInterface) EXPECT() *MockClusterRoleBindingInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClusterRoleBindingInterface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.
@@ -300,6 +310,11 @@ func (m *MockClusterRoleInterface) EXPECT() *MockClusterRoleInterfaceMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClusterRoleInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Apply mocks base method.
 func (m *MockClusterRoleInterface) Apply(arg0 context.Context, arg1 *v11.ClusterRoleApplyConfiguration, arg2 v10.ApplyOptions) (*v1.ClusterRole, error) {
 	m.ctrl.T.Helper()
@@ -461,6 +476,11 @@ func (m *MockRoleInterface) EXPECT() *MockRoleInterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRoleInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Apply mocks base method.
 func (m *MockRoleInterface) Apply(arg0 context.Context, arg1 *v11.RoleApplyConfiguration, arg2 v10.ApplyOptions) (*v1.Role, error) {
 	m.ctrl.T.Helper()
@@ -620,6 +640,11 @@ func NewMockRoleBindingInterface(ctrl *gomock.Controller) *MockRoleBindingInterf
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRoleBindingInterface) EXPECT() *MockRoleBindingInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRoleBindingInterface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.

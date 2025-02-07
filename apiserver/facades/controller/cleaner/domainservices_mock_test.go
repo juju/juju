@@ -72,6 +72,11 @@ func (m *MockDomainServices) EXPECT() *MockDomainServicesMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDomainServices) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Access mocks base method.
 func (m *MockDomainServices) Access() *service.Service {
 	m.ctrl.T.Helper()

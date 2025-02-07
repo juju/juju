@@ -38,6 +38,11 @@ func (m *MockAvailabilityZone) EXPECT() *MockAvailabilityZoneMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAvailabilityZone) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Available mocks base method.
 func (m *MockAvailabilityZone) Available() bool {
 	m.ctrl.T.Helper()

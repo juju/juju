@@ -42,6 +42,11 @@ func (m *MockResources) EXPECT() *MockResourcesMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResources) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Get mocks base method.
 func (m *MockResources) Get(arg0 string) worker.Worker {
 	m.ctrl.T.Helper()
@@ -177,6 +182,11 @@ func NewMockAuthorizer(ctrl *gomock.Controller) *MockAuthorizer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAuthorizer) EXPECT() *MockAuthorizerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAuthorizer) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AuthApplicationAgent mocks base method.
@@ -580,6 +590,11 @@ func NewMockWatcherRegistry(ctrl *gomock.Controller) *MockWatcherRegistry {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockWatcherRegistry) EXPECT() *MockWatcherRegistryMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockWatcherRegistry) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Count mocks base method.

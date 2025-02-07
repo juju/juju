@@ -42,6 +42,11 @@ func (m *MockCoordinator) EXPECT() *MockCoordinatorMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCoordinator) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Add mocks base method.
 func (m *MockCoordinator) Add(arg0 modelmigration.Operation) {
 	m.ctrl.T.Helper()
@@ -99,6 +104,11 @@ func NewMockPortService(ctrl *gomock.Controller) *MockPortService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPortService) EXPECT() *MockPortServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockPortService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetUnitUUID mocks base method.

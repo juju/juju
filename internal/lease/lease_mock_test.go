@@ -40,6 +40,11 @@ func (m *MockSecretary) EXPECT() *MockSecretaryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretary) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CheckDuration mocks base method.
 func (m *MockSecretary) CheckDuration(arg0 time.Duration) error {
 	m.ctrl.T.Helper()

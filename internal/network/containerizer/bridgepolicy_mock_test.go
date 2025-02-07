@@ -43,6 +43,11 @@ func (m *MockContainer) EXPECT() *MockContainerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockContainer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllDeviceAddresses mocks base method.
 func (m *MockContainer) AllDeviceAddresses() ([]Address, error) {
 	m.ctrl.T.Helper()
@@ -496,6 +501,11 @@ func (m *MockAddress) EXPECT() *MockAddressMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAddress) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DeviceName mocks base method.
 func (m *MockAddress) DeviceName() string {
 	m.ctrl.T.Helper()
@@ -595,6 +605,11 @@ func (m *MockSubnet) EXPECT() *MockSubnetMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSubnet) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // SpaceID mocks base method.
 func (m *MockSubnet) SpaceID() string {
 	m.ctrl.T.Helper()
@@ -654,6 +669,11 @@ func NewMockLinkLayerDevice(ctrl *gomock.Controller) *MockLinkLayerDevice {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLinkLayerDevice) EXPECT() *MockLinkLayerDeviceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLinkLayerDevice) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Addresses mocks base method.

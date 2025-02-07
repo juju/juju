@@ -41,6 +41,11 @@ func (m *MockTrackerWorker) EXPECT() *MockTrackerWorkerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTrackerWorker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplicationName mocks base method.
 func (m *MockTrackerWorker) ApplicationName() string {
 	m.ctrl.T.Helper()

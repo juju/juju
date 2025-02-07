@@ -40,6 +40,11 @@ func (m *MockEnsurer) EXPECT() *MockEnsurerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEnsurer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // LeadershipCheck mocks base method.
 func (m *MockEnsurer) LeadershipCheck(arg0, arg1 string) leadership.Token {
 	m.ctrl.T.Helper()

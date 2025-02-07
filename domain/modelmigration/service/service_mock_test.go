@@ -43,6 +43,11 @@ func (m *MockInstanceProvider) EXPECT() *MockInstanceProviderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInstanceProvider) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllInstances mocks base method.
 func (m *MockInstanceProvider) AllInstances(arg0 envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
@@ -105,6 +110,11 @@ func (m *MockResourceProvider) EXPECT() *MockResourceProviderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceProvider) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AdoptResources mocks base method.
 func (m *MockResourceProvider) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 version.Number) error {
 	m.ctrl.T.Helper()
@@ -164,6 +174,11 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetAllInstanceIDs mocks base method.

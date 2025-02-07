@@ -53,6 +53,11 @@ func (m *MockFirewallerAPI) EXPECT() *MockFirewallerAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFirewallerAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllSpaceInfos mocks base method.
 func (m *MockFirewallerAPI) AllSpaceInfos(arg0 context.Context) (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()
@@ -621,6 +626,11 @@ func (m *MockRemoteRelationsAPI) EXPECT() *MockRemoteRelationsAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRemoteRelationsAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetToken mocks base method.
 func (m *MockRemoteRelationsAPI) GetToken(arg0 context.Context, arg1 names.Tag) (string, error) {
 	m.ctrl.T.Helper()
@@ -800,6 +810,11 @@ func (m *MockCrossModelFirewallerFacadeCloser) EXPECT() *MockCrossModelFirewalle
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCrossModelFirewallerFacadeCloser) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockCrossModelFirewallerFacadeCloser) Close() error {
 	m.ctrl.T.Helper()
@@ -936,6 +951,11 @@ func NewMockEnvironFirewaller(ctrl *gomock.Controller) *MockEnvironFirewaller {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockEnvironFirewaller) EXPECT() *MockEnvironFirewallerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEnvironFirewaller) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ClosePorts mocks base method.
@@ -1076,6 +1096,11 @@ func (m *MockEnvironModelFirewaller) EXPECT() *MockEnvironModelFirewallerMockRec
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEnvironModelFirewaller) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CloseModelPorts mocks base method.
 func (m *MockEnvironModelFirewaller) CloseModelPorts(arg0 envcontext.ProviderCallContext, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
@@ -1214,6 +1239,11 @@ func (m *MockEnvironInstances) EXPECT() *MockEnvironInstancesMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEnvironInstances) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Instances mocks base method.
 func (m *MockEnvironInstances) Instances(arg0 envcontext.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
@@ -1274,6 +1304,11 @@ func NewMockEnvironInstance(ctrl *gomock.Controller) *MockEnvironInstance {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockEnvironInstance) EXPECT() *MockEnvironInstanceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEnvironInstance) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Addresses mocks base method.

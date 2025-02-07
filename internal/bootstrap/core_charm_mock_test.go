@@ -43,6 +43,11 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRepository) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Download mocks base method.
 func (m *MockRepository) Download(arg0 context.Context, arg1 string, arg2 charm.Origin, arg3 string) (charm.Origin, *charmhub.Digest, error) {
 	m.ctrl.T.Helper()

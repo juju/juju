@@ -40,6 +40,11 @@ func (m *MockUnitStateReadWriter) EXPECT() *MockUnitStateReadWriterMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUnitStateReadWriter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // SetState mocks base method.
 func (m *MockUnitStateReadWriter) SetState(arg0 context.Context, arg1 params.SetUnitStateArg) error {
 	m.ctrl.T.Helper()

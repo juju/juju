@@ -41,6 +41,11 @@ func (m *MockControllerKeyProvider) EXPECT() *MockControllerKeyProviderMockRecor
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerKeyProvider) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ControllerAuthorisedKeys mocks base method.
 func (m *MockControllerKeyProvider) ControllerAuthorisedKeys(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -101,6 +106,11 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // CheckMachineExists mocks base method.
@@ -201,6 +211,11 @@ func NewMockControllerState(ctrl *gomock.Controller) *MockControllerState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetUserAuthorizedKeysForModel mocks base method.

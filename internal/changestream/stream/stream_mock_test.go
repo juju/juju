@@ -38,6 +38,11 @@ func (m *MockFileNotifier) EXPECT() *MockFileNotifierMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFileNotifier) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Changes mocks base method.
 func (m *MockFileNotifier) Changes() (<-chan bool, error) {
 	m.ctrl.T.Helper()

@@ -40,6 +40,11 @@ func (m *MockStateManager) EXPECT() *MockStateManagerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStateManager) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // KnownIDs mocks base method.
 func (m *MockStateManager) KnownIDs() []int {
 	m.ctrl.T.Helper()

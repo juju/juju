@@ -42,6 +42,11 @@ func (m *MockModelConfigService) EXPECT() *MockModelConfigServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ModelConfig mocks base method.
 func (m *MockModelConfigService) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
@@ -80,6 +85,11 @@ func (m *MockModelInfoService) EXPECT() *MockModelInfoServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelInfoService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetModelInfo mocks base method.
 func (m *MockModelInfoService) GetModelInfo(arg0 context.Context) (model.ModelInfo, error) {
 	m.ctrl.T.Helper()
@@ -116,6 +126,11 @@ func NewMockMetadataService(ctrl *gomock.Controller) *MockMetadataService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMetadataService) EXPECT() *MockMetadataServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMetadataService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // DeleteMetadataWithImageID mocks base method.

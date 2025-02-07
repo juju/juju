@@ -39,6 +39,11 @@ func (m *MockArchitectureGetter) EXPECT() *MockArchitectureGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockArchitectureGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetBlobs mocks base method.
 func (m *MockArchitectureGetter) GetBlobs(arg0, arg1 string) (*internal.BlobsResponse, error) {
 	m.ctrl.T.Helper()

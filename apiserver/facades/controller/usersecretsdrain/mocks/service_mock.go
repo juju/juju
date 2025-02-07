@@ -43,6 +43,11 @@ func (m *MockSecretService) EXPECT() *MockSecretServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetSecret mocks base method.
 func (m *MockSecretService) GetSecret(arg0 context.Context, arg1 *secrets.URI) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()
@@ -187,6 +192,11 @@ func NewMockSecretBackendService(ctrl *gomock.Controller) *MockSecretBackendServ
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSecretBackendService) EXPECT() *MockSecretBackendServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretBackendService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // BackendConfigInfo mocks base method.

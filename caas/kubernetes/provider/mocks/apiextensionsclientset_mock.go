@@ -41,6 +41,11 @@ func (m *MockApiExtensionsClientInterface) EXPECT() *MockApiExtensionsClientInte
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApiExtensionsClientInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApiextensionsV1 mocks base method.
 func (m *MockApiExtensionsClientInterface) ApiextensionsV1() v1.ApiextensionsV1Interface {
 	m.ctrl.T.Helper()

@@ -48,6 +48,11 @@ func (m *MockUniterClient) EXPECT() *MockUniterClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUniterClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // APIAddresses mocks base method.
 func (m *MockUniterClient) APIAddresses(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()

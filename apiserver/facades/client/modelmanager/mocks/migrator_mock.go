@@ -42,6 +42,11 @@ func (m *MockModelExporter) EXPECT() *MockModelExporterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelExporter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ExportModelPartial mocks base method.
 func (m *MockModelExporter) ExportModelPartial(arg0 context.Context, arg1 state.ExportConfig, arg2 objectstore.ObjectStore) (description.Model, error) {
 	m.ctrl.T.Helper()

@@ -39,6 +39,11 @@ func (m *MockControllerKeyState) EXPECT() *MockControllerKeyStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerKeyState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetControllerConfigKeys mocks base method.
 func (m *MockControllerKeyState) GetControllerConfigKeys(arg0 context.Context, arg1 []string) (map[string]string, error) {
 	m.ctrl.T.Helper()

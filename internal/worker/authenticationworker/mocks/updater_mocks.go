@@ -41,6 +41,11 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AuthorisedKeys mocks base method.
 func (m *MockClient) AuthorisedKeys(arg0 context.Context, arg1 names.MachineTag) ([]string, error) {
 	m.ctrl.T.Helper()

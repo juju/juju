@@ -40,6 +40,11 @@ func (m *MockProviderFactory) EXPECT() *MockProviderFactoryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockProviderFactory) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ProviderForModel mocks base method.
 func (m *MockProviderFactory) ProviderForModel(arg0 context.Context, arg1 string) (providertracker.Provider, error) {
 	m.ctrl.T.Helper()

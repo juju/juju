@@ -41,6 +41,11 @@ func (m *MockExpirableStorage) EXPECT() *MockExpirableStorageMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockExpirableStorage) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ExpireAfter mocks base method.
 func (m *MockExpirableStorage) ExpireAfter(arg0 time.Duration) macaroon.ExpirableStorage {
 	m.ctrl.T.Helper()

@@ -74,6 +74,11 @@ func (m *MockControllerDomainServices) EXPECT() *MockControllerDomainServicesMoc
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerDomainServices) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Access mocks base method.
 func (m *MockControllerDomainServices) Access() *service.Service {
 	m.ctrl.T.Helper()
@@ -627,6 +632,11 @@ func NewMockModelDomainServices(ctrl *gomock.Controller) *MockModelDomainService
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelDomainServices) EXPECT() *MockModelDomainServicesMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelDomainServices) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Agent mocks base method.
@@ -1524,6 +1534,11 @@ func NewMockDomainServices(ctrl *gomock.Controller) *MockDomainServices {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDomainServices) EXPECT() *MockDomainServicesMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDomainServices) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Access mocks base method.
@@ -2953,6 +2968,11 @@ func NewMockDomainServicesGetter(ctrl *gomock.Controller) *MockDomainServicesGet
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDomainServicesGetter) EXPECT() *MockDomainServicesGetterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDomainServicesGetter) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ServicesForModel mocks base method.

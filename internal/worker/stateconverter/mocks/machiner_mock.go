@@ -42,6 +42,11 @@ func (m *MockMachiner) EXPECT() *MockMachinerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachiner) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Machine mocks base method.
 func (m *MockMachiner) Machine(arg0 context.Context, arg1 names.MachineTag) (stateconverter.Machine, error) {
 	m.ctrl.T.Helper()
@@ -102,6 +107,11 @@ func NewMockMachine(ctrl *gomock.Controller) *MockMachine {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachine) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // IsController mocks base method.

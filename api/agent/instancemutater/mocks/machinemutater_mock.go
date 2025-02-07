@@ -45,6 +45,11 @@ func (m *MockMutaterMachine) EXPECT() *MockMutaterMachineMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMutaterMachine) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CharmProfilingInfo mocks base method.
 func (m *MockMutaterMachine) CharmProfilingInfo(arg0 context.Context) (*instancemutater.UnitProfileInfo, error) {
 	m.ctrl.T.Helper()

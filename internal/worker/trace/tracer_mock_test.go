@@ -41,6 +41,11 @@ func (m *MockTrackedTracer) EXPECT() *MockTrackedTracerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTrackedTracer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Enabled mocks base method.
 func (m *MockTrackedTracer) Enabled() bool {
 	m.ctrl.T.Helper()
@@ -220,6 +225,11 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Start mocks base method.
 func (m *MockClient) Start(arg0 context.Context) error {
 	m.ctrl.T.Helper()
@@ -319,6 +329,11 @@ func (m *MockClientTracer) EXPECT() *MockClientTracerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClientTracer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Start mocks base method.
 func (m *MockClientTracer) Start(arg0 context.Context, arg1 string, arg2 ...trace1.SpanStartOption) (context.Context, ClientSpan) {
 	m.ctrl.T.Helper()
@@ -384,6 +399,11 @@ func NewMockClientTracerProvider(ctrl *gomock.Controller) *MockClientTracerProvi
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClientTracerProvider) EXPECT() *MockClientTracerProviderMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClientTracerProvider) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ForceFlush mocks base method.

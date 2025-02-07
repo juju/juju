@@ -38,6 +38,11 @@ func (m *MockDBDeleter) EXPECT() *MockDBDeleterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDBDeleter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DeleteDB mocks base method.
 func (m *MockDBDeleter) DeleteDB(arg0 string) error {
 	m.ctrl.T.Helper()

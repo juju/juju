@@ -51,6 +51,11 @@ func (m *MockOfferBakeryInterface) EXPECT() *MockOfferBakeryInterfaceMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockOfferBakeryInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CreateDischargeMacaroon mocks base method.
 func (m *MockOfferBakeryInterface) CreateDischargeMacaroon(arg0 context.Context, arg1, arg2 string, arg3, arg4 map[string]string, arg5 bakery.Op, arg6 bakery.Version) (*bakery.Macaroon, error) {
 	m.ctrl.T.Helper()
@@ -338,6 +343,11 @@ func NewMockBackend(ctrl *gomock.Controller) *MockBackend {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBackend) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AddRelation mocks base method.
@@ -1147,6 +1157,11 @@ func (m *MockBakeryConfigService) EXPECT() *MockBakeryConfigServiceMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBakeryConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetExternalUsersThirdPartyKey mocks base method.
 func (m *MockBakeryConfigService) GetExternalUsersThirdPartyKey(arg0 context.Context) (*bakery.KeyPair, error) {
 	m.ctrl.T.Helper()
@@ -1207,6 +1222,11 @@ func NewMockAccessService(ctrl *gomock.Controller) *MockAccessService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAccessService) EXPECT() *MockAccessServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAccessService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ReadUserAccessLevelForTarget mocks base method.

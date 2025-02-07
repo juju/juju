@@ -44,6 +44,11 @@ func (m *MockAPICaller) EXPECT() *MockAPICallerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAPICaller) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // APICall mocks base method.
 func (m *MockAPICaller) APICall(arg0 context.Context, arg1 string, arg2 int, arg3, arg4 string, arg5, arg6 any) error {
 	m.ctrl.T.Helper()

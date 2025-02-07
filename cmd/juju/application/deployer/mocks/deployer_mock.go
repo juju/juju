@@ -45,6 +45,11 @@ func (m *MockModelCommand) EXPECT() *MockModelCommandMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelCommand) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // BakeryClient mocks base method.
 func (m *MockModelCommand) BakeryClient() (*httpbakery.Client, error) {
 	m.ctrl.T.Helper()
@@ -302,6 +307,11 @@ func (m *MockConsumeDetails) EXPECT() *MockConsumeDetailsMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockConsumeDetails) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockConsumeDetails) Close() error {
 	m.ctrl.T.Helper()
@@ -400,6 +410,11 @@ func NewMockCharmDeployAPI(ctrl *gomock.Controller) *MockCharmDeployAPI {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmDeployAPI) EXPECT() *MockCharmDeployAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmDeployAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // CharmInfo mocks base method.

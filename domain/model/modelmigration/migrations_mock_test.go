@@ -44,6 +44,11 @@ func (m *MockModelImportService) EXPECT() *MockModelImportServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelImportService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DeleteModel mocks base method.
 func (m *MockModelImportService) DeleteModel(arg0 context.Context, arg1 model.UUID, arg2 ...model0.DeleteModelOption) error {
 	m.ctrl.T.Helper()
@@ -149,6 +154,11 @@ func (m *MockModelDetailService) EXPECT() *MockModelDetailServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelDetailService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CreateModel mocks base method.
 func (m *MockModelDetailService) CreateModel(arg0 context.Context, arg1 uuid.UUID) error {
 	m.ctrl.T.Helper()
@@ -248,6 +258,11 @@ func (m *MockUserService) EXPECT() *MockUserServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUserService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetUserByName mocks base method.
 func (m *MockUserService) GetUserByName(arg0 context.Context, arg1 user.Name) (user.User, error) {
 	m.ctrl.T.Helper()
@@ -308,6 +323,11 @@ func NewMockControllerConfigService(ctrl *gomock.Controller) *MockControllerConf
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ControllerConfig mocks base method.

@@ -40,6 +40,11 @@ func (m *MockDomainServicesGetter) EXPECT() *MockDomainServicesGetterMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDomainServicesGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ServicesForModel mocks base method.
 func (m *MockDomainServicesGetter) ServicesForModel(arg0 model.UUID) services.DomainServices {
 	m.ctrl.T.Helper()

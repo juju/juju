@@ -43,6 +43,11 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachineService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetMachineUUID mocks base method.
 func (m *MockMachineService) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (string, error) {
 	m.ctrl.T.Helper()
@@ -103,6 +108,11 @@ func NewMockPortService(ctrl *gomock.Controller) *MockPortService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPortService) EXPECT() *MockPortServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockPortService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetMachineOpenedPorts mocks base method.

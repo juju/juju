@@ -41,6 +41,11 @@ func (m *MockSecretManagerFacade) EXPECT() *MockSecretManagerFacadeMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretManagerFacade) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // WatchSecretRevisionsExpiryChanges mocks base method.
 func (m *MockSecretManagerFacade) WatchSecretRevisionsExpiryChanges(ctx context.Context, ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error) {
 	m.ctrl.T.Helper()

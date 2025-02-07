@@ -42,6 +42,11 @@ func (m *MockRestClientInterface) EXPECT() *MockRestClientInterfaceMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRestClientInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // APIVersion mocks base method.
 func (m *MockRestClientInterface) APIVersion() schema.GroupVersion {
 	m.ctrl.T.Helper()

@@ -38,6 +38,11 @@ func (m *MockTerminal) EXPECT() *MockTerminalMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTerminal) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Width mocks base method.
 func (m *MockTerminal) Width() int {
 	m.ctrl.T.Helper()

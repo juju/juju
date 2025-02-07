@@ -42,6 +42,11 @@ func (m *MockObjectStoreMetadata) EXPECT() *MockObjectStoreMetadataMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockObjectStoreMetadata) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetMetadata mocks base method.
 func (m *MockObjectStoreMetadata) GetMetadata(arg0 context.Context, arg1 string) (objectstore.Metadata, error) {
 	m.ctrl.T.Helper()
@@ -335,6 +340,11 @@ func NewMockSession(ctrl *gomock.Controller) *MockSession {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSession) EXPECT() *MockSessionMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSession) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // CreateBucket mocks base method.

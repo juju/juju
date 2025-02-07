@@ -41,6 +41,11 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ClearReboot mocks base method.
 func (m *MockClient) ClearReboot(arg0 context.Context) error {
 	m.ctrl.T.Helper()

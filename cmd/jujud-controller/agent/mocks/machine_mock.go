@@ -39,6 +39,11 @@ func (m *MockCommandRunner) EXPECT() *MockCommandRunnerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCommandRunner) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // RunCommands mocks base method.
 func (m *MockCommandRunner) RunCommands(arg0 exec.RunParams) (*exec.ExecResponse, error) {
 	m.ctrl.T.Helper()

@@ -38,6 +38,11 @@ func (m *MockLeadershipContext) EXPECT() *MockLeadershipContextMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLeadershipContext) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // IsLeader mocks base method.
 func (m *MockLeadershipContext) IsLeader() (bool, error) {
 	m.ctrl.T.Helper()

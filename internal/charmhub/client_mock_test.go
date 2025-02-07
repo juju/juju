@@ -42,6 +42,11 @@ func (m *MockHTTPClient) EXPECT() *MockHTTPClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockHTTPClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Do mocks base method.
 func (m *MockHTTPClient) Do(arg0 *http.Request) (*http.Response, error) {
 	m.ctrl.T.Helper()
@@ -102,6 +107,11 @@ func NewMockRESTClient(ctrl *gomock.Controller) *MockRESTClient {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRESTClient) EXPECT() *MockRESTClientMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRESTClient) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Get mocks base method.
@@ -205,6 +215,11 @@ func (m *MockFileSystem) EXPECT() *MockFileSystemMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFileSystem) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Create mocks base method.
 func (m *MockFileSystem) Create(arg0 string) (*os.File, error) {
 	m.ctrl.T.Helper()
@@ -265,6 +280,11 @@ func NewMockProgressBar(ctrl *gomock.Controller) *MockProgressBar {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockProgressBar) EXPECT() *MockProgressBarMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockProgressBar) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Finished mocks base method.

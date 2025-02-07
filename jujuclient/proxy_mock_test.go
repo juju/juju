@@ -39,6 +39,11 @@ func (m *MockProxyFactory) EXPECT() *MockProxyFactoryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockProxyFactory) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ProxierFromConfig mocks base method.
 func (m *MockProxyFactory) ProxierFromConfig(arg0 string, arg1 map[string]any) (proxy.Proxier, error) {
 	m.ctrl.T.Helper()

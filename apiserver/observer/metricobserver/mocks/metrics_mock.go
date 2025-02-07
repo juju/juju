@@ -40,6 +40,11 @@ func (m *MockSummary) EXPECT() *MockSummaryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSummary) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Collect mocks base method.
 func (m *MockSummary) Collect(arg0 chan<- prometheus.Metric) {
 	m.ctrl.T.Helper()

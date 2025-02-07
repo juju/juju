@@ -42,6 +42,11 @@ func (m *MockRelationer) EXPECT() *MockRelationerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRelationer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CommitHook mocks base method.
 func (m *MockRelationer) CommitHook(arg0 context.Context, arg1 hook.Info) error {
 	m.ctrl.T.Helper()

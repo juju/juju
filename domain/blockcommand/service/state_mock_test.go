@@ -40,6 +40,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetBlockMessage mocks base method.
 func (m *MockState) GetBlockMessage(arg0 context.Context, arg1 blockcommand.BlockType) (string, error) {
 	m.ctrl.T.Helper()

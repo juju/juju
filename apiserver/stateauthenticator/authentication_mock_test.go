@@ -41,6 +41,11 @@ func (m *MockEntityAuthenticator) EXPECT() *MockEntityAuthenticatorMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEntityAuthenticator) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Authenticate mocks base method.
 func (m *MockEntityAuthenticator) Authenticate(arg0 context.Context, arg1 authentication.AuthParams) (state.Entity, error) {
 	m.ctrl.T.Helper()

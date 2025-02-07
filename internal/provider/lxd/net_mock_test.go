@@ -38,6 +38,11 @@ func (m *MockAddr) EXPECT() *MockAddrMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAddr) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Network mocks base method.
 func (m *MockAddr) Network() string {
 	m.ctrl.T.Helper()

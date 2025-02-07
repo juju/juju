@@ -45,6 +45,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DeleteApplicationResources mocks base method.
 func (m *MockState) DeleteApplicationResources(arg0 context.Context, arg1 application.ID) error {
 	m.ctrl.T.Helper()
@@ -529,6 +534,11 @@ func NewMockResourceStoreGetter(ctrl *gomock.Controller) *MockResourceStoreGette
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockResourceStoreGetter) EXPECT() *MockResourceStoreGetterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceStoreGetter) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetResourceStore mocks base method.

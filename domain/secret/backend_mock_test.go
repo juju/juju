@@ -42,6 +42,11 @@ func (m *MockSecretBackendState) EXPECT() *MockSecretBackendStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretBackendState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddSecretBackendReference mocks base method.
 func (m *MockSecretBackendState) AddSecretBackendReference(arg0 context.Context, arg1 *secrets.ValueRef, arg2 model.UUID, arg3 string) (func() error, error) {
 	m.ctrl.T.Helper()

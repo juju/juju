@@ -39,6 +39,11 @@ func (m *MockProxier) EXPECT() *MockProxierMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockProxier) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Insecure mocks base method.
 func (m *MockProxier) Insecure() {
 	m.ctrl.T.Helper()

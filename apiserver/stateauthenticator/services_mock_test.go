@@ -49,6 +49,11 @@ func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockR
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ControllerConfig mocks base method.
 func (m *MockControllerConfigService) ControllerConfig(arg0 context.Context) (controller.Config, error) {
 	m.ctrl.T.Helper()
@@ -109,6 +114,11 @@ func NewMockAccessService(ctrl *gomock.Controller) *MockAccessService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAccessService) EXPECT() *MockAccessServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAccessService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // EnsureExternalUserIfAuthorized mocks base method.
@@ -325,6 +335,11 @@ func NewMockMacaroonService(ctrl *gomock.Controller) *MockMacaroonService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMacaroonService) EXPECT() *MockMacaroonServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMacaroonService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // FindLatestKeyContext mocks base method.
@@ -581,6 +596,11 @@ func NewMockAgentAuthenticatorFactory(ctrl *gomock.Controller) *MockAgentAuthent
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAgentAuthenticatorFactory) EXPECT() *MockAgentAuthenticatorFactoryMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAgentAuthenticatorFactory) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Authenticator mocks base method.

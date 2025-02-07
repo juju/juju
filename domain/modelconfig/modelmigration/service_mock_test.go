@@ -40,6 +40,11 @@ func (m *MockModelDefaultsProvider) EXPECT() *MockModelDefaultsProviderMockRecor
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelDefaultsProvider) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ModelDefaults mocks base method.
 func (m *MockModelDefaultsProvider) ModelDefaults(arg0 context.Context) (modeldefaults.Defaults, error) {
 	m.ctrl.T.Helper()

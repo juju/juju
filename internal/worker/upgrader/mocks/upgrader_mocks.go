@@ -42,6 +42,11 @@ func (m *MockUpgraderClient) EXPECT() *MockUpgraderClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUpgraderClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DesiredVersion mocks base method.
 func (m *MockUpgraderClient) DesiredVersion(arg0 context.Context, arg1 string) (version.Number, error) {
 	m.ctrl.T.Helper()

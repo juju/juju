@@ -40,6 +40,11 @@ func (m *MockGauge) EXPECT() *MockGaugeMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockGauge) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Add mocks base method.
 func (m *MockGauge) Add(arg0 float64) {
 	m.ctrl.T.Helper()

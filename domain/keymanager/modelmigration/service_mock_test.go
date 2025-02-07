@@ -40,6 +40,11 @@ func (m *MockUserService) EXPECT() *MockUserServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUserService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetUserByName mocks base method.
 func (m *MockUserService) GetUserByName(arg0 context.Context, arg1 user.Name) (user.User, error) {
 	m.ctrl.T.Helper()

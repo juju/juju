@@ -39,6 +39,11 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockManager) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Checker mocks base method.
 func (m *MockManager) Checker(arg0, arg1 string) (lease.Checker, error) {
 	m.ctrl.T.Helper()

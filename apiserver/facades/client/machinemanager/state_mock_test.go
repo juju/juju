@@ -40,6 +40,11 @@ func (m *MockStorageAttachment) EXPECT() *MockStorageAttachmentMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStorageAttachment) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Life mocks base method.
 func (m *MockStorageAttachment) Life() state.Life {
 	m.ctrl.T.Helper()
@@ -175,6 +180,11 @@ func NewMockStorageInstance(ctrl *gomock.Controller) *MockStorageInstance {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStorageInstance) EXPECT() *MockStorageInstanceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStorageInstance) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Kind mocks base method.

@@ -45,6 +45,11 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachine) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // InstanceId mocks base method.
 func (m *MockMachine) InstanceId(arg0 context.Context) (instance.Id, error) {
 	m.ctrl.T.Helper()
@@ -261,6 +266,11 @@ func (m *MockUnit) EXPECT() *MockUnitMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUnit) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Application mocks base method.
 func (m *MockUnit) Application() (firewaller.Application, error) {
 	m.ctrl.T.Helper()
@@ -474,6 +484,11 @@ func NewMockApplication(ctrl *gomock.Controller) *MockApplication {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplication) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ExposeInfo mocks base method.

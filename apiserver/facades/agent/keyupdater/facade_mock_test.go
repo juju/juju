@@ -48,6 +48,11 @@ func (m *MockModelContext) EXPECT() *MockModelContextMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelContext) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Auth mocks base method.
 func (m *MockModelContext) Auth() facade.Authorizer {
 	m.ctrl.T.Helper()

@@ -41,6 +41,11 @@ func (m *MockHTTPClientGetter) EXPECT() *MockHTTPClientGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockHTTPClientGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetHTTPClient mocks base method.
 func (m *MockHTTPClientGetter) GetHTTPClient(arg0 context.Context, arg1 http.Purpose) (http.HTTPClient, error) {
 	m.ctrl.T.Helper()
@@ -101,6 +106,11 @@ func NewMockHTTPClient(ctrl *gomock.Controller) *MockHTTPClient {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockHTTPClient) EXPECT() *MockHTTPClientMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockHTTPClient) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Do mocks base method.

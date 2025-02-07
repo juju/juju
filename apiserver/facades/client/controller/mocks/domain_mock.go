@@ -45,6 +45,11 @@ func (m *MockControllerAccessService) EXPECT() *MockControllerAccessServiceMockR
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerAccessService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // LastModelLogin mocks base method.
 func (m *MockControllerAccessService) LastModelLogin(arg0 context.Context, arg1 user.Name, arg2 model.UUID) (time.Time, error) {
 	m.ctrl.T.Helper()
@@ -182,6 +187,11 @@ func NewMockControllerConfigService(ctrl *gomock.Controller) *MockControllerConf
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ControllerConfig mocks base method.

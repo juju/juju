@@ -39,6 +39,11 @@ func (m *MockModelConfigAPI) EXPECT() *MockModelConfigAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelConfigAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ModelGet mocks base method.
 func (m *MockModelConfigAPI) ModelGet(arg0 context.Context) (map[string]any, error) {
 	m.ctrl.T.Helper()

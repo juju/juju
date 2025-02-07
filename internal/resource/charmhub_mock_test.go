@@ -43,6 +43,11 @@ func (m *MockResourceClient) EXPECT() *MockResourceClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetResource mocks base method.
 func (m *MockResourceClient) GetResource(arg0 context.Context, arg1 charmhub0.ResourceRequest) (charmhub0.ResourceData, error) {
 	m.ctrl.T.Helper()
@@ -103,6 +108,11 @@ func NewMockCharmHub(ctrl *gomock.Controller) *MockCharmHub {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmHub) EXPECT() *MockCharmHubMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmHub) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Download mocks base method.

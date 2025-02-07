@@ -43,6 +43,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllMachineNames mocks base method.
 func (m *MockState) AllMachineNames(arg0 context.Context) ([]machine.Name, error) {
 	m.ctrl.T.Helper()

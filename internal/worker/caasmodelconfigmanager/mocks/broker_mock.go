@@ -40,6 +40,11 @@ func (m *MockCAASBroker) EXPECT() *MockCAASBrokerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCAASBroker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // EnsureImageRepoSecret mocks base method.
 func (m *MockCAASBroker) EnsureImageRepoSecret(arg0 context.Context, arg1 docker.ImageRepoDetails) error {
 	m.ctrl.T.Helper()

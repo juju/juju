@@ -47,6 +47,11 @@ func (m *MockServerFactory) EXPECT() *MockServerFactoryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockServerFactory) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // InsecureRemoteServer mocks base method.
 func (m *MockServerFactory) InsecureRemoteServer(arg0 lxd1.CloudSpec) (lxd1.Server, error) {
 	m.ctrl.T.Helper()
@@ -224,6 +229,11 @@ func NewMockServer(ctrl *gomock.Controller) *MockServer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockServer) EXPECT() *MockServerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockServer) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AliveContainers mocks base method.

@@ -43,6 +43,11 @@ func (m *MockAgentConfig) EXPECT() *MockAgentConfigMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAgentConfig) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Model mocks base method.
 func (m *MockAgentConfig) Model() reboot.Model {
 	m.ctrl.T.Helper()
@@ -102,6 +107,11 @@ func NewMockManager(ctrl *gomock.Controller) *MockManager {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockManager) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // IsInitialized mocks base method.
@@ -204,6 +214,11 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModel) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Id mocks base method.
 func (m *MockModel) Id() string {
 	m.ctrl.T.Helper()
@@ -263,6 +278,11 @@ func NewMockRebootWaiter(ctrl *gomock.Controller) *MockRebootWaiter {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRebootWaiter) EXPECT() *MockRebootWaiterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRebootWaiter) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ListServices mocks base method.
@@ -441,6 +461,11 @@ func NewMockService(ctrl *gomock.Controller) *MockService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockService) EXPECT() *MockServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Stop mocks base method.

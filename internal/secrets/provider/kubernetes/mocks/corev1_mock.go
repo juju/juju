@@ -46,6 +46,11 @@ func (m *MockCoreV1Interface) EXPECT() *MockCoreV1InterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCoreV1Interface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ComponentStatuses mocks base method.
 func (m *MockCoreV1Interface) ComponentStatuses() v12.ComponentStatusInterface {
 	m.ctrl.T.Helper()
@@ -307,6 +312,11 @@ func (m *MockSecretInterface) EXPECT() *MockSecretInterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Apply mocks base method.
 func (m *MockSecretInterface) Apply(arg0 context.Context, arg1 *v11.SecretApplyConfiguration, arg2 v10.ApplyOptions) (*v1.Secret, error) {
 	m.ctrl.T.Helper()
@@ -466,6 +476,11 @@ func NewMockNamespaceInterface(ctrl *gomock.Controller) *MockNamespaceInterface 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNamespaceInterface) EXPECT() *MockNamespaceInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNamespaceInterface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.

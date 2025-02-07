@@ -39,6 +39,11 @@ func (m *MockBundle) EXPECT() *MockBundleMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBundle) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // BundleBytes mocks base method.
 func (m *MockBundle) BundleBytes() []byte {
 	m.ctrl.T.Helper()

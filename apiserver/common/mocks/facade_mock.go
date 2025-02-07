@@ -39,6 +39,11 @@ func (m *MockWatcherRegistry) EXPECT() *MockWatcherRegistryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockWatcherRegistry) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Count mocks base method.
 func (m *MockWatcherRegistry) Count() int {
 	m.ctrl.T.Helper()

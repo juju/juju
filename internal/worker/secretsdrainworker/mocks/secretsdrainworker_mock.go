@@ -42,6 +42,11 @@ func (m *MockSecretsDrainFacade) EXPECT() *MockSecretsDrainFacadeMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretsDrainFacade) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ChangeSecretBackend mocks base method.
 func (m *MockSecretsDrainFacade) ChangeSecretBackend(arg0 context.Context, arg1 []secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error) {
 	m.ctrl.T.Helper()

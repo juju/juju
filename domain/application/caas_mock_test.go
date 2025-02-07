@@ -42,6 +42,11 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplication) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplicationPodSpec mocks base method.
 func (m *MockApplication) ApplicationPodSpec(arg0 caas.ApplicationConfig) (*v1.PodSpec, error) {
 	m.ctrl.T.Helper()

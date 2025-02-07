@@ -40,6 +40,11 @@ func (m *MockECRInterface) EXPECT() *MockECRInterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockECRInterface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetAuthorizationToken mocks base method.
 func (m *MockECRInterface) GetAuthorizationToken(arg0 context.Context, arg1 *ecr.GetAuthorizationTokenInput, arg2 ...func(*ecr.Options)) (*ecr.GetAuthorizationTokenOutput, error) {
 	m.ctrl.T.Helper()

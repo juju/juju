@@ -41,6 +41,11 @@ func (m *MockConfigSource) EXPECT() *MockConfigSourceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockConfigSource) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DefaultRoute mocks base method.
 func (m *MockConfigSource) DefaultRoute() (net.IP, string, error) {
 	m.ctrl.T.Helper()
@@ -218,6 +223,11 @@ func NewMockConfigSourceNIC(ctrl *gomock.Controller) *MockConfigSourceNIC {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockConfigSourceNIC) EXPECT() *MockConfigSourceNICMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockConfigSourceNIC) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Addresses mocks base method.
@@ -508,6 +518,11 @@ func NewMockConfigSourceAddr(ctrl *gomock.Controller) *MockConfigSourceAddr {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockConfigSourceAddr) EXPECT() *MockConfigSourceAddrMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockConfigSourceAddr) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // IP mocks base method.

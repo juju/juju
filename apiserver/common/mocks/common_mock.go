@@ -57,6 +57,11 @@ func (m *MockBlockCommandService) EXPECT() *MockBlockCommandServiceMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBlockCommandService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetBlockSwitchedOn mocks base method.
 func (m *MockBlockCommandService) GetBlockSwitchedOn(arg0 context.Context, arg1 blockcommand.BlockType) (string, error) {
 	m.ctrl.T.Helper()
@@ -156,6 +161,11 @@ func NewMockCredentialService(ctrl *gomock.Controller) *MockCredentialService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCredentialService) EXPECT() *MockCredentialServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCredentialService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // CloudCredential mocks base method.
@@ -259,6 +269,11 @@ func (m *MockCloudService) EXPECT() *MockCloudServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCloudService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Cloud mocks base method.
 func (m *MockCloudService) Cloud(arg0 context.Context, arg1 string) (*cloud.Cloud, error) {
 	m.ctrl.T.Helper()
@@ -358,6 +373,11 @@ func NewMockControllerConfigState(ctrl *gomock.Controller) *MockControllerConfig
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerConfigState) EXPECT() *MockControllerConfigStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // APIHostPortsForAgents mocks base method.
@@ -500,6 +520,11 @@ func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockR
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ControllerConfig mocks base method.
 func (m *MockControllerConfigService) ControllerConfig(arg0 context.Context) (controller.Config, error) {
 	m.ctrl.T.Helper()
@@ -560,6 +585,11 @@ func NewMockExternalControllerService(ctrl *gomock.Controller) *MockExternalCont
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockExternalControllerService) EXPECT() *MockExternalControllerServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockExternalControllerService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ControllerForModel mocks base method.
@@ -660,6 +690,11 @@ func NewMockModelConfigService(ctrl *gomock.Controller) *MockModelConfigService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelConfigService) EXPECT() *MockModelConfigServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ModelConfig mocks base method.
@@ -763,6 +798,11 @@ func (m *MockToolsFinder) EXPECT() *MockToolsFinderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockToolsFinder) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // FindAgents mocks base method.
 func (m *MockToolsFinder) FindAgents(arg0 context.Context, arg1 common.FindAgentsParams) (tools.List, error) {
 	m.ctrl.T.Helper()
@@ -823,6 +863,11 @@ func NewMockToolsFindEntity(ctrl *gomock.Controller) *MockToolsFindEntity {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockToolsFindEntity) EXPECT() *MockToolsFindEntityMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockToolsFindEntity) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // FindEntity mocks base method.
@@ -887,6 +932,11 @@ func (m *MockToolsURLGetter) EXPECT() *MockToolsURLGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockToolsURLGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ToolsURLs mocks base method.
 func (m *MockToolsURLGetter) ToolsURLs(arg0 context.Context, arg1 controller.Config, arg2 version.Binary) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -947,6 +997,11 @@ func NewMockAPIHostPortsForAgentsGetter(ctrl *gomock.Controller) *MockAPIHostPor
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAPIHostPortsForAgentsGetter) EXPECT() *MockAPIHostPortsForAgentsGetterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAPIHostPortsForAgentsGetter) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // APIHostPortsForAgents mocks base method.
@@ -1011,6 +1066,11 @@ func (m *MockToolsStorageGetter) EXPECT() *MockToolsStorageGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockToolsStorageGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ToolsStorage mocks base method.
 func (m *MockToolsStorageGetter) ToolsStorage(arg0 objectstore.ObjectStore) (binarystorage.StorageCloser, error) {
 	m.ctrl.T.Helper()
@@ -1071,6 +1131,11 @@ func NewMockAgentTooler(ctrl *gomock.Controller) *MockAgentTooler {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAgentTooler) EXPECT() *MockAgentToolerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAgentTooler) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AgentTools mocks base method.
@@ -1211,6 +1276,11 @@ func (m *MockModelAgentService) EXPECT() *MockModelAgentServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelAgentService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetMachineTargetAgentVersion mocks base method.
 func (m *MockModelAgentService) GetMachineTargetAgentVersion(arg0 context.Context, arg1 machine.Name) (version.Number, error) {
 	m.ctrl.T.Helper()
@@ -1349,6 +1419,11 @@ func NewMockMachineRebootService(ctrl *gomock.Controller) *MockMachineRebootServ
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachineRebootService) EXPECT() *MockMachineRebootServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachineRebootService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ClearMachineReboot mocks base method.
@@ -1567,6 +1642,11 @@ func (m *MockEnsureDeadMachineService) EXPECT() *MockEnsureDeadMachineServiceMoc
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEnsureDeadMachineService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // EnsureDeadMachine mocks base method.
 func (m *MockEnsureDeadMachineService) EnsureDeadMachine(arg0 context.Context, arg1 machine.Name) error {
 	m.ctrl.T.Helper()
@@ -1626,6 +1706,11 @@ func NewMockWatchableMachineService(ctrl *gomock.Controller) *MockWatchableMachi
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockWatchableMachineService) EXPECT() *MockWatchableMachineServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockWatchableMachineService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // WatchMachineReboot mocks base method.
@@ -1688,6 +1773,11 @@ func NewMockUnitStateService(ctrl *gomock.Controller) *MockUnitStateService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUnitStateService) EXPECT() *MockUnitStateServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUnitStateService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetState mocks base method.
@@ -1827,6 +1917,11 @@ func NewMockMachineService(ctrl *gomock.Controller) *MockMachineService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachineService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // EnsureDeadMachine mocks base method.
@@ -2047,6 +2142,11 @@ func (m *MockLeadershipPinningBackend) EXPECT() *MockLeadershipPinningBackendMoc
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLeadershipPinningBackend) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Machine mocks base method.
 func (m *MockLeadershipPinningBackend) Machine(arg0 string) (common.LeadershipMachine, error) {
 	m.ctrl.T.Helper()
@@ -2107,6 +2207,11 @@ func NewMockLeadershipMachine(ctrl *gomock.Controller) *MockLeadershipMachine {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLeadershipMachine) EXPECT() *MockLeadershipMachineMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLeadershipMachine) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ApplicationNames mocks base method.

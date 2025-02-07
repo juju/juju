@@ -43,6 +43,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // BlockDevices mocks base method.
 func (m *MockState) BlockDevices(arg0 context.Context, arg1 string) ([]blockdevice.BlockDevice, error) {
 	m.ctrl.T.Helper()
@@ -224,6 +229,11 @@ func NewMockWatcherFactory(ctrl *gomock.Controller) *MockWatcherFactory {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockWatcherFactory) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // NewValueMapperWatcher mocks base method.

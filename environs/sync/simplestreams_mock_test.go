@@ -40,6 +40,11 @@ func (m *MockSimplestreamsFetcher) EXPECT() *MockSimplestreamsFetcherMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSimplestreamsFetcher) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetMetadata mocks base method.
 func (m *MockSimplestreamsFetcher) GetMetadata(arg0 context.Context, arg1 []simplestreams.DataSource, arg2 simplestreams.GetMetadataParams) ([]any, *simplestreams.ResolveInfo, error) {
 	m.ctrl.T.Helper()

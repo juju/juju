@@ -45,6 +45,11 @@ func (m *MockStatePool) EXPECT() *MockStatePoolMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStatePool) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ControllerModel mocks base method.
 func (m *MockStatePool) ControllerModel() (modelupgrader.Model, error) {
 	m.ctrl.T.Helper()
@@ -183,6 +188,11 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AllMachinesCount mocks base method.
@@ -483,6 +493,11 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModel) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // IsControllerModel mocks base method.
 func (m *MockModel) IsControllerModel() bool {
 	m.ctrl.T.Helper()
@@ -734,6 +749,11 @@ func (m *MockUpgradeService) EXPECT() *MockUpgradeServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUpgradeService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // IsUpgrading mocks base method.
 func (m *MockUpgradeService) IsUpgrading(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
@@ -796,6 +816,11 @@ func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockR
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ControllerConfig mocks base method.
 func (m *MockControllerConfigService) ControllerConfig(arg0 context.Context) (controller.Config, error) {
 	m.ctrl.T.Helper()
@@ -856,6 +881,11 @@ func NewMockModelAgentService(ctrl *gomock.Controller) *MockModelAgentService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelAgentService) EXPECT() *MockModelAgentServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelAgentService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetModelTargetAgentVersion mocks base method.

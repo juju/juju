@@ -42,6 +42,11 @@ func (m *MockKeyManagerService) EXPECT() *MockKeyManagerServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockKeyManagerService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddPublicKeysForUser mocks base method.
 func (m *MockKeyManagerService) AddPublicKeysForUser(arg0 context.Context, arg1 user.UUID, arg2 ...string) error {
 	m.ctrl.T.Helper()
@@ -226,6 +231,11 @@ func NewMockUserService(ctrl *gomock.Controller) *MockUserService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUserService) EXPECT() *MockUserServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUserService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetUserByName mocks base method.

@@ -41,6 +41,11 @@ func (m *MockDeployer) EXPECT() *MockDeployerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDeployer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // PrepareAndDeploy mocks base method.
 func (m *MockDeployer) PrepareAndDeploy(arg0 *cmd.Context, arg1 deployer.DeployerAPI, arg2 deployer.Resolver) error {
 	m.ctrl.T.Helper()
@@ -138,6 +143,11 @@ func NewMockDeployerFactory(ctrl *gomock.Controller) *MockDeployerFactory {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDeployerFactory) EXPECT() *MockDeployerFactoryMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDeployerFactory) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetDeployer mocks base method.

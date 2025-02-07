@@ -39,6 +39,11 @@ func (m *MockNetworkingConfig) EXPECT() *MockNetworkingConfigMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkingConfig) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddNetworkConfig mocks base method.
 func (m *MockNetworkingConfig) AddNetworkConfig(arg0 network.InterfaceInfos) error {
 	m.ctrl.T.Helper()

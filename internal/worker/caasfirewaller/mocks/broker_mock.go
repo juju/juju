@@ -39,6 +39,11 @@ func (m *MockCAASBroker) EXPECT() *MockCAASBrokerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCAASBroker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Application mocks base method.
 func (m *MockCAASBroker) Application(arg0 string, arg1 caas.DeploymentType) caas.Application {
 	m.ctrl.T.Helper()
@@ -100,6 +105,11 @@ func (m *MockPortMutator) EXPECT() *MockPortMutatorMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockPortMutator) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // UpdatePorts mocks base method.
 func (m *MockPortMutator) UpdatePorts(arg0 []caas.ServicePort, arg1 bool) error {
 	m.ctrl.T.Helper()
@@ -159,6 +169,11 @@ func NewMockServiceUpdater(ctrl *gomock.Controller) *MockServiceUpdater {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockServiceUpdater) EXPECT() *MockServiceUpdaterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockServiceUpdater) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // UpdateService mocks base method.

@@ -43,6 +43,11 @@ func (m *MockLinkLayerDevice) EXPECT() *MockLinkLayerDeviceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLinkLayerDevice) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddAddressOps mocks base method.
 func (m *MockLinkLayerDevice) AddAddressOps(arg0 state.LinkLayerDeviceAddress) ([]txn.Op, error) {
 	m.ctrl.T.Helper()
@@ -370,6 +375,11 @@ func NewMockLinkLayerAddress(ctrl *gomock.Controller) *MockLinkLayerAddress {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLinkLayerAddress) EXPECT() *MockLinkLayerAddressMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLinkLayerAddress) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // DeviceName mocks base method.
@@ -701,6 +711,11 @@ func (m *MockLinkLayerMachine) EXPECT() *MockLinkLayerMachineMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLinkLayerMachine) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddLinkLayerDeviceOps mocks base method.
 func (m *MockLinkLayerMachine) AddLinkLayerDeviceOps(arg0 state.LinkLayerDeviceArgs, arg1 ...state.LinkLayerDeviceAddress) ([]txn.Op, error) {
 	m.ctrl.T.Helper()
@@ -960,6 +975,11 @@ func (m *MockLinkLayerState) EXPECT() *MockLinkLayerStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLinkLayerState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplyOperation mocks base method.
 func (m *MockLinkLayerState) ApplyOperation(arg0 state.ModelOperation) error {
 	m.ctrl.T.Helper()
@@ -1060,6 +1080,11 @@ func (m *MockLinkLayerAndSubnetsState) EXPECT() *MockLinkLayerAndSubnetsStateMoc
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLinkLayerAndSubnetsState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplyOperation mocks base method.
 func (m *MockLinkLayerAndSubnetsState) ApplyOperation(arg0 state.ModelOperation) error {
 	m.ctrl.T.Helper()
@@ -1158,6 +1183,11 @@ func NewMockNetworkService(ctrl *gomock.Controller) *MockNetworkService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AddSubnet mocks base method.

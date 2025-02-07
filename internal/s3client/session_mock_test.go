@@ -40,6 +40,11 @@ func (m *MockSession) EXPECT() *MockSessionMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSession) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CreateBucket mocks base method.
 func (m *MockSession) CreateBucket(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()

@@ -49,6 +49,11 @@ func (m *MockBroker) EXPECT() *MockBrokerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBroker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // APIVersion mocks base method.
 func (m *MockBroker) APIVersion() (string, error) {
 	m.ctrl.T.Helper()

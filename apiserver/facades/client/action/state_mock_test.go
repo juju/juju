@@ -41,6 +41,11 @@ func (m *MockAction) EXPECT() *MockActionMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAction) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ActionTag mocks base method.
 func (m *MockAction) ActionTag() names.ActionTag {
 	m.ctrl.T.Helper()
@@ -788,6 +793,11 @@ func NewMockActionReceiver(ctrl *gomock.Controller) *MockActionReceiver {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockActionReceiver) EXPECT() *MockActionReceiverMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockActionReceiver) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Actions mocks base method.

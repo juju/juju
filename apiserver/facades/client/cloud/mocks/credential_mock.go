@@ -42,6 +42,11 @@ func (m *MockCredentialValidator) EXPECT() *MockCredentialValidatorMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCredentialValidator) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Validate mocks base method.
 func (m *MockCredentialValidator) Validate(arg0 context.Context, arg1 service.CredentialValidationContext, arg2 credential.Key, arg3 *cloud.Credential, arg4 bool) ([]error, error) {
 	m.ctrl.T.Helper()

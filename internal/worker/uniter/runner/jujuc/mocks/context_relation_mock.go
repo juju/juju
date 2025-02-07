@@ -44,6 +44,11 @@ func (m *MockContextRelation) EXPECT() *MockContextRelationMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockContextRelation) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplicationSettings mocks base method.
 func (m *MockContextRelation) ApplicationSettings(arg0 context.Context) (jujuc.Settings, error) {
 	m.ctrl.T.Helper()

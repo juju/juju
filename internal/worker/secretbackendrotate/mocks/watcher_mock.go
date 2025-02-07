@@ -39,6 +39,11 @@ func (m *MockSecretBackendRotateWatcher) EXPECT() *MockSecretBackendRotateWatche
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretBackendRotateWatcher) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Changes mocks base method.
 func (m *MockSecretBackendRotateWatcher) Changes() <-chan []watcher.SecretBackendRotateChange {
 	m.ctrl.T.Helper()

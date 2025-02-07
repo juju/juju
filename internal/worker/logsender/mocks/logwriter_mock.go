@@ -39,6 +39,11 @@ func (m *MockLogWriter) EXPECT() *MockLogWriterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockLogWriter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockLogWriter) Close() error {
 	m.ctrl.T.Helper()

@@ -41,6 +41,11 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetApplicationScale mocks base method.
 func (m *MockApplicationService) GetApplicationScale(arg0 context.Context, arg1 string) (int, error) {
 	m.ctrl.T.Helper()

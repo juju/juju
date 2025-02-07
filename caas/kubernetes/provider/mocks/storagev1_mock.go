@@ -46,6 +46,11 @@ func (m *MockStorageV1Interface) EXPECT() *MockStorageV1InterfaceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStorageV1Interface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CSIDrivers mocks base method.
 func (m *MockStorageV1Interface) CSIDrivers() v12.CSIDriverInterface {
 	m.ctrl.T.Helper()
@@ -295,6 +300,11 @@ func NewMockStorageClassInterface(ctrl *gomock.Controller) *MockStorageClassInte
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStorageClassInterface) EXPECT() *MockStorageClassInterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStorageClassInterface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.

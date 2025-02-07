@@ -46,6 +46,11 @@ func (m *MockAdmissionregistrationV1Interface) EXPECT() *MockAdmissionregistrati
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAdmissionregistrationV1Interface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // MutatingWebhookConfigurations mocks base method.
 func (m *MockAdmissionregistrationV1Interface) MutatingWebhookConfigurations() v12.MutatingWebhookConfigurationInterface {
 	m.ctrl.T.Helper()
@@ -181,6 +186,11 @@ func NewMockMutatingWebhookConfigurationV1Interface(ctrl *gomock.Controller) *Mo
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMutatingWebhookConfigurationV1Interface) EXPECT() *MockMutatingWebhookConfigurationV1InterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMutatingWebhookConfigurationV1Interface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.
@@ -558,6 +568,11 @@ func NewMockValidatingWebhookConfigurationV1Interface(ctrl *gomock.Controller) *
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockValidatingWebhookConfigurationV1Interface) EXPECT() *MockValidatingWebhookConfigurationV1InterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockValidatingWebhookConfigurationV1Interface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.

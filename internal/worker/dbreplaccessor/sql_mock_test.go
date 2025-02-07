@@ -39,6 +39,11 @@ func (m *MockDriver) EXPECT() *MockDriverMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDriver) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Open mocks base method.
 func (m *MockDriver) Open(arg0 string) (driver.Conn, error) {
 	m.ctrl.T.Helper()

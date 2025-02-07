@@ -40,6 +40,11 @@ func (m *MockConnectorInfo) EXPECT() *MockConnectorInfoMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockConnectorInfo) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ConnectionProxyInfo mocks base method.
 func (m *MockConnectorInfo) ConnectionProxyInfo(arg0 context.Context) (proxy.Proxier, error) {
 	m.ctrl.T.Helper()

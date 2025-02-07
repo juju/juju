@@ -41,6 +41,11 @@ func (m *MockModelExtractor) EXPECT() *MockModelExtractorMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelExtractor) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetAnnotations mocks base method.
 func (m *MockModelExtractor) GetAnnotations(arg0 context.Context, arg1 []string) ([]params.AnnotationsGetResult, error) {
 	m.ctrl.T.Helper()

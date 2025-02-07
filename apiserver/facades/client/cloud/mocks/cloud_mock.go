@@ -46,6 +46,11 @@ func (m *MockCredentialService) EXPECT() *MockCredentialServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCredentialService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllCloudCredentialsForOwner mocks base method.
 func (m *MockCredentialService) AllCloudCredentialsForOwner(arg0 context.Context, arg1 user.Name) (map[credential.Key]cloud.Credential, error) {
 	m.ctrl.T.Helper()
@@ -378,6 +383,11 @@ func (m *MockCloudService) EXPECT() *MockCloudServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCloudService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Cloud mocks base method.
 func (m *MockCloudService) Cloud(arg0 context.Context, arg1 string) (*cloud.Cloud, error) {
 	m.ctrl.T.Helper()
@@ -591,6 +601,11 @@ func NewMockCloudAccessService(ctrl *gomock.Controller) *MockCloudAccessService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCloudAccessService) EXPECT() *MockCloudAccessServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCloudAccessService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AllModelAccessForCloudCredential mocks base method.

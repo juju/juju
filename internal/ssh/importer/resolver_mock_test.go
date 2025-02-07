@@ -39,6 +39,11 @@ func (m *MockResolver) EXPECT() *MockResolverMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResolver) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // PublicKeysForSubject mocks base method.
 func (m *MockResolver) PublicKeysForSubject(arg0 context.Context, arg1 string) ([]string, error) {
 	m.ctrl.T.Helper()

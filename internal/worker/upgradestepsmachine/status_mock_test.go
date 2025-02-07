@@ -40,6 +40,11 @@ func (m *MockStatusSetter) EXPECT() *MockStatusSetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStatusSetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // SetStatus mocks base method.
 func (m *MockStatusSetter) SetStatus(arg0 context.Context, arg1 status.Status, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()

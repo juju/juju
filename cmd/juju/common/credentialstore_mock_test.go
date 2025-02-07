@@ -39,6 +39,11 @@ func (m *MockCredentialStore) EXPECT() *MockCredentialStoreMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCredentialStore) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllCredentials mocks base method.
 func (m *MockCredentialStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
 	m.ctrl.T.Helper()

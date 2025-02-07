@@ -39,6 +39,11 @@ func (m *MockRevoker) EXPECT() *MockRevokerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRevoker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // RevokeLeadership mocks base method.
 func (m *MockRevoker) RevokeLeadership(arg0 string, arg1 unit.Name) error {
 	m.ctrl.T.Helper()

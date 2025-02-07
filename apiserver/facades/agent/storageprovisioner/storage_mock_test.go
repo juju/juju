@@ -41,6 +41,11 @@ func (m *MockStorageBackend) EXPECT() *MockStorageBackendMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStorageBackend) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllStorageInstances mocks base method.
 func (m *MockStorageBackend) AllStorageInstances() ([]state.StorageInstance, error) {
 	m.ctrl.T.Helper()
@@ -1631,6 +1636,11 @@ func NewMockBackend(ctrl *gomock.Controller) *MockBackend {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBackend) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // FindEntity mocks base method.

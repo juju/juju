@@ -46,6 +46,11 @@ func (m *MockApiextensionsV1beta1Interface) EXPECT() *MockApiextensionsV1beta1In
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApiextensionsV1beta1Interface) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CustomResourceDefinitions mocks base method.
 func (m *MockApiextensionsV1beta1Interface) CustomResourceDefinitions() v1beta11.CustomResourceDefinitionInterface {
 	m.ctrl.T.Helper()
@@ -143,6 +148,11 @@ func NewMockCustomResourceDefinitionV1Beta1Interface(ctrl *gomock.Controller) *M
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCustomResourceDefinitionV1Beta1Interface) EXPECT() *MockCustomResourceDefinitionV1Beta1InterfaceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCustomResourceDefinitionV1Beta1Interface) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.

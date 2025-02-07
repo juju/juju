@@ -38,6 +38,11 @@ func (m *MockMetricsCollector) EXPECT() *MockMetricsCollectorMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMetricsCollector) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ChangesCountObserve mocks base method.
 func (m *MockMetricsCollector) ChangesCountObserve(arg0 int) {
 	m.ctrl.T.Helper()

@@ -38,6 +38,11 @@ func (m *MockPinner) EXPECT() *MockPinnerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockPinner) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // PinLeadership mocks base method.
 func (m *MockPinner) PinLeadership(arg0, arg1 string) error {
 	m.ctrl.T.Helper()

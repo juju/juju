@@ -46,6 +46,11 @@ func (m *MockBacking) EXPECT() *MockBackingMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBacking) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllConstraints mocks base method.
 func (m *MockBacking) AllConstraints() ([]Constraints, error) {
 	m.ctrl.T.Helper()
@@ -339,6 +344,11 @@ func (m *MockBlockChecker) EXPECT() *MockBlockCheckerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBlockChecker) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ChangeAllowed mocks base method.
 func (m *MockBlockChecker) ChangeAllowed(arg0 context.Context) error {
 	m.ctrl.T.Helper()
@@ -436,6 +446,11 @@ func NewMockMachine(ctrl *gomock.Controller) *MockMachine {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachine) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AllAddresses mocks base method.
@@ -578,6 +593,11 @@ func (m *MockConstraints) EXPECT() *MockConstraintsMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockConstraints) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ChangeSpaceNameOps mocks base method.
 func (m *MockConstraints) ChangeSpaceNameOps(arg0, arg1 string) []txn.Op {
 	m.ctrl.T.Helper()
@@ -713,6 +733,11 @@ func NewMockAddress(ctrl *gomock.Controller) *MockAddress {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAddress) EXPECT() *MockAddressMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAddress) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ConfigMethod mocks base method.
@@ -852,6 +877,11 @@ func (m *MockUnit) EXPECT() *MockUnitMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUnit) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplicationName mocks base method.
 func (m *MockUnit) ApplicationName() string {
 	m.ctrl.T.Helper()
@@ -951,6 +981,11 @@ func (m *MockBindings) EXPECT() *MockBindingsMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBindings) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Map mocks base method.
 func (m *MockBindings) Map() map[string]string {
 	m.ctrl.T.Helper()
@@ -1010,6 +1045,11 @@ func NewMockNetworkService(ctrl *gomock.Controller) *MockNetworkService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AddSpace mocks base method.
@@ -1541,6 +1581,11 @@ func NewMockControllerConfigService(ctrl *gomock.Controller) *MockControllerConf
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ControllerConfig mocks base method.

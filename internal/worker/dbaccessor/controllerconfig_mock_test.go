@@ -38,6 +38,11 @@ func (m *MockConfigWatcher) EXPECT() *MockConfigWatcherMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockConfigWatcher) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Changes mocks base method.
 func (m *MockConfigWatcher) Changes() <-chan struct{} {
 	m.ctrl.T.Helper()

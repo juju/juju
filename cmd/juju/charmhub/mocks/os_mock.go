@@ -38,6 +38,11 @@ func (m *MockOSEnviron) EXPECT() *MockOSEnvironMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockOSEnviron) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Getenv mocks base method.
 func (m *MockOSEnviron) Getenv(arg0 string) string {
 	m.ctrl.T.Helper()

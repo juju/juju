@@ -40,6 +40,11 @@ func (m *MockClock) EXPECT() *MockClockMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockClock) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // After mocks base method.
 func (m *MockClock) After(arg0 time.Duration) <-chan time.Time {
 	m.ctrl.T.Helper()
@@ -327,6 +332,11 @@ func NewMockTimer(ctrl *gomock.Controller) *MockTimer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockTimer) EXPECT() *MockTimerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTimer) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Chan mocks base method.

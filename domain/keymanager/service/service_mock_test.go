@@ -44,6 +44,11 @@ func (m *MockPublicKeyImporter) EXPECT() *MockPublicKeyImporterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockPublicKeyImporter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // FetchPublicKeysForSubject mocks base method.
 func (m *MockPublicKeyImporter) FetchPublicKeysForSubject(arg0 context.Context, arg1 *url.URL) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -104,6 +109,11 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AddPublicKeysForUser mocks base method.

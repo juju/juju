@@ -44,6 +44,11 @@ func (m *MockTrackedObjectStore) EXPECT() *MockTrackedObjectStoreMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTrackedObjectStore) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Get mocks base method.
 func (m *MockTrackedObjectStore) Get(arg0 context.Context, arg1 string) (io.ReadCloser, int64, error) {
 	m.ctrl.T.Helper()
@@ -377,6 +382,11 @@ func (m *MockMetadataServiceGetter) EXPECT() *MockMetadataServiceGetterMockRecor
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMetadataServiceGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ForModelUUID mocks base method.
 func (m *MockMetadataServiceGetter) ForModelUUID(arg0 model.UUID) MetadataService {
 	m.ctrl.T.Helper()
@@ -436,6 +446,11 @@ func NewMockMetadataService(ctrl *gomock.Controller) *MockMetadataService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMetadataService) EXPECT() *MockMetadataServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMetadataService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ObjectStore mocks base method.
@@ -499,6 +514,11 @@ func (m *MockModelClaimGetter) EXPECT() *MockModelClaimGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelClaimGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ForModelUUID mocks base method.
 func (m *MockModelClaimGetter) ForModelUUID(arg0 model.UUID) (objectstore0.Claimer, error) {
 	m.ctrl.T.Helper()
@@ -559,6 +579,11 @@ func NewMockControllerConfigService(ctrl *gomock.Controller) *MockControllerConf
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // ControllerConfig mocks base method.

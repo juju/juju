@@ -43,6 +43,11 @@ func (m *MockApplicationServiceGetter) EXPECT() *MockApplicationServiceGetterMoc
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationServiceGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Application mocks base method.
 func (m *MockApplicationServiceGetter) Application(arg0 *http.Request) (ApplicationService, error) {
 	m.ctrl.T.Helper()
@@ -103,6 +108,11 @@ func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetCharmArchiveBySHA256Prefix mocks base method.
@@ -206,6 +216,11 @@ func (m *MockStateGetter) EXPECT() *MockStateGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStateGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetState mocks base method.
 func (m *MockStateGetter) GetState(arg0 *http.Request) (ModelState, error) {
 	m.ctrl.T.Helper()
@@ -266,6 +281,11 @@ func NewMockModelState(ctrl *gomock.Controller) *MockModelState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Model mocks base method.
@@ -366,6 +386,11 @@ func NewMockModel(ctrl *gomock.Controller) *MockModel {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModel) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // MigrationMode mocks base method.

@@ -41,6 +41,11 @@ func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNetworkService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AddSubnet mocks base method.
 func (m *MockNetworkService) AddSubnet(arg0 context.Context, arg1 network.SubnetInfo) (network.Id, error) {
 	m.ctrl.T.Helper()
@@ -179,6 +184,11 @@ func NewMockMachineService(ctrl *gomock.Controller) *MockMachineService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachineService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // EnsureDeadMachine mocks base method.

@@ -40,6 +40,11 @@ func (m *MockExecutor) EXPECT() *MockExecutorMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockExecutor) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Stream mocks base method.
 func (m *MockExecutor) Stream(arg0 remotecommand.StreamOptions) error {
 	m.ctrl.T.Helper()

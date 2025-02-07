@@ -44,6 +44,11 @@ func (m *MockFactory) EXPECT() *MockFactoryMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFactory) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // NewActionRunner mocks base method.
 func (m *MockFactory) NewActionRunner(arg0 context.Context, arg1 *uniter.Action, arg2 <-chan struct{}) (runner.Runner, error) {
 	m.ctrl.T.Helper()
@@ -182,6 +187,11 @@ func NewMockRunner(ctrl *gomock.Controller) *MockRunner {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRunner) EXPECT() *MockRunnerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRunner) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Context mocks base method.

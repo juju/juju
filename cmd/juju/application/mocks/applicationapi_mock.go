@@ -41,6 +41,11 @@ func (m *MockApplicationAPI) EXPECT() *MockApplicationAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockApplicationAPI) Close() error {
 	m.ctrl.T.Helper()
@@ -215,6 +220,11 @@ func NewMockRemoveApplicationAPI(ctrl *gomock.Controller) *MockRemoveApplication
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRemoveApplicationAPI) EXPECT() *MockRemoveApplicationAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRemoveApplicationAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // BestAPIVersion mocks base method.

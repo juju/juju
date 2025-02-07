@@ -42,6 +42,11 @@ func (m *MockApplicationServiceGetter) EXPECT() *MockApplicationServiceGetterMoc
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationServiceGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Application mocks base method.
 func (m *MockApplicationServiceGetter) Application(arg0 *http.Request) (ApplicationService, error) {
 	m.ctrl.T.Helper()
@@ -102,6 +107,11 @@ func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetApplicationIDByName mocks base method.

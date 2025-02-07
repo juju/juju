@@ -40,6 +40,11 @@ func (m *MockSecretsFacade) EXPECT() *MockSecretsFacadeMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockSecretsFacade) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DeleteObsoleteUserSecretRevisions mocks base method.
 func (m *MockSecretsFacade) DeleteObsoleteUserSecretRevisions(arg0 context.Context) error {
 	m.ctrl.T.Helper()

@@ -42,6 +42,11 @@ func (m *MockDBApp) EXPECT() *MockDBAppMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDBApp) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Open mocks base method.
 func (m *MockDBApp) Open(arg0 context.Context, arg1 string) (*sql.DB, error) {
 	m.ctrl.T.Helper()
@@ -102,6 +107,11 @@ func NewMockNodeManager(ctrl *gomock.Controller) *MockNodeManager {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNodeManager) EXPECT() *MockNodeManagerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockNodeManager) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // DqliteSQLDriver mocks base method.
@@ -203,6 +213,11 @@ func NewMockTrackedDB(ctrl *gomock.Controller) *MockTrackedDB {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockTrackedDB) EXPECT() *MockTrackedDBMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTrackedDB) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Kill mocks base method.

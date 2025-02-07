@@ -47,6 +47,11 @@ func (m *MockEnviron) EXPECT() *MockEnvironMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockEnviron) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AdoptResources mocks base method.
 func (m *MockEnviron) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 version.Number) error {
 	m.ctrl.T.Helper()
@@ -843,6 +848,11 @@ func NewMockPrecheckJujuUpgradeStep(ctrl *gomock.Controller) *MockPrecheckJujuUp
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockPrecheckJujuUpgradeStep) EXPECT() *MockPrecheckJujuUpgradeStepMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockPrecheckJujuUpgradeStep) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Description mocks base method.

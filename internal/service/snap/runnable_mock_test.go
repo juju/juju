@@ -38,6 +38,11 @@ func (m *MockRunnable) EXPECT() *MockRunnableMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRunnable) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Execute mocks base method.
 func (m *MockRunnable) Execute(arg0 string, arg1 ...string) (string, error) {
 	m.ctrl.T.Helper()

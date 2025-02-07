@@ -41,6 +41,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetModelConfigKeyValues mocks base method.
 func (m *MockState) GetModelConfigKeyValues(arg0 context.Context, arg1 ...string) (map[string]string, error) {
 	m.ctrl.T.Helper()
@@ -145,6 +150,11 @@ func NewMockProvider(ctrl *gomock.Controller) *MockProvider {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockProvider) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // SupportsContainerAddresses mocks base method.

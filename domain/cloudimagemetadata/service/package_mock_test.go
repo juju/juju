@@ -41,6 +41,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllCloudImageMetadata mocks base method.
 func (m *MockState) AllCloudImageMetadata(arg0 context.Context) ([]cloudimagemetadata.Metadata, error) {
 	m.ctrl.T.Helper()

@@ -50,6 +50,11 @@ func (m *MockResourceService) EXPECT() *MockResourceServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetApplicationResourceID mocks base method.
 func (m *MockResourceService) GetApplicationResourceID(arg0 context.Context, arg1 resource0.GetApplicationResourceIDArgs) (resource.UUID, error) {
 	m.ctrl.T.Helper()
@@ -305,6 +310,11 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetApplicationIDByName mocks base method.
 func (m *MockApplicationService) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.ID, error) {
 	m.ctrl.T.Helper()
@@ -485,6 +495,11 @@ func (m *MockDeprecatedState) EXPECT() *MockDeprecatedStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDeprecatedState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Application mocks base method.
 func (m *MockDeprecatedState) Application(arg0 string) (DeprecatedStateApplication, error) {
 	m.ctrl.T.Helper()
@@ -622,6 +637,11 @@ func NewMockDeprecatedStateApplication(ctrl *gomock.Controller) *MockDeprecatedS
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDeprecatedStateApplication) EXPECT() *MockDeprecatedStateApplicationMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDeprecatedStateApplication) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // CharmOrigin mocks base method.
@@ -762,6 +782,11 @@ func (m *MockDeprecatedStateUnit) EXPECT() *MockDeprecatedStateUnitMockRecorder 
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDeprecatedStateUnit) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplicationName mocks base method.
 func (m *MockDeprecatedStateUnit) ApplicationName() string {
 	m.ctrl.T.Helper()
@@ -899,6 +924,11 @@ func (m *MockResourceDownloadLock) EXPECT() *MockResourceDownloadLockMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceDownloadLock) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Acquire mocks base method.
 func (m *MockResourceDownloadLock) Acquire(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -994,6 +1024,11 @@ func NewMockResourceClientGetter(ctrl *gomock.Controller) *MockResourceClientGet
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockResourceClientGetter) EXPECT() *MockResourceClientGetterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResourceClientGetter) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetResourceClient mocks base method.

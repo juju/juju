@@ -41,6 +41,11 @@ func (m *MockListSecretsAPI) EXPECT() *MockListSecretsAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockListSecretsAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockListSecretsAPI) Close() error {
 	m.ctrl.T.Helper()
@@ -141,6 +146,11 @@ func (m *MockAddSecretsAPI) EXPECT() *MockAddSecretsAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockAddSecretsAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockAddSecretsAPI) Close() error {
 	m.ctrl.T.Helper()
@@ -239,6 +249,11 @@ func NewMockGrantRevokeSecretsAPI(ctrl *gomock.Controller) *MockGrantRevokeSecre
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockGrantRevokeSecretsAPI) EXPECT() *MockGrantRevokeSecretsAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockGrantRevokeSecretsAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Close mocks base method.
@@ -380,6 +395,11 @@ func (m *MockUpdateSecretsAPI) EXPECT() *MockUpdateSecretsAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUpdateSecretsAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Close mocks base method.
 func (m *MockUpdateSecretsAPI) Close() error {
 	m.ctrl.T.Helper()
@@ -477,6 +497,11 @@ func NewMockRemoveSecretsAPI(ctrl *gomock.Controller) *MockRemoveSecretsAPI {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRemoveSecretsAPI) EXPECT() *MockRemoveSecretsAPIMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockRemoveSecretsAPI) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Close mocks base method.

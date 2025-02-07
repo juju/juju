@@ -47,6 +47,11 @@ func (m *MockControllerAPI) EXPECT() *MockControllerAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // APIAddresses mocks base method.
 func (m *MockControllerAPI) APIAddresses(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -304,6 +309,11 @@ func (m *MockMachinesAPI) EXPECT() *MockMachinesAPIMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachinesAPI) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Machines mocks base method.
 func (m *MockMachinesAPI) Machines(arg0 context.Context, arg1 ...names.MachineTag) ([]provisioner.MachineResult, error) {
 	m.ctrl.T.Helper()
@@ -525,6 +535,11 @@ func NewMockMachineService(ctrl *gomock.Controller) *MockMachineService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachineService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetMachineUUID mocks base method.

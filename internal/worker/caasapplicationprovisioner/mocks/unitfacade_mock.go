@@ -41,6 +41,11 @@ func (m *MockCAASUnitProvisionerFacade) EXPECT() *MockCAASUnitProvisionerFacadeM
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCAASUnitProvisionerFacade) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplicationScale mocks base method.
 func (m *MockCAASUnitProvisionerFacade) ApplicationScale(arg0 context.Context, arg1 string) (int, error) {
 	m.ctrl.T.Helper()

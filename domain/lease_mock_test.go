@@ -40,6 +40,11 @@ func (m *MockToken) EXPECT() *MockTokenMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockToken) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Check mocks base method.
 func (m *MockToken) Check() error {
 	m.ctrl.T.Helper()
@@ -99,6 +104,11 @@ func NewMockChecker(ctrl *gomock.Controller) *MockChecker {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockChecker) EXPECT() *MockCheckerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockChecker) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Token mocks base method.
@@ -198,6 +208,11 @@ func NewMockModelLeaseManagerGetter(ctrl *gomock.Controller) *MockModelLeaseMana
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelLeaseManagerGetter) EXPECT() *MockModelLeaseManagerGetterMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelLeaseManagerGetter) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetLeaseManager mocks base method.

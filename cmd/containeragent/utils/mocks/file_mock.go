@@ -40,6 +40,11 @@ func (m *MockFileReaderWriter) EXPECT() *MockFileReaderWriterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockFileReaderWriter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // MkdirAll mocks base method.
 func (m *MockFileReaderWriter) MkdirAll(arg0 string, arg1 fs.FileMode) error {
 	m.ctrl.T.Helper()

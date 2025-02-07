@@ -41,6 +41,11 @@ func (m *MockServiceAccountLister) EXPECT() *MockServiceAccountListerMockRecorde
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockServiceAccountLister) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // List mocks base method.
 func (m *MockServiceAccountLister) List(arg0 labels.Selector) ([]*v1.ServiceAccount, error) {
 	m.ctrl.T.Helper()
@@ -139,6 +144,11 @@ func NewMockServiceAccountNamespaceLister(ctrl *gomock.Controller) *MockServiceA
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockServiceAccountNamespaceLister) EXPECT() *MockServiceAccountNamespaceListerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockServiceAccountNamespaceLister) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Get mocks base method.

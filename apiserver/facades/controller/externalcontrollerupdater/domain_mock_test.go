@@ -41,6 +41,11 @@ func (m *MockECService) EXPECT() *MockECServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockECService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Controller mocks base method.
 func (m *MockECService) Controller(arg0 context.Context, arg1 string) (*crossmodel.ControllerInfo, error) {
 	m.ctrl.T.Helper()

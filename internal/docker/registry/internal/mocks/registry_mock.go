@@ -39,6 +39,11 @@ func (m *MockInitializer) EXPECT() *MockInitializerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInitializer) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // DecideBaseURL mocks base method.
 func (m *MockInitializer) DecideBaseURL() error {
 	m.ctrl.T.Helper()

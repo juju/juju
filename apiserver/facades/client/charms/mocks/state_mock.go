@@ -45,6 +45,11 @@ func (m *MockBackendState) EXPECT() *MockBackendStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockBackendState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Application mocks base method.
 func (m *MockBackendState) Application(arg0 string) (interfaces.Application, error) {
 	m.ctrl.T.Helper()
@@ -262,6 +267,11 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplication) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AllUnits mocks base method.
 func (m *MockApplication) AllUnits() ([]interfaces.Unit, error) {
 	m.ctrl.T.Helper()
@@ -401,6 +411,11 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachine) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Constraints mocks base method.
 func (m *MockMachine) Constraints() (constraints.Value, error) {
 	m.ctrl.T.Helper()
@@ -463,6 +478,11 @@ func (m *MockUnit) EXPECT() *MockUnitMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUnit) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AssignedMachineId mocks base method.
 func (m *MockUnit) AssignedMachineId() (string, error) {
 	m.ctrl.T.Helper()
@@ -523,6 +543,11 @@ func NewMockDownloader(ctrl *gomock.Controller) *MockDownloader {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDownloader) EXPECT() *MockDownloaderMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDownloader) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // DownloadAndStore mocks base method.

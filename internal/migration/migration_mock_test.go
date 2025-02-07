@@ -47,6 +47,11 @@ func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockR
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockControllerConfigService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ControllerConfig mocks base method.
 func (m *MockControllerConfigService) ControllerConfig(arg0 context.Context) (controller.Config, error) {
 	m.ctrl.T.Helper()
@@ -107,6 +112,11 @@ func NewMockUpgradeService(ctrl *gomock.Controller) *MockUpgradeService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUpgradeService) EXPECT() *MockUpgradeServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUpgradeService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // IsUpgrading mocks base method.
@@ -171,6 +181,11 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetApplicationLife mocks base method.
 func (m *MockApplicationService) GetApplicationLife(arg0 context.Context, arg1 string) (life.Value, error) {
 	m.ctrl.T.Helper()
@@ -233,6 +248,11 @@ func (m *MockOperationExporter) EXPECT() *MockOperationExporterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockOperationExporter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ExportOperations mocks base method.
 func (m *MockOperationExporter) ExportOperations(arg0 storage.ModelStorageRegistryGetter) {
 	m.ctrl.T.Helper()
@@ -290,6 +310,11 @@ func NewMockCoordinator(ctrl *gomock.Controller) *MockCoordinator {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCoordinator) EXPECT() *MockCoordinatorMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCoordinator) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Add mocks base method.
@@ -389,6 +414,11 @@ func (m *MockModelAgentService) EXPECT() *MockModelAgentServiceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelAgentService) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetModelTargetAgentVersion mocks base method.
 func (m *MockModelAgentService) GetModelTargetAgentVersion(arg0 context.Context) (version.Number, error) {
 	m.ctrl.T.Helper()
@@ -449,6 +479,11 @@ func NewMockCharmService(ctrl *gomock.Controller) *MockCharmService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCharmService) EXPECT() *MockCharmServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetCharmArchive mocks base method.

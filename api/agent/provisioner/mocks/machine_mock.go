@@ -46,6 +46,11 @@ func (m *MockMachineProvisioner) EXPECT() *MockMachineProvisionerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachineProvisioner) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // AvailabilityZone mocks base method.
 func (m *MockMachineProvisioner) AvailabilityZone(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()

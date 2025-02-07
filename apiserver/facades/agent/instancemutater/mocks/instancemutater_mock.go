@@ -50,6 +50,11 @@ func (m *MockInstanceMutatorWatcher) EXPECT() *MockInstanceMutatorWatcherMockRec
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInstanceMutatorWatcher) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // WatchLXDProfileVerificationForMachine mocks base method.
 func (m *MockInstanceMutatorWatcher) WatchLXDProfileVerificationForMachine(arg0 context.Context, arg1 instancemutater.Machine, arg2 logger.Logger) (state.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
@@ -110,6 +115,11 @@ func NewMockInstanceMutaterState(ctrl *gomock.Controller) *MockInstanceMutaterSt
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockInstanceMutaterState) EXPECT() *MockInstanceMutaterStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInstanceMutaterState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Application mocks base method.
@@ -521,6 +531,11 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachine) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ContainerType mocks base method.
 func (m *MockMachine) ContainerType() instance.ContainerType {
 	m.ctrl.T.Helper()
@@ -772,6 +787,11 @@ func NewMockUnit(ctrl *gomock.Controller) *MockUnit {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUnit) EXPECT() *MockUnitMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUnit) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Application mocks base method.
@@ -1066,6 +1086,11 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplication) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CharmURL mocks base method.
 func (m *MockApplication) CharmURL() *string {
 	m.ctrl.T.Helper()
@@ -1125,6 +1150,11 @@ func NewMockMachineService(ctrl *gomock.Controller) *MockMachineService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockMachineService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // AppliedLXDProfileNames mocks base method.
@@ -1342,6 +1372,11 @@ func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplicationService) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // GetCharmLXDProfile mocks base method.

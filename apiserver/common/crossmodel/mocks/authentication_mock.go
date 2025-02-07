@@ -44,6 +44,11 @@ func (m *MockExpirableStorageBakery) EXPECT() *MockExpirableStorageBakeryMockRec
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockExpirableStorageBakery) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Auth mocks base method.
 func (m *MockExpirableStorageBakery) Auth(arg0 context.Context, arg1 ...macaroon.Slice) *bakery.AuthChecker {
 	m.ctrl.T.Helper()

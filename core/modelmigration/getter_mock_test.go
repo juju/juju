@@ -42,6 +42,11 @@ func (m *MockDBGetter) EXPECT() *MockDBGetterMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockDBGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetDB mocks base method.
 func (m *MockDBGetter) GetDB(arg0 string) (database.TxnRunner, error) {
 	m.ctrl.T.Helper()
@@ -102,6 +107,11 @@ func NewMockTxnRunner(ctrl *gomock.Controller) *MockTxnRunner {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockTxnRunner) EXPECT() *MockTxnRunnerMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockTxnRunner) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // StdTxn mocks base method.

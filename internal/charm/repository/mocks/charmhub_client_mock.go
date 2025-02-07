@@ -42,6 +42,11 @@ func (m *MockCharmHubClient) EXPECT() *MockCharmHubClientMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCharmHubClient) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Download mocks base method.
 func (m *MockCharmHubClient) Download(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (*charmhub.Digest, error) {
 	m.ctrl.T.Helper()

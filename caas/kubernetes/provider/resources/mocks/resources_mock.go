@@ -45,6 +45,11 @@ func (m *MockResource) EXPECT() *MockResourceMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockResource) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Apply mocks base method.
 func (m *MockResource) Apply(arg0 context.Context, arg1 kubernetes.Interface) error {
 	m.ctrl.T.Helper()
@@ -412,6 +417,11 @@ func NewMockApplier(ctrl *gomock.Controller) *MockApplier {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplier) EXPECT() *MockApplierMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockApplier) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // Apply mocks base method.

@@ -40,6 +40,11 @@ func (m *MockJujuLogContext) EXPECT() *MockJujuLogContextMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockJujuLogContext) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetLoggerByName mocks base method.
 func (m *MockJujuLogContext) GetLoggerByName(arg0 string) logger.Logger {
 	m.ctrl.T.Helper()

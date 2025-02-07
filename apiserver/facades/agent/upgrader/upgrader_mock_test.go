@@ -38,6 +38,11 @@ func (m *MockUpgrader) EXPECT() *MockUpgraderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockUpgrader) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // IsUpgrading mocks base method.
 func (m *MockUpgrader) IsUpgrading() (bool, error) {
 	m.ctrl.T.Helper()

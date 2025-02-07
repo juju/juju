@@ -40,6 +40,11 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockState) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // CreateStoragePool mocks base method.
 func (m *MockState) CreateStoragePool(arg0 context.Context, arg1 storage.StoragePoolDetails) error {
 	m.ctrl.T.Helper()
@@ -253,6 +258,11 @@ func NewMockStoragePoolState(ctrl *gomock.Controller) *MockStoragePoolState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStoragePoolState) EXPECT() *MockStoragePoolStateMockRecorder {
 	return m.recorder
+}
+
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockStoragePoolState) ISGOMOCK() struct{} {
+	return struct{}{}
 }
 
 // CreateStoragePool mocks base method.

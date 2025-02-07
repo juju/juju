@@ -41,6 +41,11 @@ func (m *MockInstanceLister) EXPECT() *MockInstanceListerMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockInstanceLister) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // Instances mocks base method.
 func (m *MockInstanceLister) Instances(arg0 envcontext.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()

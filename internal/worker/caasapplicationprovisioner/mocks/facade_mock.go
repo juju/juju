@@ -46,6 +46,11 @@ func (m *MockCAASProvisionerFacade) EXPECT() *MockCAASProvisionerFacadeMockRecor
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockCAASProvisionerFacade) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // ApplicationCharmInfo mocks base method.
 func (m *MockCAASProvisionerFacade) ApplicationCharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()

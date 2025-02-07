@@ -40,6 +40,11 @@ func (m *MockModelStorageRegistryGetter) EXPECT() *MockModelStorageRegistryGette
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockModelStorageRegistryGetter) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // GetStorageRegistry mocks base method.
 func (m *MockModelStorageRegistryGetter) GetStorageRegistry(arg0 context.Context) (storage.ProviderRegistry, error) {
 	m.ctrl.T.Helper()

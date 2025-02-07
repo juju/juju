@@ -41,6 +41,11 @@ func (m *MockToolsFinder) EXPECT() *MockToolsFinderMockRecorder {
 	return m.recorder
 }
 
+// ISGOMOCK indicates that this struct is a gomock mock.
+func (m *MockToolsFinder) ISGOMOCK() struct{} {
+	return struct{}{}
+}
+
 // FindAgents mocks base method.
 func (m *MockToolsFinder) FindAgents(arg0 context.Context, arg1 common.FindAgentsParams) (tools.List, error) {
 	m.ctrl.T.Helper()
