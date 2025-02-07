@@ -416,20 +416,6 @@ func readInitialStreamError(ws base.Stream) error {
 	return nil
 }
 
-// apiEndpoint returns a URL that refers to the given API slash-prefixed
-// endpoint path and query parameters.
-func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
-	path, err := apiPath(st.modelTag.Id(), path)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	url := st.Addr()
-	url.Scheme = st.serverScheme
-	url.Path = gopath.Join(url.Path, path)
-	url.RawQuery = query
-	return url, nil
-}
-
 // ControllerAPIURL returns the URL to use to connect to the controller API.
 // The address may contain a path component but may not contain a scheme
 // e.g. https://
