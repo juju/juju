@@ -4,6 +4,7 @@
 package apiremotecaller
 
 import (
+	"net/url"
 	"sync"
 	"time"
 
@@ -133,11 +134,12 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 	s.expectClock()
 
 	done := make(chan struct{})
-	s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
+	addr := &url.URL{Host: "10.0.0.1"}
+	s.remote.EXPECT().UpdateAddresses(addr).DoAndReturn(func(s []string) {
 		close(done)
 	})
 	s.remote.EXPECT().Connection().Return(s.connection)
-	s.connection.EXPECT().Addr().Return("192.168.0.17")
+	s.connection.EXPECT().Addr().Return(addr)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)

@@ -805,7 +805,7 @@ func (s *apiclientSuite) TestOpenCachesDNSAndRemovesSegments(c *gc.C) {
 	}
 	dnsCache := make(dnsCacheMap)
 
-	conn, err := api.Open(
+	conn, err := api.Open(context.Background(),
 		&api.Info{
 			Addrs: []string{
 				"place1.example:1234/segment",

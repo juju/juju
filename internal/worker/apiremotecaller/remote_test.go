@@ -5,6 +5,7 @@ package apiremotecaller
 
 import (
 	"context"
+	"net/url"
 	"sync/atomic"
 	"time"
 
@@ -52,7 +53,7 @@ func (s *RemoteSuite) TestConnect(c *gc.C) {
 
 	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{}))
 	s.apiConnection.EXPECT().Close().Return(nil)
-	s.apiConnection.EXPECT().Addr().Return(addrs[0])
+	s.apiConnection.EXPECT().Addr().Return(&url.URL{Host: addrs[0]})
 
 	w := s.newRemoteServer(c)
 	defer workertest.DirtyKill(c, w)
@@ -103,7 +104,7 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 
 	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{}))
 	s.apiConnection.EXPECT().Close().Return(nil)
-	s.apiConnection.EXPECT().Addr().Return(addrs1[0])
+	s.apiConnection.EXPECT().Addr().Return(&url.URL{Host: addrs1[0]})
 
 	w := s.newRemoteServer(c)
 	defer workertest.DirtyKill(c, w)

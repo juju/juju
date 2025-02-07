@@ -45,6 +45,7 @@ type sshMachine struct {
 	args                   []string
 	apiAddr                *url.URL
 	knownHostsPath         string
+	retryStrategy          retry.CallArgs
 	publicKeyRetryStrategy retry.CallArgs
 
 	sshClient    SSHClientAPI

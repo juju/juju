@@ -25,7 +25,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/parallel"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
 	jujuhttp "github.com/juju/juju/internal/http"
+	internallogger "github.com/juju/juju/internal/logger"
 	jujuproxy "github.com/juju/juju/internal/proxy"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/rpc"
@@ -60,7 +60,7 @@ const apiScheme = "wss"
 // serverScheme is the default scheme used for HTTP requests.
 const serverScheme = "https"
 
-var logger = loggo.GetLogger("juju.api")
+var logger = internallogger.GetLogger("juju.api")
 
 type rpcConnection interface {
 	Call(ctx context.Context, req rpc.Request, params, response interface{}) error
@@ -345,8 +345,8 @@ func (c *conn) connectStreamWithRetry(ctx context.Context, path string, attrs ur
 // connectStream is the internal version of ConnectStream. It differs from
 // ConnectStream only in that it will not retry the connection if it encounters
 // discharge-required error.
-func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.Header) (base.Stream, error) {
-	target := st.Addr()
+func (c *conn) connectStream(path string, attrs url.Values, extraHeaders http.Header) (base.Stream, error) {
+	target := c.Addr()
 	target.Path = gopath.Join(target.Path, path)
 	target.RawQuery = attrs.Encode()
 
@@ -514,7 +514,7 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	for _, addr := range info.Addrs {
 		url, ok := parseURLWithOptionalScheme(addr)
 		if !ok {
-			logger.Debugf("%q is not a valid URL", addr)
+			logger.Debugf(context.TODO(), "%q is not a valid URL", addr)
 			continue
 		}
 		// NB: Here we can enforce that the URL scheme is wss

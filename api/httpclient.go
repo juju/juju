@@ -23,15 +23,15 @@ import (
 // HTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
 // client pointing to the API server "/model/:uuid/" path.
 func (c *conn) HTTPClient() (*httprequest.Client, error) {
-	apiPath, err := apiPath(s.modelTag.Id(), "/")
+	apiPath, err := apiPath(c.modelTag.Id(), "/")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	url := s.Addr()
-	url.Scheme = s.serverScheme
+	url := c.Addr()
+	url.Scheme = c.serverScheme
 	url.Path = gopath.Join(url.Path, apiPath)
 
-	return s.httpClient(url)
+	return c.httpClient(url)
 }
 
 // RootHTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP

@@ -548,7 +548,7 @@ func setupControllerWithPathSegment(c *gc.C, store *jujuclient.MemStore, modelUU
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	conn, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
+	conn, err := juju.NewAPIConnection(context.Background(), juju.NewAPIConnectionParams{
 		Store:          store,
 		ControllerName: "foo",
 		DialOpts: api.DialOpts{
@@ -601,7 +601,7 @@ func (s *NewAPIClientSuite) TestStreamWithControllerPathSegment(c *gc.C) {
 		catcher := api.UrlCatcher{}
 		s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
-		stream, err := controllerConn.ConnectStream("/bar", nil)
+		stream, err := controllerConn.ConnectStream(context.Background(), "/bar", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		defer stream.Close()
 
