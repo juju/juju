@@ -69,10 +69,11 @@ CREATE TABLE machine_cloud_instance_status (
 );
 
 CREATE VIEW v_machine_cloud_instance_status AS
-SELECT ms.machine_uuid,
-       ms.message,
-       ms.data,
-       ms.updated_at,
-       msv.status
+SELECT
+    ms.machine_uuid,
+    ms.message,
+    ms.data,
+    ms.updated_at,
+    msv.status
 FROM machine_cloud_instance_status AS ms
 INNER JOIN machine_cloud_instance_status_value AS msv ON ms.status_id = msv.id;

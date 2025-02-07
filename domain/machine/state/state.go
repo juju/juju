@@ -398,11 +398,16 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 		since = st.clock.Now()
 	}
 
+	var data []byte
+	if len(status.Data) > 0 {
+		data = status.Data
+	}
+
 	return domainmachine.StatusInfo[domainmachine.MachineStatusType]{
 		Status:  machineStatus,
 		Message: status.Message,
 		Since:   &since,
-		Data:    status.Data,
+		Data:    data,
 	}, nil
 }
 

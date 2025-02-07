@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/version"
-	"github.com/juju/juju/domain/application"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
@@ -148,7 +148,7 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *gc.C) {
 	s.operationApplier.EXPECT().ApplyOperation(op).Return(nil)
 	s.unit.EXPECT().SetPassword(cfg.UnitPassword).Return(nil)
 
-	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unit.Name("controller/0"), application.UpdateCAASUnitParams{
+	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unit.Name("controller/0"), applicationservice.UpdateCAASUnitParams{
 		ProviderID: ptr("controller-0"),
 	})
 	s.applicationService.EXPECT().SetUnitPassword(gomock.Any(), unit.Name("controller/0"), cfg.UnitPassword)
