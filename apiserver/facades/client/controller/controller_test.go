@@ -226,7 +226,7 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 		_, err = environs.New(context.Background(), environs.OpenParams{
 			Cloud:  spec,
 			Config: cfg,
-		})
+		}, environs.NoopCredentialInvalidator())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }

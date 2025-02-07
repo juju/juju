@@ -118,7 +118,7 @@ func (prov *azureEnvironProvider) Version() int {
 }
 
 // Open is part of the EnvironProvider interface.
-func (prov *azureEnvironProvider) Open(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+func (prov *azureEnvironProvider) Open(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
 	logger.Debugf(context.TODO(), "opening model %q", args.Config.Name())
 
 	namespace, err := instance.NewNamespace(args.Config.UUID())

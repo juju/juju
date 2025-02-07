@@ -592,7 +592,7 @@ func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyE
 	hostedEnv, err := environs.New(t.BootstrapContext, environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: env.Config(),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
 	msg := "destroy security group error"
@@ -619,7 +619,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	env, err := environs.New(t.BootstrapContext, environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2314,7 +2314,7 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 		Cloud:          s.CloudSpec(),
 		Config:         cfg,
 		ControllerUUID: coretesting.ControllerTag.Id(),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "0")
 	c.Assert(err, jc.ErrorIsNil)

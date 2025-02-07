@@ -317,7 +317,7 @@ func openEnviron(
 	env, err := environs.Open(context.Background(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
@@ -344,7 +344,7 @@ func prepareForBootstrap(
 	env, err := environs.Open(context.Background(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
 	*sender = azuretesting.Senders{}

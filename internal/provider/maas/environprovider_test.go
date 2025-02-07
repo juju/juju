@@ -99,7 +99,7 @@ func (s *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	env, err := providerInstance.Open(context.Background(), environs.OpenParams{
 		Cloud:  spec,
 		Config: config,
-	})
+	}, environs.NoopCredentialInvalidator())
 	// When Open() fails (i.e. returns a non-nil error), it returns an
 	// environs.Environ interface object with a nil value and a nil
 	// type.

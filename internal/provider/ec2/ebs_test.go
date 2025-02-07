@@ -89,7 +89,7 @@ func (s *ebsSuite) ebsProvider(c *gc.C) storage.Provider {
 			Credential: &credential,
 		},
 		Config: s.modelConfig,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
 	p, err := env.StorageProvider(ec2.EBS_ProviderType)

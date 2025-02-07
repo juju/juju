@@ -167,7 +167,7 @@ func (c *UpdateCAASCommand) newK8sClusterBroker(ctx context.Context, cloud jujuc
 		openParams.ControllerUUID = ctrlUUID
 	}
 
-	broker, err := caas.New(ctx, openParams)
+	broker, err := caas.New(ctx, openParams, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

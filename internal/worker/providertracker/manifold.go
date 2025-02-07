@@ -38,10 +38,10 @@ type ProviderConfigGetter interface {
 }
 
 // IAASProviderFunc is a function that returns a IAAS provider.
-type IAASProviderFunc func(ctx context.Context, args environs.OpenParams) (environs.Environ, error)
+type IAASProviderFunc func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error)
 
 // CAASProviderFunc is a function that returns a IAAS provider.
-type CAASProviderFunc func(ctx context.Context, args environs.OpenParams) (caas.Broker, error)
+type CAASProviderFunc func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (caas.Broker, error)
 
 // GetProviderFunc is a helper function that gets a provider from the manifold.
 type GetProviderFunc func(context.Context, ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error)
@@ -157,8 +157,8 @@ func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, get
 		// We can't use newProvider directly, as type invariance prevents us
 		// from using it with the environs.GetEnvironAndCloud function.
 		// Just wrap it in a closure to work around this.
-		provider, spec, err := environs.GetEnvironAndCloud(ctx, getter, func(ctx context.Context, op environs.OpenParams) (environs.Environ, error) {
-			return newProvider(ctx, op)
+		provider, spec, err := environs.GetEnvironAndCloud(ctx, getter, environs.NoopCredentialInvalidator(), func(ctx context.Context, op environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
+			return newProvider(ctx, op, invalidator)
 		})
 		if err != nil {
 			return nil, environscloudspec.CloudSpec{}, errors.Trace(err)
@@ -184,7 +184,7 @@ func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, get
 			ControllerUUID: getter.ControllerUUID().String(),
 			Cloud:          cloudSpec,
 			Config:         cfg,
-		})
+		}, environs.NoopCredentialInvalidator())
 		if err != nil {
 			return nil, environscloudspec.CloudSpec{}, errors.Annotate(err, "cannot create caas broker")
 		}

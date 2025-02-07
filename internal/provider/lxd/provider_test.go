@@ -552,7 +552,7 @@ func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
 	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  lxdCloudSpec(),
 		Config: s.Config,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig := env.Config()
 

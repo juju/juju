@@ -79,7 +79,7 @@ func updateZones(ctx envcontext.ProviderCallContext, api Backing) (network.Avail
 // model config. If the model does not support zones, an error satisfying
 // errors.IsNotSupported() will be returned.
 func zonedEnviron(ctx context.Context, api Backing) (providercommon.ZonedEnviron, error) {
-	env, err := environs.GetEnviron(ctx, api, environs.New)
+	env, err := environs.GetEnviron(ctx, api, environs.NoopCredentialInvalidator(), environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening environment")
 	}

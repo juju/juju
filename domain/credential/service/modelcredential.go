@@ -116,8 +116,11 @@ func (v defaultCredentialValidator) Validate(
 	}
 }
 
+// TODO (stickupkid): This should be removed with haste.
+// Instead the provider factory should allow you to get a provider without a
+// credential validator.
 func checkCAASModelCredential(ctx context.Context, brokerParams environs.OpenParams) ([]error, error) {
-	broker, err := newCAASBroker(ctx, brokerParams)
+	broker, err := newCAASBroker(ctx, brokerParams, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -128,8 +131,11 @@ func checkCAASModelCredential(ctx context.Context, brokerParams environs.OpenPar
 	return nil, nil
 }
 
+// TODO (stickupkid): This should be removed with haste.
+// Instead the provider factory should allow you to get a provider without a
+// credential validator.
 func checkIAASModelCredential(ctx context.Context, machineState MachineState, machineService MachineService, openParams environs.OpenParams, checkCloudInstances bool) ([]error, error) {
-	env, err := newEnv(ctx, openParams)
+	env, err := newEnv(ctx, openParams, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

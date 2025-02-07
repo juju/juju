@@ -51,8 +51,8 @@ func newFacade(ctx facade.ModelContext) (*Facade, error) {
 		ctx.ControllerUUID(),
 		leadershipReader,
 		ctx.Auth(),
-		func(ctx context.Context, args environs.OpenParams) (Broker, error) {
-			return caas.New(ctx, args)
+		func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (Broker, error) {
+			return caas.New(ctx, args, invalidator)
 		},
 	)
 }

@@ -312,11 +312,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                    providertracker.NewWorker,
 			NewTrackerWorker:             providertracker.NewTrackerWorker,
 			GetProviderServicesGetter:    providertracker.GetModelProviderServicesGetter,
-			GetIAASProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
-				return config.NewEnvironFunc(ctx, args)
+			GetIAASProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
+				return config.NewEnvironFunc(ctx, args, invalidator)
 			}),
-			GetCAASProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
-				return config.NewContainerBrokerFunc(ctx, args)
+			GetCAASProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (caas.Broker, error) {
+				return config.NewContainerBrokerFunc(ctx, args, invalidator)
 			}),
 			Logger: config.LoggingContext.GetLogger("juju.worker.providertracker"),
 			Clock:  config.Clock,
@@ -387,8 +387,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-			NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams) (environs.CloudDestroyer, error) {
-				return config.NewEnvironFunc(ctx, params)
+			NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
+				return config.NewEnvironFunc(ctx, params, invalidator)
 			},
 		})),
 
@@ -475,8 +475,8 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-			NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams) (environs.CloudDestroyer, error) {
-				return config.NewContainerBrokerFunc(ctx, params)
+			NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
+				return config.NewContainerBrokerFunc(ctx, params, invalidator)
 			},
 		})),
 

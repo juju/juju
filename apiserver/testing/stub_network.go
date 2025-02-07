@@ -332,7 +332,7 @@ type StubProvider struct {
 
 var _ environs.EnvironProvider = (*StubProvider)(nil)
 
-func (sp *StubProvider) Open(_ context.Context, args environs.OpenParams) (environs.Environ, error) {
+func (sp *StubProvider) Open(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (environs.Environ, error) {
 	sp.MethodCall(sp, "Open", args.Config)
 	if err := sp.NextErr(); err != nil {
 		return nil, err

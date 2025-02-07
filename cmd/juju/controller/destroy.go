@@ -661,9 +661,9 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 		Config:         cfg,
 	}
 	if cloud.CloudTypeIsCAAS(bootstrapConfig.CloudType) {
-		return caas.New(ctx, openParams)
+		return caas.New(ctx, openParams, environs.NoopCredentialInvalidator())
 	}
-	return environs.New(ctx, openParams)
+	return environs.New(ctx, openParams, environs.NoopCredentialInvalidator())
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromAPI(
@@ -696,5 +696,5 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 		ControllerUUID: ctrlCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 }

@@ -71,7 +71,7 @@ func (s *facadeSuite) TestNonClientNotAllowed(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -100,7 +100,7 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -139,7 +139,7 @@ func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -184,7 +184,7 @@ func (s *facadeSuite) TestPublicAddress(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -229,7 +229,7 @@ func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -294,7 +294,7 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -355,7 +355,7 @@ func (s *facadeSuite) TestPublicKeys(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -399,7 +399,7 @@ func (s *facadeSuite) TestProxyTrue(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -434,7 +434,7 @@ func (s *facadeSuite) TestProxyFalse(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -464,7 +464,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -497,7 +497,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -542,7 +542,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (sshclient.Broker, error) {
 			return s.broker, nil
 		},
 	)
@@ -621,7 +621,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C) {
 		s.controllerUUID,
 		nil,
 		s.authorizer,
-		func(ctx context.Context, arg environs.OpenParams) (sshclient.Broker, error) {
+		func(ctx context.Context, arg environs.OpenParams, _ environs.CredentialInvalidator) (sshclient.Broker, error) {
 			c.Assert(arg.ControllerUUID, gc.Equals, testing.ControllerTag.Id())
 			c.Assert(arg.Cloud, gc.DeepEquals, cloudSpec)
 			return s.broker, nil

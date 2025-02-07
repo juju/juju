@@ -205,9 +205,9 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 
 	var env environs.BootstrapEnviron
 	if isCAAS {
-		env, err = environsNewCAAS(ctx, openParams)
+		env, err = environsNewCAAS(ctx, openParams, environs.NoopCredentialInvalidator())
 	} else {
-		env, err = environsNewIAAS(ctx, openParams)
+		env, err = environsNewIAAS(ctx, openParams, environs.NoopCredentialInvalidator())
 	}
 	if err != nil {
 		return errors.Trace(err)

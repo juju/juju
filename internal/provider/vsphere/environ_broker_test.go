@@ -183,7 +183,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 			"external-network":   "bar",
 			"image-metadata-url": s.imageServer.URL,
 		}),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
@@ -203,7 +203,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningMissingModel
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServer.URL,
 		}),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
@@ -222,7 +222,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningDefaultOptio
 			"image-metadata-url":     s.imageServer.URL,
 			"disk-provisioning-type": "",
 		}),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
@@ -241,7 +241,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThinDisk(c *
 			"image-metadata-url":     s.imageServer.URL,
 			"disk-provisioning-type": "thin",
 		}),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
@@ -260,7 +260,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickDisk(c 
 			"image-metadata-url":     s.imageServer.URL,
 			"disk-provisioning-type": "thick",
 		}),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
@@ -279,7 +279,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskProvisioningThickEagerZe
 			"image-metadata-url":     s.imageServer.URL,
 			"disk-provisioning-type": "thick",
 		}),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
@@ -298,7 +298,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 			"name":               "supercalifragilisticexpialidocious",
 			"image-metadata-url": s.imageServer.URL,
 		}),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err = env.StartInstance(s.callCtx, startInstArgs)
@@ -320,7 +320,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
 			"enable-disk-uuid":   false,
 			"image-metadata-url": s.imageServer.URL,
 		}),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
@@ -506,7 +506,7 @@ func (s *environBrokerSuite) setUpClient(c *gc.C) *gomock.Controller {
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServerURL,
 		}),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	return ctrl

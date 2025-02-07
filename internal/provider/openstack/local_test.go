@@ -163,7 +163,7 @@ func (s *localHTTPSServerSuite) envUsingCertificate(c *gc.C) environs.Environ {
 	env, err := environs.New(context.Background(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
@@ -319,7 +319,7 @@ func (s *localServerSuite) openEnviron(c *gc.C, attrs coretesting.Attrs) environ
 	env, err := environs.New(context.Background(), environs.OpenParams{
 		Cloud:  s.CloudSpec(),
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
@@ -2658,7 +2658,7 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 	_, err = environs.New(context.Background(), environs.OpenParams{
 		Cloud:  makeCloudSpec(s.cred),
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
 }
 
@@ -3426,7 +3426,7 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	env, err := environs.New(context.Background(), environs.OpenParams{
 		Cloud:  makeCloudSpec(s.cred),
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	originalController := coretesting.ControllerTag.Id()
 	_, _, _, err = testing.StartInstance(env, s.callCtx, originalController, "0")
@@ -3472,7 +3472,7 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
 	env, err := environs.New(context.Background(), environs.OpenParams{
 		Cloud:  makeCloudSpec(s.cred),
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	originalController := coretesting.ControllerTag.Id()
 	_, _, _, err = testing.StartInstance(env, s.callCtx, originalController, "0")

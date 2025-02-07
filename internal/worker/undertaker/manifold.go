@@ -27,7 +27,7 @@ type ManifoldConfig struct {
 	NewFacade                    func(base.APICaller) (Facade, error)
 	NewWorker                    func(Config) (worker.Worker, error)
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
-	NewCloudDestroyerFunc        func(context.Context, environs.OpenParams) (environs.CloudDestroyer, error)
+	NewCloudDestroyerFunc        func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.CloudDestroyer, error)
 }
 
 func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {

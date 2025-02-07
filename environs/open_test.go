@@ -120,7 +120,7 @@ func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 		Cloud: environscloudspec.CloudSpec{
 			Type: "wondercloud",
 		},
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, gc.ErrorMatches, "no registered provider for.*")
 	c.Assert(env, gc.IsNil)
 }
@@ -137,7 +137,7 @@ func (*OpenSuite) TestNew(c *gc.C) {
 	e, err := environs.New(ctx, environs.OpenParams{
 		Cloud:  testing.FakeCloudSpec(),
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = e.ControllerInstances(envcontext.WithoutCredentialInvalidator(ctx), "uuid")
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")

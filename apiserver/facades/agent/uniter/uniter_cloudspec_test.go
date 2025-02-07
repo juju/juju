@@ -100,7 +100,7 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 		domainServices.Port(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	uniter.SetNewContainerBrokerFunc(uniterAPI, func(context.Context, environs.OpenParams) (caas.Broker, error) {
+	uniter.SetNewContainerBrokerFunc(uniterAPI, func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error) {
 		return &fakeBroker{}, nil
 	})
 

@@ -172,7 +172,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
-	broker, err := p.brokerGetter(ctx, openParams)
+	broker, err := p.brokerGetter(ctx, openParams, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}

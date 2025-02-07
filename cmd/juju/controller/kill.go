@@ -260,9 +260,9 @@ func (c *killCommand) DirectDestroyRemaining(
 			}
 			var env environs.CloudDestroyer
 			if cloud.CloudTypeIsCAAS(model.CloudSpec.Type) {
-				env, err = caas.Open(ctx, cloudProvider, openParams)
+				env, err = caas.Open(ctx, cloudProvider, openParams, environs.NoopCredentialInvalidator())
 			} else {
-				env, err = environs.Open(ctx, cloudProvider, openParams)
+				env, err = environs.Open(ctx, cloudProvider, openParams, environs.NoopCredentialInvalidator())
 			}
 			if err != nil {
 				logger.Warningf(context.TODO(), err.Error())

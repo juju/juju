@@ -189,7 +189,7 @@ type ManifoldsConfig struct {
 
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
-	NewEnvironFunc func(context.Context, environs.OpenParams) (environs.Environ, error)
+	NewEnvironFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error)
 }
 
 type HTTPClient interface {

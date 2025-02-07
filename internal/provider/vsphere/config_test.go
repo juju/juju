@@ -150,7 +150,7 @@ func (*ConfigSuite) TestNewModelConfig(c *gc.C) {
 		environ, err := environs.New(context.Background(), environs.OpenParams{
 			Cloud:  fakeCloudSpec(),
 			Config: fakeConfig,
-		})
+		}, environs.NoopCredentialInvalidator())
 
 		// Check the result
 		if test.err != "" {
@@ -241,7 +241,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		environ, err := environs.New(context.Background(), environs.OpenParams{
 			Cloud:  fakeCloudSpec(),
 			Config: s.config,
-		})
+		}, environs.NoopCredentialInvalidator())
 		c.Assert(err, jc.ErrorIsNil)
 
 		fakeConfig := test.newConfig(c)

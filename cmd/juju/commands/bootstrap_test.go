@@ -1235,7 +1235,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	env, err := environs.New(context.Background(), environs.OpenParams{
 		Cloud:  *spec,
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.PrepareForBootstrap(envtesting.BootstrapContext(context.Background(), c), "controller-1")
 	c.Assert(err, jc.ErrorIsNil)

@@ -116,7 +116,7 @@ func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 		s.runner,
 		credentialGetterFunc(ret),
 		cloudGetterFunc(ret),
-		func(context.Context, environs.OpenParams) (provider.ClusterMetadataStorageChecker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (provider.ClusterMetadataStorageChecker, error) {
 			return &s.fakeBroker, nil
 		},
 	)

@@ -200,7 +200,7 @@ func (e EnvironProvider) ValidateCloud(ctx context.Context, spec environscloudsp
 }
 
 // Open implements environs.EnvironProvider.
-func (e *EnvironProvider) Open(ctx context.Context, params environs.OpenParams) (environs.Environ, error) {
+func (e *EnvironProvider) Open(ctx context.Context, params environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
 	logger.Infof(context.TODO(), "opening model %q", params.Config.Name())
 
 	if err := validateCloudSpec(params.Cloud); err != nil {
