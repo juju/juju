@@ -41,9 +41,7 @@ type StorageService struct {
 // The following error types can be expected:
 // - [coreerrors.NotSupported]: when the importing the kind of storage is not supported by the provider.
 // - [storageerrors.InvalidPoolNameError]: when the supplied pool name is invalid.
-func (s *StorageService) ImportFilesystem(
-	ctx context.Context, credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter, arg ImportStorageParams,
-) (corestorage.ID, error) {
+func (s *StorageService) ImportFilesystem(ctx context.Context, arg ImportStorageParams) (corestorage.ID, error) {
 	if arg.Kind != internalstorage.StorageKindFilesystem {
 		// TODO(axw) implement support for volumes.
 		return "", errors.Errorf("storage kind %q not supported", arg.Kind.String()).Add(coreerrors.NotSupported)
@@ -66,14 +64,6 @@ func (s *StorageService) ImportFilesystem(
 		return "", errors.Capture(err)
 	}
 
-	// If the storage provider supports filesystems, import the filesystem,
-	// otherwise import a volume which will back a filesystem.
-	invalidatorFunc, err := credentialInvalidatorGetter()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-
 	var attr map[string]any
 	if len(poolDetails.Attrs) > 0 {
 		attr = transform.Map(poolDetails.Attrs, func(k, v string) (string, any) { return k, v })
@@ -82,7 +72,7 @@ func (s *StorageService) ImportFilesystem(
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	filesystemInfo, err := s.importStorageFromProvider(callCtx, cfg, arg.ProviderId)
+	filesystemInfo, err := s.importStorageFromProvider(ctx, cfg, arg.ProviderId)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -90,7 +80,7 @@ func (s *StorageService) ImportFilesystem(
 	return s.st.ImportFilesystem(ctx, arg.StorageName, *filesystemInfo)
 }
 
-func (s *StorageService) importStorageFromProvider(ctx envcontext.ProviderCallContext, cfg *internalstorage.Config, providerID string) (*storage.FilesystemInfo, error) {
+func (s *StorageService) importStorageFromProvider(ctx context.Context, cfg *internalstorage.Config, providerID string) (*storage.FilesystemInfo, error) {
 	registry, err := s.registryGetter.GetStorageRegistry(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -109,11 +99,14 @@ func (s *StorageService) importStorageFromProvider(ctx envcontext.ProviderCallCo
 		tags.JujuController: details.ControllerUUID,
 	}
 
+	// If the storage provider supports filesystems, import the filesystem,
+	// otherwise import a volume which will back a filesystem.
 	var filesystemInfo *storage.FilesystemInfo
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	if provider.Supports(internalstorage.StorageKindFilesystem) {
-		filesystemInfo, err = s.importFilesystemFromProvider(ctx, provider, cfg, providerID, resourceTags)
+		filesystemInfo, err = s.importFilesystemFromProvider(callCtx, provider, cfg, providerID, resourceTags)
 	} else {
-		filesystemInfo, err = s.importVolumeFromProvider(ctx, provider, cfg, providerID, resourceTags)
+		filesystemInfo, err = s.importVolumeFromProvider(callCtx, provider, cfg, providerID, resourceTags)
 	}
 	if err != nil {
 		return nil, errors.Capture(err)

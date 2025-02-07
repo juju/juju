@@ -15,7 +15,6 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -71,16 +70,10 @@ func (s *storageSuite) service(c *gc.C) *Service {
 	}))
 }
 
-func noopModelCredentialInvalidatorGetter() (envcontext.ModelCredentialInvalidatorFunc, error) {
-	return func(context.Context, string) error {
-		return nil
-	}, nil
-}
-
 func (s *storageSuite) TestImportFilesystemValidate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service(c).ImportFilesystem(context.Background(), noopModelCredentialInvalidatorGetter, ImportStorageParams{
+	_, err := s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "elastic",
 		ProviderId:  "provider-id",
@@ -88,7 +81,7 @@ func (s *storageSuite) TestImportFilesystemValidate(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIs, corestorage.InvalidStorageName)
 
-	_, err = s.service(c).ImportFilesystem(context.Background(), noopModelCredentialInvalidatorGetter, ImportStorageParams{
+	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "0",
 		ProviderId:  "provider-id",
@@ -96,7 +89,7 @@ func (s *storageSuite) TestImportFilesystemValidate(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIs, storageerrors.InvalidPoolNameError)
 
-	_, err = s.service(c).ImportFilesystem(context.Background(), noopModelCredentialInvalidatorGetter, ImportStorageParams{
+	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindBlock,
 		Pool:        "elastic",
 		ProviderId:  "provider-id",
@@ -137,7 +130,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		Pool: "elastic",
 	}).Return("pgdata/0", nil)
 
-	result, err := s.service(c).ImportFilesystem(context.Background(), noopModelCredentialInvalidatorGetter, ImportStorageParams{
+	result, err := s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "elastic",
 		ProviderId:  "provider-id",
@@ -182,7 +175,7 @@ func (s *storageSuite) TestImportFilesystemUsingStoragePool(c *gc.C) {
 		Pool: "fast-elastic",
 	}).Return("pgdata/0", nil)
 
-	result, err := s.service(c).ImportFilesystem(context.Background(), noopModelCredentialInvalidatorGetter, ImportStorageParams{
+	result, err := s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "fast-elastic",
 		ProviderId:  "provider-id",
@@ -205,7 +198,7 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *gc.C) {
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ControllerUUID: coretesting.ControllerTag.Id(),
 	}, nil)
-	_, err = s.service(c).ImportFilesystem(context.Background(), noopModelCredentialInvalidatorGetter, ImportStorageParams{
+	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "elastic",
 		ProviderId:  "provider-id",
@@ -255,7 +248,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 		},
 	}).Return("pgdata/0", nil)
 
-	result, err := s.service(c).ImportFilesystem(context.Background(), noopModelCredentialInvalidatorGetter, ImportStorageParams{
+	result, err := s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "ebs",
 		ProviderId:  "provider-id",
@@ -278,7 +271,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *gc.C) {
 		ModelUUID:      coretesting.ModelTag.Id(),
 		ControllerUUID: coretesting.ControllerTag.Id(),
 	}, nil)
-	_, err = s.service(c).ImportFilesystem(context.Background(), noopModelCredentialInvalidatorGetter, ImportStorageParams{
+	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
 		Pool:        "ebs",
 		ProviderId:  "provider-id",
