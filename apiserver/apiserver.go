@@ -681,6 +681,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 const (
 	modelRoutePrefix         = "/model/:modeluuid"
 	charmsObjectsRoutePrefix = "/model-:modeluuid/charms/:object"
+	objectsRoutePrefix       = "/model-:modeluuid/objects/:object"
 	migrateResourcesPrefix   = "/migrate/resources"
 )
 
@@ -726,7 +727,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 					Handler: h,
 					Query:   ":modeluuid",
 				}
-			} else if strings.HasPrefix(handler.pattern, charmsObjectsRoutePrefix) {
+			} else if strings.HasPrefix(handler.pattern, charmsObjectsRoutePrefix) ||
+				strings.HasPrefix(handler.pattern, objectsRoutePrefix) {
 				h = &httpcontext.BucketModelHandler{
 					Handler: h,
 					Query:   ":modeluuid",
@@ -787,6 +789,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		&applicationServiceGetter{ctxt: httpCtxt},
 		objects.CharmURLFromLocator,
 	), "charms")
+	modelObjectsHTTPHandler := srv.monitoredHandler(objects.NewObjectsHTTPHandler(
+		&stateGetter{authFunc: httpCtxt.stateForRequestAuthenticatedUser},
+		&objectStoreServiceGetter{ctxt: httpCtxt},
+	), "objects")
 
 	modelToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
 		ctxt:          httpCtxt,
@@ -1005,6 +1011,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		methods:    []string{"PUT"},
 		handler:    modelObjectsCharmsHTTPHandler,
 		authorizer: charmsObjectsAuthorizer,
+	}, {
+		pattern: objectsRoutePrefix,
+		methods: []string{"GET"},
+		handler: modelObjectsHTTPHandler,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
@@ -1295,4 +1305,17 @@ func (a *migratingObjectsApplicationServiceGetter) Application(r *http.Request) 
 		return nil, internalerrors.Capture(err)
 	}
 	return domainServices.Application(), nil
+}
+
+type objectStoreServiceGetter struct {
+	ctxt httpContext
+}
+
+func (a *objectStoreServiceGetter) ObjectStore(r *http.Request) (objects.ObjectStoreService, error) {
+	objectStore, err := a.ctxt.objectStoreForRequest(r.Context())
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	return objectStore, nil
 }

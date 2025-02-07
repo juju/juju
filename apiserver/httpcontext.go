@@ -69,6 +69,17 @@ func (ctxt *httpContext) domainServicesForRequest(ctx context.Context) (services
 	return ctxt.srv.shared.domainServicesGetter.ServicesForModel(model.UUID(modelUUID)), nil
 }
 
+// objectStoreForRequest returns an object store instance
+// appropriate for using for the controller model without checking
+// any authentication information.
+func (ctxt *httpContext) objectStoreForRequest(ctx context.Context) (objectstore.ObjectStore, error) {
+	modelUUID, valid := httpcontext.RequestModelUUID(ctx)
+	if !valid {
+		return nil, errors.Trace(apiservererrors.ErrPerm)
+	}
+	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(ctx, modelUUID)
+}
+
 // statePool returns the StatePool for this controller.
 func (ctxt *httpContext) statePool() *state.StatePool {
 	return ctxt.srv.shared.statePool
