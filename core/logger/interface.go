@@ -13,6 +13,12 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
+
+	"github.com/juju/juju/internal/errors"
+)
+
+const (
+	ErrLoggerDying = errors.ConstError("logger worker is dying")
 )
 
 // Level represents the log level.
@@ -210,7 +216,7 @@ type ModelLogger interface {
 
 	// GetLogWriter returns a log writer for the given model and keeps
 	// track of it, returning the same one if called again.
-	GetLogWriter(modelUUID, modelName, modelOwner string) (LogWriterCloser, error)
+	GetLogWriter(ctx context.Context, modelUUID string) (LogWriterCloser, error)
 
 	// RemoveLogWriter stops tracking the given's model's log writer and
 	// calls Close() on the log writer.
@@ -218,7 +224,7 @@ type ModelLogger interface {
 }
 
 // LogWriterForModelFunc is a function which returns a log writer for a given model.
-type LogWriterForModelFunc func(modelUUID, modelName string) (LogWriterCloser, error)
+type LogWriterForModelFunc func(ctx context.Context, modelUUID string) (LogWriterCloser, error)
 
 // ModelFilePrefix makes a log file prefix from the model owner and name.
 func ModelFilePrefix(owner, name string) string {
@@ -226,7 +232,7 @@ func ModelFilePrefix(owner, name string) string {
 }
 
 // ModelLogFile makes an absolute model log file path.
-func ModelLogFile(logDir, modelUUID, modelOwnerAndName string) string {
-	filename := modelOwnerAndName + "-" + names.NewModelTag(modelUUID).ShortId() + ".log"
+func ModelLogFile(logDir, modelUUID string) string {
+	filename := names.NewModelTag(modelUUID).ShortId() + ".log"
 	return filepath.Join(logDir, "models", filename)
 }
