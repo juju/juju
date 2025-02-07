@@ -62,6 +62,10 @@ const (
 	// is not valid.
 	ResourceRevisionNotValid = errors.ConstError("resource revision not valid")
 
+	// StoredResourceAlreadyExists describes an error where the resource being
+	// stored already exists in the store.
+	StoredResourceAlreadyExists = errors.ConstError("stored resource already exists")
+
 	// ResourceAlreadyStored describes an errors where the resource has already
 	// been stored.
 	ResourceAlreadyStored = errors.ConstError("resource already found in storage")

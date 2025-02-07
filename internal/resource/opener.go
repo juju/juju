@@ -311,6 +311,8 @@ func (ro ResourceOpener) getResource(
 		data.ReadCloser,
 		data.Resource.Size,
 		data.Resource.Fingerprint,
+		data.Resource.Origin,
+		data.Resource.Revision,
 	)
 	if err != nil {
 		return coreresource.Opened{}, errors.Capture(err)
@@ -336,6 +338,8 @@ func (ro ResourceOpener) store(
 	reader io.Reader,
 	size int64,
 	fingerprint charmresource.Fingerprint,
+	origin charmresource.Origin,
+	revision int,
 ) (_ coreresource.Resource, _ io.ReadCloser, err error) {
 	err = ro.resourceService.StoreResource(
 		ctx, resource.StoreResourceArgs{
@@ -345,6 +349,8 @@ func (ro ResourceOpener) store(
 			Fingerprint:     fingerprint,
 			RetrievedBy:     ro.retrievedBy,
 			RetrievedByType: ro.retrievedByType,
+			Origin:          origin,
+			Revision:        revision,
 		},
 	)
 	if err != nil {
