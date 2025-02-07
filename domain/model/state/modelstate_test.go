@@ -323,6 +323,51 @@ INSERT INTO space (uuid, name) VALUES
 	c.Check(getCons, jc.DeepEquals, cons)
 }
 
+// TestSetModelConstraintsNullBools is a regression test for constraints to
+// specifically assert that allocate public ip address can be null, false and
+// true according to what the user wants.
+//
+// DQlite has a bug where null bool columns are reported back in select
+// statements as false even thought the value in the database is NULL. To get
+// around this bug we have updated the constraint table to strict and changed
+// the type on "allocate_public_ip" to an integer.
+func (s *modelSuite) TestSetModelConstraintsNullBools(c *gc.C) {
+	s.createTestModel(c)
+
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	// Nil Bool
+	cons := constraints.Value{
+		AllocatePublicIP: nil,
+	}
+
+	err := state.SetModelConstraints(context.Background(), cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	getCons, err := state.GetModelConstraints(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(getCons.AllocatePublicIP, gc.IsNil)
+
+	// False Bool
+	cons.AllocatePublicIP = ptr(false)
+	err = state.SetModelConstraints(context.Background(), cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	getCons, err = state.GetModelConstraints(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(*getCons.AllocatePublicIP, jc.IsFalse)
+
+	// True Bool
+	cons.AllocatePublicIP = ptr(true)
+	err = state.SetModelConstraints(context.Background(), cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	getCons, err = state.GetModelConstraints(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(*getCons.AllocatePublicIP, jc.IsTrue)
+}
+
 // TestSetModelConstraintsOverwrites tests that after having set model
 // constraints another subsequent call overwrites what has previously been set.
 func (s *modelSuite) TestSetModelConstraintsOverwrites(c *gc.C) {

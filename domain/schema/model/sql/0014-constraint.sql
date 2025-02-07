@@ -14,6 +14,8 @@ CREATE TABLE "constraint" (
     instance_type TEXT,
     container_type_id INT,
     virt_type TEXT,
+    -- allocate_public_ip is a bool value. We only use int to get around DQlite
+    -- limitations with NULL bools.
     allocate_public_ip INT,
     image_id TEXT,
     CONSTRAINT fk_constraint_container_type
