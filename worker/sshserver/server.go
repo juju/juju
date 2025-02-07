@@ -65,8 +65,14 @@ func NewServerWorker(config ServerWorkerConfig) (*ServerWorker, error) {
 	}
 
 	// TODO(ale8k): Update later to use the host key from StateServingInfo
-	terminatingHostKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	terminatingHostKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to generate host key")
+	}
 	signer, _ := gossh.NewSignerFromKey(terminatingHostKey)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to create signer")
+	}
 
 	s.Server.AddHostKey(signer)
 
@@ -184,8 +190,16 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	}
 
 	// TODO(ale8k): Update later to generate host keys per unit.
-	terminatingHostKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-	signer, _ := gossh.NewSignerFromKey(terminatingHostKey)
+	terminatingHostKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		s.config.Logger.Errorf("failed to generate host key: %v", err)
+		return
+	}
+	signer, err := gossh.NewSignerFromKey(terminatingHostKey)
+	if err != nil {
+		s.config.Logger.Errorf("failed to create signer: %v", err)
+		return
+	}
 
 	server.AddHostKey(signer)
 	server.HandleConn(terminatingServerPipe)

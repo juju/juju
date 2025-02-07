@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// SystemStateGetter is an interface that provides the system state.
 type SystemStateGetter interface {
 	SystemState() (*state.State, error)
 }
