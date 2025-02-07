@@ -1,15 +1,5 @@
+(code-review-checklist)=
 # Code review checklist
-## Contents
-
-* [Introduction](#introduction)
-* [Using the checklists](#using-the-checklists)
-* Checklists
-    + [General](#general)
-    + [state](#state)
-    + [apiserver](#apiserver)
-    + [api](#api)
-    + [Workers](#workers)
-    + [CLI and hook tools](#cli--hook-tools)
 
 ## Introduction
 
@@ -30,7 +20,7 @@ the team's development practices evolve. Any significant changes to
 the checklists should be proposed via the juju-dev mailing list of the
 Juju tech board.
 
-### Using the checklists
+## Using the checklists
 
 - For each pull request at least one reviewer must go through the
   checklists relevant to the pull request.
@@ -45,7 +35,9 @@ As a reviewer, a reasonable approach seems to be to read through a
 proposed change once, and then apply the checklists once you have it
 in your head. YMMV.
 
-## General
+## List of checklists
+
+### General
 
 - Does the pull request description justify the change?
 - If the pull request is a bug fix, does the description link to the relevant ticket?
@@ -116,7 +108,7 @@ in your head. YMMV.
     * DEBUG and down for developers
     * Use the right level within those ranges
 
-## state
+### state
 
 - State code does not depend in any way on higher layers, especially on apiserver and api?
 - Do state watchers always send an initial event?
@@ -140,7 +132,7 @@ in your head. YMMV.
 - Are collections and sessions always closed after use?
 - Are the collection name constants (e.g. machinesC) always used instead of string literals?
 
-## apiserver
+### apiserver
 
 Example: https://github.com/juju/juju/tree/master/apiserver/sshclient
 
@@ -167,7 +159,7 @@ Example: https://github.com/juju/juju/tree/master/apiserver/sshclient
 - Is each facade focussed on a single role or type of client?
     * Facade should group methods for things that will change together.
 
-## api
+### api
 
 Example: https://github.com/juju/juju/tree/master/api/migrationflag
 
@@ -182,7 +174,7 @@ Example: https://github.com/juju/juju/tree/master/api/migrationflag
   workers and top level packages?
 - Are there signature changes - changes in calls input/output/rename - that require version bumping?
 
-## Workers
+### Workers
 
 Example: https://github.com/juju/juju/tree/master/worker/hostkeyreporter
 
@@ -211,7 +203,7 @@ Example: https://github.com/juju/juju/tree/master/worker/hostkeyreporter
 - Is there a a test for the worker in the featuretests package which
   exercises the key function of the worker?
 
-## CLI & hook tools
+### CLI & hook tools
 
 Example:
 

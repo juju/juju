@@ -1,6 +1,5 @@
 (logging-in-to-the-apiserver)=
-Logging in to the API Server
-============================
+# Logging in to the API Server
 
 This document is being written because every time I need to look at how
 logging in to the API server works, I have to step through all the code and
@@ -24,8 +23,7 @@ and only model that would exist before the Juju Model Server work.
 This work then needs to look at the API connection workflow from both ends,
 the API client side, and the server side.
 
-apiserver.Server
-----------------
+## apiserver.Server
 
 apiserver.go
 

@@ -10,14 +10,6 @@ Juju is an open source application orchestration engine that enables any applica
 [![snap](https://github.com/juju/juju/actions/workflows/snap.yml/badge.svg)](https://github.com/juju/juju/actions/workflows/snap.yml)
 [![build](https://github.com/juju/juju/actions/workflows/build.yml/badge.svg)](https://github.com/juju/juju/actions/workflows/build.yml)
 
-||||
-|-|-|- |
-|:point_right: | [Juju](https://juju.is/docs/juju) | Learn how to quickly deploy, integrate, and manage charms on any cloud with Juju. <br>  _It's as simple as `juju deploy foo`, `juju integrate foo bar`, ..., on any cloud._ |
-||||
-|| [Charmhub](https://charmhub.io/) | Sample our existing charms on Charmhub. <br> _A charm can be a cluster ([OpenStack](https://charmhub.io/openstack-base), [Kubernetes](https://charmhub.io/charmed-kubernetes)), a data platform ([PostgreSQL](https://charmhub.io/postgresql-k8s), [MongoDB](https://charmhub.io/mongodb), etc.), an observability stack ([Canonical Observability Stack](https://charmhub.io/cos-lite)), an MLOps solution ([Kubeflow](https://charmhub.io/kubeflow)), and so much more._ |
-||||
-|| [Charm SDK](https://juju.is/docs/sdk) | Write your own charm! <br> _Juju is written in Go, but our SDK supports easy charm development in Python._  |
-
 
 ## Give it a try!
 
@@ -26,18 +18,18 @@ Let's use Juju to deploy, configure, and integrate some Kubernetes charms:
 
 ### Set up
 
-You will need a cloud and Juju. The quickest way is to use a Multipass VM launched with the `charm-dev` blueprint. 
+You will need a cloud and Juju. The quickest way is to use a Multipass VM launched with the `charm-dev` blueprint.
 
-Install Multipass: [Linux](https://multipass.run/docs/installing-on-linux) | [macOS](https://multipass.run/docs/installing-on-macos) | [Windows](https://multipass.run/docs/installing-on-windows). On Linux:
+[Install Multipass](https://canonical.com/multipass/docs/install-multipass). On Linux:
 
 ```
 sudo snap install multipass
 ```
 
-Use Multipass to launch an Ubuntu VM with the `charm-dev` blueprint: 
+Use Multipass to launch an Ubuntu VM with the `charm-dev` blueprint:
 
 ```
-multipass launch --cpus 4 --memory 8G --disk 50G --name tutorial-vm charm-dev 
+multipass launch --cpus 4 --memory 8G --disk 50G --name tutorial-vm charm-dev
 ```
 
 Open a shell into the VM:
@@ -71,7 +63,7 @@ Deploy Mattermost:
 ```
 juju deploy mattermost-k8s
 ```
-> See more: [Charmhub | `mattermost-k8s`](https://charmhub.io/mattermost-k8s) 
+> See more: [Charmhub | `mattermost-k8s`](https://charmhub.io/mattermost-k8s)
 
 Deploy PostgreSQL:
 
@@ -129,7 +121,7 @@ Delete your Multipass VM:
 multipass delete --purge tutorial-vm
 ```
 
-Uninstall Multipass: [Linux](https://multipass.run/docs/installing-on-linux) | [macOS](https://multipass.run/docs/installing-on-macos) | [Windows](https://multipass.run/docs/installing-on-windows). On Linux:
+[Uninstall Multipass](https://canonical.com/multipass/docs/install-multipass). On Linux:
 
 ```
 snap remove multipass
@@ -137,25 +129,6 @@ snap remove multipass
 
 ## Next steps
 
-### Learn more
-
-- Read our [user docs](https://juju.is/docs/juju)
-- Read our [developer docs](https://juju.is/docs/dev)
-
-### Chat with us
-
-Read our [Code of conduct](https://ubuntu.com/community/code-of-conduct) and:
-
-- Join our chat: [Matrix](https://matrix.to/#/#charmhub-juju:ubuntu.com)
-- Join our forum: [Discourse](https://discourse.charmhub.io/)
-
-
-### File an issue
-
-- Report a Juju bug on [Launchpad](https://bugs.launchpad.net/juju/+filebug)
-- Raise a general https://juju.is/docs documentation issue on [Github | juju/docs ](https://github.com/juju/docs)
-
-### Make your mark
-
-- Read our [documentation contributor guidelines](https://discourse.charmhub.io/t/documentation-guidelines-for-contributors/1245) and help improve a doc 
-- Read our [codebase contributor guidelines](CONTRIBUTING.md) and help improve the codebase
+- [Read the docs](https://canonical-juju.readthedocs-hosted.com)
+- Read our [Code of conduct](https://ubuntu.com/community/code-of-conduct) join our [chat](https://matrix.to/#/#charmhub-juju:ubuntu.com) and [forum](https://discourse.charmhub.io/) or [open an issue](https://github.com/juju/juju/issues)
+- Read our [CONTRIBUTING guide](./CONTRIBUTING.md) and contribute!

@@ -28,7 +28,7 @@ contributor/index.md
 - Unsorted <contributor/unsorted/index>
 ````
 
-````{grid} 1 1 2 2 
+````{grid} 1 1 2 2
 
 ```{grid-item-card} [User docs](user/index.md)
 

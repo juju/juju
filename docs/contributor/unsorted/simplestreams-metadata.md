@@ -1,6 +1,5 @@
 (simplestreams-metadata)=
-Introduction
-============
+# Simplestreams metadata
 
 When Juju bootstraps, it needs two critical pieces of information:
 1. The uuid of the image to use when starting new compute instances
@@ -15,8 +14,7 @@ end user so the following information is more for those interested in what happe
 under the covers. Those setting up a private cloud, or who want to change how things
 work (eg use a different Ubuntu image), need to pay closer attention.
 
-Basic Workflow
-==============
+## Basic workflow
 
 Whether images or agent binaries, Juju uses a search path to try and find suitable metadata.
 The path components (in order of lookup) are:
@@ -35,8 +33,7 @@ from https://streams.canonical.com/juju. So out of the box, Juju will "Just Work
 public cloud, using signed metadata. Setting up metadata for a private (eg Openstack) cloud requires
 metadata to be generated using tools which ship with Juju (more below).
 
-Image Metadata Contents
-=======================
+## Image metadata contents
 
 Image metadata uses a simplestreams content type of "image-ids".
 The product ID is formed as follows:
@@ -60,8 +57,7 @@ URL associated with each path component):
 The index file must be called "index.(s)json" (sjson for signed). The various product files are
 named according to the Path values contained in the index file.
 
-Agent Binary Metadata Contents
-=======================
+## Agent Binary Metadata Contents
 
 Agent binary metadata uses a simplestreams content type of "content-download".
 The product ID is formed as follows:
@@ -89,8 +85,7 @@ after the stream to which they belong.
 The index file must be called "index.(s)json" (sjson for signed). The product file and
 agent binary tarball name(s) match whatever is in the index/product files.
 
-Configuration
-=============
+## Configuration
 
 For supported public clouds, no extra configuration is required; things work out-of-the-box.
 However, for testing purposes, or for non-supported cloud deployments, Juju needs to know
@@ -153,8 +148,7 @@ product-streams : the <path_url> value as described above in Image Metadata Cont
 This is the default location used to search for image and agent metadata and is used if no matches
 are found earlier in any of the above locations. No user configuration is required.
 
-Deploying Private Clouds
-========================
+## Deploying private clouds
 
 There are two main issues when deploying a private cloud:
 1. Images ids will be specific to the cloud

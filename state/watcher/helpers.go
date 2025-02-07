@@ -38,9 +38,9 @@ func Stop(w Stopper, t *tomb.Tomb) {
 func EnsureErr(w Errer) error {
 	err := w.Err()
 	if err == nil {
-		return errors.Errorf("expected an error from %v, got nil", w)
+		return errors.Errorf("expected an error from watcher, got nil")
 	} else if err == tomb.ErrStillAlive {
-		return errors.Annotatef(err, "expected %v to be stopped", w)
+		return errors.Annotatef(err, "expected watcher to be stopped")
 	}
 	return errors.Trace(err)
 }
