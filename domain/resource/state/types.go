@@ -39,6 +39,9 @@ type resourceUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// uuids represents a list of uuids.
+type uuids []string
+
 // resourceKind is the kind of the resource, e.g. file or oci-image.
 type resourceKind struct {
 	Name string `db:"kind_name"`
@@ -157,4 +160,28 @@ type storedContainerImageResource struct {
 type unitUUIDAndName struct {
 	UUID string `db:"uuid"`
 	Name string `db:"name"`
+}
+
+// addPendingResource holds the data required to add a pending
+// resource into the resource table.
+type addPendingResource struct {
+	UUID      string    `db:"uuid"`
+	CharmUUID string    `db:"charm_uuid"`
+	Name      string    `db:"charm_resource_name"`
+	Revision  *int      `db:"revision"`
+	Origin    string    `db:"origin_type_name"`
+	State     string    `db:"state_name"`
+	CreatedAt time.Time `db:"created_at"`
+}
+
+// linkResourceApplication represents a row in the pending_application_resource
+// table.
+type linkResourceApplication struct {
+	ResourceUUID    string `db:"resource_uuid"`
+	ApplicationName string `db:"application_name"`
+}
+
+// hash represents the hash value from a stored resource blob.
+type hash struct {
+	Hash string `db:"sha384"`
 }

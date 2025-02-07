@@ -17,6 +17,7 @@ import (
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	coreerrors "github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
@@ -1090,6 +1091,233 @@ func (s *resourceServiceSuite) TestSetRepositoryResourcesApplicationInvalidInfo(
 
 	// Assert
 	c.Assert(err, jc.ErrorIs, resourceerrors.ArgumentNotValid)
+}
+
+// TestUpdateResourceRevisionFile tests the happy path for the UpdateResourceRevision
+// method for file resource types.
+func (s *resourceServiceSuite) TestUpdateResourceRevisionFile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	resUUID := resourcetesting.GenResourceUUID(c)
+
+	s.state.EXPECT().GetResourceType(gomock.Any(), resUUID).Return(charmresource.TypeFile, nil)
+	expectedArgs := resource.UpdateResourceRevisionArgs{
+		ResourceUUID: resUUID,
+		Revision:     4,
+	}
+	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeFile).Return(fp.String(), nil)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeFile).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Remove(gomock.Any(), blobPath(resUUID, fp.String())).Return(nil)
+
+	args := resource.UpdateResourceRevisionArgs{
+		ResourceUUID: resUUID,
+		Revision:     4,
+	}
+	err = s.service.UpdateResourceRevision(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestUpdateResourceRevisionFile tests the happy path for the UpdateResourceRevision
+// method for container image resource types.
+func (s *resourceServiceSuite) TestUpdateResourceRevisionImage(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	resUUID := resourcetesting.GenResourceUUID(c)
+
+	s.state.EXPECT().GetResourceType(gomock.Any(), resUUID).Return(charmresource.TypeContainerImage, nil)
+	expectedArgs := resource.UpdateResourceRevisionArgs{
+		ResourceUUID: resUUID,
+		Revision:     4,
+	}
+	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeContainerImage).Return(fp.String(), nil)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeContainerImage).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Remove(gomock.Any(), blobPath(resUUID, fp.String())).Return(nil)
+
+	args := resource.UpdateResourceRevisionArgs{
+		ResourceUUID: resUUID,
+		Revision:     4,
+	}
+	err = s.service.UpdateResourceRevision(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestUpdateResourceRevisionNoFingerprint tests no attempt to remove from a store, a
+// resource with is not stored.
+func (s *resourceServiceSuite) TestUpdateResourceRevisionNoFingerprint(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	resUUID := resourcetesting.GenResourceUUID(c)
+
+	s.state.EXPECT().GetResourceType(gomock.Any(), resUUID).Return(charmresource.TypeFile, nil)
+	expectedArgs := resource.UpdateResourceRevisionArgs{
+		ResourceUUID: resUUID,
+		Revision:     4,
+	}
+
+	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeFile).Return("", nil)
+
+	args := resource.UpdateResourceRevisionArgs{
+		ResourceUUID: resUUID,
+		Revision:     4,
+	}
+	err := s.service.UpdateResourceRevision(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestUpdateResourceRevisionFailValidate tests that a NotValid error is returned
+// for a bad ResourceUUID.
+func (s *resourceServiceSuite) TestUpdateResourceRevisionNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := resource.UpdateResourceRevisionArgs{
+		ResourceUUID: "deadbeef",
+		Revision:     4,
+	}
+
+	err := s.service.UpdateResourceRevision(context.Background(), args)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+// TestAddResourcesBeforeApplication tests the happy path for the
+// AddResourcesBeforeApplication method.
+func (s *resourceServiceSuite) TestAddResourcesBeforeApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rev := 7
+	args := resource.AddResourcesBeforeApplicationArgs{
+		CharmUUID:       charmtesting.GenCharmID(c),
+		ApplicationName: "testme",
+		ResourceDetails: []resource.AddResourceDetails{
+			{
+				Name:     "one",
+				Origin:   charmresource.OriginStore,
+				Revision: &rev,
+			}, {
+				Name:   "two",
+				Origin: charmresource.OriginUpload,
+			},
+		},
+	}
+	retVal := []coreresource.UUID{resourcetesting.GenResourceUUID(c), resourcetesting.GenResourceUUID(c)}
+	s.state.EXPECT().AddResourcesBeforeApplication(gomock.Any(), args).Return(retVal, nil)
+
+	uuids, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuids, gc.HasLen, 2)
+}
+
+// TestAddResourcesBeforeApplicationAppNameNotValid tests that a
+// ApplicationNameNotValid error is returned for a bad application name.
+func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationAppNameNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := resource.AddResourcesBeforeApplicationArgs{
+		CharmUUID: charmtesting.GenCharmID(c),
+	}
+
+	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNameNotValid)
+}
+
+// TestAddResourcesBeforeApplicationResNameNotValid tests that a
+// ResourceNameNotValid error is returned for a bad resource name.
+func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationResNameNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := resource.AddResourcesBeforeApplicationArgs{
+		CharmUUID:       charmtesting.GenCharmID(c),
+		ApplicationName: "testme",
+		ResourceDetails: []resource.AddResourceDetails{
+			{
+				Name: "",
+			},
+		},
+	}
+
+	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNameNotValid)
+}
+
+// TestAddResourcesBeforeApplicationArgNotValid tests that a NotValid error is
+// returned for a bad Charm ID.
+func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationArgNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := resource.AddResourcesBeforeApplicationArgs{}
+
+	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestAddResourcesBeforeApplicationArgNotValidStore tests that a
+// ArgumentNotValid error is returned a store resource without a revision.
+func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationArgumentNotValidStore(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := resource.AddResourcesBeforeApplicationArgs{
+		CharmUUID:       charmtesting.GenCharmID(c),
+		ApplicationName: "testme",
+		ResourceDetails: []resource.AddResourceDetails{
+			{
+				Name:   "test",
+				Origin: charmresource.OriginStore,
+			},
+		},
+	}
+
+	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ArgumentNotValid)
+}
+
+// TestAddResourcesBeforeApplicationArgNotValidUpload tests that a
+// ArgumentNotValid error is returned upload resource with a revision.
+func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationArgumentNotValidUpload(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rev := 8
+	args := resource.AddResourcesBeforeApplicationArgs{
+		CharmUUID:       charmtesting.GenCharmID(c),
+		ApplicationName: "testme",
+		ResourceDetails: []resource.AddResourceDetails{
+			{
+				Name:     "test",
+				Origin:   charmresource.OriginUpload,
+				Revision: &rev,
+			},
+		},
+	}
+
+	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ArgumentNotValid)
+}
+
+// TestDeleteResourcesAddedBeforeApplication tests the happy path for the
+// DeleteResourcesAddedBeforeApplication method.
+func (s *resourceServiceSuite) TestDeleteResourcesAddedBeforeApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	resourceUUIDs := []coreresource.UUID{
+		resourcetesting.GenResourceUUID(c),
+		resourcetesting.GenResourceUUID(c),
+	}
+	s.state.EXPECT().DeleteResourcesAddedBeforeApplication(gomock.Any(), resourceUUIDs).Return(nil)
+
+	err := s.service.DeleteResourcesAddedBeforeApplication(context.Background(), resourceUUIDs)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestDeleteResourcesAddedBeforeApplication tests that a NotValid error is
+// returned by the DeleteResourcesAddedBeforeApplication method for invalid
+// resource uuids.
+func (s *resourceServiceSuite) TestDeleteResourcesAddedBeforeApplicationNotValid(c *gc.C) {
+	resourceUUIDs := []coreresource.UUID{resourcetesting.GenResourceUUID(c), "deadbeef"}
+
+	err := s.service.DeleteResourcesAddedBeforeApplication(context.Background(), resourceUUIDs)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *resourceServiceSuite) setupMocks(c *gc.C) *gomock.Controller {

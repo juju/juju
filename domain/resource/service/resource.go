@@ -23,9 +23,19 @@ import (
 
 // State describes retrieval and persistence methods for resource.
 type State interface {
+	// AddResourcesBeforeApplication adds the details of which resource
+	// revision to use before the application exists in the model. The
+	// charm and resource metadata must exist.
+	AddResourcesBeforeApplication(ctx context.Context, arg resource.AddResourcesBeforeApplicationArgs) ([]coreresource.UUID, error)
+
 	// DeleteApplicationResources removes all associated resources of a given
 	// application identified by applicationID.
 	DeleteApplicationResources(ctx context.Context, applicationID coreapplication.ID) error
+
+	// DeleteResourcesAddedBeforeApplication removes all resources for the
+	// given resource UUIDs. These resource UUIDs must have been returned
+	// by AddResourcesBeforeApplication.
+	DeleteResourcesAddedBeforeApplication(ctx context.Context, resUUIDs []coreresource.UUID) error
 
 	// DeleteUnitResources deletes the association of resources with a specific
 	// unit.
@@ -101,10 +111,21 @@ type State interface {
 	// application to the provided values. The current data for this
 	// application/resource combination will be overwritten.
 	SetRepositoryResources(ctx context.Context, config resource.SetRepositoryResourcesArgs) error
+
+	// UpdateResourceRevisionAndDeletePriorVersion updates the revision of resource
+	// to a new version. Increments charm modified version for the application to
+	// trigger use of the new resource revision by the application. Any stored
+	// resource will be deleted from the DB. The droppedHash will be returned to aid
+	// in removing from the object store.
+	UpdateResourceRevisionAndDeletePriorVersion(
+		ctx context.Context,
+		arg resource.UpdateResourceRevisionArgs,
+		resType charmresource.Type,
+	) (string, error)
 }
 
 type ResourceStoreGetter interface {
-	// GetResourceStore returns the appropriate ResourceStore for the
+	// GetResourceStore returns the appropriate  ResourceStore for the
 	// given resource type.
 	GetResourceStore(context.Context, charmresource.Type) (coreresourcestore.ResourceStore, error)
 }
@@ -543,6 +564,101 @@ func (s *Service) SetRepositoryResources(
 		return errors.Errorf("zero LastPolled: %w", resourceerrors.ArgumentNotValid)
 	}
 	return s.st.SetRepositoryResources(ctx, args)
+}
+
+// AddResourcesBeforeApplication adds the details of which resource
+// revision to use before the application exists in the model. The
+// charm and resource metadata must exist. These resources are resolved
+// when the application is created using the returned Resource UUIDs.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.CharmIDNotValid] is returned if the Charm ID is not valid.
+//   - [resourceerrors.ArgumentNotValid] is returned if the origin is store and the revision
+//     is empty.
+//   - [resourceerrors.ResourceNameNotValid] is returned if resource name is empty.
+//   - [resourceerrors.ApplicationNameNotFound] if the specified application does
+//     not exist.
+func (s *Service) AddResourcesBeforeApplication(ctx context.Context, arg resource.AddResourcesBeforeApplicationArgs) ([]coreresource.UUID, error) {
+	if err := arg.CharmUUID.Validate(); err != nil {
+		return nil, errors.Errorf("%w: %w", resourceerrors.CharmIDNotValid, err)
+	}
+	if !isValidApplicationName(arg.ApplicationName) {
+		return nil, errors.Errorf("application name : %w", resourceerrors.ApplicationNameNotValid)
+	}
+	for _, res := range arg.ResourceDetails {
+		if res.Name == "" {
+			return nil, errors.Errorf("resource name is empty: %w", resourceerrors.ResourceNameNotValid)
+		}
+		if res.Origin == charmresource.OriginStore && res.Revision == nil {
+			return nil, errors.Errorf("revision is empty for store resource: %w", resourceerrors.ArgumentNotValid)
+		}
+		if res.Origin == charmresource.OriginUpload && res.Revision != nil {
+			return nil, errors.Errorf("revision is set for upload resource: %w", resourceerrors.ArgumentNotValid)
+		}
+	}
+	resourceUUIDs, err := s.st.AddResourcesBeforeApplication(ctx, arg)
+	if err != nil {
+		return nil, errors.Errorf("failed to add resources: %w", err)
+	}
+	return resourceUUIDs, nil
+}
+
+// UpdateResourceRevision updates the revision of a store resource to a new
+// version. Increments charm modified version for the application to
+// trigger use of the new resource revision by the application. To allow for
+// a resource upgrade, the current resource blob is removed.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceUUIDNotValid] is returned if the Resource ID is not valid.
+func (s *Service) UpdateResourceRevision(ctx context.Context, arg resource.UpdateResourceRevisionArgs) error {
+	if err := arg.ResourceUUID.Validate(); err != nil {
+		return errors.Errorf("%w: %w", resourceerrors.ResourceUUIDNotValid, err)
+	}
+
+	resType, err := s.st.GetResourceType(ctx, arg.ResourceUUID)
+	if err != nil {
+		return err
+	}
+
+	droppedHash, err := s.st.UpdateResourceRevisionAndDeletePriorVersion(
+		ctx,
+		resource.UpdateResourceRevisionArgs{
+			ResourceUUID: arg.ResourceUUID,
+			Revision:     arg.Revision,
+		},
+		resType,
+	)
+	if err != nil {
+		return err
+	}
+
+	if droppedHash != "" {
+		store, err := s.resourceStoreGetter.GetResourceStore(ctx, resType)
+		if err != nil {
+			return errors.Errorf("getting resource store for %s: %w", resType.String(), err)
+		}
+
+		err = store.Remove(ctx, blobPath(arg.ResourceUUID, droppedHash))
+		if err != nil {
+			s.logger.Errorf(context.TODO(), "failed to remove resource with ID %s from the store", arg.ResourceUUID)
+		}
+	}
+	return err
+}
+
+// DeleteResourcesAddedBeforeApplication removes all resources for the
+// given resource UUIDs. These resource UUIDs must have been returned
+// by AddResourcesBeforeApplication.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceUUIDNotValid] is returned if the Resource ID is not valid.
+func (s *Service) DeleteResourcesAddedBeforeApplication(ctx context.Context, resUUIDs []coreresource.UUID) error {
+	for _, resUUID := range resUUIDs {
+		if err := resUUID.Validate(); err != nil {
+			return errors.Errorf("%w: %w", resourceerrors.ResourceUUIDNotValid, err)
+		}
+	}
+	return s.st.DeleteResourcesAddedBeforeApplication(ctx, resUUIDs)
 }
 
 // Store the resource with a path made up of the UUID and the resource

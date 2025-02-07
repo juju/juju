@@ -83,3 +83,34 @@ type RecordStoredResourceArgs struct {
 	// Revision indicates the resource revision.
 	Revision int
 }
+
+// AddResourcesBeforeApplicationArgs holds arguments to indicate a resources revision or upload
+// before the application has been created.
+type AddResourcesBeforeApplicationArgs struct {
+	// ApplicationName is the unique name of the application.
+	ApplicationName string
+	// CharmUUID is the unique identifier of the charm.
+	CharmUUID corecharm.ID
+	// ResourceDetails contains individual resource details.
+	ResourceDetails []AddResourceDetails
+}
+
+// AddResourceDetails contains details of the resource to be added before
+// the application exists.
+type AddResourceDetails struct {
+	// Name is resource name.
+	Name string
+	// Origin is where the resource comes from.
+	Origin charmresource.Origin
+	// Revision is a optional revision value, not required for uploaded resources.
+	Revision *int
+}
+
+// UpdateResourceRevisionArgs holds arguments to update a resource to have
+// a new revision.
+type UpdateResourceRevisionArgs struct {
+	// ResourceUUID is the unique identifier of the resource.
+	ResourceUUID coreresource.UUID
+	// Revision is the revision of the resource to use.
+	Revision int
+}

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -58,7 +59,6 @@ func (st *State) DeleteApplicationResources(
 		return errors.Capture(err)
 	}
 
-	type uuids []string
 	appIdentity := resourceIdentity{ApplicationUUID: applicationID.String()}
 
 	// SQL statement to list all resources for an application.
@@ -165,30 +165,14 @@ WHERE uuid IN ($uuids[:])`, uuids{})
 			return errors.Capture(err)
 		}
 
-		safedelete := func(stmt *sqlair.Statement) error {
-			var outcome sqlair.Outcome
-			err = tx.Query(ctx, stmt, resUUIDs).Get(&outcome)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			num, err := outcome.Result().RowsAffected()
-			if err != nil {
-				return errors.Capture(err)
-			}
-			if num != int64(len(resUUIDs)) {
-				return errors.Errorf("expected %d rows to be deleted, got %d", len(resUUIDs), num)
-			}
-			return nil
-		}
-
 		// delete resources from application_resource.
-		err = safedelete(deleteFromApplicationResourceStmt)
+		err = st.safeDeleteResourceUUIDs(ctx, tx, deleteFromApplicationResourceStmt, resUUIDs)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
 		// delete resources from resource.
-		return safedelete(deleteFromResourceStmt)
+		return st.safeDeleteResourceUUIDs(ctx, tx, deleteFromResourceStmt, resUUIDs)
 	})
 }
 
@@ -628,6 +612,24 @@ func (st *State) GetResourceType(
 		return 0, errors.Capture(err)
 	}
 
+	var resKind charmresource.Type
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var errQuery error
+		resKind, errQuery = st.getResourceType(ctx, tx, resourceUUID)
+		return errors.Capture(errQuery)
+	})
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	return resKind, nil
+}
+
+func (st *State) getResourceType(
+	ctx context.Context,
+	tx *sqlair.TX,
+	resourceUUID coreresource.UUID,
+) (charmresource.Type, error) {
 	resKind := resourceKind{
 		UUID: resourceUUID.String(),
 	}
@@ -640,14 +642,10 @@ WHERE  uuid = $resourceKind.uuid
 		return 0, errors.Capture(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, getResourceType, resKind).Get(&resKind)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return resourceerrors.ResourceNotFound
-		}
-		return errors.Capture(err)
-	})
-	if err != nil {
+	err = tx.Query(ctx, getResourceType, resKind).Get(&resKind)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return 0, resourceerrors.ResourceNotFound
+	} else if err != nil {
 		return 0, errors.Capture(err)
 	}
 
@@ -655,7 +653,7 @@ WHERE  uuid = $resourceKind.uuid
 	if err != nil {
 		return 0, errors.Errorf("parsing resource kind: %w", err)
 	}
-	return kind, err
+	return kind, nil
 }
 
 // replaceFileResource checks that the storage ID corresponds to stored object
@@ -1354,6 +1352,306 @@ WHERE uuid = $updatePotentialResource.uuid
 		return nil
 	})
 	return errors.Capture(err)
+}
+
+// AddResourcesBeforeApplication adds the details of which resource
+// revisions to use before the application exists in the model. The
+// charm and resource metadata must exist.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.CharmResourceNotFound] if the charm or charm resource
+//     do not exist.
+func (st *State) AddResourcesBeforeApplication(
+	ctx context.Context,
+	args resource.AddResourcesBeforeApplicationArgs,
+) ([]coreresource.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	resources, resourceUUIDs, err := st.buildResourcesToAdd(args.CharmUUID.String(), args.ResourceDetails)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Prepare SQL statement to insert the resource.
+	insertStmt, err := st.Prepare(`
+INSERT INTO resource (uuid, charm_uuid, charm_resource_name, revision, 
+       origin_type_id, state_id, created_at)
+SELECT $addPendingResource.uuid,
+       $addPendingResource.charm_uuid,
+       $addPendingResource.charm_resource_name,
+       $addPendingResource.revision,
+       rot.id,
+       rs.id,
+       $addPendingResource.created_at
+FROM   resource_origin_type rot,
+       resource_state rs
+WHERE  rot.name = $addPendingResource.origin_type_name
+AND    rs.name = $addPendingResource.state_name`, addPendingResource{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Prepare SQL statement to link resource with application name.
+	linkStmt, err := st.Prepare(`
+INSERT INTO pending_application_resource (application_name, resource_uuid)
+VALUES ($linkResourceApplication.*)`, linkResourceApplication{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Insert resources
+		for _, res := range resources {
+			// Insert the resource.
+			err = tx.Query(ctx, insertStmt, res).Run()
+			if internaldatabase.IsErrConstraintForeignKey(err) {
+				return errors.New("charm or charm resource does not exist").Add(resourceerrors.CharmResourceNotFound)
+			} else if err != nil {
+				return errors.Errorf("inserting resource %q: %w", res.Name, err)
+			}
+
+			// Link the resource to the application name.
+			if err = tx.Query(ctx, linkStmt, linkResourceApplication{
+				ResourceUUID:    res.UUID,
+				ApplicationName: args.ApplicationName,
+			}).Run(); err != nil {
+				return errors.Errorf(
+					"linking resource %q to application %q: %w",
+					res.Name, args.ApplicationName, err)
+			}
+		}
+		return nil
+	})
+	return resourceUUIDs, errors.Capture(err)
+}
+
+// buildResourcesToAdd creates resources to add based on provided app and charm
+// resources.
+// Returns a slice of addPendingResource, a slice of the created resource
+// UUIDs, and an error if any issues occur during creation.
+func (st *State) buildResourcesToAdd(
+	charmUUID string,
+	appResources []resource.AddResourceDetails,
+) ([]addPendingResource, []coreresource.UUID, error) {
+	resources := make([]addPendingResource, len(appResources))
+	result := make([]coreresource.UUID, len(appResources))
+	now := st.clock.Now()
+	for i, r := range appResources {
+		uuid, err := coreresource.NewUUID()
+		if err != nil {
+			return nil, nil, errors.Capture(err)
+		}
+		result[i] = uuid
+		resources[i] = addPendingResource{
+			UUID:      uuid.String(),
+			CharmUUID: charmUUID,
+			Name:      r.Name,
+			Revision:  r.Revision,
+			Origin:    r.Origin.String(),
+			State:     coreresource.StateAvailable.String(),
+			CreatedAt: now,
+		}
+	}
+	return resources, result, nil
+}
+
+// UpdateResourceRevisionAndDeletePriorVersion updates the revision of resource
+// to a new version. Increments charm modified version for the application to
+// trigger use of the new resource revision by the application. Any stored
+// resource will be deleted from the DB. The droppedHash will be returned to aid
+// in removing from the object store.
+func (st *State) UpdateResourceRevisionAndDeletePriorVersion(
+	ctx context.Context,
+	args resource.UpdateResourceRevisionArgs,
+	resourceType charmresource.Type,
+) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var droppedHash string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Setup to delete the blob in the service if one exists.
+		switch resourceType {
+		case charmresource.TypeFile:
+			droppedHash, err = st.deleteFileResource(ctx, tx, args.ResourceUUID)
+			if err != nil && !errors.Is(err, resourceerrors.StoredResourceNotFound) {
+				return errors.Errorf("deleting stored file resource information: %w", err)
+			}
+		case charmresource.TypeContainerImage:
+			droppedHash, err = st.deleteImageResource(ctx, tx, args.ResourceUUID)
+			if err != nil && !errors.Is(err, resourceerrors.StoredResourceNotFound) {
+				return errors.Errorf("deleting stored image resource information: %w", err)
+			}
+		default:
+			return errors.Errorf("unknown resource type: %q", resourceType.String())
+		}
+
+		err = st.updateOriginAndRevision(
+			ctx,
+			tx,
+			args.ResourceUUID,
+			charmresource.OriginStore,
+			args.Revision)
+		if err != nil {
+			return errors.Errorf("updating resource revision and origin: %w", err)
+		}
+		err = st.incrementCharmModifiedVersion(ctx, tx, args.ResourceUUID)
+		if err != nil {
+			return errors.Errorf(
+				"incrementing charm modified version for application of resource %s: %w",
+				args.ResourceUUID, err)
+		}
+		return nil
+	})
+	return droppedHash, errors.Capture(err)
+}
+
+// deleteFileResource deletes the resource_file_store row for the given
+// resource UUID and returns the hash from it.
+func (st *State) deleteFileResource(
+	ctx context.Context,
+	tx *sqlair.TX,
+	resUUID coreresource.UUID,
+) (string, error) {
+	uuidToDelete := resourceUUID{UUID: resUUID.String()}
+	dropped := hash{}
+
+	queryStoredHash, err := st.Prepare(`
+SELECT &hash.*
+FROM   resource_file_store
+WHERE  resource_uuid = $resourceUUID.uuid
+`, dropped, uuidToDelete)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, queryStoredHash, uuidToDelete).Get(&dropped)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", resourceerrors.StoredResourceNotFound
+	} else if err != nil {
+		return "", errors.Errorf("removing stored file resource %s: %w", resUUID, err)
+	}
+
+	removeExistingStoredResource, err := st.Prepare(`
+DELETE FROM   resource_file_store
+WHERE         resource_uuid = $resourceUUID.uuid
+`, uuidToDelete)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, removeExistingStoredResource, uuidToDelete).Run()
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", resourceerrors.StoredResourceNotFound
+	} else if err != nil {
+		return "", errors.Errorf("removing stored file resource %s: %w", resUUID, err)
+	}
+
+	return dropped.Hash, nil
+}
+
+// deleteImageResource deletes the resource_image_store row for the given
+// resource UUID and returns the hash from it.
+func (st *State) deleteImageResource(
+	ctx context.Context,
+	tx *sqlair.TX,
+	resUUID coreresource.UUID,
+) (string, error) {
+	uuidToDelete := resourceUUID{UUID: resUUID.String()}
+	dropped := hash{}
+
+	queryStoredHash, err := st.Prepare(`
+SELECT sha384 AS &hash.*
+FROM   resource_image_store
+WHERE  resource_uuid = $resourceUUID.uuid
+`, dropped, uuidToDelete)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, queryStoredHash, uuidToDelete).Get(&dropped)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", resourceerrors.StoredResourceNotFound
+	} else if err != nil {
+		return "", errors.Errorf("removing stored image resource %s: %w", resUUID, err)
+	}
+
+	removeExistingStoredResource, err := st.Prepare(`
+DELETE FROM   resource_image_store
+WHERE         resource_uuid = $resourceUUID.uuid
+`, uuidToDelete)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, removeExistingStoredResource, uuidToDelete).Run()
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", resourceerrors.StoredResourceNotFound
+	} else if err != nil {
+		return "", errors.Errorf("removing stored image resource %s: %w", resUUID, err)
+	}
+
+	return dropped.Hash, nil
+}
+
+// DeleteResourcesAddedBeforeApplication removes all resources for the
+// given resource UUIDs. These resource UUIDs must have been returned
+// by AddResourcesBeforeApplication.
+func (st *State) DeleteResourcesAddedBeforeApplication(ctx context.Context, resources []coreresource.UUID) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	resUUIDs := make(uuids, 0, len(resources))
+	for _, res := range resources {
+		resUUIDs = append(resUUIDs, res.String())
+	}
+
+	// SQL statement to delete resources from pending_application_resource.
+	deleteFromPendingApplicationResourceStmt, err := st.Prepare(`
+DELETE FROM pending_application_resource
+WHERE resource_uuid IN ($uuids[:])`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// SQL statement to delete resources from resource.
+	deleteFromResourceStmt, err := st.Prepare(`
+DELETE FROM resource
+WHERE uuid IN ($uuids[:])`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.safeDeleteResourceUUIDs(ctx, tx, deleteFromPendingApplicationResourceStmt, resUUIDs); err != nil {
+			return errors.Capture(err)
+		}
+		return st.safeDeleteResourceUUIDs(ctx, tx, deleteFromResourceStmt, resUUIDs)
+	})
+	return errors.Capture(err)
+}
+
+func (st *State) safeDeleteResourceUUIDs(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, resUUIDs uuids) error {
+	var outcome sqlair.Outcome
+	err := tx.Query(ctx, stmt, resUUIDs).Get(&outcome)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	num, err := outcome.Result().RowsAffected()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if num != int64(len(resUUIDs)) {
+		return errors.Errorf("expected %d rows to be deleted, got %d", len(resUUIDs), num)
+	}
+	return nil
 }
 
 // checkApplicationIDExists checks if an application exists in the database by its UUID.
