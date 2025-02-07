@@ -292,8 +292,9 @@ func (c *ModelConfigAPI) SetModelConstraints(ctx context.Context, args params.Se
 	if errors.Is(err, networkerrors.SpaceNotFound) {
 		return apiservererrors.ParamsErrorf(
 			params.CodeNotFound,
-			"space not found for model constraint %q",
+			"space not found for model constraint %q: %v",
 			c.modelUUID,
+			err,
 		)
 	}
 	if errors.Is(err, machineerrors.InvalidContainerType) {
