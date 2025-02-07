@@ -489,7 +489,13 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Scale:    1,
+		Storage: []application.AddApplicationStorageArg{{
+			Name:  "data",
+			Pool:  "loop",
+			Size:  10,
+			Count: 1,
+		}},
+		Scale: 1,
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -595,7 +601,13 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Scale:    1,
+		Storage: []application.AddApplicationStorageArg{{
+			Name:  "data",
+			Pool:  "fast",
+			Size:  10,
+			Count: 2,
+		}},
+		Scale: 1,
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultBlockSource: ptr("fast")}, nil)
@@ -705,7 +717,13 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Scale:    1,
+		Storage: []application.AddApplicationStorageArg{{
+			Name:  "data",
+			Pool:  "rootfs",
+			Size:  10,
+			Count: 1,
+		}},
+		Scale: 1,
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -812,7 +830,13 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Scale:    1,
+		Storage: []application.AddApplicationStorageArg{{
+			Name:  "data",
+			Pool:  "fast",
+			Size:  10,
+			Count: 2,
+		}},
+		Scale: 1,
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultFilesystemSource: ptr("fast")}, nil)

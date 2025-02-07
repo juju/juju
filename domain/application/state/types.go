@@ -399,7 +399,6 @@ type setCharmExtraBinding struct {
 // for the property field.
 type charmStorage struct {
 	CharmUUID   string `db:"charm_uuid"`
-	Key         string `db:"key"`
 	Name        string `db:"name"`
 	Description string `db:"description"`
 	Kind        string `db:"kind"`
@@ -415,7 +414,6 @@ type charmStorage struct {
 // setCharmStorage is used to set the storage of a charm.
 type setCharmStorage struct {
 	CharmUUID   string `db:"charm_uuid"`
-	Key         string `db:"key"`
 	Name        string `db:"name"`
 	Description string `db:"description"`
 	KindID      int    `db:"storage_kind_id"`
@@ -430,7 +428,7 @@ type setCharmStorage struct {
 // setCharmStorageProperty is used to set the storage property of a charm.
 type setCharmStorageProperty struct {
 	CharmUUID string `db:"charm_uuid"`
-	Key       string `db:"charm_storage_key"`
+	Name      string `db:"charm_storage_name"`
 	Index     int    `db:"array_index"`
 	Value     string `db:"value"`
 }
@@ -633,6 +631,15 @@ type resourceToAdd struct {
 	Origin    string    `db:"origin_type_name"`
 	State     string    `db:"state_name"`
 	CreatedAt time.Time `db:"created_at"`
+}
+
+type storageToAdd struct {
+	ApplicationUUID string `db:"application_uuid"`
+	CharmUUID       string `db:"charm_uuid"`
+	StorageName     string `db:"storage_name"`
+	StoragePool     string `db:"storage_pool"`
+	Size            uint   `db:"size"`
+	Count           uint   `db:"count"`
 }
 
 type linkResourceApplication struct {

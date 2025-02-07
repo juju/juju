@@ -109,6 +109,48 @@ INSERT INTO object_store_metadata_path (path, metadata_uuid) VALUES (?, ?)
 	return uuid
 }
 
+func (s *baseSuite) addApplicationArgForStorage(c *gc.C,
+	name string,
+	charmStorage []charm.Storage,
+	addStorageArgs []application.AddApplicationStorageArg) application.AddApplicationArg {
+	platform := application.Platform{
+		Channel:      "666",
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &application.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+
+	metadata := s.minimalMetadata(c, name)
+	metadata.Storage = make(map[string]charm.Storage)
+	for _, stor := range charmStorage {
+		metadata.Storage[stor.Name] = stor
+	}
+	return application.AddApplicationArg{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata:      metadata,
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: name,
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		CharmDownloadInfo: &charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident-1",
+			DownloadURL:        "http://example.com/charm",
+			DownloadSize:       666,
+		},
+		Scale:   1,
+		Channel: channel,
+		Storage: addStorageArgs,
+	}
+}
+
 func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 

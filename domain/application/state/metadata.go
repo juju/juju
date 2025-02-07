@@ -233,11 +233,11 @@ func decodeStorage(storages []charmStorage) (map[string]charm.Storage, error) {
 	for _, storage := range storages {
 		// If the storage for the key already exists, then we need to merge the
 		// information. Generally, this will be a property addition.
-		if existing, ok := result[storage.Key]; ok {
+		if existing, ok := result[storage.Name]; ok {
 			existing.Properties = append(existing.Properties, storage.Property)
 
 			// Ensure we write it back to the map.
-			result[storage.Key] = existing
+			result[storage.Name] = existing
 			continue
 		}
 
@@ -253,7 +253,7 @@ func decodeStorage(storages []charmStorage) (map[string]charm.Storage, error) {
 			properties = append(properties, storage.Property)
 		}
 
-		result[storage.Key] = charm.Storage{
+		result[storage.Name] = charm.Storage{
 			Name:        storage.Name,
 			Description: storage.Description,
 			Type:        kind,
@@ -571,7 +571,7 @@ func encodeStorage(id corecharm.ID, storage map[string]charm.Storage) ([]setChar
 		storages   []setCharmStorage
 		properties []setCharmStorageProperty
 	)
-	for key, storage := range storage {
+	for _, storage := range storage {
 		kind, err := encodeStorageType(storage.Type)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot encode storage type %q: %w", storage.Type, err)
@@ -579,7 +579,6 @@ func encodeStorage(id corecharm.ID, storage map[string]charm.Storage) ([]setChar
 
 		storages = append(storages, setCharmStorage{
 			CharmUUID:   id.String(),
-			Key:         key,
 			Name:        storage.Name,
 			Description: storage.Description,
 			KindID:      kind,
@@ -594,7 +593,7 @@ func encodeStorage(id corecharm.ID, storage map[string]charm.Storage) ([]setChar
 		for i, property := range storage.Properties {
 			properties = append(properties, setCharmStorageProperty{
 				CharmUUID: id.String(),
-				Key:       key,
+				Name:      storage.Name,
 				Index:     i,
 				Value:     property,
 			})
