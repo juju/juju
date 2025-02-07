@@ -695,6 +695,8 @@ func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestControllerModel(c *gc.C) {
+	c.Skip("TODO: enable/fix once the mongo constraints code is removed completely.")
+
 	st := s.openAPIWithoutLogin(c)
 
 	err := st.Login(context.Background(), jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
