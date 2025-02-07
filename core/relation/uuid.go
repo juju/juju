@@ -4,10 +4,9 @@
 package relation
 
 import (
-	"fmt"
+	jujuerrors "github.com/juju/errors"
 
-	"github.com/juju/errors"
-
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -27,7 +26,7 @@ func NewUUID() (UUID, error) {
 // valid uuid an error satisfying [errors.NotValid] will be returned.
 func ParseUUID(value string) (UUID, error) {
 	if !uuid.IsValidUUIDString(value) {
-		return "", fmt.Errorf("id %q %w", value, errors.NotValid)
+		return "", errors.Errorf("parsing relation uuid %q: %w", value, jujuerrors.NotValid)
 	}
 	return UUID(value), nil
 }
@@ -41,10 +40,10 @@ func (u UUID) String() string {
 // satisfying [errors.NotValid] will be returned.
 func (u UUID) Validate() error {
 	if u == "" {
-		return fmt.Errorf("%wuuid cannot be empty", errors.Hide(errors.NotValid))
+		return errors.Errorf("%wrelation uuid cannot be empty", jujuerrors.Hide(jujuerrors.NotValid))
 	}
 	if !uuid.IsValidUUIDString(string(u)) {
-		return fmt.Errorf("uuid %q %w", u, errors.NotValid)
+		return errors.Errorf("relation uuid %q: %w", u, jujuerrors.NotValid)
 	}
 	return nil
 }
@@ -65,7 +64,7 @@ func NewUnitUUID() (UnitUUID, error) {
 // valid uuid an error satisfying [errors.NotValid] will be returned.
 func ParseUnitUUID(value string) (UnitUUID, error) {
 	if !uuid.IsValidUUIDString(value) {
-		return "", fmt.Errorf("id %q %w", value, errors.NotValid)
+		return "", errors.Errorf("parsing relation unit uuid %q: %w", value, jujuerrors.NotValid)
 	}
 	return UnitUUID(value), nil
 }
@@ -79,10 +78,10 @@ func (u UnitUUID) String() string {
 // satisfying [errors.NotValid] will be returned.
 func (u UnitUUID) Validate() error {
 	if u == "" {
-		return fmt.Errorf("%wuuid cannot be empty", errors.Hide(errors.NotValid))
+		return errors.Errorf("%wrelation unit uuid cannot be empty", jujuerrors.Hide(jujuerrors.NotValid))
 	}
 	if !uuid.IsValidUUIDString(string(u)) {
-		return fmt.Errorf("uuid %q %w", u, errors.NotValid)
+		return errors.Errorf("relation unit uuid %q: %w", u, jujuerrors.NotValid)
 	}
 	return nil
 }
@@ -103,7 +102,7 @@ func NewEndpointUUID() (EndpointUUID, error) {
 // valid uuid an error satisfying [errors.NotValid] will be returned.
 func ParseEndpointUUID(value string) (EndpointUUID, error) {
 	if !uuid.IsValidUUIDString(value) {
-		return "", fmt.Errorf("id %q %w", value, errors.NotValid)
+		return "", errors.Errorf("parsing endpoint uuid %q: %w", value, jujuerrors.NotValid)
 	}
 	return EndpointUUID(value), nil
 }
@@ -117,10 +116,10 @@ func (u EndpointUUID) String() string {
 // satisfying [errors.NotValid] will be returned.
 func (u EndpointUUID) Validate() error {
 	if u == "" {
-		return fmt.Errorf("%wuuid cannot be empty", errors.Hide(errors.NotValid))
+		return errors.Errorf("%wendpoint uuid cannot be empty", jujuerrors.Hide(jujuerrors.NotValid))
 	}
 	if !uuid.IsValidUUIDString(string(u)) {
-		return fmt.Errorf("uuid %q %w", u, errors.NotValid)
+		return errors.Errorf("endpoint uuid %q: %w", u, jujuerrors.NotValid)
 	}
 	return nil
 }
