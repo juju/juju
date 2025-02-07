@@ -35,7 +35,7 @@ func (s *connectionSuite) TestCloseMultipleOk(c *gc.C) {
 	apiConn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: conn,
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
@@ -77,7 +77,7 @@ func (s *connectionSuite) apiConnection(c *gc.C) api.Connection {
 		RPCConnection: conn,
 		ModelTag:      coretesting.ModelTag.String(),
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
@@ -237,7 +237,7 @@ func (s *connectionSuite) TestLoginToMigratedModel(c *gc.C) {
 		RPCConnection: conn,
 		ModelTag:      coretesting.ModelTag.String(),
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
@@ -329,7 +329,7 @@ func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 		RPCConnection: conn,
 		ModelTag:      coretesting.ModelTag.String(),
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})

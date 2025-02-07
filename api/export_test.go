@@ -72,8 +72,15 @@ func NewTestingConnection(c *gc.C, params TestingConnectionParams) Connection {
 		c.Assert(err, gc.IsNil)
 		modelTag = t
 	}
-	url, err := url.Parse(params.Address)
-	c.Assert(err, gc.IsNil)
+	url := &url.URL{}
+	if params.Address != "" {
+		var err error
+		url, err = url.Parse(params.Address)
+		c.Assert(err, gc.IsNil)
+		c.Assert(url.Scheme, gc.Not(gc.Equals), "")
+		c.Assert(url.Host, gc.Not(gc.Equals), "")
+		c.Assert(url.Port(), gc.Not(gc.Equals), "")
+	}
 	conn := &conn{
 		client:         params.RPCConnection,
 		clock:          params.Clock,
