@@ -57,6 +57,9 @@ const modelRoot = "/model/"
 // apiScheme is the default scheme used for connecting to the websocket API.
 const apiScheme = "wss"
 
+// serverScheme is the default scheme used for HTTP requests.
+const serverScheme = "https"
+
 var logger = loggo.GetLogger("juju.api")
 
 type rpcConnection interface {
@@ -176,7 +179,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		ipAddr:              dialResult.ipAddr,
 		cookieURL:           CookieURLFromHost(host),
 		pingerFacadeVersion: pingerFacadeVersions[len(pingerFacadeVersions)-1],
-		serverScheme:        "https",
+		serverScheme:        serverScheme,
 		// We keep the login provider around to provide auth headers
 		// when doing HTTP requests.
 		// If login fails, we discard the connection.
@@ -211,7 +214,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 // CookieURLFromHost creates a url.URL from a given host.
 func CookieURLFromHost(host string) *url.URL {
 	return &url.URL{
-		Scheme: "https",
+		Scheme: serverScheme,
 		Host:   host,
 		Path:   "/",
 	}
@@ -350,7 +353,6 @@ func (st *state) connectStreamWithRetry(path string, attrs url.Values, headers h
 // discharge-required error.
 func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.Header) (base.Stream, error) {
 	target := st.Addr()
-	target.Scheme = apiScheme
 	target.Path = gopath.Join(target.Path, path)
 	target.RawQuery = attrs.Encode()
 
@@ -429,7 +431,8 @@ func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 }
 
 // ControllerAPIURL returns the URL to use to connect to the controller API.
-// The address may contain a path component.
+// The address may contain a path component but may not contain a scheme
+// e.g. https://
 func ControllerAPIURL(addr string, port int) string {
 	addr, path, _ := strings.Cut(addr, "/")
 	hp := net.JoinHostPort(addr, strconv.Itoa(port))
@@ -468,8 +471,8 @@ func apiPath(model, path string) (string, error) {
 // and TLS configuration used to connect to it.
 type dialResult struct {
 	conn jsoncodec.JSONConn
-	// controllerRootAddr represents the controller's root address.
-	// E.g. wss://controller.com/foo
+	// controllerRootAddr represents the controller's root address
+	// e.g. wss://controller.com/foo
 	controllerRootAddr *url.URL
 	// dialAddr is the full URL (with no DNS resolution) that was actually dialed
 	// e.g. wss://controller.com/foo/api for the controller endpoint
@@ -678,7 +681,7 @@ type addressProvider struct {
 	dnsCache       DNSCache
 	ipAddrResolver IPAddrResolver
 
-	// A pool of host addresses to be resolved to one or more IP addresses.
+	// A pool of host URLs to be resolved to one or more IP addresses.
 	addrPool []*url.URL
 
 	// A pool of host addresses that got resolved via the DNS cache; these
@@ -942,11 +945,10 @@ func dialWebsocketMulti(ctx context.Context, addrs []*url.URL, apiPath string, o
 		// Make a copy of the controller's root URL before we append the API path.
 		// The original URL should be preserved because it too may contain a path segment
 		// if a controller is hosted on a subpath, e.g. https://controller.com/foo/bar.
-		urlWithAPIPath := &url.URL{}
-		*urlWithAPIPath = *resolvedAddr.url
+		urlWithAPIPath := *resolvedAddr.url
 		urlWithAPIPath.Path = gopath.Join(urlWithAPIPath.Path, apiPath)
 
-		err = startDialWebsocket(ctx, try, resolvedAddr.url, urlWithAPIPath, ipStr, opts)
+		err = startDialWebsocket(ctx, try, resolvedAddr.url, &urlWithAPIPath, ipStr, opts)
 		if err == parallel.ErrStopped {
 			break
 		}
@@ -1033,12 +1035,12 @@ type dialer struct {
 	serverName string
 
 	// addr holds the address that is being dialed,
-	// including any API specific paths.
-	// E.g. wss://controller.com/foo/bar/api
+	// including any API specific paths
+	// e.g. wss://controller.com/foo/bar/api.
 	addr *url.URL
 
-	// controllerRoot represents the root URL of the controller.
-	// E.g. wss://controller.com/foo/bar
+	// controllerRoot represents the root URL of the controller
+	// e.g. wss://controller.com/foo/bar.
 	controllerRoot *url.URL
 
 	// addr holds the ipaddr:port (one of the addresses

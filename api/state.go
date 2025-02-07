@@ -30,7 +30,7 @@ type state struct {
 	conn   jsoncodec.JSONConn
 	clock  clock.Clock
 
-	// addr is the address used to connect to the root of the API server.
+	// addr is the URL used to connect to the root of the API server.
 	addr *url.URL
 
 	// ipAddr is the IP address used to connect to the API server.
