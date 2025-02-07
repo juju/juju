@@ -89,7 +89,6 @@ func serverCerts() *mgotesting.Certs {
 func mustGenerateSSHServerHostKey() string {
 	_, privateKey, err := ed25519.GenerateKey(cryptorand.Reader)
 	if err != nil {
-
 		panic("failed to generate ED25519 key")
 	}
 

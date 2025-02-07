@@ -375,7 +375,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if err = w.addLocalControllerCharmsUpload(); err != nil {
 			return errors.Trace(err)
 		}
-	
+
 		if err := w.configureBootstrap(); err != nil {
 			return errors.Trace(err)
 		}

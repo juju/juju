@@ -17,14 +17,13 @@ import (
 	"strings"
 	"time"
 
-	cryptossh "golang.org/x/crypto/ssh"
-
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
+	cryptossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"

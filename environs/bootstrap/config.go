@@ -104,20 +104,20 @@ var BootstrapConfigSchema = environschema.Fields{
 	},
 	CACertKey: {
 		Description: fmt.Sprintf(
-			"Sets the bootstrapped controllers CA cert to use and issue "+
+			"Sets the bootstrapped controller's CA cert to use and issue "+
 				"certificates from, used in conjunction with %s",
 			CAPrivateKeyKey),
 		Type: environschema.Tstring,
 	},
 	CAPrivateKeyKey: {
 		Description: fmt.Sprintf(
-			"Sets the bootstrapped controllers CA cert private key to sign "+
+			"Sets the bootstrapped controller's CA cert private key to sign "+
 				"certificates with, used in conjunction with %s",
 			CACertKey),
 		Type: environschema.Tstring,
 	},
 	SSHServerHostKeyKey: {
-		Description: "Sets the bootstrapped controllers SSH server host key",
+		Description: "Sets the bootstrapped controller's SSH server host key",
 		Type:        environschema.Tstring,
 	},
 	BootstrapTimeoutKey: {
@@ -219,7 +219,7 @@ func (c Config) Validate() error {
 // Default values will be used where defaults are available.
 //
 // If ca-cert, ca-private-key or ssh-server-host-key are not set,
-// then we will check if ca-cert-path, ca-private-key-path ssh-server-host-key,
+// then we will check if ca-cert-path, ca-private-key-path ssh-server-host-key-path,
 // are set, and read the contents. If none of those are set, we will look for files
 // in well-defined locations: $JUJU_DATA/ca-cert.pem, and
 // $JUJU_DATA/ca-private-key.pem. If none of these are set, an

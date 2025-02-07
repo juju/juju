@@ -182,11 +182,11 @@ Bootstrap configuration keys:
         considering it failed in seconds
     ca-cert:
       type: string
-      description: Sets the bootstrapped controllers CA cert to use and issue certificates
+      description: Sets the bootstrapped controller's CA cert to use and issue certificates
         from, used in conjunction with ca-private-key
     ca-private-key:
       type: string
-      description: Sets the bootstrapped controllers CA cert private key to sign certificates
+      description: Sets the bootstrapped controller's CA cert private key to sign certificates
         with, used in conjunction with ca-cert
     controller-external-ips:
       type: list
@@ -203,7 +203,7 @@ Bootstrap configuration keys:
         valid values are one of cluster, loadbalancer, external
     ssh-server-host-key:
       type: string
-      description: Sets the bootstrapped controllers SSH server host key
+      description: Sets the bootstrapped controller's SSH server host key
     
 
 Controller configuration keys:
