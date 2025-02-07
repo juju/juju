@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/common"
 )
 
@@ -67,7 +66,7 @@ func (s *ErrorsSuite) TestNoValidation(c *gc.C) {
 	isAuthF := func(e error) bool {
 		return true
 	}
-	denied := common.HandleCredentialError(context.Background(), isAuthF, authFailureError, envcontext.WithoutCredentialInvalidator(context.Background()))
+	denied := common.HandleCredentialError(context.Background(), environs.NoopModelCredentialInvalidator{}, isAuthF, authFailureError)
 	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
 	c.Assert(denied, jc.IsTrue)
 }
@@ -76,10 +75,10 @@ func (s *ErrorsSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 	isAuthF := func(e error) bool {
 		return true
 	}
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
+	invalidator := modelCredentialInvalidator(func(reason environs.InvalidationReason) error {
 		return errors.New("kaboom")
 	})
-	denied := common.HandleCredentialError(context.Background(), isAuthF, authFailureError, ctx)
+	denied := common.HandleCredentialError(context.Background(), invalidator, isAuthF, authFailureError)
 	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored cloud credential on the controller")
 	c.Assert(denied, jc.IsTrue)
 }
@@ -107,13 +106,19 @@ func (s *ErrorsSuite) checkPermissionHandling(c *gc.C, e error, handled bool) {
 		return handled
 	}
 	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		c.Assert(msg, gc.Matches, "cloud denied access:.*auth failure")
+	invalidator := modelCredentialInvalidator(func(reason environs.InvalidationReason) error {
+		c.Assert(reason.String(), gc.Matches, "cloud denied access:.*auth failure")
 		called = true
 		return nil
 	})
 
-	denied := common.HandleCredentialError(context.Background(), isAuthF, e, ctx)
+	denied := common.HandleCredentialError(context.Background(), invalidator, isAuthF, e)
 	c.Assert(called, gc.Equals, handled)
 	c.Assert(denied, gc.Equals, handled)
+}
+
+type modelCredentialInvalidator func(reason environs.InvalidationReason) error
+
+func (m modelCredentialInvalidator) InvalidateModelCredential(_ context.Context, reason environs.InvalidationReason) error {
+	return m(reason)
 }

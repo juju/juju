@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 const (
@@ -41,23 +40,18 @@ var AuthorisationFailureStatusCodes = set.NewInts(
 
 // HandleCredentialError determines if a given error relates to an invalid credential.
 // If it is, the credential is invalidated and the return bool is true.
-func HandleCredentialError(ctx context.Context, isAuthError func(error) bool, err error, providerContext envcontext.ProviderCallContext) bool {
+func HandleCredentialError(ctx context.Context, invalidator environs.ModelCredentialInvalidator, isAuthError func(error) bool, err error) bool {
 	denied := isAuthError(errors.Cause(err))
 	if denied {
+		// TODO (stickupkid): We wrap the error in an error, than in another
+		// error, then dump it to a string, which seems absurd. We should just
+		// record the error and call it done. At no point do we need to set
+		// the location, but we do it anyway.
 		converted := fmt.Errorf("cloud denied access: %w", CredentialNotValidError(err))
-		invalidateErr := providerContext.InvalidateCredential(converted.Error())
+		invalidateErr := invalidator.InvalidateModelCredential(ctx, environs.InvalidationReason(converted.Error()))
 		if invalidateErr != nil {
 			logger.Warningf(ctx, "could not invalidate stored cloud credential on the controller: %v", invalidateErr)
 		}
 	}
 	return denied
-}
-
-// CredentialInvalidatorContext returns a provider call context.
-// This is a stop gap until we can remove all the ProviderCallContexts.
-// Deprecated: this should be removed.
-func CredentialInvalidatorContext(ctx context.Context, invalidator environs.ModelCredentialInvalidator) envcontext.ProviderCallContext {
-	return envcontext.WithCredentialInvalidator(ctx, func(ctx context.Context, reason string) error {
-		return invalidator.InvalidateModelCredential(ctx, environs.InvalidationReason(reason))
-	})
 }

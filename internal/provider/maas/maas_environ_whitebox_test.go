@@ -83,7 +83,7 @@ func (suite *maasEnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) {
 	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	return NewEnviron(context.Background(), cloud, cfg, nil)
+	return NewEnviron(context.Background(), cloud, cfg, environs.NoopModelCredentialInvalidator{}, nil)
 }
 
 func (suite *maasEnvironSuite) TestNewEnvironWithController(c *gc.C) {

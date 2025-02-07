@@ -246,7 +246,7 @@ func (s *lxdFilesystemSource) CreateFilesystems(ctx envcontext.ProviderCallConte
 		filesystem, err := s.createFilesystem(arg)
 		if err != nil {
 			results[i].Error = err
-			common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx)
+			common.HandleCredentialError(ctx, s.env.credentialInvalidator, IsAuthorisationFailure, err)
 			continue
 		}
 		results[i].Filesystem = filesystem
@@ -359,7 +359,7 @@ func (s *lxdFilesystemSource) DestroyFilesystems(ctx envcontext.ProviderCallCont
 	results := make([]error, len(filesystemIds))
 	for i, filesystemId := range filesystemIds {
 		results[i] = s.destroyFilesystem(filesystemId)
-		common.HandleCredentialError(ctx, IsAuthorisationFailure, results[i], ctx)
+		common.HandleCredentialError(ctx, s.env.credentialInvalidator, IsAuthorisationFailure, results[i])
 	}
 	return results, nil
 }
@@ -381,7 +381,7 @@ func (s *lxdFilesystemSource) ReleaseFilesystems(ctx envcontext.ProviderCallCont
 	results := make([]error, len(filesystemIds))
 	for i, filesystemId := range filesystemIds {
 		results[i] = s.releaseFilesystem(filesystemId)
-		common.HandleCredentialError(ctx, IsAuthorisationFailure, results[i], ctx)
+		common.HandleCredentialError(ctx, s.env.credentialInvalidator, IsAuthorisationFailure, results[i])
 	}
 	return results, nil
 }
@@ -431,7 +431,7 @@ func (s *lxdFilesystemSource) AttachFilesystems(ctx envcontext.ProviderCallConte
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
-		common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(ctx, s.env.credentialInvalidator, IsAuthorisationFailure, err)
 		return nil, errors.Trace(err)
 	}
 
@@ -454,7 +454,7 @@ func (s *lxdFilesystemSource) AttachFilesystems(ctx envcontext.ProviderCallConte
 				names.ReadableString(arg.Filesystem),
 				names.ReadableString(arg.Machine),
 			)
-			common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx)
+			common.HandleCredentialError(ctx, s.env.credentialInvalidator, IsAuthorisationFailure, err)
 			continue
 		}
 		results[i].FilesystemAttachment = attachment
@@ -510,7 +510,7 @@ func (s *lxdFilesystemSource) DetachFilesystems(ctx envcontext.ProviderCallConte
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
-		common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(ctx, s.env.credentialInvalidator, IsAuthorisationFailure, err)
 		return nil, errors.Trace(err)
 	}
 
@@ -528,7 +528,7 @@ func (s *lxdFilesystemSource) DetachFilesystems(ctx envcontext.ProviderCallConte
 		}
 		if inst != nil {
 			err := s.detachFilesystem(arg, inst)
-			common.HandleCredentialError(ctx, IsAuthorisationFailure, err, ctx)
+			common.HandleCredentialError(ctx, s.env.credentialInvalidator, IsAuthorisationFailure, err)
 			results[i] = errors.Annotatef(
 				err, "detaching %s",
 				names.ReadableString(arg.Filesystem),
@@ -549,7 +549,7 @@ func (s *lxdFilesystemSource) detachFilesystem(
 
 // ImportFilesystem is part of the storage.FilesystemImporter interface.
 func (s *lxdFilesystemSource) ImportFilesystem(
-	callCtx envcontext.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	filesystemId string,
 	tags map[string]string,
 ) (storage.FilesystemInfo, error) {
@@ -559,7 +559,7 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 	}
 	volume, eTag, err := s.env.server().GetStoragePoolVolume(lxdPool, storagePoolVolumeType, volumeName)
 	if err != nil {
-		common.HandleCredentialError(callCtx, IsAuthorisationFailure, err, callCtx)
+		common.HandleCredentialError(ctx, s.env.credentialInvalidator, IsAuthorisationFailure, err)
 		return storage.FilesystemInfo{}, errors.Trace(err)
 	}
 	if len(volume.UsedBy) > 0 {
@@ -595,7 +595,7 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 		}
 		if err := s.env.server().UpdateStoragePoolVolume(
 			lxdPool, storagePoolVolumeType, volumeName, volume.Writable(), eTag); err != nil {
-			common.HandleCredentialError(callCtx, IsAuthorisationFailure, err, callCtx)
+			common.HandleCredentialError(ctx, s.env.credentialInvalidator, IsAuthorisationFailure, err)
 			return storage.FilesystemInfo{}, errors.Annotate(err, "tagging volume")
 		}
 	}

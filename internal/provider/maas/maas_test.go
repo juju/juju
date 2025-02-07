@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/version"
+	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -63,7 +64,7 @@ func (suite *maasSuite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *m
 	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := NewEnviron(context.Background(), cloud, cfg, nil)
+	env, err := NewEnviron(context.Background(), cloud, cfg, environs.NoopModelCredentialInvalidator{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 	return env
