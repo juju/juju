@@ -1,12 +1,12 @@
 (logging)=
-Logging
-=======
+# Logging
+
 
 The intent of this documentation is to provide an overview of logging
 in Juju.
 
-Accessing logs as a user
-========================
+## Accessing logs as a user
+
 Please consult the available user documentation for details of how to
 access Juju's logs. Specifically:
 
@@ -15,8 +15,8 @@ access Juju's logs. Specifically:
   * juju help debug-log
   * juju-dumplogs --help
 
-Consolidated log infrastructure
-===============================
+## Consolidated log infrastructure
+
 All machine and unit agents run a "logsender" worker which sends the
 agent's logs to a controller using the "logsink" API. The "logsink"
 API handler writes the received logs to a "logs" collection in the

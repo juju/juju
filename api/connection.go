@@ -29,8 +29,8 @@ type conn struct {
 	conn   jsoncodec.JSONConn
 	clock  clock.Clock
 
-	// addr is the address used to connect to the API server.
-	addr string
+	// addr is the URL used to connect to the root of the API server.
+	addr *url.URL
 
 	// ipAddr is the IP address used to connect to the API server.
 	ipAddr string
@@ -147,10 +147,12 @@ func (c *conn) setLoginResult(p *LoginResultParams) error {
 	c.modelAccess = p.modelAccess
 
 	hostPorts := p.servers
-	// if the connection is not proxied then we will add the connection address
-	// to host ports
-	if !c.IsProxied() {
-		hostPorts, err = addAddress(p.servers, c.addr)
+	// If the connection is not proxied then we will add the connection address
+	// to host ports. Additionally if the connection address includes a path,
+	// it can't be added to host ports as it will lose the path so skip the
+	// address in scenarios where we connect through a load-balancer.
+	if !c.IsProxied() && c.addr.Path == "" {
+		hostPorts, err = addAddress(p.servers, c.addr.Host)
 		if err != nil {
 			if clerr := c.Close(); clerr != nil {
 				err = errors.Annotatef(err, "error closing conn: %v", clerr)
@@ -159,15 +161,6 @@ func (c *conn) setLoginResult(p *LoginResultParams) error {
 		}
 	}
 	c.hostPorts = hostPorts
-
-	if err != nil {
-		if clerr := c.Close(); clerr != nil {
-			err = errors.Annotatef(err, "error closing conn: %v", clerr)
-		}
-		return err
-	}
-	c.hostPorts = hostPorts
-
 	c.publicDNSName = p.publicDNSName
 
 	c.facadeVersions = make(map[string][]int, len(p.facades))

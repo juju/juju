@@ -65,7 +65,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiConnection = &mockAPIConnection{
 		controllerTag: names.NewControllerTag(mockControllerUUID),
-		addr:          serverURL.Host,
+		addr:          serverURL,
 	}
 	s.listModelsControllerName = ""
 	s.listModelsUserName = ""
@@ -258,7 +258,7 @@ Welcome, bob. You are now logged into "controller-name".
 	controller, err := s.store.ControllerByName(controllerName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller.ControllerUUID, gc.Equals, mockControllerUUID)
-	c.Assert(controller.APIEndpoints, jc.DeepEquals, []string{s.apiConnection.addr})
+	c.Assert(controller.APIEndpoints, jc.DeepEquals, []string{s.apiConnection.addr.String()})
 	c.Assert(controller.CACert, jc.DeepEquals, testing.CACert)
 	if withProxy {
 		c.Assert(controller.Proxy.Proxier.Type(), gc.Equals, "kubernetes-port-forward")
@@ -609,7 +609,8 @@ Enter a name for this controller: »foo
 	s.apiOpenError = errors.New("open failed")
 	err := s.run(c, prompter, registrationData)
 	c.Assert(c.GetTestLog(), gc.Matches, "(.|\n)*open failed(.|\n)*")
-	c.Assert(err, gc.ErrorMatches, `Cannot reach controller "foo" at: `+s.apiConnection.Addr()+".\n"+
+	controllerURL := s.apiConnection.Addr()
+	c.Assert(err, gc.ErrorMatches, `Cannot reach controller "foo" at: `+controllerURL.String()+".\n"+
 		"Check that the controller ip is reachable from your network.")
 }
 
@@ -861,7 +862,7 @@ func (s *RegisterSuite) mockServer(c *gc.C, proxy *params.Proxy) *mockServer {
 // encodeRegistrationData encodes the given registration info into a base64 string, replacing the RegistrationInfo.Addrs
 // field with the default address.
 func (s *RegisterSuite) encodeRegistrationData(c *gc.C, info jujuclient.RegistrationInfo) string {
-	info.Addrs = []string{s.apiConnection.addr}
+	info.Addrs = []string{s.apiConnection.addr.String()}
 	return s.encodeRegistrationDataWithAddrs(c, info)
 }
 

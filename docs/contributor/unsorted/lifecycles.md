@@ -1,8 +1,7 @@
 (lifecycles)=
-Lifecycles
-==========
+# Lifecycles
 
-In juju, certain fundamental state entities have "lifecycles". These entities
+In Juju, certain fundamental state entities have "lifecycles". These entities
 are:
 
   * Machines
@@ -29,8 +28,8 @@ There are two fundamental truths in this system:
 Beyond the above rules, lifecycle shifts occur at different times for different
 kinds of entities.
 
-Machines
---------
+## Machines
+
 
   * Like everything else, a machine starts out Alive. `juju bootstrap` aside,
     the user interface does not allow for direct creation of machines, but
@@ -48,9 +47,9 @@ Machines
     complexity with little direct benefit.)
   * When a machine has containers, `juju remove-machine` will fail, unless force
     is used.  However `juju destroy-controller` or `juju destroy-model` allows a
-    machine to move to dying with containers.  
+    machine to move to dying with containers.
   * Once a machine has been set to Dying, the corresponding Machine Agent (MA)
-    is responsible for setting it to Dead. A dying machine cannot transition to 
+    is responsible for setting it to Dead. A dying machine cannot transition to
     dead if there are containers. (Future plans: when Dying units are
     assigned, wait for them to become Dead and remove them completely before
     making the machine Dead; not an issue now because the machine can't yet
@@ -64,8 +63,7 @@ Machines
     storage and should thus be allowed to continue to shut down cleanly as they
     would usually do. Maybe.)
 
-Units
------
+## Units
 
   * A principal unit can be created directly with `juju deploy` or
     `juju add-unit`.
@@ -97,8 +95,7 @@ Units
     to its assigned machine agent, and of a machine to the JobManageModel
     machine agent.
 
-Applications
---------
+## Applications
 
   * Applications are created with `juju deploy`. Applications with duplicate names
     are not allowed (units and machine with duplicate names are not possible:
@@ -122,8 +119,7 @@ Applications
     for that relation. (Yes, this is a UA for a unit of a totally different
     application.)
 
-Relations
----------
+## Relations
 
   * A relation is created with `juju integrate`. No two relations with the
     same canonical name can exist. (The canonical relation name form is
@@ -155,8 +151,7 @@ Relations
     application (different to that of the acting UA) from removal; so, relation
     removal may also imply application removal.
 
-References
-----------
+## References
 
 OK, that was a bit of a hail of bullets, and the motivations for the above are
 perhaps not always clear. To consider it from another angle:
@@ -208,8 +203,7 @@ perspective the influences appear to travel in the opposite direction:
 ...and it takes a combination of these viewpoints to understand the detailed
 interactions laid out above.
 
-Agents
-------
+## Agents
 
 It may also be instructive to consider the responsibilities of the unit and
 machine agents. The unit agent is responsible for:
@@ -255,8 +249,7 @@ responsible for:
 
 Machines can in theory have multiple jobs, but in current practice do not.
 
-Implementation
---------------
+## Implementation
 
 All state change operations are mediated by the mgo/txn package, which provides
 multi-document transactions aginst MongoDB. This allows us to enforce the many
@@ -272,4 +265,4 @@ Beyond the plans detailed above, it is important to note that an agent that is
 failing to meet its responsibilities can have a somewhat distressing impact on
 the rest of the system. To counteract this, we have implemented a --force
 flag to remove-unit and remove-machine that forcibly sets an entity to
-Dead while maintaining consistency and sanity across all references. 
+Dead while maintaining consistency and sanity across all references.

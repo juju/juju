@@ -211,6 +211,7 @@ func (s *BaseCommandSuite) TestNewAPIRootExternalUser(c *gc.C) {
 	conn.EXPECT().Addr()
 	conn.EXPECT().IPAddr()
 	conn.EXPECT().PublicDNSName()
+	conn.EXPECT().IsProxied()
 	conn.EXPECT().ControllerAccess().MinTimes(1)
 
 	s.store.Accounts["foo"] = jujuclient.AccountDetails{

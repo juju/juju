@@ -125,10 +125,10 @@ func (c *MockConnectionAPIHostPortsCall) DoAndReturn(f func() []network.MachineH
 }
 
 // Addr mocks base method.
-func (m *MockConnection) Addr() string {
+func (m *MockConnection) Addr() *url.URL {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Addr")
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(*url.URL)
 	return ret0
 }
 

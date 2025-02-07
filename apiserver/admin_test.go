@@ -8,8 +8,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -312,7 +312,7 @@ func (s *loginSuite) TestLoginAddressesForAgents(c *gc.C) {
 
 func (s *loginSuite) loginHostPorts(
 	c *gc.C, info *api.Info,
-) (connectedAddr string, hostPorts []network.MachineHostPorts) {
+) (connectedAddr *url.URL, hostPorts []network.MachineHostPorts) {
 	st, err := api.Open(context.Background(), info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -331,7 +331,8 @@ func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *networ
 	// Initially just the address we connect with is returned by the helper
 	// because there are no APIHostPorts in state.
 	connectedAddr, hostPorts := s.loginHostPorts(c, info)
-	connectedAddrHost, connectedAddrPortString, err := net.SplitHostPort(connectedAddr)
+	connectedAddrHost := connectedAddr.Hostname()
+	connectedAddrPortString := connectedAddr.Port()
 	c.Assert(err, jc.ErrorIsNil)
 
 	connectedAddrPort, err := strconv.Atoi(connectedAddrPortString)
