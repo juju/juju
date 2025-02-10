@@ -546,13 +546,62 @@ WHERE uuid = $unitPassword.uuid
 	return nil
 }
 
-// GetUnitStatus returns the status of the specified unit.
-func (st *State) GetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID) (*application.StatusInfo[application.UnitWorkloadStatusType], error) {
-	return nil, errors.Errorf("not implemented")
+// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an error
+// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.UnitWorkloadStatusType], error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, jujuerrors.Trace(err)
+	}
+
+	unitUUID := unitUUID{UnitUUID: uuid}
+	getUnitStatusStmt, err := st.Prepare(`
+SELECT &statusInfo.* FROM unit_workload_status WHERE unit_uuid = $unitUUID.uuid
+`, statusInfo{}, unitUUID)
+	if err != nil {
+		return nil, jujuerrors.Trace(err)
+	}
+
+	var unitStatusInfo statusInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&unitStatusInfo)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("workload status for unit %q not found%w", unitUUID, jujuerrors.Hide(applicationerrors.UnitStatusNotFound))
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting workload status for unit %q: %w", unitUUID, err)
+	}
+
+	statusID, err := decodeWorkloadStatus(unitStatusInfo.StatusID)
+	if err != nil {
+		return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitUUID, err)
+	}
+
+	return &application.StatusInfo[application.UnitWorkloadStatusType]{
+		Status:  statusID,
+		Message: unitStatusInfo.Message,
+		Data:    unitStatusInfo.Data,
+		Since:   unitStatusInfo.UpdatedAt,
+	}, nil
 }
 
+// SetUnitWorkloadStatus updates the workload status of the specified unit, returning an error
+// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status *application.StatusInfo[application.UnitWorkloadStatusType]) error {
-	return errors.Errorf("not implemented")
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setUnitWorkloadStatus(ctx, tx, unitUUID, status)
+	})
+	if err != nil {
+		return errors.Errorf("setting workload status for unit %q: %w", unitUUID, err)
+	}
+	return nil
 }
 
 func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {

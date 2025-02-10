@@ -1404,12 +1404,57 @@ func (s *applicationStateSuite) TestSetUnitAgentStatus(c *gc.C) {
 		c, "unit_agent", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
 }
 
-func (s *applicationStateSuite) TestSetUnitWorkloadStatus(c *gc.C) {
+func assertStatusInfoEqual[T application.StatusID](c *gc.C, got, want *application.StatusInfo[T]) {
+	c.Check(got.Status, gc.Equals, want.Status)
+	c.Check(got.Message, gc.Equals, want.Message)
+	c.Check(got.Data, jc.DeepEquals, want.Data)
+	c.Check(got.Since.Sub(*want.Since), gc.Equals, time.Duration(0))
+}
+
+func (s *applicationStateSuite) TestGetAndSetUnitWorkloadStatus(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitStatusNotFound)
+
+	status := &application.StatusInfo[application.UnitWorkloadStatusType]{
+		Status:  application.UnitWorkloadStatusActive,
+		Message: "it's active!",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err = s.state.SetUnitWorkloadStatus(context.Background(), unitUUID, status)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotStatus, err := s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatusInfoEqual(c, gotStatus, status)
+
+	// Run SetUnitWorkloadStatus followed by GetUnitWorkloadStatus to ensure that
+	// the new status overwrites the old one.
+	status = &application.StatusInfo[application.UnitWorkloadStatusType]{
+		Status:  application.UnitWorkloadStatusTerminated,
+		Message: "it's terminated",
+		Data:    []byte(`{"bar": "foo"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err = s.state.SetUnitWorkloadStatus(context.Background(), unitUUID, status)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotStatus, err = s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatusInfoEqual(c, gotStatus, status)
+}
+
+func (s *applicationStateSuite) TestSetUnitWorkloadStatusNotFound(c *gc.C) {
 	status := application.StatusInfo[application.UnitWorkloadStatusType]{
 		Status:  application.UnitWorkloadStatusTerminated,
 		Message: "it's terminated",
@@ -1417,15 +1462,8 @@ func (s *applicationStateSuite) TestSetUnitWorkloadStatus(c *gc.C) {
 		Since:   ptr(time.Now()),
 	}
 
-	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setUnitWorkloadStatus(ctx, tx, unitUUID, &status)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertUnitStatus(
-		c, "unit_workload", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
+	err := s.state.SetUnitWorkloadStatus(context.Background(), "missing-uuid", &status)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *applicationStateSuite) TestGetApplicationScaleState(c *gc.C) {

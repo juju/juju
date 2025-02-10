@@ -135,6 +135,13 @@ type unitStatusInfo struct {
 	UpdatedAt *time.Time    `db:"updated_at"`
 }
 
+type statusInfo struct {
+	StatusID  int        `db:"status_id"`
+	Message   string     `db:"message"`
+	Data      []byte     `db:"data"`
+	UpdatedAt *time.Time `db:"updated_at"`
+}
+
 type cloudContainer struct {
 	UnitUUID   coreunit.UUID `db:"unit_uuid"`
 	ProviderID string        `db:"provider_id"`
@@ -837,5 +844,26 @@ func encodeWorkloadStatus(s application.UnitWorkloadStatusType) (int, error) {
 		return 6, nil
 	default:
 		return -1, errors.Errorf("unknown status %q", s)
+	}
+}
+
+func decodeWorkloadStatus(s int) (application.UnitWorkloadStatusType, error) {
+	switch s {
+	case 0:
+		return application.UnitWorkloadStatusUnset, nil
+	case 1:
+		return application.UnitWorkloadStatusUnknown, nil
+	case 2:
+		return application.UnitWorkloadStatusMaintenance, nil
+	case 3:
+		return application.UnitWorkloadStatusWaiting, nil
+	case 4:
+		return application.UnitWorkloadStatusBlocked, nil
+	case 5:
+		return application.UnitWorkloadStatusActive, nil
+	case 6:
+		return application.UnitWorkloadStatusTerminated, nil
+	default:
+		return -1, errors.Errorf("unknown status %d", s)
 	}
 }
