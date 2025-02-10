@@ -34,8 +34,8 @@ type resourceIdentity struct {
 	Name            string `db:"name"`
 }
 
-// resourceUUID represents the unique identifier of a resource.
-type resourceUUID struct {
+// localUUID represents a unique identifier.
+type localUUID struct {
 	UUID string `db:"uuid"`
 }
 
