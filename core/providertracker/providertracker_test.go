@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -16,7 +17,9 @@ import (
 type providerSuite struct {
 	testing.IsolationSuite
 
-	provider        *MockProvider
+	provider           *MockProvider
+	nonTrackedProvider *MockNonTrackedProvider
+
 	providerFactory *MockProviderFactory
 }
 
@@ -58,10 +61,83 @@ func (s *providerSuite) TestProviderRunnerIsNotSubsetType(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
+func (s *providerSuite) TestNonTrackedProviderRunnerFromConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	config := NonTrackedProviderConfig{
+		ControllerUUID: uuid.MustNewUUID(),
+	}
+
+	s.providerFactory.EXPECT().ProviderFromConfig(gomock.Any(), config).Return(s.nonTrackedProvider, nil)
+	s.nonTrackedProvider.EXPECT().Provider().Return(s.provider, nil)
+	s.nonTrackedProvider.EXPECT().Kill()
+
+	runner := NonTrackedProviderRunnerFromConfig[Provider](s.providerFactory, config)
+
+	var provider Provider
+	err := runner(context.Background(), func(ctx context.Context, p Provider) error {
+		provider = p
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(provider, gc.DeepEquals, s.provider)
+}
+
+func (s *providerSuite) TestNonTrackedProviderRunnerFromConfigSubsetType(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	config := NonTrackedProviderConfig{
+		ControllerUUID: uuid.MustNewUUID(),
+	}
+
+	fooProvider := &fooProvider{
+		Provider: s.provider,
+	}
+
+	s.providerFactory.EXPECT().ProviderFromConfig(gomock.Any(), config).Return(s.nonTrackedProvider, nil)
+	s.nonTrackedProvider.EXPECT().Provider().Return(fooProvider, nil)
+	s.nonTrackedProvider.EXPECT().Kill()
+
+	runner := NonTrackedProviderRunnerFromConfig[FooProvider](s.providerFactory, config)
+
+	var provider FooProvider
+	err := runner(context.Background(), func(ctx context.Context, p FooProvider) error {
+		provider = p
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(provider, gc.DeepEquals, fooProvider)
+}
+
+func (s *providerSuite) TestNonTrackedProviderRunnerFromConfigIsNotSubsetType(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	config := NonTrackedProviderConfig{
+		ControllerUUID: uuid.MustNewUUID(),
+	}
+
+	fooProvider := &fooProvider{
+		Provider: s.provider,
+	}
+
+	s.providerFactory.EXPECT().ProviderFromConfig(gomock.Any(), config).Return(s.nonTrackedProvider, nil)
+	s.nonTrackedProvider.EXPECT().Provider().Return(fooProvider, nil)
+	s.nonTrackedProvider.EXPECT().Kill()
+
+	runner := NonTrackedProviderRunnerFromConfig[BarProvider](s.providerFactory, config)
+	err := runner(context.Background(), func(ctx context.Context, p BarProvider) error {
+		c.Fail()
+		return nil
+	})
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+}
+
 func (s *providerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.provider = NewMockProvider(ctrl)
+	s.nonTrackedProvider = NewMockNonTrackedProvider(ctrl)
+
 	s.providerFactory = NewMockProviderFactory(ctrl)
 
 	return ctrl

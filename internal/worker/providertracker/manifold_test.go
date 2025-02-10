@@ -80,6 +80,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig) (worker.Worker, error) {
 			return newStubWorker(), nil
 		},
+		NewNonTrackedWorker: func(ctx context.Context, cfg NonTrackedConfig) (worker.Worker, error) {
+			return newStubWorker(), nil
+		},
 		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
 		},
@@ -140,6 +143,10 @@ func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
 			})
 			return w, err
 		},
+		NewNonTrackedWorker: func(ctx context.Context, cfg NonTrackedConfig) (worker.Worker, error) {
+			c.Fail()
+			return nil, nil
+		},
 		Logger: s.logger,
 		Clock:  clock.WallClock,
 	}, s.states)
@@ -191,6 +198,10 @@ func (s *manifoldSuite) TestCAASManifoldOutput(c *gc.C) {
 				},
 			})
 			return w, err
+		},
+		NewNonTrackedWorker: func(ctx context.Context, cfg NonTrackedConfig) (worker.Worker, error) {
+			c.Fail()
+			return nil, nil
 		},
 		Logger: s.logger,
 		Clock:  clock.WallClock,

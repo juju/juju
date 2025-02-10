@@ -56,6 +56,9 @@ type NewWorkerFunc func(cfg Config) (worker.Worker, error)
 // NewTrackerWorkerFunc is a function that creates a new TrackerWorker.
 type NewTrackerWorkerFunc func(ctx context.Context, cfg TrackerConfig) (worker.Worker, error)
 
+// NewNonTrackedWorkerFunc is a function that creates a new NonTrackedWorker.
+type NewNonTrackedWorkerFunc func(ctx context.Context, cfg NonTrackedConfig) (worker.Worker, error)
+
 // ManifoldConfig describes the resources used by a Worker.
 type ManifoldConfig struct {
 	// ProviderServiceFactoriesName is the name of the domain services getter
@@ -65,6 +68,8 @@ type ManifoldConfig struct {
 	NewWorker NewWorkerFunc
 	// NewTrackerWorker is a function that creates a new TrackerWorker.
 	NewTrackerWorker NewTrackerWorkerFunc
+	// NewNonTrackedWorker is a function that creates a new NonTrackedWorker.
+	NewNonTrackedWorker NewNonTrackedWorkerFunc
 	// GetIAASProvider is a helper function that gets a IAAS provider from the
 	// manifold.
 	GetIAASProvider GetProviderFunc
@@ -89,6 +94,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewTrackerWorker == nil {
 		return errors.NotValidf("nil NewTrackerWorker")
+	}
+	if cfg.NewNonTrackedWorker == nil {
+		return errors.NotValidf("nil NewNonTrackedWorker")
 	}
 	if cfg.GetIAASProvider == nil {
 		return errors.NotValidf("nil GetIAASProvider")
@@ -140,6 +148,7 @@ func manifold(trackerType TrackerType, config ManifoldConfig) dependency.Manifol
 				GetIAASProvider:      config.GetIAASProvider,
 				GetCAASProvider:      config.GetCAASProvider,
 				NewTrackerWorker:     config.NewTrackerWorker,
+				NewNonTrackedWorker:  config.NewNonTrackedWorker,
 				Logger:               config.Logger,
 				Clock:                config.Clock,
 			})

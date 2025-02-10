@@ -5,6 +5,8 @@ package providertracker
 
 import (
 	"context"
+	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock"
@@ -15,6 +17,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/providertracker"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -33,6 +36,7 @@ type Config struct {
 	GetIAASProvider      GetProviderFunc
 	GetCAASProvider      GetProviderFunc
 	NewTrackerWorker     NewTrackerWorkerFunc
+	NewNonTrackedWorker  NewNonTrackedWorkerFunc
 	Logger               logger.Logger
 	Clock                clock.Clock
 }
@@ -50,6 +54,9 @@ func (config Config) Validate() error {
 	}
 	if config.NewTrackerWorker == nil {
 		return errors.NotValidf("nil NewTrackerWorker")
+	}
+	if config.NewNonTrackedWorker == nil {
+		return errors.NotValidf("nil NewNonTrackedWorker")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -69,13 +76,16 @@ type trackerRequest struct {
 
 // providerWorker defines a worker that runs provider tracker workers.
 type providerWorker struct {
-	internalStates chan string
-	catacomb       catacomb.Catacomb
-	runner         *worker.Runner
+	internalStates   chan string
+	catacomb         catacomb.Catacomb
+	trackedRunner    *worker.Runner
+	nonTrackedRunner *worker.Runner
 
 	config Config
 
 	requests chan trackerRequest
+
+	uniqueNamespaceCounter uint64
 }
 
 // NewWorker creates a new object store worker.
@@ -91,7 +101,7 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 
 	w := &providerWorker{
 		config: config,
-		runner: worker.NewRunner(worker.RunnerParams{
+		trackedRunner: worker.NewRunner(worker.RunnerParams{
 			IsFatal: func(err error) bool {
 				return false
 			},
@@ -102,6 +112,16 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 			Clock:        config.Clock,
 			Logger:       internalworker.WrapLogger(config.Logger),
 		}),
+		nonTrackedRunner: worker.NewRunner(worker.RunnerParams{
+			IsFatal: func(err error) bool {
+				return true
+			},
+			ShouldRestart: func(err error) bool {
+				return false
+			},
+			Clock:  config.Clock,
+			Logger: internalworker.WrapLogger(config.Logger),
+		}),
 		requests:       make(chan trackerRequest),
 		internalStates: internalStates,
 	}
@@ -110,7 +130,8 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{
-			w.runner,
+			w.trackedRunner,
+			w.nonTrackedRunner,
 		},
 	}); err != nil {
 		return nil, errors.Trace(err)
@@ -206,7 +227,7 @@ func (w *providerWorker) ProviderForModel(ctx context.Context, namespace string)
 
 	// This will return a not found error if the request was not honoured.
 	// The error will be logged - we don't crash this worker for bad calls.
-	tracked, err := w.runner.Worker(namespace, w.catacomb.Dying())
+	tracked, err := w.trackedRunner.Worker(namespace, w.catacomb.Dying())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -214,6 +235,53 @@ func (w *providerWorker) ProviderForModel(ctx context.Context, namespace string)
 		return nil, errors.NotFoundf("provider")
 	}
 	return tracked.(*trackerWorker).Provider(), nil
+}
+
+// ProviderFromConfig returns a provider for a given configuration. The provider
+// is not tracked, instead is created and then discarded. Credential
+// invalidation is not enforced during the call to the provider.
+func (w *providerWorker) ProviderFromConfig(ctx context.Context, config providertracker.NonTrackedProviderConfig) (providertracker.NonTrackedProvider, error) {
+	ctx, cancel := w.scopedContextFrom(ctx)
+	defer cancel()
+
+	id := atomic.AddUint64(&w.uniqueNamespaceCounter, 1)
+	ns := fmt.Sprintf("non-tracked-%d", id)
+
+	// Start the worker, we'll capture it once created.
+	err := w.nonTrackedRunner.StartWorker(ns, func() (worker.Worker, error) {
+		return w.config.NewNonTrackedWorker(ctx, NonTrackedConfig{
+			ModelType:      config.ModelType,
+			ModelConfig:    config.ModelConfig,
+			CloudSpec:      config.CloudSpec,
+			ControllerUUID: config.ControllerUUID,
+			GetProviderForType: getProviderForType(
+				w.config.GetIAASProvider,
+				w.config.GetCAASProvider,
+			),
+			Logger: w.config.Logger,
+		})
+	})
+	// Do not check if the worker already exists, as we want to create a new
+	// worker for each call to this function. It should be namespaced uniquely
+	// to avoid conflicts. If we do get an error, then something has
+	// fundamentally gone wrong and we should return that error.
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	nonTracked, err := w.nonTrackedRunner.Worker(ns, ctx.Done())
+	if errors.Is(err, worker.ErrDead) {
+		// Handle the case where the runner is dead due to this worker dying.
+		select {
+		case <-w.catacomb.Dying():
+			return nil, w.catacomb.ErrDying()
+		default:
+			return nil, errors.Trace(err)
+		}
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return nonTracked.(*nonTrackedWorker), nil
 }
 
 // Kill is part of the worker.Worker interface.
@@ -265,7 +333,7 @@ func (w *providerWorker) loop() (err error) {
 
 func (w *providerWorker) workerFromCache(namespace string) (*trackerWorker, error) {
 	// If the worker already exists, return the existing worker early.
-	if tracker, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {
+	if tracker, err := w.trackedRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
 		return tracker.(*trackerWorker), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the runner is dead due to this worker dying.
@@ -286,7 +354,7 @@ func (w *providerWorker) workerFromCache(namespace string) (*trackerWorker, erro
 }
 
 func (w *providerWorker) initTrackerWorker(namespace string) error {
-	err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
+	err := w.trackedRunner.StartWorker(namespace, func() (worker.Worker, error) {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
 
@@ -332,7 +400,11 @@ func getProviderForType(getIAASProvider, getCAASProvider GetProviderFunc) func(c
 // It returns a cancellable context that is cancelled when the action has
 // completed.
 func (w *providerWorker) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
+	return w.scopedContextFrom(context.Background())
+}
+
+func (w *providerWorker) scopedContextFrom(ctx context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(ctx)
 	return w.catacomb.Context(ctx), cancel
 }
 

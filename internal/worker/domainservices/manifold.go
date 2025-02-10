@@ -303,3 +303,8 @@ type NoopProviderFactory struct{}
 func (NoopProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
 	return nil, errors.NotSupportedf("provider")
 }
+
+// ProviderFromConfig returns a not supported error.
+func (NoopProviderFactory) ProviderFromConfig(ctx context.Context, config providertracker.NonTrackedProviderConfig) (providertracker.NonTrackedProvider, error) {
+	return nil, errors.NotSupportedf("provider")
+}
