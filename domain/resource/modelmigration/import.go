@@ -162,9 +162,8 @@ func importResourceRevision(name string, rev description.ResourceRevision) (reso
 				charmresource.OriginUpload, revision, resourceerrors.ResourceRevisionNotValid,
 			)
 		}
-		importInfo.Revision = revision
 	case charmresource.OriginUpload:
-		importInfo.Revision = -1
+		revision = -1
 	default:
 		return resource.ImportResourceInfo{}, errors.Errorf(
 			"unexpected origin %s: %w", origin, resourceerrors.OriginNotValid,
@@ -173,7 +172,7 @@ func importResourceRevision(name string, rev description.ResourceRevision) (reso
 	return resource.ImportResourceInfo{
 		Name:      name,
 		Origin:    origin,
-		Revision:  rev.Revision(),
+		Revision:  revision,
 		Timestamp: rev.Timestamp(),
 	}, nil
 }

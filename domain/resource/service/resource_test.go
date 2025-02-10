@@ -1478,6 +1478,33 @@ func (s *resourceServiceSuite) TestImportResourcesDuplicateResourceNamesDifferen
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *resourceServiceSuite) TestExportResource(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := resource.ExportedResources{
+		Resources: []coreresource.Resource{{
+			RetrievedBy: "admin",
+		}},
+		UnitResources: []coreresource.UnitResources{{
+			Name: "unit1",
+			Resources: []coreresource.Resource{{
+				RetrievedBy: "admin",
+			}},
+		}},
+	}
+
+	s.state.EXPECT().ExportResources(gomock.Any(), "app-name").Return(expected, nil)
+
+	exportedResources, err := s.service.ExportResources(context.Background(), "app-name")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exportedResources, gc.DeepEquals, expected)
+}
+
+func (s *resourceServiceSuite) TestExportResourceEmptyName(c *gc.C) {
+	_, err := s.service.ExportResources(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, resourceerrors.ArgumentNotValid)
+}
+
 func (s *resourceServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

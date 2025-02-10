@@ -410,7 +410,8 @@ AND    a.name = $resourceAndAppName.application_name
 	return coreresource.UUID(uuid.UUID), nil
 }
 
-// ListResources returns the list of resource for the given application.
+// ListResources returns the application, unit and repository resources for the
+// given application.
 func (st *State) ListResources(
 	ctx context.Context,
 	applicationID application.ID,
@@ -432,6 +433,8 @@ func (st *State) ListResources(
 	}, nil
 }
 
+// listApplicationResources gets the potential and available resources linked to
+// an application.
 func (st *State) listApplicationResources(
 	ctx context.Context,
 	applicationID application.ID,
@@ -502,6 +505,8 @@ WHERE application_uuid = $resourceIdentity.application_uuid`
 	return potential, available, errors.Capture(err)
 }
 
+// listUnitResources gets all resources associated with the units of an
+// application.
 func (st *State) listUnitResources(
 	ctx context.Context,
 	applicationID application.ID,
@@ -610,7 +615,7 @@ AND state = 'available'`
 	}
 
 	var resources []resourceView
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query to get all resources for the given application.
 		err = tx.Query(ctx, getResourcesStmt, appID).GetAll(&resources)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -626,6 +631,7 @@ AND state = 'available'`
 		}
 		return nil
 	})
+
 	// Convert each resourceView to a resource
 	var result []coreresource.Resource
 	for _, res := range resources {
@@ -2255,7 +2261,7 @@ func (st *State) getResourceToSet(typeIDs typeIDs, charmID corecharm.ID, res res
 	if err != nil {
 		return setResource{}, "", errors.Capture(err)
 	}
-	revision := (*int)(nil)
+	var revision *int
 	if res.Revision >= 0 {
 		revision = &res.Revision
 	}
@@ -2507,6 +2513,46 @@ AND    charm_uuid = $charmResource.charm_uuid
 		return 0, errors.Errorf("parsing resource type %q: %w", charmRes.Kind, err)
 	}
 	return kind, nil
+}
+
+// ExportResources returns the application and unit resources to export for a
+// particular application.
+func (st *State) ExportResources(ctx context.Context, appName string) (resource.ExportedResources, error) {
+	db, err := st.DB()
+	if err != nil {
+		return resource.ExportedResources{}, errors.Capture(err)
+	}
+
+	var appID application.ID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appID, err = st.getApplicationUUID(ctx, tx, appName)
+		if err != nil {
+			return errors.Errorf("getting application %s: %w", appName, err)
+		}
+
+		return err
+	})
+	if err != nil {
+		return resource.ExportedResources{}, errors.Capture(err)
+	}
+
+	var exportedResources resource.ExportedResources
+
+	// Get the available application resources.
+	_, resources, err := st.listApplicationResources(ctx, appID)
+	if err != nil {
+		return resource.ExportedResources{}, errors.Capture(err)
+	}
+	exportedResources.Resources = resources
+
+	// Get the unit resources.
+	unitResources, err := st.listUnitResources(ctx, appID)
+	if err != nil {
+		return resource.ExportedResources{}, errors.Capture(err)
+	}
+	exportedResources.UnitResources = unitResources
+
+	return exportedResources, nil
 }
 
 // getAppplicationAndCharmUUID returns gets the application ID and charm UUID

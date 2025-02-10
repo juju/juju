@@ -411,7 +411,9 @@ func uploadTools(ctx context.Context, config UploadBinariesConfig, logger corelo
 
 func uploadResources(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
 	for _, res := range config.Resources {
-		if !res.IsPlaceholder() {
+		if !res.Fingerprint.IsZero() {
+			// If the fingerprint is zero there is no blob to upload for this
+			// resource, skip it.
 			err := uploadAppResource(ctx, config, res, logger)
 			if err != nil {
 				return errors.Trace(err)
