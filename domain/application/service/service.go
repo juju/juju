@@ -257,12 +257,12 @@ func (s *WatchableService) WatchApplicationUnitLife(appName string) (watcher.Str
 		if err != nil {
 			return nil, err
 		}
-		unitLifes, err := s.st.GetApplicationUnitLife(ctx, appName, unitUUIDs...)
+		lives, err := s.st.GetApplicationUnitLife(ctx, appName, unitUUIDs...)
 		if err != nil {
 			return nil, err
 		}
-		result := make(map[string]life.Life, len(unitLifes))
-		for unitUUID, life := range unitLifes {
+		result := make(map[string]life.Life, len(lives))
+		for unitUUID, life := range lives {
 			result[unitUUID.String()] = life
 		}
 		return result, nil

@@ -72,16 +72,16 @@ func (s *statusSuite) TestUnitAgentStatusDBValues(c *gc.C) {
 	})
 }
 
-// TestUnitWorkloadStatusDBValues ensures there's no skew between what's in the
+// TestWorkloadStatusDBValues ensures there's no skew between what's in the
 // database table for unit workload status and the typed consts used in the
 // state packages.
-func (s *statusSuite) TestUnitWorkloadStatusDBValues(c *gc.C) {
+func (s *statusSuite) TestWorkloadStatusDBValues(c *gc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, status FROM workload_status_value")
 	c.Assert(err, jc.ErrorIsNil)
 	defer rows.Close()
 
-	dbValues := make(map[UnitWorkloadStatusType]string)
+	dbValues := make(map[WorkloadStatusType]string)
 	for rows.Next() {
 		var (
 			id   int
@@ -89,15 +89,15 @@ func (s *statusSuite) TestUnitWorkloadStatusDBValues(c *gc.C) {
 		)
 		err := rows.Scan(&id, &name)
 		c.Assert(err, jc.ErrorIsNil)
-		dbValues[UnitWorkloadStatusType(id)] = name
+		dbValues[WorkloadStatusType(id)] = name
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[UnitWorkloadStatusType]string{
-		UnitWorkloadStatusUnset:       "unset",
-		UnitWorkloadStatusUnknown:     "unknown",
-		UnitWorkloadStatusMaintenance: "maintenance",
-		UnitWorkloadStatusWaiting:     "waiting",
-		UnitWorkloadStatusBlocked:     "blocked",
-		UnitWorkloadStatusActive:      "active",
-		UnitWorkloadStatusTerminated:  "terminated",
+	c.Assert(dbValues, jc.DeepEquals, map[WorkloadStatusType]string{
+		WorkloadStatusUnset:       "unset",
+		WorkloadStatusUnknown:     "unknown",
+		WorkloadStatusMaintenance: "maintenance",
+		WorkloadStatusWaiting:     "waiting",
+		WorkloadStatusBlocked:     "blocked",
+		WorkloadStatusActive:      "active",
+		WorkloadStatusTerminated:  "terminated",
 	})
 }

@@ -200,7 +200,7 @@ type RegisterCAASUnitArg struct {
 // UnitStatusArg contains parameters for updating a unit status in state.
 type UnitStatusArg struct {
 	AgentStatus    *StatusInfo[UnitAgentStatusType]
-	WorkloadStatus *StatusInfo[UnitWorkloadStatusType]
+	WorkloadStatus *StatusInfo[WorkloadStatusType]
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.
@@ -209,7 +209,7 @@ type UpdateCAASUnitParams struct {
 	Address              *string
 	Ports                *[]string
 	AgentStatus          *StatusInfo[UnitAgentStatusType]
-	WorkloadStatus       *StatusInfo[UnitWorkloadStatusType]
+	WorkloadStatus       *StatusInfo[WorkloadStatusType]
 	CloudContainerStatus *StatusInfo[CloudContainerStatusType]
 }
 

@@ -491,8 +491,8 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 				Data:    []byte(`{"foo":"bar"}`),
 				Since:   now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusWaiting,
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusWaiting,
 				Message: "workload status",
 				Data:    []byte(`{"foo":"bar"}`),
 				Since:   now,

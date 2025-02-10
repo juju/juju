@@ -548,7 +548,7 @@ WHERE uuid = $unitPassword.uuid
 
 // GetUnitWorkloadStatus returns the workload status of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.UnitWorkloadStatusType], error) {
+func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.WorkloadStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
@@ -579,7 +579,7 @@ SELECT &statusInfo.* FROM unit_workload_status WHERE unit_uuid = $unitUUID.uuid
 		return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitUUID, err)
 	}
 
-	return &application.StatusInfo[application.UnitWorkloadStatusType]{
+	return &application.StatusInfo[application.WorkloadStatusType]{
 		Status:  statusID,
 		Message: unitStatusInfo.Message,
 		Data:    unitStatusInfo.Data,
@@ -589,7 +589,7 @@ SELECT &statusInfo.* FROM unit_workload_status WHERE unit_uuid = $unitUUID.uuid
 
 // SetUnitWorkloadStatus updates the workload status of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status *application.StatusInfo[application.UnitWorkloadStatusType]) error {
+func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status *application.StatusInfo[application.WorkloadStatusType]) error {
 	db, err := st.DB()
 	if err != nil {
 		return jujuerrors.Trace(err)
@@ -722,8 +722,8 @@ func (st *State) insertCAASUnit(
 				Status: application.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusWaiting,
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusWaiting,
 				Message: corestatus.MessageInstallingAgent,
 				Since:   now,
 			},
@@ -1733,10 +1733,119 @@ INSERT INTO cloud_service (*) VALUES ($cloudService.*)
 	return nil
 }
 
+// GetApplicationStatus looks up the status of the specified application,
+// returning an error satisfying [applicationerrors.ApplicationNotFound] if the
+// application is not found.
+func (st *State) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (application.StatusInfo[application.WorkloadStatusType], error) {
+	db, err := st.DB()
+	if err != nil {
+		return application.StatusInfo[application.WorkloadStatusType]{}, jujuerrors.Trace(err)
+	}
+
+	identID := applicationID{ID: appID}
+	identUUID := applicationUUID{ApplicationUUID: appID.String()}
+
+	query, err := st.Prepare(
+		`
+SELECT &applicationStatusInfo.*
+FROM application_status
+WHERE application_uuid = $applicationUUID.application_uuid;
+`, identUUID, applicationStatusInfo{})
+	if err != nil {
+		return application.StatusInfo[application.WorkloadStatusType]{}, jujuerrors.Trace(err)
+	}
+
+	var status applicationStatusInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationExists(ctx, tx, identID); err != nil {
+			return jujuerrors.Trace(err)
+		}
+
+		if err := tx.Query(ctx, query, identUUID).Get(&status); errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return jujuerrors.Trace(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return application.StatusInfo[application.WorkloadStatusType]{}, err
+	}
+
+	statusType, err := decodeWorkloadStatus(status.StatusID)
+	if err != nil {
+		return application.StatusInfo[application.WorkloadStatusType]{}, jujuerrors.Trace(err)
+	}
+
+	return application.StatusInfo[application.WorkloadStatusType]{
+		Status:  statusType,
+		Message: status.Message,
+		Data:    status.Data,
+		Since:   status.UpdatedAt,
+	}, nil
+}
+
+// SetApplicationStatus saves the given application status, overwriting any
+// current status data. If returns an error satisfying
+// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
+func (st *State) SetApplicationStatus(
+	ctx context.Context,
+	applicationID coreapplication.ID,
+	status application.StatusInfo[application.WorkloadStatusType],
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	statusID, err := encodeWorkloadStatus(status.Status)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	statusInfo := applicationStatusInfo{
+		ApplicationID: applicationID,
+		StatusID:      statusID,
+		Message:       status.Message,
+		Data:          status.Data,
+		UpdatedAt:     status.Since,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO application_status (*) VALUES ($applicationStatusInfo.*)
+ON CONFLICT(application_uuid) DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at,
+    data = excluded.data;
+`, statusInfo)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+			return errors.Errorf("%w: %q", applicationerrors.ApplicationNotFound, applicationID)
+		} else if err != nil {
+			return jujuerrors.Trace(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("updating application status for %q: %w", applicationID, err)
+	}
+	return nil
+}
+
 // SetCloudContainerStatusAtomic saves the given cloud container status, overwriting
 // any current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) setCloudContainerStatus(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, status *application.StatusInfo[application.CloudContainerStatusType]) error {
+func (st *State) setCloudContainerStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+	status *application.StatusInfo[application.CloudContainerStatusType],
+) error {
 	if status == nil {
 		return nil
 	}
@@ -1776,7 +1885,12 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // setUnitAgentStatus saves the given unit agent status, overwriting any current
 // status data. If returns an error satisfying [applicationerrors.UnitNotFound]
 // if the unit doesn't exist.
-func (st *State) setUnitAgentStatus(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, status *application.StatusInfo[application.UnitAgentStatusType]) error {
+func (st *State) setUnitAgentStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+	status *application.StatusInfo[application.UnitAgentStatusType],
+) error {
 	if status == nil {
 		return nil
 	}
@@ -1816,7 +1930,12 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 // setUnitWorkloadStatus saves the given unit workload status, overwriting any
 // current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) setUnitWorkloadStatus(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, status *application.StatusInfo[application.UnitWorkloadStatusType]) error {
+func (st *State) setUnitWorkloadStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID coreunit.UUID,
+	status *application.StatusInfo[application.WorkloadStatusType],
+) error {
 	if status == nil {
 		return nil
 	}
