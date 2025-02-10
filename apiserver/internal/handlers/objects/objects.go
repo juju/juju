@@ -97,7 +97,7 @@ func (h *ObjectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) er
 
 	size, err := io.Copy(w, reader)
 	if err != nil {
-		return errors.Errorf("error processing charm archive download: %w", err)
+		return errors.Errorf("processing object download: %w", err)
 	}
 
 	// There isn't much we can do if the size doesn't match, but we can log it.

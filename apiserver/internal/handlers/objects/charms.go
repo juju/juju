@@ -105,12 +105,12 @@ func (h *ObjectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	case "GET":
 		err = h.ServeGet(w, r)
 		if err != nil {
-			err = errors.Errorf("cannot retrieve charm: %w", err)
+			err = errors.Errorf("retrieving charm: %w", err)
 		}
 	case "PUT":
 		err = h.ServePut(w, r)
 		if err != nil {
-			err = errors.Errorf("cannot upload charm: %w", err)
+			err = errors.Errorf("uploading charm: %w", err)
 		}
 	default:
 		http.Error(w, fmt.Sprintf("http method %s not implemented", r.Method), http.StatusNotImplemented)
@@ -122,7 +122,7 @@ func (h *ObjectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := sendJSONError(w, errors.Capture(err)); err != nil {
-		logger.Errorf(r.Context(), "%v", errors.Errorf("cannot return error to user: %w", err))
+		logger.Errorf(r.Context(), "%v", errors.Errorf("returning error to user: %w", err))
 	}
 }
 
@@ -150,7 +150,7 @@ func (h *ObjectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Reques
 
 	_, err = io.Copy(w, reader)
 	if err != nil {
-		return errors.Errorf("error processing charm archive download: %w", err)
+		return errors.Errorf("processing charm archive download: %w", err)
 	}
 
 	return nil
@@ -247,7 +247,6 @@ func (h *ObjectsCharmHTTPHandler) processPut(ctx context.Context, r *http.Reques
 		Importing: isImporting,
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
-		logger.Criticalf(context.TODO(), "charm not found on object store")
 		return nil, jujuerrors.NotFoundf("charm")
 	} else if errors.Is(err, applicationerrors.CharmAlreadyAvailable) {
 		return nil, jujuerrors.AlreadyExistsf("charm")
@@ -266,7 +265,7 @@ func CharmURLFromLocator(locator applicationcharm.CharmLocator, _ bool) (*charm.
 		return nil, errors.Capture(err)
 	}
 
-	architecture, err := convertApplication(locator.Architecture)
+	architecture, err := encodeArchitecture(locator.Architecture)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -292,7 +291,7 @@ func CharmURLFromLocatorDuringMigration(locator applicationcharm.CharmLocator, i
 
 	var architecture string
 	if includeArchitecture {
-		architecture, err = convertApplication(locator.Architecture)
+		architecture, err = encodeArchitecture(locator.Architecture)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -365,7 +364,7 @@ func convertSource(source applicationcharm.CharmSource) (string, error) {
 	}
 }
 
-func convertApplication(a application.Architecture) (string, error) {
+func encodeArchitecture(a application.Architecture) (string, error) {
 	switch a {
 	case architecture.AMD64:
 		return arch.AMD64, nil
@@ -392,7 +391,7 @@ func convertApplication(a application.Architecture) (string, error) {
 func sendStatusAndHeadersAndJSON(w http.ResponseWriter, statusCode int, headers map[string]string, response interface{}) error {
 	for k, v := range headers {
 		if !strings.HasPrefix(k, "Juju-") {
-			return errors.Errorf(`Custom header %q must be prefixed with "Juju-"`, k)
+			return errors.Errorf(`custom header %q must be prefixed with "Juju-"`, k)
 		}
 		w.Header().Set(k, v)
 	}
