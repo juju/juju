@@ -81,6 +81,7 @@ func (s *statusSuite) TestEncodeMachineStatus(c *gc.C) {
 		c.Logf("test %d", i)
 		output, err := encodeMachineStatus(test.input)
 		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(output, gc.DeepEquals, test.output)
 		result, err := decodeMachineStatus(output)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result, gc.DeepEquals, test.input)
