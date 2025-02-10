@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -35,6 +37,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/envcontext"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -95,6 +98,7 @@ type AgentVersionGetter interface {
 // provider.
 type Provider interface {
 	environs.SupportedFeatureEnumerator
+	environs.ConstraintsChecker
 }
 
 // ProviderService defines a service for interacting with the underlying
@@ -164,6 +168,52 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 	fs.Merge(envFs)
 
 	return fs, nil
+}
+
+// SetApplicationConstraints sets the application constraints for the
+// specified application ID.
+// This method overwrites the full constraints on every call.
+// If invalid constraints are provided (e.g. invalid container type or
+// non-existing space), a [applicationerrors.InvalidApplicationConstraints]
+// error is returned.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error {
+	if err := appID.Validate(); err != nil {
+		return internalerrors.Errorf("application ID: %w", err)
+	}
+	if err := s.validateConstraints(ctx, appID, cons); err != nil {
+		return err
+	}
+
+	return s.st.SetApplicationConstraints(ctx, appID, cons)
+}
+
+func (s *ProviderService) validateConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error {
+	provider, err := s.provider(ctx)
+	if errors.Is(err, errors.NotSupported) {
+		// Not validating constraints, as the provider doesn't support it.
+		return nil
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	validator, err := provider.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(ctx))
+	if errors.Is(err, errors.NotImplemented) {
+		validator = constraints.NewValidator()
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	unsupported, err := validator.Validate(cons)
+	if len(unsupported) > 0 {
+		s.logger.Warningf(ctx,
+			"setting constraints on application %q: unsupported constraints: %v", appID.String(), strings.Join(unsupported, ","))
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	return nil
 }
 
 // WatchableService provides the API for working with applications and the
