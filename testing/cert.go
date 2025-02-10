@@ -96,12 +96,12 @@ func mustGenerateSSHServerHostKey() string {
 		if err != nil {
 			panic("failed to generate ED25519 key")
 		}
-	
+
 		pemKey, err := cryptossh.MarshalPrivateKey(privateKey, "")
 		if err != nil {
 			panic("failed to marshal private key")
 		}
-	
+
 		k = string(pem.EncodeToMemory(pemKey))
 	})
 

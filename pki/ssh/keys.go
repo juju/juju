@@ -12,9 +12,8 @@ import (
 	"crypto/rsa"
 	"encoding/pem"
 
-	"golang.org/x/crypto/ssh"
-
 	"github.com/juju/errors"
+	"golang.org/x/crypto/ssh"
 )
 
 type KeyProfile func() (crypto.PrivateKey, error)
