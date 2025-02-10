@@ -52,6 +52,10 @@ const (
 	// on does not exist.
 	UnitNotFound = errors.ConstError("unit not found")
 
+	// UnitStatusNotFound describes an error that occurs when the unit being
+	// operated on does not have a status.
+	UnitStatusNotFound = errors.ConstError("unit status not found")
+
 	// UnitAlreadyExists describes an error that occurs when the
 	// unit being created already exists.
 	UnitAlreadyExists = errors.ConstError("unit already exists")

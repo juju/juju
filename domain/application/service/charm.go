@@ -140,7 +140,7 @@ type CharmState interface {
 	// -1 and the requiredSequencing flag must be set to true. If the charm
 	// does not require sequencing, the revision must be set to the desired
 	// revision and the requiredSequencing flag must be set to false.
-	SetCharm(ctx context.Context, charm charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error)
+	SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error)
 
 	// DeleteCharm removes the charm from the state. If the charm does not
 	// exist, a [applicationerrors.CharmNotFound]  error is returned.
