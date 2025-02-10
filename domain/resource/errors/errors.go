@@ -28,6 +28,10 @@ const (
 	// not found.
 	ResourceNotFound = errors.ConstError("resource not found")
 
+	// CharmmResourceNotFound describes an error that occurs when a charm
+	// resource is not found.
+	CharmResourceNotFound = errors.ConstError("charm resource not found")
+
 	// RetrievedByTypeNotValid describes an error where the retrieved by type is
 	// neither user, unit nor application.
 	RetrievedByTypeNotValid = errors.ConstError("retrieved by type not valid")
@@ -73,4 +77,8 @@ const (
 	// ApplicationNameNotValid describes an error when the application is
 	// not valid.
 	ApplicationNameNotValid = errors.ConstError("application name not valid")
+
+	// ResourceUUIDNotValid describes an error when the resource UUID is
+	// not valid.
+	ResourceUUIDNotValid = errors.ConstError("resource UUID not valid")
 )
