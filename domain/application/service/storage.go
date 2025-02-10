@@ -8,6 +8,7 @@ import (
 
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -23,7 +24,7 @@ type StorageState interface {
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
-	// - [github.com/juju/juju/domain/application/errors.StorageAttachmentAlreadyExistsError]: when the attachment already exists.
+	// - [github.com/juju/juju/domain/application/errors.StorageAttachmentAlreadyExists]: when the attachment already exists.
 	// - [github.com/juju/juju/domain/application/errors.WrongStorageOwnerError]: when the storage owner does not match the unit.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
 	// - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
@@ -63,12 +64,12 @@ type StorageState interface {
 }
 
 // AttachStorage attached the specified storage to the specified unit.
+// If the attachment already exists, the result is a no op.
 // The following error types can be expected:
 // - [github.com/juju/juju/core/unit.InvalidUnitName]: when the unit name is not valid.
 // - [github.com/juju/juju/core/storage.InvalidStorageID]: when the storage ID is not valid.
 // - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
-// - [github.com/juju/juju/domain/application/errors.StorageAttachmentAlreadyExistsError]: when the attachment already exists.
 // - [github.com/juju/juju/domain/application/errors.WrongStorageOwnerError]: when the storage owner does not match the unit.
 // - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.
 // - [github.com/juju/juju/domain/application/errors.StorageNotAlive]: when the storage is not alive.
@@ -90,7 +91,11 @@ func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, u
 	if err != nil {
 		return errors.Capture(err)
 	}
-	return s.st.AttachStorage(ctx, storageUUID, unitUUID)
+	err = s.st.AttachStorage(ctx, storageUUID, unitUUID)
+	if errors.Is(err, applicationerrors.StorageAttachmentAlreadyExists) {
+		return nil
+	}
+	return err
 }
 
 // AddStorageForUnit adds storage instances to given unit.

@@ -221,9 +221,9 @@ const (
 )
 
 const (
-	// StorageAttachmentAlreadyExistsError describes an error that occurs when
+	// StorageAttachmentAlreadyExists describes an error that occurs when
 	// a storage attachment already exists.
-	StorageAttachmentAlreadyExistsError = errors.ConstError("storage attachment already exists")
+	StorageAttachmentAlreadyExists = errors.ConstError("storage attachment already exists")
 
 	// WrongStorageOwnerError describes an error that occurs when
 	// a storage owner differs from the node to which it is being attached.
