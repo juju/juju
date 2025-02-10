@@ -6,9 +6,6 @@ package agent
 import (
 	"bytes"
 	stdcontext "context"
-	"crypto/ed25519"
-	"crypto/rand"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net"
@@ -23,7 +20,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
-	cryptossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -48,6 +44,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/mongo"
+	pkissh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -461,29 +458,13 @@ func ensureKeys(
 	info.SharedSecret = sharedSecret
 
 	// Generate the embedded SSH server host key and store it within StateInitializationParams.
-	hostKey, err := generateED25519KeyString()
+	hostKey, err := pkissh.GenerateED25519KeyString()
 	if err != nil {
 		return errors.Annotatef(err, "failed to ensure ssh server host key")
 	}
 	args.SSHServerHostKey = hostKey
 
 	return nil
-}
-
-func generateED25519KeyString() (string, error) {
-	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-
-		return "", errors.Annotate(err, "failed to generate ED25519 key")
-	}
-
-	pemKey, err := cryptossh.MarshalPrivateKey(privateKey, "")
-	if err != nil {
-		return "", errors.Annotate(err, "failed to marshal private key")
-	}
-
-	pemString := string(pem.EncodeToMemory(pemKey))
-	return pemString, nil
 }
 
 func (c *BootstrapCommand) startMongo(ctx stdcontext.Context, isCAAS bool, addrs network.ProviderAddresses, agentConfig agent.Config) error {

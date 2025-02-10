@@ -588,6 +588,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		AdminSecret:             AdminSecret,
 		CAPrivateKey:            testing.CAKey,
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+		SSHServerHostKey:        testing.SSHServerHostKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

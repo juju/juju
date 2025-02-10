@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"math/rand"
+	"sync"
 
 	mgotesting "github.com/juju/mgo/v3/testing"
 	utilscert "github.com/juju/utils/v3/cert"
@@ -23,6 +24,8 @@ import (
 // Certs holds the certificates and keys required to make a secure
 // connection to a Mongo database.
 var (
+	once sync.Once
+
 	CACert, CAKey, ServerCert, ServerKey = chooseGeneratedCA()
 
 	CACertX509, CAKeyRSA = mustParseCertAndKey(CACert, CAKey)
@@ -87,16 +90,20 @@ func serverCerts() *mgotesting.Certs {
 }
 
 func mustGenerateSSHServerHostKey() string {
-	_, privateKey, err := ed25519.GenerateKey(cryptorand.Reader)
-	if err != nil {
-		panic("failed to generate ED25519 key")
-	}
+	var k string
+	once.Do(func() {
+		_, privateKey, err := ed25519.GenerateKey(cryptorand.Reader)
+		if err != nil {
+			panic("failed to generate ED25519 key")
+		}
+	
+		pemKey, err := cryptossh.MarshalPrivateKey(privateKey, "")
+		if err != nil {
+			panic("failed to marshal private key")
+		}
+	
+		k = string(pem.EncodeToMemory(pemKey))
+	})
 
-	pemKey, err := cryptossh.MarshalPrivateKey(privateKey, "")
-	if err != nil {
-		panic("failed to marshal private key")
-	}
-
-	pemString := string(pem.EncodeToMemory(pemKey))
-	return pemString
+	return k
 }

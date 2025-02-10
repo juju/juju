@@ -899,6 +899,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				MongoSession:     session,
 				NewPolicy:        estate.newStatePolicy,
 				AdminPassword:    icfg.APIInfo.Password,
+				SSHServerHostKey: icfg.Bootstrap.SSHServerHostKey,
 			})
 			if err != nil {
 				return err

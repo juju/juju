@@ -10,6 +10,9 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/pem"
+
+	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/errors"
 )
@@ -65,4 +68,20 @@ func GenerateHostKeys() ([]crypto.PrivateKey, error) {
 		res = append(res, k)
 	}
 	return res, nil
+}
+
+// GenerateED25519KeyString generates a new ED25519 private key and returns it as a PEM encoded string.
+func GenerateED25519KeyString() (string, error) {
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return "", errors.Annotate(err, "failed to generate ED25519 key")
+	}
+
+	pemKey, err := ssh.MarshalPrivateKey(privateKey, "")
+	if err != nil {
+		return "", errors.Annotate(err, "failed to marshal private key")
+	}
+
+	pemString := string(pem.EncodeToMemory(pemKey))
+	return pemString, nil
 }
