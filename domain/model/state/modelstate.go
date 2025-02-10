@@ -368,11 +368,6 @@ WHERE value = $dbContainerTypeValue.value
 		return errors.Capture(err)
 	}
 
-	modelUUID, err := getModelUUID(ctx, preparer, tx)
-	if err != nil {
-		return errors.Errorf("getting model uuid: %w", err)
-	}
-
 	err = deleteModelConstraints(ctx, preparer, tx)
 	if err != nil {
 		return errors.Errorf("deleting existing model constraints: %w", err)
@@ -405,6 +400,11 @@ WHERE value = $dbContainerTypeValue.value
 	err = tx.Query(ctx, insertConstraintStmt, constraintInsertValues).Run()
 	if err != nil {
 		return errors.Errorf("setting new constraints for model: %w", err)
+	}
+
+	modelUUID, err := getModelUUID(ctx, preparer, tx)
+	if err != nil {
+		return errors.Errorf("getting model uuid: %w", err)
 	}
 
 	err = tx.Query(ctx, insertModelConstraintStmt, dbModelConstraint{
