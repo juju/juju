@@ -94,7 +94,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesInstancesMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0], gc.ErrorMatches, `couldn't find instance "birds" for machine 2`)
+	c.Check(results[0], gc.ErrorMatches, `couldn't find instance "birds" for machine 2`)
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesExtraInstances(c *gc.C) {
@@ -129,7 +129,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesExtraInstancesWhenMigrating(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0], gc.ErrorMatches, `no machine with instance "analyse"`)
+	c.Check(results[0], gc.ErrorMatches, `no machine with instance "analyse"`)
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachines(c *gc.C) {
@@ -214,7 +214,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *g
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0], gc.ErrorMatches, "getting instance id for machine 2: retrieval failure")
+	c.Check(results[0], gc.ErrorMatches, "getting instance id for machine 2: retrieval failure")
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFatal(c *gc.C) {
@@ -232,8 +232,8 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
-	c.Assert(results[0], gc.ErrorMatches, "getting instance id for machine 1: retrieval failure")
-	c.Assert(results[1], gc.ErrorMatches, "getting instance id for machine 2: retrieval failure")
+	c.Check(results[0], gc.ErrorMatches, "getting instance id for machine 1: retrieval failure")
+	c.Check(results[1], gc.ErrorMatches, "getting instance id for machine 2: retrieval failure")
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFatalWhenMigrating(c *gc.C) {
@@ -253,9 +253,9 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	// There should be 3 errors here:
 	// * 2 of them because failing to get an instance id from one machine should not stop the processing the rest of the machines;
 	// * 1 because we no longer can link test instance (s.instance) to a test machine (s.machine).
-	c.Assert(results[0], gc.ErrorMatches, "getting instance id for machine 1: retrieval failure")
-	c.Assert(results[1], gc.ErrorMatches, "getting instance id for machine 2: retrieval failure")
-	c.Assert(results[2], gc.ErrorMatches, `no machine with instance "wind-up"`)
+	c.Check(results[0], gc.ErrorMatches, "getting instance id for machine 1: retrieval failure")
+	c.Check(results[1], gc.ErrorMatches, "getting instance id for machine 2: retrieval failure")
+	c.Check(results[2], gc.ErrorMatches, `no machine with instance "wind-up"`)
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *gc.C) {
@@ -328,7 +328,7 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialUnknownModelType(c 
 }
 
 func (s *ModelCredentialSuite) TestOpeningProviderFails(c *gc.C) {
-	s.PatchValue(&newEnv, func(context.Context, environs.OpenParams) (environs.Environ, error) {
+	s.PatchValue(&newEnv, func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error) {
 		return nil, errors.New("explosive")
 	})
 	results, err := checkIAASModelCredential(context.Background(), s.machineState, s.machineService, environs.OpenParams{}, false)
@@ -371,7 +371,7 @@ func (s *ModelCredentialSuite) TestValidateModelCredentialCloudMismatch(c *gc.C)
 }
 
 func (s *ModelCredentialSuite) TestOpeningCAASBrokerFails(c *gc.C) {
-	s.PatchValue(&newCAASBroker, func(context.Context, environs.OpenParams) (caas.Broker, error) {
+	s.PatchValue(&newCAASBroker, func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error) {
 		return nil, errors.New("explosive")
 	})
 	results, err := checkCAASModelCredential(context.Background(), environs.OpenParams{})
@@ -380,7 +380,7 @@ func (s *ModelCredentialSuite) TestOpeningCAASBrokerFails(c *gc.C) {
 }
 
 func (s *ModelCredentialSuite) TestCAASCredentialCheckFailed(c *gc.C) {
-	s.PatchValue(&newCAASBroker, func(context.Context, environs.OpenParams) (caas.Broker, error) {
+	s.PatchValue(&newCAASBroker, func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error) {
 		return &mockCaasBroker{
 			namespacesFunc: func() ([]string, error) { return nil, errors.New("fail auth") },
 		}, nil
@@ -391,7 +391,7 @@ func (s *ModelCredentialSuite) TestCAASCredentialCheckFailed(c *gc.C) {
 }
 
 func (s *ModelCredentialSuite) TestCAASCredentialCheckSucceeds(c *gc.C) {
-	s.PatchValue(&newCAASBroker, func(context.Context, environs.OpenParams) (caas.Broker, error) {
+	s.PatchValue(&newCAASBroker, func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error) {
 		return &mockCaasBroker{
 			namespacesFunc: func() ([]string, error) { return []string{}, nil },
 		}, nil
@@ -421,7 +421,7 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialForCAASModel(c *gc.
 }
 
 func (s *ModelCredentialSuite) ensureEnvForCAASModel() {
-	s.PatchValue(&newCAASBroker, func(context.Context, environs.OpenParams) (caas.Broker, error) {
+	s.PatchValue(&newCAASBroker, func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error) {
 		return &mockCaasBroker{
 			namespacesFunc: func() ([]string, error) { return []string{}, nil },
 		}, nil
@@ -429,7 +429,7 @@ func (s *ModelCredentialSuite) ensureEnvForCAASModel() {
 }
 
 func (s *ModelCredentialSuite) ensureEnvForIAASModel() {
-	s.PatchValue(&newEnv, func(context.Context, environs.OpenParams) (environs.Environ, error) {
+	s.PatchValue(&newEnv, func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error) {
 		return &mockEnviron{
 			mockProvider: &mockProvider{
 				Stub: &testing.Stub{},

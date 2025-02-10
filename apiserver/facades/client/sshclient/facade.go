@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (Broker, error)
+type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (Broker, error)
 
 // Facade implements the API required by the sshclient worker.
 type Facade struct {
@@ -287,7 +287,7 @@ func (facade *Facade) getExecSecretToken(ctx context.Context, cloudSpec environs
 		ControllerUUID: facade.controllerUUID,
 		Cloud:          cloudSpec,
 		Config:         cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return "", errors.Annotate(err, "failed to open kubernetes client")
 	}

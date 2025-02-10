@@ -66,7 +66,7 @@ func (t configTest) check(c *gc.C) {
 	e, err := environs.New(context.Background(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	if t.change != nil {
 		c.Assert(err, jc.ErrorIsNil)
 

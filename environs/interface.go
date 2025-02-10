@@ -84,7 +84,7 @@ type CloudEnvironProvider interface {
 	//
 	// Open should not perform any expensive operations, such as querying
 	// the cloud API, as it will be called frequently.
-	Open(context.Context, OpenParams) (Environ, error)
+	Open(context.Context, OpenParams, CredentialInvalidator) (Environ, error)
 }
 
 // OpenParams contains the parameters for EnvironProvider.Open.

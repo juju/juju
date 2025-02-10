@@ -41,7 +41,7 @@ type Config struct {
 	CredentialAPI         common.CredentialAPI
 	Logger                logger.Logger
 	Clock                 clock.Clock
-	NewCloudDestroyerFunc func(context.Context, environs.OpenParams) (environs.CloudDestroyer, error)
+	NewCloudDestroyerFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.CloudDestroyer, error)
 }
 
 // Validate returns an error if the config cannot be expected to drive
@@ -345,7 +345,7 @@ func (u *Undertaker) environ(ctx context.Context) (environs.CloudDestroyer, erro
 	environ, err := u.config.NewCloudDestroyerFunc(ctx, environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: modelConfig,
-	})
+	}, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating environ for model %q (%s)", modelConfig.Name(), modelConfig.UUID())
 	}

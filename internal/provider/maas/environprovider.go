@@ -58,7 +58,7 @@ func (EnvironProvider) Version() int {
 	return 0
 }
 
-func (EnvironProvider) Open(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+func (EnvironProvider) Open(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
 	logger.Debugf(context.TODO(), "opening model %q.", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")

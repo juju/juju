@@ -186,10 +186,10 @@ func (s *trackerWorkerSuite) getConfig(c *gc.C, environ environs.Environ) Tracke
 		ConfigService:     s.configService,
 		CredentialService: s.credentialService,
 		GetProviderForType: getProviderForType(
-			IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+			IAASGetProvider(func(_ context.Context, _ environs.OpenParams, _ environs.CredentialInvalidator) (environs.Environ, error) {
 				return environ, nil
 			}),
-			CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
+			CAASGetProvider(func(_ context.Context, _ environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
 				c.Fatal("unexpected call")
 				return nil, nil
 			}),

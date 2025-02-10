@@ -429,9 +429,9 @@ func (b *AgentBootstrap) getEnviron(
 		Config:         modelConfig,
 	}
 	if cloud.CloudTypeIsCAAS(cloudSpec.Type) {
-		return caas.Open(ctx, provider, openParams)
+		return caas.Open(ctx, provider, openParams, environs.NoopCredentialInvalidator())
 	}
-	return environs.Open(ctx, provider, openParams)
+	return environs.Open(ctx, provider, openParams, environs.NoopCredentialInvalidator())
 }
 
 // initMongo dials the initial MongoDB connection, setting a

@@ -155,7 +155,7 @@ func (fix *fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
 		CredentialAPI: &fakeCredentialAPI{},
 		Logger:        loggertesting.WrapCheckLog(c),
 		Clock:         fix.clock,
-		NewCloudDestroyerFunc: func(ctx context.Context, op environs.OpenParams) (environs.CloudDestroyer, error) {
+		NewCloudDestroyerFunc: func(ctx context.Context, op environs.OpenParams, _ environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
 			return &mockDestroyer{stub: stub}, nil
 		},
 	})

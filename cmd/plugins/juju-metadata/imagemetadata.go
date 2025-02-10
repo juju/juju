@@ -54,7 +54,7 @@ func prepare(ctx *cmd.Context, controllerName string, store jujuclient.ClientSto
 	return environs.New(ctx, environs.OpenParams{
 		Cloud:  *spec,
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 }
 
 func newImageMetadataCommand() cmd.Command {

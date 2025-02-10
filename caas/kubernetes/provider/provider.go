@@ -43,7 +43,7 @@ type kubernetesEnvironProvider struct {
 	environProviderCredentials
 	cmdRunner          CommandRunner
 	builtinCloudGetter func(CommandRunner) (cloud.Cloud, error)
-	brokerGetter       func(context.Context, environs.OpenParams) (ClusterMetadataStorageChecker, error)
+	brokerGetter       func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (ClusterMetadataStorageChecker, error)
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
@@ -58,8 +58,8 @@ var providerInstance = kubernetesEnvironProvider{
 	builtinCloudGetter: func(cmdRunner CommandRunner) (cloud.Cloud, error) {
 		return attemptMicroK8sCloud(cmdRunner, decideKubeConfigDir)
 	},
-	brokerGetter: func(ctx context.Context, args environs.OpenParams) (ClusterMetadataStorageChecker, error) {
-		broker, err := caas.New(ctx, args)
+	brokerGetter: func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (ClusterMetadataStorageChecker, error) {
+		broker, err := caas.New(ctx, args, invalidator)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -158,7 +158,7 @@ func newRestClient(cfg *rest.Config) (rest.Interface, error) {
 }
 
 // Open is part of the ContainerEnvironProvider interface.
-func (p kubernetesEnvironProvider) Open(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
+func (p kubernetesEnvironProvider) Open(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (caas.Broker, error) {
 	logger.Debugf(context.TODO(), "opening model %q.", args.Config.Name())
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")

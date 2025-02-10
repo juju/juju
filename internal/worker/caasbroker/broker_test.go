@@ -30,7 +30,7 @@ var _ = gc.Suite(&TrackerSuite{})
 func (s *TrackerSuite) validConfig(c *gc.C) caasbroker.Config {
 	return caasbroker.Config{
 		ConfigAPI: &runContext{},
-		NewContainerBrokerFunc: func(context.Context, environs.OpenParams) (caas.Broker, error) {
+		NewContainerBrokerFunc: func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error) {
 			return nil, errors.NotImplementedf("test func")
 		},
 		Logger: loggertesting.WrapCheckLog(c),
@@ -124,7 +124,7 @@ func (s *TrackerSuite) TestInitialise(c *gc.C) {
 	fix.Run(c, func(runContext *runContext) {
 		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
 			ConfigAPI: runContext,
-			NewContainerBrokerFunc: func(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
+			NewContainerBrokerFunc: func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
 				c.Assert(args.Cloud, jc.DeepEquals, fix.initialSpec)
 				c.Assert(args.Config.Name(), jc.DeepEquals, "testmodel")
 				return nil, errors.NotValidf("cloud spec")
@@ -161,7 +161,7 @@ func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
 	fix.Run(c, func(runContext *runContext) {
 		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
 			ConfigAPI: runContext,
-			NewContainerBrokerFunc: func(context.Context, environs.OpenParams) (caas.Broker, error) {
+			NewContainerBrokerFunc: func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error) {
 				return nil, errors.NotValidf("config")
 			},
 			Logger: loggertesting.WrapCheckLog(c),
@@ -203,7 +203,7 @@ func (s *TrackerSuite) TestCloudSpecInvalid(c *gc.C) {
 	fix.Run(c, func(runContext *runContext) {
 		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
 			ConfigAPI: runContext,
-			NewContainerBrokerFunc: func(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
+			NewContainerBrokerFunc: func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
 				c.Assert(args.Cloud, jc.DeepEquals, cloudSpec)
 				return nil, errors.NotValidf("cloud spec")
 			},
@@ -299,7 +299,7 @@ func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 	fix.Run(c, func(runContext *runContext) {
 		tracker, err := caasbroker.NewTracker(context.Background(), caasbroker.Config{
 			ConfigAPI: runContext,
-			NewContainerBrokerFunc: func(context.Context, environs.OpenParams) (caas.Broker, error) {
+			NewContainerBrokerFunc: func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error) {
 				broker := &mockBroker{}
 				broker.SetErrors(errors.New("SetConfig is broken"))
 				return broker, nil

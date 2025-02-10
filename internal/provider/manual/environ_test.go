@@ -34,7 +34,7 @@ func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
 	env, err := ManualProvider{}.Open(context.Background(), environs.OpenParams{
 		Cloud:  CloudSpec(),
 		Config: MinimalConfig(c),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
 	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())

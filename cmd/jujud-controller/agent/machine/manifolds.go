@@ -285,10 +285,10 @@ type ManifoldsConfig struct {
 
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
-	NewEnvironFunc func(context.Context, environs.OpenParams) (environs.Environ, error)
+	NewEnvironFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error)
 
 	// NewCAASBrokerFunc is a function opens a CAAS broker.
-	NewCAASBrokerFunc func(context.Context, environs.OpenParams) (caas.Broker, error)
+	NewCAASBrokerFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error)
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -873,11 +873,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                    providertracker.NewWorker,
 			NewTrackerWorker:             providertracker.NewTrackerWorker,
 			GetProviderServicesGetter:    providertracker.GetProviderServicesGetter,
-			GetIAASProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
-				return config.NewEnvironFunc(ctx, args)
+			GetIAASProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
+				return config.NewEnvironFunc(ctx, args, invalidator)
 			}),
-			GetCAASProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
-				return config.NewCAASBrokerFunc(ctx, args)
+			GetCAASProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (caas.Broker, error) {
+				return config.NewCAASBrokerFunc(ctx, args, invalidator)
 			}),
 			Logger: internallogger.GetLogger("juju.worker.providertracker"),
 			Clock:  config.Clock,

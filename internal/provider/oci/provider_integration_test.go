@@ -199,14 +199,14 @@ func (s *credentialsSuite) TestOpen(c *gc.C) {
 	env, err := environs.Open(stdcontext.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: newConfig(c, jujutesting.Attrs{"compartment-id": "fake"}),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 
 	env, err = environs.Open(stdcontext.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: newConfig(c, nil),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Check(err, gc.ErrorMatches, "compartment-id may not be empty")
 	c.Assert(env, gc.IsNil)
 }

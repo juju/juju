@@ -342,7 +342,7 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 		CredentialAPI: credentialAPI,
 		Logger:        loggertesting.WrapCheckLog(c),
 		Clock:         testclock.NewDilatedWallClock(testing.ShortWait),
-		NewCloudDestroyerFunc: func(ctx context.Context, op environs.OpenParams) (environs.CloudDestroyer, error) {
+		NewCloudDestroyerFunc: func(ctx context.Context, op environs.OpenParams, _ environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
 			return &waitDestroyer{}, nil
 		},
 	})

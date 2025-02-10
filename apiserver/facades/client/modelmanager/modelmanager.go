@@ -46,7 +46,7 @@ var (
 	logger = internallogger.GetLogger("juju.apiserver.modelmanager")
 )
 
-type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (caas.Broker, error)
+type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error)
 
 // StateBackend represents the mongo backend.
 type StateBackend interface {
@@ -539,7 +539,7 @@ Please choose a different model name.
 		ControllerUUID: m.controllerUUID.String(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,
-	})
+	}, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to open kubernetes client")
 	}
@@ -585,7 +585,7 @@ func (m *ModelManagerAPI) newIAASModel(
 		ControllerUUID: m.controllerUUID.String(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,
-	})
+	}, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to open environ")
 	}

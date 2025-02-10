@@ -70,7 +70,7 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	env, err := manual.ProviderInstance.Open(context.Background(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: testConfig,
-	})
+	}, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, err
 	}

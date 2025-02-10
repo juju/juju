@@ -2153,18 +2153,18 @@ func (c *MockCloudEnvironProviderFinalizeCredentialCall) DoAndReturn(f func(envi
 }
 
 // Open mocks base method.
-func (m *MockCloudEnvironProvider) Open(arg0 context.Context, arg1 environs.OpenParams) (environs.Environ, error) {
+func (m *MockCloudEnvironProvider) Open(arg0 context.Context, arg1 environs.OpenParams, arg2 environs.CredentialInvalidator) (environs.Environ, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Open", arg0, arg1)
+	ret := m.ctrl.Call(m, "Open", arg0, arg1, arg2)
 	ret0, _ := ret[0].(environs.Environ)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Open indicates an expected call of Open.
-func (mr *MockCloudEnvironProviderMockRecorder) Open(arg0, arg1 any) *MockCloudEnvironProviderOpenCall {
+func (mr *MockCloudEnvironProviderMockRecorder) Open(arg0, arg1, arg2 any) *MockCloudEnvironProviderOpenCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockCloudEnvironProvider)(nil).Open), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockCloudEnvironProvider)(nil).Open), arg0, arg1, arg2)
 	return &MockCloudEnvironProviderOpenCall{Call: call}
 }
 
@@ -2180,13 +2180,13 @@ func (c *MockCloudEnvironProviderOpenCall) Return(arg0 environs.Environ, arg1 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCloudEnvironProviderOpenCall) Do(f func(context.Context, environs.OpenParams) (environs.Environ, error)) *MockCloudEnvironProviderOpenCall {
+func (c *MockCloudEnvironProviderOpenCall) Do(f func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error)) *MockCloudEnvironProviderOpenCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCloudEnvironProviderOpenCall) DoAndReturn(f func(context.Context, environs.OpenParams) (environs.Environ, error)) *MockCloudEnvironProviderOpenCall {
+func (c *MockCloudEnvironProviderOpenCall) DoAndReturn(f func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error)) *MockCloudEnvironProviderOpenCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -87,7 +87,7 @@ func NewTracker(ctx context.Context, config Config) (*Tracker, error) {
 		ControllerUUID: ctrlCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create caas broker")
 	}

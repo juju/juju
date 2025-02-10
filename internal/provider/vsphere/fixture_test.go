@@ -64,7 +64,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServer.URL,
 		}),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 

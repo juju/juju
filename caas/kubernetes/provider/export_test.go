@@ -104,7 +104,7 @@ func NewProviderWithFakes(
 	runner CommandRunner,
 	credentialGetter func(context.Context, CommandRunner) (jujucloud.Credential, error),
 	getter func(CommandRunner) (jujucloud.Cloud, error),
-	brokerGetter func(context.Context, environs.OpenParams) (ClusterMetadataStorageChecker, error)) caas.ContainerEnvironProvider {
+	brokerGetter func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (ClusterMetadataStorageChecker, error)) caas.ContainerEnvironProvider {
 	return kubernetesEnvironProvider{
 		environProviderCredentials: environProviderCredentials{
 			cmdRunner:               runner,

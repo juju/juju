@@ -36,7 +36,7 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 	env, err := s.provider.Open(stdcontext.Background(), environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: config,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 
 	envConfig := env.Config()
@@ -66,7 +66,7 @@ func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec,
 	_, err := s.provider.Open(stdcontext.Background(), environs.OpenParams{
 		Cloud:  spec,
 		Config: fakeConfig(c),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 

@@ -422,7 +422,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	env, err := environs.Open(context.Background(), provider, environs.OpenParams{
 		Cloud:  testing.FakeCloudSpec(),
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.PrepareForBootstrap(nullContext(), "controller-1")
 	c.Assert(err, jc.ErrorIsNil)

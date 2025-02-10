@@ -55,7 +55,7 @@ func (s *ProviderSuite) TestOpen(c *gc.C) {
 	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 }
@@ -75,7 +75,7 @@ func (s *ProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec,
 	_, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: coretesting.ModelConfig(c),
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 

@@ -223,7 +223,7 @@ type mockBroker struct {
 	mu        sync.Mutex
 }
 
-func newMockBroker(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
+func newMockBroker(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
 	return &mockBroker{spec: args.Cloud, namespace: args.Config.Name(), cfg: args.Config}, nil
 }
 

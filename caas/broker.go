@@ -32,7 +32,7 @@ type ContainerEnvironProvider interface {
 	//
 	// Open should not perform any expensive operations, such as querying
 	// the cloud API, as it will be called frequently.
-	Open(ctx context.Context, args environs.OpenParams) (Broker, error)
+	Open(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (Broker, error)
 }
 
 // RegisterContainerProvider is used for providers that we want to use for managing 'instances',
@@ -47,26 +47,26 @@ func RegisterContainerProvider(name string, p ContainerEnvironProvider, alias ..
 }
 
 // New returns a new broker based on the provided configuration.
-func New(ctx context.Context, args environs.OpenParams) (Broker, error) {
+func New(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (Broker, error) {
 	p, err := environs.Provider(args.Cloud.Type)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return Open(ctx, p, args)
+	return Open(ctx, p, args, invalidator)
 }
 
 // Open creates a Broker instance and errors if the provider is not for
 // a container substrate.
-func Open(ctx context.Context, p environs.EnvironProvider, args environs.OpenParams) (Broker, error) {
+func Open(ctx context.Context, p environs.EnvironProvider, args environs.OpenParams, invalidator environs.CredentialInvalidator) (Broker, error) {
 	if envProvider, ok := p.(ContainerEnvironProvider); !ok {
 		return nil, errors.NotValidf("container environ provider %T", p)
 	} else {
-		return envProvider.Open(ctx, args)
+		return envProvider.Open(ctx, args, invalidator)
 	}
 }
 
 // NewContainerBrokerFunc returns a Container Broker.
-type NewContainerBrokerFunc func(ctx context.Context, args environs.OpenParams) (Broker, error)
+type NewContainerBrokerFunc func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (Broker, error)
 
 // StatusCallbackFunc represents a function that can be called to report a status.
 type StatusCallbackFunc func(appName string, settableStatus status.Status, info string, data map[string]interface{}) error

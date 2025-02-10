@@ -303,7 +303,7 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: config,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 

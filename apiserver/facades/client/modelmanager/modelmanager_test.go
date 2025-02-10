@@ -219,7 +219,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
 	}
 
-	newBroker := func(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
+	newBroker := func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
 		s.caasBroker = &mockCaasBroker{namespace: args.Config.Name()}
 		return s.caasBroker, nil
 	}
@@ -283,7 +283,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	newBroker := func(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
+	newBroker := func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
 		return s.caasBroker, nil
 	}
 	mm, err := modelmanager.NewModelManagerAPI(

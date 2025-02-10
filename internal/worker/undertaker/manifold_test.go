@@ -55,7 +55,7 @@ func (s *manifoldSuite) namesConfig(c *gc.C) undertaker.ManifoldConfig {
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) {
 			return &fakeCredentialAPI{}, nil
 		},
-		NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams) (environs.CloudDestroyer, error) {
+		NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams, _ environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
 			return &fakeEnviron{}, nil
 		},
 	}

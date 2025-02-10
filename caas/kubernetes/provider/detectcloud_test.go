@@ -65,7 +65,7 @@ func (s *detectCloudSuite) getProvider(builtin builtinCloudRet) caas.ContainerEn
 		dummyRunner{},
 		credentialGetterFunc(builtin),
 		cloudGetterFunc(builtin),
-		func(context.Context, environs.OpenParams) (provider.ClusterMetadataStorageChecker, error) {
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (provider.ClusterMetadataStorageChecker, error) {
 			return &fakeK8sClusterMetadataChecker{}, nil
 		},
 	)

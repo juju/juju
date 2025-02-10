@@ -158,7 +158,7 @@ func (EnvironProvider) Version() int {
 	return 0
 }
 
-func (p EnvironProvider) Open(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+func (p EnvironProvider) Open(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
 	logger.Infof(context.TODO(), "opening model %q", args.Config.Name())
 	uuid := args.Config.UUID()
 	namespace, err := instance.NewNamespace(uuid)

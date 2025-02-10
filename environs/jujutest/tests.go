@@ -67,7 +67,7 @@ func (t *Tests) Open(c *gc.C, ctx context.Context, cfg *config.Config) environs.
 	e, err := environs.New(ctx, environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: cfg,
-	})
+	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", cfg.AllAttrs()))
 	c.Assert(e, gc.NotNil)
 	return e
