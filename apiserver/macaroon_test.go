@@ -363,7 +363,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	info.Macaroons = []macaroon.Slice{{mac}}
 	client := s.OpenAPI(c, info, nil)
 
-	host := api.PerferredHost(info)
+	host := api.PreferredHost(info)
 	if host == "" {
 		host = info.Addrs[0]
 	}

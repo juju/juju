@@ -32,10 +32,10 @@ func (s *connectionSuite) TestCloseMultipleOk(c *gc.C) {
 	conn := newRPCConnection()
 	broken := make(chan struct{})
 	close(broken)
-	apiConn := api.NewTestingConnection(api.TestingConnectionParams{
+	apiConn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: conn,
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
@@ -44,7 +44,7 @@ func (s *connectionSuite) TestCloseMultipleOk(c *gc.C) {
 	c.Assert(apiConn.Close(), gc.IsNil)
 }
 
-func (s *connectionSuite) apiConnection() api.Connection {
+func (s *connectionSuite) apiConnection(c *gc.C) api.Connection {
 	conn := newRPCConnection()
 	conn.response = &params.LoginResult{
 		ControllerTag: coretesting.ControllerTag.String(),
@@ -73,11 +73,11 @@ func (s *connectionSuite) apiConnection() api.Connection {
 
 	broken := make(chan struct{})
 	close(broken)
-	apiConn := api.NewTestingConnection(api.TestingConnectionParams{
+	apiConn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: conn,
 		ModelTag:      coretesting.ModelTag.String(),
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
@@ -88,7 +88,7 @@ func (s *connectionSuite) apiConnection() api.Connection {
 }
 
 func (s *connectionSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
-	apiConn := s.apiConnection()
+	apiConn := s.apiConnection(c)
 	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -100,6 +100,45 @@ func (s *connectionSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	c.Assert(len(hostPortList[1]), gc.Equals, 1)
 	c.Assert(hostPortList[1][0].NetPort, gc.Equals, network.NetPort(1234))
 	c.Assert(hostPortList[1][0].MachineAddress.Value, gc.Equals, "fe80:abcd::1")
+}
+
+func (s *connectionSuite) TestAPIHostPortsExcludesAddressesWithPath(c *gc.C) {
+	conn := newRPCConnection()
+	conn.response = &params.LoginResult{
+		ControllerTag: coretesting.ControllerTag.String(),
+		ModelTag:      coretesting.ModelTag.String(),
+		ServerVersion: "2.3-rc2",
+		Servers: [][]params.HostPort{
+			{
+				params.HostPort{
+					Address: params.Address{
+						Value: "fe80:abcd::1",
+						CIDR:  "128",
+					},
+					Port: 1234,
+				},
+			},
+		},
+	}
+
+	broken := make(chan struct{})
+	close(broken)
+	apiConn := api.NewTestingConnection(c, api.TestingConnectionParams{
+		RPCConnection: conn,
+		ModelTag:      coretesting.ModelTag.String(),
+		Clock:         &fakeClock{},
+		Address:       "wss://localhost:1234/foo",
+		Broken:        broken,
+		Closed:        make(chan struct{}),
+	})
+	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostPortList := apiConn.APIHostPorts()
+	c.Assert(len(hostPortList), gc.Equals, 1)
+	c.Assert(len(hostPortList[0]), gc.Equals, 1)
+	c.Assert(hostPortList[0][0].NetPort, gc.Equals, network.NetPort(1234))
+	c.Assert(hostPortList[0][0].MachineAddress.Value, gc.Equals, "fe80:abcd::1")
 }
 
 func (s *connectionSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
@@ -123,11 +162,11 @@ func (s *connectionSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C)
 
 	broken := make(chan struct{})
 	close(broken)
-	apiConn := api.NewTestingConnection(api.TestingConnectionParams{
+	apiConn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: conn,
 		ModelTag:      coretesting.ModelTag.String(),
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 		Proxier:       proxytest.NewMockTunnelProxier(),
@@ -143,7 +182,7 @@ func (s *connectionSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C)
 }
 
 func (s *connectionSuite) TestTags(c *gc.C) {
-	apiConn := s.apiConnection()
+	apiConn := s.apiConnection(c)
 	// Even though we haven't called Login, the model tag should
 	// still be set.
 	modelTag, ok := apiConn.ModelTag()
@@ -160,7 +199,7 @@ func (s *connectionSuite) TestTags(c *gc.C) {
 }
 
 func (s *connectionSuite) TestLoginSetsControllerAccess(c *gc.C) {
-	apiConn := s.apiConnection()
+	apiConn := s.apiConnection(c)
 	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiConn.ControllerAccess(), gc.Equals, "superuser")
@@ -194,11 +233,11 @@ func (s *connectionSuite) TestLoginToMigratedModel(c *gc.C) {
 	})
 	broken := make(chan struct{})
 	close(broken)
-	apiConn := api.NewTestingConnection(api.TestingConnectionParams{
+	apiConn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: conn,
 		ModelTag:      coretesting.ModelTag.String(),
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
@@ -217,7 +256,7 @@ func (s *connectionSuite) TestLoginToMigratedModel(c *gc.C) {
 }
 
 func (s *connectionSuite) TestBestFacadeVersion(c *gc.C) {
-	apiConn := s.apiConnection()
+	apiConn := s.apiConnection(c)
 	err := apiConn.Login(context.Background(), names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(apiConn.BestFacadeVersion("Client"), gc.Equals, 8)
@@ -286,11 +325,11 @@ func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 	broken := make(chan struct{})
 	close(broken)
 
-	apiConn := api.NewTestingConnection(api.TestingConnectionParams{
+	apiConn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: conn,
 		ModelTag:      coretesting.ModelTag.String(),
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})

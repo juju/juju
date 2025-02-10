@@ -5,6 +5,7 @@ package ssh
 
 import (
 	"context"
+	"net/url"
 
 	"github.com/juju/retry"
 
@@ -136,7 +137,7 @@ func NewSSHCommandForTest(
 	c.sshMachine.sshClient = sshClient
 	c.sshMachine.leaderAPI = applicationAPI
 	c.statusClient = statusClient
-	c.apiAddr = "localhost:6666"
+	c.apiAddr = &url.URL{Host: "localhost:6666"}
 	c.SetClientStore(clientStore())
 	return c
 }
@@ -157,7 +158,7 @@ func NewSCPCommandForTest(
 	c.sshMachine.sshClient = sshClient
 	c.sshMachine.leaderAPI = applicationAPI
 	c.statusClient = statusClient
-	c.apiAddr = "localhost:6666"
+	c.apiAddr = &url.URL{Host: "localhost:6666"}
 	c.SetClientStore(clientStore())
 	return c
 }
@@ -185,7 +186,7 @@ func NewDebugHooksCommandForTest(
 	c.sshMachine.sshClient = sshClient
 	c.sshMachine.leaderAPI = applicationAPI
 	c.statusClient = statusClient
-	c.apiAddr = "localhost:6666"
+	c.apiAddr = &url.URL{Host: "localhost:6666"}
 	c.SetClientStore(clientStore())
 	return c
 }
@@ -215,7 +216,7 @@ func NewDebugCodeCommandForTest(
 	c.sshMachine.sshClient = sshClient
 	c.sshMachine.leaderAPI = applicationAPI
 	c.statusClient = statusClient
-	c.apiAddr = "localhost:6666"
+	c.apiAddr = &url.URL{Host: "localhost:6666"}
 	c.SetClientStore(clientStore())
 	return c
 }

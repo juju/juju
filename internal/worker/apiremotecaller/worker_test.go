@@ -4,6 +4,7 @@
 package apiremotecaller
 
 import (
+	"net/url"
 	"sync"
 	"time"
 
@@ -133,11 +134,13 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 	s.expectClock()
 
 	done := make(chan struct{})
-	s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
+	addr := &url.URL{Scheme: "wss", Host: "192.168.0.17"}
+
+	s.remote.EXPECT().UpdateAddresses([]string{addr.Host}).DoAndReturn(func(s []string) {
 		close(done)
 	})
 	s.remote.EXPECT().Connection().Return(s.connection)
-	s.connection.EXPECT().Addr().Return("192.168.0.17")
+	s.connection.EXPECT().Addr().Return(addr)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -154,7 +157,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 			"1": {
 				ID:              "1",
 				Addresses:       []string{"172.217.22.21"},
-				InternalAddress: "192.168.0.17",
+				InternalAddress: addr.Host,
 			},
 		},
 	})
@@ -171,7 +174,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 
 	remotes := w.GetAPIRemotes()
 	c.Assert(remotes, gc.HasLen, 1)
-	c.Check(remotes[0].Connection().Addr(), gc.Equals, "192.168.0.17")
+	c.Check(remotes[0].Connection().Addr(), gc.DeepEquals, addr)
 
 	workertest.CleanKill(c, w)
 }

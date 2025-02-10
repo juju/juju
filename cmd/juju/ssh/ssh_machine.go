@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
@@ -42,7 +43,7 @@ type sshMachine struct {
 	noHostKeyChecks        bool
 	target                 string
 	args                   []string
-	apiAddr                string
+	apiAddr                *url.URL
 	knownHostsPath         string
 	retryStrategy          retry.CallArgs
 	publicKeyRetryStrategy retry.CallArgs
@@ -341,10 +342,6 @@ func (c *sshMachine) proxySSH(ctx context.Context) (bool, error) {
 
 // setProxyCommand sets the proxy command option.
 func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTarget) error {
-	apiServerHost, _, err := net.SplitHostPort(c.apiAddr)
-	if err != nil {
-		return errors.Errorf("failed to get proxy address: %v", err)
-	}
 	juju, err := getJujuExecutable()
 	if err != nil {
 		return errors.Errorf("failed to get juju executable path: %v", err)
@@ -385,7 +382,7 @@ func (c *sshMachine) setProxyCommand(options *ssh.Options, targets []*resolvedTa
 			"--proxy=false",
 			"--no-host-key-checks",
 			"--pty=false",
-			"ubuntu@"+apiServerHost,
+			"ubuntu@"+c.apiAddr.Hostname(),
 			"-q",
 			"nc %h %p",
 		)

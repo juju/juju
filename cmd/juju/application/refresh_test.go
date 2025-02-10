@@ -1162,8 +1162,15 @@ type mockAPIConnection struct {
 	authTag       names.Tag
 }
 
-func (m *mockAPIConnection) Addr() string {
-	return "0.1.2.3:1234"
+func (m *mockAPIConnection) Addr() *url.URL {
+	return &url.URL{
+		Scheme: "wss",
+		Host:   "0.1.2.3:1234",
+	}
+}
+
+func (m *mockAPIConnection) IsProxied() bool {
+	return false
 }
 
 func (m *mockAPIConnection) IPAddr() string {
@@ -1179,7 +1186,8 @@ func (m *mockAPIConnection) PublicDNSName() string {
 }
 
 func (m *mockAPIConnection) APIHostPorts() []network.MachineHostPorts {
-	hp, _ := network.ParseMachineHostPort(m.Addr())
+	url := m.Addr()
+	hp, _ := network.ParseMachineHostPort(url.Host)
 	return []network.MachineHostPorts{{*hp}}
 }
 

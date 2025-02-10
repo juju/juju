@@ -5,6 +5,7 @@ package apiremotecaller
 
 import (
 	"context"
+	"net/url"
 	"sync/atomic"
 	"time"
 
@@ -48,18 +49,18 @@ func (s *RemoteSuite) TestConnect(c *gc.C) {
 	s.expectClock()
 	s.expectClockAfter(make(<-chan time.Time))
 
-	addrs := []string{"10.0.0.1"}
+	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
 
 	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{}))
 	s.apiConnection.EXPECT().Close().Return(nil)
-	s.apiConnection.EXPECT().Addr().Return(addrs[0])
+	s.apiConnection.EXPECT().Addr().Return(addr)
 
 	w := s.newRemoteServer(c)
 	defer workertest.DirtyKill(c, w)
 
 	s.ensureStartup(c)
 
-	w.UpdateAddresses(addrs)
+	w.UpdateAddresses([]string{addr.String()})
 
 	select {
 	case <-s.apiConnect:
@@ -71,7 +72,7 @@ func (s *RemoteSuite) TestConnect(c *gc.C) {
 
 	conn := w.Connection()
 	c.Assert(conn, gc.NotNil)
-	c.Check(conn.Addr(), jc.DeepEquals, addrs[0])
+	c.Check(conn.Addr().String(), jc.DeepEquals, addr.String())
 
 	workertest.CleanKill(c, w)
 }
@@ -98,12 +99,12 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 	s.expectClock()
 	s.expectClockAfter(make(<-chan time.Time))
 
-	addrs0 := []string{"10.0.0.1"}
-	addrs1 := []string{"10.0.0.2"}
+	addr0 := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
+	addr1 := &url.URL{Scheme: "wss", Host: "10.0.0.2"}
 
 	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{}))
 	s.apiConnection.EXPECT().Close().Return(nil)
-	s.apiConnection.EXPECT().Addr().Return(addrs1[0])
+	s.apiConnection.EXPECT().Addr().Return(addr1)
 
 	w := s.newRemoteServer(c)
 	defer workertest.DirtyKill(c, w)
@@ -113,8 +114,8 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 	// UpdateAddresses will block the first connection, so we can trigger a
 	// connection failure. The second UpdateAddresses should then cancel the
 	// current connection and start a new one, that one should then succeed.
-	w.UpdateAddresses(addrs0)
-	w.UpdateAddresses(addrs1)
+	w.UpdateAddresses([]string{addr0.String()})
+	w.UpdateAddresses([]string{addr1.String()})
 
 	select {
 	case <-s.apiConnect:
@@ -126,7 +127,7 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 
 	conn := w.Connection()
 	c.Assert(conn, gc.NotNil)
-	c.Check(conn.Addr(), jc.DeepEquals, addrs1[0])
+	c.Check(conn.Addr(), jc.DeepEquals, addr1)
 
 	workertest.CleanKill(c, w)
 }
@@ -147,14 +148,14 @@ func (s *RemoteSuite) TestConnectBlocks(c *gc.C) {
 	s.expectClock()
 	s.expectClockAfter(make(<-chan time.Time))
 
-	addrs := []string{"10.0.0.1"}
+	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
 
 	w := s.newRemoteServer(c)
 	defer workertest.DirtyKill(c, w)
 
 	s.ensureStartup(c)
 
-	w.UpdateAddresses(addrs)
+	w.UpdateAddresses([]string{addr.String()})
 
 	workertest.CleanKill(c, w)
 }
@@ -177,7 +178,7 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *gc.C) {
 	s.expectClock()
 	s.expectClockAfter(make(<-chan time.Time))
 
-	addrs := []string{"10.0.0.1"}
+	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
 
 	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{}))
 	s.apiConnection.EXPECT().Close().Return(nil)
@@ -187,7 +188,7 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	w.UpdateAddresses(addrs)
+	w.UpdateAddresses([]string{addr.String()})
 
 	select {
 	case <-s.apiConnect:
@@ -195,7 +196,7 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *gc.C) {
 		c.Fatalf("timed out waiting for API connect")
 	}
 
-	w.UpdateAddresses(addrs)
+	w.UpdateAddresses([]string{addr.String()})
 
 	select {
 	case <-s.apiConnect:

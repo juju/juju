@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	gopath "path"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -52,6 +53,12 @@ const pingTimeout = 30 * time.Second
 
 // modelRoot is the prefix that all model API paths begin with.
 const modelRoot = "/model/"
+
+// apiScheme is the default scheme used for connecting to the websocket API.
+const apiScheme = "wss"
+
+// serverScheme is the default scheme used for HTTP requests.
+const serverScheme = "https"
 
 var logger = internallogger.GetLogger("juju.api")
 
@@ -136,16 +143,16 @@ func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 	// machinery, because we could just use http.DefaultTransport
 	// for everything, but it's easier just to leave it in place.
 	bakeryClient.Client.Transport = &hostSwitchingTransport{
-		primaryHost: dialResult.addr,
+		primaryHost: dialResult.controllerRootAddr.Host,
 		primary: jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
 			TLSConfig: dialResult.tlsConfig,
 		}),
 		fallback: http.DefaultTransport,
 	}
 
-	host := PerferredHost(info)
+	host := PreferredHost(info)
 	if host == "" {
-		host = dialResult.addr
+		host = dialResult.controllerRootAddr.Host
 	}
 
 	pingerFacadeVersions := facadeVersions["Pinger"]
@@ -167,11 +174,11 @@ func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 		client:              client,
 		conn:                dialResult.conn,
 		clock:               opts.Clock,
-		addr:                dialResult.addr,
+		addr:                dialResult.controllerRootAddr,
 		ipAddr:              dialResult.ipAddr,
 		cookieURL:           CookieURLFromHost(host),
 		pingerFacadeVersion: pingerFacadeVersions[len(pingerFacadeVersions)-1],
-		serverScheme:        "https",
+		serverScheme:        serverScheme,
 		// We keep the login provider around to provide auth headers
 		// when doing HTTP requests.
 		// If login fails, we discard the connection.
@@ -206,15 +213,15 @@ func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 // CookieURLFromHost creates a url.URL from a given host.
 func CookieURLFromHost(host string) *url.URL {
 	return &url.URL{
-		Scheme: "https",
+		Scheme: serverScheme,
 		Host:   host,
 		Path:   "/",
 	}
 }
 
-// PerferredHost returns the SNI hostname or controller name for the cookie URL
+// PreferredHost returns the SNI hostname or controller name for the cookie URL
 // so that it is stable when used with a HA controller cluster.
-func PerferredHost(info *Info) string {
+func PreferredHost(info *Info) string {
 	if info == nil {
 		return ""
 	}
@@ -339,12 +346,10 @@ func (c *conn) connectStreamWithRetry(ctx context.Context, path string, attrs ur
 // ConnectStream only in that it will not retry the connection if it encounters
 // discharge-required error.
 func (c *conn) connectStream(path string, attrs url.Values, extraHeaders http.Header) (base.Stream, error) {
-	target := url.URL{
-		Scheme:   "wss",
-		Host:     c.addr,
-		Path:     path,
-		RawQuery: attrs.Encode(),
-	}
+	target := c.Addr()
+	target.Path = gopath.Join(target.Path, path)
+	target.RawQuery = attrs.Encode()
+
 	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
 	// and when/if this changes localhost should resolve to IPv6 loopback
 	// in any case (lp:1644009). Review.
@@ -405,32 +410,21 @@ func readInitialStreamError(ws base.Stream) error {
 	return nil
 }
 
-// apiEndpoint returns a URL that refers to the given API slash-prefixed
-// endpoint path and query parameters.
-func (c *conn) apiEndpoint(path, query string) (*url.URL, error) {
-	path, err := apiPath(c.modelTag.Id(), path)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &url.URL{
-		Scheme:   c.serverScheme,
-		Host:     c.Addr(),
-		Path:     path,
-		RawQuery: query,
-	}, nil
-}
-
 // ControllerAPIURL returns the URL to use to connect to the controller API.
+// The address may contain a path component but may not contain a scheme
+// e.g. https://
 func ControllerAPIURL(addr string, port int) string {
+	addr, path, _ := strings.Cut(addr, "/")
 	hp := net.JoinHostPort(addr, strconv.Itoa(port))
-	urlStr, _ := url.QueryUnescape(apiURL(hp, "").String())
+	urlStr, _ := url.QueryUnescape(apiURL(hp, "", path).String())
 	return urlStr
 }
 
-func apiURL(addr, model string) *url.URL {
-	path, _ := apiPath(model, "/api")
+func apiURL(addr, model, path string) *url.URL {
+	apiPath, _ := apiPath(model, "/api")
+	path = gopath.Join(path, apiPath)
 	return &url.URL{
-		Scheme: "wss",
+		Scheme: apiScheme,
 		Host:   addr,
 		Path:   path,
 	}
@@ -456,9 +450,15 @@ func apiPath(model, path string) (string, error) {
 // dialResult holds a dialed connection, the URL
 // and TLS configuration used to connect to it.
 type dialResult struct {
-	conn      jsoncodec.JSONConn
-	addr      string
-	urlStr    string
+	conn jsoncodec.JSONConn
+	// controllerRootAddr represents the controller's root address
+	// e.g. wss://controller.com/foo
+	controllerRootAddr *url.URL
+	// dialAddr is the full URL (with no DNS resolution) that was actually dialed
+	// e.g. wss://controller.com/foo/api for the controller endpoint
+	// or wss://controller.com/foo/model/<uuid>/api for model endpoints.
+	dialAddr *url.URL
+	// ipAddr represents the IP address that was dialed.
 	ipAddr    string
 	proxier   jujuproxy.Proxier
 	tlsConfig *tls.Config
@@ -481,6 +481,24 @@ type dialOpts struct {
 	certPool *x509.CertPool
 }
 
+// parseURLWithOptionalScheme parses an input string
+// that may exclude a scheme, i.e. missing "http://".
+// If no scheme is provided, the default scheme
+// for the apiserver will be used.
+func parseURLWithOptionalScheme(addr string) (*url.URL, bool) {
+	// Add the schema if parsing fails or the host is empty.
+	// This avoids parsing ambiguity in url.Parse.
+	// We default to secure websockets (wss).
+	url, err := url.Parse(addr)
+	if err != nil || url.Host == "" {
+		url, err = url.Parse(apiScheme + "://" + addr)
+		if err != nil {
+			return nil, false
+		}
+	}
+	return url, true
+}
+
 // dialAPI establishes a websocket connection to the RPC
 // API websocket on the API server using Info. If multiple API addresses
 // are provided in Info they will be tried concurrently - the first successful
@@ -492,7 +510,19 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 		return nil, errors.New("no API addresses to connect to")
 	}
 
-	addrs := info.Addrs[:]
+	addrs := make([]*url.URL, 0, len(info.Addrs))
+	for _, addr := range info.Addrs {
+		url, ok := parseURLWithOptionalScheme(addr)
+		if !ok {
+			logger.Debugf(context.TODO(), "%q is not a valid URL", addr)
+			continue
+		}
+		// NB: Here we can enforce that the URL scheme is wss
+		// or we can allow the user to specify the scheme.
+		// Currently it is possible for the user to leave the scheme
+		// off and we will default to wss or specify ws (insecure).
+		addrs = append(addrs, url)
+	}
 
 	if info.Proxier != nil {
 		if err := info.Proxier.Start(ctx); err != nil {
@@ -503,9 +533,10 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 		switch p := info.Proxier.(type) {
 		case jujuproxy.TunnelProxier:
 			logger.Debugf(context.TODO(), "tunnel proxy in use at %s on port %s", p.Host(), p.Port())
-			addrs = []string{
-				net.JoinHostPort(p.Host(), p.Port()),
-			}
+			addrs = []*url.URL{{
+				Scheme: apiScheme,
+				Host:   net.JoinHostPort(p.Host(), p.Port()),
+			}}
 		default:
 			info.Proxier.Stop()
 			return nil, errors.New("unknown proxier provided")
@@ -537,6 +568,7 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	if opts.DNSCache == nil {
 		opts.DNSCache = nopDNSCache{}
 	}
+
 	path, err := apiPath(info.ModelTag.Id(), "/api")
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -560,7 +592,7 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof(context.TODO(), "connection established to %q", dialInfo.urlStr)
+	logger.Infof(context.TODO(), "connection established to %q", dialInfo.dialAddr.String())
 	dialInfo.proxier = info.Proxier
 	return dialInfo, nil
 }
@@ -615,26 +647,32 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 }
 
 type resolvedAddress struct {
-	host string
 	ip   string
 	port string
+	url  *url.URL
 }
 
+// addressProvider provides a mechanism for resolving
+// host addresses to IP addresses. It utilises a DNS cache and an IP
+// address resolver to manage and resolve addresses. It maintains
+// separate pools for addresses that need to be resolved and those that
+// have been resolved via the DNS cache.
 type addressProvider struct {
 	dnsCache       DNSCache
 	ipAddrResolver IPAddrResolver
 
-	// A pool of host addresses to be resolved to one or more IP addresses.
-	addrPool []string
+	// A pool of host URLs to be resolved to one or more IP addresses.
+	addrPool []*url.URL
 
 	// A pool of host addresses that got resolved via the DNS cache; these
 	// are kept separate so we can attempt to resolve them without the DNS
 	// cache when we run out of entries in AddrPool.
-	cachedAddrPool []string
+	cachedAddrPool []*url.URL
 	resolvedAddrs  []*resolvedAddress
 }
 
-func newAddressProvider(initialAddrs []string, dnsCache DNSCache, ipAddrResolver IPAddrResolver) *addressProvider {
+// newAddressProvider returns a new addressProvider.
+func newAddressProvider(initialAddrs []*url.URL, dnsCache DNSCache, ipAddrResolver IPAddrResolver) *addressProvider {
 	return &addressProvider{
 		dnsCache:       dnsCache,
 		ipAddrResolver: ipAddrResolver,
@@ -661,10 +699,7 @@ func (ap *addressProvider) next(ctx context.Context) (*resolvedAddress, error) {
 			next := ap.addrPool[0]
 			ap.addrPool = ap.addrPool[1:]
 
-			host, port, err := net.SplitHostPort(next)
-			if err != nil {
-				return nil, errors.Errorf("invalid address %q: %v", next, err)
-			}
+			host := next.Hostname()
 
 			ips := ap.dnsCache.Lookup(host)
 			if len(ips) > 0 {
@@ -683,9 +718,9 @@ func (ap *addressProvider) next(ctx context.Context) (*resolvedAddress, error) {
 
 			for _, ip := range ips {
 				ap.resolvedAddrs = append(ap.resolvedAddrs, &resolvedAddress{
-					host: next,
 					ip:   ip,
-					port: port,
+					port: next.Port(),
+					url:  next,
 				})
 			}
 		}
@@ -725,7 +760,7 @@ func (caRetrieveRes) Close() error { return nil }
 // first retrieved CA cert being used for the verification tests. In addition,
 // apart from the initial TLS handshake with the remote server, no other data
 // is exchanged with the remote server.
-func verifyCAMulti(ctx context.Context, addrs []string, opts *dialOpts) error {
+func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error {
 	dOpts := opts.DialOpts
 	if dOpts.DialTimeout > 0 {
 		ctx1, cancel := utils.ContextWithTimeout(ctx, dOpts.Clock, dOpts.DialTimeout)
@@ -746,8 +781,8 @@ func verifyCAMulti(ctx context.Context, addrs []string, opts *dialOpts) error {
 			}
 
 			return caRetrieveRes{
-				host:     addr.host,
-				endpoint: ipStr,
+				host:     addr.url.Host,
+				endpoint: addr.ip,
 				caCert:   caCert,
 			}, nil
 		}
@@ -840,7 +875,8 @@ func retrieveCACert(ctx context.Context, addr string) (*x509.Certificate, error)
 // specified URL path, TLS configuration, and dial options. Each of the
 // specified addresses will be attempted concurrently, and the first
 // successful connection will be returned.
-func dialWebsocketMulti(ctx context.Context, addrs []string, path string, opts dialOpts) (*dialResult, error) {
+// The apiPath is appended to the URL of each address.
+func dialWebsocketMulti(ctx context.Context, addrs []*url.URL, apiPath string, opts dialOpts) (*dialResult, error) {
 	// Prioritise non-dial errors over the normal "connection refused".
 	isDialError := func(err error) bool {
 		netErr, ok := errors.Cause(err).(*net.OpError)
@@ -885,7 +921,14 @@ func dialWebsocketMulti(ctx context.Context, addrs []string, path string, opts d
 			continue
 		}
 		tried[ipStr] = true
-		err = startDialWebsocket(ctx, try, ipStr, resolvedAddr.host, path, opts)
+
+		// Make a copy of the controller's root URL before we append the API path.
+		// The original URL should be preserved because it too may contain a path segment
+		// if a controller is hosted on a subpath, e.g. https://controller.com/foo/bar.
+		urlWithAPIPath := *resolvedAddr.url
+		urlWithAPIPath.Path = gopath.Join(urlWithAPIPath.Path, apiPath)
+
+		err = startDialWebsocket(ctx, try, resolvedAddr.url, &urlWithAPIPath, ipStr, opts)
 		if err == parallel.ErrStopped {
 			break
 		}
@@ -939,7 +982,7 @@ var oneAttempt = retry.LimitCount(1, retry.Regular{
 
 // startDialWebsocket starts websocket connection to a single address
 // on the given try instance.
-func startDialWebsocket(ctx context.Context, try *parallel.Try, ipAddr, addr, path string, opts dialOpts) error {
+func startDialWebsocket(ctx context.Context, try *parallel.Try, rootAddr, addr *url.URL, ipAddr string, opts dialOpts) error {
 	var openAttempt retry.Strategy
 	if opts.RetryDelay > 0 {
 		openAttempt = retry.Regular{
@@ -952,13 +995,13 @@ func startDialWebsocket(ctx context.Context, try *parallel.Try, ipAddr, addr, pa
 		openAttempt = oneAttempt
 	}
 	d := dialer{
-		ctx:         ctx,
-		openAttempt: openAttempt,
-		serverName:  opts.sniHostName,
-		ipAddr:      ipAddr,
-		urlStr:      "wss://" + addr + path,
-		addr:        addr,
-		opts:        opts,
+		ctx:            ctx,
+		openAttempt:    openAttempt,
+		serverName:     opts.sniHostName,
+		ipAddr:         ipAddr,
+		addr:           addr,
+		controllerRoot: rootAddr,
+		opts:           opts,
 	}
 	return try.Start(d.dial)
 }
@@ -971,15 +1014,18 @@ type dialer struct {
 	// when connecting with a public certificate.
 	serverName string
 
-	// addr holds the host:port that is being dialed.
-	addr string
+	// addr holds the address that is being dialed,
+	// including any API specific paths
+	// e.g. wss://controller.com/foo/bar/api.
+	addr *url.URL
+
+	// controllerRoot represents the root URL of the controller
+	// e.g. wss://controller.com/foo/bar.
+	controllerRoot *url.URL
 
 	// addr holds the ipaddr:port (one of the addresses
 	// that addr resolves to) that is being dialed.
 	ipAddr string
-
-	// urlStr holds the URL that is being dialed.
-	urlStr string
 
 	// opts holds the dial options.
 	opts dialOpts
@@ -995,11 +1041,11 @@ func (d dialer) dial(_ <-chan struct{}) (io.Closer, error) {
 		conn, tlsConfig, err := d.dial1()
 		if err == nil {
 			return &dialResult{
-				conn:      conn,
-				addr:      d.addr,
-				ipAddr:    d.ipAddr,
-				urlStr:    d.urlStr,
-				tlsConfig: tlsConfig,
+				conn:               conn,
+				dialAddr:           d.addr,
+				controllerRootAddr: d.controllerRoot,
+				ipAddr:             d.ipAddr,
+				tlsConfig:          tlsConfig,
 			}, nil
 		}
 		if isX509Error(err) || !a.More() {
@@ -1022,10 +1068,10 @@ func (d dialer) dial1() (jsoncodec.JSONConn, *tls.Config, error) {
 	if d.opts.certPool == nil {
 		tlsConfig.ServerName = d.serverName
 	}
-	logger.Tracef(context.TODO(), "dialing: %q %v", d.urlStr, d.ipAddr)
-	conn, err := d.opts.DialWebsocket(d.ctx, d.urlStr, tlsConfig, d.ipAddr)
+	logger.Tracef(context.TODO(), "dialing: %q %v", d.addr.String(), d.ipAddr)
+	conn, err := d.opts.DialWebsocket(d.ctx, d.addr.String(), tlsConfig, d.ipAddr)
 	if err == nil {
-		logger.Debugf(context.TODO(), "successfully dialed %q", d.urlStr)
+		logger.Debugf(context.TODO(), "successfully dialed %q", d.addr.String())
 		return conn, tlsConfig, nil
 	}
 	if !isX509Error(err) {
@@ -1050,7 +1096,7 @@ func (d dialer) dial1() (jsoncodec.JSONConn, *tls.Config, error) {
 	// CA certificate, so retry immediately with the public one.
 	tlsConfig.RootCAs = nil
 	tlsConfig.ServerName = d.serverName
-	conn, rootCAErr := d.opts.DialWebsocket(d.ctx, d.urlStr, tlsConfig, d.ipAddr)
+	conn, rootCAErr := d.opts.DialWebsocket(d.ctx, d.addr.String(), tlsConfig, d.ipAddr)
 	if rootCAErr != nil {
 		logger.Debugf(context.TODO(), "failed to dial websocket using fallback public CA: %v", rootCAErr)
 		// We return the original error as it's usually more meaningful.
@@ -1171,9 +1217,10 @@ func (c *conn) IsBroken(ctx context.Context) bool {
 	return false
 }
 
-// Addr returns the address used to connect to the API server.
-func (c *conn) Addr() string {
-	return c.addr
+// Addr returns a copy of the url used to connect to the API server.
+func (s *conn) Addr() *url.URL {
+	copy := *s.addr
+	return &copy
 }
 
 // IPAddr returns the resolved IP address that was used to
@@ -1203,7 +1250,8 @@ func (c *conn) ControllerTag() names.ControllerTag {
 }
 
 // APIHostPorts returns addresses that may be used to connect
-// to the API server, including the address used to connect.
+// to the API server. It includes the address used to connect
+// when the address does not include a path segment.
 //
 // The addresses are scoped (public, cloud-internal, etc.), so
 // the client may choose which addresses to attempt. For the

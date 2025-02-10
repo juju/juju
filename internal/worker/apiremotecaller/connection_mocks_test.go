@@ -125,10 +125,10 @@ func (c *MockConnectionAPIHostPortsCall) DoAndReturn(f func() []network.MachineH
 }
 
 // Addr mocks base method.
-func (m *MockConnection) Addr() string {
+func (m *MockConnection) Addr() *url.URL {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Addr")
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(*url.URL)
 	return ret0
 }
 
@@ -145,19 +145,19 @@ type MockConnectionAddrCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockConnectionAddrCall) Return(arg0 string) *MockConnectionAddrCall {
+func (c *MockConnectionAddrCall) Return(arg0 *url.URL) *MockConnectionAddrCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConnectionAddrCall) Do(f func() string) *MockConnectionAddrCall {
+func (c *MockConnectionAddrCall) Do(f func() *url.URL) *MockConnectionAddrCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConnectionAddrCall) DoAndReturn(f func() string) *MockConnectionAddrCall {
+func (c *MockConnectionAddrCall) DoAndReturn(f func() *url.URL) *MockConnectionAddrCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

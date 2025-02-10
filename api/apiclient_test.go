@@ -302,7 +302,9 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 
 	conn, err := api.Open(context.Background(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn.Addr(), gc.Equals, info.Addrs[0])
+	defer conn.Close()
+
+	c.Assert(conn.Addr().String(), gc.Equals, "wss://"+info.Addrs[0])
 	modelTag, ok := conn.ModelTag()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(modelTag, gc.Equals, info.ModelTag)
@@ -794,6 +796,37 @@ func (s *apiclientSuite) TestOpenCachesDNS(c *gc.C) {
 	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.1.1.1"})
 }
 
+// We want open to perform a DNS lookup against the host without the segments,
+// but for the opening of the connect maintain the segments i.e.,
+// jimm.com/my-segment/api
+func (s *apiclientSuite) TestOpenCachesDNSAndRemovesSegments(c *gc.C) {
+	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+		return fakeConn{}, nil
+	}
+	dnsCache := make(dnsCacheMap)
+
+	conn, err := api.Open(context.Background(),
+		&api.Info{
+			Addrs: []string{
+				"place1.example:1234/segment",
+			},
+			SkipLogin: true,
+			CACert:    jtesting.CACert,
+		},
+		api.DialOpts{
+			DialWebsocket: fakeDialer,
+			IPAddrResolver: apitesting.IPAddrResolverMap{
+				"place1.example": {"0.1.1.1"},
+			},
+			DNSCache: dnsCache,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+
+	c.Assert(dnsCache.Lookup("place1.example"), jc.DeepEquals, []string{"0.1.1.1"})
+}
+
 func (s *apiclientSuite) TestDNSCacheUsed(c *gc.C) {
 	var dialed string
 	fakeDialer := func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
@@ -843,7 +876,7 @@ func (s *apiclientSuite) TestNumericAddressIsNotAddedToCache(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
-	c.Assert(conn.Addr(), gc.Equals, "0.1.2.3:1234")
+	c.Assert(conn.Addr().String(), gc.Equals, "wss://0.1.2.3:1234")
 	c.Assert(conn.IPAddr(), gc.Equals, "0.1.2.3:1234")
 	c.Assert(dnsCache, gc.HasLen, 0)
 }
@@ -909,7 +942,7 @@ func (s *apiclientSuite) TestFallbackToIPLookupWhenCacheOutOfDate(c *gc.C) {
 	r := <-openc
 	c.Assert(r.err, jc.ErrorIsNil)
 	c.Assert(r.conn, gc.NotNil)
-	c.Assert(r.conn.Addr(), gc.Equals, "place1.example:1234")
+	c.Assert(r.conn.Addr().String(), gc.Equals, "wss://place1.example:1234")
 	c.Assert(r.conn.IPAddr(), gc.Equals, "0.2.2.2:1234")
 	c.Assert(dialed, jc.DeepEquals, map[string]bool{
 		"0.2.2.2:1234": true,
@@ -1152,7 +1185,7 @@ func (s *apiclientSuite) TestWithUnresolvableAddrAfterCacheFallback(c *gc.C) {
 
 func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
 	clock := &fakeClock{}
-	conn := api.NewTestingConnection(api.TestingConnectionParams{
+	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(),
 		Clock:         clock,
 	})
@@ -1164,7 +1197,7 @@ func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
 
 func (s *apiclientSuite) TestAPICallErrorBadRequest(c *gc.C) {
 	clock := &fakeClock{}
-	conn := api.NewTestingConnection(api.TestingConnectionParams{
+	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(errors.BadRequestf("boom")),
 		Clock:         clock,
 	})
@@ -1177,7 +1210,7 @@ func (s *apiclientSuite) TestAPICallErrorBadRequest(c *gc.C) {
 
 func (s *apiclientSuite) TestAPICallErrorNotImplemented(c *gc.C) {
 	clock := &fakeClock{}
-	conn := api.NewTestingConnection(api.TestingConnectionParams{
+	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(apiservererrors.ServerError(errors.NotImplementedf("boom"))),
 		Clock:         clock,
 	})
@@ -1188,7 +1221,7 @@ func (s *apiclientSuite) TestAPICallErrorNotImplemented(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
-	conn := api.NewTestingConnection(api.TestingConnectionParams{
+	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(),
 		Clock:         new(fakeClock),
 	})
@@ -1198,7 +1231,7 @@ func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
 func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
 	broken := make(chan struct{})
 	close(broken)
-	conn := api.NewTestingConnection(api.TestingConnectionParams{
+	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(),
 		Clock:         new(fakeClock),
 		Broken:        broken,
@@ -1207,7 +1240,7 @@ func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
 }
 
 func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
-	conn := api.NewTestingConnection(api.TestingConnectionParams{
+	conn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(errors.New("no biscuit")),
 		Clock:         new(fakeClock),
 	})
@@ -1227,10 +1260,10 @@ func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
 	// (because there's no monitor running).
 	broken := make(chan struct{})
 	close(broken)
-	testConn := api.NewTestingConnection(api.TestingConnectionParams{
+	testConn := api.NewTestingConnection(c, api.TestingConnectionParams{
 		RPCConnection: conn,
 		Clock:         &fakeClock{},
-		Address:       "localhost:1234",
+		Address:       "wss://localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})

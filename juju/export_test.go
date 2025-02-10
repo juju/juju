@@ -7,3 +7,5 @@ var (
 	ConnectionInfo        = connectionInfo
 	ProcessAccountDetails = processAccountDetails
 )
+
+type CurrentConnection = currentConnection

@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/url"
 	"sync"
 	"time"
 
@@ -209,7 +210,7 @@ func (s *NewAPIClientSuite) TestUpdatesPublicDNSName(c *gc.C) {
 		c.Assert(apiInfo.ControllerUUID, gc.Equals, fakeUUID)
 		conn := mockedAPIState(noFlags)
 		conn.publicDNSName = "somewhere.invalid"
-		conn.addr = "0.1.2.3:1234"
+		conn.addr = &url.URL{Scheme: "wss", Host: "0.1.2.3:1234"}
 		return conn, nil
 	}
 
@@ -532,8 +533,99 @@ func (s *NewAPIClientSuite) TestEndpointFiltering(c *gc.C) {
 	})
 }
 
+// setupControllerWithPathSegment sets up a controller that is
+// hosted on a path and returns a connection to it. A modelUUID
+// can be specified to return a connection to the model api endpoint.
+func setupControllerWithPathSegment(c *gc.C, store *jujuclient.MemStore, modelUUID string) api.Connection {
+	err := store.AddController("foo", jujuclient.ControllerDetails{
+		ControllerUUID: fakeUUID,
+		APIEndpoints: []string{
+			"example1:1111/foo",
+		},
+		DNSCache: map[string][]string{
+			"example1": {"0.1.1.1"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	conn, err := juju.NewAPIConnection(context.Background(), juju.NewAPIConnectionParams{
+		Store:          store,
+		ControllerName: "foo",
+		DialOpts: api.DialOpts{
+			DialWebsocket: func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
+				apiConn := testRootAPI{modelUUID: modelUUID}
+				return jsoncodec.NetJSONConn(apitesting.FakeAPIServer(apiConn)), nil
+			},
+		},
+		AccountDetails: new(jujuclient.AccountDetails),
+		ModelUUID:      modelUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return conn
+}
+
+func (s *NewAPIClientSuite) TestAPIWithControllerPathSegment(c *gc.C) {
+	store := jujuclient.NewMemStore()
+	controllerConn := setupControllerWithPathSegment(c, store, "")
+	defer controllerConn.Close()
+	details, err := store.ControllerByName("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	// The API address should still contain the path segment.
+	c.Assert(details.APIEndpoints, jc.DeepEquals, []string{
+		"example1:1111/foo",
+	})
+}
+
+func (s *NewAPIClientSuite) TestStreamWithControllerPathSegment(c *gc.C) {
+	testCases := []struct {
+		desc        string
+		modelUUID   string
+		expectedURL string
+	}{
+		{
+			desc:        "Stream to controller endpoint",
+			expectedURL: "wss://example1:1111/foo/bar",
+		},
+		{
+			desc:        "Stream to model endpoint",
+			modelUUID:   "9c8fc580-7ad2-43a0-a0b9-c14b80172190",
+			expectedURL: "wss://example1:1111/foo/model/9c8fc580-7ad2-43a0-a0b9-c14b80172190/bar",
+		},
+	}
+	for _, tC := range testCases {
+		c.Logf("test case: %s", tC.desc)
+		store := jujuclient.NewMemStore()
+		controllerConn := setupControllerWithPathSegment(c, store, tC.modelUUID)
+		defer controllerConn.Close()
+
+		catcher := api.UrlCatcher{}
+		s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
+
+		stream, err := controllerConn.ConnectStream(context.Background(), "/bar", nil)
+		c.Assert(err, jc.ErrorIsNil)
+		defer stream.Close()
+
+		c.Assert(catcher.Location(), gc.Equals, tC.expectedURL)
+	}
+}
+
+func (s *NewAPIClientSuite) TestHTTPClientWithControllerPathSegment(c *gc.C) {
+	store := jujuclient.NewMemStore()
+	conn := setupControllerWithPathSegment(c, store, "9c8fc580-7ad2-43a0-a0b9-c14b80172190")
+	defer conn.Close()
+
+	client, err := conn.HTTPClient()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(client.BaseURL, gc.Equals, "https://example1:1111/foo/model/9c8fc580-7ad2-43a0-a0b9-c14b80172190")
+
+	client, err = conn.RootHTTPClient()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(client.BaseURL, gc.Equals, "https://example1:1111/foo")
+}
+
 type testRootAPI struct {
 	serverAddrs [][]params.HostPort
+	modelUUID   string
 }
 
 func (r testRootAPI) Admin(id string) (testAdminAPI, error) {
@@ -545,11 +637,15 @@ type testAdminAPI struct {
 }
 
 func (a testAdminAPI) Login(req params.LoginRequest) params.LoginResult {
-	return params.LoginResult{
+	loginResult := params.LoginResult{
 		ControllerTag: names.NewControllerTag(fakeUUID).String(),
 		Servers:       a.r.serverAddrs,
 		ServerVersion: version.Current.String(),
 	}
+	if a.r.modelUUID != "" {
+		loginResult.ModelTag = names.NewModelTag(a.r.modelUUID).String()
+	}
+	return loginResult
 }
 
 func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
@@ -690,11 +786,91 @@ func (s *NewAPIClientSuite) TestProcessAccountDetails(c *gc.C) {
 
 }
 
+func (s *NewAPIClientSuite) TestUpdateControllerDetailsFromLogin(c *gc.C) {
+	// These tests currently focus solely focus on asserting the
+	// controller's API endpoints are correctly updated.
+	tests := []struct {
+		description                 string
+		controllerName              string
+		updateDetails               juju.UpdateControllerParams
+		expectedControllerEndpoints []string
+	}{{
+		description:    "Empty connected address",
+		controllerName: "test-controller",
+		updateDetails: juju.UpdateControllerParams{
+			CurrentHostPorts: []network.MachineHostPorts{
+				network.NewMachineHostPorts(1234, "31.0.0.1"),
+			},
+		},
+		expectedControllerEndpoints: []string{"31.0.0.1:1234"},
+	}, {
+		description:    "Populated connected address",
+		controllerName: "test-controller",
+		updateDetails: juju.UpdateControllerParams{
+			CurrentHostPorts: []network.MachineHostPorts{
+				network.NewMachineHostPorts(1234, "31.0.0.1"),
+			},
+			CurrentConnection: &juju.CurrentConnection{
+				Proxied: false,
+				Address: &url.URL{
+					Host: "mycontroller:5432",
+				},
+				IPAddress: "31.1.1.1:1234",
+			},
+		},
+		expectedControllerEndpoints: []string{"mycontroller:5432", "31.0.0.1:1234"},
+	}, {
+		description:    "Populated connected address that is proxied",
+		controllerName: "test-controller",
+		updateDetails: juju.UpdateControllerParams{
+			CurrentHostPorts: []network.MachineHostPorts{
+				network.NewMachineHostPorts(1234, "31.0.0.1"),
+			},
+			CurrentConnection: &juju.CurrentConnection{
+				Proxied: true,
+				Address: &url.URL{
+					Host: "mycontroller:5432",
+				},
+				IPAddress: "10.1.2.3",
+			},
+		},
+		expectedControllerEndpoints: []string{"31.0.0.1:1234"},
+	}, {
+		description:    "Duplicate and local IP addresses are removed",
+		controllerName: "test-controller",
+		updateDetails: juju.UpdateControllerParams{
+			CurrentHostPorts: []network.MachineHostPorts{
+				network.NewMachineHostPorts(1234, "31.0.0.1"),
+				network.NewMachineHostPorts(1234, "31.0.0.1"),
+				network.NewMachineHostPorts(1234, "127.0.0.1"),
+			},
+		},
+		expectedControllerEndpoints: []string{"31.0.0.1:1234"},
+	}}
+
+	for i, test := range tests {
+		c.Logf("running test case %d - %s", i, test.description)
+		store := &testClientStore{
+			controllerDetails: map[string]*jujuclient.ControllerDetails{
+				test.controllerName: {},
+			},
+		}
+
+		err := juju.UpdateControllerDetailsFromLogin(store, test.controllerName, test.updateDetails)
+		c.Assert(err, gc.IsNil)
+
+		controller := store.controllerDetails[test.controllerName]
+		c.Assert(controller.APIEndpoints, gc.DeepEquals, test.expectedControllerEndpoints)
+	}
+
+}
+
 type testClientStore struct {
 	jujuclient.ClientStore
 
-	mu             sync.RWMutex
-	accountDetails map[string]*jujuclient.AccountDetails
+	mu                sync.RWMutex
+	accountDetails    map[string]*jujuclient.AccountDetails
+	controllerDetails map[string]*jujuclient.ControllerDetails
 }
 
 func (s *testClientStore) AccountDetails(controllerName string) (*jujuclient.AccountDetails, error) {
@@ -715,5 +891,26 @@ func (s *testClientStore) UpdateAccount(controllerName string, accountDetails ju
 		return errors.NotImplemented
 	}
 	s.accountDetails[controllerName] = &accountDetails
+	return nil
+}
+
+func (s *testClientStore) ControllerByName(controllerName string) (*jujuclient.ControllerDetails, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.controllerDetails[controllerName] == nil {
+		return nil, errors.NotFound
+	}
+	return s.controllerDetails[controllerName], nil
+}
+
+func (s *testClientStore) UpdateController(controllerName string, details jujuclient.ControllerDetails) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.controllerDetails == nil {
+		return errors.NotImplemented
+	}
+	s.controllerDetails[controllerName] = &details
 	return nil
 }
