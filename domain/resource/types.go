@@ -11,6 +11,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
+	"github.com/juju/juju/domain/application/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
@@ -89,8 +90,8 @@ type RecordStoredResourceArgs struct {
 type AddResourcesBeforeApplicationArgs struct {
 	// ApplicationName is the unique name of the application.
 	ApplicationName string
-	// CharmUUID is the unique identifier of the charm.
-	CharmUUID corecharm.ID
+	// CharmLocator is the unique identifier of the charm.
+	CharmLocator charm.CharmLocator
 	// ResourceDetails contains individual resource details.
 	ResourceDetails []AddResourceDetails
 }

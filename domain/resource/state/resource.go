@@ -21,6 +21,7 @@ import (
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -1370,11 +1371,6 @@ func (st *State) AddResourcesBeforeApplication(
 		return nil, errors.Capture(err)
 	}
 
-	resources, resourceUUIDs, err := st.buildResourcesToAdd(args.CharmUUID.String(), args.ResourceDetails)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
 	// Prepare SQL statement to insert the resource.
 	insertStmt, err := st.Prepare(`
 INSERT INTO resource (uuid, charm_uuid, charm_resource_name, revision, 
@@ -1402,7 +1398,19 @@ VALUES ($linkResourceApplication.*)`, linkResourceApplication{})
 		return nil, errors.Capture(err)
 	}
 
+	var resourceUUIDs []coreresource.UUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		charmUUID, err := st.getCharmUUID(ctx, tx, args.CharmLocator)
+		if err != nil {
+			return err
+		}
+
+		var resources []addPendingResource
+		resources, resourceUUIDs, err = st.buildResourcesToAdd(charmUUID, args.ResourceDetails)
+		if err != nil {
+			return err
+		}
+
 		// Insert resources
 		for _, res := range resources {
 			// Insert the resource.
@@ -1426,6 +1434,44 @@ VALUES ($linkResourceApplication.*)`, linkResourceApplication{})
 		return nil
 	})
 	return resourceUUIDs, errors.Capture(err)
+}
+
+// getCharmUUID returns the charm UUID based on the charmLocator.
+func (st *State) getCharmUUID(ctx context.Context, tx *sqlair.TX, locator charm.CharmLocator) (string, error) {
+	// charmLocator is used to get the UUID of a charm.
+	type charmLocator struct {
+		ReferenceName string `db:"reference_name"`
+		Revision      int    `db:"revision"`
+		Source        string `db:"source"`
+	}
+	charmLoc := charmLocator{
+		ReferenceName: locator.Name,
+		Revision:      locator.Revision,
+		Source:        string(locator.Source),
+	}
+	var charmUUID localUUID
+
+	locatorQuery := `
+SELECT     v.uuid AS &localUUID.*
+FROM       v_charm_locator AS v
+LEFT JOIN  charm_source AS cs ON v.source_id = cs.id
+WHERE      v.reference_name = $charmLocator.reference_name
+AND        v.revision = $charmLocator.revision
+AND        cs.name = $charmLocator.source;
+	`
+	locatorStmt, err := st.Prepare(locatorQuery, localUUID{}, charmLocator{})
+	if err != nil {
+		return "", errors.Errorf("preparing query: %w", err)
+	}
+
+	if err := tx.Query(ctx, locatorStmt, &charmLoc).Get(&charmUUID); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return "", resourceerrors.CharmResourceNotFound
+		}
+		return "", errors.Errorf("getting charm ID: %w", err)
+	}
+
+	return charmUUID.UUID, nil
 }
 
 // buildResourcesToAdd creates resources to add based on provided app and charm
