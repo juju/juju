@@ -8,6 +8,7 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/life"
@@ -875,4 +876,9 @@ func decodeWorkloadStatus(s int) (application.WorkloadStatusType, error) {
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
+}
+
+type minimalStorage struct {
+	StorageUUID corestorage.UUID `db:"uuid"`
+	StorageID   corestorage.ID   `db:"name"`
 }

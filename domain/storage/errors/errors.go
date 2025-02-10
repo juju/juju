@@ -28,3 +28,9 @@ const (
 	// MissingSharedStorageDirectiveError is used when a storage directive for shared storage is not provided.
 	MissingSharedStorageDirectiveError = errors.ConstError("no storage directive specified")
 )
+
+const (
+	// StorageNotFound describes an error that occurs when the storage being operated
+	// on does not exist.
+	StorageNotFound = errors.ConstError("storage not found")
+)

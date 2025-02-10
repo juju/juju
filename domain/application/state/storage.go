@@ -13,6 +13,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -77,7 +78,39 @@ VALUES ($storageToAdd.*)`, storageToAdd{})
 	return nil
 }
 
-func (st *State) AttachStorage(ctx context.Context, storageID corestorage.ID, unitUUID coreunit.UUID) error {
+// GetStorageUUIDByID returns the UUID for the specified storage, returning an error
+// satisfying [storageerrors.StorageNotFound] if the storage doesn't exist.
+func (st *State) GetStorageUUIDByID(ctx context.Context, storageID corestorage.ID) (corestorage.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	stor := minimalStorage{StorageID: storageID}
+
+	query, err := st.Prepare(`
+SELECT &minimalStorage.*
+FROM storage_instance
+WHERE name = $minimalStorage.name
+`, stor)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, query, stor).Get(&stor)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("storage %q not found", storageID).Add(storageerrors.StorageNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Errorf("querying storage ID %q: %w", storageID, err)
+	}
+
+	return stor.StorageUUID, nil
+}
+
+func (st *State) AttachStorage(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error {
 	//TODO implement me
 	return errors.New("not implemented")
 }
@@ -87,12 +120,12 @@ func (st *State) AddStorageForUnit(ctx context.Context, storageName corestorage.
 	return nil, errors.New("not implemented")
 }
 
-func (st *State) DetachStorageForUnit(ctx context.Context, storageID corestorage.ID, unitUUID coreunit.UUID) error {
+func (st *State) DetachStorageForUnit(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error {
 	//TODO implement me
 	return errors.New("not implemented")
 }
 
-func (st *State) DetachStorage(ctx context.Context, storageID corestorage.ID) error {
+func (st *State) DetachStorage(ctx context.Context, storageUUID corestorage.UUID) error {
 	//TODO implement me
 	return errors.New("not implemented")
 }

@@ -10,8 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	storagetesting "github.com/juju/juju/core/storage/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -134,4 +136,29 @@ func (s *applicationStateSuite) TestCreateApplicationWithStorageButCharmHasNone(
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
 		[]charm.Storage{}, addStorageArgs), nil)
 	c.Assert(err, gc.ErrorMatches, `.*storage \["foo"\] is not supported`)
+}
+
+func (s *applicationStateSuite) TestGetStorageUUIDByID(c *gc.C) {
+	ctx := context.Background()
+
+	uuid := storagetesting.GenStorageUUID(c)
+
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_instance(uuid, storage_kind_id, name, life_id, storage_pool)
+VALUES (?, ?, ?, ?, ?)`, uuid, 0, "pgdata/0", 0, "pool")
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.state.GetStorageUUIDByID(ctx, "pgdata/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, uuid)
+}
+
+func (s *applicationStateSuite) TestGetStorageUUIDByIDNotFound(c *gc.C) {
+	ctx := context.Background()
+
+	_, err := s.state.GetStorageUUIDByID(ctx, "pgdata/0")
+	c.Assert(err, jc.ErrorIs, storageerrors.StorageNotFound)
 }
