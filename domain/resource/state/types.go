@@ -33,13 +33,13 @@ type localUUID struct {
 	UUID string `db:"uuid"`
 }
 
-// uuids represents a list of uuids.
-type uuids []string
-
 // charmUUID represents the unique identifier of a charm.
 type charmUUID struct {
 	UUID string `db:"uuid"`
 }
+
+// uuids is a slice of resource UUIDs.
+type uuids []string
 
 // applicationResource represents a link between an application and a resource.
 type applicationResource struct {
@@ -141,6 +141,10 @@ type applicationNameAndID struct {
 	Name          string             `db:"name"`
 }
 
+type applicationID struct {
+	ID coreapplication.ID `db:"uuid"`
+}
+
 // charmResource contains the identifiers of the charm resource in the
 // v_charm_resource view.
 type charmResource struct {
@@ -155,13 +159,6 @@ type getApplicationAndCharmID struct {
 	ApplicationID coreapplication.ID `db:"uuid"`
 	CharmID       charm.ID           `db:"charm_uuid"`
 	Name          string             `db:"name"`
-}
-
-// getCharmSource gets the source of the charm (local or charmhub) from the
-// charm UUID.
-type getCharmSource struct {
-	UUID       string `db:"uuid"`
-	SourceName string `db:"source_name"`
 }
 
 // kubernetesApplicationResource represents the mapping of a resource to a unit.

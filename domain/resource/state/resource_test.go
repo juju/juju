@@ -2692,6 +2692,81 @@ func (s *resourceSuite) TestImportResourcesOriginNotValid(c *gc.C) {
 	c.Check(err, jc.ErrorIs, resourceerrors.OriginNotValid)
 }
 
+// TestDeleteImportedApplicationResources checks the importing and then deleting
+// resources leaves the database in the same state it started.
+func (s *resourceSuite) TestDeleteImportedApplicationResources(c *gc.C) {
+	// Arrange: Add charm resources for the resources we are going to set.
+	app1Res1Name := "app-1-resource-1"
+	app1Res2Name := "app-1-resource-2"
+	app2ResName := "app-2-resource-1"
+	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
+		Name: app1Res1Name,
+		Type: charmresource.TypeFile,
+	})
+	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
+		Name: app1Res2Name,
+		Type: charmresource.TypeFile,
+	})
+	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
+		Name: app2ResName,
+		Type: charmresource.TypeContainerImage,
+	})
+
+	// Arrange: Create arguments for ImportResources containing the resources we
+	// want to set.
+	app1Res1 := resource.ImportResourceInfo{
+		Name:      app1Res1Name,
+		Origin:    charmresource.OriginStore,
+		Revision:  3,
+		Timestamp: time.Now().Truncate(time.Second).UTC(),
+	}
+	app1Res1Unit := resource.ImportUnitResourceInfo{
+		ResourceName: app1Res1Name,
+		UnitName:     s.constants.fakeUnitName1,
+		Timestamp:    time.Now().Truncate(time.Second).UTC(),
+	}
+
+	app1Res2 := resource.ImportResourceInfo{
+		Name:      app1Res2Name,
+		Origin:    charmresource.OriginUpload,
+		Revision:  -1,
+		Timestamp: time.Now().Truncate(time.Second).UTC(),
+	}
+	app1Res2Unit := resource.ImportUnitResourceInfo{
+		ResourceName: app1Res2Name,
+		UnitName:     s.constants.fakeUnitName1,
+		Timestamp:    time.Now().Truncate(time.Second).UTC(),
+	}
+	app2Res := resource.ImportResourceInfo{
+		Name:      app2ResName,
+		Origin:    charmresource.OriginStore,
+		Revision:  2,
+		Timestamp: time.Now().Truncate(time.Second).UTC(),
+	}
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: s.constants.fakeApplicationName1,
+		Resources:       []resource.ImportResourceInfo{app1Res1, app1Res2},
+		UnitResources:   []resource.ImportUnitResourceInfo{app1Res1Unit, app1Res2Unit},
+	}, {
+		ApplicationName: s.constants.fakeApplicationName2,
+		Resources:       []resource.ImportResourceInfo{app2Res},
+	}}
+
+	// Arrange: Import the resources.
+	err := s.state.ImportResources(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Act: Delete imported resources.
+	err = s.state.DeleteImportedResources(
+		context.Background(),
+		[]string{s.constants.fakeApplicationName1, s.constants.fakeApplicationName2},
+	)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to delete resources: %v", errors.ErrorStack(err)))
+
+	// Assert: Check that all the resources have been removed.
+	s.checkResourceTablesEmpty(c)
+}
+
 func (s *resourceSuite) addLocalCharmAndApp(c *gc.C, charmUUID, appName, appUUID string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -2865,6 +2940,43 @@ AND    state_id = 1 -- "potential"
 `, res.Name, charmUUID).Scan(&repoResourceUUID)
 	})
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+}
+
+func (s *resourceSuite) checkResourceTablesEmpty(
+	c *gc.C,
+) {
+	var uuid string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT uuid
+FROM   resource
+`).Scan(&uuid)
+	})
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT resource_uuid
+FROM   application_resource
+`).Scan(&uuid)
+	})
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT resource_uuid
+FROM   unit_resource
+`).Scan(&uuid)
+	})
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT resource_uuid
+FROM   kubernetes_application_resource
+`).Scan(&uuid)
+	})
+	c.Check(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
 func (s *resourceSuite) addResource(c *gc.C, resType charmresource.Type) coreresource.UUID {

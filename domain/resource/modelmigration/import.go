@@ -44,6 +44,13 @@ type ImportService interface {
 	// resources to insert from the arguments, then inserts them at the end so as to
 	// wait as long as possible before turning into a write transaction.
 	ImportResources(ctx context.Context, args resource.ImportResourcesArgs) error
+
+	// DeleteImportedResources deletes all imported resource associated with the
+	// given applications during an import rollback.
+	DeleteImportedResources(
+		ctx context.Context,
+		appNames []string,
+	) error
 }
 
 type importOperation struct {
@@ -115,6 +122,21 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("setting resources: %w", err)
 	}
 
+	return nil
+}
+
+// Rollback the resource import operation by deleting all imported resources
+// associated with the imported applications.
+func (i *importOperation) Rollback(ctx context.Context, model description.Model) error {
+	apps := model.Applications()
+	var appNames []string
+	for _, app := range apps {
+		appNames = append(appNames, app.Name())
+	}
+	err := i.resourceService.DeleteImportedResources(ctx, appNames)
+	if err != nil {
+		return errors.Errorf("resource import rollback failed: %w", err)
+	}
 	return nil
 }
 

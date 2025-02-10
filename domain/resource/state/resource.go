@@ -61,17 +61,6 @@ func (st *State) DeleteApplicationResources(
 		return errors.Capture(err)
 	}
 
-	appIdentity := resourceIdentity{ApplicationUUID: applicationID.String()}
-
-	// SQL statement to list all resources for an application.
-	listAppResourcesStmt, err := st.Prepare(`
-SELECT resource_uuid AS &resourceIdentity.uuid 
-FROM application_resource 
-WHERE application_uuid = $resourceIdentity.application_uuid`, appIdentity)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	// SQL statement to check there is no related resources in resource_file_store.
 	noFileStoreStmt, err := st.Prepare(`
 SELECT resource_uuid AS &resourceIdentity.uuid 
@@ -123,16 +112,10 @@ WHERE uuid IN ($uuids[:])`, uuids{})
 		return errors.Capture(err)
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
-		// list all resources for an application.
-		var resources []resourceIdentity
-		err = tx.Query(ctx, listAppResourcesStmt, appIdentity).GetAll(&resources)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return err
-		}
-		resUUIDs := make(uuids, 0, len(resources))
-		for _, res := range resources {
-			resUUIDs = append(resUUIDs, res.UUID)
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		resUUIDs, err := st.getAppResources(ctx, tx, applicationID)
+		if err != nil {
+			return errors.Errorf("getting application resources: %w", err)
 		}
 
 		checkLink := func(message string, stmt *sqlair.Statement) error {
@@ -200,6 +183,133 @@ func (st *State) DeleteUnitResources(
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Capture(tx.Query(ctx, stmt, unit).Run())
 	})
+}
+
+func (st *State) getAppResources(ctx context.Context, tx *sqlair.TX, appID application.ID) (uuids, error) {
+	id := applicationID{ID: appID}
+	var resources []localUUID
+	// SQL statement to list all resources for an application.
+	listAppResourcesStmt, err := st.Prepare(`
+SELECT resource_uuid AS &localUUID.uuid 
+FROM application_resource 
+WHERE application_uuid = $applicationID.uuid`, id, localUUID{})
+	if err != nil {
+		return uuids{}, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, listAppResourcesStmt, id).GetAll(&resources)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return uuids{}, errors.Capture(err)
+	}
+
+	resUUIDs := make(uuids, 0, len(resources))
+	for _, res := range resources {
+		resUUIDs = append(resUUIDs, res.UUID)
+	}
+
+	return resUUIDs, nil
+
+}
+
+// DeleteImportedResources deletes all imported resource associated with the
+// given applications during an import rollback.
+func (st *State) DeleteImportedResources(
+	ctx context.Context,
+	appNames []string,
+) error {
+	if len(appNames) == 0 {
+		return nil
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		for _, appName := range appNames {
+			err := st.deleteImportedApplicationResources(ctx, tx, appName)
+			if errors.Is(err, resourceerrors.ApplicationNotFound) {
+				// We are rolling back, so if the application does not exist we
+				// go on.
+				st.logger.Debugf(ctx, "rolling back migration: deleting resources: could not find application %s", appName)
+				continue
+			} else if err != nil {
+				return errors.Errorf("deleting resources of application %s: %w", appName, err)
+			}
+		}
+		return nil
+	})
+}
+
+// deleteImportedApplicationResources deletes all the resources associated with
+// an application during an import rollback.
+func (st *State) deleteImportedApplicationResources(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appName string,
+) error {
+	// Get application UUID.
+	appID, err := st.getApplicationUUID(ctx, tx, appName)
+	if err != nil {
+		return errors.Errorf("getting ID of application %s: %w", appName, err)
+	}
+
+	// Get all resources associated with the application resource.
+	resUUIDs, err := st.getAppResources(ctx, tx, appID)
+	if err != nil {
+		return errors.Errorf("getting application resources: %w", err)
+	}
+
+	// Delete unit resources.
+	deleteFromUnitResourceStmt, err := st.Prepare(`
+DELETE FROM unit_resource 
+WHERE resource_uuid  IN ($uuids[:])`, resUUIDs)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteFromUnitResourceStmt, resUUIDs).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete kubernetes application resources.
+	deleteFromKubernetesApplicationResourceStmt, err := st.Prepare(`
+DELETE FROM kubernetes_application_resource
+WHERE resource_uuid IN ($uuids[:])`, resUUIDs)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteFromKubernetesApplicationResourceStmt, resUUIDs).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete application resources.
+	deleteFromApplicationResourceStmt, err := st.Prepare(`
+DELETE FROM application_resource
+WHERE resource_uuid IN ($uuids[:])`, resUUIDs)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteFromApplicationResourceStmt, resUUIDs).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete resources.
+	deleteFromResourceStmt, err := st.Prepare(`
+DELETE FROM resource
+WHERE uuid IN ($uuids[:])`, resUUIDs)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteFromResourceStmt, resUUIDs).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
 // GetApplicationResourceID returns the ID of the application resource
@@ -2081,11 +2191,11 @@ func (st *State) isLocalCharm(
 		UUID: charmID.String(),
 	}
 	getCharmSourceStmt, err := st.Prepare(`
-SELECT cs.name AS &charmUUID.uuid
+SELECT c.uuid AS &charmUUID.uuid
 FROM   charm c
 JOIN   charm_source cs ON c.source_id = cs.id
 WHERE  uuid = $charmUUID.uuid
-AND    source_name = 'local'
+AND    cs.name = 'local'
 `, uuid)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -2154,15 +2264,15 @@ WHERE  name = $getApplicationAndCharmID.name
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
-	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
-	if err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return "", "", errors.Capture(err)
-		}
-		return "", "", errors.Errorf("%w: %s", resourceerrors.ApplicationNotFound, applicationName)
-	}
-	return app.ApplicationID, app.CharmID, nil
 
+	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", "", errors.Errorf("%w: %s", resourceerrors.ApplicationNotFound, applicationName)
+	} else if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	return app.ApplicationID, app.CharmID, nil
 }
 
 // getOriginIDs returns the database IDs for the origin types.
@@ -2283,4 +2393,32 @@ WHERE  name = $applicationNameAndID.name
 		return false, errors.Capture(err)
 	}
 	return true, nil
+}
+
+// getApplicationUUID gets the application ID from the name. It returns
+// [resourceerrors.ApplicationNotFound] if the application cannot be found.
+func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, appName string) (application.ID, error) {
+	appID := applicationNameAndID{
+		Name: appName,
+	}
+
+	// Prepare the SQL statement to retrieve the resource UUID.
+	stmt, err := st.Prepare(`
+SELECT &applicationNameAndID.uuid
+FROM   application            
+WHERE  name = $applicationNameAndID.name
+`, appID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	// Execute the SQL transaction.
+	err = tx.Query(ctx, stmt, appID).Get(&appID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", resourceerrors.ApplicationNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return appID.ApplicationID, nil
 }

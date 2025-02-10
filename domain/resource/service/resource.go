@@ -136,6 +136,14 @@ type State interface {
 	//     be found in the database.
 	//   - [resourceerrors.OriginNotValid] if the resource origin is not valid.
 	ImportResources(ctx context.Context, args resource.ImportResourcesArgs) error
+
+	// DeleteImportedResources deletes all imported resource associated with the
+	// given applications during an import rollback.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ApplicationNotFound] is returned if the application is
+	//     not found.
+	DeleteImportedResources(ctx context.Context, appNames []string) error
 }
 
 type ResourceStoreGetter interface {
@@ -687,12 +695,17 @@ func (s *Service) DeleteResourcesAddedBeforeApplication(ctx context.Context, res
 //     be found in the database.
 //   - [resourceerrors.OriginNotValid] if the resource origin is not valid.
 func (s *Service) ImportResources(ctx context.Context, args resource.ImportResourcesArgs) error {
+	resourceNames := make(map[string]bool)
 	for _, appArg := range args {
 		for _, res := range appArg.Resources {
 			if res.Name == "" {
 				return errors.Errorf("resource on application %s: %w",
 					appArg.ApplicationName, resourceerrors.ResourceNameNotValid)
 			}
+			if _, ok := resourceNames[res.Name]; ok {
+				return errors.Errorf("found multiple resources with the name %s: %w", res.Name, resourceerrors.ResourceNameNotValid)
+			}
+			resourceNames[res.Name] = true
 
 			err := res.Origin.Validate()
 			if err != nil {
@@ -702,6 +715,15 @@ func (s *Service) ImportResources(ctx context.Context, args resource.ImportResou
 		}
 	}
 	return s.st.ImportResources(ctx, args)
+}
+
+// DeleteImportedResources deletes all imported resource associated with the
+// given applications during an import rollback.
+func (s *Service) DeleteImportedResources(
+	ctx context.Context,
+	appNames []string,
+) error {
+	return s.st.DeleteImportedResources(ctx, appNames)
 }
 
 // Store the resource with a path made up of the UUID and the resource
