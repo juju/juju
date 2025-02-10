@@ -6,15 +6,16 @@ package providertracker
 import (
 	context "context"
 
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4/workertest"
+	gc "gopkg.in/check.v1"
+
 	caas "github.com/juju/juju/caas"
 	coremodel "github.com/juju/juju/core/model"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4/workertest"
-	gc "gopkg.in/check.v1"
 )
 
 type nonTrackerWorkerSuite struct {

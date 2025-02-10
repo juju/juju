@@ -7,14 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/worker/v4"
+	"gopkg.in/tomb.v2"
+
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/cloudspec"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/worker/v4"
-	"gopkg.in/tomb.v2"
 )
 
 // NonTrackedConfig is a struct that contains the necessary information to
@@ -66,10 +66,7 @@ type nonTrackedWorker struct {
 	tomb           tomb.Tomb
 	internalStates chan string
 
-	config   NonTrackedConfig
 	provider Provider
-
-	providerGetter nonTrackedProviderGetter
 }
 
 // NewNonTrackedWorker loads a provider for the given model type and cloud spec.
@@ -169,6 +166,6 @@ func (g nonTrackedProviderGetter) ModelConfig(ctx context.Context) (*config.Conf
 }
 
 // CloudSpec returns the cloud spec for the model.
-func (g nonTrackedProviderGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
+func (g nonTrackedProviderGetter) CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error) {
 	return g.cloudSpec, nil
 }
