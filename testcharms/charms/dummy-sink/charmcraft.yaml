@@ -45,3 +45,4 @@ parts:
       - copyright
       - hooks
       - metadata.yaml
+      - scripts
