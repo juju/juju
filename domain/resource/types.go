@@ -180,3 +180,11 @@ type ImportUnitResourceInfo struct {
 	// UnitName is the name of the unit using the resource.
 	UnitName string
 }
+
+// ExportedResources holds all resources to be exported.
+type ExportedResources struct {
+	// Resources are the resources to be exported.
+	Resources []coreresource.Resource
+	// UnitResources are the unit resources to be exported.
+	UnitResources []coreresource.UnitResources
+}
