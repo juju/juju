@@ -24,7 +24,6 @@ type BackendState interface {
 // the same names.
 type Application interface {
 	AllUnits() ([]Unit, error)
-	Constraints() (constraints.Value, error)
 	IsPrincipal() bool
 }
 

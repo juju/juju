@@ -1014,45 +1014,6 @@ func (c *MockApplicationClearExposedCall) DoAndReturn(f func() error) *MockAppli
 	return c
 }
 
-// Constraints mocks base method.
-func (m *MockApplication) Constraints() (constraints.Value, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Constraints")
-	ret0, _ := ret[0].(constraints.Value)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Constraints indicates an expected call of Constraints.
-func (mr *MockApplicationMockRecorder) Constraints() *MockApplicationConstraintsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Constraints", reflect.TypeOf((*MockApplication)(nil).Constraints))
-	return &MockApplicationConstraintsCall{Call: call}
-}
-
-// MockApplicationConstraintsCall wrap *gomock.Call
-type MockApplicationConstraintsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationConstraintsCall) Return(arg0 constraints.Value, arg1 error) *MockApplicationConstraintsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationConstraintsCall) Do(f func() (constraints.Value, error)) *MockApplicationConstraintsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationConstraintsCall) DoAndReturn(f func() (constraints.Value, error)) *MockApplicationConstraintsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // DestroyOperation mocks base method.
 func (m *MockApplication) DestroyOperation(arg0 objectstore.ObjectStore) *state.DestroyApplicationOperation {
 	m.ctrl.T.Helper()

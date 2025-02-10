@@ -1707,25 +1707,33 @@ func (api *APIBase) GetConstraints(ctx context.Context, args params.Entities) (p
 		Results: make([]params.ApplicationConstraint, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		cons, err := api.getConstraints(arg.Tag)
+		cons, err := api.getConstraints(ctx, arg.Tag)
 		results.Results[i].Constraints = cons
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
 
-func (api *APIBase) getConstraints(entity string) (constraints.Value, error) {
+func (api *APIBase) getConstraints(ctx context.Context, entity string) (constraints.Value, error) {
 	tag, err := names.ParseTag(entity)
 	if err != nil {
 		return constraints.Value{}, err
 	}
 	switch kind := tag.Kind(); kind {
 	case names.ApplicationTagKind:
-		app, err := api.backend.Application(tag.Id())
-		if err != nil {
-			return constraints.Value{}, err
+		appID, err := api.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return constraints.Value{}, errors.NotFoundf("application %s", tag.Id())
+		} else if err != nil {
+			return constraints.Value{}, errors.Trace(err)
 		}
-		return app.Constraints()
+		cons, err := api.applicationService.GetApplicationConstraints(ctx, appID)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return constraints.Value{}, errors.NotFoundf("application %s", tag.Id())
+		} else if err != nil {
+			return constraints.Value{}, errors.Trace(err)
+		}
+		return cons, nil
 	default:
 		return constraints.Value{}, errors.Errorf("unexpected tag type, expected application, got %s", kind)
 	}
@@ -1739,6 +1747,24 @@ func (api *APIBase) SetConstraints(ctx context.Context, args params.SetConstrain
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
+
+	appID, err := api.applicationService.GetApplicationIDByName(ctx, args.ApplicationName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return errors.NotFoundf("application %s", args.ApplicationName)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	err = api.applicationService.SetApplicationConstraints(ctx, appID, args.Constraints)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return errors.NotFoundf("application %s", args.ApplicationName)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(nvinuesa): Remove the double-write to mongodb once machines
+	// are fully migrated to dqlite domain. We need the application
+	// constraints to be available for machines, which still read from
+	// mongodb.
 	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return err

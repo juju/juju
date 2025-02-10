@@ -64,7 +64,6 @@ type Application interface {
 	CharmOrigin() *state.CharmOrigin
 	ClearExposed() error
 	CharmConfig() (charm.Settings, error)
-	Constraints() (constraints.Value, error)
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
 	ExposedEndpoints() map[string]state.ExposedEndpoint

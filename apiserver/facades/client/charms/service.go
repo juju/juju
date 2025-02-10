@@ -6,7 +6,9 @@ package charms
 import (
 	"context"
 
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/application/charm"
@@ -31,6 +33,21 @@ type ApplicationService interface {
 	// ListCharmLocators returns a list of charms with the specified
 	// locator by the name. If no names are provided, all charms are returned.
 	ListCharmLocators(ctx context.Context, names ...string) ([]charm.CharmLocator, error)
+
+	// GetApplicationIDByName returns an application ID by application name. It
+	// returns an error if the application can not be found by the name.
+	//
+	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
+	// and [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
+	// GetApplicationConstraints returns the application constraints for the
+	// specified application ID.
+	// Empty constraints are returned if no constraints exist for the given
+	// application ID.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

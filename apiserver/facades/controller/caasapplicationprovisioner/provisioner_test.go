@@ -21,7 +21,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	jujuresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
@@ -171,6 +173,8 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	}
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
 	s.applicationService.EXPECT().GetApplicationScale(gomock.Any(), "gitlab").Return(3, nil)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(coreapplication.ID("deadbeef"), nil)
+	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.ID("deadbeef")).Return(constraints.Value{}, nil)
 
 	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)

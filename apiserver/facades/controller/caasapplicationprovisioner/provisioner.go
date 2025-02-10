@@ -482,8 +482,17 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cons, err := app.Constraints()
-	if err != nil {
+
+	appID, err := a.applicationService.GetApplicationIDByName(ctx, appName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil, errors.NotFoundf("application %s", appName)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cons, err := a.applicationService.GetApplicationConstraints(ctx, appID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil, errors.NotFoundf("application %s", appName)
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	mergedCons, err := a.state.ResolveConstraints(cons)

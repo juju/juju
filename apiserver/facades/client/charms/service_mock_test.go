@@ -13,7 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 
+	application "github.com/juju/juju/core/application"
 	charm "github.com/juju/juju/core/charm"
+	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
 	charm0 "github.com/juju/juju/domain/application/charm"
@@ -104,6 +106,84 @@ func NewMockApplicationService(ctrl *gomock.Controller) *MockApplicationService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
+}
+
+// GetApplicationConstraints mocks base method.
+func (m *MockApplicationService) GetApplicationConstraints(arg0 context.Context, arg1 application.ID) (constraints.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationConstraints", arg0, arg1)
+	ret0, _ := ret[0].(constraints.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationConstraints indicates an expected call of GetApplicationConstraints.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationConstraints(arg0, arg1 any) *MockApplicationServiceGetApplicationConstraintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConstraints", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationConstraints), arg0, arg1)
+	return &MockApplicationServiceGetApplicationConstraintsCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationConstraintsCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationConstraintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationConstraintsCall) Return(arg0 constraints.Value, arg1 error) *MockApplicationServiceGetApplicationConstraintsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationConstraintsCall) Do(f func(context.Context, application.ID) (constraints.Value, error)) *MockApplicationServiceGetApplicationConstraintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationConstraintsCall) DoAndReturn(f func(context.Context, application.ID) (constraints.Value, error)) *MockApplicationServiceGetApplicationConstraintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationIDByName mocks base method.
+func (m *MockApplicationService) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationIDByName", arg0, arg1)
+	ret0, _ := ret[0].(application.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationIDByName indicates an expected call of GetApplicationIDByName.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationIDByName(arg0, arg1 any) *MockApplicationServiceGetApplicationIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationIDByName), arg0, arg1)
+	return &MockApplicationServiceGetApplicationIDByNameCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationIDByNameCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationIDByNameCall) Return(arg0 application.ID, arg1 error) *MockApplicationServiceGetApplicationIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationIDByNameCall) Do(f func(context.Context, string) (application.ID, error)) *MockApplicationServiceGetApplicationIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationIDByNameCall) DoAndReturn(f func(context.Context, string) (application.ID, error)) *MockApplicationServiceGetApplicationIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // ListCharmLocators mocks base method.

@@ -12,6 +12,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -185,6 +186,31 @@ type ApplicationService interface {
 	// indicates if the charm has been uploaded to the controller.
 	// This will return true if the charm is available, and false otherwise.
 	IsCharmAvailable(ctx context.Context, locator applicationcharm.CharmLocator) (bool, error)
+
+	// GetApplicationIDByName returns an application ID by application name. It
+	// returns an error if the application can not be found by the name.
+	//
+	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
+	// and [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
+	// GetApplicationConstraints returns the application constraints for the
+	// specified application ID.
+	// Empty constraints are returned if no constraints exist for the given
+	// application ID.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
+
+	// SetApplicationConstraints sets the application constraints for the
+	// specified application ID.
+	// This method overwrites the full constraints on every call.
+	// If invalid constraints are provided (e.g. invalid container type or
+	// non-existing space), a [applicationerrors.InvalidApplicationConstraints]
+	// error is returned.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error
 }
 
 // ModelConfigService provides access to the model configuration.
