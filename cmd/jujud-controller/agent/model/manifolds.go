@@ -311,6 +311,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ProviderServiceFactoriesName: providerServiceFactoriesName,
 			NewWorker:                    providertracker.NewWorker,
 			NewTrackerWorker:             providertracker.NewTrackerWorker,
+			NewNonTrackedWorker:          providertracker.NewNonTrackedWorker,
 			GetProviderServicesGetter:    providertracker.GetModelProviderServicesGetter,
 			GetIAASProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
 				return config.NewEnvironFunc(ctx, args, invalidator)
