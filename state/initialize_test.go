@@ -123,7 +123,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	ctlr, err := state.Initialize(state.InitializeParams{
-		SSHServerHostKey: "dummy",
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -261,7 +261,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 	credentialTag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/borken")
 	_, err := state.Initialize(state.InitializeParams{
-		SSHServerHostKey: "dummy",
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -300,7 +300,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	ctlr, err := state.Initialize(state.InitializeParams{
-		SSHServerHostKey: "dummy",
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -357,7 +357,7 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	args := state.InitializeParams{
-		SSHServerHostKey: "dummy",
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -414,7 +414,7 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	controllerCfg := testing.FakeControllerConfig()
 
 	args := state.InitializeParams{
-		SSHServerHostKey: "dummy",
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -473,7 +473,7 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	args := state.InitializeParams{
-		SSHServerHostKey: "dummy",
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -517,7 +517,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	ctlr, err := state.Initialize(state.InitializeParams{
-		SSHServerHostKey: "dummy",
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -582,7 +582,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	ctlr, err := state.Initialize(state.InitializeParams{
-		SSHServerHostKey: "dummy",
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -643,7 +643,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	ctlr, err := state.Initialize(state.InitializeParams{
-		SSHServerHostKey: "dummy",
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
@@ -706,7 +706,7 @@ func (s *InitializeSuite) TestInitializeWithStoragePool(c *gc.C) {
 		},
 	}
 	ctlr, err := state.Initialize(state.InitializeParams{
-		SSHServerHostKey: "dummy",
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{

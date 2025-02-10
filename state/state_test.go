@@ -4975,6 +4975,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	ctlr, err := state.Initialize(state.InitializeParams{
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
