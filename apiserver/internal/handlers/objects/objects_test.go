@@ -27,11 +27,6 @@ type objectsHandlerSuite struct {
 	objectStoreGetter *MockObjectStoreServiceGetter
 	objectStore       *MockObjectStoreService
 
-	// These will move to the model service.
-	stateGetter *MockStateGetter
-	modelState  *MockModelState
-	model       *MockModel
-
 	mux *apiserverhttp.Mux
 	srv *httptest.Server
 }
@@ -155,11 +150,6 @@ func (s *objectsHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.objectStoreGetter = NewMockObjectStoreServiceGetter(ctrl)
 	s.objectStore = NewMockObjectStoreService(ctrl)
-
-	// These should be on the model service!
-	s.stateGetter = NewMockStateGetter(ctrl)
-	s.modelState = NewMockModelState(ctrl)
-	s.model = NewMockModel(ctrl)
 
 	return ctrl
 }

@@ -790,7 +790,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		objects.CharmURLFromLocator,
 	), "charms")
 	modelObjectsHTTPHandler := srv.monitoredHandler(objects.NewObjectsHTTPHandler(
-		&stateGetter{authFunc: httpCtxt.stateForRequestAuthenticatedUser},
 		&objectStoreServiceGetter{ctxt: httpCtxt},
 	), "objects")
 

@@ -31,17 +31,14 @@ type ObjectStoreServiceGetter interface {
 
 // ObjectsHTTPHandler implements the http.Handler interface for the objects API.
 type ObjectsHTTPHandler struct {
-	stateGetter       StateGetter
 	objectStoreGetter ObjectStoreServiceGetter
 }
 
 // NewObjectsHTTPHandler returns a new ObjectsHTTPHandler.
 func NewObjectsHTTPHandler(
-	stateGetter StateGetter,
 	objectStoreGetter ObjectStoreServiceGetter,
 ) *ObjectsHTTPHandler {
 	return &ObjectsHTTPHandler{
-		stateGetter:       stateGetter,
 		objectStoreGetter: objectStoreGetter,
 	}
 }
