@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	// StorageNameSnippet is the regular expression that describes valid
+	// storageNameSnippet is the regular expression that describes valid
 	// storage names (without the storage instance sequence number).
-	StorageNameSnippet = "(?:[a-z][a-z0-9]*(?:-[a-z0-9]*[a-z][a-z0-9]*)*)"
-	// NumberSnippet is a non-compiled regexp that can be composed with other
+	storageNameSnippet = "(?:[a-z][a-z0-9]*(?:-[a-z0-9]*[a-z][a-z0-9]*)*)"
+	// numberSnippet is a non-compiled regexp that can be composed with other
 	// snippets for validating small number sequences.
-	NumberSnippet = "(?:0|[1-9][0-9]*)"
+	numberSnippet = "(?:0|[1-9][0-9]*)"
 )
 
 const (
@@ -26,8 +26,8 @@ const (
 )
 
 var (
-	validStorageID   = regexp.MustCompile("^(" + StorageNameSnippet + ")/" + NumberSnippet + "$")
-	validStorageName = regexp.MustCompile(StorageNameSnippet)
+	validStorageID   = regexp.MustCompile("^(" + storageNameSnippet + ")/" + numberSnippet + "$")
+	validStorageName = regexp.MustCompile(storageNameSnippet)
 )
 
 // Name represents a storage name.
@@ -46,10 +46,10 @@ func (n Name) String() string {
 }
 
 // Validate returns an error if the Name is invalid.
-// The returned error is an InvalidStorageName error.
+// The returned error is an [InvalidStorageName] error.
 func (n Name) Validate() error {
 	if !validStorageName.MatchString(n.String()) {
-		return errors.Errorf("%w: %q", InvalidStorageName, n)
+		return errors.Errorf("validating storage name %q", n).Add(InvalidStorageName)
 	}
 	return nil
 }
@@ -70,10 +70,10 @@ func (id ID) String() string {
 }
 
 // Validate returns an error if the ID is invalid.
-// The returned error is an InvalidStorageID error.
+// The returned error is an [InvalidStorageID] error.
 func (id ID) Validate() error {
 	if !validStorageID.MatchString(id.String()) {
-		return errors.Errorf("%w: %q", InvalidStorageID, id)
+		return errors.Errorf("validating storage ID %q", id).Add(InvalidStorageID)
 	}
 	return nil
 }

@@ -27,7 +27,11 @@ type StorageState interface {
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 	AttachStorage(ctx context.Context, storageID corestorage.ID, unitUUID unit.UUID) error
 
-	// AddStorageForUnit attaches the specified storage to the specified unit.
+	// AddStorageForUnit adds storage instances to given unit as specified.
+	// Missing storage constraints are populated based on model defaults.
+	// The specified storage name is used to retrieve existing storage instances.
+	// Combination of existing storage instances and anticipated additional storage
+	// instances is validated as specified in the unit's charm.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotAlive]: when the unit is not alive.

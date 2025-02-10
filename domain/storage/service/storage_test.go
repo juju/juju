@@ -79,7 +79,7 @@ func (s *storageSuite) TestImportFilesystemValidate(c *gc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "0",
 	})
-	c.Assert(err, jc.ErrorIs, corestorage.InvalidStorageName)
+	c.Check(err, jc.ErrorIs, corestorage.InvalidStorageName)
 
 	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
@@ -87,7 +87,7 @@ func (s *storageSuite) TestImportFilesystemValidate(c *gc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "pgdata",
 	})
-	c.Assert(err, jc.ErrorIs, storageerrors.InvalidPoolNameError)
+	c.Check(err, jc.ErrorIs, storageerrors.InvalidPoolNameError)
 
 	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindBlock,
@@ -95,7 +95,7 @@ func (s *storageSuite) TestImportFilesystemValidate(c *gc.C) {
 		ProviderId:  "provider-id",
 		StorageName: "pgdata",
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Check(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *storageSuite) TestImportFilesystem(c *gc.C) {
@@ -118,13 +118,13 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		"juju-model-uuid":      coretesting.ModelTag.Id(),
 		"juju-controller-uuid": coretesting.ControllerTag.Id(),
 	}).Return(storage.FilesystemInfo{
-		FilesystemId: "provider-id",
+		FilesystemId: "filesystem-id",
 		Size:         123,
 	}, nil)
 
 	s.state.EXPECT().ImportFilesystem(gomock.Any(), corestorage.Name("pgdata"), domainstorage.FilesystemInfo{
 		FilesystemInfo: storage.FilesystemInfo{
-			FilesystemId: "provider-id",
+			FilesystemId: "filesystem-id",
 			Size:         123,
 		},
 		Pool: "elastic",
