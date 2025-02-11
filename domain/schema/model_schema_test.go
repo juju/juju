@@ -25,16 +25,17 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 	// Ensure that each table is present.
 	expected := set.NewStrings(
 		// Application
-		"application",
 		"application_channel",
-		"application_config",
 		"application_config_hash",
+		"application_config",
 		"application_constraint",
-		"application_endpoint_space",
 		"application_endpoint_cidr",
+		"application_endpoint_space",
 		"application_platform",
-		"application_setting",
 		"application_scale",
+		"application_setting",
+		"application_status",
+		"application",
 		"cloud_service",
 		"workload_status_value",
 

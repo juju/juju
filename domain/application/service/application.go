@@ -275,7 +275,7 @@ type ApplicationState interface {
 	// GetApplicationStatus looks up the status of the specified application,
 	// returning an error satisfying [applicationerrors.ApplicationNotFound] if the
 	// application is not found.
-	GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (application.StatusInfo[application.WorkloadStatusType], error)
+	GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*application.StatusInfo[application.WorkloadStatusType], error)
 
 	// SetApplicationStatus saves the given application status, overwriting any
 	// current status data. If returns an error satisfying
@@ -283,7 +283,7 @@ type ApplicationState interface {
 	SetApplicationStatus(
 		ctx context.Context,
 		applicationID coreapplication.ID,
-		status application.StatusInfo[application.WorkloadStatusType],
+		status *application.StatusInfo[application.WorkloadStatusType],
 	) error
 }
 
@@ -809,7 +809,7 @@ func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return decodeUnitWorkloadStatus(agentStatus)
+	return decodeWorkloadStatus(agentStatus)
 }
 
 // SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
@@ -1476,6 +1476,42 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 
 	cons, err := s.st.GetApplicationConstraints(ctx, appID)
 	return cons, internalerrors.Capture(err)
+}
+
+// GetApplicationStatus looks up the status of the specified application,
+// returning an error satisfying [applicationerrors.ApplicationNotFound] if the
+// application is not found.
+func (s *Service) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error) {
+	if err := appID.Validate(); err != nil {
+		return nil, internalerrors.Errorf("application ID: %w", err)
+	}
+
+	info, err := s.st.GetApplicationStatus(ctx, appID)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	return decodeWorkloadStatus(info)
+}
+
+// SetApplicationStatus saves the given application status, overwriting any
+// current status data. If returns an error satisfying
+// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
+func (s *Service) SetApplicationStatus(
+	ctx context.Context,
+	applicationID coreapplication.ID,
+	status *corestatus.StatusInfo,
+) error {
+	if err := applicationID.Validate(); err != nil {
+		return internalerrors.Errorf("application ID: %w", err)
+	}
+
+	// This will implicitly verify that the status is valid.
+	encodedStatus, err := encodeWorkloadStatus(status)
+	if err != nil {
+		return internalerrors.Errorf("encoding workload status: %w", err)
+	}
+
+	return s.st.SetApplicationStatus(ctx, applicationID, encodedStatus)
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (bool, error) {

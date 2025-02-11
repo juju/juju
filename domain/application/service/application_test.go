@@ -1243,6 +1243,67 @@ func (s *applicationServiceSuite) TestSetWorkloadUnitStatusInvalidStatus(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "allocating"`)
 }
 
+func (s *applicationServiceSuite) TestGetApplicationStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+		&application.StatusInfo[application.WorkloadStatusType]{
+			Status:  application.WorkloadStatusActive,
+			Message: "doink",
+			Data:    []byte(`{"foo":"bar"}`),
+			Since:   &now,
+		}, nil)
+
+	obtained, err := s.service.GetApplicationStatus(context.Background(), applicationUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+}
+
+func (s *applicationServiceSuite) TestSetApplicationStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "doink",
+		Data:    []byte(`{"foo":"bar"}`),
+		Since:   &now,
+	})
+
+	err := s.service.SetApplicationStatus(context.Background(), applicationUUID, &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationStatusInvalidStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	err := s.service.SetApplicationStatus(context.Background(), applicationUUID, &corestatus.StatusInfo{
+		Status: corestatus.Status("invalid"),
+	})
+	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "invalid"`)
+
+	err = s.service.SetApplicationStatus(context.Background(), applicationUUID, &corestatus.StatusInfo{
+		Status: corestatus.Allocating,
+	})
+	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "allocating"`)
+}
+
 func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

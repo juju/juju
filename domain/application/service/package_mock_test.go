@@ -522,10 +522,10 @@ func (c *MockStateGetApplicationScaleStateCall) DoAndReturn(f func(context.Conte
 }
 
 // GetApplicationStatus mocks base method.
-func (m *MockState) GetApplicationStatus(ctx context.Context, appID application.ID) (application0.StatusInfo[application0.WorkloadStatusType], error) {
+func (m *MockState) GetApplicationStatus(ctx context.Context, appID application.ID) (*application0.StatusInfo[application0.WorkloadStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationStatus", ctx, appID)
-	ret0, _ := ret[0].(application0.StatusInfo[application0.WorkloadStatusType])
+	ret0, _ := ret[0].(*application0.StatusInfo[application0.WorkloadStatusType])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -543,19 +543,19 @@ type MockStateGetApplicationStatusCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationStatusCall) Return(arg0 application0.StatusInfo[application0.WorkloadStatusType], arg1 error) *MockStateGetApplicationStatusCall {
+func (c *MockStateGetApplicationStatusCall) Return(arg0 *application0.StatusInfo[application0.WorkloadStatusType], arg1 error) *MockStateGetApplicationStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationStatusCall) Do(f func(context.Context, application.ID) (application0.StatusInfo[application0.WorkloadStatusType], error)) *MockStateGetApplicationStatusCall {
+func (c *MockStateGetApplicationStatusCall) Do(f func(context.Context, application.ID) (*application0.StatusInfo[application0.WorkloadStatusType], error)) *MockStateGetApplicationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID) (application0.StatusInfo[application0.WorkloadStatusType], error)) *MockStateGetApplicationStatusCall {
+func (c *MockStateGetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID) (*application0.StatusInfo[application0.WorkloadStatusType], error)) *MockStateGetApplicationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2396,7 +2396,7 @@ func (c *MockStateSetApplicationScalingStateCall) DoAndReturn(f func(context.Con
 }
 
 // SetApplicationStatus mocks base method.
-func (m *MockState) SetApplicationStatus(ctx context.Context, applicationID application.ID, status application0.StatusInfo[application0.WorkloadStatusType]) error {
+func (m *MockState) SetApplicationStatus(ctx context.Context, applicationID application.ID, status *application0.StatusInfo[application0.WorkloadStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetApplicationStatus", ctx, applicationID, status)
 	ret0, _ := ret[0].(error)
@@ -2422,13 +2422,13 @@ func (c *MockStateSetApplicationStatusCall) Return(arg0 error) *MockStateSetAppl
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetApplicationStatusCall) Do(f func(context.Context, application.ID, application0.StatusInfo[application0.WorkloadStatusType]) error) *MockStateSetApplicationStatusCall {
+func (c *MockStateSetApplicationStatusCall) Do(f func(context.Context, application.ID, *application0.StatusInfo[application0.WorkloadStatusType]) error) *MockStateSetApplicationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID, application0.StatusInfo[application0.WorkloadStatusType]) error) *MockStateSetApplicationStatusCall {
+func (c *MockStateSetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID, *application0.StatusInfo[application0.WorkloadStatusType]) error) *MockStateSetApplicationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

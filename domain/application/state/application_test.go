@@ -3371,7 +3371,7 @@ func (s *applicationStateSuite) TestSetApplicationStatus(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	now := time.Now().UTC()
-	expected := application.StatusInfo[application.WorkloadStatusType]{
+	expected := &application.StatusInfo[application.WorkloadStatusType]{
 		Status:  application.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
@@ -3389,7 +3389,7 @@ func (s *applicationStateSuite) TestSetApplicationStatus(c *gc.C) {
 func (s *applicationStateSuite) TestSetApplicationStatusMultipleTimes(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationStatus(context.Background(), id, application.StatusInfo[application.WorkloadStatusType]{
+	err := s.state.SetApplicationStatus(context.Background(), id, &application.StatusInfo[application.WorkloadStatusType]{
 		Status:  application.WorkloadStatusBlocked,
 		Message: "blocked",
 		Since:   ptr(time.Now().UTC()),
@@ -3397,7 +3397,7 @@ func (s *applicationStateSuite) TestSetApplicationStatusMultipleTimes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := time.Now().UTC()
-	expected := application.StatusInfo[application.WorkloadStatusType]{
+	expected := &application.StatusInfo[application.WorkloadStatusType]{
 		Status:  application.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
@@ -3416,7 +3416,7 @@ func (s *applicationStateSuite) TestSetApplicationStatusWithNoData(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
 	now := time.Now().UTC()
-	expected := application.StatusInfo[application.WorkloadStatusType]{
+	expected := &application.StatusInfo[application.WorkloadStatusType]{
 		Status:  application.WorkloadStatusActive,
 		Message: "message",
 		Since:   ptr(now),
@@ -3432,7 +3432,7 @@ func (s *applicationStateSuite) TestSetApplicationStatusWithNoData(c *gc.C) {
 
 func (s *applicationStateSuite) TestSetApplicationStatusApplicationNotFound(c *gc.C) {
 	now := time.Now().UTC()
-	expected := application.StatusInfo[application.WorkloadStatusType]{
+	expected := &application.StatusInfo[application.WorkloadStatusType]{
 		Status:  application.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
@@ -3450,7 +3450,7 @@ func (s *applicationStateSuite) TestSetApplicationStatusInvalidStatus(c *gc.C) {
 		Status: application.WorkloadStatusType(99),
 	}
 
-	err := s.state.SetApplicationStatus(context.Background(), id, expected)
+	err := s.state.SetApplicationStatus(context.Background(), id, &expected)
 	c.Assert(err, gc.ErrorMatches, `unknown status.*`)
 }
 
@@ -3464,7 +3464,7 @@ func (s *applicationStateSuite) TestGetApplicationStatusNotSet(c *gc.C) {
 
 	status, err := s.state.GetApplicationStatus(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status, gc.DeepEquals, application.StatusInfo[application.WorkloadStatusType]{
+	c.Check(status, gc.DeepEquals, &application.StatusInfo[application.WorkloadStatusType]{
 		Status: application.WorkloadStatusUnset,
 	})
 }

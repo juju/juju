@@ -95,7 +95,7 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 		output, err := encodeWorkloadStatus(test.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(output, jc.DeepEquals, test.output)
-		result, err := decodeUnitWorkloadStatus(output)
+		result, err := decodeWorkloadStatus(output)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result, jc.DeepEquals, test.input)
 	}

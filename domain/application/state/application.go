@@ -1736,10 +1736,10 @@ INSERT INTO cloud_service (*) VALUES ($cloudService.*)
 // GetApplicationStatus looks up the status of the specified application,
 // returning an error satisfying [applicationerrors.ApplicationNotFound] if the
 // application is not found.
-func (st *State) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (application.StatusInfo[application.WorkloadStatusType], error) {
+func (st *State) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*application.StatusInfo[application.WorkloadStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
-		return application.StatusInfo[application.WorkloadStatusType]{}, jujuerrors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
 	identID := applicationID{ID: appID}
@@ -1752,7 +1752,7 @@ FROM application_status
 WHERE application_uuid = $applicationUUID.application_uuid;
 `, identUUID, applicationStatusInfo{})
 	if err != nil {
-		return application.StatusInfo[application.WorkloadStatusType]{}, jujuerrors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
 	var status applicationStatusInfo
@@ -1770,15 +1770,15 @@ WHERE application_uuid = $applicationUUID.application_uuid;
 		return nil
 	})
 	if err != nil {
-		return application.StatusInfo[application.WorkloadStatusType]{}, err
+		return nil, err
 	}
 
 	statusType, err := decodeWorkloadStatus(status.StatusID)
 	if err != nil {
-		return application.StatusInfo[application.WorkloadStatusType]{}, jujuerrors.Trace(err)
+		return nil, jujuerrors.Trace(err)
 	}
 
-	return application.StatusInfo[application.WorkloadStatusType]{
+	return &application.StatusInfo[application.WorkloadStatusType]{
 		Status:  statusType,
 		Message: status.Message,
 		Data:    status.Data,
@@ -1792,7 +1792,7 @@ WHERE application_uuid = $applicationUUID.application_uuid;
 func (st *State) SetApplicationStatus(
 	ctx context.Context,
 	applicationID coreapplication.ID,
-	status application.StatusInfo[application.WorkloadStatusType],
+	status *application.StatusInfo[application.WorkloadStatusType],
 ) error {
 	db, err := st.DB()
 	if err != nil {

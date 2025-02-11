@@ -178,9 +178,8 @@ func encodeWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[applica
 	}, nil
 }
 
-// decodeCloudContainerStatus converts a db status info to a core status info.
-// Implicitly validates the status.
-func decodeUnitWorkloadStatus(s *application.StatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
+// decodeWorkloadStatus converts a db status info to a core status info.
+func decodeWorkloadStatus(s *application.StatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
 	if s == nil {
 		return nil, nil
 	}
