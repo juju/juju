@@ -7,6 +7,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -49,6 +50,10 @@ type AddApplicationArgs struct {
 	// ResolvedResources contains a list of ResolvedResource instances,
 	// which allows to define a revision and an origin for each resource.
 	ResolvedResources ResolvedResources
+
+	// PendingResources are the uuids of resources added before the
+	// application is created.
+	PendingResources []resource.UUID
 
 	// ApplicationConfig contains the application config.
 	ApplicationConfig config.ConfigAttributes

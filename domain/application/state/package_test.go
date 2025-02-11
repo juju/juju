@@ -55,7 +55,8 @@ func (s *baseSuite) minimalManifest(c *gc.C) charm.Manifest {
 func (s *baseSuite) addApplicationArgForResources(c *gc.C,
 	name string,
 	charmResources map[string]charm.Resource,
-	addResourcesArgs []application.AddApplicationResourceArg) application.AddApplicationArg {
+	addResourcesArgs []application.AddApplicationResourceArg,
+) application.AddApplicationArg {
 	platform := application.Platform{
 		Channel:      "666",
 		OSType:       application.Ubuntu,

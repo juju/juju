@@ -26,6 +26,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	"github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -195,6 +197,112 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	c.Check(receivedArgs, jc.DeepEquals, us)
 }
 
+func (s *applicationServiceSuite) TestCreateApplicationPendingResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+
+	now := ptr(s.clock.Now())
+	us := []application.AddUnitArg{{
+		UnitName: "ubuntu/666",
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+				Since:  now,
+			},
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusWaiting,
+				Message: corestatus.MessageInstallingAgent,
+				Since:   now,
+			},
+		},
+	}}
+	ch := applicationcharm.Charm{
+		Metadata: applicationcharm.Metadata{
+			Name:  "ubuntu",
+			RunAs: "default",
+			Resources: map[string]applicationcharm.Resource{
+				"foo": {Name: "foo", Type: applicationcharm.ResourceTypeFile},
+			},
+		},
+		Manifest:        s.minimalManifest(),
+		ReferenceName:   "ubuntu",
+		Source:          applicationcharm.CharmHubSource,
+		Revision:        42,
+		Architecture:    architecture.ARM64,
+		ObjectStoreUUID: objectStoreUUID,
+	}
+	platform := application.Platform{
+		Channel:      "24.04",
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+
+	resourceUUID := resourcetesting.GenResourceUUID(c)
+	app := application.AddApplicationArg{
+		Charm: ch,
+		CharmDownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
+		Platform:         platform,
+		Scale:            1,
+		PendingResources: []resource.UUID{resourceUUID},
+	}
+	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
+	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
+
+	var receivedArgs []application.AddUnitArg
+	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ application.AddApplicationArg, args []application.AddUnitArg) (coreapplication.ID, error) {
+		receivedArgs = args
+		return id, nil
+	})
+
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.Stable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}).MinTimes(1)
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "ubuntu",
+		Resources: map[string]charmresource.Meta{
+			"foo": {Name: "foo", Type: charmresource.TypeFile},
+		},
+	}).MinTimes(1)
+
+	a := AddUnitArg{
+		UnitName: "ubuntu/666",
+	}
+	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "ubuntu",
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
+		CharmObjectStoreUUID: objectStoreUUID,
+		PendingResources:     []resource.UUID{resourceUUID},
+	}, a)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(receivedArgs, jc.DeepEquals, us)
+}
+
 func (s *applicationServiceSuite) TestCreateApplicationWithInvalidApplicationName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -331,6 +439,43 @@ func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesNotAl
 			ResolvedResources: nil,
 		})
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
+	c.Assert(err, gc.ErrorMatches,
+		"create application: charm has resources which have not provided: invalid resource args")
+}
+
+// TestCreateApplicationWithInvalidResourceBothTypes tests that resolved resources and
+// pending resources are mutually exclusive.
+func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourceBothTypes(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "foo", Resources: map[string]charmresource.Meta{
+		"not-resolved": {Name: "not-resolved"},
+	}}).MinTimes(1)
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{{
+			Name: "ubuntu",
+			Channel: charm.Channel{
+				Risk: charm.Stable,
+			},
+			Architectures: []string{"amd64"},
+		}},
+	}).MinTimes(1)
+
+	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm,
+		corecharm.Origin{
+			Source:   corecharm.Local,
+			Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		},
+		AddApplicationArgs{
+			ReferenceName:     "foo",
+			ResolvedResources: ResolvedResources{ResolvedResource{Name: "testme"}},
+			PendingResources:  []resource.UUID{resourcetesting.GenResourceUUID(c)},
+		})
+	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
+	// There are many places where InvalidResourceArgs are returned,
+	// verify we have the expected one.
+	c.Assert(err, gc.ErrorMatches,
+		"create application: cannot have both pending and resolved resources: invalid resource args")
 }
 
 func (s *applicationServiceSuite) TestCreateApplicationWithInvalidResourcesMoreResolvedThanCharmResources(c *gc.C) {
