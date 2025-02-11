@@ -139,6 +139,7 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), netenv,
 		context.NewEmptyCloudCallContext(), bootstrap.BootstrapParams{
+			SSHServerHostKey: testing.SSHServerHostKey,
 			ControllerConfig: testing.FakeControllerConfig(),
 			Cloud: cloud.Cloud{
 				Name:      "dummy",

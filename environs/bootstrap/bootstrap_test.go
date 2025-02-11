@@ -138,16 +138,6 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 		})
 	c.Assert(err, gc.ErrorMatches, "validating bootstrap parameters: empty ca-private-key")
 
-	// Test for SSHServerHostKey
-	err = bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
-		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:        controllerCfg,
-			AdminSecret:             "admin-secret",
-			CAPrivateKey:            coretesting.CAKey,
-			SupportedBootstrapBases: supportedJujuBases,
-		})
-	c.Assert(err, gc.ErrorMatches, "validating bootstrap parameters: empty ssh-server-host-key")
-
 	err = bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
 			ControllerConfig:        controllerCfg,

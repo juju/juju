@@ -52,6 +52,7 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -211,6 +212,7 @@ func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
 		}}
 	}
 	return bootstrap.BootstrapParams{
+		SSHServerHostKey: testing.SSHServerHostKey,
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		Cloud: cloud.Cloud{
 			Name:      t.TestConfig["type"].(string),

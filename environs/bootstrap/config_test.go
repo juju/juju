@@ -30,7 +30,7 @@ func (*ConfigSuite) TestDefaultConfig(c *gc.C) {
 	c.Assert(cfg.AdminSecret, gc.Not(gc.HasLen), 0)
 	c.Assert(cfg.CACert, gc.Not(gc.HasLen), 0)
 	c.Assert(cfg.CAPrivateKey, gc.Not(gc.HasLen), 0)
-	c.Assert(cfg.SSHServerHostKey, gc.Not(gc.HasLen), 0)
+	c.Assert(cfg.SSHServerHostKey, gc.HasLen, 0)
 
 	c.Assert(cfg.BootstrapTimeout, gc.Equals, time.Second*1200)
 	c.Assert(cfg.BootstrapRetryDelay, gc.Equals, time.Second*5)

@@ -252,7 +252,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	// Check ssh server hostkey was inserted.
 	key, err := s.State.SSHServerHostKey()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(key, gc.Equals, "dummy")
+	c.Assert(key, gc.Equals, testing.SSHServerHostKey)
 }
 
 func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
