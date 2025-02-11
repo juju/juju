@@ -103,7 +103,7 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
-// importModelOperation implements the steps to import model's from another
+// importModelOperation implements the steps to import a model from another
 // controller into the current controller. importModelOperation assumes that
 // data related to the model such as cloud credentials and users have already
 // been imported or created in the system.
@@ -118,7 +118,7 @@ type importModelOperation struct {
 	logger logger.Logger
 }
 
-// importModelConstraintsOperation implements the steps to import a models
+// importModelConstraintsOperation implements the steps to import a model's
 // constraints.
 type importModelConstraintsOperation struct {
 	modelmigration.BaseOperation
@@ -300,7 +300,6 @@ func (i *importModelConstraintsOperation) Execute(
 	ctx context.Context,
 	model description.Model,
 ) error {
-	cons := coreconstraints.Value{}
 	descCons := model.Constraints()
 
 	// It is possible that the constraints interface from description can be nil
@@ -310,6 +309,7 @@ func (i *importModelConstraintsOperation) Execute(
 		return nil
 	}
 
+	cons := coreconstraints.Value{}
 	if allocatePublicIP := descCons.AllocatePublicIP(); allocatePublicIP {
 		cons.AllocatePublicIP = &allocatePublicIP
 	}
