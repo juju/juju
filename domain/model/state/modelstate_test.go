@@ -16,7 +16,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
-	modeldomain "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -298,7 +297,7 @@ INSERT INTO space (uuid, name) VALUES
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons := modeldomain.Constraints{
+	cons := model.Constraints{
 		Arch:           ptr("amd64"),
 		Container:      ptr(instance.LXD),
 		CpuCores:       ptr(uint64(4)),
@@ -308,7 +307,7 @@ INSERT INTO space (uuid, name) VALUES
 		Tags:           ptr([]string{"tag1", "tag2"}),
 		InstanceRole:   ptr("instance-role"),
 		InstanceType:   ptr("instance-type"),
-		Spaces: ptr([]modeldomain.SpaceConstraint{
+		Spaces: ptr([]model.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
 		VirtType:         ptr("virt-type"),
@@ -340,7 +339,7 @@ func (s *modelSuite) TestSetModelConstraintsNullBools(c *gc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	// Nil Bool
-	cons := modeldomain.Constraints{
+	cons := model.Constraints{
 		AllocatePublicIP: nil,
 	}
 
@@ -387,7 +386,7 @@ INSERT INTO space (uuid, name) VALUES
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons := modeldomain.Constraints{
+	cons := model.Constraints{
 		Arch:           ptr("amd64"),
 		Container:      ptr(instance.LXD),
 		CpuCores:       ptr(uint64(4)),
@@ -397,7 +396,7 @@ INSERT INTO space (uuid, name) VALUES
 		Tags:           ptr([]string{"tag1", "tag2"}),
 		InstanceRole:   ptr("instance-role"),
 		InstanceType:   ptr("instance-type"),
-		Spaces: ptr([]modeldomain.SpaceConstraint{
+		Spaces: ptr([]model.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
 		VirtType:         ptr("virt-type"),
@@ -417,11 +416,11 @@ INSERT INTO space (uuid, name) VALUES
 	// We explicitly only setting zone as one of the external tables to
 	// constraints. This helps validates the internal implementation that
 	// previously set tags and spaces are removed correctly.
-	cons = modeldomain.Constraints{
+	cons = model.Constraints{
 		Arch:    ptr("amd64"),
 		Zones:   ptr([]string{"zone2"}),
 		ImageID: ptr("image-id"),
-		Spaces: ptr([]modeldomain.SpaceConstraint{
+		Spaces: ptr([]model.SpaceConstraint{
 			{SpaceName: "space1", Exclude: true},
 		}),
 	}
@@ -441,7 +440,7 @@ func (s *modelSuite) TestSetModelConstraintFailedModelNotFound(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	err := state.SetModelConstraints(context.Background(), modeldomain.Constraints{
+	err := state.SetModelConstraints(context.Background(), model.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 	})
@@ -458,7 +457,7 @@ func (s *modelSuite) TestSetModelConstraintsInvalidContainerType(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	cons := modeldomain.Constraints{
+	cons := model.Constraints{
 		Container: ptr(instance.ContainerType("noexist")),
 		ImageID:   ptr("image-id"),
 	}
@@ -479,8 +478,8 @@ func (s *modelSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *gc.C) {
 	runner := s.TxnRunnerFactory()
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
-	err := state.SetModelConstraints(context.Background(), modeldomain.Constraints{
-		Spaces: ptr([]modeldomain.SpaceConstraint{
+	err := state.SetModelConstraints(context.Background(), model.Constraints{
+		Spaces: ptr([]model.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
 		ImageID: ptr("image-id"),
