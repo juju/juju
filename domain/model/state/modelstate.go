@@ -133,30 +133,30 @@ func getModelUUID(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX) 
 // set for the model.
 func (s *ModelState) GetModelConstraints(
 	ctx context.Context,
-) (modeldomain.Constraints, error) {
+) (model.Constraints, error) {
 	db, err := s.DB()
 	if err != nil {
-		return modeldomain.Constraints{}, errors.Capture(err)
+		return model.Constraints{}, errors.Capture(err)
 	}
 
 	selectTagStmt, err := s.Prepare(
 		"SELECT &dbConstraintTag.* FROM v_model_constraint_tag", dbConstraintTag{},
 	)
 	if err != nil {
-		return modeldomain.Constraints{}, errors.Capture(err)
+		return model.Constraints{}, errors.Capture(err)
 	}
 
 	selectSpaceStmt, err := s.Prepare(
 		"SELECT &dbConstraintSpace.* FROM v_model_constraint_space", dbConstraintSpace{},
 	)
 	if err != nil {
-		return modeldomain.Constraints{}, errors.Capture(err)
+		return model.Constraints{}, errors.Capture(err)
 	}
 
 	selectZoneStmt, err := s.Prepare(
 		"SELECT &dbConstraintZone.* FROM v_model_constraint_zone", dbConstraintZone{})
 	if err != nil {
-		return modeldomain.Constraints{}, errors.Capture(err)
+		return model.Constraints{}, errors.Capture(err)
 	}
 
 	var (
@@ -190,7 +190,7 @@ func (s *ModelState) GetModelConstraints(
 		return nil
 	})
 	if err != nil {
-		return modeldomain.Constraints{}, errors.Capture(err)
+		return model.Constraints{}, errors.Capture(err)
 	}
 
 	return cons.toValue(tags, spaces, zones)
@@ -517,7 +517,7 @@ func insertContraintSpaces(
 	preparer domain.Preparer,
 	tx *sqlair.TX,
 	constraintUUID uuid.UUID,
-	spaces []modeldomain.SpaceConstraint,
+	spaces []model.SpaceConstraint,
 ) error {
 	if len(spaces) == 0 {
 		return nil

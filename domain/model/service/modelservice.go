@@ -12,7 +12,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/model"
-	modeldomain "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -42,7 +41,7 @@ type ModelState interface {
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
 	// - [modelerrors.ConstraintsNotFound]: when no model constraints have been
 	// set for the model.
-	GetModelConstraints(context.Context) (modeldomain.Constraints, error)
+	GetModelConstraints(context.Context) (model.Constraints, error)
 
 	// SetModelConstraints sets the model constraints to the new values removing
 	// any previously set values.
@@ -52,7 +51,7 @@ type ModelState interface {
 	// - [machineerrors.InvalidContainerType]: when the container type set on
 	// the constraints is invalid.
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
-	SetModelConstraints(context.Context, modeldomain.Constraints) error
+	SetModelConstraints(context.Context, model.Constraints) error
 }
 
 // ControllerState is the controller state required by this service. This is the
