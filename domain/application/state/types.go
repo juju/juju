@@ -880,5 +880,6 @@ func decodeWorkloadStatus(s int) (application.WorkloadStatusType, error) {
 
 type minimalStorage struct {
 	StorageUUID corestorage.UUID `db:"uuid"`
-	StorageID   corestorage.ID   `db:"name"`
+	// TODO(wallyworld) - storage instance table is slightly wrong, will be fixed next PR
+	StorageID corestorage.ID `db:"name"`
 }

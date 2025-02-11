@@ -7,7 +7,7 @@ import (
 	"context"
 
 	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/core/unit"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -31,7 +31,7 @@ type StorageState interface {
 	// - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-	AttachStorage(ctx context.Context, storageUUID corestorage.UUID, unitUUID unit.UUID) error
+	AttachStorage(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error
 
 	// AddStorageForUnit adds storage instances to given unit as specified.
 	// Missing storage constraints are populated based on model defaults.
@@ -47,7 +47,7 @@ type StorageState interface {
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 	AddStorageForUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID unit.UUID, stor storage.Directive,
+		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, stor storage.Directive,
 	) ([]corestorage.ID, error)
 
 	// DetachStorageForUnit detaches the specified storage from the specified unit.
@@ -55,7 +55,7 @@ type StorageState interface {
 	// - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 	// - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-	DetachStorageForUnit(ctx context.Context, storageUUID corestorage.UUID, unitUUID unit.UUID) error
+	DetachStorageForUnit(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error
 
 	// DetachStorage detaches the specified storage from whatever node it is attached to.
 	// The following error types can be expected:
@@ -76,7 +76,7 @@ type StorageState interface {
 // - [github.com/juju/juju/domain/application/errors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, unitName unit.Name) error {
+func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) error {
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
@@ -111,7 +111,7 @@ func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, u
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 func (s *Service) AddStorageForUnit(
-	ctx context.Context, storageName corestorage.Name, unitName unit.Name, stor storage.Directive,
+	ctx context.Context, storageName corestorage.Name, unitName coreunit.Name, stor storage.Directive,
 ) ([]corestorage.ID, error) {
 	if err := unitName.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -133,7 +133,7 @@ func (s *Service) AddStorageForUnit(
 // - [github.com/juju/juju/domain/storage/errors.StorageNotFound] when the storage doesn't exist.
 // - [github.com/juju/juju/domain/application/errors.UnitNotFound]: when the unit does not exist.
 // - [github.com/juju/juju/domain/application/errors.StorageNotDetachable]: when the type of storage is not detachable.
-func (s *Service) DetachStorageForUnit(ctx context.Context, storageID corestorage.ID, unitName unit.Name) error {
+func (s *Service) DetachStorageForUnit(ctx context.Context, storageID corestorage.ID, unitName coreunit.Name) error {
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
