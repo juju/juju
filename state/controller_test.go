@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -71,6 +72,8 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.QueryTracingEnabled,
 		controller.QueryTracingThreshold,
 		controller.JujudControllerSnapSource,
+		controller.SSHMaxConcurrentConnections,
+		controller.SSHServerPort,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)
@@ -109,13 +112,17 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 	c.Check(cfg.AuditingEnabled(), gc.Equals, false)
 	c.Check(cfg.AuditLogCaptureArgs(), gc.Equals, true)
 	c.Assert(cfg.PublicDNSAddress(), gc.Equals, "")
+	c.Assert(cfg.SSHServerPort(), gc.Equals, 17022)
+	c.Assert(cfg.SSHMaxConcurrentConnections(), gc.Equals, 100)
 
 	err = s.State.UpdateControllerConfig(map[string]interface{}{
-		controller.AuditingEnabled:     true,
-		controller.AuditLogCaptureArgs: false,
-		controller.AuditLogMaxBackups:  "10",
-		controller.PublicDNSAddress:    "controller.test.com:1234",
-		controller.APIPortOpenDelay:    "100ms",
+		controller.AuditingEnabled:             true,
+		controller.AuditLogCaptureArgs:         false,
+		controller.AuditLogMaxBackups:          "10",
+		controller.PublicDNSAddress:            "controller.test.com:1234",
+		controller.APIPortOpenDelay:            "100ms",
+		controller.SSHServerPort:               17023,
+		controller.SSHMaxConcurrentConnections: 1025,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -127,6 +134,8 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 	c.Assert(newCfg.AuditLogMaxBackups(), gc.Equals, 10)
 	c.Assert(newCfg.PublicDNSAddress(), gc.Equals, "controller.test.com:1234")
 	c.Assert(newCfg.APIPortOpenDelay(), gc.Equals, 100*time.Millisecond)
+	c.Assert(newCfg.SSHServerPort(), gc.Equals, 17023)
+	c.Assert(newCfg.SSHMaxConcurrentConnections(), gc.Equals, 1025)
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigRemoveYieldsDefaults(c *gc.C) {
@@ -353,4 +362,14 @@ func (s *ControllerSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
 		err := s.State.SetStateServingInfo(data)
 		c.Assert(err, gc.ErrorMatches, "incomplete state serving info set in state")
 	}
+}
+
+// SSHServerHostKey is set on state initialisation, whether that is generated
+// or passed in by bootstrap --config params. So we're just testing it is
+// retrievable as it will always be set.
+func (s *ControllerSuite) TestSSHServerHostKey(c *gc.C) {
+	key, err := s.State.SSHServerHostKey()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(key, gc.Equals, testing.SSHServerHostKey)
 }

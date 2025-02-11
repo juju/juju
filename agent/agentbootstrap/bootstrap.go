@@ -141,7 +141,8 @@ func InitializeState(
 		modelType = state.ModelTypeCAAS
 	}
 	ctrl, err := state.Initialize(state.InitializeParams{
-		Clock: clock.WallClock,
+		SSHServerHostKey: args.SSHServerHostKey,
+		Clock:            clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
 			Type:                    modelType,
 			Owner:                   adminUser,

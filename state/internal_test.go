@@ -59,6 +59,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	ctlr, err := Initialize(InitializeParams{
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            testclock.NewClock(testing.NonZeroTime()),
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{

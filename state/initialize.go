@@ -76,6 +76,9 @@ type InitializeParams struct {
 
 	// AdminPassword holds the password for the initial user.
 	AdminPassword string
+
+	// SSHServerHostKey holds the embedded SSH server host key.
+	SSHServerHostKey string
 }
 
 // Validate checks that the state initialization parameters are valid.
@@ -124,6 +127,10 @@ func (p InitializeParams) Validate() error {
 		p.ControllerModelArgs.CloudCredential,
 	); err != nil {
 		return errors.Annotate(err, "validating controller model cloud credential")
+	}
+
+	if p.SSHServerHostKey == "" {
+		return errors.NotValidf("empty SSHServerHostKey")
 	}
 	return nil
 }
@@ -248,6 +255,13 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	}
 
 	ops = append(ops,
+		txn.Op{
+			C:  controllersC,
+			Id: sshServerHostKeyDocId,
+			Insert: &sshServerHostKeyDoc{
+				Key: args.SSHServerHostKey,
+			},
+		},
 		txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,

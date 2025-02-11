@@ -4,13 +4,18 @@
 package testing
 
 import (
+	"crypto/ed25519"
+	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"math/rand"
+	"sync"
 
 	mgotesting "github.com/juju/mgo/v3/testing"
 	utilscert "github.com/juju/utils/v3/cert"
+	cryptossh "golang.org/x/crypto/ssh"
 )
 
 // CACert and CAKey make up a CA key pair.
@@ -19,6 +24,8 @@ import (
 // Certs holds the certificates and keys required to make a secure
 // connection to a Mongo database.
 var (
+	once sync.Once
+
 	CACert, CAKey, ServerCert, ServerKey = chooseGeneratedCA()
 
 	CACertX509, CAKeyRSA = mustParseCertAndKey(CACert, CAKey)
@@ -30,6 +37,9 @@ var (
 	// Other valid test certs different from the default.
 	OtherCACert, OtherCAKey        = chooseGeneratedOtherCA()
 	OtherCACertX509, OtherCAKeyRSA = mustParseCertAndKey(OtherCACert, OtherCAKey)
+
+	// SSHServerHostKey for testing
+	SSHServerHostKey = mustGenerateSSHServerHostKey()
 )
 
 func chooseGeneratedCA() (string, string, string, string) {
@@ -77,4 +87,23 @@ func serverCerts() *mgotesting.Certs {
 		ServerCert: serverCert,
 		ServerKey:  serverKey,
 	}
+}
+
+func mustGenerateSSHServerHostKey() string {
+	var k string
+	once.Do(func() {
+		_, privateKey, err := ed25519.GenerateKey(cryptorand.Reader)
+		if err != nil {
+			panic("failed to generate ED25519 key")
+		}
+
+		pemKey, err := cryptossh.MarshalPrivateKey(privateKey, "")
+		if err != nil {
+			panic("failed to marshal private key")
+		}
+
+		k = string(pem.EncodeToMemory(pemKey))
+	})
+
+	return k
 }

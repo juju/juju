@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v3"
+	"golang.org/x/crypto/ssh"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/caas"
@@ -32,6 +33,9 @@ const (
 
 	// CAPrivateKeyKey is the key for the controller's CA certificate private key.
 	CAPrivateKeyKey = "ca-private-key"
+
+	// SSHServerHostKey is the host key used for the embedded SSH server.
+	SSHServerHostKeyKey = "ssh-server-host-key"
 
 	// BootstrapTimeoutKey is the attribute key for the amount of time to wait
 	// for bootstrap to complete.
@@ -82,6 +86,7 @@ var BootstrapConfigAttributes = []string{
 	AdminSecretKey,
 	CACertKey,
 	CAPrivateKeyKey,
+	SSHServerHostKeyKey,
 	BootstrapTimeoutKey,
 	BootstrapRetryDelayKey,
 	BootstrapAddressesDelayKey,
@@ -99,17 +104,21 @@ var BootstrapConfigSchema = environschema.Fields{
 	},
 	CACertKey: {
 		Description: fmt.Sprintf(
-			"Sets the bootstrapped controllers CA cert to use and issue "+
+			"Sets the bootstrapped controller's CA cert to use and issue "+
 				"certificates from, used in conjunction with %s",
 			CAPrivateKeyKey),
 		Type: environschema.Tstring,
 	},
 	CAPrivateKeyKey: {
 		Description: fmt.Sprintf(
-			"Sets the bootstrapped controllers CA cert private key to sign "+
+			"Sets the bootstrapped controller's CA cert private key to sign "+
 				"certificates with, used in conjunction with %s",
 			CACertKey),
 		Type: environschema.Tstring,
+	},
+	SSHServerHostKeyKey: {
+		Description: "Sets the bootstrapped controller's SSH server host key",
+		Type:        environschema.Tstring,
 	},
 	BootstrapTimeoutKey: {
 		Description: "Controls how long Juju will wait for a bootstrap to " +
@@ -161,6 +170,7 @@ type Config struct {
 	AdminSecret             string
 	CACert                  string
 	CAPrivateKey            string
+	SSHServerHostKey        string
 	ControllerServiceType   string
 	ControllerExternalName  string
 	ControllerExternalIPs   []string
@@ -194,15 +204,23 @@ func (c Config) Validate() error {
 	if len(c.ControllerExternalIPs) > 1 && c.ControllerServiceType == string(caas.ServiceLoadBalancer) {
 		return errors.NewNotValid(nil, fmt.Sprintf("only 1 external IP is allowed with service type %q", caas.ServiceLoadBalancer))
 	}
+	if c.SSHServerHostKey != "" {
+		// The errors given by this can be kind of misleading, if the key is not
+		// of the correct format, it will say "no key found", which is not very
+		// helpful. What it really means is "no valid key found".
+		if _, err := ssh.ParsePrivateKey([]byte(c.SSHServerHostKey)); err != nil {
+			return errors.Annotatef(err, "validating %s", SSHServerHostKeyKey)
+		}
+	}
 	return nil
 }
 
 // NewConfig creates a new Config from the supplied attributes.
 // Default values will be used where defaults are available.
 //
-// If ca-cert or ca-private-key are not set, then we will check
-// if ca-cert-path or ca-private-key-path are set, and read the
-// contents. If none of those are set, we will look for files
+// If ca-cert, ca-private-key or ssh-server-host-key are not set,
+// then we will check if ca-cert-path, ca-private-key-path ssh-server-host-key-path,
+// are set, and read the contents. If none of those are set, we will look for files
 // in well-defined locations: $JUJU_DATA/ca-cert.pem, and
 // $JUJU_DATA/ca-private-key.pem. If none of these are set, an
 // error is returned.
@@ -288,6 +306,20 @@ func NewConfig(attrs map[string]interface{}) (Config, error) {
 		config.CAPrivateKey = caKeyPem
 	}
 
+	// Try get the key from the attribute map or try load it from file.
+	// If it isn't present, this is OK, we allow the controller to generate it
+	// on "jujud bootstrap-state" command.
+	if sshServerHostKey, ok := attrs[SSHServerHostKeyKey].(string); ok {
+		config.SSHServerHostKey = sshServerHostKey
+	} else {
+		var userSpecified bool
+		var err error
+		config.SSHServerHostKey, userSpecified, err = readFileAttr(attrs, SSHServerHostKeyKey, SSHServerHostKeyKey)
+		if err != nil && (userSpecified || !os.IsNotExist(errors.Cause(err))) {
+			return Config{}, errors.Annotatef(err, "reading %q from file", SSHServerHostKeyKey)
+		}
+	}
+
 	return config, config.Validate()
 }
 
@@ -339,6 +371,14 @@ var configSchema = environschema.Fields{
 		Type:  environschema.Tstring,
 		Group: environschema.JujuGroup,
 	},
+	SSHServerHostKeyKey: {
+		Type:  environschema.Tstring,
+		Group: environschema.JujuGroup,
+	},
+	SSHServerHostKeyKey + "-path": {
+		Type:  environschema.Tstring,
+		Group: environschema.JujuGroup,
+	},
 	ControllerExternalName: {
 		Type:  environschema.Tstring,
 		Group: environschema.JujuGroup,
@@ -371,15 +411,17 @@ var configSchema = environschema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	AdminSecretKey:             schema.Omit,
-	CACertKey:                  schema.Omit,
-	CACertKey + "-path":        schema.Omit,
-	CAPrivateKeyKey:            schema.Omit,
-	CAPrivateKeyKey + "-path":  schema.Omit,
-	ControllerServiceType:      schema.Omit,
-	ControllerExternalName:     schema.Omit,
-	ControllerExternalIPs:      schema.Omit,
-	BootstrapTimeoutKey:        DefaultBootstrapSSHTimeout,
-	BootstrapRetryDelayKey:     DefaultBootstrapSSHRetryDelay,
-	BootstrapAddressesDelayKey: DefaultBootstrapSSHAddressesDelay,
+	AdminSecretKey:                schema.Omit,
+	CACertKey:                     schema.Omit,
+	CACertKey + "-path":           schema.Omit,
+	CAPrivateKeyKey:               schema.Omit,
+	CAPrivateKeyKey + "-path":     schema.Omit,
+	SSHServerHostKeyKey:           schema.Omit,
+	SSHServerHostKeyKey + "-path": schema.Omit,
+	ControllerServiceType:         schema.Omit,
+	ControllerExternalName:        schema.Omit,
+	ControllerExternalIPs:         schema.Omit,
+	BootstrapTimeoutKey:           DefaultBootstrapSSHTimeout,
+	BootstrapRetryDelayKey:        DefaultBootstrapSSHRetryDelay,
+	BootstrapAddressesDelayKey:    DefaultBootstrapSSHAddressesDelay,
 }

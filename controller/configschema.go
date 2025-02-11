@@ -59,7 +59,11 @@ var configChecker = schema.FieldMap(schema.Fields{
 	QueryTracingEnabled:              schema.Bool(),
 	QueryTracingThreshold:            schema.TimeDuration(),
 	JujudControllerSnapSource:        schema.String(),
+	SSHServerPort:                    schema.ForceInt(),
+	SSHMaxConcurrentConnections:      schema.ForceInt(),
 }, schema.Defaults{
+	SSHServerPort:                    DefaultSSHServerPort,
+	SSHMaxConcurrentConnections:      DefaultSSHMaxConcurrentConnections,
 	AgentRateLimitMax:                schema.Omit,
 	AgentRateLimitRate:               schema.Omit,
 	APIPort:                          DefaultAPIPort,
@@ -311,5 +315,13 @@ will be output if tracing is enabled.`,
 	JujudControllerSnapSource: {
 		Type:        environschema.Tstring,
 		Description: `The source for the jujud-controller snap.`,
+	},
+	SSHServerPort: {
+		Type:        environschema.Tint,
+		Description: `The port used for ssh connections to the controller`,
+	},
+	SSHMaxConcurrentConnections: {
+		Type:        environschema.Tint,
+		Description: `The maximum number of concurrent ssh connections to the controller`,
 	},
 }

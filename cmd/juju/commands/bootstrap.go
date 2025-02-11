@@ -965,6 +965,7 @@ to create a new model to deploy %sworkloads.
 		RegionInheritedConfig:     cloud.RegionConfig,
 		AdminSecret:               bootstrapCfg.bootstrap.AdminSecret,
 		CAPrivateKey:              bootstrapCfg.bootstrap.CAPrivateKey,
+		SSHServerHostKey:          bootstrapCfg.bootstrap.SSHServerHostKey,
 		ControllerServiceType:     bootstrapCfg.bootstrap.ControllerServiceType,
 		ControllerExternalName:    bootstrapCfg.bootstrap.ControllerExternalName,
 		ControllerExternalIPs:     append([]string(nil), bootstrapCfg.bootstrap.ControllerExternalIPs...),

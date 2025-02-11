@@ -335,3 +335,27 @@ func (st *State) SetStateServingInfo(info jujucontroller.StateServingInfo) error
 	}
 	return nil
 }
+
+// sshServerHostKeyKeyDocId holds the document ID to retrieve the
+// host key within the controller configuration collection.
+const sshServerHostKeyDocId = "sshServerHostKey"
+
+// sshServerHostKeyDoc holds the host key for the SSH server.
+type sshServerHostKeyDoc struct {
+	Key string `bson:"key"`
+}
+
+// SSHServerHostKey returns the host key for the SSH server. This key was set
+// during the controller bootstrap process via bootstrap-state and is currently
+// a FIXED value.
+func (st *State) SSHServerHostKey() (string, error) {
+	controllers, closer := st.db().GetCollection(controllersC)
+	defer closer()
+
+	var keyDoc sshServerHostKeyDoc
+	err := controllers.Find(bson.D{{"_id", sshServerHostKeyDocId}}).One(&keyDoc)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return keyDoc.Key, nil
+}

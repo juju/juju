@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/mongo"
+	pkissh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -276,7 +277,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if !ok {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
-	if err := ensureKeys(isCAAS, args, &info, newConfigAttrs); err != nil {
+	if err := ensureKeys(isCAAS, &args, &info, newConfigAttrs); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ensureSSHServerHostKey(&args); err != nil {
 		return errors.Trace(err)
 	}
 	addrs, err := getAddressesForMongo(isCAAS, env, callCtx, args)
@@ -428,9 +432,24 @@ func getAddressesForMongo(
 	return addrs, nil
 }
 
+// ensureSSHServerHostKey ensures that either a) a user has provided a host key
+// or b) one has been generated for the controller.
+func ensureSSHServerHostKey(args *instancecfg.StateInitializationParams) error {
+	if args.SSHServerHostKey != "" {
+		return nil
+	}
+	// Generate the embedded SSH server host key and store it within StateInitializationParams.
+	hostKey, err := pkissh.GenerateED25519KeyString()
+	if err != nil {
+		return errors.Annotatef(err, "failed to ensure ssh server host key")
+	}
+	args.SSHServerHostKey = hostKey
+	return nil
+}
+
 func ensureKeys(
 	isCAAS bool,
-	args instancecfg.StateInitializationParams,
+	args *instancecfg.StateInitializationParams,
 	info *controller.StateServingInfo,
 	newConfigAttrs map[string]interface{},
 ) error {
@@ -455,6 +474,7 @@ func ensureKeys(
 		return errors.Trace(err)
 	}
 	info.SharedSecret = sharedSecret
+
 	return nil
 }
 

@@ -1932,6 +1932,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 	}
 	controllerCfg := testing.FakeControllerConfig()
 	controller, err := state.Initialize(state.InitializeParams{
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
