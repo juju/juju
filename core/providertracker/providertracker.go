@@ -99,11 +99,8 @@ func ProviderRunner[T any](providerFactory ProviderFactory, namespace string) fu
 // NonTrackedProviderRunnerFromConfig returns the ProviderGetter function for a
 // given generic type. This is useful for ad-hoc providers that are not tracked,
 // but instead created and discarded. Credential invalidation is not enforced
-// during the call to the provider. For that reason along, a closure is returned
+// during the call to the provider. For that reason alone, a closure is returned
 // and the provider is created and discarded on each call.
-//
-// The name of this function is long, but that is intentional to make it clear
-// that this is a non-tracked provider.
 func NonTrackedProviderRunnerFromConfig[T any](providerFactory ProviderFactory, config NonTrackedProviderConfig) func(context.Context, func(context.Context, T) error) error {
 	return func(ctx context.Context, fn func(context.Context, T) error) error {
 		result, err := providerFactory.ProviderFromConfig(ctx, config)

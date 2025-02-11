@@ -58,9 +58,9 @@ func (config NonTrackedConfig) Validate() error {
 	return nil
 }
 
-// nonTrackedWorker loads an environment, makes it available to clients. This
+// nonTrackedWorker loads an provider, makes it available to clients. This
 // is a non-tracked worker, meaning that it does not have a corresponding
-// tracked worker. It environment is not updated, so if the credentials change,
+// tracked worker. The provider is not updated, so if the credentials change,
 // the worker must be recreated.
 type nonTrackedWorker struct {
 	tomb           tomb.Tomb
@@ -71,7 +71,7 @@ type nonTrackedWorker struct {
 
 // NewNonTrackedWorker loads a provider for the given model type and cloud spec.
 // This is a non-tracked worker, meaning that it does not have a corresponding
-// tracked worker. It environment is not updated, so if the credentials change,
+// tracked worker. The provider is not updated, so if the credentials change,
 // the worker must be recreated.
 func NewNonTrackedWorker(ctx context.Context, config NonTrackedConfig) (worker.Worker, error) {
 	return newNonTrackedWorker(ctx, config, nil)
@@ -87,7 +87,7 @@ func newNonTrackedWorker(ctx context.Context, config NonTrackedConfig, internalS
 		cloudSpec:      config.CloudSpec,
 		controllerUUID: config.ControllerUUID,
 	}
-	// Given the model, we can now get the provider.
+	// Given the model type, we can now get the provider.
 	newProviderType, err := config.GetProviderForType(config.ModelType)
 	if err != nil {
 		return nil, errors.Trace(err)
