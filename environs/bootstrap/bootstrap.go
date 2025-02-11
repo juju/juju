@@ -879,6 +879,7 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerExternalIPs = append([]string(nil), args.ControllerExternalIPs...)
 	pcfg.Bootstrap.ControllerCharmPath = args.ControllerCharmPath
 	pcfg.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
+	pcfg.Bootstrap.SSHServerHostKey = args.SSHServerHostKey
 	return nil
 }
 
