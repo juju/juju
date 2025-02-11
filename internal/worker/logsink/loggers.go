@@ -13,6 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
@@ -41,7 +42,7 @@ func NewModelLogger(
 	bufferSize int,
 	flushInterval time.Duration,
 	clock clock.Clock,
-) (*modelLogger, error) {
+) (worker.Worker, error) {
 	// Create a newLogWriter for the model.
 	logger, err := newLogWriter(ctx, modelUUID)
 	if err != nil {
@@ -64,13 +65,14 @@ func NewModelLogger(
 	// Create a new logger context for the model. This will use the buffered
 	// log writer to write the logs to disk.
 	loggerContext := internallogger.LoggerContext(corelogger.INFO)
-	if err := loggerContext.AddWriter("model-sink", bufferedLogWriter); err != nil {
-		return nil, errors.Annotatef(err, "adding model-sink writer")
-	}
 
 	w := &modelLogger{
 		bufferedLogWriter: bufferedLogWriter,
 		loggerContext:     loggerContext,
+	}
+
+	if err := w.AddWriter("model-sink", bufferedLogWriter); err != nil {
+		return nil, errors.Annotatef(err, "adding model-sink writer")
 	}
 
 	w.tomb.Go(w.loop)
@@ -145,6 +147,10 @@ func (d *modelLogger) Wait() error {
 }
 
 func (d *modelLogger) loop() error {
+	// Close the buffered log writer when the model logger is stopped or killed.
+	defer d.bufferedLogWriter.Close()
+
+	// Wait for the heat death of the universe.
 	<-d.tomb.Dying()
 	return tomb.ErrDying
 }
@@ -169,7 +175,7 @@ func (l *bufferedLogWriterCloser) Write(entry loggo.Entry) {
 	}})
 
 	if err != nil {
-		fallbackLogger.Warningf(context.TODO(), "writing model logs failed for model %q, %v", l.modelUUID, err)
+		fallbackLogger.Warningf(context.Background(), "writing model logs failed for model %q, %v", l.modelUUID, err)
 	}
 }
 

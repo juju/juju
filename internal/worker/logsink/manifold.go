@@ -5,8 +5,12 @@ package logsink
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -17,10 +21,19 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 )
+
+// NewModelLoggerFunc is a function that creates a new model logger.
+type NewModelLoggerFunc func(ctx context.Context,
+	modelUUID string,
+	newLogWriter corelogger.LogWriterForModelFunc,
+	bufferSize int,
+	flushInterval time.Duration,
+	clock clock.Clock) (worker.Worker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
@@ -30,6 +43,9 @@ type ManifoldConfig struct {
 
 	// NewWorker creates a log sink worker.
 	NewWorker func(cfg Config) (worker.Worker, error)
+
+	// NewModelLogger creates a new model logger.
+	NewModelLogger NewModelLoggerFunc
 
 	// These attributes are the named workers this worker depends on.
 
@@ -45,6 +61,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.NewModelLogger == nil {
+		return errors.NotValidf("nil NewModelLogger")
 	}
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
@@ -104,9 +123,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			w, err := config.NewWorker(Config{
-				Logger:        config.DebugLogger,
-				Clock:         clock,
-				LogSinkConfig: logSinkConfig,
+				Logger:         config.DebugLogger,
+				Clock:          clock,
+				LogSinkConfig:  logSinkConfig,
+				NewModelLogger: config.NewModelLogger,
 				LogWriterForModelFunc: getLoggerForModelFunc(
 					controllerCfg.ModelLogfileMaxSizeMB(),
 					controllerCfg.ModelLogfileMaxBackups(),
@@ -166,4 +186,25 @@ func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger logger.Logger, l
 		modelFileLogger := &logWriter{WriteCloser: ljLogger}
 		return modelFileLogger, nil
 	}
+}
+
+// logWriter wraps a io.Writer instance and writes out
+// log records to the writer.
+type logWriter struct {
+	io.WriteCloser
+}
+
+// Log implements logger.Log.
+func (lw *logWriter) Log(records []logger.LogRecord) error {
+	for _, r := range records {
+		line, err := json.Marshal(&r)
+		if err != nil {
+			return errors.Annotatef(err, "marshalling log record")
+		}
+		_, err = lw.Write([]byte(fmt.Sprintf("%s\n", line)))
+		if err != nil {
+			return errors.Annotatef(err, "writing log record")
+		}
+	}
+	return nil
 }
