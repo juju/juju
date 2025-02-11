@@ -1,4 +1,0 @@
-auto lo
-iface lo inet loopback
-
-source-directory interfaces.d
