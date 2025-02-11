@@ -16,7 +16,7 @@ import (
 // Bridger creates network bridges to support addressable containers.
 type Bridger interface {
 	// Bridge turns existing devices into bridged devices.
-	Bridge(devices []DeviceToBridge, reconfigureDelay int) error
+	Bridge(devices []DeviceToBridge) error
 }
 
 type netplanBridger struct {
@@ -27,7 +27,7 @@ type netplanBridger struct {
 
 var _ Bridger = (*netplanBridger)(nil)
 
-func (b *netplanBridger) Bridge(devices []DeviceToBridge, reconfigureDelay int) error {
+func (b *netplanBridger) Bridge(devices []DeviceToBridge) error {
 	npDevices := make([]netplan.DeviceToBridge, len(devices))
 	for i, device := range devices {
 		npDevices[i] = netplan.DeviceToBridge(device)

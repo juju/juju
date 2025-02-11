@@ -74,7 +74,7 @@ func (hp *HostPreparer) Prepare(ctx context.Context, containerTag names.MachineT
 	}
 	defer releaser()
 
-	devicesToBridge, reconfigureDelay, err := hp.api.HostChangesForContainer(ctx, containerTag)
+	devicesToBridge, _, err := hp.api.HostChangesForContainer(ctx, containerTag)
 	if err != nil {
 		return errors.Annotate(err, "unable to setup network")
 	}
@@ -89,12 +89,10 @@ func (hp *HostPreparer) Prepare(ctx context.Context, containerTag names.MachineT
 		return errors.Trace(err)
 	}
 
-	hp.logger.Debugf(context.TODO(), "bridging %+v devices on host %q for container %q with delay=%v",
-		devicesToBridge, hp.machineTag.String(), containerTag.String(), reconfigureDelay)
+	hp.logger.Debugf(context.TODO(), "bridging %+v devices on host %q for container %q",
+		devicesToBridge, hp.machineTag.String(), containerTag.String())
 
-	// TODO(jam): 2017-02-15 bridger.Bridge should probably also take AbortChan
-	// if it is going to have reconfigureDelay
-	err = bridger.Bridge(devicesToBridge, reconfigureDelay)
+	err = bridger.Bridge(devicesToBridge)
 	if err != nil {
 		return errors.Annotate(err, "failed to bridge devices")
 	}
