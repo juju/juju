@@ -17,6 +17,9 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
@@ -26,6 +29,7 @@ type ModelConfigAPI struct {
 	backend                   Backend
 	modelSecretBackendService ModelSecretBackendService
 	configService             ModelConfigService
+	modelSericve              ModelService
 	auth                      facade.Authorizer
 	check                     *common.BlockChecker
 
@@ -43,6 +47,7 @@ func NewModelConfigAPI(
 	backend Backend,
 	modelSecretBackendService ModelSecretBackendService,
 	configService ModelConfigService,
+	modelSericve ModelService,
 	authorizer facade.Authorizer,
 	blockCommandService common.BlockCommandService,
 ) (*ModelConfigAPI, error) {
@@ -55,6 +60,7 @@ func NewModelConfigAPI(
 		backend:                   backend,
 		modelSecretBackendService: modelSecretBackendService,
 		configService:             configService,
+		modelSericve:              modelSericve,
 		auth:                      authorizer,
 		check:                     common.NewBlockChecker(blockCommandService),
 	}, nil
@@ -253,8 +259,14 @@ func (c *ModelConfigAPI) GetModelConstraints(ctx context.Context) (params.GetCon
 		return params.GetConstraintsResults{}, err
 	}
 
-	cons, err := c.backend.ModelConstraints()
-	if err != nil {
+	cons, err := c.modelSericve.GetModelConstraints(ctx)
+	if errors.Is(err, modelerrors.NotFound) {
+		return params.GetConstraintsResults{}, apiservererrors.ParamsErrorf(
+			params.CodeModelNotFound,
+			"model %q not found",
+			c.modelUUID,
+		)
+	} else if err != nil {
 		return params.GetConstraintsResults{}, err
 	}
 	return params.GetConstraintsResults{Constraints: cons}, nil
@@ -269,7 +281,30 @@ func (c *ModelConfigAPI) SetModelConstraints(ctx context.Context, args params.Se
 	if err := c.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	return c.backend.SetModelConstraints(args.Constraints)
+	err := c.modelSericve.SetModelConstraints(ctx, args.Constraints)
+	if errors.Is(err, modelerrors.NotFound) {
+		return apiservererrors.ParamsErrorf(
+			params.CodeModelNotFound,
+			"model %q not found",
+			c.modelUUID,
+		)
+	}
+	if errors.Is(err, networkerrors.SpaceNotFound) {
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotFound,
+			"space not found for model constraint %q: %v",
+			c.modelUUID,
+			err,
+		)
+	}
+	if errors.Is(err, machineerrors.InvalidContainerType) {
+		return apiservererrors.ParamsErrorf(
+			params.CodeNotValid,
+			"invalid container type for model constraint %q",
+			c.modelUUID,
+		)
+	}
+	return errors.Trace(err)
 }
 
 // Sequences returns the model's sequence names and next values.

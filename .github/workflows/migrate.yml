@@ -78,8 +78,12 @@ jobs:
             --model-default enable-os-upgrade=false
           juju add-model test-migrate
           juju set-model-constraints arch=$(go env GOARCH)
-          juju download ubuntu --filepath ./ubuntu.charm
-          juju deploy ./ubuntu.charm
+          # TODO: remove the --arch flag once the mongo constraints code is removed completely
+          # because we are testing the model constraints here.
+          juju download ubuntu --arch $(go env GOARCH) --filepath ./ubuntu.charm
+          # TODO: remove the --constraints flag once the mongo constraints code is removed completely
+          # because we are testing the model constraints here.
+          juju deploy ./ubuntu.charm --constraints arch=$(go env GOARCH)
 
       - name: Bootstrap target controller
         run: |
@@ -194,7 +198,9 @@ jobs:
             attempt=$((attempt+1))
           done
 
-          juju deploy ubuntu yet-another-ubuntu
+          # TODO: remove the --constraints flag once the mongo constraints code is removed completely
+          # because we are testing the model constraints here.
+          juju deploy ubuntu yet-another-ubuntu --constraints arch=$(go env GOARCH)
 
           attempt=0
           until [[ $(juju status yet-another-ubuntu) ]]; do

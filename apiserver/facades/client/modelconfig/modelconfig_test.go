@@ -25,7 +25,9 @@ import (
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/featureflag"
@@ -40,6 +42,7 @@ type modelconfigSuite struct {
 	authorizer                    apiservertesting.FakeAuthorizer
 	mockModelSecretBackendService *mocks.MockModelSecretBackendService
 	mockModelConfigService        *mocks.MockModelConfigService
+	mockModelService              *mocks.MockModelService
 	mockBlockCommandService       *mocks.MockBlockCommandService
 }
 
@@ -70,6 +73,7 @@ func (s *modelconfigSuite) getAPI(c *gc.C) (*modelconfig.ModelConfigAPI, *gomock
 	s.mockModelSecretBackendService = mocks.NewMockModelSecretBackendService(ctrl)
 	s.mockModelConfigService = mocks.NewMockModelConfigService(ctrl)
 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
+	s.mockModelService = mocks.NewMockModelService(ctrl)
 
 	s.mockModelConfigService.EXPECT().ModelConfigValues(gomock.Any()).Return(
 		config.ConfigValues{
@@ -81,7 +85,11 @@ func (s *modelconfigSuite) getAPI(c *gc.C) (*modelconfig.ModelConfigAPI, *gomock
 	).AnyTimes()
 
 	modelID := modeltesting.GenModelUUID(c)
-	api, err := modelconfig.NewModelConfigAPI(modelID, s.backend, s.mockModelSecretBackendService, s.mockModelConfigService, &s.authorizer, s.mockBlockCommandService)
+	api, err := modelconfig.NewModelConfigAPI(
+		modelID, s.backend,
+		s.mockModelSecretBackendService, s.mockModelConfigService, s.mockModelService,
+		&s.authorizer, s.mockBlockCommandService,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api, ctrl
 }
@@ -306,28 +314,81 @@ func (s *modelconfigSuite) TestClientSetModelConstraints(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 
-	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
-
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(nil)
+
 	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.backend.cons, gc.DeepEquals, cons)
+}
+
+func (s *modelconfigSuite) TestClientSetModelConstraintsFailedModelNotFound(c *gc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	cons, err := constraints.Parse("mem=4096", "cores=2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(modelerrors.NotFound)
+
+	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
+		ApplicationName: "app",
+		Constraints:     cons,
+	})
+	c.Assert(err, jc.Satisfies, params.IsCodeModelNotFound)
+}
+
+func (s *modelconfigSuite) TestClientSetModelConstraintsFailedSpaceNotFound(c *gc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	cons, err := constraints.Parse("mem=4096", "cores=2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(networkerrors.SpaceNotFound)
+
+	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
+		ApplicationName: "app",
+		Constraints:     cons,
+	})
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *modelconfigSuite) TestClientSetModelConstraintsFailedInvalidContainerType(c *gc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	cons, err := constraints.Parse("mem=4096", "cores=2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(machineerrors.InvalidContainerType)
+
+	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
+		ApplicationName: "app",
+		Constraints:     cons,
+	})
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotValid)
 }
 
 func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 
-	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockChangesClientSetModelConstraints", nil)
-
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockChangesClientSetModelConstraints", nil)
+
 	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
 		ApplicationName: "app",
 		Constraints:     cons,
@@ -346,10 +407,22 @@ func (s *modelconfigSuite) TestClientGetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.cons = cons
+
+	s.mockModelService.EXPECT().GetModelConstraints(gomock.Any()).Return(cons, nil)
+
 	obtained, err := api.GetModelConstraints(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained.Constraints, gc.DeepEquals, cons)
+}
+
+func (s *modelconfigSuite) TestClientGetModelConstraintsFailedModelNotFound(c *gc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	s.mockModelService.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Value{}, modelerrors.NotFound)
+
+	_, err := api.GetModelConstraints(context.Background())
+	c.Assert(err, jc.Satisfies, params.IsCodeModelNotFound)
 }
 
 type modelSecretBackendSuite struct {
@@ -371,7 +444,7 @@ func (s *modelSecretBackendSuite) setup(c *gc.C) (*modelconfig.ModelConfigAPI, *
 	s.mockModelSecretBackendService = mocks.NewMockModelSecretBackendService(ctrl)
 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	s.modelID = modeltesting.GenModelUUID(c)
-	api, err := modelconfig.NewModelConfigAPI(s.modelID, nil, s.mockModelSecretBackendService, nil, s.authorizer, s.mockBlockCommandService)
+	api, err := modelconfig.NewModelConfigAPI(s.modelID, nil, s.mockModelSecretBackendService, nil, nil, s.authorizer, s.mockBlockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 	return api, ctrl
 }
@@ -487,17 +560,7 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackend(c *gc.C) {
 }
 
 type mockBackend struct {
-	cons          constraints.Value
 	secretBackend *coresecrets.SecretBackend
-}
-
-func (m *mockBackend) SetModelConstraints(value constraints.Value) error {
-	m.cons = value
-	return nil
-}
-
-func (m *mockBackend) ModelConstraints() (constraints.Value, error) {
-	return m.cons, nil
 }
 
 func (m *mockBackend) Sequences() (map[string]int, error) {
