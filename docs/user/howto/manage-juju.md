@@ -1,5 +1,5 @@
 (manage-juju)=
-# How  manage the `juju` CLI client
+# How to manage the `juju` CLI client
 
 > See also: {ref}`juju-cli`
 
@@ -7,9 +7,9 @@
 ## Install `juju`
 
 ``````{tabs}
- 
+
 `````{tab} Linux
- 
+
 **Install from snap.**
 
 ```{important}
@@ -42,27 +42,27 @@ license:   AGPL-3.0
 description: |
   A model-driven **universal operator lifecycle manager** for multi cloud and
   hybrid cloud application management on K8s and machines.
-  
+
   **What is an operator lifecycle manager?**
   Kubernetes operators are containers with operations code, that drive your
   applications on K8s. Juju is an operator lifecycle manager that manages the
   installation, integration and configuration of operators on the cluster.
   Juju also extends the idea of operators to traditional application
   management on Linux and Windows servers, or cloud instances.
-  
+
   **Model-driven operations and integration**
   Organise your operators into models, which group together applications that
   can be tightly integrated on the same substrate and operated by the same
   team. Capture resource allocation, storage, networking and integration
   information in the model to simplify ongoing operations.
-  
+
   **Better day-2 operations**
   Each operator code package, called a charm, declares methods for actions
   like back, restore, or security audit. Calling these methods provides
   remote administration of the application with no low-level access required.
-  
+
   **Learn more**
-  
+
    - https://juju.is/
    - https://discourse.charmhub.io/
    - https://github.com/juju/juju
@@ -75,45 +75,45 @@ tracking:     3.1/stable
 refresh-date: 2024-01-03
 channels:
   3/stable:      3.4.0             2024-03-07 (26548)  99MB -
-  3/candidate:   ↑                                          
-  3/beta:        ↑                                          
-  3/edge:        ↑                                          
-  4.0/stable:    –                                          
-  4.0/candidate: –                                          
+  3/candidate:   ↑
+  3/beta:        ↑
+  3/edge:        ↑
+  4.0/stable:    –
+  4.0/candidate: –
   4.0/beta:      4.0-beta2         2024-01-11 (25984)  98MB -
   4.0/edge:      4.0-beta3-ec9b93b 2024-02-19 (26600)  98MB -
-  4/stable:      –                                          
-  4/candidate:   –                                          
+  4/stable:      –
+  4/candidate:   –
   4/beta:        4.0-beta2         2024-01-17 (25984)  98MB -
-  4/edge:        ↑                                          
-  3.5/stable:    –                                          
-  3.5/candidate: –                                          
-  3.5/beta:      –                                          
+  4/edge:        ↑
+  3.5/stable:    –
+  3.5/candidate: –
+  3.5/beta:      –
   3.5/edge:      3.5-beta1-c3de749 2024-03-12 (26766)  98MB -
   3.4/stable:    3.4.0             2024-02-15 (26548)  99MB -
-  3.4/candidate: ↑                                          
-  3.4/beta:      ↑                                          
+  3.4/candidate: ↑
+  3.4/beta:      ↑
   3.4/edge:      3.4.1-14d5608     2024-03-13 (26783)  98MB -
   3.3/stable:    3.3.3             2024-03-06 (26652)  99MB -
-  3.3/candidate: ↑                                          
-  3.3/beta:      ↑                                          
+  3.3/candidate: ↑
+  3.3/beta:      ↑
   3.3/edge:      3.3.4-65b78cd     2024-03-13 (26779)  99MB -
   3.2/stable:    3.2.4             2023-11-22 (25443)  95MB -
-  3.2/candidate: ↑                                          
-  3.2/beta:      ↑                                          
+  3.2/candidate: ↑
+  3.2/beta:      ↑
   3.2/edge:      3.2.5-9e20221     2023-11-17 (25455)  95MB -
   3.1/stable:    3.1.7             2024-01-03 (25751)  95MB -
-  3.1/candidate: ↑                                          
-  3.1/beta:      ↑                                          
+  3.1/candidate: ↑
+  3.1/beta:      ↑
   3.1/edge:      3.1.8-1a8d6a3     2024-03-12 (26750)  95MB -
   2.9/stable:    2.9.46            2023-12-05 (25672) 120MB classic
   2.9/candidate: 2.9.47            2024-03-07 (26724) 120MB classic
-  2.9/beta:      ↑                                          
+  2.9/beta:      ↑
   2.9/edge:      2.9.48-dfd7fee    2024-03-07 (26740) 120MB classic
   2.8/stable:    2.8.13            2021-11-11 (17665)  74MB classic
-  2.8/candidate: ↑                                          
-  2.8/beta:      ↑                                          
-  2.8/edge:      ↑                                          
+  2.8/candidate: ↑
+  2.8/beta:      ↑
+  2.8/edge:      ↑
 installed:       3.1.7                        (25751)  95MB -
 
 $ sudo snap install juju --channel=3.4/stable
@@ -124,7 +124,7 @@ $ sudo snap install juju --channel=3.4/stable
 ````
 
 To install multiple versions of `juju` via snap, enable `snap`'s experimental parallel-install feature, reboot, then install a different version with a different name.
- 
+
 > See more: [Snap | Channels](https://snapcraft.io/docs/channels)
 
 ````{dropdown} Example
@@ -246,14 +246,14 @@ Use the `juju` CLI client reference and the Juju how-to guides to build up your 
 ## Back up Juju
 
 ```{note}
-A backup of the client enables one to regain management control of one's controllers and associated cloud environments. 
+A backup of the client enables one to regain management control of one's controllers and associated cloud environments.
 ```
 
 **Create a backup of the `juju` client.** Making a copy of the client directory is sufficient for backing up the client. This is normally done with backup software that compresses the data into a single file (archive). On a Linux/Ubuntu system, the `tar` program is a common choice:
 
 ``` text
 cd ~
-tar -cpzf juju-client-$(date "+%Y%m%d-%H%M%S").tar.gz .local/share/juju 
+tar -cpzf juju-client-$(date "+%Y%m%d-%H%M%S").tar.gz .local/share/juju
 ```
 
 ```{note}
@@ -282,7 +282,7 @@ This command will extract the contents of the archive and overwrite any existing
 
 ``` text
 cd ~
-tar -xzf juju-yymmdd-hhmmss.tar.gz 
+tar -xzf juju-yymmdd-hhmmss.tar.gz
 ```
 
 (upgrade-juju)=
@@ -294,7 +294,7 @@ tar -xzf juju-yymmdd-hhmmss.tar.gz
 
 `````{tab} Linux
 
-**If you've installed via `snap`.** 
+**If you've installed via `snap`.**
 
 ```{note}
 Ensure you've created a backup of your ./local/share/juju before starting the upgrade process for the client.
