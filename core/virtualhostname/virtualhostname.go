@@ -34,33 +34,29 @@ const (
 )
 
 // Info returns a breakdown of a virtual
-// hostname into it's constituent parts.
+// hostname into its constituent parts.
 // The target field indicates what kind of
 // hostname was parsed which will indicate
 // that some fields are empty.
 type Info struct {
+	target    HostnameTarget
 	modelUUID string
 	machine   int
 	unit      int
 	app       string
 	container string
-	target    HostnameTarget
 }
 
-// Unit returns the unit name, appropriate
-// for use in state methods.
-func (i Info) Unit() string {
-	return fmt.Sprintf("%s/%d", i.app, i.unit)
+// Unit returns the unit name.
+func (i Info) Unit() (string, bool) {
+	return fmt.Sprintf("%s/%d", i.app, i.unit), i.target != MachineTarget
 }
 
-// App returns the application name.
-func (i Info) Application() string {
-	return i.app
-}
-
-// Container returns the container name.
-func (i Info) Container() string {
-	return i.container
+// Container returns the container name
+// and a bool to indicate if a container
+// is valid for the target type.
+func (i Info) Container() (string, bool) {
+	return i.container, i.target == ContainerTarget
 }
 
 // ModelUUID returns the model UUID.
@@ -69,8 +65,8 @@ func (i Info) ModelUUID() string {
 }
 
 // Machine returns the machine number.
-func (i Info) Machine() int {
-	return i.machine
+func (i Info) Machine() (int, bool) {
+	return i.machine, i.target == MachineTarget
 }
 
 // HostnameTarget returns an enum value indicating the
@@ -80,10 +76,13 @@ func (i Info) Target() HostnameTarget {
 }
 
 var (
-	// hostnameMatcher parses a hostname of various formats including,
+	// hostnameMatcher parses a hostname of the following formats:
 	// Machine: 1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
 	// Unit: 1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
 	// Container: charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
+	// The regular expression doesn't validate the components of the
+	// hostname, it only extracts them for validation separately.
+	// I.e. the extracted UUID may be invalid.
 	hostnameMatcher = regexp.MustCompile(`^(?:(?<containername>[a-zA-Z0-9-]+)\.)?(?<unitnumber>\d+)\.(?:(?<appname>[a-zA-Z0-9-]+)\.)?(?<modeluuid>[0-9a-fA-F-]+)\.(?<domain>[a-zA-Z0-9.-]+)$`)
 )
 
@@ -102,8 +101,12 @@ func Parse(hostname string) (Info, error) {
 		}
 	}
 
+	// Validate the components where appropriate.
 	if !names.IsValidModel(result["modeluuid"]) {
-		return Info{}, errors.New("invalid model UUID")
+		return Info{}, errors.Errorf("invalid model UUID: %q", result["modeluuid"])
+	}
+	if result["appname"] != "" && !names.IsValidApplication(result["appname"]) {
+		return Info{}, errors.Errorf("invalid application name: %q", result["appname"])
 	}
 	// unit number and machine number come from the same matching group.
 	unitNumber, err := strconv.Atoi(result["unitnumber"])
@@ -120,9 +123,6 @@ func Parse(hostname string) (Info, error) {
 	if res.container != "" {
 		res.target = ContainerTarget
 	} else if res.app != "" {
-		if !names.IsValidApplication(res.app) {
-			return Info{}, errors.New("invalid application name")
-		}
 		res.target = UnitTarget
 	} else {
 		res.target = MachineTarget

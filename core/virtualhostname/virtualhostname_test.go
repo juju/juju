@@ -84,12 +84,17 @@ func (s *HostnameSuite) TestParseHostname(c *gc.C) {
 		{
 			desc:        "Invalid model UUID",
 			hostname:    "my-charm-container.1.postgresql-k8s.aaabbb.juju.local",
-			expectedErr: "invalid model UUID",
+			expectedErr: `invalid model UUID: "aaabbb"`,
 		},
 		{
 			desc:        "Invalid application name",
 			hostname:    "2.1myapp.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
-			expectedErr: "invalid application name",
+			expectedErr: `invalid application name: "1myapp"`,
+		},
+		{
+			desc:        "Invalid machine number",
+			hostname:    "1a.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+			expectedErr: `could not parse hostname`,
 		},
 	}
 	for i, tC := range testCases {
