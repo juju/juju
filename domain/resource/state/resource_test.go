@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreresource "github.com/juju/juju/core/resource"
@@ -23,6 +24,7 @@ import (
 	resourcestoretesting "github.com/juju/juju/core/resource/store/testing"
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/unit"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -2085,13 +2087,16 @@ func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *gc.
 // later resolution.
 func (s *resourceSuite) TestAddResourcesBeforeApplication(c *gc.C) {
 	// Setup charm resources only
+	charmUUID := testing.GenCharmID(c)
 	data := []resourceData{
 		{
+			CharmUUID:   charmUUID.String(),
 			Name:        "one",
 			Type:        charmresource.TypeFile,
 			Path:        "/tmp/one.txt",
 			Description: "testing",
 		}, {
+			CharmUUID:   charmUUID.String(),
 			Name:        "two",
 			Type:        charmresource.TypeFile,
 			Path:        "/tmp/two.txt",
@@ -2099,6 +2104,9 @@ func (s *resourceSuite) TestAddResourcesBeforeApplication(c *gc.C) {
 		},
 	}
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		if err = insertCharmStateWithRevision(ctx, tx, charmUUID.String(), 42); err != nil {
+			return err
+		}
 		for _, input := range data {
 			if err := input.insertCharmResource(tx); err != nil {
 				return errors.Capture(err)
@@ -2112,7 +2120,11 @@ func (s *resourceSuite) TestAddResourcesBeforeApplication(c *gc.C) {
 	rev := 7
 	args := resource.AddResourcesBeforeApplicationArgs{
 		ApplicationName: "test-app",
-		CharmUUID:       fakeCharmUUID,
+		CharmLocator: applicationcharm.CharmLocator{
+			Name:     "ubuntu",
+			Revision: 42,
+			Source:   applicationcharm.CharmHubSource,
+		},
 		ResourceDetails: []resource.AddResourceDetails{
 			{
 				Name:     data[0].Name,
@@ -2135,7 +2147,7 @@ func (s *resourceSuite) TestAddResourcesBeforeApplication(c *gc.C) {
 		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
-		c.Check(obtainedResource.CharmUUID, gc.Equals, args.CharmUUID.String())
+		c.Check(obtainedResource.CharmUUID, gc.Equals, charmUUID.String())
 		c.Check(obtainedResource.UUID, gc.Equals, resID.String())
 		c.Check(obtainedResource.Name, gc.Equals, args.ResourceDetails[i].Name)
 		c.Check(obtainedResource.OriginType, gc.Equals, args.ResourceDetails[i].Origin.String())
@@ -2152,7 +2164,11 @@ func (s *resourceSuite) TestAddResourcesBeforeApplicationNotFound(c *gc.C) {
 	rev := 7
 	args := resource.AddResourcesBeforeApplicationArgs{
 		ApplicationName: "test-app",
-		CharmUUID:       fakeCharmUUID,
+		CharmLocator: applicationcharm.CharmLocator{
+			Name:     "ubuntu",
+			Revision: 42,
+			Source:   applicationcharm.CharmHubSource,
+		},
 		ResourceDetails: []resource.AddResourceDetails{
 			{
 				Name:     "one",
@@ -2635,11 +2651,31 @@ WHERE  uuid = ?`, resID).Scan(&foundResName)
 	c.Check(err, gc.ErrorMatches, "sql: no rows in result set")
 }
 
+func insertCharmStateWithRevision(ctx context.Context, tx *sql.Tx, uuid string, revision int) error {
+	_, err := tx.ExecContext(ctx, `
+INSERT INTO charm (uuid, archive_path, available, reference_name, revision, version, architecture_id)
+VALUES (?, 'archive', true, 'ubuntu', ?, 'deadbeef', 0)
+`, uuid, revision)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_metadata (charm_uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes)
+VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
 // resourceData represents a structure containing meta-information about a resource in the system.
 type resourceData struct {
 	// from resource table
 	UUID            string
 	ApplicationUUID string
+	CharmUUID       string
 	Name            string
 	Revision        int
 	// OriginType is a string representing the source type of the resource
@@ -2720,7 +2756,7 @@ func (d resourceData) insertCharmResource(tx *sql.Tx) (err error) {
 	_, err = tx.Exec(`
 INSERT INTO charm_resource (charm_uuid, name, kind_id, path, description) 
 VALUES (?, ?, ?, ?, ?)`,
-		fakeCharmUUID, d.Name, TypeID(d.Type), nilZero(d.Path), nilZero(d.Description))
+		d.CharmUUID, d.Name, TypeID(d.Type), nilZero(d.Path), nilZero(d.Description))
 	return
 }
 

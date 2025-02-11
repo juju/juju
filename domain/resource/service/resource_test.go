@@ -17,13 +17,13 @@ import (
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	coreerrors "github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	storetesting "github.com/juju/juju/core/resource/store/testing"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/application/charm"
 	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
@@ -1189,7 +1189,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplication(c *gc.C) {
 
 	rev := 7
 	args := resource.AddResourcesBeforeApplicationArgs{
-		CharmUUID:       charmtesting.GenCharmID(c),
+		CharmLocator:    charm.CharmLocator{Name: "testcharm", Source: charm.CharmHubSource},
 		ApplicationName: "testme",
 		ResourceDetails: []resource.AddResourceDetails{
 			{
@@ -1216,7 +1216,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationAppNameNotValid(
 	defer s.setupMocks(c).Finish()
 
 	args := resource.AddResourcesBeforeApplicationArgs{
-		CharmUUID: charmtesting.GenCharmID(c),
+		CharmLocator: charm.CharmLocator{Name: "testcharm", Source: charm.CharmHubSource},
 	}
 
 	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
@@ -1229,7 +1229,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationResNameNotValid(
 	defer s.setupMocks(c).Finish()
 
 	args := resource.AddResourcesBeforeApplicationArgs{
-		CharmUUID:       charmtesting.GenCharmID(c),
+		CharmLocator:    charm.CharmLocator{Name: "testcharm", Source: charm.CharmHubSource},
 		ApplicationName: "testme",
 		ResourceDetails: []resource.AddResourceDetails{
 			{
@@ -1242,7 +1242,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationResNameNotValid(
 	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }
 
-// TestAddResourcesBeforeApplicationArgNotValid tests that a NotValid error is
+// TestAddResourcesBeforeApplicationArgNotValid tests that a ArgumentNotValid error is
 // returned for a bad Charm ID.
 func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationArgNotValid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -1250,7 +1250,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationArgNotValid(c *g
 	args := resource.AddResourcesBeforeApplicationArgs{}
 
 	_, err := s.service.AddResourcesBeforeApplication(context.Background(), args)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ArgumentNotValid)
 }
 
 // TestAddResourcesBeforeApplicationArgNotValidStore tests that a
@@ -1259,7 +1259,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationArgumentNotValid
 	defer s.setupMocks(c).Finish()
 
 	args := resource.AddResourcesBeforeApplicationArgs{
-		CharmUUID:       charmtesting.GenCharmID(c),
+		CharmLocator:    charm.CharmLocator{Name: "testcharm", Source: charm.CharmHubSource},
 		ApplicationName: "testme",
 		ResourceDetails: []resource.AddResourceDetails{
 			{
@@ -1280,7 +1280,7 @@ func (s *resourceServiceSuite) TestAddResourcesBeforeApplicationArgumentNotValid
 
 	rev := 8
 	args := resource.AddResourcesBeforeApplicationArgs{
-		CharmUUID:       charmtesting.GenCharmID(c),
+		CharmLocator:    charm.CharmLocator{Name: "testcharm", Source: charm.CharmHubSource},
 		ApplicationName: "testme",
 		ResourceDetails: []resource.AddResourceDetails{
 			{

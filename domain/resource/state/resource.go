@@ -21,6 +21,7 @@ import (
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -267,11 +268,11 @@ func (st *State) GetResourceUUIDByApplicationAndResourceName(
 		ApplicationName: appName,
 		ResourceName:    resName,
 	}
-	uuid := resourceUUID{}
+	uuid := localUUID{}
 
 	// Prepare the SQL statement to retrieve the resource UUID.
 	stmt, err := st.Prepare(`
-SELECT r.uuid AS &resourceUUID.uuid
+SELECT r.uuid AS &localUUID.uuid
 FROM   resource AS r
 JOIN   application_resource ar ON r.uuid = ar.resource_uuid
 JOIN   application a           ON ar.application_uuid = a.uuid
@@ -1180,7 +1181,7 @@ func (st *State) unsetUnitResourcesWithSameCharmResource(
 	// resource as the resource we are trying to set. This will be an old
 	// application resource of the units' which needs to be unset.
 	checkForResourcesStmt, err := st.Prepare(`
-SELECT ur.resource_uuid AS &resourceUUID.uuid
+SELECT ur.resource_uuid AS &localUUID.uuid
 FROM   unit_resource ur
 JOIN   resource r ON ur.resource_uuid = r.uuid
 WHERE  ur.unit_uuid = $unitResource.unit_uuid
@@ -1189,13 +1190,13 @@ AND    (r.charm_uuid, r.charm_resource_name) IN (
     FROM   resource 
     WHERE  uuid = $unitResource.resource_uuid
     AND    state_id = 0 -- Only check available resources, not potential.
-)`, unitRes, resourceUUID{})
+)`, unitRes, localUUID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	// Check if the unit already had a resource set for this charm resource.
-	var matchingUUIDs []resourceUUID
+	var matchingUUIDs []localUUID
 	err = tx.Query(ctx, checkForResourcesStmt, unitRes).GetAll(&matchingUUIDs)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// Nothing to do.
@@ -1214,9 +1215,9 @@ AND    (r.charm_uuid, r.charm_resource_name) IN (
 	// Unset the old unit resource pointing to the charm resource.
 	unsetResourceStmt, err := st.Prepare(`
 DELETE FROM   unit_resource
-WHERE         resource_uuid = $resourceUUID.uuid 
+WHERE         resource_uuid = $localUUID.uuid 
 AND           unit_uuid = $unitResource.unit_uuid
-`, unitRes, resourceUUID{})
+`, unitRes, localUUID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1370,11 +1371,6 @@ func (st *State) AddResourcesBeforeApplication(
 		return nil, errors.Capture(err)
 	}
 
-	resources, resourceUUIDs, err := st.buildResourcesToAdd(args.CharmUUID.String(), args.ResourceDetails)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
 	// Prepare SQL statement to insert the resource.
 	insertStmt, err := st.Prepare(`
 INSERT INTO resource (uuid, charm_uuid, charm_resource_name, revision, 
@@ -1402,7 +1398,19 @@ VALUES ($linkResourceApplication.*)`, linkResourceApplication{})
 		return nil, errors.Capture(err)
 	}
 
+	var resourceUUIDs []coreresource.UUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		charmUUID, err := st.getCharmUUID(ctx, tx, args.CharmLocator)
+		if err != nil {
+			return err
+		}
+
+		var resources []addPendingResource
+		resources, resourceUUIDs, err = st.buildResourcesToAdd(charmUUID, args.ResourceDetails)
+		if err != nil {
+			return err
+		}
+
 		// Insert resources
 		for _, res := range resources {
 			// Insert the resource.
@@ -1426,6 +1434,44 @@ VALUES ($linkResourceApplication.*)`, linkResourceApplication{})
 		return nil
 	})
 	return resourceUUIDs, errors.Capture(err)
+}
+
+// getCharmUUID returns the charm UUID based on the charmLocator.
+func (st *State) getCharmUUID(ctx context.Context, tx *sqlair.TX, locator charm.CharmLocator) (string, error) {
+	// charmLocator is used to get the UUID of a charm.
+	type charmLocator struct {
+		ReferenceName string `db:"reference_name"`
+		Revision      int    `db:"revision"`
+		Source        string `db:"source"`
+	}
+	charmLoc := charmLocator{
+		ReferenceName: locator.Name,
+		Revision:      locator.Revision,
+		Source:        string(locator.Source),
+	}
+	var charmUUID localUUID
+
+	locatorQuery := `
+SELECT     v.uuid AS &localUUID.*
+FROM       v_charm_locator AS v
+LEFT JOIN  charm_source AS cs ON v.source_id = cs.id
+WHERE      v.reference_name = $charmLocator.reference_name
+AND        v.revision = $charmLocator.revision
+AND        cs.name = $charmLocator.source;
+	`
+	locatorStmt, err := st.Prepare(locatorQuery, localUUID{}, charmLocator{})
+	if err != nil {
+		return "", errors.Errorf("preparing query: %w", err)
+	}
+
+	if err := tx.Query(ctx, locatorStmt, &charmLoc).Get(&charmUUID); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return "", resourceerrors.CharmResourceNotFound
+		}
+		return "", errors.Errorf("getting charm ID: %w", err)
+	}
+
+	return charmUUID.UUID, nil
 }
 
 // buildResourcesToAdd creates resources to add based on provided app and charm
@@ -1518,13 +1564,13 @@ func (st *State) deleteFileResource(
 	tx *sqlair.TX,
 	resUUID coreresource.UUID,
 ) (string, error) {
-	uuidToDelete := resourceUUID{UUID: resUUID.String()}
+	uuidToDelete := localUUID{UUID: resUUID.String()}
 	dropped := hash{}
 
 	queryStoredHash, err := st.Prepare(`
 SELECT &hash.*
 FROM   resource_file_store
-WHERE  resource_uuid = $resourceUUID.uuid
+WHERE  resource_uuid = $localUUID.uuid
 `, dropped, uuidToDelete)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -1539,7 +1585,7 @@ WHERE  resource_uuid = $resourceUUID.uuid
 
 	removeExistingStoredResource, err := st.Prepare(`
 DELETE FROM   resource_file_store
-WHERE         resource_uuid = $resourceUUID.uuid
+WHERE         resource_uuid = $localUUID.uuid
 `, uuidToDelete)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -1562,13 +1608,13 @@ func (st *State) deleteImageResource(
 	tx *sqlair.TX,
 	resUUID coreresource.UUID,
 ) (string, error) {
-	uuidToDelete := resourceUUID{UUID: resUUID.String()}
+	uuidToDelete := localUUID{UUID: resUUID.String()}
 	dropped := hash{}
 
 	queryStoredHash, err := st.Prepare(`
 SELECT sha384 AS &hash.*
 FROM   resource_image_store
-WHERE  resource_uuid = $resourceUUID.uuid
+WHERE  resource_uuid = $localUUID.uuid
 `, dropped, uuidToDelete)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -1583,7 +1629,7 @@ WHERE  resource_uuid = $resourceUUID.uuid
 
 	removeExistingStoredResource, err := st.Prepare(`
 DELETE FROM   resource_image_store
-WHERE         resource_uuid = $resourceUUID.uuid
+WHERE         resource_uuid = $localUUID.uuid
 `, uuidToDelete)
 	if err != nil {
 		return "", errors.Capture(err)

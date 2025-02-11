@@ -572,15 +572,14 @@ func (s *Service) SetRepositoryResources(
 // when the application is created using the returned Resource UUIDs.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.CharmIDNotValid] is returned if the Charm ID is not valid.
 //   - [resourceerrors.ArgumentNotValid] is returned if the origin is store and the revision
-//     is empty.
+//     is empty; or the CharmLocator is zero.
 //   - [resourceerrors.ResourceNameNotValid] is returned if resource name is empty.
 //   - [resourceerrors.ApplicationNameNotFound] if the specified application does
 //     not exist.
 func (s *Service) AddResourcesBeforeApplication(ctx context.Context, arg resource.AddResourcesBeforeApplicationArgs) ([]coreresource.UUID, error) {
-	if err := arg.CharmUUID.Validate(); err != nil {
-		return nil, errors.Errorf("%w: %w", resourceerrors.CharmIDNotValid, err)
+	if arg.CharmLocator.IsZero() {
+		return nil, errors.Errorf("charm locator is zero: %w", resourceerrors.ArgumentNotValid)
 	}
 	if !isValidApplicationName(arg.ApplicationName) {
 		return nil, errors.Errorf("application name : %w", resourceerrors.ApplicationNameNotValid)
