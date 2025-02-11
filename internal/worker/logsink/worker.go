@@ -5,9 +5,6 @@ package logsink
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -34,6 +31,7 @@ type Config struct {
 	Logger                logger.Logger
 	Clock                 clock.Clock
 	LogSinkConfig         LogSinkConfig
+	NewModelLogger        NewModelLoggerFunc
 	LogWriterForModelFunc logger.LogWriterForModelFunc
 }
 
@@ -57,12 +55,18 @@ type LogSink struct {
 // NewWorker returns a new worker which provides access to a log sink
 // which allows log entries to be stored for specified models.
 func NewWorker(cfg Config) (worker.Worker, error) {
+	return newWorker(cfg, nil)
+}
+
+func newWorker(cfg Config, internalState chan string) (worker.Worker, error) {
 	w := &LogSink{
 		cfg: cfg,
 		runner: worker.NewRunner(worker.RunnerParams{
 			Clock:  cfg.Clock,
 			Logger: internalworker.WrapLogger(cfg.Logger),
 		}),
+		requests:       make(chan request),
+		internalStates: internalState,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -87,9 +91,9 @@ func (w *LogSink) GetLogWriter(ctx context.Context, modelUUID string) (logger.Lo
 	return sink, nil
 }
 
-// GetLoggerContext returns a logger context for the specified namespace.
-func (w *LogSink) GetLoggerContext(ctx context.Context, namespace string) (logger.LoggerContext, error) {
-	sink, err := w.getLogSink(ctx, namespace)
+// GetLoggerContext returns a logger context for the specified model UUID.
+func (w *LogSink) GetLoggerContext(ctx context.Context, modelUUID string) (logger.LoggerContext, error) {
+	sink, err := w.getLogSink(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -220,7 +224,7 @@ func (w *LogSink) initLogger(namespace string) error {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
 
-		return NewModelLogger(
+		return w.cfg.NewModelLogger(
 			ctx,
 			namespace,
 			w.cfg.LogWriterForModelFunc,
@@ -249,25 +253,4 @@ func (w *LogSink) reportInternalState(state string) {
 	case w.internalStates <- state:
 	default:
 	}
-}
-
-// logWriter wraps a io.Writer instance and writes out
-// log records to the writer.
-type logWriter struct {
-	io.WriteCloser
-}
-
-// Log implements logger.Log.
-func (lw *logWriter) Log(records []logger.LogRecord) error {
-	for _, r := range records {
-		line, err := json.Marshal(&r)
-		if err != nil {
-			return errors.Annotatef(err, "marshalling log record")
-		}
-		_, err = lw.Write([]byte(fmt.Sprintf("%s\n", line)))
-		if err != nil {
-			return errors.Annotatef(err, "writing log record")
-		}
-	}
-	return nil
 }

@@ -35,12 +35,15 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
+	cfg = s.getConfig()
 	cfg.AgentName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.TraceName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.ObjectStoreServicesName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -52,6 +55,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.S3ClientName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
