@@ -288,6 +288,45 @@ func (s *cloudSuite) TestAddCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *cloudSuite) TestAddCloudAsExternalUser(c *gc.C) {
+	// In this test we attempt to add a cloud as an authorized external user.
+
+	// User `superuser-alice@external` is an external user. We need the `superuser` prefix
+	// because of the fake authorized used in this test - means alice is has the
+	// `superuser` access level on the controller.
+	aliceTag := names.NewUserTag("superuser-alice@external")
+	defer s.setup(c, aliceTag).Finish()
+
+	newCloud := jujucloud.Cloud{
+		Name:      "newcloudname",
+		Type:      "maas",
+		Endpoint:  "fake-endpoint",
+		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
+		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
+	}
+
+	cloud := jujucloud.Cloud{
+		Name: "newcloudname",
+		Type: "maas",
+	}
+
+	backend := s.backend.EXPECT()
+	backend.ControllerInfo().Return(&state.ControllerInfo{CloudName: "newcloudname"}, nil)
+	backend.Cloud("newcloudname").Return(cloud, nil)
+	backend.AddCloud(newCloud, aliceTag.Id()).Return(nil)
+	paramsCloud := params.AddCloudArgs{
+		Name: "newcloudname",
+		Cloud: params.Cloud{
+			Type:      "maas",
+			AuthTypes: []string{"empty", "userpass"},
+			Endpoint:  "fake-endpoint",
+			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
+		}}
+
+	err := s.api.AddCloud(paramsCloud)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func createAddCloudParam(cloudType string) params.AddCloudArgs {
 	if cloudType == "" {
 		cloudType = "fake"

@@ -731,7 +731,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
 	}
 
-	err = api.backend.AddCloud(aCloud, api.apiUser.Name())
+	err = api.backend.AddCloud(aCloud, api.apiUser.Id())
 	return errors.Trace(err)
 }
 
