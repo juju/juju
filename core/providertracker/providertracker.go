@@ -104,9 +104,9 @@ func ProviderRunner[T any](providerFactory ProviderFactory, namespace string) fu
 //
 // The name of this function is long, but that is intentional to make it clear
 // that this is a non-tracked provider.
-func NonTrackedProviderRunnerFromConfig[T any](providerFactor ProviderFactory, config NonTrackedProviderConfig) func(context.Context, func(context.Context, T) error) error {
+func NonTrackedProviderRunnerFromConfig[T any](providerFactory ProviderFactory, config NonTrackedProviderConfig) func(context.Context, func(context.Context, T) error) error {
 	return func(ctx context.Context, fn func(context.Context, T) error) error {
-		result, err := providerFactor.ProviderFromConfig(ctx, config)
+		result, err := providerFactory.ProviderFromConfig(ctx, config)
 		if err != nil {
 			return errors.Trace(err)
 		}

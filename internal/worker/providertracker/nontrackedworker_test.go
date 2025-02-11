@@ -66,10 +66,10 @@ func (s *nonTrackerWorkerSuite) getConfig(c *gc.C, environ environs.Environ) Non
 		CloudSpec:      testing.FakeCloudSpec(),
 		ControllerUUID: uuid.MustNewUUID(),
 		GetProviderForType: getProviderForType(
-			IAASGetProvider(func(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
+			IAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
 				return environ, nil
 			}),
-			CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
+			CAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (caas.Broker, error) {
 				c.Fatal("unexpected call")
 				return nil, nil
 			}),

@@ -83,7 +83,6 @@ func newNonTrackedWorker(ctx context.Context, config NonTrackedConfig, internalS
 	}
 
 	getter := nonTrackedProviderGetter{
-		modelType:      config.ModelType,
 		modelConfig:    config.ModelConfig,
 		cloudSpec:      config.CloudSpec,
 		controllerUUID: config.ControllerUUID,
@@ -149,7 +148,6 @@ func (t *nonTrackedWorker) reportInternalState(state string) {
 }
 
 type nonTrackedProviderGetter struct {
-	modelType      coremodel.ModelType
 	modelConfig    *config.Config
 	cloudSpec      cloudspec.CloudSpec
 	controllerUUID uuid.UUID
@@ -160,7 +158,7 @@ func (g nonTrackedProviderGetter) ControllerUUID() uuid.UUID {
 	return g.controllerUUID
 }
 
-// ModelUUID returns the model UUID.
+// ModelConfig returns the model config.
 func (g nonTrackedProviderGetter) ModelConfig(ctx context.Context) (*config.Config, error) {
 	return g.modelConfig, nil
 }
