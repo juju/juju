@@ -2,7 +2,10 @@
 // details.
 //
 // Package changestream makes the databases created by the
-// internal/worker/dbaccessor package watchable.
+// internal/worker/dbaccessor package watchable. These databases are then used
+// by the internal/worker/domainservices package.
+//
+// How do databases become watchable?
 //
 // This happens through a worker that manages the lifecycle of the
 // internal/changestream/stream worker and of the
