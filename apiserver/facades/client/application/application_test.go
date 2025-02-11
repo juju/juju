@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	coreassumes "github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -445,6 +446,98 @@ func (s *applicationSuite) TestDeployInvalidSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errorResults.Results, gc.HasLen, 1)
 	c.Assert(errorResults.Results[0].Error, gc.ErrorMatches, "\"bad\" not a valid charm origin source")
+}
+
+func (s *applicationSuite) TestGetApplicationConstraintsAppNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(application.ID(""), applicationerrors.ApplicationNotFound)
+
+	res, err := s.api.GetConstraints(context.Background(), params.Entities{
+		Entities: []params.Entity{{Tag: "application-foo"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res.Results[0].Error, gc.ErrorMatches, "application foo not found")
+}
+
+func (s *applicationSuite) TestGetApplicationConstraintsError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(application.ID("app-foo"), nil)
+	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), application.ID("app-foo")).Return(constraints.Value{}, errors.New("boom"))
+
+	res, err := s.api.GetConstraints(context.Background(), params.Entities{
+		Entities: []params.Entity{{Tag: "application-foo"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res.Results[0].Error, gc.ErrorMatches, "boom")
+}
+
+func (s *applicationSuite) TestGetApplicationConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(application.ID("app-foo"), nil)
+	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), application.ID("app-foo")).Return(constraints.Value{Mem: ptr(uint64(42))}, nil)
+
+	res, err := s.api.GetConstraints(context.Background(), params.Entities{
+		Entities: []params.Entity{{Tag: "application-foo"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res.Results[0].Constraints, gc.DeepEquals, constraints.Value{Mem: ptr(uint64(42))})
+}
+
+func (s *applicationSuite) TestSetApplicationConstraintsAppNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(application.ID(""), applicationerrors.ApplicationNotFound)
+
+	err := s.api.SetConstraints(context.Background(), params.SetConstraints{
+		ApplicationName: "foo",
+		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
+	})
+	c.Assert(err, gc.ErrorMatches, "application foo not found")
+}
+
+func (s *applicationSuite) TestSetApplicationConstraintsError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(application.ID("app-foo"), nil)
+	s.applicationService.EXPECT().SetApplicationConstraints(gomock.Any(), application.ID("app-foo"), constraints.Value{Mem: ptr(uint64(42))}).Return(errors.New("boom"))
+
+	err := s.api.SetConstraints(context.Background(), params.SetConstraints{
+		ApplicationName: "foo",
+		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
+	})
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *applicationSuite) TestSetApplicationConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(application.ID("app-foo"), nil)
+	s.applicationService.EXPECT().SetApplicationConstraints(gomock.Any(), application.ID("app-foo"), constraints.Value{Mem: ptr(uint64(42))}).Return(nil)
+	// TODO(nvinuesa): Remove the double-write to mongodb once machines
+	// are fully migrated to dqlite domain.
+	s.expectApplication(c, "foo")
+	s.application.EXPECT().SetConstraints(constraints.Value{Mem: ptr(uint64(42))}).Return(nil)
+
+	err := s.api.SetConstraints(context.Background(), params.SetConstraints{
+		ApplicationName: "foo",
+		Constraints:     constraints.Value{Mem: ptr(uint64(42))},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *applicationSuite) setupMocks(c *gc.C) *gomock.Controller {

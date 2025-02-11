@@ -14,6 +14,8 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	application "github.com/juju/juju/core/application"
+	constraints "github.com/juju/juju/core/constraints"
 	leadership "github.com/juju/juju/core/leadership"
 	life "github.com/juju/juju/core/life"
 	model "github.com/juju/juju/core/model"
@@ -206,6 +208,36 @@ func (m *MockApplicationService) DestroyUnit(arg0 context.Context, arg1 unit.Nam
 func (mr *MockApplicationServiceMockRecorder) DestroyUnit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnit", reflect.TypeOf((*MockApplicationService)(nil).DestroyUnit), arg0, arg1)
+}
+
+// GetApplicationConstraints mocks base method.
+func (m *MockApplicationService) GetApplicationConstraints(arg0 context.Context, arg1 application.ID) (constraints.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationConstraints", arg0, arg1)
+	ret0, _ := ret[0].(constraints.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationConstraints indicates an expected call of GetApplicationConstraints.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationConstraints(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConstraints", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationConstraints), arg0, arg1)
+}
+
+// GetApplicationIDByName mocks base method.
+func (m *MockApplicationService) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationIDByName", arg0, arg1)
+	ret0, _ := ret[0].(application.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationIDByName indicates an expected call of GetApplicationIDByName.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationIDByName(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationIDByName), arg0, arg1)
 }
 
 // GetApplicationLife mocks base method.

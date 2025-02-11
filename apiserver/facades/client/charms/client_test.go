@@ -15,6 +15,7 @@ import (
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -297,7 +298,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
 
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
-	s.expectApplicationConstraints(constraints.Value{Arch: &arch})
+	s.expectApplicationConstraints(appName, constraints.Value{Arch: &arch})
 
 	api := s.api(c)
 
@@ -320,7 +321,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArch(c *gc.C) {
 
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
-	s.expectApplicationConstraints(constraints.Value{})
+	s.expectApplicationConstraints(appName, constraints.Value{})
 	s.expectAllUnits()
 	s.expectUnitMachineID()
 	s.expectMachine()
@@ -349,7 +350,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchMachine(c *
 
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
-	s.expectApplicationConstraints(constraints.Value{})
+	s.expectApplicationConstraints(appName, constraints.Value{})
 	s.expectAllUnits()
 	s.expectUnitMachineID()
 	s.expectMachine()
@@ -376,7 +377,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchAndHardware
 
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
-	s.expectApplicationConstraints(constraints.Value{})
+	s.expectApplicationConstraints(appName, constraints.Value{})
 	s.expectAllUnits()
 	s.expectUnitMachineID()
 	s.expectMachine()
@@ -404,7 +405,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
 
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
-	s.expectApplicationConstraints(constraints.Value{})
+	s.expectApplicationConstraints(appName, constraints.Value{})
 	s.expectHeterogeneousUnits()
 
 	s.expectUnitMachineID()
@@ -560,8 +561,9 @@ func (s *charmsMockSuite) expectSubordinateApplication(name string) {
 	s.application.EXPECT().IsPrincipal().Return(false)
 }
 
-func (s *charmsMockSuite) expectApplicationConstraints(cons constraints.Value) {
-	s.application.EXPECT().Constraints().Return(cons, nil)
+func (s *charmsMockSuite) expectApplicationConstraints(appnName string, cons constraints.Value) {
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appnName).Return(coreapplication.ID("deadbeef"), nil)
+	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.ID("deadbeef")).Return(cons, nil)
 }
 
 func (s *charmsMockSuite) expectAllUnits() {

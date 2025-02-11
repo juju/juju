@@ -1888,7 +1888,7 @@ func (a *Application) addUnitOps(
 ) (string, []txn.Op, error) {
 	var cons constraints.Value
 	if !a.doc.Subordinate {
-		scons, err := a.Constraints()
+		scons, err := a.constraints()
 		if errors.Is(err, errors.NotFound) {
 			return "", nil, errors.NotFoundf("application %q", a.Name())
 		}
@@ -2729,7 +2729,7 @@ func (a *Application) UpdateApplicationConfig(
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate applications")
 
 // Constraints returns the current application constraints.
-func (a *Application) Constraints() (constraints.Value, error) {
+func (a *Application) constraints() (constraints.Value, error) {
 	if a.doc.Subordinate {
 		return constraints.Value{}, ErrSubordinateConstraints
 	}
@@ -2756,7 +2756,7 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	// If the constraints returns a not found error, we don't actually care,
 	// this implies that it's never been set and we want to just take all the
 	// valid constraints.
-	if current, consErr := a.Constraints(); !errors.Is(consErr, errors.NotFound) {
+	if current, consErr := a.constraints(); !errors.Is(consErr, errors.NotFound) {
 		if consErr != nil {
 			return errors.Annotate(consErr, "unable to read constraints")
 		}

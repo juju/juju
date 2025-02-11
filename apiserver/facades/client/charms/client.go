@@ -459,8 +459,18 @@ func (a *API) checkCharmPlacement(ctx context.Context, arg params.ApplicationCha
 		return params.ErrorResult{}, nil
 	}
 
-	constraints, err := app.Constraints()
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	appID, err := a.applicationService.GetApplicationIDByName(ctx, arg.Application)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ErrorResult{}, nil
+	} else if err != nil {
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+	cons, err := a.applicationService.GetApplicationConstraints(ctx, appID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ErrorResult{}, nil
+	} else if err != nil {
 		return params.ErrorResult{
 			Error: apiservererrors.ServerError(err),
 		}, nil
@@ -469,7 +479,7 @@ func (a *API) checkCharmPlacement(ctx context.Context, arg params.ApplicationCha
 	// If the application has an existing architecture constraint then we're
 	// happy that the constraint logic will prevent heterogenous application
 	// units.
-	if constraints.HasArch() {
+	if cons.HasArch() {
 		return params.ErrorResult{}, nil
 	}
 

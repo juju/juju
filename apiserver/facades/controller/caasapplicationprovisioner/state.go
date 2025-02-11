@@ -51,7 +51,6 @@ type Application interface {
 	StorageConstraints() (map[string]state.StorageConstraints, error)
 	DeviceConstraints() (map[string]state.DeviceConstraints, error)
 	Name() string
-	Constraints() (constraints.Value, error)
 	Life() state.Life
 	Base() state.Base
 	SetStatus(statusInfo status.StatusInfo) error
