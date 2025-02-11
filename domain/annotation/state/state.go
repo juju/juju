@@ -406,7 +406,7 @@ func uuidQueryForID(id annotations.ID) (string, sqlair.M, error) {
 		return `SELECT &annotationUUID.uuid FROM application WHERE name = $M.entity_name`,
 			sqlair.M{"entity_name": id.Name}, nil
 	case annotations.KindStorage:
-		return `SELECT &annotationUUID.uuid FROM storage_instance WHERE name = $M.entity_name`,
+		return `SELECT &annotationUUID.uuid FROM storage_instance WHERE storage_id = $M.entity_name`,
 			sqlair.M{"entity_name": id.Name}, nil
 	case annotations.KindModel:
 		return `SELECT &annotationUUID.uuid FROM model WHERE name = $M.entity_name`,

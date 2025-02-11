@@ -58,7 +58,7 @@ CREATE TABLE application_storage_directive (
     -- with an ID. Storage pools, once created, cannot be renamed so
     -- this will not be able to become "orphaned".
     storage_pool TEXT NOT NULL,
-    size INT NOT NULL,
+    size_mib INT NOT NULL,
     count INT NOT NULL,
     CONSTRAINT fk_application_storage_directive_application
     FOREIGN KEY (application_uuid)
@@ -98,7 +98,7 @@ CREATE TABLE unit_storage_directive (
     -- with an ID. Storage pools, once created, cannot be renamed so
     -- this will not be able to become "orphaned".
     storage_pool TEXT NOT NULL,
-    size INT NOT NULL,
+    size_mib INT NOT NULL,
     count INT NOT NULL,
     CONSTRAINT fk_unit_storage_directive_charm_storage
     FOREIGN KEY (charm_uuid, storage_name)
@@ -112,8 +112,10 @@ ON unit_storage_directive (unit_uuid);
 
 CREATE TABLE storage_instance (
     uuid TEXT NOT NULL PRIMARY KEY,
-    storage_kind_id INT NOT NULL,
-    name TEXT NOT NULL,
+    charm_uuid TEXT NOT NULL,
+    storage_name TEXT NOT NULL,
+    -- storage_id is created from the storage name and a unique id number.
+    storage_id TEXT NOT NULL,
     life_id INT NOT NULL,
     -- Note: one might wonder why storage_pool below is not a
     -- FK to a row defined in the storage pool table. This value
@@ -122,12 +124,13 @@ CREATE TABLE storage_instance (
     -- with an ID. Storage pools, once created, cannot be renamed so
     -- this will not be able to become "orphaned".
     storage_pool TEXT NOT NULL,
-    CONSTRAINT fk_storage_instance_kind
-    FOREIGN KEY (storage_kind_id)
-    REFERENCES storage_kind (id),
+    size_mib INT NOT NULL,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_storage_instance_charm_storage
+    FOREIGN KEY (charm_uuid, storage_name)
+    REFERENCES charm_storage (charm_uuid, name)
 );
 
 -- storage_unit_owner is used to indicate when

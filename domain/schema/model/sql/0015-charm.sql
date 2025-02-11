@@ -362,15 +362,6 @@ CREATE TABLE charm_tag (
 CREATE INDEX idx_charm_tag_charm
 ON charm_tag (charm_uuid);
 
-CREATE TABLE charm_storage_kind (
-    id INT PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
-INSERT INTO charm_storage_kind VALUES
-(0, 'block'),
-(1, 'filesystem');
-
 CREATE TABLE charm_storage (
     charm_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -396,7 +387,7 @@ SELECT
     cs.charm_uuid,
     cs.name,
     cs.description,
-    csk.name AS kind,
+    sk.kind,
     cs.shared,
     cs.read_only,
     cs.count_min,
@@ -406,7 +397,7 @@ SELECT
     csp.array_index AS property_index,
     csp.value AS property
 FROM charm_storage AS cs
-LEFT JOIN charm_storage_kind AS csk ON cs.storage_kind_id = csk.id
+LEFT JOIN storage_kind AS sk ON cs.storage_kind_id = sk.id
 LEFT JOIN charm_storage_property AS csp ON cs.charm_uuid = csp.charm_uuid AND cs.name = csp.charm_storage_name;
 
 CREATE INDEX idx_charm_storage_charm
