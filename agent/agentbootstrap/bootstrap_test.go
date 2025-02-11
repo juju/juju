@@ -19,10 +19,12 @@ import (
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
+	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -61,6 +63,19 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.mgoInst.Destroy()
 	s.BaseSuite.TearDownTest(c)
+}
+
+func getModelConstraintAssertion(c *gc.C, expectedConsVal constraints.Value) database.BootstrapOpt {
+	return func(ctx context.Context, controller, model coredatabase.TxnRunner) error {
+		modelState := modelstate.NewModelState(func() (coredatabase.TxnRunner, error) {
+			return model, nil
+		}, loggertesting.WrapCheckLog(c))
+
+		data, err := modelState.GetModelConstraints(context.Background())
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(data, jc.DeepEquals, expectedConsVal)
+		return nil
+	}
 }
 
 func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
@@ -168,7 +183,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 			BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   registry,
-			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
+			BootstrapDqlite: getBootstrapDqliteWithDummyCloudTypeWithAssertions(c,
+				getModelConstraintAssertion(c, expectModelConstraints),
+			),
 			Provider: func(t string) (environs.EnvironProvider, error) {
 				c.Assert(t, gc.Equals, "dummy")
 				return &envProvider, nil
@@ -202,10 +219,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// model constraints set.
 	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-
-	gotModelConstraints, err := st.ModelConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
 
 	// Check that the bootstrap machine looks correct.
 	m, err := st.Machine("0")
@@ -279,7 +292,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 			MongoDialOpts:             mongotest.DialOpts(),
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
-			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
+			BootstrapDqlite:           getBootstrapDqliteWithDummyCloudTypeWithAssertions(c),
 			Logger:                    loggertesting.WrapCheckLog(c),
 		},
 	)
@@ -344,7 +357,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
-			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
+			BootstrapDqlite:           getBootstrapDqliteWithDummyCloudTypeWithAssertions(c),
 			Provider: func(t string) (environs.EnvironProvider, error) {
 				return &fakeProvider{}, nil
 			},
@@ -463,17 +476,34 @@ func (e *fakeEnviron) Provider() environs.EnvironProvider {
 	return e.provider
 }
 
-func bootstrapDqliteWithDummyCloudType(
-	ctx context.Context,
-	mgr database.BootstrapNodeManager,
-	modelUUID model.UUID,
-	logger logger.Logger,
-	opts ...database.BootstrapOpt,
-) error {
-	// The dummy cloud type needs to be inserted before the other operations.
-	opts = append([]database.BootstrapOpt{
-		jujujujutesting.InsertDummyCloudType,
-	}, opts...)
+func getBootstrapDqliteWithDummyCloudTypeWithAssertions(c *gc.C,
+	assertions ...database.BootstrapOpt,
+) agentbootstrap.DqliteInitializerFunc {
+	return func(
+		ctx context.Context,
+		mgr database.BootstrapNodeManager,
+		modelUUID model.UUID,
+		logger logger.Logger,
+		opts ...database.BootstrapOpt,
+	) error {
 
-	return database.BootstrapDqlite(ctx, mgr, modelUUID, logger, opts...)
+		// The dummy cloud type needs to be inserted before the other operations.
+		opts = append([]database.BootstrapOpt{
+			jujujujutesting.InsertDummyCloudType,
+		}, opts...)
+
+		// The assertions need to be inserted after the other operations.
+		called := 0
+		for _, assertion := range assertions {
+			opts = append(opts, func(ctx context.Context, controller, model coredatabase.TxnRunner) error {
+				called++
+				return assertion(ctx, controller, model)
+			})
+		}
+		defer func() {
+			c.Assert(called, gc.Equals, len(assertions))
+		}()
+
+		return database.BootstrapDqlite(ctx, mgr, modelUUID, logger, opts...)
+	}
 }

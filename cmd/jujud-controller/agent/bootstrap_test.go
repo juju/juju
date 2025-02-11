@@ -27,11 +27,13 @@ import (
 	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
+	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
@@ -46,6 +48,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/database"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/testing"
@@ -73,7 +76,7 @@ type BootstrapSuite struct {
 	toolsStorage storage.Storage
 
 	bootstrapAgentFunc    BootstrapAgentFunc
-	dqliteInitializerFunc agentbootstrap.DqliteInitializerFunc
+	dqliteInitializerFunc func(*gc.C, ...database.BootstrapOpt) agentbootstrap.DqliteInitializerFunc
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -130,7 +133,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.bootstrapAgentFunc = agentbootstrap.NewAgentBootstrap
-	s.dqliteInitializerFunc = bootstrapDqliteWithDummyCloudType
+	s.dqliteInitializerFunc = getBootstrapDqliteWithDummyCloudTypeWithAssertions
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -207,7 +210,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 
 	cmd = NewBootstrapCommand()
 	cmd.BootstrapAgent = s.bootstrapAgentFunc
-	cmd.DqliteInitializer = s.dqliteInitializerFunc
+	cmd.DqliteInitializer = s.dqliteInitializerFunc(c)
 
 	err = cmdtesting.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
 	return machineConf, cmd, err
@@ -215,6 +218,19 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 
 func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 	machConf, cmd, err := s.initBootstrapCommand(c, nil)
+	cmd.DqliteInitializer = s.dqliteInitializerFunc(c,
+		func(ctx context.Context, controller, model coredatabase.TxnRunner) error {
+			modelState := modelstate.NewModelState(func() (coredatabase.TxnRunner, error) {
+				return model, nil
+			}, loggertesting.WrapCheckLog(c))
+
+			data, err := modelState.GetModelConstraints(context.Background())
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(&data, jc.Satisfies, constraints.IsEmpty)
+			return nil
+		},
+	)
+
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,9 +269,6 @@ func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 
-	cons, err := st.ModelConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *BootstrapSuite) TestInitializeModelInvalidOplogSize(c *gc.C) {
@@ -272,6 +285,18 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	s.writeBootstrapParamsFile(c)
 
 	_, cmd, err := s.initBootstrapCommand(c, nil)
+	cmd.DqliteInitializer = s.dqliteInitializerFunc(c,
+		func(ctx context.Context, controller, model coredatabase.TxnRunner) error {
+			modelState := modelstate.NewModelState(func() (coredatabase.TxnRunner, error) {
+				return model, nil
+			}, loggertesting.WrapCheckLog(c))
+
+			data, err := modelState.GetModelConstraints(context.Background())
+			c.Check(err, jc.ErrorIsNil)
+			c.Assert(data, gc.DeepEquals, s.bootstrapParams.ModelConstraints)
+			return nil
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
@@ -279,14 +304,10 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	st, closer := s.getSystemState(c)
 	defer closer()
 
-	cons, err := st.ModelConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, s.bootstrapParams.ModelConstraints)
-
 	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
-	cons, err = machines[0].Constraints()
+	cons, err := machines[0].Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.DeepEquals, s.bootstrapParams.BootstrapMachineConstraints)
 }
@@ -474,18 +495,34 @@ func nullContext() environs.BootstrapContext {
 	ctx.Stderr = io.Discard
 	return environscmd.BootstrapContext(context.Background(), ctx)
 }
+func getBootstrapDqliteWithDummyCloudTypeWithAssertions(c *gc.C,
+	assertions ...database.BootstrapOpt,
+) agentbootstrap.DqliteInitializerFunc {
+	return func(
+		ctx context.Context,
+		mgr database.BootstrapNodeManager,
+		modelUUID model.UUID,
+		logger corelogger.Logger,
+		opts ...database.BootstrapOpt,
+	) error {
 
-func bootstrapDqliteWithDummyCloudType(
-	ctx context.Context,
-	mgr database.BootstrapNodeManager,
-	modelUUID model.UUID,
-	logger corelogger.Logger,
-	opts ...database.BootstrapOpt,
-) error {
-	// The dummy cloud type needs to be inserted before the other operations.
-	opts = append([]database.BootstrapOpt{
-		jujutesting.InsertDummyCloudType,
-	}, opts...)
+		// The dummy cloud type needs to be inserted before the other operations.
+		opts = append([]database.BootstrapOpt{
+			jujutesting.InsertDummyCloudType,
+		}, opts...)
 
-	return database.BootstrapDqlite(ctx, mgr, modelUUID, logger, opts...)
+		// The assertions need to be inserted after the other operations.
+		called := 0
+		for _, assertion := range assertions {
+			opts = append(opts, func(ctx context.Context, controller, model coredatabase.TxnRunner) error {
+				called++
+				return assertion(ctx, controller, model)
+			})
+		}
+		defer func() {
+			c.Assert(called, gc.Equals, len(assertions))
+		}()
+
+		return database.BootstrapDqlite(ctx, mgr, modelUUID, logger, opts...)
+	}
 }
