@@ -20,6 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/testing"
 )
@@ -27,7 +28,8 @@ import (
 type providerWorkerSuite struct {
 	baseSuite
 
-	called int64
+	trackedCalled   int64
+	ephemeralCalled int64
 }
 
 var _ = gc.Suite(&providerWorkerSuite{})
@@ -164,7 +166,8 @@ func (s *providerWorkerSuite) TestProviderIsCached(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(0))
 }
 
 func (s *providerWorkerSuite) TestProviderForModel(c *gc.C) {
@@ -207,7 +210,8 @@ func (s *providerWorkerSuite) TestProviderForModelIsCached(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(1))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(0))
 }
 
 func (s *providerWorkerSuite) TestProviderForModelIsNotCachedForDifferentNamespaces(c *gc.C) {
@@ -236,7 +240,8 @@ func (s *providerWorkerSuite) TestProviderForModelIsNotCachedForDifferentNamespa
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(0))
 }
 
 func (s *providerWorkerSuite) TestProviderForModelConcurrently(c *gc.C) {
@@ -270,11 +275,77 @@ func (s *providerWorkerSuite) TestProviderForModelConcurrently(c *gc.C) {
 	}
 
 	assertWait(c, wg.Wait)
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(0))
+}
+
+func (s *providerWorkerSuite) TestEphemeralProviderFromConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that the provider for a model is returned correctly.
+
+	w := s.newMultiWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
+	worker := w.(*providerWorker)
+
+	provider, err := worker.EphemeralProviderFromConfig(context.Background(), providertracker.EphemeralProviderConfig{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(provider, gc.NotNil)
+}
+
+func (s *providerWorkerSuite) TestEphemeralProviderFromConfigIsNotCachedForDifferentNamespaces(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newMultiWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
+	worker := w.(*providerWorker)
+	for i := 0; i < 10; i++ {
+
+		_, err := worker.EphemeralProviderFromConfig(context.Background(), providertracker.EphemeralProviderConfig{})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	workertest.CleanKill(c, w)
+
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(0))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(10))
+}
+
+func (s *providerWorkerSuite) TestEphemeralProviderFromConfigConcurrently(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newMultiWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
+	var wg sync.WaitGroup
+	wg.Add(10)
+
+	worker := w.(*providerWorker)
+	for i := 0; i < 10; i++ {
+		go func(i int) {
+			defer wg.Done()
+
+			_, err := worker.EphemeralProviderFromConfig(context.Background(), providertracker.EphemeralProviderConfig{})
+			c.Assert(err, jc.ErrorIsNil)
+		}(i)
+	}
+
+	assertWait(c, wg.Wait)
+	c.Assert(atomic.LoadInt64(&s.trackedCalled), gc.Equals, int64(0))
+	c.Assert(atomic.LoadInt64(&s.ephemeralCalled), gc.Equals, int64(10))
 }
 
 func (s *providerWorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
-	atomic.StoreInt64(&s.called, 0)
+	atomic.StoreInt64(&s.trackedCalled, 0)
+	atomic.StoreInt64(&s.ephemeralCalled, 0)
 
 	return s.baseSuite.setupMocks(c)
 }
@@ -299,7 +370,7 @@ func (s *providerWorkerSuite) newWorker(c *gc.C, trackerType TrackerType) worker
 			return nil, cloudspec.CloudSpec{}, nil
 		},
 		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig) (worker.Worker, error) {
-			atomic.AddInt64(&s.called, 1)
+			atomic.AddInt64(&s.trackedCalled, 1)
 
 			w := &trackerWorker{
 				provider: s.environ,
@@ -312,6 +383,10 @@ func (s *providerWorkerSuite) newWorker(c *gc.C, trackerType TrackerType) worker
 				},
 			})
 			return w, err
+		},
+		NewEphemeralProvider: func(ctx context.Context, cfg EphemeralConfig) (Provider, error) {
+			atomic.AddInt64(&s.ephemeralCalled, 1)
+			return s.environ, nil
 		},
 		Logger: s.logger,
 		Clock:  clock.WallClock,

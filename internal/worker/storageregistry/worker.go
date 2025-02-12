@@ -227,18 +227,15 @@ func (w *storageRegistryWorker) workerFromCache(namespace string) (storage.Provi
 }
 
 func (w *storageRegistryWorker) initStorageRegistry(namespace string) error {
+	runner := providertracker.ProviderRunner[storage.ProviderRegistry](w.cfg.ProviderFactory, namespace)
+
 	err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
 
-		provider, err := w.cfg.ProviderFactory.ProviderForModel(ctx, namespace)
+		storageRegistry, err := runner(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
-		}
-
-		storageRegistry, ok := provider.(storage.ProviderRegistry)
-		if !ok {
-			return nil, errors.NotSupportedf("provider does not implement storage.ProviderRegistry")
 		}
 
 		worker, err := w.cfg.NewStorageRegistryWorker(storageRegistry)

@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package providertracker
@@ -68,7 +68,7 @@ type trackerWorker struct {
 	provider         Provider
 	currentCloudSpec environscloudspec.CloudSpec
 
-	providerGetter providerGetter
+	providerGetter trackerProviderGetter
 }
 
 // NewTrackerWorker loads a provider from the observer and returns a new Worker,
@@ -88,7 +88,7 @@ func newTrackerWorker(ctx context.Context, config TrackerConfig, internalStates 
 		return nil, errors.Trace(err)
 	}
 
-	getter := providerGetter{
+	getter := trackerProviderGetter{
 		model:             model,
 		cloudService:      config.CloudService,
 		configService:     config.ConfigService,
@@ -325,7 +325,7 @@ func (t *trackerWorker) addStringsWatcher(ctx context.Context, watcher eventsour
 	return nil
 }
 
-type providerGetter struct {
+type trackerProviderGetter struct {
 	model             coremodel.ModelInfo
 	cloudService      CloudService
 	configService     ConfigService
@@ -333,17 +333,17 @@ type providerGetter struct {
 }
 
 // ControllerUUID returns the controller UUID.
-func (g providerGetter) ControllerUUID() uuid.UUID {
+func (g trackerProviderGetter) ControllerUUID() uuid.UUID {
 	return g.model.ControllerUUID
 }
 
 // ModelUUID returns the model UUID.
-func (g providerGetter) ModelConfig(ctx context.Context) (*config.Config, error) {
+func (g trackerProviderGetter) ModelConfig(ctx context.Context) (*config.Config, error) {
 	return g.configService.ModelConfig(ctx)
 }
 
 // CloudSpec returns the cloud spec for the model.
-func (g providerGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
+func (g trackerProviderGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
 	modelCredentials, err := modelCredentials(ctx, g.credentialService, g.model)
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)

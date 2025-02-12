@@ -8,7 +8,11 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // Provider in the intersection of a environs.Environ and a caas.Broker.
@@ -27,6 +31,31 @@ type Provider interface {
 	environs.ResourceAdopter
 }
 
+// EphemeralProvider returns a provider that is not tracked by the worker.
+// It is created and then discarded. No credential invalidation is enforced
+// during the call to the provider.
+type EphemeralProvider interface {
+	// Provider returns the provider.
+	Provider() (Provider, error)
+}
+
+// EphemeralProviderConfig is a struct that contains the necessary information
+// to create a provider.
+type EphemeralProviderConfig struct {
+	// ModelType is the type of the model.
+	ModelType model.ModelType
+
+	// ModelConfig is the model configuration for the provider.
+	ModelConfig *config.Config
+
+	// CloudSpec is the cloud spec for the provider.
+	CloudSpec cloudspec.CloudSpec
+
+	// ControllerUUID is the UUID of the controller that the provider is
+	// associated with. This is currently only used for k8s providers.
+	ControllerUUID uuid.UUID
+}
+
 // ProviderFactory is an interface that provides a way to get a provider
 // for a given model namespace. It will continue to be updated in the background
 // for as long as the Worker continues to run.
@@ -36,6 +65,11 @@ type ProviderFactory interface {
 	// as the Worker continues to run. If the worker is not a singular worker,
 	// then an error will be returned.
 	ProviderForModel(ctx context.Context, namespace string) (Provider, error)
+
+	// EphemeralProviderFromConfig returns an ephemeral provider for a given
+	// configuration. The provider is not tracked, instead is created and then
+	// discarded.
+	EphemeralProviderFromConfig(ctx context.Context, config EphemeralProviderConfig) (Provider, error)
 }
 
 // ProviderGetter is a function that returns a provider for a given type.
@@ -57,5 +91,25 @@ func ProviderRunner[T any](providerFactory ProviderFactory, namespace string) fu
 			return v, nil
 		}
 		return zero, errors.NotSupportedf("provider type %T", zero)
+	}
+}
+
+// EphemeralProviderRunnerFromConfig returns the ProviderGetter function for a
+// given generic type. This is useful for ad-hoc providers that are not tracked,
+// but instead created and discarded. Credential invalidation is not enforced
+// during the call to the provider. For that reason alone, a closure is returned
+// and the provider is created and discarded on each call.
+func EphemeralProviderRunnerFromConfig[T any](providerFactory ProviderFactory, config EphemeralProviderConfig) func(context.Context, func(context.Context, T) error) error {
+	return func(ctx context.Context, fn func(context.Context, T) error) error {
+		provider, err := providerFactory.EphemeralProviderFromConfig(ctx, config)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if v, ok := provider.(T); ok {
+			return fn(ctx, v)
+		}
+
+		var zero T
+		return errors.NotSupportedf("provider type %T", zero)
 	}
 }

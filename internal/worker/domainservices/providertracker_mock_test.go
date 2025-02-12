@@ -529,6 +529,45 @@ func (m *MockProviderFactory) EXPECT() *MockProviderFactoryMockRecorder {
 	return m.recorder
 }
 
+// EphemeralProviderFromConfig mocks base method.
+func (m *MockProviderFactory) EphemeralProviderFromConfig(arg0 context.Context, arg1 providertracker.EphemeralProviderConfig) (providertracker.Provider, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EphemeralProviderFromConfig", arg0, arg1)
+	ret0, _ := ret[0].(providertracker.Provider)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EphemeralProviderFromConfig indicates an expected call of EphemeralProviderFromConfig.
+func (mr *MockProviderFactoryMockRecorder) EphemeralProviderFromConfig(arg0, arg1 any) *MockProviderFactoryEphemeralProviderFromConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EphemeralProviderFromConfig", reflect.TypeOf((*MockProviderFactory)(nil).EphemeralProviderFromConfig), arg0, arg1)
+	return &MockProviderFactoryEphemeralProviderFromConfigCall{Call: call}
+}
+
+// MockProviderFactoryEphemeralProviderFromConfigCall wrap *gomock.Call
+type MockProviderFactoryEphemeralProviderFromConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProviderFactoryEphemeralProviderFromConfigCall) Return(arg0 providertracker.Provider, arg1 error) *MockProviderFactoryEphemeralProviderFromConfigCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProviderFactoryEphemeralProviderFromConfigCall) Do(f func(context.Context, providertracker.EphemeralProviderConfig) (providertracker.Provider, error)) *MockProviderFactoryEphemeralProviderFromConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProviderFactoryEphemeralProviderFromConfigCall) DoAndReturn(f func(context.Context, providertracker.EphemeralProviderConfig) (providertracker.Provider, error)) *MockProviderFactoryEphemeralProviderFromConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ProviderForModel mocks base method.
 func (m *MockProviderFactory) ProviderForModel(arg0 context.Context, arg1 string) (providertracker.Provider, error) {
 	m.ctrl.T.Helper()
