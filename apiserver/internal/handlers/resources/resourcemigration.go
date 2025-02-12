@@ -9,11 +9,13 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/domain/resource"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -114,15 +116,46 @@ func (h *resourcesMigrationUploadHandler) processPost(
 		)
 	}
 
+	retrievedBy, retrievedByType := determineRetrievedBy(query)
 	err = resourceService.StoreResource(ctx, resource.StoreResourceArgs{
-		ResourceUUID: resUUID,
-		Reader:       r.Body,
+		ResourceUUID:    resUUID,
+		Reader:          r.Body,
+		RetrievedBy:     retrievedBy,
+		RetrievedByType: retrievedByType,
 	})
 	if err != nil {
 		return empty, internalerrors.Capture(err)
 	}
 
 	return resourceService.GetResource(ctx, resUUID)
+}
+
+// determineRetrievedBy determines the entity that retrieved the resource using
+// the origin and user arguments on the query. If it cannot determine an entity,
+// it returns the default values.
+func determineRetrievedBy(query url.Values) (string, coreresource.RetrievedByType) {
+	rawOrigin := query.Get("origin")
+	origin, err := charmresource.ParseOrigin(rawOrigin)
+	if err != nil {
+		// If the origin cannot be determined, or is not present, return the
+		// default values.
+		return "", ""
+	}
+
+	// The user key contains the name of the entity that retrieved this
+	// resource. Confusingly, this can be an application, unit or user.
+	retrievedBy := query.Get("user")
+	switch origin {
+	case charmresource.OriginUpload:
+		return retrievedBy, coreresource.User
+	case charmresource.OriginStore:
+		if names.IsValidUnit(retrievedBy) {
+			return retrievedBy, coreresource.Unit
+		}
+		return retrievedBy, coreresource.Application
+	default:
+		return "", ""
+	}
 }
 
 // isPlaceholder determines if the given query represents a placeholder by

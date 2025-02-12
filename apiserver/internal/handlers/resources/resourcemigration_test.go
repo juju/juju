@@ -233,6 +233,109 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 	})
 }
 
+// TestServeUploadApplicationRetrievedByUser tests that the RetrievedBy and
+// RetrievedByType values are correctly determined for a user retriever.
+func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *gc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+	defer s.setupHandler(c).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"user":        {"username"},
+		"origin":      {"upload"},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
+		ResourceUUID:    "res-uuid",
+		Reader:          http.NoBody,
+		RetrievedByType: resource.User,
+		RetrievedBy:     "username",
+	}).Return(nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		UUID:      "res-uuid",
+		Timestamp: now,
+	}, nil)
+
+	// Act
+	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+}
+
+// TestServeUploadApplicationRetrievedByApplication tests that the RetrievedBy
+// and RetrievedByType values are correctly determined for an application
+// retriever.
+func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(c *gc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+	defer s.setupHandler(c).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"user":        {"app-name"},
+		"origin":      {"store"},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
+		ResourceUUID:    "res-uuid",
+		Reader:          http.NoBody,
+		RetrievedByType: resource.Application,
+		RetrievedBy:     "app-name",
+	}).Return(nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		UUID:      "res-uuid",
+		Timestamp: now,
+	}, nil)
+
+	// Act
+	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+}
+
+// TestServeUploadApplicationRetrievedByUnit tests that the RetrievedBy and
+// RetrievedByType values are correctly determined for a unit retriever.
+func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *gc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+	defer s.setupHandler(c).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"user":        {"app-name/0"},
+		"origin":      {"store"},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
+		ResourceUUID:    "res-uuid",
+		Reader:          http.NoBody,
+		RetrievedByType: resource.Unit,
+		RetrievedBy:     "app-name/0",
+	}).Return(nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		UUID:      "res-uuid",
+		Timestamp: now,
+	}, nil)
+
+	// Act
+	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+}
+
 // TestServeUploadUnitWithPlaceholder tests the upload functionality for a unit
 // with a placeholder in the resource upload service. It is basically the same
 // test than the one with application, with one call to SetUnitResource.
