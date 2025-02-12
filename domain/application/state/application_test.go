@@ -115,6 +115,13 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(config, gc.HasLen, 0)
 	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{Trust: false})
+
+	// Status should be unset.
+	status, err := s.state.GetApplicationStatus(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status, gc.DeepEquals, &application.StatusInfo[application.WorkloadStatusType]{
+		Status: application.WorkloadStatusUnset,
+	})
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *gc.C) {
@@ -174,7 +181,61 @@ func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *gc
 	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{Trust: true})
 }
 
-func (s *applicationStateSuite) TesatCreateApplicationWithUnits(c *gc.C) {
+func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *gc.C) {
+	platform := application.Platform{
+		Channel:      "666",
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &application.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+	ctx := context.Background()
+
+	now := time.Now().UTC()
+	id, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata:      s.minimalMetadata(c, "666"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: "666",
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		CharmDownloadInfo: &charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident-1",
+			DownloadURL:        "http://example.com/charm",
+			DownloadSize:       666,
+		},
+		Scale:   1,
+		Channel: channel,
+		Status: &application.StatusInfo[application.WorkloadStatusType]{
+			Status:  application.WorkloadStatusActive,
+			Message: "test",
+			Data:    []byte(`{"foo": "bar"}`),
+			Since:   ptr(now),
+		},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	scale := application.ScaleState{Scale: 1}
+	s.assertApplication(c, "666", platform, channel, scale, false)
+
+	// Status should be unset.
+	status, err := s.state.GetApplicationStatus(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status, gc.DeepEquals, &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "test",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(now),
+	})
+}
+
+func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *gc.C) {
 	platform := application.Platform{
 		Channel:      "666",
 		OSType:       application.Ubuntu,

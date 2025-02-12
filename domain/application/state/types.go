@@ -715,6 +715,14 @@ type applicationConfigHash struct {
 	SHA256          string `db:"sha256"`
 }
 
+type applicationStatus struct {
+	ApplicationUUID string     `db:"application_uuid"`
+	StatusID        int        `db:"status_id"`
+	Message         string     `db:"message"`
+	Data            []byte     `db:"data"`
+	UpdatedAt       *time.Time `db:"updated_at"`
+}
+
 // applicationConstraint represents a single returned row when joining the
 // constraint table with the constraint_space, constraint_tag and
 // constraint_zone.

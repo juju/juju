@@ -99,6 +99,7 @@ func (s *migrationServiceSuite) TestGetCharm(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
 			Name: "foo",
@@ -112,7 +113,7 @@ func (s *migrationServiceSuite) TestGetCharm(c *gc.C) {
 		Available: true,
 	}, nil, nil)
 
-	metadata, locator, err := s.service.GetCharm(context.Background(), id)
+	metadata, locator, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata.Meta(), gc.DeepEquals, &charm.Meta{
 		Name: "foo",
@@ -130,6 +131,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidMetadata(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
 			Name:  "foo",
@@ -140,7 +142,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidMetadata(c *gc.C) {
 		Available: true,
 	}, nil, nil)
 
-	_, _, err := s.service.GetCharm(context.Background(), id)
+	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, `.*decode charm user.*`)
 }
 
@@ -149,6 +151,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidManifest(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
 			Name:  "foo",
@@ -166,7 +169,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidManifest(c *gc.C) {
 		Available: true,
 	}, nil, nil)
 
-	_, _, err := s.service.GetCharm(context.Background(), id)
+	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, `.*decode bases: decode base.*`)
 }
 
@@ -175,6 +178,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidActions(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
 			Name:  "foo",
@@ -192,7 +196,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidActions(c *gc.C) {
 		Available: true,
 	}, nil, nil)
 
-	_, _, err := s.service.GetCharm(context.Background(), id)
+	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, `.*decode action params: unmarshal.*`)
 }
 
@@ -201,6 +205,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidConfig(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
 			Name:  "foo",
@@ -218,7 +223,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidConfig(c *gc.C) {
 		Available: true,
 	}, nil, nil)
 
-	_, _, err := s.service.GetCharm(context.Background(), id)
+	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, `.*decode config.*`)
 }
 
@@ -227,6 +232,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidLXDProfile(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
 			Name:  "foo",
@@ -238,7 +244,7 @@ func (s *migrationServiceSuite) TestGetCharmInvalidLXDProfile(c *gc.C) {
 		Available:  true,
 	}, nil, nil)
 
-	_, _, err := s.service.GetCharm(context.Background(), id)
+	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, `.*unmarshal lxd profile.*`)
 }
 
@@ -247,17 +253,18 @@ func (s *migrationServiceSuite) TestGetCharmCharmNotFound(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
+	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "foo").Return(id, nil)
 	s.state.EXPECT().GetCharm(gomock.Any(), id).Return(domaincharm.Charm{}, nil, applicationerrors.CharmNotFound)
 
-	_, _, err := s.service.GetCharm(context.Background(), id)
+	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func (s *migrationServiceSuite) TestGetCharmInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, _, err := s.service.GetCharm(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	_, _, err := s.service.GetCharmByApplicationName(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
 func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *gc.C) {

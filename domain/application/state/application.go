@@ -219,6 +219,9 @@ func (st *State) CreateApplication(
 		if err := st.insertApplicationConfigHash(ctx, tx, appDetails.UUID, configHash); err != nil {
 			return errors.Errorf("inserting config hash for application %q: %w", name, err)
 		}
+		if err := st.insertApplicationStatus(ctx, tx, appDetails.UUID, args.Status); err != nil {
+			return errors.Errorf("inserting status for application %q: %w", name, err)
+		}
 
 		// The channel is optional for local charms. Although, it would be
 		// nice to have a channel for local charms, it's not a requirement.
@@ -3594,7 +3597,6 @@ func (st *State) insertApplicationConfigHash(
 	appID coreapplication.ID,
 	sha256 string,
 ) error {
-
 	insertQuery := `
 INSERT INTO application_config_hash (*) VALUES ($applicationConfigHash.*);
 `
@@ -3608,6 +3610,42 @@ INSERT INTO application_config_hash (*) VALUES ($applicationConfigHash.*);
 		SHA256:          sha256,
 	}).Run(); err != nil {
 		return errors.Errorf("inserting hash: %w", err)
+	}
+	return nil
+}
+
+func (st *State) insertApplicationStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appID coreapplication.ID,
+	status *application.StatusInfo[application.WorkloadStatusType],
+) error {
+	if status == nil {
+		return nil
+	}
+
+	insertQuery := `
+INSERT INTO application_status (*) VALUES ($applicationStatus.*);
+`
+
+	insertStmt, err := st.Prepare(insertQuery, applicationStatus{})
+	if err != nil {
+		return errors.Errorf("preparing insert query: %w", err)
+	}
+
+	statusID, err := encodeWorkloadStatus(status.Status)
+	if err != nil {
+		return errors.Errorf("encoding status: %w", err)
+	}
+
+	if err := tx.Query(ctx, insertStmt, applicationStatus{
+		ApplicationUUID: appID.String(),
+		StatusID:        statusID,
+		Message:         status.Message,
+		Data:            status.Data,
+		UpdatedAt:       status.Since,
+	}).Run(); err != nil {
+		return errors.Errorf("inserting status: %w", err)
 	}
 	return nil
 }

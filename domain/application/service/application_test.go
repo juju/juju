@@ -197,27 +197,76 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	c.Check(receivedArgs, jc.DeepEquals, us)
 }
 
-func (s *applicationServiceSuite) TestCreateApplicationPendingResources(c *gc.C) {
+func (s *applicationServiceSuite) TestCreateApplicationWithApplicationStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	now := ptr(s.clock.Now())
-	us := []application.AddUnitArg{{
-		UnitName: "ubuntu/666",
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
-				Since:  now,
-			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
-				Message: corestatus.MessageInstallingAgent,
-				Since:   now,
+	status := &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "active",
+		Data:    []byte(`{"active":true}`),
+		Since:   now,
+	}
+
+	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
+	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
+
+	var receivedArgs application.AddApplicationArg
+	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, appArgs application.AddApplicationArg, _ []application.AddUnitArg) (coreapplication.ID, error) {
+		receivedArgs = appArgs
+		return id, nil
+	})
+
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.Stable,
+				},
+				Architectures: []string{"amd64"},
 			},
 		},
-	}}
+	}).MinTimes(1)
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "ubuntu",
+	}).MinTimes(1)
+
+	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "ubuntu",
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
+		CharmObjectStoreUUID: objectStoreUUID,
+		ApplicationStatus: &corestatus.StatusInfo{
+			Status:  corestatus.Active,
+			Message: "active",
+			Data:    map[string]interface{}{"active": true},
+			Since:   now,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(receivedArgs.Status, jc.DeepEquals, status)
+}
+
+func (s *applicationServiceSuite) TestCreateApplicationPendingResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+
 	ch := applicationcharm.Charm{
 		Metadata: applicationcharm.Metadata{
 			Name:  "ubuntu",
@@ -255,11 +304,7 @@ func (s *applicationServiceSuite) TestCreateApplicationPendingResources(c *gc.C)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 
-	var receivedArgs []application.AddUnitArg
-	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ application.AddApplicationArg, args []application.AddUnitArg) (coreapplication.ID, error) {
-		receivedArgs = args
-		return id, nil
-	})
+	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", app, gomock.Any()).Return(id, nil)
 
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{})
@@ -300,7 +345,6 @@ func (s *applicationServiceSuite) TestCreateApplicationPendingResources(c *gc.C)
 		PendingResources:     []resource.UUID{resourceUUID},
 	}, a)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(receivedArgs, jc.DeepEquals, us)
 }
 
 func (s *applicationServiceSuite) TestCreateApplicationWithInvalidApplicationName(c *gc.C) {
