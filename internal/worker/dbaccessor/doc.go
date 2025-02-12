@@ -2,9 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package dbaccessor defines workers that create and operate the Dqlite cluster
-// and the individual Dqlite databases and the connections to them. These
-// databases are then made watchable by the internal/worker/changestream package
-// and used by the internal/worker/domainservices package.
+// and the individual Dqlite databases and the connections to them.
 //
 // # dbaccessor.dbWorker
 //
