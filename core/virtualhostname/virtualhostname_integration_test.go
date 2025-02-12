@@ -58,7 +58,7 @@ func (s *HostnameSuite) TestParseMachineHostname(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	unitName, valid := res.Unit()
-	c.Check(unitName, gc.Equals, "/0")
+	c.Check(unitName, gc.Equals, "")
 	c.Check(valid, gc.Equals, false)
 
 	containerName, valid := res.Container()

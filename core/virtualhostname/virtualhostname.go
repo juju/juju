@@ -42,14 +42,13 @@ type Info struct {
 	target    HostnameTarget
 	modelUUID string
 	machine   int
-	unit      int
-	app       string
+	unit      string
 	container string
 }
 
 // Unit returns the unit name.
 func (i Info) Unit() (string, bool) {
-	return fmt.Sprintf("%s/%d", i.app, i.unit), i.target != MachineTarget
+	return i.unit, i.target != MachineTarget
 }
 
 // Container returns the container name
@@ -115,19 +114,19 @@ func Parse(hostname string) (Info, error) {
 	}
 
 	res := Info{}
+	appName := result["appname"]
 	res.modelUUID = result["modeluuid"]
 	res.container = result["containername"]
-	res.app = result["appname"]
-	res.unit = unitNumber
+	res.unit = fmt.Sprintf("%s/%d", appName, unitNumber)
 
 	if res.container != "" {
 		res.target = ContainerTarget
-	} else if res.app != "" {
+	} else if appName != "" {
 		res.target = UnitTarget
 	} else {
 		res.target = MachineTarget
 		res.machine = unitNumber
-		res.unit = 0
+		res.unit = ""
 	}
 
 	return res, nil

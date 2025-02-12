@@ -29,8 +29,7 @@ func (s *HostnameSuite) TestParseHostname(c *gc.C) {
 			hostname: "charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 			result: Info{
 				container: "charm",
-				unit:      1,
-				app:       "postgresql",
+				unit:      "postgresql/1",
 				modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
 				target:    ContainerTarget,
 			},
@@ -39,8 +38,7 @@ func (s *HostnameSuite) TestParseHostname(c *gc.C) {
 			desc:     "Unit hostname",
 			hostname: "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 			result: Info{
-				unit:      1,
-				app:       "postgresql",
+				unit:      "postgresql/1",
 				modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
 				target:    UnitTarget,
 			},
@@ -70,8 +68,7 @@ func (s *HostnameSuite) TestParseHostname(c *gc.C) {
 			hostname: "my-charm-container.20.postgresql-k8s.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 			result: Info{
 				container: "my-charm-container",
-				unit:      20,
-				app:       "postgresql-k8s",
+				unit:      "postgresql-k8s/20",
 				modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
 				target:    ContainerTarget,
 			},
