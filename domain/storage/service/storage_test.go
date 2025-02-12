@@ -12,13 +12,14 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/errors"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
-	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type storageSuite struct {
@@ -109,14 +110,16 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		MockFilesystemImporter: s.filesystemImporter,
 	}, nil)
 
+	controllerUUID := uuid.MustNewUUID().String()
+	modelUUID := modeltesting.GenModelUUID(c).String()
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "elastic").Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError)
 	s.state.EXPECT().GetModelDetails().Return(domainstorage.ModelDetails{
-		ModelUUID:      coretesting.ModelTag.Id(),
-		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      modelUUID,
+		ControllerUUID: controllerUUID,
 	}, nil)
 	s.filesystemImporter.EXPECT().ImportFilesystem(gomock.Any(), "provider-id", map[string]string{
-		"juju-model-uuid":      coretesting.ModelTag.Id(),
-		"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		"juju-model-uuid":      modelUUID,
+		"juju-controller-uuid": controllerUUID,
 	}).Return(storage.FilesystemInfo{
 		FilesystemId: "filesystem-id",
 		Size:         123,
@@ -155,13 +158,15 @@ func (s *storageSuite) TestImportFilesystemUsingStoragePool(c *gc.C) {
 		Name:     "fast-elastic",
 		Provider: "elastic",
 	}, nil)
+	controllerUUID := uuid.MustNewUUID().String()
+	modelUUID := modeltesting.GenModelUUID(c).String()
 	s.state.EXPECT().GetModelDetails().Return(domainstorage.ModelDetails{
-		ModelUUID:      coretesting.ModelTag.Id(),
-		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      modelUUID,
+		ControllerUUID: controllerUUID,
 	}, nil)
 	s.filesystemImporter.EXPECT().ImportFilesystem(gomock.Any(), "provider-id", map[string]string{
-		"juju-model-uuid":      coretesting.ModelTag.Id(),
-		"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		"juju-model-uuid":      modelUUID,
+		"juju-controller-uuid": controllerUUID,
 	}).Return(storage.FilesystemInfo{
 		FilesystemId: "provider-id",
 		Size:         123,
@@ -195,8 +200,8 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *gc.C) {
 
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "elastic").Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError)
 	s.state.EXPECT().GetModelDetails().Return(domainstorage.ModelDetails{
-		ModelUUID:      coretesting.ModelTag.Id(),
-		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      modeltesting.GenModelUUID(c).String(),
+		ControllerUUID: uuid.MustNewUUID().String(),
 	}, nil)
 	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
@@ -218,14 +223,16 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 		MockVolumeImporter: s.volumeImporter,
 	}, nil)
 
+	controllerUUID := uuid.MustNewUUID().String()
+	modelUUID := modeltesting.GenModelUUID(c).String()
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "ebs").Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError)
 	s.state.EXPECT().GetModelDetails().Return(domainstorage.ModelDetails{
-		ModelUUID:      coretesting.ModelTag.Id(),
-		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      modelUUID,
+		ControllerUUID: controllerUUID,
 	}, nil)
 	s.volumeImporter.EXPECT().ImportVolume(gomock.Any(), "provider-id", map[string]string{
-		"juju-model-uuid":      coretesting.ModelTag.Id(),
-		"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		"juju-model-uuid":      modelUUID,
+		"juju-controller-uuid": controllerUUID,
 	}).Return(storage.VolumeInfo{
 		VolumeId:   "provider-id",
 		HardwareId: "hw",
@@ -268,8 +275,8 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *gc.C) {
 
 	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "ebs").Return(domainstorage.StoragePoolDetails{}, storageerrors.PoolNotFoundError)
 	s.state.EXPECT().GetModelDetails().Return(domainstorage.ModelDetails{
-		ModelUUID:      coretesting.ModelTag.Id(),
-		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      modeltesting.GenModelUUID(c).String(),
+		ControllerUUID: uuid.MustNewUUID().String(),
 	}, nil)
 	_, err = s.service(c).ImportFilesystem(context.Background(), ImportStorageParams{
 		Kind:        storage.StorageKindFilesystem,
