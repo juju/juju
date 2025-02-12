@@ -569,13 +569,14 @@ func (m *MockModelPoolBackend) EXPECT() *MockModelPoolBackendMockRecorder {
 }
 
 // GetModelCallContext mocks base method.
-func (m *MockModelPoolBackend) GetModelCallContext(arg0 string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
+func (m *MockModelPoolBackend) GetModelCallContext(arg0 string) (credentialcommon.PersistentBackend, context.ProviderCallContext, cloud.ModelCallContextReleaser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelCallContext", arg0)
 	ret0, _ := ret[0].(credentialcommon.PersistentBackend)
 	ret1, _ := ret[1].(context.ProviderCallContext)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(cloud.ModelCallContextReleaser)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // GetModelCallContext indicates an expected call of GetModelCallContext.
