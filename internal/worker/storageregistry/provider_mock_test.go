@@ -40,6 +40,45 @@ func (m *MockProviderFactory) EXPECT() *MockProviderFactoryMockRecorder {
 	return m.recorder
 }
 
+// EphemeralProviderFromConfig mocks base method.
+func (m *MockProviderFactory) EphemeralProviderFromConfig(arg0 context.Context, arg1 providertracker.EphemeralProviderConfig) (providertracker.Provider, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EphemeralProviderFromConfig", arg0, arg1)
+	ret0, _ := ret[0].(providertracker.Provider)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EphemeralProviderFromConfig indicates an expected call of EphemeralProviderFromConfig.
+func (mr *MockProviderFactoryMockRecorder) EphemeralProviderFromConfig(arg0, arg1 any) *MockProviderFactoryEphemeralProviderFromConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EphemeralProviderFromConfig", reflect.TypeOf((*MockProviderFactory)(nil).EphemeralProviderFromConfig), arg0, arg1)
+	return &MockProviderFactoryEphemeralProviderFromConfigCall{Call: call}
+}
+
+// MockProviderFactoryEphemeralProviderFromConfigCall wrap *gomock.Call
+type MockProviderFactoryEphemeralProviderFromConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockProviderFactoryEphemeralProviderFromConfigCall) Return(arg0 providertracker.Provider, arg1 error) *MockProviderFactoryEphemeralProviderFromConfigCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockProviderFactoryEphemeralProviderFromConfigCall) Do(f func(context.Context, providertracker.EphemeralProviderConfig) (providertracker.Provider, error)) *MockProviderFactoryEphemeralProviderFromConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockProviderFactoryEphemeralProviderFromConfigCall) DoAndReturn(f func(context.Context, providertracker.EphemeralProviderConfig) (providertracker.Provider, error)) *MockProviderFactoryEphemeralProviderFromConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ProviderForModel mocks base method.
 func (m *MockProviderFactory) ProviderForModel(arg0 context.Context, arg1 string) (providertracker.Provider, error) {
 	m.ctrl.T.Helper()
@@ -75,45 +114,6 @@ func (c *MockProviderFactoryProviderForModelCall) Do(f func(context.Context, str
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockProviderFactoryProviderForModelCall) DoAndReturn(f func(context.Context, string) (providertracker.Provider, error)) *MockProviderFactoryProviderForModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ProviderFromConfig mocks base method.
-func (m *MockProviderFactory) ProviderFromConfig(arg0 context.Context, arg1 providertracker.NonTrackedProviderConfig) (providertracker.NonTrackedProvider, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProviderFromConfig", arg0, arg1)
-	ret0, _ := ret[0].(providertracker.NonTrackedProvider)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ProviderFromConfig indicates an expected call of ProviderFromConfig.
-func (mr *MockProviderFactoryMockRecorder) ProviderFromConfig(arg0, arg1 any) *MockProviderFactoryProviderFromConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderFromConfig", reflect.TypeOf((*MockProviderFactory)(nil).ProviderFromConfig), arg0, arg1)
-	return &MockProviderFactoryProviderFromConfigCall{Call: call}
-}
-
-// MockProviderFactoryProviderFromConfigCall wrap *gomock.Call
-type MockProviderFactoryProviderFromConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockProviderFactoryProviderFromConfigCall) Return(arg0 providertracker.NonTrackedProvider, arg1 error) *MockProviderFactoryProviderFromConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockProviderFactoryProviderFromConfigCall) Do(f func(context.Context, providertracker.NonTrackedProviderConfig) (providertracker.NonTrackedProvider, error)) *MockProviderFactoryProviderFromConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderFactoryProviderFromConfigCall) DoAndReturn(f func(context.Context, providertracker.NonTrackedProviderConfig) (providertracker.NonTrackedProvider, error)) *MockProviderFactoryProviderFromConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

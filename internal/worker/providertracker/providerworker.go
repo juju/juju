@@ -5,8 +5,6 @@ package providertracker
 
 import (
 	"context"
-	"fmt"
-	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock"
@@ -36,7 +34,7 @@ type Config struct {
 	GetIAASProvider      GetProviderFunc
 	GetCAASProvider      GetProviderFunc
 	NewTrackerWorker     NewTrackerWorkerFunc
-	NewNonTrackedWorker  NewNonTrackedWorkerFunc
+	NewEphemeralProvider NewEphemeralProviderFunc
 	Logger               logger.Logger
 	Clock                clock.Clock
 }
@@ -55,8 +53,8 @@ func (config Config) Validate() error {
 	if config.NewTrackerWorker == nil {
 		return errors.NotValidf("nil NewTrackerWorker")
 	}
-	if config.NewNonTrackedWorker == nil {
-		return errors.NotValidf("nil NewNonTrackedWorker")
+	if config.NewEphemeralProvider == nil {
+		return errors.NotValidf("nil NewEphemeralProvider")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -76,16 +74,13 @@ type trackerRequest struct {
 
 // providerWorker defines a worker that runs provider tracker workers.
 type providerWorker struct {
-	internalStates   chan string
-	catacomb         catacomb.Catacomb
-	trackedRunner    *worker.Runner
-	nonTrackedRunner *worker.Runner
+	internalStates chan string
+	catacomb       catacomb.Catacomb
+	trackedRunner  *worker.Runner
 
 	config Config
 
 	requests chan trackerRequest
-
-	uniqueNamespaceCounter uint64
 }
 
 // NewWorker creates a new object store worker.
@@ -112,16 +107,6 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 			Clock:        config.Clock,
 			Logger:       internalworker.WrapLogger(config.Logger),
 		}),
-		nonTrackedRunner: worker.NewRunner(worker.RunnerParams{
-			IsFatal: func(err error) bool {
-				return true
-			},
-			ShouldRestart: func(err error) bool {
-				return false
-			},
-			Clock:  config.Clock,
-			Logger: internalworker.WrapLogger(config.Logger),
-		}),
 		requests:       make(chan trackerRequest),
 		internalStates: internalStates,
 	}
@@ -131,7 +116,6 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 		Work: w.loop,
 		Init: []worker.Worker{
 			w.trackedRunner,
-			w.nonTrackedRunner,
 		},
 	}); err != nil {
 		return nil, errors.Trace(err)
@@ -237,51 +221,21 @@ func (w *providerWorker) ProviderForModel(ctx context.Context, namespace string)
 	return tracked.(*trackerWorker).Provider(), nil
 }
 
-// ProviderFromConfig returns a provider for a given configuration. The provider
-// is not tracked, instead is created and then discarded. Credential
-// invalidation is not enforced during the call to the provider.
-func (w *providerWorker) ProviderFromConfig(ctx context.Context, config providertracker.NonTrackedProviderConfig) (providertracker.NonTrackedProvider, error) {
-	ctx, cancel := w.scopedContextFrom(ctx)
-	defer cancel()
-
-	id := atomic.AddUint64(&w.uniqueNamespaceCounter, 1)
-	ns := fmt.Sprintf("non-tracked-%d", id)
-
-	// Start the worker, we'll capture it once created.
-	err := w.nonTrackedRunner.StartWorker(ns, func() (worker.Worker, error) {
-		return w.config.NewNonTrackedWorker(ctx, NonTrackedConfig{
-			ModelType:      config.ModelType,
-			ModelConfig:    config.ModelConfig,
-			CloudSpec:      config.CloudSpec,
-			ControllerUUID: config.ControllerUUID,
-			GetProviderForType: getProviderForType(
-				w.config.GetIAASProvider,
-				w.config.GetCAASProvider,
-			),
-			Logger: w.config.Logger,
-		})
+// EphemeralProviderFromConfig returns an ephemeral provider for a given
+// configuration. The provider is not tracked, instead is created and then
+// discarded. Credential invalidation is not enforced during the call to the
+// provider. If the credentials change, the provider will have to be recreated.
+func (w *providerWorker) EphemeralProviderFromConfig(ctx context.Context, config providertracker.EphemeralProviderConfig) (Provider, error) {
+	return w.config.NewEphemeralProvider(ctx, EphemeralConfig{
+		ModelType:      config.ModelType,
+		ModelConfig:    config.ModelConfig,
+		CloudSpec:      config.CloudSpec,
+		ControllerUUID: config.ControllerUUID,
+		GetProviderForType: getProviderForType(
+			w.config.GetIAASProvider,
+			w.config.GetCAASProvider,
+		),
 	})
-	// Do not check if the worker already exists, as we want to create a new
-	// worker for each call to this function. It should be namespaced uniquely
-	// to avoid conflicts. If we do get an error, then something has
-	// fundamentally gone wrong and we should return that error.
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	nonTracked, err := w.nonTrackedRunner.Worker(ns, ctx.Done())
-	if errors.Is(err, worker.ErrDead) {
-		// Handle the case where the runner is dead due to this worker dying.
-		select {
-		case <-w.catacomb.Dying():
-			return nil, w.catacomb.ErrDying()
-		default:
-			return nil, errors.Trace(err)
-		}
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return nonTracked.(*nonTrackedWorker), nil
 }
 
 // Kill is part of the worker.Worker interface.

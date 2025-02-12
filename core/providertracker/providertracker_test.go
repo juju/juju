@@ -18,8 +18,7 @@ import (
 type providerSuite struct {
 	testing.IsolationSuite
 
-	provider           *MockProvider
-	nonTrackedProvider *MockNonTrackedProvider
+	provider *MockProvider
 
 	providerFactory *MockProviderFactory
 }
@@ -62,18 +61,16 @@ func (s *providerSuite) TestProviderRunnerIsNotSubsetType(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *providerSuite) TestNonTrackedProviderRunnerFromConfig(c *gc.C) {
+func (s *providerSuite) TestEphemeralProviderRunnerFromConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := NonTrackedProviderConfig{
+	config := EphemeralProviderConfig{
 		ControllerUUID: uuid.MustNewUUID(),
 	}
 
-	s.providerFactory.EXPECT().ProviderFromConfig(gomock.Any(), config).Return(s.nonTrackedProvider, nil)
-	s.nonTrackedProvider.EXPECT().Provider().Return(s.provider, nil)
-	s.nonTrackedProvider.EXPECT().Kill()
+	s.providerFactory.EXPECT().EphemeralProviderFromConfig(gomock.Any(), config).Return(s.provider, nil)
 
-	runner := NonTrackedProviderRunnerFromConfig[Provider](s.providerFactory, config)
+	runner := EphemeralProviderRunnerFromConfig[Provider](s.providerFactory, config)
 
 	var provider Provider
 	err := runner(context.Background(), func(ctx context.Context, p Provider) error {
@@ -84,10 +81,10 @@ func (s *providerSuite) TestNonTrackedProviderRunnerFromConfig(c *gc.C) {
 	c.Check(provider, gc.DeepEquals, s.provider)
 }
 
-func (s *providerSuite) TestNonTrackedProviderRunnerFromConfigSubsetType(c *gc.C) {
+func (s *providerSuite) TestEphemeralProviderRunnerFromConfigSubsetType(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := NonTrackedProviderConfig{
+	config := EphemeralProviderConfig{
 		ControllerUUID: uuid.MustNewUUID(),
 	}
 
@@ -95,11 +92,9 @@ func (s *providerSuite) TestNonTrackedProviderRunnerFromConfigSubsetType(c *gc.C
 		Provider: s.provider,
 	}
 
-	s.providerFactory.EXPECT().ProviderFromConfig(gomock.Any(), config).Return(s.nonTrackedProvider, nil)
-	s.nonTrackedProvider.EXPECT().Provider().Return(fooProvider, nil)
-	s.nonTrackedProvider.EXPECT().Kill()
+	s.providerFactory.EXPECT().EphemeralProviderFromConfig(gomock.Any(), config).Return(fooProvider, nil)
 
-	runner := NonTrackedProviderRunnerFromConfig[FooProvider](s.providerFactory, config)
+	runner := EphemeralProviderRunnerFromConfig[FooProvider](s.providerFactory, config)
 
 	var provider FooProvider
 	err := runner(context.Background(), func(ctx context.Context, p FooProvider) error {
@@ -110,10 +105,10 @@ func (s *providerSuite) TestNonTrackedProviderRunnerFromConfigSubsetType(c *gc.C
 	c.Check(provider, gc.DeepEquals, fooProvider)
 }
 
-func (s *providerSuite) TestNonTrackedProviderRunnerFromConfigIsNotSubsetType(c *gc.C) {
+func (s *providerSuite) TestEphemeralProviderRunnerFromConfigIsNotSubsetType(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := NonTrackedProviderConfig{
+	config := EphemeralProviderConfig{
 		ControllerUUID: uuid.MustNewUUID(),
 	}
 
@@ -121,11 +116,9 @@ func (s *providerSuite) TestNonTrackedProviderRunnerFromConfigIsNotSubsetType(c 
 		Provider: s.provider,
 	}
 
-	s.providerFactory.EXPECT().ProviderFromConfig(gomock.Any(), config).Return(s.nonTrackedProvider, nil)
-	s.nonTrackedProvider.EXPECT().Provider().Return(fooProvider, nil)
-	s.nonTrackedProvider.EXPECT().Kill()
+	s.providerFactory.EXPECT().EphemeralProviderFromConfig(gomock.Any(), config).Return(fooProvider, nil)
 
-	runner := NonTrackedProviderRunnerFromConfig[BarProvider](s.providerFactory, config)
+	runner := EphemeralProviderRunnerFromConfig[BarProvider](s.providerFactory, config)
 	err := runner(context.Background(), func(ctx context.Context, p BarProvider) error {
 		c.Fail()
 		return nil
@@ -137,7 +130,6 @@ func (s *providerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.provider = NewMockProvider(ctrl)
-	s.nonTrackedProvider = NewMockNonTrackedProvider(ctrl)
 
 	s.providerFactory = NewMockProviderFactory(ctrl)
 

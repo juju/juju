@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
@@ -44,7 +44,7 @@ type IAASProviderFunc func(ctx context.Context, args environs.OpenParams, invali
 type CAASProviderFunc func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (caas.Broker, error)
 
 // GetProviderFunc is a helper function that gets a provider from the manifold.
-type GetProviderFunc func(context.Context, ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error)
+type GetProviderFunc func(context.Context, ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error)
 
 // GetProviderServicesGetterFunc is a helper function that gets a service
 // factory getter from the manifold.
@@ -56,8 +56,8 @@ type NewWorkerFunc func(cfg Config) (worker.Worker, error)
 // NewTrackerWorkerFunc is a function that creates a new TrackerWorker.
 type NewTrackerWorkerFunc func(ctx context.Context, cfg TrackerConfig) (worker.Worker, error)
 
-// NewNonTrackedWorkerFunc is a function that creates a new NonTrackedWorker.
-type NewNonTrackedWorkerFunc func(ctx context.Context, cfg NonTrackedConfig) (worker.Worker, error)
+// NewEphemeralProviderFunc is a function that creates a new EphemeralProvider.
+type NewEphemeralProviderFunc func(ctx context.Context, cfg EphemeralConfig) (Provider, error)
 
 // ManifoldConfig describes the resources used by a Worker.
 type ManifoldConfig struct {
@@ -68,8 +68,8 @@ type ManifoldConfig struct {
 	NewWorker NewWorkerFunc
 	// NewTrackerWorker is a function that creates a new TrackerWorker.
 	NewTrackerWorker NewTrackerWorkerFunc
-	// NewNonTrackedWorker is a function that creates a new NonTrackedWorker.
-	NewNonTrackedWorker NewNonTrackedWorkerFunc
+	// NewEphemeralProvider is a function that creates a new ephemeral Provider.
+	NewEphemeralProvider NewEphemeralProviderFunc
 	// GetIAASProvider is a helper function that gets a IAAS provider from the
 	// manifold.
 	GetIAASProvider GetProviderFunc
@@ -95,8 +95,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.NewTrackerWorker == nil {
 		return errors.NotValidf("nil NewTrackerWorker")
 	}
-	if cfg.NewNonTrackedWorker == nil {
-		return errors.NotValidf("nil NewNonTrackedWorker")
+	if cfg.NewEphemeralProvider == nil {
+		return errors.NotValidf("nil NewEphemeralProvider")
 	}
 	if cfg.GetIAASProvider == nil {
 		return errors.NotValidf("nil GetIAASProvider")
@@ -148,7 +148,7 @@ func manifold(trackerType TrackerType, config ManifoldConfig) dependency.Manifol
 				GetIAASProvider:      config.GetIAASProvider,
 				GetCAASProvider:      config.GetCAASProvider,
 				NewTrackerWorker:     config.NewTrackerWorker,
-				NewNonTrackedWorker:  config.NewNonTrackedWorker,
+				NewEphemeralProvider: config.NewEphemeralProvider,
 				Logger:               config.Logger,
 				Clock:                config.Clock,
 			})
@@ -161,8 +161,8 @@ func manifold(trackerType TrackerType, config ManifoldConfig) dependency.Manifol
 }
 
 // IAASGetProvider creates a new provider from the given args.
-func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error) {
-	return func(ctx context.Context, getter ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error) {
+func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+	return func(ctx context.Context, getter ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
 		// We can't use newProvider directly, as type invariance prevents us
 		// from using it with the environs.GetEnvironAndCloud function.
 		// Just wrap it in a closure to work around this.
@@ -170,23 +170,23 @@ func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, get
 			return newProvider(ctx, op, invalidator)
 		})
 		if err != nil {
-			return nil, environscloudspec.CloudSpec{}, errors.Trace(err)
+			return nil, cloudspec.CloudSpec{}, errors.Trace(err)
 		}
 		return provider, *spec, nil
 	}
 }
 
 // CAASGetProvider creates a new provider from the given args.
-func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error) {
-	return func(ctx context.Context, getter ProviderConfigGetter) (Provider, environscloudspec.CloudSpec, error) {
+func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+	return func(ctx context.Context, getter ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
 		cloudSpec, err := getter.CloudSpec(ctx)
 		if err != nil {
-			return nil, environscloudspec.CloudSpec{}, errors.Annotate(err, "cannot get cloud information")
+			return nil, cloudspec.CloudSpec{}, errors.Annotate(err, "cannot get cloud information")
 		}
 
 		cfg, err := getter.ModelConfig(ctx)
 		if err != nil {
-			return nil, environscloudspec.CloudSpec{}, errors.Trace(err)
+			return nil, cloudspec.CloudSpec{}, errors.Trace(err)
 		}
 
 		broker, err := newProvider(ctx, environs.OpenParams{
@@ -195,7 +195,7 @@ func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, get
 			Config:         cfg,
 		}, environs.NoopCredentialInvalidator())
 		if err != nil {
-			return nil, environscloudspec.CloudSpec{}, errors.Annotate(err, "cannot create caas broker")
+			return nil, cloudspec.CloudSpec{}, errors.Annotate(err, "cannot create caas broker")
 		}
 		return broker, cloudSpec, nil
 	}

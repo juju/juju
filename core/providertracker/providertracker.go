@@ -31,20 +31,17 @@ type Provider interface {
 	environs.ResourceAdopter
 }
 
-// NonTrackedProvider returns a provider that is not tracked by the worker.
+// EphemeralProvider returns a provider that is not tracked by the worker.
 // It is created and then discarded. No credential invalidation is enforced
 // during the call to the provider.
-type NonTrackedProvider interface {
+type EphemeralProvider interface {
 	// Provider returns the provider.
 	Provider() (Provider, error)
-
-	// Kill will shut down the provider and release any resources.
-	Kill()
 }
 
-// NonTrackedProviderConfig is a struct that contains the necessary information
+// EphemeralProviderConfig is a struct that contains the necessary information
 // to create a provider.
-type NonTrackedProviderConfig struct {
+type EphemeralProviderConfig struct {
 	// ModelType is the type of the model.
 	ModelType model.ModelType
 
@@ -69,9 +66,10 @@ type ProviderFactory interface {
 	// then an error will be returned.
 	ProviderForModel(ctx context.Context, namespace string) (Provider, error)
 
-	// ProviderFromConfig returns a provider for a given configuration.
-	// The provider is not tracked, instead is created and then discarded.
-	ProviderFromConfig(ctx context.Context, config NonTrackedProviderConfig) (NonTrackedProvider, error)
+	// EphemeralProviderFromConfig returns an ephemeral provider for a given
+	// configuration. The provider is not tracked, instead is created and then
+	// discarded.
+	EphemeralProviderFromConfig(ctx context.Context, config EphemeralProviderConfig) (Provider, error)
 }
 
 // ProviderGetter is a function that returns a provider for a given type.
@@ -96,27 +94,17 @@ func ProviderRunner[T any](providerFactory ProviderFactory, namespace string) fu
 	}
 }
 
-// NonTrackedProviderRunnerFromConfig returns the ProviderGetter function for a
+// EphemeralProviderRunnerFromConfig returns the ProviderGetter function for a
 // given generic type. This is useful for ad-hoc providers that are not tracked,
 // but instead created and discarded. Credential invalidation is not enforced
 // during the call to the provider. For that reason alone, a closure is returned
 // and the provider is created and discarded on each call.
-func NonTrackedProviderRunnerFromConfig[T any](providerFactory ProviderFactory, config NonTrackedProviderConfig) func(context.Context, func(context.Context, T) error) error {
+func EphemeralProviderRunnerFromConfig[T any](providerFactory ProviderFactory, config EphemeralProviderConfig) func(context.Context, func(context.Context, T) error) error {
 	return func(ctx context.Context, fn func(context.Context, T) error) error {
-		result, err := providerFactory.ProviderFromConfig(ctx, config)
+		provider, err := providerFactory.EphemeralProviderFromConfig(ctx, config)
 		if err != nil {
 			return errors.Trace(err)
 		}
-
-		// The provider will be discarded after the function is called. This
-		// ensures that the provider is not leaked.
-		defer result.Kill()
-
-		provider, err := result.Provider()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
 		if v, ok := provider.(T); ok {
 			return fn(ctx, v)
 		}

@@ -57,7 +57,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewNonTrackedWorker = nil
+	cfg.NewEphemeralProvider = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -84,8 +84,8 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewTrackerWorker: func(ctx context.Context, cfg TrackerConfig) (worker.Worker, error) {
 			return newStubWorker(), nil
 		},
-		NewNonTrackedWorker: func(ctx context.Context, cfg NonTrackedConfig) (worker.Worker, error) {
-			return newStubWorker(), nil
+		NewEphemeralProvider: func(ctx context.Context, cfg EphemeralConfig) (Provider, error) {
+			return nil, nil
 		},
 		GetIAASProvider: func(ctx context.Context, pcg ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
 			return s.environ, cloudspec.CloudSpec{}, nil
@@ -147,7 +147,7 @@ func (s *manifoldSuite) TestIAASManifoldOutput(c *gc.C) {
 			})
 			return w, err
 		},
-		NewNonTrackedWorker: func(ctx context.Context, cfg NonTrackedConfig) (worker.Worker, error) {
+		NewEphemeralProvider: func(ctx context.Context, cfg EphemeralConfig) (Provider, error) {
 			c.Fail()
 			return nil, nil
 		},
@@ -203,7 +203,7 @@ func (s *manifoldSuite) TestCAASManifoldOutput(c *gc.C) {
 			})
 			return w, err
 		},
-		NewNonTrackedWorker: func(ctx context.Context, cfg NonTrackedConfig) (worker.Worker, error) {
+		NewEphemeralProvider: func(ctx context.Context, cfg EphemeralConfig) (Provider, error) {
 			c.Fail()
 			return nil, nil
 		},

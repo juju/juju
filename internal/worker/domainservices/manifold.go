@@ -304,7 +304,7 @@ func (NoopProviderFactory) ProviderForModel(ctx context.Context, namespace strin
 	return nil, errors.NotSupportedf("provider")
 }
 
-// ProviderFromConfig returns a not supported error.
-func (NoopProviderFactory) ProviderFromConfig(ctx context.Context, config providertracker.NonTrackedProviderConfig) (providertracker.NonTrackedProvider, error) {
+// EphemeralProviderFromConfig returns a not supported error.
+func (NoopProviderFactory) EphemeralProviderFromConfig(ctx context.Context, config providertracker.EphemeralProviderConfig) (providertracker.Provider, error) {
 	return nil, errors.NotSupportedf("provider")
 }
