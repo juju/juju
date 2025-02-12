@@ -245,9 +245,17 @@ func (s *modelBootstrapSuite) TestSetModelConstraints(c *gc.C) {
 		return s.ModelTxnRunner(), nil
 	}, loggertesting.WrapCheckLog(c))
 
+	expected := model.Constraints{
+		Arch:      ptr("amd64"),
+		Container: ptr(instance.LXD),
+		CpuCores:  ptr(uint64(4)),
+		Mem:       ptr(uint64(1024)),
+		RootDisk:  ptr(uint64(1024)),
+	}
+
 	data, err := modelState.GetModelConstraints(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, jc.DeepEquals, cons)
+	c.Check(data, jc.DeepEquals, expected)
 }
 
 // TestSetModelConstraintsFailedModelNotFound is asserting that if we set model
@@ -258,7 +266,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintFailedModelNotFound(c *gc.C)
 		return s.ModelTxnRunner(), nil
 	}, loggertesting.WrapCheckLog(c))
 
-	err := state.SetModelConstraints(context.Background(), constraints.Value{
+	err := state.SetModelConstraints(context.Background(), model.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 	})
@@ -298,7 +306,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *gc.
 		return s.ModelTxnRunner(), nil
 	}, loggertesting.WrapCheckLog(c))
 
-	cons := constraints.Value{
+	cons := model.Constraints{
 		Container: ptr(instance.ContainerType("noexist")),
 		ImageID:   ptr("image-id"),
 	}
@@ -342,8 +350,13 @@ func (s *modelBootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *g
 		return s.ModelTxnRunner(), nil
 	}, loggertesting.WrapCheckLog(c))
 
-	err = state.SetModelConstraints(context.Background(), constraints.Value{
-		Spaces:  ptr([]string{"space1"}),
+	err = state.SetModelConstraints(context.Background(), model.Constraints{
+		Spaces: ptr([]model.SpaceConstraint{
+			{
+				SpaceName: "space1",
+				Exclude:   false,
+			},
+		}),
 		ImageID: ptr("image-id"),
 	})
 	c.Check(err, jc.ErrorIs, networkerrors.SpaceNotFound)

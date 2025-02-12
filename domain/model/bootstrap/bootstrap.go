@@ -164,9 +164,10 @@ func CreateReadOnlyModel(
 // constraints is invalid.
 // - [modelerrors.NotFound]: when no model exists to set constraints for.
 func SetModelConstraints(constraints constraints.Value) internaldatabase.BootstrapOpt {
-	return func(ctx context.Context, controller, model database.TxnRunner) error {
-		return model.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			return state.SetModelConstraints(ctx, preparer{}, tx, constraints)
+	return func(ctx context.Context, controller, modelDB database.TxnRunner) error {
+		return modelDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			modelCons := model.FromCoreConstraints(constraints)
+			return state.SetModelConstraints(ctx, preparer{}, tx, modelCons)
 		})
 	}
 }
