@@ -49,6 +49,7 @@ type ResourcesHandlerSuite struct {
 
 	resourceService       *MockResourceService
 	resourceServiceGetter *MockResourceServiceGetter
+	downloader            *MockDownloader
 }
 
 var _ = gc.Suite(&ResourcesHandlerSuite{})
@@ -92,11 +93,13 @@ func (s *ResourcesHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.resourceService = NewMockResourceService(ctrl)
 	s.resourceServiceGetter = NewMockResourceServiceGetter(ctrl)
+	s.downloader = NewMockDownloader(ctrl)
 
 	s.handler = NewResourceHandler(
 		s.authFunc,
 		func(context.Context) error { return nil },
 		s.resourceServiceGetter,
+		s.downloader,
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -134,6 +137,7 @@ func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
 		authFunc,
 		func(context.Context) error { return nil },
 		s.resourceServiceGetter,
+		s.downloader,
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -244,6 +248,13 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
 		s.resource, nil,
 	)
 
+	s.downloader.EXPECT().Download(
+		gomock.Any(),
+		s.resourceReader,
+		s.resource.Fingerprint.String(),
+		s.resource.Size,
+	).Return(s.resourceReader, nil)
+
 	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    s.resourceUUID,
 		Reader:          s.resourceReader,
@@ -291,6 +302,7 @@ func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
 		s.authFunc,
 		changeAllowedFunc,
 		s.resourceServiceGetter,
+		s.downloader,
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -320,6 +332,13 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
 	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
 		res, nil,
 	)
+
+	s.downloader.EXPECT().Download(
+		gomock.Any(),
+		s.resourceReader,
+		s.resource.Fingerprint.String(),
+		s.resource.Size,
+	).Return(s.resourceReader, nil)
 
 	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    s.resourceUUID,
@@ -399,6 +418,13 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
 	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
 		s.resource, nil,
 	)
+
+	s.downloader.EXPECT().Download(
+		gomock.Any(),
+		s.resourceReader,
+		s.resource.Fingerprint.String(),
+		s.resource.Size,
+	).Return(s.resourceReader, nil)
 
 	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    s.resourceUUID,

@@ -24,6 +24,7 @@ import (
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
 type resourcesMigrationUploadHandler struct {
 	resourceServiceGetter ResourceServiceGetter
+	downloader            Downloader
 	logger                logger.Logger
 }
 
@@ -31,11 +32,13 @@ type resourcesMigrationUploadHandler struct {
 // uploads during model migrations.
 func NewResourceMigrationUploadHandler(
 	resourceServiceGetter ResourceServiceGetter,
+	downloader Downloader,
 	logger logger.Logger,
 ) *resourcesMigrationUploadHandler {
 	return &resourcesMigrationUploadHandler{
 		resourceServiceGetter: resourceServiceGetter,
 		logger:                logger,
+		downloader:            downloader,
 	}
 }
 
@@ -122,10 +125,15 @@ func (h *resourcesMigrationUploadHandler) processPost(
 		return empty, internalerrors.Errorf("extracting resource details from request: %w", err)
 	}
 
+	reader, err := h.downloader.Download(r.Context(), r.Body, details.fingerprint.String(), details.size)
+	if err != nil {
+		return empty, internalerrors.Errorf("validating resource size and hash: %w", err)
+	}
+
 	retrievedBy, retrievedByType := determineRetrievedBy(query)
 	err = resourceService.StoreResource(ctx, resource.StoreResourceArgs{
 		ResourceUUID:    resUUID,
-		Reader:          r.Body,
+		Reader:          reader,
 		RetrievedBy:     retrievedBy,
 		RetrievedByType: retrievedByType,
 		Size:            details.size,
