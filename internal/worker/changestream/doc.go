@@ -1,9 +1,9 @@
-// Copyright 2025 Canonical Ltd. Licensed under the AGPLv3, see LICENCE file for
-// details.
-//
-// Package changestream makes the databases created by the
-// internal/worker/dbaccessor package watchable. These databases are then used
-// by the internal/worker/domainservices package.
+// Copyright 2023 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+// Package changestream adds the ability to create watchers to the transaction
+// runners created by the internal/worker/dbaccessor package. These databases
+// are then used by the internal/worker/domainservices package.
 //
 // How do databases become watchable?
 //
