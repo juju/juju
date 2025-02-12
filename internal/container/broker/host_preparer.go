@@ -80,7 +80,7 @@ func (hp *HostPreparer) Prepare(ctx context.Context, containerTag names.MachineT
 	}
 
 	if len(devicesToBridge) == 0 {
-		hp.logger.Debugf(context.TODO(), "container %q requires no additional bridges", containerTag)
+		hp.logger.Debugf(ctx, "container %q requires no additional bridges", containerTag)
 		return nil
 	}
 
@@ -89,7 +89,7 @@ func (hp *HostPreparer) Prepare(ctx context.Context, containerTag names.MachineT
 		return errors.Trace(err)
 	}
 
-	hp.logger.Debugf(context.TODO(), "bridging %+v devices on host %q for container %q",
+	hp.logger.Debugf(ctx, "bridging %+v devices on host %q for container %q",
 		devicesToBridge, hp.machineTag.String(), containerTag.String())
 
 	err = bridger.Bridge(devicesToBridge)
@@ -105,7 +105,7 @@ func (hp *HostPreparer) Prepare(ctx context.Context, containerTag names.MachineT
 	}
 
 	if len(observedConfig) > 0 {
-		hp.logger.Debugf(context.TODO(), "updating observed network config for %q to %#v", hp.machineTag.String(), observedConfig)
+		hp.logger.Debugf(ctx, "updating observed network config for %q to %#v", hp.machineTag.String(), observedConfig)
 		err := hp.api.SetHostMachineNetworkConfig(ctx, hp.machineTag, observedConfig)
 		if err != nil {
 			return errors.Trace(err)
