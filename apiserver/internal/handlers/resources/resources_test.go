@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package resources
 
 import (
 	"context"
@@ -28,6 +28,7 @@ import (
 	domainresource "github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -96,6 +97,7 @@ func (s *ResourcesHandlerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		s.authFunc,
 		func(context.Context) error { return nil },
 		s.resourceServiceGetter,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	return ctrl
@@ -132,6 +134,7 @@ func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
 		authFunc,
 		func(context.Context) error { return nil },
 		s.resourceServiceGetter,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
@@ -288,6 +291,7 @@ func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
 		s.authFunc,
 		changeAllowedFunc,
 		s.resourceServiceGetter,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	req := s.newUploadRequest(c)

@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package resources
 
 import (
 	"context"
@@ -21,8 +21,11 @@ import (
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/unit"
 	domainresource "github.com/juju/juju/domain/resource"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
+
+const migrateResourcesPrefix = "/migrate/resources"
 
 type resourcesUploadSuite struct {
 	applicationsServiceGetter *MockApplicationServiceGetter
@@ -55,7 +58,11 @@ func (s *resourcesUploadSuite) TestStub(c *gc.C) {
 // other than POST with a 405 Method Not Allowed response.
 func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *gc.C) {
 	// Arrange
-	handler := &resourcesMigrationUploadHandler{}
+	handler := NewResourceMigrationUploadHandler(
+		nil,
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
 	unsupportedMethods := []string{
 		http.MethodGet,
 		http.MethodHead,
@@ -511,10 +518,11 @@ func (s *resourcesUploadSuite) setupHandler(c *gc.C) Finisher {
 	s.expectApplicationService()
 	s.expectResourceService()
 
-	handler := &resourcesMigrationUploadHandler{
-		resourceServiceGetter:    s.resourceServiceGetter,
-		applicationServiceGetter: s.applicationsServiceGetter,
-	}
+	handler := NewResourceMigrationUploadHandler(
+		s.applicationsServiceGetter,
+		s.resourceServiceGetter,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	err := s.mux.AddHandler("POST", migrateResourcesPrefix, handler)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) unexpected error while adding handler"))

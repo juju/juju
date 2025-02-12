@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package resources
 
 import (
 	"io"
@@ -19,6 +19,7 @@ import (
 
 	coreresource "github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type UnitResourcesHandlerSuite struct {
@@ -57,6 +58,7 @@ func (s *UnitResourcesHandlerSuite) newUnitResourceHander(c *gc.C) *UnitResource
 	s.openerGetter.EXPECT().Opener(gomock.Any(), names.UnitTagKind, names.ApplicationTagKind).Return(s.opener, nil)
 	return NewUnitResourcesHandler(
 		s.openerGetter,
+		loggertesting.WrapCheckLog(c),
 	)
 }
 
@@ -64,6 +66,7 @@ func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	handler := NewUnitResourcesHandler(
 		nil,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	req, err := http.NewRequest("POST", s.urlStr, nil)
@@ -80,6 +83,7 @@ func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 	s.openerGetter.EXPECT().Opener(gomock.Any(), names.UnitTagKind, names.ApplicationTagKind).Return(nil, failure)
 	handler := NewUnitResourcesHandler(
 		s.openerGetter,
+		loggertesting.WrapCheckLog(c),
 	)
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
