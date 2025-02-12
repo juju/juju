@@ -21,6 +21,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/resource"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -32,6 +33,7 @@ import (
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
@@ -304,9 +306,12 @@ func (s *Service) CreateApplication(
 		charm,
 		origin,
 		args.DownloadInfo,
-		args.ResolvedResources,
 	); err != nil {
 		return "", errors.Annotatef(err, "invalid application args")
+	}
+
+	if err := validateCreateApplicationResourceParams(charm, args.ResolvedResources, args.PendingResources); err != nil {
+		return "", errors.Annotatef(err, "create application")
 	}
 
 	modelType, err := s.st.GetModelType(ctx)
@@ -346,7 +351,6 @@ func validateCreateApplicationParams(
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	downloadInfo *charm.DownloadInfo,
-	resolvedResources ResolvedResources,
 ) error {
 	if !isValidApplicationName(name) {
 		return applicationerrors.ApplicationNameNotValid
@@ -386,6 +390,48 @@ func validateCreateApplicationParams(
 		return fmt.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
 	}
 
+	return nil
+}
+
+func validateCreateApplicationResourceParams(
+	charm internalcharm.Charm,
+	resolvedResources ResolvedResources,
+	pendingResources []resource.UUID,
+) error {
+	charmResources := charm.Meta().Resources
+
+	switch {
+	case len(charmResources) == 0 && (len(resolvedResources) != 0 || len(pendingResources) != 0):
+		return internalerrors.Errorf("charm has resources which have not provided: %w",
+			applicationerrors.InvalidResourceArgs)
+	case len(charmResources) == 0:
+		return nil
+	case len(pendingResources) != 0 && len(resolvedResources) != 0:
+		return internalerrors.Errorf("cannot have both pending and resolved resources: %w",
+			applicationerrors.InvalidResourceArgs)
+	case len(pendingResources) > 0:
+		// resolvedResources and pendingResources are mutually exclusive.
+		// Only one should be provided based on the code path to CreateApplication.
+		// AddCharm requires pending resources, resolved by the client.
+		// DeployFromRepository requires resources resolved on the controller.
+		return validatePendingResource(len(charmResources), pendingResources)
+	case len(resolvedResources) > 0:
+		return validateResolvedResources(charmResources, resolvedResources)
+	default:
+		return internalerrors.Errorf("charm has resources which have not provided: %w",
+			applicationerrors.InvalidResourceArgs)
+	}
+}
+
+func validatePendingResource(charmResourceCount int, pendingResources []resource.UUID) error {
+	if len(pendingResources) != charmResourceCount {
+		return internalerrors.Errorf("pending and charm resource counts are different: %w",
+			applicationerrors.InvalidResourceArgs)
+	}
+	return nil
+}
+
+func validateResolvedResources(charmResources map[string]charmresource.Meta, resolvedResources ResolvedResources) error {
 	// Validate consistency of resources origin and revision
 	if err := resolvedResources.Validate(); err != nil {
 		return err
@@ -394,10 +440,10 @@ func validateCreateApplicationParams(
 	// Validates that all charm resources are resolved
 	appResourceSet := set.NewStrings()
 	charmResourceSet := set.NewStrings()
-	for _, res := range charm.Meta().Resources {
+	for _, res := range charmResources {
 		charmResourceSet.Add(res.Name)
 	}
-	for _, res := range resolvedResources {
+	for _, res := range charmResources {
 		appResourceSet.Add(res.Name)
 	}
 	unexpectedResources := appResourceSet.Difference(charmResourceSet)
@@ -492,6 +538,7 @@ func makeCreateApplicationArgs(
 		Platform:          platformArg,
 		Channel:           channelArg,
 		Resources:         makeResourcesArgs(args.ResolvedResources),
+		PendingResources:  args.PendingResources,
 		Storage:           makeStorageArgs(storageDirectives),
 		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,

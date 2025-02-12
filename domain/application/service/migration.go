@@ -165,7 +165,7 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
 func (s *MigrationService) ImportApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
-	if err := validateCreateApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin, args.DownloadInfo, args.ResolvedResources); err != nil {
+	if err := validateCreateApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin, args.DownloadInfo); err != nil {
 		return errors.Annotatef(err, "invalid application args")
 	}
 

@@ -24,6 +24,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coreresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resource/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application"
@@ -34,6 +36,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
 	portstate "github.com/juju/juju/domain/port/state"
+	"github.com/juju/juju/domain/resource"
 	domainstorage "github.com/juju/juju/domain/storage"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -346,11 +349,11 @@ func (s *applicationStateSuite) TestCreateApplicationWithCharmStoragePath(c *gc.
 	s.assertApplication(c, "666", platform, channel, scale, true)
 }
 
-// TestCreateApplicationWithResources tests creation of an application with
+// TestCreateApplicationWithResolvedResources tests creation of an application with
 // specified resources.
 // It verifies that the charm_resource table is populated, alongside the
-// resource and application_resource table with datas from charm and arguments.
-func (s *applicationStateSuite) TestCreateApplicationWithResources(c *gc.C) {
+// resource and application_resource table with data from charm and arguments.
+func (s *applicationStateSuite) TestCreateApplicationWithResolvedResources(c *gc.C) {
 	charmResources := map[string]charm.Resource{
 		"some-file": {
 			Name:        "foo-file",
@@ -394,7 +397,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithResources(c *gc.C) {
 	assertTxn("Fetch application and charm UUID", func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, `
 SELECT uuid, charm_uuid
-FROM application 
+FROM application
 WHERE name=?`, "666").Scan(&appUUID, &charmUUID)
 	})
 	var (
@@ -408,7 +411,7 @@ SELECT cr.name, crk.name as kind, path, description
 FROM charm_resource cr
 JOIN charm_resource_kind crk ON crk.id=cr.kind_id
 WHERE charm_uuid=?`, charmUUID)
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -430,7 +433,7 @@ AND state = 'available'`, appUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var res application.AddApplicationResourceArg
 			var originName string
@@ -482,6 +485,208 @@ AND state = 'potential'`, appUUID)
 	}
 	c.Check(foundAppPotentialResources, jc.SameContents, expectedPotentialResources,
 		gc.Commentf("(Assert) mismatch between potential app resources and inserted resources"))
+}
+
+// TestCreateApplicationWithResolvedResources tests creation of an application with
+// pending resources, where SetCharm has been called first.
+// It verifies that the charm_resource table is populated, alongside the
+// resource and application_resource table with data from charm and arguments.
+// The pending_application_resource table should have no entries with the appName.
+func (s *applicationStateSuite) TestCreateApplicationWithPendingResources(c *gc.C) {
+	charmResources := map[string]charm.Resource{
+		"some-file": {
+			Name:        "foo-file",
+			Type:        "file",
+			Path:        "/some/path/foo.txt",
+			Description: "A file",
+		},
+		"some-image": {
+			Name: "my-image",
+			Type: "oci-image",
+			Path: "repo.org/my-image:tag",
+		},
+	}
+
+	ctx := context.Background()
+
+	appName := "666"
+	args := s.addApplicationArgForResources(c, appName,
+		charmResources, nil)
+
+	charmID, _, err := s.state.SetCharm(ctx, args.Charm, nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addResources := []resource.AddResourceDetails{
+		{
+			Name:     "foo-file",
+			Revision: ptr(75),
+		}, {
+			Name:     "my-image",
+			Revision: ptr(42),
+		},
+	}
+
+	args.PendingResources = s.addResourcesBeforeApplication(c, appName, charmID.String(), addResources)
+
+	_, err = s.state.CreateApplication(ctx, appName, args, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// Check expected resources are added
+	assertTxn := func(comment string, do func(ctx context.Context, tx *sql.Tx) error) {
+		err := s.TxnRunner().StdTxn(context.Background(), do)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) %s: %s", comment,
+			errors.ErrorStack(err)))
+	}
+	var (
+		appUUID   string
+		charmUUID string
+	)
+	assertTxn("Fetch application and charm UUID", func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT uuid, charm_uuid
+FROM application
+WHERE name=?`, appName).Scan(&appUUID, &charmUUID)
+	})
+	var (
+		foundCharmResources        []charm.Resource
+		foundAppAvailableResources []resource.AddResourceDetails
+		foundAppPotentialResources []resource.AddResourceDetails
+	)
+	assertTxn("Fetch charm resources", func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT cr.name, crk.name as kind, path, description
+FROM charm_resource cr
+JOIN charm_resource_kind crk ON crk.id=cr.kind_id
+WHERE charm_uuid=?`, charmUUID)
+		defer func() { _ = rows.Close() }()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		for rows.Next() {
+			var res charm.Resource
+			if err := rows.Scan(&res.Name, &res.Type, &res.Path, &res.Description); err != nil {
+				return errors.Capture(err)
+			}
+			foundCharmResources = append(foundCharmResources, res)
+		}
+		return nil
+	})
+	assertTxn("Fetch application available resources", func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT vr.name, revision
+FROM v_resource vr
+WHERE application_uuid = ?
+AND state = 'available'`, appUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var res resource.AddResourceDetails
+
+			if err := rows.Scan(&res.Name, &res.Revision); err != nil {
+				return errors.Capture(err)
+			}
+			foundAppAvailableResources = append(foundAppAvailableResources, res)
+		}
+		return nil
+	})
+
+	assertTxn("Fetch application potential resources", func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT vr.name, revision
+FROM v_resource vr
+WHERE application_uuid = ?
+AND state = 'potential'`, appUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var res resource.AddResourceDetails
+			if err := rows.Scan(&res.Name, &res.Revision); err != nil {
+				return errors.Capture(err)
+			}
+			foundAppPotentialResources = append(foundAppPotentialResources, res)
+		}
+		return nil
+	})
+	c.Check(foundCharmResources, jc.SameContents, slices.Collect(maps.Values(charmResources)),
+		gc.Commentf("(Assert) mismatch between charm resources and inserted resources"))
+	c.Check(foundAppAvailableResources, jc.SameContents, addResources,
+		gc.Commentf("(Assert) mismatch between app available app resources and inserted resources"))
+	expectedPotentialResources := make([]resource.AddResourceDetails, 0, len(addResources))
+	for _, res := range addResources {
+		expectedPotentialResources = append(expectedPotentialResources, resource.AddResourceDetails{
+			Name:     res.Name,
+			Revision: nil, // nil revision
+		})
+	}
+	c.Check(foundAppPotentialResources, jc.SameContents, expectedPotentialResources,
+		gc.Commentf("(Assert) mismatch between potential app resources and inserted resources"))
+
+	assertTxn("No pending application resources", func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT resource_uuid FROM pending_application_resource WHERE application_name = ?", appName).Scan(nil)
+		c.Check(err, jc.ErrorIs, sql.ErrNoRows)
+		return nil
+	})
+}
+
+// addResourcesBeforeApplication mimics the behavior of AddResourcesBeforeApplication
+// from the resource domain for testing CreateApplication.
+func (s *applicationStateSuite) addResourcesBeforeApplication(
+	c *gc.C,
+	appName, charmUUID string,
+	appResources []resource.AddResourceDetails,
+) []coreresource.UUID {
+	resources := make([]addPendingResource, len(appResources))
+	resourceUUIDs := make([]coreresource.UUID, len(appResources))
+	for i, r := range appResources {
+		resourceUUIDs[i] = testing.GenResourceUUID(c)
+		resources[i] = addPendingResource{
+			UUID:      resourceUUIDs[i].String(),
+			Name:      r.Name,
+			Revision:  r.Revision,
+			CreatedAt: time.Now(),
+		}
+	}
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		for _, res := range resources {
+			insertStmt := `
+INSERT INTO resource (uuid, charm_uuid, charm_resource_name, revision,
+       origin_type_id, state_id, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+			_, err := tx.ExecContext(ctx, insertStmt,
+				res.UUID, charmUUID, res.Name, res.Revision, 1, 0, res.CreatedAt)
+			c.Assert(err, gc.IsNil)
+			if err != nil {
+				return err
+			}
+
+			linkStmt := `
+INSERT INTO pending_application_resource (application_name, resource_uuid)
+VALUES (?, ?)
+`
+			_, err = tx.ExecContext(ctx, linkStmt, appName, res.UUID)
+			c.Assert(err, gc.IsNil)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return resourceUUIDs
+}
+
+// addPendingResource holds the data required to add a pending
+// resource into the resource table.
+type addPendingResource struct {
+	UUID      string
+	Name      string
+	Revision  *int
+	CreatedAt time.Time
 }
 
 // TestCreateApplicationWithExistingCharmWithResources ensures that two

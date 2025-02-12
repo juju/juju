@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -34,6 +35,9 @@ type AddApplicationArg struct {
 	// Resources defines the list of resources to add to an application.
 	// They should match all the resources defined in the Charm.
 	Resources []AddApplicationResourceArg
+	// PendingResources are the uuids of resources added before the
+	// application is created.
+	PendingResources []resource.UUID
 	// Storage defines the list of storage directives to add to an application.
 	// The Name values should match the storage defined in the Charm.
 	Storage []AddApplicationStorageArg
