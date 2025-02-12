@@ -156,7 +156,7 @@ func encodeWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[applica
 		return nil, nil
 	}
 
-	status, err := encodeWorkloadStatusType(s.Status)
+	encodedStatus, err := encodeWorkloadStatusType(s.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func encodeWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[applica
 	}
 
 	return &application.StatusInfo[application.WorkloadStatusType]{
-		Status:  status,
+		Status:  encodedStatus,
 		Message: s.Message,
 		Data:    bytes,
 		Since:   s.Since,

@@ -1743,30 +1743,27 @@ func (st *State) GetApplicationStatus(ctx context.Context, appID coreapplication
 	}
 
 	identID := applicationID{ID: appID}
-	identUUID := applicationUUID{ApplicationUUID: appID.String()}
-
-	query, err := st.Prepare(
-		`
+	query, err := st.Prepare(`
 SELECT &applicationStatusInfo.*
 FROM application_status
-WHERE application_uuid = $applicationUUID.application_uuid;
-`, identUUID, applicationStatusInfo{})
+WHERE application_uuid = $applicationID.uuid;
+`, identID, applicationStatusInfo{})
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
 	}
-
 	var status applicationStatusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationExists(ctx, tx, identID); err != nil {
 			return jujuerrors.Trace(err)
 		}
-
-		if err := tx.Query(ctx, query, identUUID).Get(&status); errors.Is(err, sqlair.ErrNoRows) {
+		if err := tx.Query(ctx, query, identID).Get(&status); errors.Is(err, sqlair.ErrNoRows) {
+			// If the application status is not set, then it's up to the
+			// the caller to either return that information or use derive
+			// the status from the units.
 			return nil
 		} else if err != nil {
 			return jujuerrors.Trace(err)
 		}
-
 		return nil
 	})
 	if err != nil {
