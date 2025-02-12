@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
@@ -276,4 +277,11 @@ func (s *baseSuite) createScalingApplication(c *gc.C, name string, l life.Life, 
 	c.Assert(err, jc.ErrorIsNil)
 
 	return appID
+}
+
+func assertStatusInfoEqual[T application.StatusID](c *gc.C, got, want *application.StatusInfo[T]) {
+	c.Check(got.Status, gc.Equals, want.Status)
+	c.Check(got.Message, gc.Equals, want.Message)
+	c.Check(got.Data, jc.DeepEquals, want.Data)
+	c.Check(got.Since.Sub(*want.Since), gc.Equals, time.Duration(0))
 }

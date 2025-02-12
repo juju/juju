@@ -68,8 +68,8 @@ func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 				Status: application.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusWaiting,
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusWaiting,
 				Message: corestatus.MessageInstallingAgent,
 				Since:   now,
 			},
@@ -450,8 +450,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 				Status: application.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusWaiting,
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusWaiting,
 				Message: "waiting for machine",
 				Since:   now,
 			},
@@ -558,8 +558,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 				Status: application.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusWaiting,
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusWaiting,
 				Message: corestatus.MessageWaitForMachine,
 				Since:   now,
 			},
@@ -671,8 +671,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 				Status: application.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusWaiting,
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusWaiting,
 				Message: "waiting for machine",
 				Since:   now,
 			},
@@ -781,8 +781,8 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 				Status: application.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusWaiting,
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusWaiting,
 				Message: "waiting for machine",
 				Since:   now,
 			},
@@ -977,8 +977,8 @@ func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 				Status: application.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusWaiting,
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusWaiting,
 				Message: corestatus.MessageInstallingAgent,
 				Since:   now,
 			},
@@ -1106,8 +1106,8 @@ func (s *applicationServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 			Data:    []byte(`{"foo":"bar"}`),
 			Since:   ptr(now),
 		}),
-		WorkloadStatus: ptr(application.StatusInfo[application.UnitWorkloadStatusType]{
-			Status:  application.UnitWorkloadStatusWaiting,
+		WorkloadStatus: ptr(application.StatusInfo[application.WorkloadStatusType]{
+			Status:  application.WorkloadStatusWaiting,
 			Message: "workload status",
 			Data:    []byte(`{"foo":"bar"}`),
 			Since:   ptr(now),
@@ -1189,8 +1189,8 @@ func (s *applicationServiceSuite) TestGetWorkloadUnitStatus(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&application.StatusInfo[application.UnitWorkloadStatusType]{
-			Status:  application.UnitWorkloadStatusActive,
+		&application.StatusInfo[application.WorkloadStatusType]{
+			Status:  application.WorkloadStatusActive,
 			Message: "doink",
 			Data:    []byte(`{"foo":"bar"}`),
 			Since:   &now,
@@ -1213,8 +1213,8 @@ func (s *applicationServiceSuite) TestSetWorkloadUnitStatus(c *gc.C) {
 
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, &application.StatusInfo[application.UnitWorkloadStatusType]{
-		Status:  application.UnitWorkloadStatusActive,
+	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
@@ -1238,6 +1238,67 @@ func (s *applicationServiceSuite) TestSetWorkloadUnitStatusInvalidStatus(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "invalid"`)
 
 	err = s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+		Status: corestatus.Allocating,
+	})
+	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "allocating"`)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+		&application.StatusInfo[application.WorkloadStatusType]{
+			Status:  application.WorkloadStatusActive,
+			Message: "doink",
+			Data:    []byte(`{"foo":"bar"}`),
+			Since:   &now,
+		}, nil)
+
+	obtained, err := s.service.GetApplicationStatus(context.Background(), applicationUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+}
+
+func (s *applicationServiceSuite) TestSetApplicationStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "doink",
+		Data:    []byte(`{"foo":"bar"}`),
+		Since:   &now,
+	})
+
+	err := s.service.SetApplicationStatus(context.Background(), applicationUUID, &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationStatusInvalidStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	err := s.service.SetApplicationStatus(context.Background(), applicationUUID, &corestatus.StatusInfo{
+		Status: corestatus.Status("invalid"),
+	})
+	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "invalid"`)
+
+	err = s.service.SetApplicationStatus(context.Background(), applicationUUID, &corestatus.StatusInfo{
 		Status: corestatus.Allocating,
 	})
 	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "allocating"`)

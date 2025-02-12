@@ -193,7 +193,7 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		if err != nil {
 			return errors.Annotatef(err, "encoding agent status for unit %q", u.UnitName)
 		}
-		workloadStatus, err := encodeUnitWorkloadStatus(&u.WorkloadStatus)
+		workloadStatus, err := encodeWorkloadStatus(&u.WorkloadStatus)
 		if err != nil {
 			return errors.Annotatef(err, "encoding workload status for unit %q", u.UnitName)
 		}

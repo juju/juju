@@ -9,7 +9,7 @@ import (
 
 // StatusID represents the status of an entity.
 type StatusID interface {
-	UnsetStatusType | CloudContainerStatusType | UnitAgentStatusType | UnitWorkloadStatusType
+	UnsetStatusType | CloudContainerStatusType | UnitAgentStatusType | WorkloadStatusType
 }
 
 // StatusInfo holds details about the status of an entity.
@@ -51,16 +51,16 @@ const (
 	UnitAgentStatusRebooting
 )
 
-// UnitWorkloadStatusType represents the status of a unit workload
-// as recorded in the unit_workload_status_value lookup table.
-type UnitWorkloadStatusType int
+// WorkloadStatusType represents the status of a unit workload or application
+// as recorded in the workload_status_value lookup table.
+type WorkloadStatusType int
 
 const (
-	UnitWorkloadStatusUnset UnitWorkloadStatusType = iota
-	UnitWorkloadStatusUnknown
-	UnitWorkloadStatusMaintenance
-	UnitWorkloadStatusWaiting
-	UnitWorkloadStatusBlocked
-	UnitWorkloadStatusActive
-	UnitWorkloadStatusTerminated
+	WorkloadStatusUnset WorkloadStatusType = iota
+	WorkloadStatusUnknown
+	WorkloadStatusMaintenance
+	WorkloadStatusWaiting
+	WorkloadStatusBlocked
+	WorkloadStatusActive
+	WorkloadStatusTerminated
 )

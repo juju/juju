@@ -210,8 +210,8 @@ func (s *applicationStateSuite) TesatCreateApplicationWithUnits(c *gc.C) {
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   ptr(time.Now()),
 			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusActive,
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusActive,
 				Message: "test",
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   ptr(time.Now()),
@@ -864,8 +864,8 @@ func (s *applicationStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   now,
 		}),
-		WorkloadStatus: ptr(application.StatusInfo[application.UnitWorkloadStatusType]{
-			Status:  application.UnitWorkloadStatusWaiting,
+		WorkloadStatus: ptr(application.StatusInfo[application.WorkloadStatusType]{
+			Status:  application.WorkloadStatusWaiting,
 			Message: "workload status",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   now,
@@ -883,7 +883,7 @@ func (s *applicationStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 		c, "unit_agent", unitUUID, int(application.UnitAgentStatusIdle), "agent status", now, []byte(`{"foo": "bar"}`),
 	)
 	s.assertUnitStatus(
-		c, "unit_workload", unitUUID, int(application.UnitWorkloadStatusWaiting), "workload status", now, []byte(`{"foo": "bar"}`),
+		c, "unit_workload", unitUUID, int(application.WorkloadStatusWaiting), "workload status", now, []byte(`{"foo": "bar"}`),
 	)
 	s.assertUnitStatus(
 		c, "cloud_container", unitUUID, int(application.CloudContainerStatusRunning), "container status", now, []byte(`{"foo": "bar"}`),
@@ -1114,8 +1114,8 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   ptr(time.Now()),
 			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusActive,
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusActive,
 				Message: "test",
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   ptr(time.Now()),
@@ -1404,14 +1404,7 @@ func (s *applicationStateSuite) TestSetUnitAgentStatus(c *gc.C) {
 		c, "unit_agent", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
 }
 
-func assertStatusInfoEqual[T application.StatusID](c *gc.C, got, want *application.StatusInfo[T]) {
-	c.Check(got.Status, gc.Equals, want.Status)
-	c.Check(got.Message, gc.Equals, want.Message)
-	c.Check(got.Data, jc.DeepEquals, want.Data)
-	c.Check(got.Since.Sub(*want.Since), gc.Equals, time.Duration(0))
-}
-
-func (s *applicationStateSuite) TestGetAndSetUnitWorkloadStatus(c *gc.C) {
+func (s *applicationStateSuite) TestSetWorkloadStatus(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
@@ -1423,8 +1416,8 @@ func (s *applicationStateSuite) TestGetAndSetUnitWorkloadStatus(c *gc.C) {
 	_, err = s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitStatusNotFound)
 
-	status := &application.StatusInfo[application.UnitWorkloadStatusType]{
-		Status:  application.UnitWorkloadStatusActive,
+	status := &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   ptr(time.Now()),
@@ -1439,8 +1432,8 @@ func (s *applicationStateSuite) TestGetAndSetUnitWorkloadStatus(c *gc.C) {
 
 	// Run SetUnitWorkloadStatus followed by GetUnitWorkloadStatus to ensure that
 	// the new status overwrites the old one.
-	status = &application.StatusInfo[application.UnitWorkloadStatusType]{
-		Status:  application.UnitWorkloadStatusTerminated,
+	status = &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusTerminated,
 		Message: "it's terminated",
 		Data:    []byte(`{"bar": "foo"}`),
 		Since:   ptr(time.Now()),
@@ -1455,8 +1448,8 @@ func (s *applicationStateSuite) TestGetAndSetUnitWorkloadStatus(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestSetUnitWorkloadStatusNotFound(c *gc.C) {
-	status := application.StatusInfo[application.UnitWorkloadStatusType]{
-		Status:  application.UnitWorkloadStatusTerminated,
+	status := application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusTerminated,
 		Message: "it's terminated",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   ptr(time.Now()),
@@ -1693,8 +1686,8 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.UnitWorkloadStatusType]{
-				Status:  application.UnitWorkloadStatusActive,
+			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusActive,
 				Message: "test",
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   now,
@@ -3372,6 +3365,108 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *gc
 func (s *applicationStateSuite) TestSetConstraintsApplicationNotFound(c *gc.C) {
 	err := s.state.SetApplicationConstraints(context.Background(), "foo", constraints.Value{Mem: ptr(uint64(8))})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestSetApplicationStatus(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	now := time.Now().UTC()
+	expected := &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "message",
+		Data:    []byte("data"),
+		Since:   ptr(now),
+	}
+
+	err := s.state.SetApplicationStatus(context.Background(), id, expected)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := s.state.GetApplicationStatus(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status, jc.DeepEquals, expected)
+}
+
+func (s *applicationStateSuite) TestSetApplicationStatusMultipleTimes(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationStatus(context.Background(), id, &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusBlocked,
+		Message: "blocked",
+		Since:   ptr(time.Now().UTC()),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	now := time.Now().UTC()
+	expected := &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "message",
+		Data:    []byte("data"),
+		Since:   ptr(now),
+	}
+
+	err = s.state.SetApplicationStatus(context.Background(), id, expected)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := s.state.GetApplicationStatus(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status, jc.DeepEquals, expected)
+}
+
+func (s *applicationStateSuite) TestSetApplicationStatusWithNoData(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	now := time.Now().UTC()
+	expected := &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "message",
+		Since:   ptr(now),
+	}
+
+	err := s.state.SetApplicationStatus(context.Background(), id, expected)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := s.state.GetApplicationStatus(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status, jc.DeepEquals, expected)
+}
+
+func (s *applicationStateSuite) TestSetApplicationStatusApplicationNotFound(c *gc.C) {
+	now := time.Now().UTC()
+	expected := &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "message",
+		Data:    []byte("data"),
+		Since:   ptr(now),
+	}
+
+	err := s.state.SetApplicationStatus(context.Background(), "foo", expected)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestSetApplicationStatusInvalidStatus(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	expected := application.StatusInfo[application.WorkloadStatusType]{
+		Status: application.WorkloadStatusType(99),
+	}
+
+	err := s.state.SetApplicationStatus(context.Background(), id, &expected)
+	c.Assert(err, gc.ErrorMatches, `unknown status.*`)
+}
+
+func (s *applicationStateSuite) TestGetApplicationStatusApplicationNotFound(c *gc.C) {
+	_, err := s.state.GetApplicationStatus(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestGetApplicationStatusNotSet(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	status, err := s.state.GetApplicationStatus(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status, gc.DeepEquals, &application.StatusInfo[application.WorkloadStatusType]{
+		Status: application.WorkloadStatusUnset,
+	})
 }
 
 func (s *applicationStateSuite) assertApplication(

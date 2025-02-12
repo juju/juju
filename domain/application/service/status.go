@@ -48,24 +48,24 @@ func encodeUnitAgentStatusType(s status.Status) (application.UnitAgentStatusType
 	}
 }
 
-// encodeUnitWorkloadStatusType converts a core status to a db unit workload
-// status id.
-func encodeUnitWorkloadStatusType(s status.Status) (application.UnitWorkloadStatusType, error) {
+// encodeWorkloadStatusType converts a core status to a db unit workload and
+// application status id.
+func encodeWorkloadStatusType(s status.Status) (application.WorkloadStatusType, error) {
 	switch s {
 	case status.Unset:
-		return application.UnitWorkloadStatusUnset, nil
+		return application.WorkloadStatusUnset, nil
 	case status.Unknown:
-		return application.UnitWorkloadStatusUnknown, nil
+		return application.WorkloadStatusUnknown, nil
 	case status.Maintenance:
-		return application.UnitWorkloadStatusMaintenance, nil
+		return application.WorkloadStatusMaintenance, nil
 	case status.Waiting:
-		return application.UnitWorkloadStatusWaiting, nil
+		return application.WorkloadStatusWaiting, nil
 	case status.Blocked:
-		return application.UnitWorkloadStatusBlocked, nil
+		return application.WorkloadStatusBlocked, nil
 	case status.Active:
-		return application.UnitWorkloadStatusActive, nil
+		return application.WorkloadStatusActive, nil
 	case status.Terminated:
-		return application.UnitWorkloadStatusTerminated, nil
+		return application.WorkloadStatusTerminated, nil
 	default:
 		return -1, errors.Errorf("unknown workload status %q", s)
 	}
@@ -73,21 +73,21 @@ func encodeUnitWorkloadStatusType(s status.Status) (application.UnitWorkloadStat
 
 // decodeUnitWorkloadStatusType converts a db unit workload status id to a core.
 // Implicitly validates the status type.
-func decodeUnitWorkloadStatusType(s application.UnitWorkloadStatusType) (status.Status, error) {
+func decodeUnitWorkloadStatusType(s application.WorkloadStatusType) (status.Status, error) {
 	switch s {
-	case application.UnitWorkloadStatusUnset:
+	case application.WorkloadStatusUnset:
 		return status.Unset, nil
-	case application.UnitWorkloadStatusUnknown:
+	case application.WorkloadStatusUnknown:
 		return status.Unknown, nil
-	case application.UnitWorkloadStatusMaintenance:
+	case application.WorkloadStatusMaintenance:
 		return status.Maintenance, nil
-	case application.UnitWorkloadStatusWaiting:
+	case application.WorkloadStatusWaiting:
 		return status.Waiting, nil
-	case application.UnitWorkloadStatusBlocked:
+	case application.WorkloadStatusBlocked:
 		return status.Blocked, nil
-	case application.UnitWorkloadStatusActive:
+	case application.WorkloadStatusActive:
 		return status.Active, nil
-	case application.UnitWorkloadStatusTerminated:
+	case application.WorkloadStatusTerminated:
 		return status.Terminated, nil
 	default:
 		return "", errors.Errorf("unknown workload status %q", s)
@@ -150,13 +150,13 @@ func encodeUnitAgentStatus(s *status.StatusInfo) (*application.StatusInfo[applic
 	}, nil
 }
 
-// encodeUnitWorkloadStatus converts a core status info to a db status info.
-func encodeUnitWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[application.UnitWorkloadStatusType], error) {
+// encodeWorkloadStatus converts a core status info to a db status info.
+func encodeWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[application.WorkloadStatusType], error) {
 	if s == nil {
 		return nil, nil
 	}
 
-	encodedStatus, err := encodeUnitWorkloadStatusType(s.Status)
+	encodedStatus, err := encodeWorkloadStatusType(s.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func encodeUnitWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[app
 		}
 	}
 
-	return &application.StatusInfo[application.UnitWorkloadStatusType]{
+	return &application.StatusInfo[application.WorkloadStatusType]{
 		Status:  encodedStatus,
 		Message: s.Message,
 		Data:    bytes,
@@ -178,9 +178,8 @@ func encodeUnitWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[app
 	}, nil
 }
 
-// decodeCloudContainerStatus converts a db status info to a core status info.
-// Implicitly validates the status.
-func decodeUnitWorkloadStatus(s *application.StatusInfo[application.UnitWorkloadStatusType]) (*status.StatusInfo, error) {
+// decodeWorkloadStatus converts a db status info to a core status info.
+func decodeWorkloadStatus(s *application.StatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
 	if s == nil {
 		return nil, nil
 	}

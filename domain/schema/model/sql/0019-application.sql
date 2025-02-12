@@ -155,6 +155,21 @@ CREATE TABLE application_channel (
     PRIMARY KEY (application_uuid, track, risk, branch)
 );
 
+CREATE TABLE application_status (
+    application_uuid TEXT NOT NULL PRIMARY KEY,
+    status_id INT NOT NULL,
+    message TEXT,
+    data TEXT,
+    updated_at DATETIME,
+    CONSTRAINT fk_application_status_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_workload_status_value_status
+    FOREIGN KEY (status_id)
+    REFERENCES workload_status_value (id)
+);
+
+
 CREATE VIEW v_application_constraint AS
 SELECT
     ac.application_uuid,
