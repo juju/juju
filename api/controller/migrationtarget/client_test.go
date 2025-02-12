@@ -280,47 +280,9 @@ func (s *ClientSuite) TestUploadResource(c *gc.C) {
 	err := client.UploadResource(context.Background(), "uuid", res, strings.NewReader(resourceBody))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(doer.method, gc.Equals, "POST")
-	expectedURL := fmt.Sprintf("/migrate/resources?application=app&description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=1&size=11&timestamp=%d&type=file&user=a-user", res.Fingerprint.Hex(), res.Timestamp.UnixNano())
+	expectedURL := fmt.Sprintf("/migrate/resources?application=app&fingerprint=%s&name=blob&origin=upload&revision=1&size=11&timestamp=%d&type=file&user=a-user", res.Fingerprint.Hex(), res.Timestamp.UnixNano())
 	c.Assert(doer.url, gc.Equals, expectedURL)
 	c.Assert(doer.body, gc.Equals, resourceBody)
-}
-
-func (s *ClientSuite) TestSetUnitResource(c *gc.C) {
-	const resourceBody = "resourceful"
-	doer := newFakeDoer(c, "", nil)
-	caller := &fakeHTTPCaller{
-		httpClient: &httprequest.Client{Doer: doer},
-	}
-	client := migrationtarget.NewClient(caller)
-
-	res := resourcetesting.NewResource(c, nil, "blob", "app", resourceBody).Resource
-	res.Revision = 2
-
-	err := client.SetUnitResource(context.Background(), "uuid", "app/0", res)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(doer.method, gc.Equals, "POST")
-	expectedURL := fmt.Sprintf("/migrate/resources?description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=2&size=11&timestamp=%d&type=file&unit=app%%2F0&user=a-user", res.Fingerprint.Hex(), res.Timestamp.UnixNano())
-	c.Assert(doer.url, gc.Equals, expectedURL)
-	c.Assert(doer.body, gc.Equals, "")
-}
-
-func (s *ClientSuite) TestPlaceholderResource(c *gc.C) {
-	doer := newFakeDoer(c, "", nil)
-	caller := &fakeHTTPCaller{
-		httpClient: &httprequest.Client{Doer: doer},
-	}
-	client := migrationtarget.NewClient(caller)
-
-	res := resourcetesting.NewPlaceholderResource(c, "blob", "app")
-	res.Revision = 3
-	res.Size = 123
-
-	err := client.SetPlaceholderResource(context.Background(), "uuid", res)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(doer.method, gc.Equals, "POST")
-	expectedURL := fmt.Sprintf("/migrate/resources?application=app&description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=3&size=123&type=file", res.Fingerprint.Hex())
-	c.Assert(doer.url, gc.Equals, expectedURL)
-	c.Assert(doer.body, gc.Equals, "")
 }
 
 func (s *ClientSuite) TestCACert(c *gc.C) {

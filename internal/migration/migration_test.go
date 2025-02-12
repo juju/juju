@@ -238,14 +238,11 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 
 	app0Res := resourcetesting.NewResource(c, nil, "blob0", "app0", "blob0").Resource
 	app1Res := resourcetesting.NewResource(c, nil, "blob1", "app1", "blob1").Resource
-	app1UnitRes := app1Res
-	app1UnitRes.Revision = 1
 	app2Res := resourcetesting.NewPlaceholderResource(c, "blob2", "app2")
 	resources := []coremigration.SerializedModelResource{
 		{ApplicationRevision: app0Res},
 		{
 			ApplicationRevision: app1Res,
-			UnitRevisions:       map[string]resource.Resource{"app1/99": app1UnitRes},
 		},
 		{ApplicationRevision: app2Res},
 	}
@@ -313,7 +310,6 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		"app0/blob0": "blob0",
 		"app1/blob1": "blob1",
 	})
-	c.Assert(uploader.unitResources, jc.SameContents, []string{"app1/99-blob1"})
 }
 
 func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
@@ -381,7 +377,6 @@ type fakeUploader struct {
 	curls            []string
 	charmRefs        []string
 	resources        map[string]string
-	unitResources    []string
 	reassignCharmURL bool
 }
 
@@ -418,15 +413,5 @@ func (f *fakeUploader) UploadResource(_ context.Context, res resource.Resource, 
 		return errors.Trace(err)
 	}
 	f.resources[res.ApplicationName+"/"+res.Name] = string(body)
-	return nil
-}
-
-func (f *fakeUploader) SetPlaceholderResource(_ context.Context, res resource.Resource) error {
-	f.resources[res.ApplicationName+"/"+res.Name] = "<placeholder>"
-	return nil
-}
-
-func (f *fakeUploader) SetUnitResource(_ context.Context, unit string, res resource.Resource) error {
-	f.unitResources = append(f.unitResources, unit+"-"+res.Name)
 	return nil
 }
