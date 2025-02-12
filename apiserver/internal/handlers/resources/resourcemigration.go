@@ -11,10 +11,8 @@ import (
 	"github.com/juju/errors"
 
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -22,22 +20,19 @@ import (
 
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
 type resourcesMigrationUploadHandler struct {
-	resourceServiceGetter    ResourceServiceGetter
-	applicationServiceGetter ApplicationServiceGetter
-	logger                   logger.Logger
+	resourceServiceGetter ResourceServiceGetter
+	logger                logger.Logger
 }
 
 // NewResourceMigrationUploadHandler returns a new HTTP handler for resources
 // uploads during model migrations.
 func NewResourceMigrationUploadHandler(
-	applicationServiceGetter ApplicationServiceGetter,
 	resourceServiceGetter ResourceServiceGetter,
 	logger logger.Logger,
 ) *resourcesMigrationUploadHandler {
 	return &resourcesMigrationUploadHandler{
-		applicationServiceGetter: applicationServiceGetter,
-		resourceServiceGetter:    resourceServiceGetter,
-		logger:                   logger,
+		resourceServiceGetter: resourceServiceGetter,
+		logger:                logger,
 	}
 }
 
@@ -71,12 +66,7 @@ func (h *resourcesMigrationUploadHandler) servePost(w http.ResponseWriter, r *ht
 		return internalerrors.Capture(err)
 	}
 
-	applicationService, err := h.applicationServiceGetter.Application(r)
-	if err != nil {
-		return internalerrors.Capture(err)
-	}
-
-	res, err := h.processPost(r, resourceService, applicationService)
+	res, err := h.processPost(r, resourceService)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
@@ -91,61 +81,45 @@ func (h *resourcesMigrationUploadHandler) servePost(w http.ResponseWriter, r *ht
 func (h *resourcesMigrationUploadHandler) processPost(
 	r *http.Request,
 	resourceService ResourceService,
-	applicationService ApplicationService,
 ) (coreresource.Resource, error) {
 	var empty coreresource.Resource
 	ctx := r.Context()
 	query := r.URL.Query()
+	resourceName := query.Get("name")
+	if resourceName == "" {
+		return empty, errors.BadRequestf("missing resource name")
+	}
+	if isPlaceholder(query) {
+		// If the resource is a placeholder, do nothing. Information about
+		// resources without an associated blob is also migrated during the
+		// database migration, there is nothing to do here.
+		return empty, nil
+	}
+	appName := query.Get("application")
+	if appName == "" {
+		// If the application name is empty, do nothing. Information about unit
+		// resources is also migrated during the database migration. There is
+		// nothing to do here.
+		return empty, nil
+	}
 
-	userID := query.Get("user") // Is allowed to be blank.
+	// Get the resource UUID.
+	resUUID, err := resourceService.GetResourceUUIDByApplicationAndResourceName(
+		ctx, appName, resourceName,
+	)
+	if err != nil {
+		return empty, internalerrors.Errorf(
+			"resource upload failed: getting resource %s on application %s: %w",
+			appName, resourceName, err,
+		)
+	}
 
-	// Get the target of the upload, which is an application with or without
-	// unit.
-	target, err := getUploadTarget(ctx, applicationService, query)
+	err = resourceService.StoreResource(ctx, resource.StoreResourceArgs{
+		ResourceUUID: resUUID,
+		Reader:       r.Body,
+	})
 	if err != nil {
 		return empty, internalerrors.Capture(err)
-	}
-
-	resUUID, err := resourceService.GetApplicationResourceID(ctx,
-		resource.GetApplicationResourceIDArgs{
-			ApplicationID: target.appID,
-			Name:          target.name,
-		})
-	if err != nil {
-		return empty, internalerrors.Errorf("resource upload failed: %w", err)
-	}
-
-	if target.unitUUID != "" {
-		err := resourceService.SetUnitResource(ctx, resUUID, target.unitUUID)
-		if err != nil {
-			return empty, internalerrors.Capture(err)
-		}
-	}
-	if !isPlaceholder(query) {
-		var (
-			retrievedBy     string
-			retrievedByType coreresource.RetrievedByType
-		)
-		if target.unitUUID != "" {
-			retrievedBy = target.unitUUID.String()
-			retrievedByType = coreresource.Unit
-		} else if userID != "" {
-			retrievedBy = userID
-			retrievedByType = coreresource.User
-		} else {
-			retrievedBy = target.appID.String()
-			retrievedByType = coreresource.Application
-		}
-
-		err := resourceService.StoreResource(ctx, resource.StoreResourceArgs{
-			ResourceUUID:    resUUID,
-			Reader:          r.Body,
-			RetrievedBy:     retrievedBy,
-			RetrievedByType: retrievedByType,
-		})
-		if err != nil {
-			return empty, internalerrors.Capture(err)
-		}
 	}
 
 	return resourceService.GetResource(ctx, resUUID)
@@ -155,56 +129,4 @@ func (h *resourcesMigrationUploadHandler) processPost(
 // checking if the "timestamp" field is empty.
 func isPlaceholder(query url.Values) bool {
 	return query.Get("timestamp") == ""
-}
-
-type resourceUploadTarget struct {
-	name     string
-	appID    coreapplication.ID
-	unitUUID coreunit.UUID
-}
-
-// getUploadTarget resolves the upload target by determining the application ID
-// and optional unit UUID from the query inputs. It validates that either
-// application or unit is specified, but not both, and fetches necessary details
-// using the application service.
-// Returns the name of the resource, the application ID and the unit UUID
-// (if applicable), or an error if any issues occur during resolution.
-func getUploadTarget(
-	ctx context.Context,
-	service ApplicationService,
-	query url.Values,
-) (target resourceUploadTarget, err error) {
-	// Validate parameters
-	target.name = query.Get("name")
-	appName := query.Get("application")
-	unitName := query.Get("unit")
-
-	if target.name == "" {
-		return target, errors.BadRequestf("missing resource name")
-	}
-
-	switch {
-	case appName == "" && unitName == "":
-		return target, errors.BadRequestf("missing application/unit")
-	case appName != "" && unitName != "":
-		return target, errors.BadRequestf("application and unit can't be set at the same time")
-	}
-
-	// Resolve target by unit name if any
-	if unitName != "" {
-		coreUnitName, err := coreunit.NewName(unitName)
-		if err != nil {
-			return target, errors.BadRequestf(err.Error())
-		}
-		target.unitUUID, err = service.GetUnitUUID(ctx, coreUnitName)
-		if err != nil {
-			return target, internalerrors.Capture(err)
-		}
-		target.appID, err = service.GetApplicationIDByUnitName(ctx, coreUnitName)
-		return target, internalerrors.Capture(err)
-	}
-
-	// Resolve target by appName
-	target.appID, err = service.GetApplicationIDByName(ctx, appName)
-	return target, internalerrors.Capture(err)
 }

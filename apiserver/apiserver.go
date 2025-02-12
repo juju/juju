@@ -886,7 +886,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		stateAuthFunc: httpCtxt.stateForMigrationImporting,
 	}, "tools")
 	resourcesMigrationUploadHandler := srv.monitoredHandler(handlersresources.NewResourceMigrationUploadHandler(
-		&migratingApplicationServiceGetter{ctxt: httpCtxt},
 		&migratingResourceServiceGetter{ctxt: httpCtxt},
 		logger,
 	), "applications")
@@ -1283,18 +1282,6 @@ func (a *applicationServiceGetter) Application(r *http.Request) (objects.Applica
 		return nil, internalerrors.Capture(err)
 	}
 
-	return domainServices.Application(), nil
-}
-
-type migratingApplicationServiceGetter struct {
-	ctxt httpContext
-}
-
-func (a *migratingApplicationServiceGetter) Application(r *http.Request) (handlersresources.ApplicationService, error) {
-	domainServices, err := a.ctxt.domainServicesDuringMigrationForRequest(r)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
 	return domainServices.Application(), nil
 }
 

@@ -8,24 +8,10 @@ import (
 	"io"
 	"net/http"
 
-	coreapplication "github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/resource"
 )
-
-// ApplicationService defines operations related to managing applications.
-type ApplicationService interface {
-	// GetApplicationIDByName returns an application ID by application name. It
-	// returns an error if the application can not be found by the name.
-	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
-
-	// GetApplicationIDByUnitName returns the application ID for the named unit.
-	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
-
-	// GetUnitUUID returns the UUID for the named unit.
-	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
-}
 
 // ResourceService defines operations related to managing application resources.
 type ResourceService interface {
@@ -99,10 +85,4 @@ type ResourceServiceGetter interface {
 	// Resource retrieves a ResourceService for handling resource-related
 	// operations.
 	Resource(*http.Request) (ResourceService, error)
-}
-
-// ApplicationServiceGetter is an interface for getting an ApplicationService.
-type ApplicationServiceGetter interface {
-	// Application returns the model's application service.
-	Application(*http.Request) (ApplicationService, error)
 }
