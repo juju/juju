@@ -137,7 +137,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/charmhub/path",
 		"internal/charmhub/transport",
 		"internal/network",
-		"internal/network/debinterfaces",
 		"internal/network/netplan",
 		"internal/packaging",
 		"internal/packaging/dependency",

@@ -99,7 +99,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/macaroon",
 		"internal/mongo",
 		"internal/network",
-		"internal/network/debinterfaces",
 		"internal/network/netplan",
 		"internal/packaging/commands",
 		"internal/packaging/config",
