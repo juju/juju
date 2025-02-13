@@ -605,16 +605,16 @@ func (s *metadataStateSuite) TestMetadataRelationScopeWithError(c *gc.C) {
 }
 
 func (s *metadataStateSuite) TestMetadataStorageKind(c *gc.C) {
-	type charmStorageKind struct {
+	type storageKind struct {
 		ID   int    `db:"id"`
-		Name string `db:"name"`
+		Kind string `db:"kind"`
 	}
 
 	stmt := sqlair.MustPrepare(`
-SELECT charm_storage_kind.* AS &charmStorageKind.* FROM charm_storage_kind ORDER BY id;
-`, charmStorageKind{})
+SELECT charm_storage_kind.* AS &storageKind.* FROM charm_storage_kind ORDER BY id;
+`, storageKind{})
 
-	var results []charmStorageKind
+	var results []storageKind
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt).GetAll(&results)
 	})

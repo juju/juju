@@ -62,7 +62,7 @@ WHERE name=?`, "666").Scan(&charmUUID)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
-SELECT cs.name, csk.name as kind
+SELECT cs.name, csk.kind
 FROM charm_storage cs
 JOIN charm_storage_kind csk ON csk.id=cs.storage_kind_id
 WHERE charm_uuid=?`, charmUUID)
@@ -83,7 +83,7 @@ WHERE charm_uuid=?`, charmUUID)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
-SELECT storage_name, storage_pool, size, count
+SELECT storage_name, storage_pool, size_mib, count
 FROM application_storage_directive
 WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 		if err != nil {

@@ -44,7 +44,7 @@ func (s *stateSuite) TestGetAnnotations(c *gc.C) {
 func (s *stateSuite) TestGetCharmAnnotations(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.ensureCharm(c, "local:mycharmurl-5", "123")
+	s.ensureCharm(c, "local:mycharmurl-5", "mystorage", "123")
 	s.ensureAnnotation(c, "charm", "123", "foo", "5")
 	s.ensureAnnotation(c, "charm", "123", "bar", "6")
 
@@ -101,7 +101,7 @@ func (s *stateSuite) TestSetAnnotations(c *gc.C) {
 func (s *stateSuite) TestSetCharmAnnotations(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.ensureCharm(c, "local:mycharmurl-5", "123")
+	s.ensureCharm(c, "local:mycharmurl-5", "mystorage", "123")
 
 	args := annotation.GetCharmArgs{
 		Source:   "local",
@@ -175,12 +175,13 @@ func (s *stateSuite) TestSetAnnotationsUpdateUnit(c *gc.C) {
 func (s *stateSuite) TestSetAnnotationsUpdateStorage(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.ensureStorage(c, "mystorage", "123")
-	s.ensureAnnotation(c, "storage_instance", "123", "foo", "5")
+	s.ensureCharm(c, "mystorage", "mystorage", "123")
+	s.ensureStorage(c, "mystorage", "456", "123")
+	s.ensureAnnotation(c, "storage_instance", "456", "foo", "5")
 
 	testAnnotationUpdate(c, st, annotations.ID{
 		Kind: annotations.KindStorage,
-		Name: "mystorage",
+		Name: "mystorage/0",
 	})
 }
 
@@ -395,7 +396,7 @@ VALUES (?, ?, ?, ?, ?)
 }
 
 // ensureCharm manually inserts a row into the charm table.
-func (s *stateSuite) ensureCharm(c *gc.C, url, uuid string) {
+func (s *stateSuite) ensureCharm(c *gc.C, url, storageName, uuid string) {
 	parts, err := charm.ParseURL(url)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -420,18 +421,26 @@ VALUES (?, ?)
 			return err
 		}
 
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_storage (charm_uuid, name, storage_kind_id, count_min, count_max)
+VALUES (?, ?, ?, ?, ?)
+		`, uuid, storageName, 0, 0, 1)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 // ensureStorage inserts a row into the storage_instance table
-func (s *stateSuite) ensureStorage(c *gc.C, name, uuid string) {
+func (s *stateSuite) ensureStorage(c *gc.C, name, uuid, charmUUID string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_instance (uuid, storage_kind_id, storage_pool, name, life_id)
-VALUES (?, ?, ?, ?, ?)
-		`, uuid, "0", "loop", name, "0")
+INSERT INTO storage_instance (uuid, storage_id, storage_pool, size_mib, charm_uuid, storage_name, life_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, uuid, name+"/0", "loop", 100, charmUUID, name, 0)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

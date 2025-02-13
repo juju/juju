@@ -212,7 +212,6 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"storage_instance_filesystem",
 		"storage_instance_volume",
 		"storage_instance",
-		"storage_kind",
 		"storage_pool_attribute",
 		"storage_pool",
 		"storage_provisioning_status",

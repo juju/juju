@@ -364,8 +364,11 @@ ON charm_tag (charm_uuid);
 
 CREATE TABLE charm_storage_kind (
     id INT PRIMARY KEY,
-    name TEXT NOT NULL
+    kind TEXT NOT NULL
 );
+
+CREATE UNIQUE INDEX idx_charm_storage_kind
+ON charm_storage_kind (kind);
 
 INSERT INTO charm_storage_kind VALUES
 (0, 'block'),
@@ -382,9 +385,9 @@ CREATE TABLE charm_storage (
     count_max INT NOT NULL,
     minimum_size_mib INT,
     location TEXT,
-    CONSTRAINT fk_storage_instance_kind
+    CONSTRAINT fk_charm_storage_charm_storage_kind
     FOREIGN KEY (storage_kind_id)
-    REFERENCES storage_kind (id),
+    REFERENCES charm_storage_kind (id),
     CONSTRAINT fk_charm_storage_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
@@ -396,7 +399,7 @@ SELECT
     cs.charm_uuid,
     cs.name,
     cs.description,
-    csk.name AS kind,
+    csk.kind,
     cs.shared,
     cs.read_only,
     cs.count_min,
