@@ -5,35 +5,52 @@ package common_test
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type statusSetterSuite struct {
-	statusBaseSuite
-	setter *common.StatusSetter
+	entityFinder *mocks.MockEntityFinder
+	setter       *common.StatusSetter
+	now          time.Time
+
+	badTag names.Tag
 }
 
 var _ = gc.Suite(&statusSetterSuite{})
 
 func (s *statusSetterSuite) SetUpTest(c *gc.C) {
-	s.statusBaseSuite.SetUpTest(c)
+	s.badTag = nil
+}
 
-	s.setter = common.NewStatusSetter(s.State, func() (common.AuthFunc, error) {
+func (s *statusSetterSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.entityFinder = mocks.NewMockEntityFinder(ctrl)
+
+	s.now = time.Now()
+	clock := mocks.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(s.now).AnyTimes()
+
+	s.setter = common.NewStatusSetter(s.entityFinder, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
-	})
+	}, clock)
+	return ctrl
 }
 
 func (s *statusSetterSuite) TestUnauthorized(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	tag := names.NewMachineTag("42")
 	s.badTag = tag
 	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
@@ -46,6 +63,8 @@ func (s *statusSetterSuite) TestUnauthorized(c *gc.C) {
 }
 
 func (s *statusSetterSuite) TestNotATag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    "not a tag",
 		Status: status.Executing.String(),
@@ -56,8 +75,13 @@ func (s *statusSetterSuite) TestNotATag(c *gc.C) {
 }
 
 func (s *statusSetterSuite) TestNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("42")
+	s.entityFinder.EXPECT().FindEntity(tag).Return(nil, errors.NotFoundf("machine 42"))
+
 	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    names.NewMachineTag("42").String(),
+		Tag:    tag.String(),
 		Status: status.Down.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,67 +90,77 @@ func (s *statusSetterSuite) TestNotFound(c *gc.C) {
 }
 
 func (s *statusSetterSuite) TestSetMachineStatus(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, nil)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	entity := newMockStatusSetterEntity(ctrl)
+	entity.MockStatusSetter.EXPECT().SetStatus(status.StatusInfo{
+		Status: status.Started,
+		Since:  &s.now,
+	}).Return(nil)
+
+	tag := names.NewMachineTag("42")
+	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
+
 	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    machine.Tag().String(),
+		Tag:    tag.String(),
 		Status: status.Started.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	err = machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	machineStatus, err := machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineStatus.Status, gc.Equals, status.Started)
 }
 
+// The status has to be a valid workload status, because get status
+// on the unit returns the workload status not the agent status as it
+// does on a machine.
 func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
-	// The status has to be a valid workload status, because get status
-	// on the unit returns the workload status not the agent status as it
-	// does on a machine.
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
-		Status: status.Maintenance,
-	}})
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	entity := newMockStatusSetterEntity(ctrl)
+	entity.MockStatusSetter.EXPECT().SetStatus(status.StatusInfo{
+		Status: status.Active,
+		Since:  &s.now,
+	}).Return(nil)
+
+	tag := names.NewUnitTag("wordpress/1")
+	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
+
 	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    unit.Tag().String(),
+		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	err = unit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	unitStatus, err := unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus.Status, gc.Equals, status.Active)
 }
 
 func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
-	// Calls to set the status of a service should be going through the
-	// ServiceStatusSetter that checks for leadership, so permission denied
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Calls to set the status of a application should be going through the
+	// ApplicationStatusSetter that checks for leadership, so permission denied
 	// here.
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
-		Status: status.Maintenance,
-	}})
+	entity := &state.Application{}
+
+	tag := names.NewUnitTag("wordpress/1")
+	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
+
 	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    service.Tag().String(),
+		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-
-	err = service.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	serviceStatus, err := service.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceStatus.Status, gc.Equals, status.Maintenance)
 }
 
 func (s *statusSetterSuite) TestBulk(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	s.badTag = names.NewMachineTag("42")
 	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    s.badTag.String(),
@@ -141,145 +175,20 @@ func (s *statusSetterSuite) TestBulk(c *gc.C) {
 	c.Assert(result.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
-type serviceStatusSetterSuite struct {
-	statusBaseSuite
-	setter *common.ApplicationStatusSetter
+func (s *statusSetterSuite) authFunc(tag names.Tag) bool {
+	return tag != s.badTag
 }
 
-var _ = gc.Suite(&serviceStatusSetterSuite{})
-
-func (s *serviceStatusSetterSuite) SetUpTest(c *gc.C) {
-	s.statusBaseSuite.SetUpTest(c)
-
-	s.setter = common.NewApplicationStatusSetter(s.State, func() (common.AuthFunc, error) {
-		return s.authFunc, nil
-	}, s.leadershipChecker)
+type mockStatusSetterEntity struct {
+	*mocks.MockStatusSetter
+	*mocks.MockEntity
 }
 
-func (s *serviceStatusSetterSuite) TestUnauthorized(c *gc.C) {
-	// Machines are unauthorized since they are not units
-	tag := names.NewUnitTag("foo/0")
-	s.badTag = tag
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    tag.String(),
-		Status: status.Active.String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-}
-
-func (s *serviceStatusSetterSuite) TestNotATag(c *gc.C) {
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    "not a tag",
-		Status: status.Active.String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
-}
-
-func (s *serviceStatusSetterSuite) TestNotFound(c *gc.C) {
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    names.NewUnitTag("foo/0").String(),
-		Status: status.Active.String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
-}
-
-func (s *serviceStatusSetterSuite) TestSetMachineStatus(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    machine.Tag().String(),
-		Status: status.Active.String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	// Can't call set service status on a machine.
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-}
-
-func (s *serviceStatusSetterSuite) TestSetServiceStatus(c *gc.C) {
-	// TODO: the correct way to fix this is to have the authorizer on the
-	// simple status setter to check to see if the unit (authTag) is a leader
-	// and able to set the service status. However, that is for another day.
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
-		Status: status.Maintenance,
-	}})
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    service.Tag().String(),
-		Status: status.Active.String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	// Can't call set service status on a service. Weird I know, but the only
-	// way is to go through the unit leader.
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-}
-
-func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
-	// If the unit isn't the leader, it can't set it.
-	s.leadershipChecker.isLeader = false
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
-		Status: status.Maintenance,
-	}})
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    unit.Tag().String(),
-		Status: status.Active.String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	status := result.Results[0]
-	c.Assert(status.Error, gc.ErrorMatches, "not leader")
-}
-
-func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
-		Status: status.Maintenance,
-	}})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: service,
-		Status: &status.StatusInfo{
-			Status: status.Maintenance,
-		}})
-	// No need to claim leadership - the checker passed in in setup
-	// always returns true.
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    unit.Tag().String(),
-		Status: status.Active.String(),
-	}}})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	err = service.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	unitStatus, err := service.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus.Status, gc.Equals, status.Active)
-}
-
-func (s *serviceStatusSetterSuite) TestBulk(c *gc.C) {
-	s.badTag = names.NewMachineTag("42")
-	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    s.badTag.String(),
-		Status: status.Active.String(),
-	}, {
-		Tag:    machine.Tag().String(),
-		Status: status.Active.String(),
-	}, {
-		Tag:    "bad-tag",
-		Status: status.Active.String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(result.Results[1].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+func newMockStatusSetterEntity(ctrl *gomock.Controller) *mockStatusSetterEntity {
+	return &mockStatusSetterEntity{
+		MockStatusSetter: mocks.NewMockStatusSetter(ctrl),
+		MockEntity:       mocks.NewMockEntity(ctrl),
+	}
 }
 
 type unitAgentFinderSuite struct{}

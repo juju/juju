@@ -14,20 +14,21 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/rpc/params"
 )
 
 type instanceIdGetterSuite struct {
-	machineService *MockMachineService
+	machineService *mocks.MockMachineService
 }
 
 var _ = gc.Suite(&instanceIdGetterSuite{})
 
 func (s *instanceIdGetterSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.machineService = NewMockMachineService(ctrl)
+	s.machineService = mocks.NewMockMachineService(ctrl)
 	return ctrl
 }
 

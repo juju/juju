@@ -36,7 +36,7 @@ import (
 
 type getToolsSuite struct {
 	entityFinder      *mocks.MockToolsFindEntity
-	modelAgentService *MockModelAgentService
+	modelAgentService *mocks.MockModelAgentService
 	toolsFinder       *mocks.MockToolsFinder
 	store             *mocks.MockObjectStore
 	machine0          *mocks.MockAgentTooler
@@ -48,7 +48,7 @@ func (s *getToolsSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.entityFinder = mocks.NewMockToolsFindEntity(ctrl)
-	s.modelAgentService = NewMockModelAgentService(ctrl)
+	s.modelAgentService = mocks.NewMockModelAgentService(ctrl)
 	s.toolsFinder = mocks.NewMockToolsFinder(ctrl)
 	s.store = mocks.NewMockObjectStore(ctrl)
 	s.machine0 = mocks.NewMockAgentTooler(ctrl)

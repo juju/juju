@@ -6,6 +6,7 @@ package machine
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -99,7 +100,7 @@ func NewMachinerAPIForState(
 
 	return &MachinerAPI{
 		LifeGetter:              common.NewLifeGetter(st, getCanAccess),
-		StatusSetter:            common.NewStatusSetter(st, getCanAccess),
+		StatusSetter:            common.NewStatusSetter(st, getCanAccess, clock.WallClock),
 		DeadEnsurer:             common.NewDeadEnsurer(st, getCanAccess, machineService),
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, watcherRegistry, getCanAccess),
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),

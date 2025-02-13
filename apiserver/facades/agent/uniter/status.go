@@ -6,6 +6,7 @@ package uniter
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
@@ -35,10 +36,10 @@ func NewStatusAPI(model *state.Model, getCanModify common.GetAuthFunc, leadershi
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
 	st := model.State()
-	unitSetter := common.NewStatusSetter(st, getCanModify)
+	unitSetter := common.NewStatusSetter(st, getCanModify, clock.WallClock)
 	unitGetter := common.NewStatusGetter(st, getCanModify)
 	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
-	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, getCanModify)
+	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, getCanModify, clock.WallClock)
 	return &StatusAPI{
 		model:             model,
 		leadershipChecker: leadershipChecker,

@@ -6,6 +6,7 @@ package deployer
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -99,7 +100,7 @@ func NewDeployerAPI(
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),
 		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getCanWatch),
-		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
+		StatusSetter:           common.NewStatusSetter(st, getAuthFunc, clock.WallClock),
 		controllerConfigGetter: controllerConfigGetter,
 		applicationService:     applicationService,
 		leadershipRevoker:      leadershipRevoker,
