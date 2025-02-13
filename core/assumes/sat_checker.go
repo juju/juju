@@ -36,7 +36,7 @@ func satisfyFeatureExpr(fs FeatureSet, expr chassumes.FeatureExpression) error {
 	if !defined {
 		errStr := featureMissingErr(expr.Name)
 		featDescr := UserFriendlyFeatureDescriptions[expr.Name]
-		return featureError(expr.Name, featDescr, errStr)
+		return featureError(expr.Name, featDescr, "%s", errStr)
 	}
 
 	// If the "assumes" feature expression does not specify a version or the
@@ -68,7 +68,7 @@ func satisfyFeatureExpr(fs FeatureSet, expr chassumes.FeatureExpression) error {
 		// Try the fallback descriptions if it is missing.
 		featDescr = UserFriendlyFeatureDescriptions[featDescr]
 	}
-	return featureError(expr.Name, featDescr, errStr)
+	return featureError(expr.Name, featDescr, "%s", errStr)
 }
 
 // satisfyCompositeExpr checks whether the feature set contents satisfy the
