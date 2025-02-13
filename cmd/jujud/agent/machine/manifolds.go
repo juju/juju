@@ -89,7 +89,6 @@ import (
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/secretbackendrotate"
 	"github.com/juju/juju/worker/singular"
-	"github.com/juju/juju/worker/sshserver"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
 	"github.com/juju/juju/worker/stateconverter"
@@ -784,12 +783,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SocketName: paths.ControlSocket(paths.OSUnixLike),
 		})),
 
-		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
-			StateName:              stateName,
-			Logger:                 loggo.GetLogger("juju.worker.sshserver"),
-			NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
-			NewServerWorker:        sshserver.NewServerWorker,
-		})),
+		// Unplugging until timeout issue fixed.
+		// sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
+		// 	StateName:              stateName,
+		// 	Logger:                 loggo.GetLogger("juju.worker.sshserver"),
+		// 	NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
+		// 	NewServerWorker:        sshserver.NewServerWorker,
+		// })),
 	}
 
 	return manifolds
@@ -1202,5 +1202,5 @@ const (
 
 	controlSocketName = "control-socket"
 
-	sshServerName = "ssh-server"
+	// sshServerName = "ssh-server"
 )

@@ -131,7 +131,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"upgrade-steps-runner",
 			"upgrader",
 			"valid-credential-flag",
-			"ssh-server",
+			// "ssh-server",
 		},
 	)
 }
@@ -196,7 +196,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"upgrade-steps-runner",
 			"upgrader",
 			"valid-credential-flag",
-			"ssh-server",
+			// "ssh-server",
 		},
 	)
 }
@@ -276,7 +276,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"upgrade-steps-runner",
 		"upgrader",
 		"valid-credential-flag",
-		"ssh-server",
+		// "ssh-server",
 	)
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
@@ -312,7 +312,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"change-stream",
 		"file-notify-watcher",
 		"control-socket",
-		"ssh-server",
+		// "ssh-server",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
@@ -1072,12 +1072,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-config-watcher",
 	},
 
-	"ssh-server": {
-		"agent",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-	},
+	// "ssh-server": {
+	// 	"agent",
+	// 	"is-controller-flag",
+	// 	"state",
+	// 	"state-config-watcher",
+	// },
 }
 
 var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
@@ -1487,12 +1487,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"api-config-watcher",
 	},
 
-	"ssh-server": {
-		"agent",
-		"is-controller-flag",
-		"state",
-		"state-config-watcher",
-	},
+	// "ssh-server": {
+	// 	"agent",
+	// 	"is-controller-flag",
+	// 	"state",
+	// 	"state-config-watcher",
+	// },
 }
 
 type mockAgent struct {
