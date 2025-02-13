@@ -82,10 +82,14 @@ type Model interface {
 	CloudRegion() string
 }
 
+// ModelCallContextReleaser is a function that releases the model state.
+// Returns true if the model was successfully released.
+type ModelCallContextReleaser func() bool
+
 // ModelPoolBackend defines a pool of models.
 type ModelPoolBackend interface {
 	// GetModelCallContext gets everything that is needed to make cloud calls on behalf of the given model.
-	GetModelCallContext(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error)
+	GetModelCallContext(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, ModelCallContextReleaser, error)
 
 	// SystemState allows access to an underlying controller state.
 	SystemState() (*state.State, error)
@@ -97,17 +101,20 @@ type statePoolShim struct {
 
 // NewModelPoolBackend creates a model pool backend based on state.StatePool.
 func NewModelPoolBackend(st *state.StatePool) ModelPoolBackend {
-	return statePoolShim{st}
+	return statePoolShim{StatePool: st}
 }
 
 // GetModelCallContext implements ModelPoolBackend.GetModelCallContext.
-func (s statePoolShim) GetModelCallContext(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
+// The responsibility of releasing the model state is left to the caller.
+func (s statePoolShim) GetModelCallContext(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, ModelCallContextReleaser, error) {
 	modelState, err := s.StatePool.Get(modelUUID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	defer modelState.Release()
-	return credentialcommon.NewPersistentBackend(modelState.State), context.CallContext(modelState.State), err
+	return credentialcommon.NewPersistentBackend(modelState.State),
+		context.CallContext(modelState.State),
+		modelState.Release,
+		err
 }
 
 type User interface {
