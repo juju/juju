@@ -1352,17 +1352,17 @@ func (c *MockModelDomainServicesResourceCall) DoAndReturn(f func() *service26.Se
 }
 
 // Secret mocks base method.
-func (m *MockModelDomainServices) Secret(arg0 service27.SecretServiceParams) *service27.WatchableService {
+func (m *MockModelDomainServices) Secret() *service27.WatchableService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Secret", arg0)
+	ret := m.ctrl.Call(m, "Secret")
 	ret0, _ := ret[0].(*service27.WatchableService)
 	return ret0
 }
 
 // Secret indicates an expected call of Secret.
-func (mr *MockModelDomainServicesMockRecorder) Secret(arg0 any) *MockModelDomainServicesSecretCall {
+func (mr *MockModelDomainServicesMockRecorder) Secret() *MockModelDomainServicesSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Secret", reflect.TypeOf((*MockModelDomainServices)(nil).Secret), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Secret", reflect.TypeOf((*MockModelDomainServices)(nil).Secret))
 	return &MockModelDomainServicesSecretCall{Call: call}
 }
 
@@ -1378,13 +1378,13 @@ func (c *MockModelDomainServicesSecretCall) Return(arg0 *service27.WatchableServ
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesSecretCall) Do(f func(service27.SecretServiceParams) *service27.WatchableService) *MockModelDomainServicesSecretCall {
+func (c *MockModelDomainServicesSecretCall) Do(f func() *service27.WatchableService) *MockModelDomainServicesSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesSecretCall) DoAndReturn(f func(service27.SecretServiceParams) *service27.WatchableService) *MockModelDomainServicesSecretCall {
+func (c *MockModelDomainServicesSecretCall) DoAndReturn(f func() *service27.WatchableService) *MockModelDomainServicesSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2705,17 +2705,17 @@ func (c *MockDomainServicesResourceCall) DoAndReturn(f func() *service26.Service
 }
 
 // Secret mocks base method.
-func (m *MockDomainServices) Secret(arg0 service27.SecretServiceParams) *service27.WatchableService {
+func (m *MockDomainServices) Secret() *service27.WatchableService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Secret", arg0)
+	ret := m.ctrl.Call(m, "Secret")
 	ret0, _ := ret[0].(*service27.WatchableService)
 	return ret0
 }
 
 // Secret indicates an expected call of Secret.
-func (mr *MockDomainServicesMockRecorder) Secret(arg0 any) *MockDomainServicesSecretCall {
+func (mr *MockDomainServicesMockRecorder) Secret() *MockDomainServicesSecretCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Secret", reflect.TypeOf((*MockDomainServices)(nil).Secret), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Secret", reflect.TypeOf((*MockDomainServices)(nil).Secret))
 	return &MockDomainServicesSecretCall{Call: call}
 }
 
@@ -2731,13 +2731,13 @@ func (c *MockDomainServicesSecretCall) Return(arg0 *service27.WatchableService) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDomainServicesSecretCall) Do(f func(service27.SecretServiceParams) *service27.WatchableService) *MockDomainServicesSecretCall {
+func (c *MockDomainServicesSecretCall) Do(f func() *service27.WatchableService) *MockDomainServicesSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDomainServicesSecretCall) DoAndReturn(f func(service27.SecretServiceParams) *service27.WatchableService) *MockDomainServicesSecretCall {
+func (c *MockDomainServicesSecretCall) DoAndReturn(f func() *service27.WatchableService) *MockDomainServicesSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
