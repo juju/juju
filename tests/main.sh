@@ -16,6 +16,7 @@ export MODEL_ARCH="${MODEL_ARCH:-}"
 export BUILD_AGENT="${BUILD_AGENT:-false}"
 export RUN_SUBTEST="${RUN_SUBTEST:-}"
 export CURRENT_LTS="ubuntu@22.04"
+export DESTROY_TIMEOUT="${DESTROY_TIMEOUT:-15m}"
 
 current_pwd=$(pwd)
 export CURRENT_DIR="${current_pwd}"
