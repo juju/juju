@@ -20,7 +20,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application ExternalControllerService,NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,PortService,StubService,Leadership,StorageService
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application ExternalControllerService,NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,PortService,StubService,Leadership,StorageService,ResourceService
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application Backend,Application,Model,CaasBrokerInterface
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
@@ -37,12 +37,13 @@ type baseSuite struct {
 
 	api *APIBase
 
-	externalControllerService *MockExternalControllerService
-	networkService            *MockNetworkService
-	modelConfigService        *MockModelConfigService
-	machineService            *MockMachineService
 	applicationService        *MockApplicationService
+	externalControllerService *MockExternalControllerService
+	machineService            *MockMachineService
+	modelConfigService        *MockModelConfigService
+	networkService            *MockNetworkService
 	portService               *MockPortService
+	resourceService           *MockResourceService
 	storageService            *MockStorageService
 	stubService               *MockStubService
 
@@ -72,11 +73,12 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
-	s.networkService = NewMockNetworkService(ctrl)
-	s.modelConfigService = NewMockModelConfigService(ctrl)
-	s.machineService = NewMockMachineService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.networkService = NewMockNetworkService(ctrl)
 	s.portService = NewMockPortService(ctrl)
+	s.resourceService = NewMockResourceService(ctrl)
 	s.storageService = NewMockStorageService(ctrl)
 	s.stubService = NewMockStubService(ctrl)
 
@@ -156,6 +158,7 @@ func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
 			MachineService:            s.machineService,
 			ApplicationService:        s.applicationService,
 			PortService:               s.portService,
+			ResourceService:           s.resourceService,
 			StorageService:            s.storageService,
 			StubService:               s.stubService,
 		},

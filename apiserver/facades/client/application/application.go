@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -87,6 +88,7 @@ type APIBase struct {
 	applicationService ApplicationService
 	networkService     NetworkService
 	portService        PortService
+	resourceService    ResourceService
 	stubService        StubService
 	storageService     StorageService
 
@@ -190,6 +192,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			MachineService:            domainServices.Machine(),
 			ApplicationService:        applicationService,
 			PortService:               domainServices.Port(),
+			ResourceService:           domainServices.Resource(),
 			StorageService:            storageService,
 			StubService:               domainServices.Stub(),
 		},
@@ -268,6 +271,7 @@ func NewAPIBase(
 		modelConfigService:        services.ModelConfigService,
 		networkService:            services.NetworkService,
 		portService:               services.PortService,
+		resourceService:           services.ResourceService,
 		storageService:            services.StorageService,
 		stubService:               services.StubService,
 
@@ -317,9 +321,39 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 			arg.CharmOrigin.Revision = &rev
 		}
 		err := api.deployApplication(ctx, arg)
+		if err == nil {
+			// Deploy succeeded, no cleanup needed, move on to the next.
+			continue
+		}
 		result.Results[i].Error = apiservererrors.ServerError(errors.Annotatef(err, "cannot deploy %q", arg.ApplicationName))
+
+		api.cleanupResourcesAddedBeforeApp(ctx, arg.ApplicationName, arg.Resources)
 	}
 	return result, nil
+}
+
+// cleanupResourcesAddedBeforeApp deletes any resources added before the
+// application. Errors will be logged but not reported to the user. These
+// errors mask the real deployment failure.
+func (api *APIBase) cleanupResourcesAddedBeforeApp(ctx context.Context, appName string, argResources map[string]string) {
+	if len(argResources) == 0 {
+		return
+	}
+
+	pendingIDs := make([]coreresource.UUID, 0, len(argResources))
+	for _, resource := range argResources {
+		resUUID, err := coreresource.ParseUUID(resource)
+		if err != nil {
+			api.logger.Warningf(ctx, "unable to parse resource UUID %q, while cleaning up pending"+
+				" resources from a failed application deployment: %w", resource, err)
+			continue
+		}
+		pendingIDs = append(pendingIDs, resUUID)
+	}
+	err := api.resourceService.DeleteResourcesAddedBeforeApplication(ctx, pendingIDs)
+	if err != nil {
+		api.logger.Errorf(ctx, "removing pending resources for %q: %w", appName, err)
+	}
 }
 
 // ConfigSchema returns the config schema and defaults for an application.
@@ -492,6 +526,16 @@ func (api *APIBase) deployApplication(
 
 	if err := jujuversion.CheckJujuMinVersion(ch.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return errors.Trace(err)
+	}
+
+	// Codify an implicit assumption for Deploy, that AddPendingResources
+	// has been called first by the client. This validates that local charm
+	// and bundle deployments by a client, have provided the needed resource
+	// data, whether or not the user has made specific requests. This differs
+	// from the DeployFromRepository expected code path where unknown resource
+	// specific are filled in by the facade method.
+	if len(ch.Meta().Resources) != len(args.Resources) {
+		return errors.Errorf("not all pending resources for charm provided")
 	}
 
 	if api.modelInfo.Type == model.CAAS {

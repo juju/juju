@@ -183,13 +183,6 @@ type Model interface {
 	ControllerUUID() string
 }
 
-// Resources defines a subset of the functionality provided by the
-// state.Resources type, as required by the application facade. See
-// the state.Resources type for details on the methods.
-type Resources interface {
-	RemovePendingAppResources(string, map[string]string) error
-}
-
 type stateShim struct {
 	*state.State
 }

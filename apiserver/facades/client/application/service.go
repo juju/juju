@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -36,6 +37,7 @@ type Services struct {
 	ModelConfigService        ModelConfigService
 	NetworkService            NetworkService
 	PortService               PortService
+	ResourceService           ResourceService
 	StorageService            StorageService
 	StubService               StubService
 }
@@ -59,6 +61,9 @@ func (s Services) Validate() error {
 	}
 	if s.PortService == nil {
 		return errors.NotValidf("empty PortService")
+	}
+	if s.ResourceService == nil {
+		return errors.NotValidf("empty ResourceService")
 	}
 	if s.StorageService == nil {
 		return errors.NotValidf("empty StorageService")
@@ -219,10 +224,18 @@ type ModelConfigService interface {
 	ModelConfig(context.Context) (*config.Config, error)
 }
 
+// PortService defines the methods that the facade assumes from the Port
+// service.
 type PortService interface {
 	// GetUnitOpenedPorts returns the opened ports for a given unit uuid,
 	// grouped by endpoint.
 	GetUnitOpenedPorts(ctx context.Context, unitUUID unit.UUID) (network.GroupedPortRanges, error)
+}
+
+// ResourceService defines the methods that the facade assumes from the Resource
+// service.
+type ResourceService interface {
+	DeleteResourcesAddedBeforeApplication(ctx context.Context, resources []coreresource.UUID) error
 }
 
 // StubService is the interface used to interact with the stub service. A special
