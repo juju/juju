@@ -1512,8 +1512,25 @@ func (s *applicationStateSuite) TestGetApplicationIDByUnitName(c *gc.C) {
 	c.Check(obtainedAppUUID, gc.Equals, expectedAppUUID)
 }
 
-func (s *applicationStateSuite) TestGetApplicationIDByUnitNameUnitNotFound(c *gc.C) {
+func (s *applicationStateSuite) TestGetApplicationIDByUnitNameUnitUnitNotFound(c *gc.C) {
 	_, err := s.state.GetApplicationIDByUnitName(context.Background(), "failme")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *applicationStateSuite) TestGetApplicationIDAndNameByUnitName(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	expectedAppUUID := s.createApplication(c, "foo", life.Alive, u1)
+
+	appUUID, appName, err := s.state.GetApplicationIDAndNameByUnitName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(appUUID, gc.Equals, expectedAppUUID)
+	c.Check(appName, gc.Equals, "foo")
+}
+
+func (s *applicationStateSuite) TestGetApplicationIDAndNameByUnitNameNotFound(c *gc.C) {
+	_, _, err := s.state.GetApplicationIDAndNameByUnitName(context.Background(), "failme")
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 

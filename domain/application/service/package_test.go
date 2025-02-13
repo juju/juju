@@ -28,6 +28,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination charm_mock_test.go github.com/juju/juju/domain/application/service CharmStore,WatcherFactory
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -43,6 +44,7 @@ type baseSuite struct {
 	charmStore         *MockCharmStore
 	agentVersionGetter *MockAgentVersionGetter
 	provider           *MockProvider
+	leadership         *MockEnsurer
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	clock                 *testclock.Clock
@@ -57,6 +59,7 @@ func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context)
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
+	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
 	s.charm = NewMockCharm(ctrl)
@@ -72,6 +75,7 @@ func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context)
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(
 		s.state,
+		s.leadership,
 		s.storageRegistryGetter,
 		s.modelID,
 		s.agentVersionGetter,
@@ -93,6 +97,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
+	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
 	s.charm = NewMockCharm(ctrl)
@@ -108,6 +113,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewProviderService(
 		s.state,
+		s.leadership,
 		s.storageRegistryGetter,
 		s.modelID,
 		s.agentVersionGetter,

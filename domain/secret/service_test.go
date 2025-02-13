@@ -26,6 +26,7 @@ import (
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
+	domaintesting "github.com/juju/juju/domain/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -124,6 +125,7 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 
 	appService := applicationservice.NewService(
 		st,
+		domaintesting.NoopLeaderEnsurer(),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),

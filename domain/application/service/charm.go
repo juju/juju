@@ -657,9 +657,6 @@ func (s *Service) SetCharmAvailable(ctx context.Context, locator charm.CharmLoca
 // state.
 // If there are any non-blocking issues with the charm metadata, actions,
 // config or manifest, a set of warnings will be returned.
-//
-// Deprecated: Use a feature specific method to set the charm. This method
-// should become private in the future.
 func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, []string, error) {
 	result, warnings, err := s.setCharm(ctx, args)
 	if err != nil {

@@ -2297,11 +2297,11 @@ func (st *State) GetApplicationIDByUnitName(
 		return "", errors.Capture(err)
 	}
 
-	unit := unitNameAndUUID{Name: name}
+	unit := unitName{Name: name}
 	queryUnit := `
 SELECT application_uuid AS &applicationID.uuid
 FROM unit
-WHERE name = $unitNameAndUUID.name
+WHERE name = $unitName.name;
 `
 	query, err := st.Prepare(queryUnit, applicationID{}, unit)
 	if err != nil {
@@ -2320,6 +2320,47 @@ WHERE name = $unitNameAndUUID.name
 		return "", errors.Errorf("querying unit %q application id: %w", name, err)
 	}
 	return app.ID, nil
+}
+
+// GetApplicationIDAndNameByUnitName returns the application ID and name for the
+// named unit.
+//
+// Returns an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (st *State) GetApplicationIDAndNameByUnitName(
+	ctx context.Context,
+	name coreunit.Name,
+) (coreapplication.ID, string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	unit := unitName{Name: name}
+	queryUnit := `
+SELECT a.uuid AS &applicationIDAndName.uuid,
+       a.name AS &applicationIDAndName.name
+FROM unit u
+JOIN application a ON a.uuid = u.application_uuid
+WHERE u.name = $unitName.name;
+`
+	query, err := st.Prepare(queryUnit, applicationIDAndName{}, unit)
+	if err != nil {
+		return "", "", errors.Errorf("preparing query for unit %q: %w", name, err)
+	}
+
+	var app applicationIDAndName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query, unit).Get(&app)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitNotFound
+		}
+		return err
+	})
+	if err != nil {
+		return "", "", errors.Errorf("querying unit %q application id: %w", name, err)
+	}
+	return app.ID, app.Name, nil
 }
 
 // GetCharmModifiedVersion looks up the charm modified version of the given
