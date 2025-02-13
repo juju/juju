@@ -611,7 +611,7 @@ func (s *metadataStateSuite) TestMetadataStorageKind(c *gc.C) {
 	}
 
 	stmt := sqlair.MustPrepare(`
-SELECT storage_kind.* AS &storageKind.* FROM storage_kind ORDER BY id;
+SELECT charm_storage_kind.* AS &storageKind.* FROM charm_storage_kind ORDER BY id;
 `, storageKind{})
 
 	var results []storageKind

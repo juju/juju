@@ -23,19 +23,6 @@ CREATE TABLE storage_pool_attribute (
     PRIMARY KEY (storage_pool_uuid, "key")
 );
 
-CREATE TABLE storage_kind (
-    id INT PRIMARY KEY,
-    kind TEXT NOT NULL,
-    description TEXT
-);
-
-CREATE UNIQUE INDEX idx_storage_kind
-ON storage_kind (kind);
-
-INSERT INTO storage_kind VALUES
-(0, 'block', 'Allows for the creation of raw storage volumes'),
-(1, 'filesystem', 'Provides a hierarchical file storage system');
-
 -- This table stores storage directive values for each named storage item
 -- defined by the application's current charm. If the charm is updated, then
 -- so too will be the rows in this table to reflect the current charm's

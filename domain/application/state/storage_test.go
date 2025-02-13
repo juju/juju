@@ -62,9 +62,9 @@ WHERE name=?`, "666").Scan(&charmUUID)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
-SELECT cs.name, sk.kind
+SELECT cs.name, csk.kind
 FROM charm_storage cs
-JOIN storage_kind sk ON sk.id=cs.storage_kind_id
+JOIN charm_storage_kind csk ON csk.id=cs.storage_kind_id
 WHERE charm_uuid=?`, charmUUID)
 		if err != nil {
 			return errors.Capture(err)
