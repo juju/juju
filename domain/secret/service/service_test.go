@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/secrets"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/domain/secretbackend"
 	domaintesting "github.com/juju/juju/domain/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -40,7 +42,6 @@ type serviceSuite struct {
 
 	clock                  *testclock.Clock
 	modelID                coremodel.UUID
-	userSecretConfigGetter BackendUserSecretConfigGetter
 	secretsBackend         *MockSecretsBackend
 	secretsBackendProvider *MockSecretBackendProvider
 	ensurer                *MockEnsurer
@@ -84,9 +85,6 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.fakeUUID, err = uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	s.clock = testclock.NewClock(time.Time{})
-	s.userSecretConfigGetter = func(context.Context, GrantedSecretsGetter, SecretAccessor) (*provider.ModelBackendConfigInfo, error) {
-		return backendConfigs, nil
-	}
 }
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -102,14 +100,13 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	}).AnyTimes()
 
 	s.service = &SecretService{
-		secretState:            s.state,
-		secretBackendState:     s.secretBackendState,
-		providerGetter:         func(string) (provider.SecretBackendProvider, error) { return s.secretsBackendProvider, nil },
-		leaderEnsurer:          s.ensurer,
-		userSecretConfigGetter: s.userSecretConfigGetter,
-		uuidGenerator:          func() (uuid.UUID, error) { return s.fakeUUID, nil },
-		clock:                  s.clock,
-		logger:                 loggertesting.WrapCheckLog(c),
+		secretState:        s.state,
+		secretBackendState: s.secretBackendState,
+		providerGetter:     func(string) (provider.SecretBackendProvider, error) { return s.secretsBackendProvider, nil },
+		leaderEnsurer:      s.ensurer,
+		uuidGenerator:      func() (uuid.UUID, error) { return s.fakeUUID, nil },
+		clock:              s.clock,
+		logger:             loggertesting.WrapCheckLog(c),
 	}
 	return ctrl
 }
@@ -160,14 +157,70 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 		}
 	}
 
-	s.secretsBackendProvider.EXPECT().Type().Return("active-type").AnyTimes()
-	s.secretsBackendProvider.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(
+	s.secretBackendState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), s.modelID).Return(
+		secretbackend.ModelSecretBackend{
+			SecretBackendID: "backend-id",
+			ControllerUUID:  coretesting.ControllerTag.Id(),
+			ModelName:       "some-model",
+		}, nil,
+	)
+
+	s.secretBackendState.EXPECT().ListSecretBackendsForModel(gomock.Any(), s.modelID, true).Return(
+		[]*secretbackend.SecretBackend{
+			{
+				ID:          "backend-id",
+				BackendType: "active-type",
+				Config:      map[string]any{"foo": "active-type"},
+			},
+		}, nil,
+	)
+
+	mBackendConfig := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      s.modelID.String(),
+		ModelName:      "some-model",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "active-type",
+			Config:      map[string]any{"foo": "active-type"},
+		},
+	}
+	s.secretsBackendProvider.EXPECT().Initialise(mBackendConfig).Return(nil)
+	existingOwnedURI := coresecrets.NewURI()
+	s.state.EXPECT().ListGrantedSecretsForBackend(gomock.Any(), "backend-id", []domainsecret.AccessParams{
+		{
+			SubjectID:     s.modelID.String(),
+			SubjectTypeID: domainsecret.SubjectModel,
+		},
+	}, coresecrets.RoleManage).Return(
+		[]*secrets.SecretRevisionRef{
+			{
+				URI:        existingOwnedURI,
+				RevisionID: "rev-id",
+			},
+		}, nil,
+	)
+	ownedRevisions := provider.SecretRevisions{}
+	ownedRevisions.Add(existingOwnedURI, "rev-id")
+	s.secretsBackendProvider.EXPECT().RestrictedConfig(gomock.Any(), mBackendConfig, true, false, secrets.Accessor{
+		Kind: secrets.ModelAccessor,
+		ID:   s.modelID.String(),
+	}, ownedRevisions, provider.SecretRevisions{}).Return(
+		&mBackendConfig.BackendConfig, nil,
+	)
+	s.secretsBackendProvider.EXPECT().NewBackend(
+		&provider.ModelBackendConfig{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      s.modelID.String(),
+			ModelName:      "some-model",
+			BackendConfig:  mBackendConfig.BackendConfig,
+		},
+	).DoAndReturn(
 		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 			return s.secretsBackend, nil
 		},
 	)
 
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil).AnyTimes()
 	uri := coresecrets.NewURI()
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), params.ValueRef, s.modelID, s.fakeUUID.String()).Return(
@@ -201,6 +254,10 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 
 	err := s.service.CreateUserSecret(context.Background(), uri, CreateUserSecretParams{
 		UpdateUserSecretParams: UpdateUserSecretParams{
+			Accessor: SecretAccessor{
+				Kind: ModelAccessor,
+				ID:   s.modelID.String(),
+			},
 			Description: ptr("a secret"),
 			Label:       ptr("my secret"),
 			Data:        map[string]string{"foo": "bar"},
@@ -238,10 +295,69 @@ func (s *serviceSuite) TestUpdateUserSecretFailedLabelExistsWithCleanup(c *gc.C)
 
 func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFailed, labelExists bool) {
 	defer s.setupMocks(c).Finish()
-	s.secretsBackendProvider.EXPECT().Type().Return("active-type").AnyTimes()
-	s.secretsBackendProvider.EXPECT().NewBackend(ptr(backendConfigs.Configs["backend-id"])).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		return s.secretsBackend, nil
-	})
+
+	s.secretBackendState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), s.modelID).Return(
+		secretbackend.ModelSecretBackend{
+			SecretBackendID: "backend-id",
+			ControllerUUID:  coretesting.ControllerTag.Id(),
+			ModelName:       "some-model",
+		}, nil,
+	)
+
+	s.secretBackendState.EXPECT().ListSecretBackendsForModel(gomock.Any(), s.modelID, true).Return(
+		[]*secretbackend.SecretBackend{
+			{
+				ID:          "backend-id",
+				BackendType: "active-type",
+				Config:      map[string]any{"foo": "active-type"},
+			},
+		}, nil,
+	)
+
+	mBackendConfig := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      s.modelID.String(),
+		ModelName:      "some-model",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "active-type",
+			Config:      map[string]any{"foo": "active-type"},
+		},
+	}
+	s.secretsBackendProvider.EXPECT().Initialise(mBackendConfig).Return(nil)
+	existingOwnedURI := coresecrets.NewURI()
+	s.state.EXPECT().ListGrantedSecretsForBackend(gomock.Any(), "backend-id", []domainsecret.AccessParams{
+		{
+			SubjectID:     s.modelID.String(),
+			SubjectTypeID: domainsecret.SubjectModel,
+		},
+	}, coresecrets.RoleManage).Return(
+		[]*secrets.SecretRevisionRef{
+			{
+				URI:        existingOwnedURI,
+				RevisionID: "rev-id",
+			},
+		}, nil,
+	)
+	ownedRevisions := provider.SecretRevisions{}
+	ownedRevisions.Add(existingOwnedURI, "rev-id")
+	s.secretsBackendProvider.EXPECT().RestrictedConfig(gomock.Any(), mBackendConfig, true, false, secrets.Accessor{
+		Kind: secrets.ModelAccessor,
+		ID:   s.modelID.String(),
+	}, ownedRevisions, provider.SecretRevisions{}).Return(
+		&mBackendConfig.BackendConfig, nil,
+	)
+	s.secretsBackendProvider.EXPECT().NewBackend(
+		&provider.ModelBackendConfig{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      s.modelID.String(),
+			ModelName:      "some-model",
+			BackendConfig:  mBackendConfig.BackendConfig,
+		},
+	).DoAndReturn(
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			return s.secretsBackend, nil
+		},
+	)
 
 	uri := coresecrets.NewURI()
 	if isInternal {
@@ -272,11 +388,11 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 	}
 
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
-		SubjectTypeID: domainsecret.SubjectUnit,
-		SubjectID:     "mariadb/0",
+		SubjectTypeID: domainsecret.SubjectModel,
+		SubjectID:     s.modelID.String(),
 	}).Return("manage", nil)
 	s.state.EXPECT().GetLatestRevision(gomock.Any(), uri).Return(2, nil)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil).AnyTimes()
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), params.ValueRef, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -297,8 +413,8 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 
 	err := s.service.UpdateUserSecret(context.Background(), uri, UpdateUserSecretParams{
 		Accessor: SecretAccessor{
-			Kind: UnitAccessor,
-			ID:   "mariadb/0",
+			Kind: ModelAccessor,
+			ID:   s.modelID.String(),
 		},
 		Description: ptr("a secret"),
 		Label:       ptr("my secret"),
@@ -1878,7 +1994,7 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 	})
 
 	svc := NewWatchableService(
-		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
 	w, err := svc.WatchObsolete(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,
@@ -1940,7 +2056,7 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_metadata", changestream.Changed, gomock.Any()).Return(mockAutoPruneWatcher, nil)
 
 	svc := NewWatchableService(
-		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
 	w, err := svc.WatchObsoleteUserSecretsToPrune(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -2000,7 +2116,7 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	).Return([]string{uri2.String()}, nil)
 
 	svc := NewWatchableService(
-		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
 	w, err := svc.WatchConsumedSecretsChanges(context.Background(), "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -2053,7 +2169,7 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	})
 
 	svc := NewWatchableService(
-		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
 	w, err := svc.WatchRemoteConsumedSecretsChanges(context.Background(), "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
@@ -2116,7 +2232,7 @@ func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	})
 
 	svc := NewWatchableService(
-		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
 	w, err := svc.WatchSecretsRotationChanges(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,
@@ -2200,7 +2316,7 @@ func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 	})
 
 	svc := NewWatchableService(
-		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c), SecretServiceParams{})
+		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
 	w, err := svc.WatchSecretRevisionsExpiryChanges(context.Background(),
 		CharmSecretOwner{
 			Kind: ApplicationOwner,

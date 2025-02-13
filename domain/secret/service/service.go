@@ -34,41 +34,27 @@ func NewSecretService(
 	secretBackendState SecretBackendState,
 	leaderEnsurer leadership.Ensurer,
 	logger logger.Logger,
-	params SecretServiceParams,
 ) *SecretService {
 	return &SecretService{
 		secretState:        secretState,
 		secretBackendState: secretBackendState,
 		providerGetter:     provider.Provider,
 		leaderEnsurer:      leaderEnsurer,
-
-		userSecretConfigGetter: params.BackendUserSecretConfigGetter,
-		uuidGenerator:          uuid.NewUUID,
-
-		clock:  clock.WallClock,
-		logger: logger,
+		uuidGenerator:      uuid.NewUUID,
+		clock:              clock.WallClock,
+		logger:             logger,
 	}
 }
 
 // ProviderGetter is a func used to get a secret backend provider for a specified type.
 type ProviderGetter func(backendType string) (provider.SecretBackendProvider, error)
 
-// BackendUserSecretConfigGetter is a func used to get admin level secret backend config.
-type BackendUserSecretConfigGetter func(context.Context, GrantedSecretsGetter, SecretAccessor) (*provider.ModelBackendConfigInfo, error)
-
-// NotImplementedBackendUserSecretConfigGetter is a not implemented secret backend getter.
-// It is used by callers of the secret service that do not need any backend functionality.
-var NotImplementedBackendUserSecretConfigGetter = func(context.Context, GrantedSecretsGetter, SecretAccessor) (*provider.ModelBackendConfigInfo, error) {
-	return nil, jujuerrors.NotImplemented
-}
-
 // SecretService provides the API for working with secrets.
 type SecretService struct {
 	secretState        State
 	secretBackendState SecretBackendState
 
-	providerGetter         ProviderGetter
-	userSecretConfigGetter BackendUserSecretConfigGetter
+	providerGetter ProviderGetter
 
 	activeBackendID string
 	backends        map[string]provider.SecretsBackend
@@ -106,18 +92,80 @@ func (s *SecretService) getBackend(cfg *provider.ModelBackendConfig) (provider.S
 }
 
 func (s *SecretService) getBackendForUserSecrets(ctx context.Context, accessor SecretAccessor) (provider.SecretsBackend, string, error) {
-	info, err := s.userSecretConfigGetter(ctx, s.ListGrantedSecretsForBackend, accessor)
+	mUUID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
-		return nil, "", jujuerrors.Trace(err)
+		return nil, "", errors.Errorf("getting model UUID: %w", err)
 	}
-	activeBackendID := info.ActiveID
-	cfg, ok := info.Configs[activeBackendID]
-	if !ok {
+	modelUUID := coremodel.UUID(mUUID)
+
+	modelBackend, err := s.secretBackendState.GetModelSecretBackendDetails(ctx, modelUUID)
+	if err != nil {
+		return nil, "", errors.Errorf("getting model secret backend: %w", err)
+	}
+	activeBackendID := modelBackend.SecretBackendID
+
+	backends, err := s.secretBackendState.ListSecretBackendsForModel(ctx, modelUUID, true)
+	if err != nil {
+		return nil, "", errors.Errorf("listing secret backends: %w", err)
+	}
+
+	var cfg *provider.ModelBackendConfig
+	for _, b := range backends {
+		if b.ID == activeBackendID {
+			cfg = &provider.ModelBackendConfig{
+				ControllerUUID: modelBackend.ControllerUUID,
+				ModelUUID:      mUUID,
+				ModelName:      modelBackend.ModelName,
+				BackendConfig: provider.BackendConfig{
+					BackendType: b.BackendType,
+					Config:      b.Config,
+				},
+			}
+			break
+		}
+	}
+
+	if cfg == nil {
 		return nil, "", fmt.Errorf("active backend config for %q: %w", activeBackendID, backenderrors.NotFound)
 	}
-	backend, err := s.getBackend(&cfg)
+
+	p, err := s.providerGetter(cfg.BackendType)
 	if err != nil {
-		return nil, "", jujuerrors.Trace(err)
+		return nil, "", errors.Capture(err)
+	}
+	err = p.Initialise(cfg)
+	if err != nil {
+		return nil, "", errors.Errorf("initialising secrets provider: %w", err)
+	}
+
+	revInfo, err := s.ListGrantedSecretsForBackend(ctx, activeBackendID, secrets.RoleManage, accessor)
+	if err != nil {
+		return nil, "", errors.Errorf("listing granted secrets: %w", err)
+	}
+	ownedRevisions := provider.SecretRevisions{}
+	for _, r := range revInfo {
+		ownedRevisions.Add(r.URI, r.RevisionID)
+	}
+	s.logger.Debugf(context.TODO(), "secrets for %s:\nowned: %v", accessor, ownedRevisions)
+
+	// Get the restricted config for the provided accessor.
+	restrictedConfig, err := p.RestrictedConfig(ctx, cfg, true, false, secrets.Accessor{
+		Kind: secrets.ModelAccessor,
+		ID:   accessor.ID,
+	}, ownedRevisions, provider.SecretRevisions{})
+	if err != nil {
+		return nil, "", errors.Capture(err)
+	}
+
+	info := &provider.ModelBackendConfig{
+		ControllerUUID: cfg.ControllerUUID,
+		ModelUUID:      cfg.ModelUUID,
+		ModelName:      cfg.ModelName,
+		BackendConfig:  *restrictedConfig,
+	}
+	backend, err := p.NewBackend(info)
+	if err != nil {
+		return nil, "", errors.Capture(err)
 	}
 	return backend, activeBackendID, nil
 }

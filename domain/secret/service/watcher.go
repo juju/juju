@@ -33,9 +33,8 @@ func NewWatchableService(
 	leaderEnsurer leadership.Ensurer,
 	watcherFactory WatcherFactory,
 	logger logger.Logger,
-	params SecretServiceParams,
 ) *WatchableService {
-	svc := NewSecretService(secretState, secretBackendState, leaderEnsurer, logger, params)
+	svc := NewSecretService(secretState, secretBackendState, leaderEnsurer, logger)
 	return &WatchableService{
 		SecretService:  *svc,
 		watcherFactory: watcherFactory,

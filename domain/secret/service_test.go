@@ -110,7 +110,6 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 		s.secretBackendState,
 		nil,
 		loggertesting.WrapCheckLog(c),
-		service.SecretServiceParams{},
 	)
 
 	return ctrl

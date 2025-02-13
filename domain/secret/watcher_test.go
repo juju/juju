@@ -896,7 +896,7 @@ func (s *watcherSuite) setupServiceAndState(c *gc.C) (*service.WatchableService,
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secret_revision"),
 		logger,
 	)
-	return service.NewWatchableService(st, nil, nil, factory, logger, service.SecretServiceParams{}), st
+	return service.NewWatchableService(st, nil, nil, factory, logger), st
 }
 
 func revID(uri *coresecrets.URI, rev int) string {
