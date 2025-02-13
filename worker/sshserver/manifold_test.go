@@ -24,7 +24,7 @@ func newManifoldConfig(l *mocks.MockLogger, modifier func(cfg *sshserver.Manifol
 	cfg := &sshserver.ManifoldConfig{
 		StateName:              "state",
 		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
-		NewServerWorker:        func(sshserver.ServerWorkerConfig) (*sshserver.ServerWorker, error) { return nil, nil },
+		NewServerWorker:        func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:                 l,
 	}
 
@@ -92,7 +92,7 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 	manifold := sshserver.Manifold(sshserver.ManifoldConfig{
 		StateName:              "state",
 		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
-		NewServerWorker:        func(sshserver.ServerWorkerConfig) (*sshserver.ServerWorker, error) { return nil, nil },
+		NewServerWorker:        func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:                 mockLogger,
 	})
 

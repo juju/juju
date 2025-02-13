@@ -39,6 +39,11 @@ func (s *sshServerSuite) SetUpSuite(c *gc.C) {
 	s.userSigner = userSigner
 }
 
+func (s *sshServerSuite) TestValidate(c *gc.C) {
+	cfg := sshserver.ServerWorkerConfig{}
+	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+}
+
 func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -26,7 +26,7 @@ type ManifoldConfig struct {
 	NewServerWrapperWorker func(ServerWrapperWorkerConfig) (worker.Worker, error)
 	// NewServerWorker is the function that creates a worker that has a catacomb
 	// to run the server and other worker dependencies.
-	NewServerWorker func(ServerWorkerConfig) (*ServerWorker, error)
+	NewServerWorker func(ServerWorkerConfig) (worker.Worker, error)
 	// Logger is the logger to use for the worker.
 	Logger Logger
 }
@@ -76,8 +76,13 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		return nil, errors.Trace(err)
 	}
 
+	sysState, err := statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
-		StatePool:       statePool,
+		SystemState:     sysState,
 		NewServerWorker: config.NewServerWorker,
 		Logger:          config.Logger,
 	})
@@ -87,6 +92,9 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 	}
 
 	return common.NewCleanupWorker(w, func() {
+		if err := sysState.Close(); err != nil {
+			config.Logger.Errorf("failed to close system state %v", err)
+		}
 		_ = stTracker.Done()
 	}), nil
 }

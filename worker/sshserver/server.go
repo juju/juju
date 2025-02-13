@@ -12,6 +12,7 @@ import (
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v3"
 	gossh "golang.org/x/crypto/ssh"
 	"gopkg.in/tomb.v2"
 )
@@ -45,7 +46,7 @@ type ServerWorker struct {
 }
 
 // NewServerWorker returns a running embedded SSH server.
-func NewServerWorker(config ServerWorkerConfig) (*ServerWorker, error) {
+func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
