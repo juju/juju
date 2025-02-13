@@ -695,8 +695,8 @@ func (s *Service) DeleteResourcesAddedBeforeApplication(ctx context.Context, res
 //     be found in the database.
 //   - [resourceerrors.OriginNotValid] if the resource origin is not valid.
 func (s *Service) ImportResources(ctx context.Context, args resource.ImportResourcesArgs) error {
-	resourceNames := make(map[string]bool)
 	for _, appArg := range args {
+		resourceNames := make(map[string]bool)
 		for _, res := range appArg.Resources {
 			if res.Name == "" {
 				return errors.Errorf("resource on application %s: %w",
