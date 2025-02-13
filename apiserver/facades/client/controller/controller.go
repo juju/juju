@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corecontroller "github.com/juju/juju/controller"
@@ -57,7 +58,7 @@ type ModelExporter interface {
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
-	*common.ModelStatusAPI
+	*commonmodel.ModelStatusAPI
 	cloudspec.CloudSpecer
 
 	state                     Backend
@@ -67,8 +68,8 @@ type ControllerAPI struct {
 	resources                 facade.Resources
 	presence                  facade.Presence
 	hub                       facade.Hub
-	cloudService              common.CloudService
-	credentialService         common.CredentialService
+	cloudService              CloudService
+	credentialService         CredentialService
 	upgradeService            UpgradeService
 	controllerConfigService   ControllerConfigService
 	accessService             ControllerAccessService
@@ -77,7 +78,7 @@ type ControllerAPI struct {
 	blockCommandService       common.BlockCommandService
 	applicationServiceGetter  func(coremodel.UUID) ApplicationService
 	modelAgentServiceGetter   func(coremodel.UUID) common.ModelAgentService
-	modelConfigServiceGetter  func(coremodel.UUID) common.ModelConfigService
+	modelConfigServiceGetter  func(coremodel.UUID) cloudspec.ModelConfigService
 	blockCommandServiceGetter func(coremodel.UUID) BlockCommandService
 	proxyService              ProxyService
 	modelExporter             func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
@@ -104,17 +105,17 @@ func NewControllerAPI(
 	logger corelogger.Logger,
 	controllerConfigService ControllerConfigService,
 	externalControllerService common.ExternalControllerService,
-	cloudService common.CloudService,
-	credentialService common.CredentialService,
+	cloudService CloudService,
+	credentialService CredentialService,
 	upgradeService UpgradeService,
 	accessService ControllerAccessService,
-	machineServiceGetter func(coremodel.UUID) common.MachineService,
+	machineServiceGetter func(coremodel.UUID) commonmodel.MachineService,
 	modelService ModelService,
 	modelInfoService ModelInfoService,
 	blockCommandService common.BlockCommandService,
 	applicationServiceGetter func(coremodel.UUID) ApplicationService,
 	modelAgentServiceGetter func(coremodel.UUID) common.ModelAgentService,
-	modelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService,
+	modelConfigServiceGetter func(coremodel.UUID) cloudspec.ModelConfigService,
 	blockCommandServiceGetter func(coremodel.UUID) BlockCommandService,
 	proxyService ProxyService,
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
@@ -139,8 +140,8 @@ func NewControllerAPI(
 			controllerConfigService,
 			externalControllerService,
 		),
-		ModelStatusAPI: common.NewModelStatusAPI(
-			common.NewModelManagerBackend(model, pool),
+		ModelStatusAPI: commonmodel.NewModelStatusAPI(
+			commonmodel.NewModelManagerBackend(model, pool),
 			machineServiceGetter,
 			authorizer,
 			apiUser,
@@ -765,10 +766,10 @@ var runMigrationPrechecks = func(
 	targetInfo *coremigration.TargetInfo,
 	presence facade.Presence,
 	controllerConfigService ControllerConfigService,
-	cloudService common.CloudService,
-	credentialService common.CredentialService,
-	modelAgentService common.ModelAgentService,
-	modelConfigService common.ModelConfigService,
+	cloudService CloudService,
+	credentialService CredentialService,
+	modelAgentService ModelAgentService,
+	modelConfigService ModelConfigService,
 	upgradeService UpgradeService,
 	modelService ModelService,
 	applicationService ApplicationService,

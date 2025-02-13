@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package model_test
 
 import (
 	"context"
@@ -15,11 +15,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
@@ -85,8 +86,8 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 		Tag: user,
 	}
 
-	api := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(s.Model, s.StatePool),
+	api := model.NewModelStatusAPI(
+		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineServiceGetter,
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
@@ -111,8 +112,8 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	}
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner})
 	defer st.Close()
-	api := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(s.Model, s.StatePool),
+	api := model.NewModelStatusAPI(
+		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineServiceGetter,
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
@@ -148,8 +149,8 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 			},
 		},
 	}
-	modelStatusAPI := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(s.Model, s.StatePool),
+	modelStatusAPI := model.NewModelStatusAPI(
+		model.NewModelManagerBackend(s.Model, s.StatePool),
 		s.machineServiceGetter,
 		s.authorizer,
 		s.authorizer.GetAuthTag().(names.UserTag),
@@ -159,7 +160,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (s *modelStatusSuite) machineServiceGetter(uuid model.UUID) common.MachineService {
+func (s *modelStatusSuite) machineServiceGetter(uuid coremodel.UUID) model.MachineService {
 	return s.machineService
 }
 

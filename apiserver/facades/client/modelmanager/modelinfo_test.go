@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -168,7 +169,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			access:      permission.WriteAccess,
 		}},
 	}
-	s.st.machines = []common.Machine{
+	s.st.machines = []commonmodel.Machine{
 		&mockMachine{
 			id:            "1",
 			containerType: "none",
@@ -185,7 +186,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			life: state.Dead,
 		},
 	}
-	s.st.controllerNodes = []common.ControllerNode{
+	s.st.controllerNodes = []commonmodel.ControllerNode{
 		&mockControllerNode{
 			id:        "1",
 			hasVote:   true,
@@ -1102,8 +1103,8 @@ type mockState struct {
 	cloudUsers      map[string]permission.Access
 	model           *mockModel
 	controllerModel *mockModel
-	machines        []common.Machine
-	controllerNodes []common.ControllerNode
+	machines        []commonmodel.Machine
+	controllerNodes []commonmodel.ControllerNode
 	migration       *mockMigration
 	modelConfig     *config.Config
 }
@@ -1147,18 +1148,18 @@ func (st *mockState) AllModelUUIDs() ([]string, error) {
 	return []string{st.model.UUID()}, st.NextErr()
 }
 
-func (st *mockState) GetBackend(modelUUID string) (common.ModelManagerBackend, func() bool, error) {
+func (st *mockState) GetBackend(modelUUID string) (commonmodel.ModelManagerBackend, func() bool, error) {
 	st.MethodCall(st, "GetBackend", modelUUID)
 	err := st.NextErr()
 	return st, func() bool { return true }, err
 }
 
-func (st *mockState) GetModel(modelUUID string) (common.Model, func() bool, error) {
+func (st *mockState) GetModel(modelUUID string) (commonmodel.Model, func() bool, error) {
 	st.MethodCall(st, "GetModel", modelUUID)
 	return st.model, func() bool { return true }, st.NextErr()
 }
 
-func (st *mockState) AllApplications() ([]common.Application, error) {
+func (st *mockState) AllApplications() ([]commonmodel.Application, error) {
 	st.MethodCall(st, "AllApplications")
 	return nil, st.NextErr()
 }
@@ -1173,7 +1174,7 @@ func (st *mockState) AllFilesystems() ([]state.Filesystem, error) {
 	return nil, st.NextErr()
 }
 
-func (st *mockState) NewModel(args state.ModelArgs) (common.Model, common.ModelManagerBackend, error) {
+func (st *mockState) NewModel(args state.ModelArgs) (commonmodel.Model, commonmodel.ModelManagerBackend, error) {
 	st.MethodCall(st, "NewModel", args)
 	st.model.tag = names.NewModelTag(args.Config.UUID())
 	err := st.NextErr()
@@ -1190,12 +1191,12 @@ func (st *mockState) IsController() bool {
 	return st.controllerUUID == st.model.UUID()
 }
 
-func (st *mockState) ControllerNodes() ([]common.ControllerNode, error) {
+func (st *mockState) ControllerNodes() ([]commonmodel.ControllerNode, error) {
 	st.MethodCall(st, "ControllerNodes")
 	return st.controllerNodes, st.NextErr()
 }
 
-func (st *mockState) Model() (common.Model, error) {
+func (st *mockState) Model() (commonmodel.Model, error) {
 	st.MethodCall(st, "Model")
 	return st.model, st.NextErr()
 }
@@ -1205,7 +1206,7 @@ func (st *mockState) ModelTag() names.ModelTag {
 	return st.model.ModelTag()
 }
 
-func (st *mockState) AllMachines() ([]common.Machine, error) {
+func (st *mockState) AllMachines() ([]commonmodel.Machine, error) {
 	st.MethodCall(st, "AllMachines")
 	return st.machines, st.NextErr()
 }
@@ -1266,7 +1267,7 @@ func (m *mockControllerNode) HasVote() bool {
 }
 
 type mockMachine struct {
-	common.Machine
+	commonmodel.Machine
 	id            string
 	life          state.Life
 	containerType instance.ContainerType
@@ -1441,7 +1442,7 @@ func (m *mockCloudService) ListAll(ctx context.Context) ([]cloud.Cloud, error) {
 }
 
 type mockCredentialShim struct {
-	common.ModelManagerBackend
+	commonmodel.ModelManagerBackend
 }
 
 func (s mockCredentialShim) InvalidateModelCredential(reason string) error {

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package model
 
 import (
 	"context"
@@ -9,20 +9,26 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/blockcommand"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
-// MaxWait is how far in the future the backstop force cleanup will be scheduled.
-// Default is 1min if no value is provided.
-func MaxWait(in *time.Duration) time.Duration {
-	if in != nil {
-		return *in
-	}
-	return 1 * time.Minute
+var logger = internallogger.GetLogger("juju.apiserver.common")
+
+// BlockCommandService defines methods for interacting with block commands.
+type BlockCommandService interface {
+	// GetBlockSwitchedOn returns the optional block message if it is switched
+	// on for the given type.
+	GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error)
+
+	// GetBlocks returns all the blocks that are currently in place.
+	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
 }
 
 // DestroyController sets the controller model to Dying and, if requested,
@@ -56,7 +62,7 @@ func DestroyController(
 			return errors.Trace(err)
 		}
 		for _, uuid := range uuids {
-			check := NewBlockChecker(blockCommandServiceGetter(model.UUID(uuid)))
+			check := common.NewBlockChecker(blockCommandServiceGetter(model.UUID(uuid)))
 			if err = check.DestroyAllowed(ctx); errors.Is(err, modelerrors.NotFound) {
 				logger.Errorf(context.TODO(), "model %v not found, skipping", uuid)
 				continue
@@ -69,7 +75,7 @@ func DestroyController(
 		DestroyHostedModels: destroyHostedModels,
 		DestroyStorage:      destroyStorage,
 		Force:               force,
-		MaxWait:             MaxWait(maxWait),
+		MaxWait:             common.MaxWait(maxWait),
 		Timeout:             modelTimeout,
 	})
 }
@@ -89,7 +95,7 @@ func DestroyModel(
 	return destroyModel(ctx, st, blockCommandService, modelInfoService, state.DestroyModelParams{
 		DestroyStorage: destroyStorage,
 		Force:          force,
-		MaxWait:        MaxWait(maxWait),
+		MaxWait:        common.MaxWait(maxWait),
 		Timeout:        timeout,
 	})
 }
@@ -99,7 +105,7 @@ func destroyModel(
 	blockCommandService BlockCommandService, modelInfoService ModelInfoService,
 	args state.DestroyModelParams,
 ) error {
-	check := NewBlockChecker(blockCommandService)
+	check := common.NewBlockChecker(blockCommandService)
 	if err := check.DestroyAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}

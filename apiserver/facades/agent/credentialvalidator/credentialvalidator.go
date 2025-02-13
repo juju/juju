@@ -10,13 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/logger"
+	corewatcher "github.com/juju/juju/core/watcher"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -25,15 +25,37 @@ import (
 // CredentialValidatorV2 defines the methods on version 2 facade for the
 // credentialvalidator API endpoint.
 type CredentialValidatorV2 interface {
+	// InvalidateModelCredential marks the cloud credential for this model as invalid.
 	InvalidateModelCredential(context.Context, params.InvalidateCredentialArg) (params.ErrorResult, error)
+
+	// ModelCredential returns cloud credential information for a  model.
 	ModelCredential(context.Context) (params.ModelCredential, error)
+
+	// WatchCredential returns a NotifyWatcher that observes
+	// changes to a given cloud credential.
 	WatchCredential(context.Context, params.Entity) (params.NotifyWatchResult, error)
+
+	// WatchModelCredential returns a NotifyWatcher that watches what cloud credential a model uses.
 	WatchModelCredential(context.Context) (params.NotifyWatchResult, error)
 }
 
+// CredentialService provides access to perform credentials operations.
 type CredentialService interface {
-	common.CredentialService
+	// CloudCredential returns the cloud credential for the given tag.
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+
+	// InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
 	InvalidateCredential(ctx context.Context, key credential.Key, reason string) error
+
+	// WatchCredential returns a watcher that observes changes to the specified
+	// credential.
+	WatchCredential(ctx context.Context, key credential.Key) (corewatcher.NotifyWatcher, error)
+}
+
+// CloudService provides access to clouds.
+type CloudService interface {
+	// Cloud returns the named cloud.
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
 }
 
 type CredentialValidatorAPI struct {
@@ -41,7 +63,7 @@ type CredentialValidatorAPI struct {
 
 	logger            logger.Logger
 	backend           StateAccessor
-	cloudService      common.CloudService
+	cloudService      CloudService
 	credentialService CredentialService
 	resources         facade.Resources
 }
@@ -51,7 +73,7 @@ var (
 )
 
 func internalNewCredentialValidatorAPI(
-	backend StateAccessor, cloudService common.CloudService, credentialService CredentialService, resources facade.Resources,
+	backend StateAccessor, cloudService CloudService, credentialService CredentialService, resources facade.Resources,
 	authorizer facade.Authorizer, logger logger.Logger,
 ) (*CredentialValidatorAPI, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
@@ -167,12 +189,12 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 }
 
 func (api *CredentialValidatorAPI) cloudSupportsNoAuth(ctx context.Context, cloudName string) (bool, error) {
-	cloud, err := api.cloudService.Cloud(ctx, cloudName)
+	cl, err := api.cloudService.Cloud(ctx, cloudName)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	for _, authType := range cloud.AuthTypes {
-		if authType == jujucloud.EmptyAuthType {
+	for _, authType := range cl.AuthTypes {
+		if authType == cloud.EmptyAuthType {
 			return true, nil
 		}
 	}

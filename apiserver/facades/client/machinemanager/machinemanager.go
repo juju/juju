@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
@@ -135,13 +136,18 @@ type BlockCommandService interface {
 	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
 }
 
+// CloudService provides access to clouds.
+type CloudService interface {
+	// Cloud returns the named cloud.
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
+}
+
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	model                   coremodel.ModelInfo
 	controllerConfigService ControllerConfigService
 	st                      Backend
-	cloudService            common.CloudService
-	credentialService       common.CredentialService
+	cloudService            CloudService
 	storageAccess           StorageInterface
 	pool                    Pool
 	authorizer              Authorizer
@@ -165,8 +171,7 @@ func NewMachineManagerAPI(
 	model coremodel.ModelInfo,
 	controllerConfigService ControllerConfigService,
 	backend Backend,
-	cloudService common.CloudService,
-	credentialService common.CredentialService,
+	cloudService CloudService,
 	machineService MachineService,
 	store, controllerStore objectstore.ObjectStore,
 	storageAccess StorageInterface,
@@ -186,7 +191,6 @@ func NewMachineManagerAPI(
 		controllerConfigService:     controllerConfigService,
 		st:                          backend,
 		cloudService:                cloudService,
-		credentialService:           credentialService,
 		machineService:              machineService,
 		store:                       store,
 		controllerStore:             controllerStore,
@@ -382,7 +386,6 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 
 	services := InstanceConfigServices{
 		CloudService:            mm.cloudService,
-		CredentialService:       mm.credentialService,
 		ControllerConfigService: mm.controllerConfigService,
 		ObjectStore:             mm.controllerStore,
 		KeyUpdaterService:       mm.keyUpdaterService,

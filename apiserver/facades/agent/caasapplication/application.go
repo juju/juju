@@ -15,7 +15,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
@@ -62,7 +61,6 @@ type Facade struct {
 	ctrlSt                  ControllerState
 	controllerConfigService ControllerConfigService
 	applicationService      ApplicationService
-	modelConfigService      common.ModelConfigService
 	modelAgentService       ModelAgentService
 	state                   State
 	model                   Model
@@ -79,7 +77,6 @@ func NewFacade(
 	st State,
 	controllerConfigService ControllerConfigService,
 	applicationService ApplicationService,
-	modelConfigService common.ModelConfigService,
 	modelAgentService ModelAgentService,
 	broker Broker,
 	clock clock.Clock,
@@ -99,7 +96,6 @@ func NewFacade(
 		state:                   st,
 		controllerConfigService: controllerConfigService,
 		applicationService:      applicationService,
-		modelConfigService:      modelConfigService,
 		modelAgentService:       modelAgentService,
 		model:                   model,
 		clock:                   clock,

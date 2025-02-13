@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
@@ -13,6 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
@@ -79,4 +82,64 @@ func (s *MachineStatusSuite) TestNotDownIfPending(c *gc.C) {
 	s.ctx.Presence = agentDown(names.NewMachineTag(s.machine.Id()).String())
 	s.machine.status = status.Pending
 	s.checkUntouched(c)
+}
+
+type fakeMachine struct {
+	state.Machine
+	id                 string
+	life               state.Life
+	hw                 *instance.HardwareCharacteristics
+	instId             instance.Id
+	displayName        string
+	status             status.Status
+	statusErr          error
+	destroyErr         error
+	forceDestroyErr    error
+	forceDestroyCalled bool
+	destroyCalled      bool
+}
+
+func (m *fakeMachine) Id() string {
+	return m.id
+}
+
+func (m *fakeMachine) Life() state.Life {
+	return m.life
+}
+
+func (m *fakeMachine) InstanceId() (instance.Id, error) {
+	return m.instId, nil
+}
+
+func (m *fakeMachine) InstanceNames() (instance.Id, string, error) {
+	instId, err := m.InstanceId()
+	return instId, m.displayName, err
+}
+
+func (m *fakeMachine) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{
+		Status: m.status,
+	}, m.statusErr
+}
+
+func (m *fakeMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	return m.hw, nil
+}
+
+func (m *fakeMachine) ForceDestroy(time.Duration) error {
+	m.forceDestroyCalled = true
+	if m.forceDestroyErr != nil {
+		return m.forceDestroyErr
+	}
+	m.life = state.Dying
+	return nil
+}
+
+func (m *fakeMachine) Destroy(_ objectstore.ObjectStore) error {
+	m.destroyCalled = true
+	if m.destroyErr != nil {
+		return m.destroyErr
+	}
+	m.life = state.Dying
+	return nil
 }

@@ -7,10 +7,17 @@ import (
 	"context"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
+
+// CloudService provides access to clouds.
+type CloudService interface {
+	// Cloud returns the named cloud.
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
+}
 
 // NewEnvironFunc is a function that returns a BootstrapEnviron instance.
 type NewEnvironFunc func(context.Context) (environs.BootstrapEnviron, error)

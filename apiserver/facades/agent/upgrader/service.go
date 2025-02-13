@@ -8,8 +8,11 @@ import (
 
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/config"
 )
 
 // ModelAgentService provides access to the Juju agent version for the model.
@@ -54,4 +57,16 @@ type ModelAgentService interface {
 	// - [applicationerrors.UnitNotFound] - When no unit exists for the provided name.
 	// - [modelerrors.NotFound] - When the model of the unit no longer exists.
 	WatchUnitTargetAgentVersion(ctx context.Context, unitName string) (watcher.NotifyWatcher, error)
+}
+
+// CredentialService provides access to credentials.
+type CredentialService interface {
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+}
+
+// ModelConfigService is an interface that provides access to the
+// model configuration.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(ctx context.Context) (*config.Config, error)
 }

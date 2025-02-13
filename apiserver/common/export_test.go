@@ -4,7 +4,6 @@
 package common
 
 var (
-	MachineJobFromParams    = machineJobFromParams
-	EnvtoolsFindTools       = &envtoolsFindTools
-	MockableDestroyMachines = destroyMachines
+	MachineJobFromParams = machineJobFromParams
+	EnvtoolsFindTools    = &envtoolsFindTools
 )

@@ -71,7 +71,7 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	modelAgentServiceGetter := func(modelID coremodel.UUID) ModelAgentService {
 		return domainServices.Agent()
 	}
-	modelConfigServiceGetter := func(modelID coremodel.UUID) common.ModelConfigService {
+	modelConfigServiceGetter := func(modelID coremodel.UUID) cloudspec.ModelConfigService {
 		return domainServices.Config()
 	}
 	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService, modelConfigServiceGetter)

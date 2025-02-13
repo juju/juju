@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
@@ -28,11 +28,11 @@ var (
 
 // UndertakerAPI implements the API used by the model undertaker worker.
 type UndertakerAPI struct {
+	*commonmodel.ModelConfigWatcher
+	cloudspec.CloudSpecer
+
 	st        State
 	resources facade.Resources
-
-	*common.ModelConfigWatcher
-	cloudspec.CloudSpecer
 
 	secretBackendService SecretBackendService
 }
@@ -43,7 +43,7 @@ func newUndertakerAPI(
 	authorizer facade.Authorizer,
 	cloudSpecer cloudspec.CloudSpecer,
 	secretBackendService SecretBackendService,
-	modelConfigService common.ModelConfigService,
+	modelConfigService ModelConfigService,
 	watcherRegistry facade.WatcherRegistry,
 ) (*UndertakerAPI, error) {
 	if !authorizer.AuthController() {
@@ -54,7 +54,7 @@ func newUndertakerAPI(
 		st:                   st,
 		resources:            resources,
 		secretBackendService: secretBackendService,
-		ModelConfigWatcher:   common.NewModelConfigWatcher(modelConfigService, watcherRegistry),
+		ModelConfigWatcher:   commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry),
 		CloudSpecer:          cloudSpecer,
 	}, nil
 }

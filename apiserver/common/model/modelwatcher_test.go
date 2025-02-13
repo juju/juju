@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package model_test
 
 import (
 	"context"
@@ -13,8 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/mocks"
+	"github.com/juju/juju/apiserver/common/model"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -29,7 +29,7 @@ import (
 
 type modelWatcherSuite struct {
 	watcherRegistry    *facademocks.MockWatcherRegistry
-	modelConfigService *mocks.MockModelConfigService
+	modelConfigService *MockModelConfigService
 }
 
 var _ = gc.Suite(&modelWatcherSuite{})
@@ -37,7 +37,7 @@ var _ = gc.Suite(&modelWatcherSuite{})
 func (s *modelWatcherSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
-	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
 	return ctrl
 }
 
@@ -67,7 +67,7 @@ func (s *modelWatcherSuite) TestWatchSuccess(c *gc.C) {
 	})
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
-	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
@@ -92,7 +92,7 @@ func (s *modelWatcherSuite) TestWatchFailure(c *gc.C) {
 		return w, nil
 	})
 
-	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, gc.ErrorMatches, "bad watcher")
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
@@ -105,7 +105,7 @@ func (s *modelWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 	testingModelConfig := testingEnvConfig(c)
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(testingModelConfig, nil)
 
-	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
@@ -119,7 +119,7 @@ func (s *modelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, fmt.Errorf("nope"))
 
-	facade := common.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
+	facade := model.NewModelConfigWatcher(s.modelConfigService, s.watcherRegistry)
 	result, err := facade.ModelConfig(context.Background())
 	c.Assert(err, gc.ErrorMatches, "nope")
 	c.Check(result.Config, gc.IsNil)

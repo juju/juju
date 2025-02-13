@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
@@ -49,7 +48,7 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 	domainServices := ctx.DomainServices()
 	credentialService := domainServices.Credential()
 
-	modelConfigServiceGetter := func(modelID coremodel.UUID) common.ModelConfigService {
+	modelConfigServiceGetter := func(modelID coremodel.UUID) cloudspec.ModelConfigService {
 		return domainServices.Config()
 	}
 

@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package model_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/model"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -22,11 +23,6 @@ type modelMachinesWatcherSuite struct {
 }
 
 var _ = gc.Suite(&modelMachinesWatcherSuite{})
-
-type fakeModelMachinesWatcher struct {
-	state.ModelMachinesWatcher
-	initial []string
-}
 
 func (f *fakeModelMachinesWatcher) WatchModelMachines() state.StringsWatcher {
 	changes := make(chan []string, 1)
@@ -42,7 +38,7 @@ func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *gc.C) {
 	}
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewModelMachinesWatcher(
+	e := model.NewModelMachinesWatcher(
 		&fakeModelMachinesWatcher{initial: []string{"foo"}},
 		resources,
 		authorizer,
@@ -60,7 +56,7 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
 	}
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewModelMachinesWatcher(
+	e := model.NewModelMachinesWatcher(
 		&fakeModelMachinesWatcher{},
 		resources,
 		authorizer,
@@ -68,4 +64,31 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
 	_, err := e.WatchModelMachines(context.Background())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(resources.Count(), gc.Equals, 0)
+}
+
+type fakeModelMachinesWatcher struct {
+	state.ModelMachinesWatcher
+	initial []string
+}
+
+type fakeStringsWatcher struct {
+	changes chan []string
+}
+
+func (*fakeStringsWatcher) Stop() error {
+	return nil
+}
+
+func (*fakeStringsWatcher) Kill() {}
+
+func (*fakeStringsWatcher) Wait() error {
+	return nil
+}
+
+func (*fakeStringsWatcher) Err() error {
+	return nil
+}
+
+func (w *fakeStringsWatcher) Changes() <-chan []string {
+	return w.changes
 }

@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/envcontext"
 )
 
@@ -20,7 +20,6 @@ func ConstCredentialGetter(cred *cloud.Credential) *credentialGetter {
 }
 
 type credentialGetter struct {
-	common.CredentialService
 	cred *cloud.Credential
 }
 
@@ -31,8 +30,12 @@ func (c credentialGetter) CloudCredential(_ context.Context, key credential.Key)
 	return *c.cred, nil
 }
 
-func (c credentialGetter) InvalidateCredential(_ context.Context, _ credential.Key, _ string) error {
+func (credentialGetter) InvalidateCredential(_ context.Context, _ credential.Key, _ string) error {
 	return nil
+}
+
+func (credentialGetter) WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error) {
+	return nil, nil
 }
 
 func NoopModelCredentialInvalidatorGetter() (envcontext.ModelCredentialInvalidatorFunc, error) {

@@ -91,7 +91,6 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		s.st, s.st,
 		s.ControllerDomainServices(c).ControllerConfig(),
 		s.applicationService,
-		s.ControllerDomainServices(c).Config(),
 		&mockModelAgent{agentVersion: version.MustParse("1.9.99")},
 		s.broker,
 		s.clock,

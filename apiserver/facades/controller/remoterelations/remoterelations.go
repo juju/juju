@@ -34,14 +34,13 @@ type ExternalControllerService interface {
 // API provides access to the remote relations API facade.
 type API struct {
 	ControllerConfigAPI
-	st                 RemoteRelationsState
-	ecService          ExternalControllerService
-	secretService      SecretService
-	modelConfigService common.ModelConfigService
-	resources          facade.Resources
-	authorizer         facade.Authorizer
-	logger             corelogger.Logger
-	modelID            model.UUID
+	st            RemoteRelationsState
+	ecService     ExternalControllerService
+	secretService SecretService
+	resources     facade.Resources
+	authorizer    facade.Authorizer
+	logger        corelogger.Logger
+	modelID       model.UUID
 }
 
 // NewRemoteRelationsAPI returns a new server-side API facade.
@@ -50,7 +49,6 @@ func NewRemoteRelationsAPI(
 	st RemoteRelationsState,
 	ecService ExternalControllerService,
 	secretService SecretService,
-	modelConfigService common.ModelConfigService,
 	controllerCfgAPI ControllerConfigAPI,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -63,7 +61,6 @@ func NewRemoteRelationsAPI(
 		st:                  st,
 		ecService:           ecService,
 		secretService:       secretService,
-		modelConfigService:  modelConfigService,
 		ControllerConfigAPI: controllerCfgAPI,
 		resources:           resources,
 		authorizer:          authorizer,

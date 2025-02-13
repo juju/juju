@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
@@ -48,10 +49,10 @@ type ModelConfigService interface {
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
 	*common.LifeGetter
-	*common.ModelConfigWatcher
+	*commonmodel.ModelConfigWatcher
 	*common.AgentEntityWatcher
 	*common.UnitsWatcher
-	*common.ModelMachinesWatcher
+	*commonmodel.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	ControllerConfigAPI
 	cloudspec.CloudSpecer
@@ -107,7 +108,7 @@ func NewStateFirewallerAPI(
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestricted access.
-	modelConfigWatcher := common.NewModelConfigWatcher(
+	modelConfigWatcher := commonmodel.NewModelConfigWatcher(
 		modelConfigService,
 		watcherRegistry,
 	)
@@ -123,7 +124,7 @@ func NewStateFirewallerAPI(
 		accessMachine,
 	)
 	// WatchModelMachines() is allowed with unrestricted access.
-	machinesWatcher := common.NewModelMachinesWatcher(
+	machinesWatcher := commonmodel.NewModelMachinesWatcher(
 		st,
 		resources,
 		authorizer,

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
@@ -84,7 +83,7 @@ func newMockCloudService() *testCloudService {
 }
 
 type testCloudService struct {
-	common.CloudService
+	credentialvalidator.CloudService
 	*testing.Stub
 }
 
@@ -104,7 +103,7 @@ func newMockCredentialService() *testCredentialService {
 }
 
 type testCredentialService struct {
-	common.CredentialService
+	credentialvalidator.CredentialService
 	*testing.Stub
 }
 

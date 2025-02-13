@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
@@ -23,7 +24,7 @@ import (
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
 	*common.LifeGetter
-	*common.ModelMachinesWatcher
+	*commonmodel.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.StatusGetter
 
@@ -63,7 +64,7 @@ func NewInstancePollerAPI(
 		accessMachine,
 	)
 	// WatchModelMachines() is allowed with unrestricted access.
-	machinesWatcher := common.NewModelMachinesWatcher(
+	machinesWatcher := commonmodel.NewModelMachinesWatcher(
 		sti,
 		resources,
 		authorizer,

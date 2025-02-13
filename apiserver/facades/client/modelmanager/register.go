@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
@@ -79,7 +80,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	toolsFinder := common.NewToolsFinder(controllerConfigService, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
-	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
+	backend := commonmodel.NewUserAwareModelManagerBackend(model, pool, apiUser)
 
 	secretBackendService := domainServices.SecretBackend()
 	return NewModelManagerAPI(
@@ -88,7 +89,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		func(modelUUID coremodel.UUID, legacyState facade.LegacyStateExporter) ModelExporter {
 			return ctx.ModelExporter(modelUUID, legacyState)
 		},
-		common.NewModelManagerBackend(ctrlModel, pool),
+		commonmodel.NewModelManagerBackend(ctrlModel, pool),
 		controllerUUID,
 		Services{
 			DomainServicesGetter: domainServicesGetter{ctx: ctx},

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/blockcommand"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -62,6 +63,16 @@ type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
+// BlockCommandService defines methods for interacting with block commands.
+type BlockCommandService interface {
+	// GetBlockSwitchedOn returns the optional block message if it is switched
+	// on for the given type.
+	GetBlockSwitchedOn(ctx context.Context, t blockcommand.BlockType) (string, error)
+
+	// GetBlocks returns all the blocks that are currently in place.
+	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
+}
+
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
@@ -71,8 +82,7 @@ type HighAvailabilityAPI struct {
 	applicationService      ApplicationService
 	controllerConfigService ControllerConfigService
 	networkService          NetworkService
-	modelConfigService      common.ModelConfigService
-	blockCommandService     common.BlockCommandService
+	blockCommandService     BlockCommandService
 	authorizer              facade.Authorizer
 	logger                  corelogger.Logger
 }

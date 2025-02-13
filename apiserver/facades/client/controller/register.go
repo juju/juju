@@ -11,6 +11,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
 )
@@ -46,7 +48,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 	modelAgentServiceGetter := func(modelID model.UUID) common.ModelAgentService {
 		return ctx.DomainServicesForModel(modelID).Agent()
 	}
-	modelConfigServiceGetter := func(modelID model.UUID) common.ModelConfigService {
+	modelConfigServiceGetter := func(modelID model.UUID) cloudspec.ModelConfigService {
 		return ctx.DomainServicesForModel(modelID).Config()
 	}
 	applicationServiceGetter := func(modelID model.UUID) ApplicationService {
@@ -55,7 +57,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 	blockCommandServiceGetter := func(modelID model.UUID) BlockCommandService {
 		return ctx.DomainServicesForModel(modelID).BlockCommand()
 	}
-	machineServiceGetter := func(modelID model.UUID) common.MachineService {
+	machineServiceGetter := func(modelID model.UUID) commonmodel.MachineService {
 		return ctx.DomainServicesForModel(modelID).Machine()
 	}
 

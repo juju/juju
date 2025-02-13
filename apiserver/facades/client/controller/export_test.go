@@ -6,7 +6,6 @@ package controller
 import (
 	"context"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
@@ -24,10 +23,10 @@ func SetPrecheckResult(p patcher, err error) {
 		targetInfo *coremigration.TargetInfo,
 		presence facade.Presence,
 		controllerConfigService ControllerConfigService,
-		cloudService common.CloudService,
-		credentialService common.CredentialService,
-		modelAgentService common.ModelAgentService,
-		modelConfigService common.ModelConfigService,
+		cloudService CloudService,
+		credentialService CredentialService,
+		modelAgentService ModelAgentService,
+		modelConfigService ModelConfigService,
 		upgradeService UpgradeService,
 		modelService ModelService,
 		applicationService ApplicationService,

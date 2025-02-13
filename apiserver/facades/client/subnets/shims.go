@@ -7,13 +7,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
-func NewStateShim(st *state.State, cloudService common.CloudService, credentialService common.CredentialService, modelConfigService common.ModelConfigService) (*stateShim, error) {
+func NewStateShim(st *state.State, cloudService CloudService, credentialService CredentialService, modelConfigService ModelConfigService) (*stateShim, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)

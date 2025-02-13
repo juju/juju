@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
@@ -50,7 +50,7 @@ func (api *KeyManagerAPI) checkCanRead(ctx context.Context) error {
 }
 
 func (api *KeyManagerAPI) checkCanWrite(ctx context.Context) error {
-	ok, err := common.HasModelAdmin(
+	ok, err := model.HasModelAdmin(
 		ctx,
 		api.authorizer,
 		names.NewControllerTag(api.controllerUUID),

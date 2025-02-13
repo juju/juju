@@ -6,11 +6,12 @@ package caasagent
 import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	"github.com/juju/juju/apiserver/common/model"
 )
 
 // FacadeV2 is the V2 facade of the caas agent
 type FacadeV2 struct {
 	cloudspec.CloudSpecer
-	*common.ModelConfigWatcher
+	*model.ModelConfigWatcher
 	*common.ControllerConfigAPI
 }

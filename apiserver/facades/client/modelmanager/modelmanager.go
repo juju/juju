@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
@@ -50,14 +51,14 @@ type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams, _ envir
 
 // StateBackend represents the mongo backend.
 type StateBackend interface {
-	common.ModelManagerBackend
+	commonmodel.ModelManagerBackend
 	InvalidateModelCredential(string) error
 }
 
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
-	*common.ModelStatusAPI
+	*commonmodel.ModelStatusAPI
 
 	// Access control.
 	authorizer facade.Authorizer
@@ -66,8 +67,8 @@ type ModelManagerAPI struct {
 
 	// Legacy state access.
 	state     StateBackend
-	ctlrState common.ModelManagerBackend
-	model     common.Model
+	ctlrState commonmodel.ModelManagerBackend
+	model     commonmodel.Model
 	check     common.BlockCheckerInterface
 
 	// Services required by the model manager.
@@ -98,14 +99,14 @@ func NewModelManagerAPI(
 	ctx context.Context,
 	st StateBackend,
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
-	ctlrSt common.ModelManagerBackend,
+	ctlrSt commonmodel.ModelManagerBackend,
 	controllerUUID uuid.UUID,
 	services Services,
 	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
-	m common.Model,
+	m commonmodel.Model,
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -121,12 +122,12 @@ func NewModelManagerAPI(
 	}
 	isAdmin := err == nil
 
-	machinServiceGetter := func(modelUUID coremodel.UUID) common.MachineService {
+	machinServiceGetter := func(modelUUID coremodel.UUID) commonmodel.MachineService {
 		return services.DomainServicesGetter.DomainServicesForModel(modelUUID).Machine()
 	}
 
 	return &ModelManagerAPI{
-		ModelStatusAPI:       common.NewModelStatusAPI(st, machinServiceGetter, authorizer, apiUser),
+		ModelStatusAPI:       commonmodel.NewModelStatusAPI(st, machinServiceGetter, authorizer, apiUser),
 		state:                st,
 		domainServicesGetter: services.DomainServicesGetter,
 		modelExporter:        modelExporter,
@@ -477,7 +478,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotate(err, "failed to get config")
 	}
 
-	var createdModel common.Model
+	var createdModel commonmodel.Model
 	if jujucloud.CloudIsCAAS(*cloud) {
 		createdModel, err = m.newCAASModel(
 			ctx,
@@ -521,7 +522,7 @@ func (m *ModelManagerAPI) newCAASModel(
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
 	newConfig *config.Config,
-) (_ common.Model, err error) {
+) (_ commonmodel.Model, err error) {
 	defer func() {
 		// Retain the error stack but with a better message.
 		if errors.Is(err, errors.AlreadyExists) {
@@ -579,7 +580,7 @@ func (m *ModelManagerAPI) newIAASModel(
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
 	newConfig *config.Config,
-) (common.Model, error) {
+) (commonmodel.Model, error) {
 	// Create the Environ.
 	env, err := environs.New(ctx, environs.OpenParams{
 		ControllerUUID: m.controllerUUID.String(),
@@ -810,7 +811,7 @@ func (m *ModelManagerAPI) listModelSummariesForUser(ctx context.Context, tag nam
 }
 
 func (m *ModelManagerAPI) makeUserModelSummary(ctx context.Context, mi coremodel.UserModelSummary) (*params.ModelSummary, error) {
-	userAccess, err := common.EncodeAccess(mi.UserAccess)
+	userAccess, err := commonmodel.EncodeAccess(mi.UserAccess)
 	if err != nil && !errors.Is(err, errors.NotValid) {
 		return nil, errors.Trace(err)
 	}
@@ -1005,7 +1006,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 
 		domainServices := m.domainServicesGetter.DomainServicesForModel(coremodel.UUID(modelUUID))
 
-		err = common.DestroyModel(
+		err = commonmodel.DestroyModel(
 			ctx, st,
 			domainServices.BlockCommand(), domainServices.ModelInfo(),
 			destroyStorage, force, maxWait, timeout,
@@ -1199,7 +1200,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	}
 
 	modelAdmin := m.isModelAdmin(ctx, tag)
-	info.Users, err = common.ModelUserInfo(ctx, m.modelService, tag, user.NameFromTag(m.apiUser), modelAdmin)
+	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, tag, user.NameFromTag(m.apiUser), modelAdmin)
 	if shouldErr(err) {
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}
@@ -1212,7 +1213,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 	if canSeeMachinesAndSecrets {
-		if info.Machines, err = common.ModelMachineInfo(ctx, st, modelDomainServices.Machine()); shouldErr(err) {
+		if info.Machines, err = commonmodel.ModelMachineInfo(ctx, st, modelDomainServices.Machine()); shouldErr(err) {
 			return params.ModelInfo{}, err
 		}
 	}

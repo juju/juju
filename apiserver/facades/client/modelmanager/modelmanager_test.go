@@ -18,6 +18,7 @@ import (
 
 	// Register the providers for the field check test
 	"github.com/juju/juju/apiserver/common"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
@@ -1047,8 +1048,8 @@ func (s *modelManagerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	st := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
-	ctlrSt := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
+	st := commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
+	ctlrSt := commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
 
 	domainServices := s.ControllerDomainServices(c)
 
@@ -1183,14 +1184,14 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
-	st := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
+	st := commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
 	domainServices := s.ControllerDomainServices(c)
 
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
 		mockCredentialShim{st},
 		nil,
-		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
+		commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -1417,13 +1418,13 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	defer st.Release()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	backend := common.NewModelManagerBackend(model, s.StatePool())
+	backend := commonmodel.NewModelManagerBackend(model, s.StatePool())
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		context.Background(),
 		mockCredentialShim{ModelManagerBackend: backend},
 		nil,
-		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
+		commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -1481,7 +1482,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authoriser.Tag = jujutesting.AdminUser
-	backend := common.NewModelManagerBackend(model, s.StatePool())
+	backend := commonmodel.NewModelManagerBackend(model, s.StatePool())
 
 	domainServices := s.ControllerDomainServices(c)
 
@@ -1491,7 +1492,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		context.Background(),
 		mockCredentialShim{backend},
 		nil,
-		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
+		commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -1541,12 +1542,12 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 
 	domainServices := s.ControllerDomainServices(c)
 
-	backend := common.NewModelManagerBackend(model, s.StatePool())
+	backend := commonmodel.NewModelManagerBackend(model, s.StatePool())
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		context.Background(),
 		mockCredentialShim{backend},
 		nil,
-		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
+		commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,
@@ -1644,12 +1645,12 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = user
-	st := common.NewUserAwareModelManagerBackend(model, s.StatePool(), user)
+	st := commonmodel.NewUserAwareModelManagerBackend(model, s.StatePool(), user)
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
 		mockCredentialShim{st},
 		nil,
-		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
+		commonmodel.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		s.controllerUUID,
 		modelmanager.Services{
 			DomainServicesGetter: s.domainServicesGetter,

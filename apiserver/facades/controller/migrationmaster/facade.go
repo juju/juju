@@ -49,7 +49,7 @@ type API struct {
 	presence                facade.Presence
 	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
 	leadership              leadership.Reader
-	credentialService       common.CredentialService
+	credentialService       CredentialService
 	upgradeService          UpgradeService
 	controllerConfigService ControllerConfigService
 	modelAgentService       ModelAgentService
@@ -74,7 +74,7 @@ func NewAPI(
 	presence facade.Presence,
 	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	leadership leadership.Reader,
-	credentialService common.CredentialService,
+	credentialService CredentialService,
 	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
 	modelInfoService ModelInfoService,

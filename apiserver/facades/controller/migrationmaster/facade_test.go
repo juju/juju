@@ -18,7 +18,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
@@ -51,7 +50,7 @@ type Suite struct {
 	agentService            *mocks.MockModelAgentService
 	applicationService      *mocks.MockApplicationService
 	controllerConfigService *mocks.MockControllerConfigService
-	credentialService       *commonmocks.MockCredentialService
+	credentialService       *mocks.MockCredentialService
 	modelConfigService      *mocks.MockModelConfigService
 	modelInfoService        *mocks.MockModelInfoService
 	modelService            *mocks.MockModelService
@@ -614,7 +613,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.agentService = mocks.NewMockModelAgentService(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.backend = mocks.NewMockBackend(ctrl)
-	s.credentialService = commonmocks.NewMockCredentialService(ctrl)
+	s.credentialService = mocks.NewMockCredentialService(ctrl)
 	s.controllerBackend = mocks.NewMockControllerState(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
 	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)

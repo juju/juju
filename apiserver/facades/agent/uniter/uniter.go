@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
@@ -48,7 +49,7 @@ type UniterAPI struct {
 	*StorageAPI
 
 	*common.APIAddresser
-	*common.ModelConfigWatcher
+	*commonmodel.ModelConfigWatcher
 	*common.RebootRequester
 	*common.UnitStateAPI
 

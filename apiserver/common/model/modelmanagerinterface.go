@@ -1,24 +1,25 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package model
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 )
 
 // ModelManagerBackend defines methods provided by a state
@@ -26,8 +27,8 @@ import (
 // All the interface methods are defined directly on state.State
 // and are reproduced here for use in tests.
 type ModelManagerBackend interface {
-	APIHostPortsForAgentsGetter
-	ToolsStorageGetter
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
+	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 
 	ModelUUID() string
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
@@ -57,6 +58,22 @@ type ModelManagerBackend interface {
 	HAPrimaryMachine() (names.MachineTag, error)
 }
 
+type ControllerNode interface {
+	Id() string
+	HasVote() bool
+	WantsVote() bool
+}
+
+type Machine interface {
+	Id() string
+	Status() (status.StatusInfo, error)
+	ContainerType() instance.ContainerType
+	Life() state.Life
+	ForceDestroy(time.Duration) error
+	Destroy(objectstore.ObjectStore) error
+	IsManager() bool
+}
+
 // Model defines methods provided by a state.Model instance.
 // All the interface methods are defined directly on state.Model
 // and are reproduced here for use in tests.
@@ -79,32 +96,11 @@ type Model interface {
 	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
 }
 
-// CredentialService provides access to credentials.
-type CredentialService interface {
-	// CloudCredential returns the cloud credential for the given tag.
-	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
-	// WatchCredential returns a watcher that observes changes to the specified
-	// credential.
-	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
-}
-
-// CloudService provides access to clouds.
-type CloudService interface {
-	// Cloud returns the named cloud.
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-	// WatchCloud returns a watcher that observes changes to the specified cloud.
-	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
-}
-
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// EnsureDeadMachine sets the provided machine's life status to Dead.
-	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID string) (instance.Id, error)
 	// InstanceIDAndName returns the cloud specific instance ID and display name for
 	// this machine.
 	InstanceIDAndName(ctx context.Context, machineUUID string) (instance.Id, string, error)

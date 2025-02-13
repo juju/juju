@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -53,8 +54,8 @@ type ProvisionerAPI struct {
 	*common.PasswordChanger
 	*common.LifeGetter
 	*common.APIAddresser
-	*common.ModelConfigWatcher
-	*common.ModelMachinesWatcher
+	*commonmodel.ModelConfigWatcher
+	*commonmodel.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.ToolsGetter
 	*networkingcommon.NetworkConfigAPI
@@ -171,7 +172,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), systemState)
 
-	modelConfigWatcher := common.NewModelConfigWatcher(domainServices.Config(), ctx.WatcherRegistry())
+	modelConfigWatcher := commonmodel.NewModelConfigWatcher(domainServices.Config(), ctx.WatcherRegistry())
 
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
@@ -182,7 +183,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:         common.NewAPIAddresser(systemState, resources),
 		ModelConfigWatcher:   modelConfigWatcher,
-		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
+		ModelMachinesWatcher: commonmodel.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
 			domainServices.ControllerConfig(),
