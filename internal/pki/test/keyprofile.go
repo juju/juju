@@ -8,13 +8,10 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"flag"
-	"math/rand"
 	"strings"
 
 	"github.com/juju/juju/internal/pki"
 )
-
-var insecureRand = rand.New(rand.NewSource(0))
 
 // InsecureKeyProfile for tests. Will panic if used outside tests.
 func InsecureKeyProfile() (crypto.Signer, error) {
