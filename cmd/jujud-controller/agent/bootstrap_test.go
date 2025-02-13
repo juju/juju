@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
+	modeldomain "github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
@@ -226,7 +227,7 @@ func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 
 			data, err := modelState.GetModelConstraints(context.Background())
 			c.Check(err, jc.ErrorIsNil)
-			c.Check(&data, jc.Satisfies, constraints.IsEmpty)
+			c.Check(data, jc.DeepEquals, modeldomain.Constraints{})
 			return nil
 		},
 	)
@@ -291,9 +292,10 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 				return model, nil
 			}, loggertesting.WrapCheckLog(c))
 
+			expectedModelCons := modeldomain.FromCoreConstraints(s.bootstrapParams.ModelConstraints)
 			data, err := modelState.GetModelConstraints(context.Background())
 			c.Check(err, jc.ErrorIsNil)
-			c.Assert(data, gc.DeepEquals, s.bootstrapParams.ModelConstraints)
+			c.Assert(data, jc.DeepEquals, expectedModelCons)
 			return nil
 		},
 	)
