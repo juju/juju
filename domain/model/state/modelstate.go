@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/domain"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
-	modeldomain "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -342,7 +341,7 @@ func SetModelConstraints(
 	ctx context.Context,
 	preparer domain.Preparer,
 	tx *sqlair.TX,
-	cons modeldomain.Constraints,
+	cons model.Constraints,
 ) error {
 	constraintsUUID, err := uuid.NewUUID()
 	if err != nil {
@@ -456,7 +455,7 @@ WHERE value = $dbContainerTypeValue.value
 // - [modelerrors.NotFound]: when no model exists to set constraints for.
 func (s *ModelState) SetModelConstraints(
 	ctx context.Context,
-	cons modeldomain.Constraints,
+	cons model.Constraints,
 ) error {
 	db, err := s.DB()
 	if err != nil {
