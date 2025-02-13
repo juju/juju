@@ -256,15 +256,11 @@ func (w *dbReplWorker) execSwitch(ctx context.Context, args []string) {
 		return
 	}
 
-	parts := strings.Split(argName, "-")
-	if len(parts) != 2 {
-		fmt.Fprintln(w.cfg.Stderr, "invalid namespace name")
-		return
-	} else if parts[0] != "model" {
-		fmt.Fprintln(w.cfg.Stderr, "invalid model namespace name")
+	name, ok := strings.CutPrefix(argName, "model-")
+	if !ok {
+		fmt.Fprintln(w.cfg.Stderr, `invalid model namespace name: expected "model-<name>" or "controller"`)
 		return
 	}
-	name := parts[1]
 
 	var uuid string
 	if err := w.controllerDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
