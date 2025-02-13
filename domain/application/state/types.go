@@ -768,6 +768,7 @@ type setConstraintTag struct {
 type setConstraintSpace struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 	Space          string `db:"space"`
+	Exclude        bool   `db:"exclude"`
 }
 
 type setConstraintZone struct {
