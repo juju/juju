@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
+	modeldomain "github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
@@ -65,12 +66,13 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func getModelConstraintAssertion(c *gc.C, expectedConsVal constraints.Value) database.BootstrapOpt {
+func getModelConstraintAssertion(c *gc.C, cons constraints.Value) database.BootstrapOpt {
 	return func(ctx context.Context, controller, model coredatabase.TxnRunner) error {
 		modelState := modelstate.NewModelState(func() (coredatabase.TxnRunner, error) {
 			return model, nil
 		}, loggertesting.WrapCheckLog(c))
 
+		expectedConsVal := modeldomain.FromCoreConstraints(cons)
 		data, err := modelState.GetModelConstraints(context.Background())
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(data, jc.DeepEquals, expectedConsVal)

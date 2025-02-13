@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	constraints "github.com/juju/juju/core/constraints"
 	model "github.com/juju/juju/core/model"
 	model0 "github.com/juju/juju/domain/model"
 	gomock "go.uber.org/mock/gomock"
@@ -359,10 +358,10 @@ func (c *MockModelStateGetModelCloudTypeCall) DoAndReturn(f func(context.Context
 }
 
 // GetModelConstraints mocks base method.
-func (m *MockModelState) GetModelConstraints(arg0 context.Context) (constraints.Value, error) {
+func (m *MockModelState) GetModelConstraints(arg0 context.Context) (model0.Constraints, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelConstraints", arg0)
-	ret0, _ := ret[0].(constraints.Value)
+	ret0, _ := ret[0].(model0.Constraints)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -380,19 +379,19 @@ type MockModelStateGetModelConstraintsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetModelConstraintsCall) Return(arg0 constraints.Value, arg1 error) *MockModelStateGetModelConstraintsCall {
+func (c *MockModelStateGetModelConstraintsCall) Return(arg0 model0.Constraints, arg1 error) *MockModelStateGetModelConstraintsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetModelConstraintsCall) Do(f func(context.Context) (constraints.Value, error)) *MockModelStateGetModelConstraintsCall {
+func (c *MockModelStateGetModelConstraintsCall) Do(f func(context.Context) (model0.Constraints, error)) *MockModelStateGetModelConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetModelConstraintsCall) DoAndReturn(f func(context.Context) (constraints.Value, error)) *MockModelStateGetModelConstraintsCall {
+func (c *MockModelStateGetModelConstraintsCall) DoAndReturn(f func(context.Context) (model0.Constraints, error)) *MockModelStateGetModelConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -437,7 +436,7 @@ func (c *MockModelStateGetModelMetricsCall) DoAndReturn(f func(context.Context) 
 }
 
 // SetModelConstraints mocks base method.
-func (m *MockModelState) SetModelConstraints(arg0 context.Context, arg1 constraints.Value) error {
+func (m *MockModelState) SetModelConstraints(arg0 context.Context, arg1 model0.Constraints) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetModelConstraints", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -463,13 +462,13 @@ func (c *MockModelStateSetModelConstraintsCall) Return(arg0 error) *MockModelSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelStateSetModelConstraintsCall) Do(f func(context.Context, constraints.Value) error) *MockModelStateSetModelConstraintsCall {
+func (c *MockModelStateSetModelConstraintsCall) Do(f func(context.Context, model0.Constraints) error) *MockModelStateSetModelConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateSetModelConstraintsCall) DoAndReturn(f func(context.Context, constraints.Value) error) *MockModelStateSetModelConstraintsCall {
+func (c *MockModelStateSetModelConstraintsCall) DoAndReturn(f func(context.Context, model0.Constraints) error) *MockModelStateSetModelConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

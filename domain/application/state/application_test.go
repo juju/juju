@@ -3237,13 +3237,13 @@ func (s *applicationStateSuite) TestConstraintFull(c *gc.C) {
 		if err != nil {
 			return err
 		}
-		addSpace0ConsStmt := `INSERT INTO constraint_space (constraint_uuid, space) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addSpace0ConsStmt, "constraint-uuid", "space0")
+		addSpace0ConsStmt := `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`
+		_, err = tx.ExecContext(ctx, addSpace0ConsStmt, "constraint-uuid", "space0", false)
 		if err != nil {
 			return err
 		}
-		addSpace1ConsStmt := `INSERT INTO constraint_space (constraint_uuid, space) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addSpace1ConsStmt, "constraint-uuid", "space1")
+		addSpace1ConsStmt := `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`
+		_, err = tx.ExecContext(ctx, addSpace1ConsStmt, "constraint-uuid", "space1", false)
 		if err != nil {
 			return err
 		}

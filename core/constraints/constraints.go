@@ -37,6 +37,10 @@ const (
 	Zones            = "zones"
 	AllocatePublicIP = "allocate-public-ip"
 	ImageID          = "image-id"
+
+	// excludedPrefix is the prefix Juju expects to be in front of a value when
+	// it is to be considered excluded as part of constraints.
+	excludedPrefix = "^"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -181,17 +185,34 @@ func (v *Value) HasInstanceType() bool {
 	return v.InstanceType != nil && *v.InstanceType != ""
 }
 
+// AddSpace is responsible for adding a space constraint to [Value]. If [Value]
+// currently has a nil slice of spaces a new slice will be allocated. If the
+// space to be added is considered "excluded" then an exclude prefix will be
+// applied to the name of the constraint.
+func (v *Value) AddSpace(space string, excluded bool) {
+	if v.Spaces == nil {
+		spaces := []string{}
+		v.Spaces = &spaces
+	}
+
+	prefix := excludedPrefix
+	if !excluded {
+		prefix = ""
+	}
+	*v.Spaces = append(*v.Spaces, fmt.Sprintf("%s%s", prefix, space))
+}
+
 // extractItems returns the list of entries in the given field which
 // are either positive (included) or negative (!included; with prefix
 // "^").
 func (v *Value) extractItems(field []string, included bool) []string {
 	var items []string
 	for _, name := range field {
-		prefixed := strings.HasPrefix(name, "^")
-		if prefixed && !included {
+		isExcluded := strings.HasPrefix(name, excludedPrefix)
+		if isExcluded && !included {
 			// has prefix and we want negatives.
-			items = append(items, strings.TrimPrefix(name, "^"))
-		} else if !prefixed && included {
+			items = append(items, strings.TrimPrefix(name, excludedPrefix))
+		} else if !isExcluded && included {
 			// no prefix and we want positives.
 			items = append(items, name)
 		}
