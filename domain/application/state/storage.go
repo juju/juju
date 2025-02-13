@@ -90,7 +90,7 @@ func (st *State) GetStorageUUIDByID(ctx context.Context, storageID corestorage.I
 	query, err := st.Prepare(`
 SELECT &minimalStorage.*
 FROM storage_instance
-WHERE name = $minimalStorage.name
+WHERE storage_id = $minimalStorage.storage_id
 `, stor)
 	if err != nil {
 		return "", errors.Capture(err)
