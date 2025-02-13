@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/secrets"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -54,30 +53,6 @@ type serviceSuite struct {
 }
 
 var _ = gc.Suite(&serviceSuite{})
-
-var backendConfigs = &provider.ModelBackendConfigInfo{
-	ActiveID: "backend-id",
-	Configs: map[string]provider.ModelBackendConfig{
-		"backend-id": {
-			ControllerUUID: coretesting.ControllerTag.Id(),
-			ModelUUID:      coretesting.ModelTag.Id(),
-			ModelName:      "some-model",
-			BackendConfig: provider.BackendConfig{
-				BackendType: "active-type",
-				Config:      map[string]interface{}{"foo": "active-type"},
-			},
-		},
-		"other-backend-id": {
-			ControllerUUID: coretesting.ControllerTag.Id(),
-			ModelUUID:      coretesting.ModelTag.Id(),
-			ModelName:      "some-model",
-			BackendConfig: provider.BackendConfig{
-				BackendType: "other-type",
-				Config:      map[string]interface{}{"foo": "other-type"},
-			},
-		},
-	},
-}
 
 func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.modelID = modeltesting.GenModelUUID(c)
@@ -192,7 +167,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 			SubjectTypeID: domainsecret.SubjectModel,
 		},
 	}, coresecrets.RoleManage).Return(
-		[]*secrets.SecretRevisionRef{
+		[]*coresecrets.SecretRevisionRef{
 			{
 				URI:        existingOwnedURI,
 				RevisionID: "rev-id",
@@ -201,8 +176,8 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 	)
 	ownedRevisions := provider.SecretRevisions{}
 	ownedRevisions.Add(existingOwnedURI, "rev-id")
-	s.secretsBackendProvider.EXPECT().RestrictedConfig(gomock.Any(), mBackendConfig, true, false, secrets.Accessor{
-		Kind: secrets.ModelAccessor,
+	s.secretsBackendProvider.EXPECT().RestrictedConfig(gomock.Any(), mBackendConfig, true, false, coresecrets.Accessor{
+		Kind: coresecrets.ModelAccessor,
 		ID:   s.modelID.String(),
 	}, ownedRevisions, provider.SecretRevisions{}).Return(
 		&mBackendConfig.BackendConfig, nil,
@@ -331,7 +306,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 			SubjectTypeID: domainsecret.SubjectModel,
 		},
 	}, coresecrets.RoleManage).Return(
-		[]*secrets.SecretRevisionRef{
+		[]*coresecrets.SecretRevisionRef{
 			{
 				URI:        existingOwnedURI,
 				RevisionID: "rev-id",
@@ -340,8 +315,8 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 	)
 	ownedRevisions := provider.SecretRevisions{}
 	ownedRevisions.Add(existingOwnedURI, "rev-id")
-	s.secretsBackendProvider.EXPECT().RestrictedConfig(gomock.Any(), mBackendConfig, true, false, secrets.Accessor{
-		Kind: secrets.ModelAccessor,
+	s.secretsBackendProvider.EXPECT().RestrictedConfig(gomock.Any(), mBackendConfig, true, false, coresecrets.Accessor{
+		Kind: coresecrets.ModelAccessor,
 		ID:   s.modelID.String(),
 	}, ownedRevisions, provider.SecretRevisions{}).Return(
 		&mBackendConfig.BackendConfig, nil,

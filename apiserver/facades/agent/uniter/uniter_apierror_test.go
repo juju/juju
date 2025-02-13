@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
-	secretservice "github.com/juju/juju/domain/secret/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/testing"
 )
@@ -59,11 +58,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		domainServices.ControllerConfig(),
 		domainServices.Config(),
 		domainServices.ModelInfo(),
-		domainServices.Secret(
-			secretservice.SecretServiceParams{
-				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
-			},
-		),
+		domainServices.Secret(),
 		domainServices.Network(),
 		domainServices.Machine(),
 		domainServices.Cloud(),

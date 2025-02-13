@@ -12,8 +12,6 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	secretservice "github.com/juju/juju/domain/secret/service"
-	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -39,13 +37,7 @@ func newUserSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*S
 	domainServices := ctx.DomainServices()
 	backendService := domainServices.SecretBackend()
 
-	secretService := ctx.DomainServices().Secret(
-		secretservice.SecretServiceParams{
-			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-				backendService, ctx.ModelUUID(),
-			),
-		},
-	)
+	secretService := ctx.DomainServices().Secret()
 
 	authTag := model.ModelTag()
 	commonDrainAPI, err := commonsecrets.NewSecretsDrainAPI(

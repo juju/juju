@@ -13,8 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	secretservice "github.com/juju/juju/domain/secret/service"
-	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -45,13 +43,7 @@ func makeStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModel
 
 	backendService := domainServices.SecretBackend()
 	secretInfoGetter := func(modelUUID coremodel.UUID) SecretService {
-		return ctx.DomainServicesForModel(modelUUID).Secret(
-			secretservice.SecretServiceParams{
-				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-					domainServices.SecretBackend(), modelUUID,
-				),
-			},
-		)
+		return ctx.DomainServicesForModel(modelUUID).Secret()
 	}
 
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)

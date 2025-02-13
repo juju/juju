@@ -146,7 +146,7 @@ func (s *SecretService) getBackendForUserSecrets(ctx context.Context, accessor S
 	for _, r := range revInfo {
 		ownedRevisions.Add(r.URI, r.RevisionID)
 	}
-	s.logger.Debugf(context.TODO(), "secrets for %s:\nowned: %v", accessor, ownedRevisions)
+	s.logger.Debugf(ctx, "secrets for %s:\nowned: %v", accessor, ownedRevisions)
 
 	// Get the restricted config for the provided accessor.
 	restrictedConfig, err := p.RestrictedConfig(ctx, cfg, true, false, secrets.Accessor{
