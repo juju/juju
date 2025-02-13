@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -146,8 +147,8 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 
-	err := common.DestroyModel(
-		context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()),
+	err := model.DestroyModel(
+		context.Background(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
 		domainServices.BlockCommand(), domainServices.ModelInfo(),
 		nil, nil, nil, nil,
 	)
@@ -166,8 +167,8 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBlock(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 
-	err := common.DestroyModel(
-		context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()),
+	err := model.DestroyModel(
+		context.Background(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
 		domainServices.BlockCommand(), domainServices.ModelInfo(),
 		nil, nil, nil, nil,
 	)
@@ -184,8 +185,8 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFail(c *gc.C) {
 	domainServices := s.DefaultModelDomainServices(c)
 
-	err := common.DestroyModel(
-		context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()),
+	err := model.DestroyModel(
+		context.Background(), model.NewModelManagerBackend(s.otherModel, s.StatePool()),
 		domainServices.BlockCommand(), domainServices.ModelInfo(),
 		nil, nil, nil, nil,
 	)

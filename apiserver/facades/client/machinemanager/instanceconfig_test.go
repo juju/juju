@@ -30,7 +30,6 @@ type machineConfigSuite struct {
 	st           *MockInstanceConfigBackend
 	store        *MockObjectStore
 	cloudService *commonmocks.MockCloudService
-	credService  *commonmocks.MockCredentialService
 
 	controllerConfigService *MockControllerConfigService
 	keyUpdaterService       *MockKeyUpdaterService
@@ -48,7 +47,6 @@ func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
 	s.ctrlSt = NewMockControllerBackend(ctrl)
 	s.st = NewMockInstanceConfigBackend(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
-	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
@@ -104,7 +102,6 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	services := InstanceConfigServices{
 		ControllerConfigService: s.controllerConfigService,
 		CloudService:            s.cloudService,
-		CredentialService:       s.credService,
 		ObjectStore:             s.store,
 		KeyUpdaterService:       s.keyUpdaterService,
 		ModelConfigService:      s.modelConfigService,

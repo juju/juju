@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
@@ -417,7 +418,7 @@ func (api *UserManagerAPI) modelUserInfo(ctx context.Context, modelTag names.Mod
 
 	// If the user is a controller superuser, they are considered a model
 	// admin.
-	modelUserInfo, err := common.ModelUserInfo(
+	modelUserInfo, err := commonmodel.ModelUserInfo(
 		ctx,
 		api.modelService,
 		modelTag,

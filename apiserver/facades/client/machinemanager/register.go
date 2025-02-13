@@ -66,7 +66,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 		domainServices.ControllerConfig(),
 		backend,
 		domainServices.Cloud(),
-		domainServices.Credential(),
 		domainServices.Machine(),
 		ctx.ObjectStore(),
 		ctx.ControllerObjectStore(),

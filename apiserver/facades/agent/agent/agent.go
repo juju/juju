@@ -14,14 +14,20 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -32,11 +38,75 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// CloudService provides access to clouds.
+type CloudService interface {
+	// Cloud returns the named cloud.
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
+	// WatchCloud returns a watcher that observes changes to the specified cloud.
+	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
+}
+
+// CredentialService provides access to credentials.
+type CredentialService interface {
+	// CloudCredential returns the cloud credential for the given tag.
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+
+	// WatchCredential returns a watcher that observes changes to the specified
+	// credential.
+	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
+}
+
+// ApplicationService provides access to the application service.
+type ApplicationService interface {
+	GetUnitLife(ctx context.Context, name unit.Name) (life.Value, error)
+}
+
+// MachineRebootService is an interface that defines methods for managing machine reboots.
+type MachineRebootService interface {
+	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
+	RequireMachineReboot(ctx context.Context, uuid string) error
+
+	// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
+	ClearMachineReboot(ctx context.Context, uuid string) error
+
+	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
+	IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error)
+
+	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
+	ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error)
+
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	// It returns an errors.MachineNotFound if the machine does not exist.
+	GetMachineUUID(ctx context.Context, machineName machine.Name) (string, error)
+}
+
+// ExternalControllerService defines the methods that the controller
+// facade needs from the controller state.
+type ExternalControllerService interface {
+	// ControllerForModel returns the controller record that's associated
+	// with the modelUUID.
+	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
+
+	// UpdateExternalController persists the input controller
+	// record.
+	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
+}
+
+// ModelConfigService is an interface that provides access to the
+// model configuration.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(ctx context.Context) (*config.Config, error)
+	// Watch returns a watcher that returns keys for any changes to model
+	// config.
+	Watch() (watcher.StringsWatcher, error)
+}
+
 // AgentAPI implements the version 3 of the API provided to an agent.
 type AgentAPI struct {
 	*common.PasswordChanger
 	*common.RebootFlagClearer
-	*common.ModelConfigWatcher
+	*commonmodel.ModelConfigWatcher
 	*common.ControllerConfigAPI
 	cloudspec.CloudSpecer
 
@@ -54,11 +124,11 @@ func NewAgentAPI(
 	resources facade.Resources,
 	st *state.State,
 	controllerConfigService ControllerConfigService,
-	externalControllerService common.ExternalControllerService,
-	cloudService common.CloudService,
-	credentialService common.CredentialService,
-	rebootMachineService common.MachineRebootService,
-	modelConfigService common.ModelConfigService,
+	externalControllerService ExternalControllerService,
+	cloudService CloudService,
+	credentialService CredentialService,
+	rebootMachineService MachineRebootService,
+	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
 	watcherRegistry facade.WatcherRegistry,
 ) (*AgentAPI, error) {
@@ -73,7 +143,7 @@ func NewAgentAPI(
 	return &AgentAPI{
 		PasswordChanger:    common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:  common.NewRebootFlagClearer(rebootMachineService, getCanChange),
-		ModelConfigWatcher: common.NewModelConfigWatcher(modelConfigService, watcherRegistry),
+		ModelConfigWatcher: commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
 			controllerConfigService,
@@ -116,7 +186,7 @@ func (api *AgentAPI) GetEntities(ctx context.Context, args params.Entities) para
 		// Handle units using the domain service.
 		// Eventually all entities will be supported via dqlite.
 		if tag.Kind() == names.UnitTagKind {
-			unitName, err := coreunit.NewName(tag.Id())
+			unitName, err := unit.NewName(tag.Id())
 			if err != nil {
 				results.Entities[i].Error = apiservererrors.ServerError(err)
 				continue

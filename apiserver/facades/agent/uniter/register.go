@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -154,7 +155,7 @@ func newUniterAPIWithServices(
 	logger := context.Logger().Child("uniter")
 	return &UniterAPI{
 		APIAddresser:       common.NewAPIAddresser(systemState, resources),
-		ModelConfigWatcher: common.NewModelConfigWatcher(modelConfigService, context.WatcherRegistry()),
+		ModelConfigWatcher: commonmodel.NewModelConfigWatcher(modelConfigService, context.WatcherRegistry()),
 		RebootRequester:    common.NewRebootRequester(machineService, accessMachine),
 		UnitStateAPI:       common.NewExternalUnitStateAPI(controllerConfigService, unitStateService, st, resources, authorizer, accessUnit, logger),
 		lxdProfileAPI:      NewExternalLXDProfileAPIv2(st, machineService, context.WatcherRegistry(), authorizer, accessUnit, logger, modelInfoService, applicationService),

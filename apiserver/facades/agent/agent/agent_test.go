@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/agent"
@@ -75,7 +74,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }
 
-func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService common.CredentialService) (*agent.AgentAPI, error) {
+func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService agent.CredentialService) (*agent.AgentAPI, error) {
 	return agent.NewAgentAPI(
 		auth,
 		s.resources,
@@ -251,7 +250,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	credentialService := commonmocks.NewMockCredentialService(ctrl)
+	credentialService := NewMockCredentialService(ctrl)
 
 	ch := make(chan struct{}, 1)
 	// Initial event.
@@ -288,7 +287,7 @@ func (s *agentSuite) TestWatchAuthError(c *gc.C) {
 	}
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	credentialService := commonmocks.NewMockCredentialService(ctrl)
+	credentialService := NewMockCredentialService(ctrl)
 
 	api, err := s.agentAPI(c, authorizer, credentialService)
 	c.Assert(err, jc.ErrorIsNil)

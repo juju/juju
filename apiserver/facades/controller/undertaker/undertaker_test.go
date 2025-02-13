@@ -12,7 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -28,7 +27,7 @@ type undertakerSuite struct {
 	coretesting.BaseSuite
 	secrets                  *mockSecrets
 	mockSecretBackendService *MockSecretBackendService
-	modelConfigService       *mocks.MockModelConfigService
+	modelConfigService       *MockModelConfigService
 }
 
 var _ = gc.Suite(&undertakerSuite{})
@@ -36,7 +35,7 @@ var _ = gc.Suite(&undertakerSuite{})
 func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName string) (*mockState, *UndertakerAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 	s.mockSecretBackendService = NewMockSecretBackendService(ctrl)
-	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
 
 	machineNo := "1"
 	if isSystem {

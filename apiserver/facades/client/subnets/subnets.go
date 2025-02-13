@@ -13,10 +13,13 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/credential"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )
@@ -54,6 +57,25 @@ type NetworkService interface {
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 	// SubnetsByCIDR returns the subnets matching the input CIDRs.
 	SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network.SubnetInfo, error)
+}
+
+// CloudService provides access to clouds.
+type CloudService interface {
+	// Cloud returns the named cloud.
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
+}
+
+// CredentialService provides access to credentials.
+type CredentialService interface {
+	// CloudCredential returns the cloud credential for the given tag.
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+}
+
+// ModelConfigService is an interface that provides access to the
+// model configuration.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(ctx context.Context) (*config.Config, error)
 }
 
 // API provides the subnets API facade for version 5.

@@ -10,10 +10,12 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -24,11 +26,38 @@ type Pool interface {
 	Get(string) (*state.PooledState, error)
 }
 
-type ModelConfigServiceGetter func(coremodel.UUID) common.ModelConfigService
+// CredentialService provides access to credentials.
+type CredentialService interface {
+	// CloudCredential returns the cloud credential for the given tag.
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+
+	// WatchCredential returns a watcher that observes changes to the specified
+	// credential.
+	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
+}
+
+// CloudService provides access to clouds.
+type CloudService interface {
+	// Cloud returns the named cloud.
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
+	// WatchCloud returns a watcher that observes changes to the specified cloud.
+	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
+}
+
+// ModelConfigService is an interface that provides access to the
+// model configuration.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(ctx context.Context) (*config.Config, error)
+}
+
+// ModelConfigServiceGetter is a factory for ModelConfigService. It takes a model
+// UUID and returns a ModelConfigService for that model.
+type ModelConfigServiceGetter func(coremodel.UUID) ModelConfigService
 
 // MakeCloudSpecGetter returns a function which returns a CloudSpec
 // for a given model, using the given Pool.
-func MakeCloudSpecGetter(pool Pool, cloudService common.CloudService, credentialService common.CredentialService, modelConfigServiceGetter ModelConfigServiceGetter) func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
+func MakeCloudSpecGetter(pool Pool, cloudService common.CloudService, credentialService CredentialService, modelConfigServiceGetter ModelConfigServiceGetter) func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 	return func(ctx context.Context, tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 		st, err := pool.Get(tag.Id())
 		if err != nil {
@@ -61,7 +90,7 @@ func MakeCloudSpecGetter(pool Pool, cloudService common.CloudService, credential
 // CloudSpec for a single model. Attempts to request a CloudSpec for
 // any other model other than the one associated with the given
 // state.State results in an error.
-func MakeCloudSpecGetterForModel(st *state.State, cloudService common.CloudService, credentialService common.CredentialService, modelConfigService common.ModelConfigService) func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
+func MakeCloudSpecGetterForModel(st *state.State, cloudService CloudService, credentialService CredentialService, modelConfigService ModelConfigService) func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 	return func(ctx context.Context, tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 		m, err := st.Model()
 		if err != nil {
@@ -85,7 +114,7 @@ func MakeCloudSpecGetterForModel(st *state.State, cloudService common.CloudServi
 // NotifyWatcher for cloud spec changes for a single model.
 // Attempts to request a watcher for any other model other than the
 // one associated with the given state.State results in an error.
-func MakeCloudSpecWatcherForModel(st *state.State, cloudService common.CloudService) func(context.Context, names.ModelTag) (watcher.NotifyWatcher, error) {
+func MakeCloudSpecWatcherForModel(st *state.State, cloudService CloudService) func(context.Context, names.ModelTag) (watcher.NotifyWatcher, error) {
 	return func(ctx context.Context, tag names.ModelTag) (watcher.NotifyWatcher, error) {
 		m, err := st.Model()
 		if err != nil {
@@ -120,7 +149,7 @@ func MakeCloudSpecCredentialWatcherForModel(st *state.State) func(names.ModelTag
 // NotifyWatcher for credential content changes for a single model.
 // Attempts to request a watcher for any other model other than the
 // one associated with the given state.State results in an error.
-func MakeCloudSpecCredentialContentWatcherForModel(st *state.State, credentialService common.CredentialService) func(context.Context, names.ModelTag) (watcher.NotifyWatcher, error) {
+func MakeCloudSpecCredentialContentWatcherForModel(st *state.State, credentialService CredentialService) func(context.Context, names.ModelTag) (watcher.NotifyWatcher, error) {
 	return func(ctx context.Context, tag names.ModelTag) (watcher.NotifyWatcher, error) {
 		m, err := st.Model()
 		if err != nil {

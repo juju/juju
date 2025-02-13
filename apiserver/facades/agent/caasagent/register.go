@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -48,7 +49,7 @@ func newStateFacadeV2(ctx facade.ModelContext) (*FacadeV2, error) {
 	)
 	return &FacadeV2{
 		CloudSpecer:        cloudSpecAPI,
-		ModelConfigWatcher: common.NewModelConfigWatcher(domainServices.Config(), ctx.WatcherRegistry()),
+		ModelConfigWatcher: commonmodel.NewModelConfigWatcher(domainServices.Config(), ctx.WatcherRegistry()),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			ctx.State(),
 			domainServices.ControllerConfig(),

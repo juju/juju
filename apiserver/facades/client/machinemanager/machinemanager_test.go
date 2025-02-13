@@ -46,7 +46,6 @@ type AddMachineManagerSuite struct {
 	api           *MachineManagerAPI
 	store         *MockObjectStore
 	cloudService  *commonmocks.MockCloudService
-	credService   *commonmocks.MockCredentialService
 
 	controllerConfigService *MockControllerConfigService
 	machineService          *MockMachineService
@@ -73,7 +72,6 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.storageAccess = NewMockStorageInterface(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
-	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
@@ -88,7 +86,6 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		s.controllerConfigService,
 		s.st,
 		s.cloudService,
-		s.credService,
 		s.machineService,
 		s.store,
 		nil,
@@ -198,7 +195,6 @@ type DestroyMachineManagerSuite struct {
 	leadership    *MockLeadership
 	store         *MockObjectStore
 	cloudService  *commonmocks.MockCloudService
-	credService   *commonmocks.MockCredentialService
 	api           *MachineManagerAPI
 	model         model.ModelInfo
 
@@ -236,7 +232,6 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.storageAccess.EXPECT().FilesystemAccess().Return(nil).AnyTimes()
 
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
-	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.leadership = NewMockLeadership(ctrl)
 
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
@@ -247,7 +242,6 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		s.controllerConfigService,
 		s.st,
 		s.cloudService,
-		s.credService,
 		s.machineService,
 		s.store,
 		nil,
@@ -727,7 +721,6 @@ type ProvisioningMachineManagerSuite struct {
 	pool         *MockPool
 	store        *MockObjectStore
 	cloudService *commonmocks.MockCloudService
-	credService  *commonmocks.MockCredentialService
 	api          *MachineManagerAPI
 	model        model.ModelInfo
 
@@ -766,7 +759,6 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller
 	s.pool.EXPECT().SystemState().Return(s.ctrlSt, nil).AnyTimes()
 
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
-	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
@@ -783,7 +775,6 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller
 		s.controllerConfigService,
 		s.st,
 		s.cloudService,
-		s.credService,
 		s.machineService,
 		s.store,
 		nil,

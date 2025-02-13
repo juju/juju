@@ -34,7 +34,6 @@ type InstanceConfigBackend interface {
 type InstanceConfigServices struct {
 	ControllerConfigService ControllerConfigService
 	CloudService            common.CloudService
-	CredentialService       common.CredentialService
 	KeyUpdaterService       KeyUpdaterService
 	ModelConfigService      ModelConfigService
 	MachineService          MachineService

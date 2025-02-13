@@ -8,7 +8,9 @@ import (
 
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
@@ -57,4 +59,10 @@ type ModelAgentService interface {
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
 	GetModelTargetAgentVersion(context.Context) (version.Number, error)
+}
+
+// CredentialService provides access to credentials.
+type CredentialService interface {
+	// CloudCredential returns the cloud credential for the given tag.
+	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
 }

@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package model
 
 import (
 	"context"
@@ -102,10 +102,10 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		return status, errors.Trace(err)
 	}
 
-	var hostedMachines []Machine
+	hostedMachineCount := 0
 	for _, m := range machines {
 		if !m.IsManager() {
-			hostedMachines = append(hostedMachines, m)
+			hostedMachineCount++
 		}
 	}
 
@@ -149,7 +149,7 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		OwnerTag:           model.Owner().String(),
 		Life:               life.Value(model.Life().String()),
 		Type:               string(model.Type()),
-		HostedMachineCount: len(hostedMachines),
+		HostedMachineCount: hostedMachineCount,
 		ApplicationCount:   len(modelApplications),
 		UnitCount:          unitCount,
 		Applications:       modelApplications,

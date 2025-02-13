@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -41,13 +41,13 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 	// models but set the controller to dying to prevent new
 	// models sneaking in. If we are not destroying hosted models,
 	// this will fail if any hosted models are found.
-	backend := common.NewModelManagerBackend(stModel, c.statePool)
-	return errors.Trace(common.DestroyController(
+	backend := commonmodel.NewModelManagerBackend(stModel, c.statePool)
+	return errors.Trace(commonmodel.DestroyController(
 		ctx,
 		backend,
 		c.blockCommandService,
 		c.modelInfoService,
-		func(u model.UUID) common.BlockCommandService {
+		func(u model.UUID) commonmodel.BlockCommandService {
 			return c.blockCommandServiceGetter(u)
 		},
 		args.DestroyModels, args.DestroyStorage,

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -50,7 +50,7 @@ func (s *SecretsAPI) checkCanWrite(ctx context.Context) error {
 }
 
 func (s *SecretsAPI) checkCanAdmin(ctx context.Context) error {
-	isAdmin, err := common.HasModelAdmin(ctx, s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
+	isAdmin, err := commonmodel.HasModelAdmin(ctx, s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
 	if err != nil {
 		return errors.Trace(err)
 	}

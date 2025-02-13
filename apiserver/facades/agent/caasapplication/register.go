@@ -51,7 +51,6 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		&stateShim{State: st},
 		domainServices.ControllerConfig(),
 		applicationService,
-		domainServices.Config(),
 		domainServices.Agent(),
 		broker,
 		ctx.StatePool().Clock(),
