@@ -663,6 +663,27 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	}
 	c.Check(exportedPeers, jc.DeepEquals, expectedPeers)
 
+	expectedContainers := make(map[string]charm.Container)
+	for name, container := range ch.Meta().Containers {
+		expectedContainers[name] = container
+	}
+	exportedContainers := make(map[string]charm.Container)
+	for name, container := range exportedCharmMetadata.Containers() {
+		c := charm.Container{
+			Resource: container.Resource(),
+			Uid:      container.Uid(),
+			Gid:      container.Gid(),
+		}
+		for _, mount := range container.Mounts() {
+			c.Mounts = append(c.Mounts, charm.Mount{
+				Storage:  mount.Storage(),
+				Location: mount.Location(),
+			})
+		}
+		exportedContainers[name] = c
+	}
+	c.Check(exportedContainers, jc.DeepEquals, expectedContainers)
+
 	// Check that we're exporting the manifest.
 
 	exportedCharmManifest := exported.CharmManifest()
