@@ -11,22 +11,23 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// SystemStateGetter is an interface that provides the system state.
-type SystemStateGetter interface {
-	SystemState() (*state.State, error)
+// SystemState holds methods on a state that has been retrieved
+// via state.SystemState().
+type SystemState interface {
+	WatchControllerConfig() state.NotifyWatcher
 }
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
 type ServerWrapperWorkerConfig struct {
-	StatePool       SystemStateGetter
-	NewServerWorker func(ServerWorkerConfig) (*ServerWorker, error)
+	SystemState     SystemState
+	NewServerWorker func(ServerWorkerConfig) (worker.Worker, error)
 	Logger          Logger
 }
 
 // Validate validates the workers configuration is as expected.
 func (c ServerWrapperWorkerConfig) Validate() error {
-	if c.StatePool == nil {
-		return errors.NotValidf("StatePool is required")
+	if c.SystemState == nil {
+		return errors.NotValidf("SystemState is required")
 	}
 	if c.NewServerWorker == nil {
 		return errors.NotValidf("NewSSHServer is required")
@@ -93,21 +94,17 @@ func (ssw *serverWrapperWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	systemState, err := ssw.config.StatePool.SystemState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	controllerConfig := systemState.WatchControllerConfig()
+	controllerConfig := ssw.config.SystemState.WatchControllerConfig()
 	if err := ssw.catacomb.Add(controllerConfig); err != nil {
 		return errors.Trace(err)
 	}
 
+	changesChan := controllerConfig.Changes()
 	for {
 		select {
 		case <-ssw.catacomb.Dying():
 			return ssw.catacomb.ErrDying()
-		case <-controllerConfig.Changes():
+		case <-changesChan:
 			// TODO(ale8k): Once the configuration PR is merged, get the max conns & port
 			// from controller config. Get the HostKey from server info, and feed them through
 			// to NewServerWorker.

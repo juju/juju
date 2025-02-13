@@ -39,11 +39,17 @@ func (s *sshServerSuite) SetUpSuite(c *gc.C) {
 	s.userSigner = userSigner
 }
 
+func (s *sshServerSuite) TestValidate(c *gc.C) {
+	cfg := sshserver.ServerWorkerConfig{}
+	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+}
+
 func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockLogger := mocks.NewMockLogger(ctrl)
+	mockLogger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 
 	// Firstly, start the server on an in-memory listener
 	listener := bufconn.Listen(8 * 1024)
@@ -54,6 +60,7 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, server)
+	workertest.CheckAlive(c, server)
 
 	// Dial the in-memory listener
 	conn, err := listener.Dial()

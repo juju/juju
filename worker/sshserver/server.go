@@ -9,9 +9,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
+	"sync"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v3"
 	gossh "golang.org/x/crypto/ssh"
 	"gopkg.in/tomb.v2"
 )
@@ -45,14 +48,13 @@ type ServerWorker struct {
 }
 
 // NewServerWorker returns a running embedded SSH server.
-func NewServerWorker(config ServerWorkerConfig) (*ServerWorker, error) {
+func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	s := &ServerWorker{config: config}
 	s.Server = &ssh.Server{
-		Addr: ":2223",
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 			return true
 		},
@@ -69,14 +71,46 @@ func NewServerWorker(config ServerWorkerConfig) (*ServerWorker, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to generate host key")
 	}
-	signer, _ := gossh.NewSignerFromKey(terminatingHostKey)
+	signer, err := gossh.NewSignerFromKey(terminatingHostKey)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create signer")
 	}
 
+	// Set hostkey
 	s.Server.AddHostKey(signer)
 
-	s.tomb.Go(s.loop)
+	if s.config.Listener == nil {
+		listenAddr := net.JoinHostPort("", strconv.Itoa(2229))
+		listener, err := net.Listen("tcp", listenAddr)
+		if err != nil {
+			return nil, err
+		}
+		s.config.Listener = listener
+	}
+
+	listener := newAcceptOnceListener(s.config.Listener)
+
+	// Start server
+	s.tomb.Go(func() error {
+		err := s.Server.Serve(listener)
+		if errors.Is(err, ssh.ErrServerClosed) {
+			return nil
+		}
+		return err
+	})
+
+	// Handle server cleanup
+	s.tomb.Go(func() error {
+		<-s.tomb.Dying()
+		<-listener.closeAllowed
+		if err := s.Server.Close(); err != nil {
+			// There's really not a lot we can do if the shutdown fails,
+			// either due to a timeout or another reason. So we simply log it.
+			s.config.Logger.Errorf("failed to shutdown server: %v", err)
+			return err
+		}
+		return nil
+	})
 
 	return s, nil
 }
@@ -89,29 +123,6 @@ func (s *ServerWorker) Kill() {
 // Wait waits for the server worker to stop. Implements worker.Worker.
 func (s *ServerWorker) Wait() error {
 	return s.tomb.Wait()
-}
-
-func (s *ServerWorker) loop() error {
-	go func() {
-		<-s.tomb.Dying()
-		if err := s.Server.Close(); err != nil {
-			// There's really not a lot we can do if the shutdown fails,
-			// either due to a timeout or another reason. So we simply log it.
-			s.config.Logger.Errorf("failed to shutdown server: %v", err)
-		}
-	}()
-
-	var err error
-	if s.config.Listener != nil {
-		err = s.Server.Serve(s.config.Listener)
-	} else {
-		err = s.Server.ListenAndServe()
-	}
-	if errors.Is(err, ssh.ErrServerClosed) {
-		return nil
-	}
-	return err
-
 }
 
 func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
@@ -203,4 +214,43 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 
 	server.AddHostKey(signer)
 	server.HandleConn(terminatingServerPipe)
+}
+
+// acceptOnceListener is required to prevent a race condition
+// that can occur in tests.
+//
+// The SSH server tracks the listeners in use
+// but if the server's close() method executes
+// before we reach a safe point in the Serve() method
+// then the server's map of listeners will be empty.
+// A safe point to indicate the server is ready is
+// right before we start accepting connections.
+// Accept() will return with error if the underlying
+// listener is already closed.
+//
+// As such, we ensure accept has been called at least once
+// before allowing a close to take effect. The corresponding
+// piece to this is to receive from the closeAllowed channel
+// within your cleanup routine.
+type acceptOnceListener struct {
+	net.Listener
+	// closeAllowed indicates when the server has reached
+	// a safe point that it can be killed.
+	closeAllowed chan struct{}
+	once         *sync.Once
+}
+
+func newAcceptOnceListener(l net.Listener) acceptOnceListener {
+	return acceptOnceListener{
+		Listener:     l,
+		closeAllowed: make(chan struct{}),
+		once:         &sync.Once{},
+	}
+}
+
+func (l acceptOnceListener) Accept() (net.Conn, error) {
+	l.once.Do(func() {
+		close(l.closeAllowed)
+	})
+	return l.Listener.Accept()
 }
