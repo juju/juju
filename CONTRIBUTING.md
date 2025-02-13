@@ -68,7 +68,7 @@ git clone git@github.com:<user>/juju.git
 `juju` repo.
 
 ```
-git remote add upstream https://github.com/juju/juju.git
+git remote add upstream git@github.com:juju/juju.git
 ```
 
 6. Set your local branches to track the `upstream` remote (not your fork). E.g.,
