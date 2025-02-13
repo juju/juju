@@ -124,7 +124,7 @@ parts:
       autoupdate
       ./autogen.sh
       ./configure --disable-shared --disable-gssapi --prefix "${CRAFT_STAGE}/snap-linux-musl"
-      
+
       make install
 
   libnsl:
@@ -150,7 +150,7 @@ parts:
       autoconf
 
       ./configure --disable-shared --prefix "${CRAFT_STAGE}/snap-linux-musl"
-      
+
       make install
 
   libuv:
@@ -255,7 +255,7 @@ parts:
     plugin: nil
     source: .
     build-snaps:
-      - go/1.23/stable
+      - go/1.24/stable
     build-packages:
       - musl-tools
     override-build: |
@@ -272,7 +272,7 @@ parts:
       export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
       export GO_LDFLAGS='-s -w -extldflags "-static" -linkmode "external" -X github.com/juju/juju/version.GitCommit= -X github.com/juju/juju/version.GitTreeState= -X github.com/juju/juju/version.build='
       go mod download
-      go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujud-controller 
+      go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujud-controller
       mv ${SNAPCRAFT_PART_INSTALL}/bin/jujud-controller ${SNAPCRAFT_PART_INSTALL}/bin/jujud
 
   juju:
@@ -281,7 +281,7 @@ parts:
     plugin: nil
     source: .
     build-snaps:
-      - go/1.23/stable
+      - go/1.24/stable
     override-build: |
       set -ex
 
