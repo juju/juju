@@ -279,6 +279,6 @@ of the `juju` organization, at this point in the Conversation view of your PR
 you can type `/merge` to merge. If not, ping one of your reviewers and ask them
 to help merge.
 
-> Tip: After your first contribution, you will only have to repeat steps 7-14.
+> Tip: After your first contribution, you will only have to repeat steps 7-13.
 
 Congratulations and thank you!
