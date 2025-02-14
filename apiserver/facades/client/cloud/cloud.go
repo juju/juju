@@ -504,10 +504,11 @@ func (api *CloudAPI) credentialModels(tag names.CloudCredentialTag) (map[string]
 func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.CloudCredentialTag, credential *cloud.Credential) []params.ErrorResult {
 	var result []params.ErrorResult
 
-	m, callContext, err := api.pool.GetModelCallContext(modelUUID)
+	m, callContext, releaser, err := api.pool.GetModelCallContext(modelUUID)
 	if err != nil {
 		return append(result, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 	}
+	defer releaser()
 
 	modelErrors, err := validateNewCredentialForModelFunc(
 		m,
