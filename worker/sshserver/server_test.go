@@ -59,6 +59,7 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, server)
+	workertest.CheckAlive(c, server)
 
 	// Dial the in-memory listener
 	conn, err := listener.Dial()
@@ -106,4 +107,6 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	// Server isn't gracefully closed, it's forcefully closed. All connections ended
 	// from server side.
 	workertest.CleanKill(c, server)
+	err = workertest.CheckKill(c, server)
+	c.Assert(err, gc.IsNil)
 }
