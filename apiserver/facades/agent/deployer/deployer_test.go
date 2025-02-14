@@ -91,6 +91,7 @@ func (s *deployerSuite) makeDeployerAPI(c *gc.C) {
 		s.resources,
 		s.revoker,
 		s.ControllerModel(c).State(),
+		s.Clock,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployer = deployer

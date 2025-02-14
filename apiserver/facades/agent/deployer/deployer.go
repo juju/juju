@@ -68,6 +68,7 @@ func NewDeployerAPI(
 	resources facade.Resources,
 	leadershipRevoker leadership.Revoker,
 	systemState *state.State,
+	clock clock.Clock,
 ) (*DeployerAPI, error) {
 	getAuthFunc := func() (common.AuthFunc, error) {
 		// Get all units of the machine and cache them.
@@ -100,7 +101,7 @@ func NewDeployerAPI(
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),
 		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getCanWatch),
-		StatusSetter:           common.NewStatusSetter(st, getAuthFunc, clock.WallClock),
+		StatusSetter:           common.NewStatusSetter(st, getAuthFunc, clock),
 		controllerConfigGetter: controllerConfigGetter,
 		applicationService:     applicationService,
 		leadershipRevoker:      leadershipRevoker,

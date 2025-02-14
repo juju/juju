@@ -1027,6 +1027,11 @@ func (ctx *facadeContext) Logger() corelogger.Logger {
 	return ctx.r.shared.logger
 }
 
+// Clock returns the clock instance.
+func (ctx *facadeContext) Clock() clock.Clock {
+	return ctx.r.clock
+}
+
 // controllerDB is a protected method, do not expose this directly in to the
 // facade context. It is expect that users of the facade context will use the
 // higher level abstractions.

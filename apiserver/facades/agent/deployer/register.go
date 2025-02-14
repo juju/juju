@@ -42,5 +42,5 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 	controllerConfigGetter := ctx.DomainServices().ControllerConfig()
 	applicationService := ctx.DomainServices().Application()
 
-	return NewDeployerAPI(controllerConfigGetter, applicationService, authorizer, st, ctx.ObjectStore(), resources, leadershipRevoker, systemState)
+	return NewDeployerAPI(controllerConfigGetter, applicationService, authorizer, st, ctx.ObjectStore(), resources, leadershipRevoker, systemState, ctx.Clock())
 }

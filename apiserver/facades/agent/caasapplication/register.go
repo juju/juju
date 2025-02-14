@@ -53,7 +53,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		applicationService,
 		domainServices.Agent(),
 		broker,
-		ctx.StatePool().Clock(),
+		ctx.Clock(),
 		ctx.Logger().Child("caasapplication"),
 	)
 }

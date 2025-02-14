@@ -32,14 +32,14 @@ type StatusAPI struct {
 }
 
 // NewStatusAPI creates a new server-side Status setter API facade.
-func NewStatusAPI(model *state.Model, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker) *StatusAPI {
+func NewStatusAPI(model *state.Model, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker, clock clock.Clock) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
 	st := model.State()
-	unitSetter := common.NewStatusSetter(st, getCanModify, clock.WallClock)
+	unitSetter := common.NewStatusSetter(st, getCanModify, clock)
 	unitGetter := common.NewStatusGetter(st, getCanModify)
 	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
-	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, getCanModify, clock.WallClock)
+	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, getCanModify, clock)
 	return &StatusAPI{
 		model:             model,
 		leadershipChecker: leadershipChecker,

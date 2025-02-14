@@ -62,6 +62,7 @@ type StorageProvisionerAPIv4 struct {
 func NewStorageProvisionerAPIv4(
 	ctx context.Context,
 	watcherRegistry facade.WatcherRegistry,
+	clock clock.Clock,
 	st Backend,
 	sb StorageBackend,
 	blockDeviceService BlockDeviceService,
@@ -226,7 +227,7 @@ func NewStorageProvisionerAPIv4(
 		LifeGetter:       common.NewLifeGetter(st, getLifeAuthFunc),
 		DeadEnsurer:      common.NewDeadEnsurer(st, getStorageEntityAuthFunc, machineService),
 		InstanceIdGetter: common.NewInstanceIdGetter(machineService, getMachineAuthFunc),
-		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc, clock.WallClock),
+		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc, clock),
 
 		watcherRegistry: watcherRegistry,
 

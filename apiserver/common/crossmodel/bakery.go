@@ -75,6 +75,7 @@ func NewLocalOfferBakery(
 	offersThirdPartyKey *bakery.KeyPair,
 	store internalmacaroon.ExpirableStorage,
 	checker bakery.FirstPartyCaveatChecker,
+	clock clock.Clock,
 ) (*OfferBakery, error) {
 	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: offersThirdPartyKey.Public}
 	localOfferBakery := bakery.New(
@@ -94,7 +95,7 @@ func NewLocalOfferBakery(
 		Store:    store,
 		Locator:  locator,
 	}
-	return &OfferBakery{bakery: bakery, clock: clock.WallClock}, nil
+	return &OfferBakery{bakery: bakery, clock: clock}, nil
 }
 
 // JaaSOfferBakery is a bakery service for offer access.
@@ -187,6 +188,7 @@ var (
 func NewJaaSOfferBakery(
 	ctx context.Context,
 	loginTokenRefreshURL, location string,
+	clock clock.Clock,
 	bakeryConfigService BakeryConfigService,
 	store internalmacaroon.ExpirableStorage,
 	checker bakery.FirstPartyCaveatChecker,
@@ -196,7 +198,7 @@ func NewJaaSOfferBakery(
 		bakeryConfigService: bakeryConfigService,
 		store:               store,
 		checker:             checker,
-		OfferBakery:         &OfferBakery{clock: clock.WallClock},
+		OfferBakery:         &OfferBakery{clock: clock},
 	}
 	if _, err := offerBakery.RefreshDischargeURL(ctx, loginTokenRefreshURL); err != nil {
 		return nil, errors.Trace(err)

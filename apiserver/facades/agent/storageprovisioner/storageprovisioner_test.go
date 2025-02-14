@@ -6,6 +6,7 @@ package storageprovisioner_test
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -47,6 +48,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	_, err = storageprovisioner.NewStorageProvisionerAPIv4(
 		context.Background(),
 		nil,
+		clock.WallClock,
 		backend,
 		storageBackend,
 		s.DefaultModelDomainServices(c).BlockDevice(),

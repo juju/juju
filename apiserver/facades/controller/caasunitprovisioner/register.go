@@ -7,8 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/clock"
-
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -29,7 +27,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		ctx.DomainServices().Network(),
 		applicationService,
 		stateShim{ctx.State()},
-		clock.WallClock,
+		ctx.Clock(),
 		ctx.Logger().Child("caasunitprovisioner"),
 	)
 }

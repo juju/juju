@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/juju/clock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -47,7 +48,7 @@ func (s *bakerySuite) getLocalOfferBakery(c *gc.C) (*crossmodel.OfferBakery, *go
 	c.Assert(err, gc.IsNil)
 	mockFirstPartyCaveatChecker.EXPECT().Namespace().Return(nil)
 
-	b, err := crossmodel.NewLocalOfferBakery("", key, mockExpirableStorage, mockFirstPartyCaveatChecker)
+	b, err := crossmodel.NewLocalOfferBakery("", key, mockExpirableStorage, mockFirstPartyCaveatChecker, clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	c.Assert(b, gc.NotNil)
 	url, err := b.RefreshDischargeURL(context.Background(), "https://example.com/offeraccess")
@@ -111,6 +112,7 @@ func (s *bakerySuite) getJaaSOfferBakery(c *gc.C) (*crossmodel.JaaSOfferBakery, 
 	b, err := crossmodel.NewJaaSOfferBakery(
 		context.Background(),
 		"https://example.com/.well-known/jwks.json", "",
+		clock.WallClock,
 		mockBakeryConfig, mockExpirableStorage, mockFirstPartyCaveatChecker,
 	)
 

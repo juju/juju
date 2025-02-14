@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
@@ -51,6 +52,7 @@ func (s *machinerSuite) makeAPI(c *gc.C) {
 		context.Background(),
 		st,
 		st,
+		clock.WallClock,
 		s.ControllerDomainServices(c).ControllerConfig(),
 		apiservertesting.ConstCloudGetter(&testing.DefaultCloud),
 		s.networkService,
@@ -73,6 +75,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 		context.Background(),
 		st,
 		st,
+		clock.WallClock,
 		s.ControllerDomainServices(c).ControllerConfig(),
 		nil,
 		s.networkService,

@@ -77,6 +77,7 @@ type MachinerAPIv5 struct {
 func NewMachinerAPIForState(
 	ctx context.Context,
 	ctrlSt, st *state.State,
+	clock clock.Clock,
 	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
 	networkService NetworkService,
@@ -100,7 +101,7 @@ func NewMachinerAPIForState(
 
 	return &MachinerAPI{
 		LifeGetter:              common.NewLifeGetter(st, getCanAccess),
-		StatusSetter:            common.NewStatusSetter(st, getCanAccess, clock.WallClock),
+		StatusSetter:            common.NewStatusSetter(st, getCanAccess, clock),
 		DeadEnsurer:             common.NewDeadEnsurer(st, getCanAccess, machineService),
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, watcherRegistry, getCanAccess),
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),

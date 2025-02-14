@@ -169,7 +169,7 @@ func newAuthContext(
 
 	// Create a bakery service for local user authentication. This service
 	// persists keys into DQLite in a TTL collection.
-	store := internalmacaroon.NewExpirableStorage(macaroonService, internalmacaroon.DefaultExpiration, clock.WallClock)
+	store := internalmacaroon.NewExpirableStorage(macaroonService, internalmacaroon.DefaultExpiration, ctxClock)
 	locator := bakeryutil.BakeryThirdPartyLocator{
 		PublicKey: ctxt.localUserThirdPartyBakeryKey.Public,
 	}

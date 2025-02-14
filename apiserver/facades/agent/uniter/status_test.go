@@ -6,6 +6,7 @@ package uniter_test
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -41,7 +42,7 @@ func (s *statusBaseSuite) newStatusAPI() *uniter.StatusAPI {
 	auth := func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	}
-	return uniter.NewStatusAPI(s.StateSuite.Model, auth, s.leadershipChecker)
+	return uniter.NewStatusAPI(s.StateSuite.Model, auth, s.leadershipChecker, clock.WallClock)
 }
 
 type ApplicationStatusAPISuite struct {

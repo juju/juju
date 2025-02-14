@@ -6,7 +6,6 @@ package secretsmanager
 import (
 	"reflect"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"golang.org/x/net/context"
@@ -91,7 +90,7 @@ func NewSecretManagerAPI(_ context.Context, ctx facade.ModelContext) (*SecretsMa
 		secretService:        secretService,
 		secretsTriggers:      secretService,
 		secretsConsumer:      secretService,
-		clock:                clock.WallClock,
+		clock:                ctx.Clock(),
 		controllerUUID:       ctx.ControllerUUID(),
 		modelUUID:            ctx.ModelUUID().String(),
 		remoteClientGetter:   remoteClientGetter,
