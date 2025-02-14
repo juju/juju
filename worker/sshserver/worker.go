@@ -105,28 +105,28 @@ func (ssw *serverWrapperWorker) loop() error {
 		case <-ssw.catacomb.Dying():
 			return ssw.catacomb.ErrDying()
 		case <-changesChan:
-			// // TODO(ale8k): Once the configuration PR is merged, get the max conns & port
-			// // from controller config. Get the HostKey from server info, and feed them through
-			// // to NewServerWorker.
+			// TODO(ale8k): Once the configuration PR is merged, get the max conns & port
+			// from controller config. Get the HostKey from server info, and feed them through
+			// to NewServerWorker.
 
-			// // Restart the server worker.
-			// srv.Kill()
-			// if err := srv.Wait(); err != nil {
-			// 	return errors.Trace(err)
-			// }
+			// Restart the server worker.
+			srv.Kill()
+			if err := srv.Wait(); err != nil {
+				return errors.Trace(err)
+			}
 
-			// // Start the server again.
-			// srv, err = ssw.config.NewServerWorker(ServerWorkerConfig{
-			// 	Logger: ssw.config.Logger,
-			// })
-			// if err != nil {
-			// 	return errors.Trace(err)
-			// }
+			// Start the server again.
+			srv, err = ssw.config.NewServerWorker(ServerWorkerConfig{
+				Logger: ssw.config.Logger,
+			})
+			if err != nil {
+				return errors.Trace(err)
+			}
 
-			// // Re-add it to the catacomb with the newly updated configuration.
-			// if err := ssw.catacomb.Add(srv); err != nil {
-			// 	return errors.Trace(err)
-			// }
+			// Re-add it to the catacomb with the newly updated configuration.
+			if err := ssw.catacomb.Add(srv); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }

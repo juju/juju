@@ -70,14 +70,39 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to generate host key")
 	}
-	signer, _ := gossh.NewSignerFromKey(terminatingHostKey)
+	signer, err := gossh.NewSignerFromKey(terminatingHostKey)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create signer")
 	}
 
+	// Set hostkey
 	s.Server.AddHostKey(signer)
 
-	s.tomb.Go(s.loop)
+	// Handle server cleanup
+	s.tomb.Go(func() error {
+		<-s.tomb.Dying()
+		if err := s.Server.Close(); err != nil {
+			// There's really not a lot we can do if the shutdown fails,
+			// either due to a timeout or another reason. So we simply log it.
+			s.config.Logger.Errorf("failed to shutdown server: %v", err)
+			return err
+		}
+		return nil
+	})
+
+	// Start server
+	s.tomb.Go(func() error {
+		var err error
+		if s.config.Listener != nil {
+			err = s.Server.Serve(s.config.Listener)
+		} else {
+			err = s.Server.ListenAndServe()
+		}
+		if errors.Is(err, ssh.ErrServerClosed) {
+			return nil
+		}
+		return err
+	})
 
 	return s, nil
 }
@@ -90,28 +115,6 @@ func (s *ServerWorker) Kill() {
 // Wait waits for the server worker to stop. Implements worker.Worker.
 func (s *ServerWorker) Wait() error {
 	return s.tomb.Wait()
-}
-
-func (s *ServerWorker) loop() error {
-	go func() {
-		<-s.tomb.Dying()
-		if err := s.Server.Close(); err != nil {
-			// There's really not a lot we can do if the shutdown fails,
-			// either due to a timeout or another reason. So we simply log it.
-			s.config.Logger.Errorf("failed to shutdown server: %v", err)
-		}
-	}()
-
-	var err error
-	if s.config.Listener != nil {
-		err = s.Server.Serve(s.config.Listener)
-	} else {
-		err = s.Server.ListenAndServe()
-	}
-	if errors.Is(err, ssh.ErrServerClosed) {
-		return nil
-	}
-	return err
 }
 
 func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
