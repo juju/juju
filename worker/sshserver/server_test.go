@@ -107,6 +107,4 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	// Server isn't gracefully closed, it's forcefully closed. All connections ended
 	// from server side.
 	workertest.CleanKill(c, server)
-	err = workertest.CheckKill(c, server)
-	c.Assert(err, gc.IsNil)
 }

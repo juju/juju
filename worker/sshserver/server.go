@@ -112,7 +112,6 @@ func (s *ServerWorker) loop() error {
 		return nil
 	}
 	return err
-
 }
 
 func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
@@ -131,7 +130,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		return
 	}
 
-	sshCh, reqs, err := newChan.Accept()
+	ch, reqs, err := newChan.Accept()
 	if err != nil {
 		return
 	}
@@ -142,15 +141,11 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 
 	jumpServerPipe, terminatingServerPipe := net.Pipe()
 
-	pipeCloser := func() {
-		sshCh.Close()
-		jumpServerPipe.Close()
-		terminatingServerPipe.Close()
-	}
-
 	s.tomb.Go(func() error {
-		defer pipeCloser()
-		_, err := io.Copy(sshCh, jumpServerPipe)
+		defer ch.Close()
+		defer jumpServerPipe.Close()
+		defer terminatingServerPipe.Close()
+		_, err := io.Copy(ch, jumpServerPipe)
 		if err != nil {
 			s.config.Logger.Errorf("failed to copy data from jump server to client: %v", err)
 		}
@@ -158,8 +153,10 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		return nil
 	})
 	s.tomb.Go(func() error {
-		defer pipeCloser()
-		_, err := io.Copy(jumpServerPipe, sshCh)
+		defer ch.Close()
+		defer jumpServerPipe.Close()
+		defer terminatingServerPipe.Close()
+		_, err := io.Copy(jumpServerPipe, ch)
 		if err != nil {
 			s.config.Logger.Errorf("failed to copy data from client to jump server: %v", err)
 		}
