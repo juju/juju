@@ -27,7 +27,7 @@ type unitStateSuite struct {
 	api      *common.UnitStateAPI
 
 	controllerConfigGetter *mocks.MockControllerConfigService
-	unitStateService       *MockUnitStateService
+	unitStateService       *mocks.MockUnitStateService
 }
 
 var _ = gc.Suite(&unitStateSuite{})
@@ -44,7 +44,7 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 
 	ctrl := gomock.NewController(c)
 	s.controllerConfigGetter = mocks.NewMockControllerConfigService(ctrl)
-	s.unitStateService = NewMockUnitStateService(ctrl)
+	s.unitStateService = mocks.NewMockUnitStateService(ctrl)
 
 	unitAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {

@@ -6,6 +6,7 @@ package storageprovisioner
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -225,7 +226,7 @@ func NewStorageProvisionerAPIv4(
 		LifeGetter:       common.NewLifeGetter(st, getLifeAuthFunc),
 		DeadEnsurer:      common.NewDeadEnsurer(st, getStorageEntityAuthFunc, machineService),
 		InstanceIdGetter: common.NewInstanceIdGetter(machineService, getMachineAuthFunc),
-		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
+		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc, clock.WallClock),
 
 		watcherRegistry: watcherRegistry,
 

@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facade"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/watcher/registry"
@@ -23,7 +24,7 @@ import (
 
 type MachineWatcherSuite struct {
 	testing.BaseSuite
-	mockWatchRebootService *MockWatchableMachineService
+	mockWatchRebootService *mocks.MockWatchableMachineService
 	watcherRegistry        facade.WatcherRegistry
 }
 
@@ -32,7 +33,7 @@ var _ = gc.Suite(&MachineWatcherSuite{})
 func (s *MachineWatcherSuite) setup(c *gc.C) *gomock.Controller {
 	var err error
 	ctrl := gomock.NewController(c)
-	s.mockWatchRebootService = NewMockWatchableMachineService(ctrl)
+	s.mockWatchRebootService = mocks.NewMockWatchableMachineService(ctrl)
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })

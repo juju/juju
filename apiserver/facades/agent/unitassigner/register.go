@@ -7,6 +7,8 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -24,7 +26,7 @@ func newFacade(ctx facade.ModelContext) (*API, error) {
 
 	domainServices := ctx.DomainServices()
 
-	setter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, common.AuthAlways())
+	setter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, common.AuthAlways(), clock.WallClock)
 	return &API{
 		st:             stateShim{State: st},
 		machineService: domainServices.Machine(),

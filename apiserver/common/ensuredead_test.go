@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -59,7 +60,7 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	d := common.NewDeadEnsurer(st, getCanModify, NewMockEnsureDeadMachineService(ctrl))
+	d := common.NewDeadEnsurer(st, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	entities := params.Entities{[]params.Entity{
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"},
 	}}
@@ -83,7 +84,7 @@ func (*deadEnsurerSuite) TestEnsureDeadError(c *gc.C) {
 	}
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	d := common.NewDeadEnsurer(&fakeState{}, getCanModify, NewMockEnsureDeadMachineService(ctrl))
+	d := common.NewDeadEnsurer(&fakeState{}, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	_, err := d.EnsureDead(context.Background(), params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
@@ -94,7 +95,7 @@ func (*deadEnsurerSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
 	}
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	d := common.NewDeadEnsurer(&fakeState{}, getCanModify, NewMockEnsureDeadMachineService(ctrl))
+	d := common.NewDeadEnsurer(&fakeState{}, getCanModify, mocks.NewMockEnsureDeadMachineService(ctrl))
 	result, err := d.EnsureDead(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)

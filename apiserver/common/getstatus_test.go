@@ -9,32 +9,40 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/testing"
 )
 
 type statusGetterSuite struct {
-	statusBaseSuite
-	getter *common.StatusGetter
+	entityFinder *mocks.MockEntityFinder
+	getter       *common.StatusGetter
+
+	badTag names.Tag
 }
 
 var _ = gc.Suite(&statusGetterSuite{})
 
 func (s *statusGetterSuite) SetUpTest(c *gc.C) {
-	s.statusBaseSuite.SetUpTest(c)
+	s.badTag = nil
+}
 
-	s.getter = common.NewStatusGetter(s.State, func() (common.AuthFunc, error) {
+func (s *statusGetterSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.entityFinder = mocks.NewMockEntityFinder(ctrl)
+	s.getter = common.NewStatusGetter(s.entityFinder, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
+	return ctrl
 }
 
 func (s *statusGetterSuite) TestUnauthorized(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	tag := names.NewMachineTag("42")
 	s.badTag = tag
 	result, err := s.getter.Status(context.Background(),
@@ -48,6 +56,8 @@ func (s *statusGetterSuite) TestUnauthorized(c *gc.C) {
 }
 
 func (s *statusGetterSuite) TestNotATag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	result, err := s.getter.Status(context.Background(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: "not a tag",
@@ -59,9 +69,14 @@ func (s *statusGetterSuite) TestNotATag(c *gc.C) {
 }
 
 func (s *statusGetterSuite) TestNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("42")
+	s.entityFinder.EXPECT().FindEntity(tag).Return(nil, errors.NotFoundf("machine 42"))
+
 	result, err := s.getter.Status(context.Background(),
 		params.Entities{Entities: []params.Entity{{
-			Tag: names.NewMachineTag("42").String(),
+			Tag: tag.String(),
 		}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,10 +85,20 @@ func (s *statusGetterSuite) TestNotFound(c *gc.C) {
 }
 
 func (s *statusGetterSuite) TestGetMachineStatus(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, nil)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	entity := newMockStatusGetterEntity(ctrl)
+	entity.MockStatusGetter.EXPECT().Status().Return(status.StatusInfo{
+		Status: status.Pending,
+	}, nil)
+
+	tag := names.NewMachineTag("42")
+	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
+
 	result, err := s.getter.Status(context.Background(),
 		params.Entities{Entities: []params.Entity{{
-			Tag: machine.Tag().String(),
+			Tag: tag.String(),
 		}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -84,15 +109,23 @@ func (s *statusGetterSuite) TestGetMachineStatus(c *gc.C) {
 }
 
 func (s *statusGetterSuite) TestGetUnitStatus(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	// The status has to be a valid workload status, because get status
 	// on the unit returns the workload status not the agent status as it
 	// does on a machine.
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
+	entity := newMockStatusGetterEntity(ctrl)
+	entity.MockStatusGetter.EXPECT().Status().Return(status.StatusInfo{
 		Status: status.Maintenance,
-	}})
+	}, nil)
+
+	tag := names.NewUnitTag("wordpress/1")
+	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
+
 	result, err := s.getter.Status(context.Background(),
 		params.Entities{Entities: []params.Entity{{
-			Tag: unit.Tag().String(),
+			Tag: tag.String(),
 		}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -103,12 +136,20 @@ func (s *statusGetterSuite) TestGetUnitStatus(c *gc.C) {
 }
 
 func (s *statusGetterSuite) TestGetApplicationStatus(c *gc.C) {
-	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	entity := newMockStatusGetterEntity(ctrl)
+	entity.MockStatusGetter.EXPECT().Status().Return(status.StatusInfo{
 		Status: status.Maintenance,
-	}})
+	}, nil)
+
+	tag := names.NewApplicationTag("wordpress")
+	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
+
 	result, err := s.getter.Status(context.Background(),
 		params.Entities{Entities: []params.Entity{{
-			Tag: app.Tag().String(),
+			Tag: tag.String(),
 		}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -119,13 +160,24 @@ func (s *statusGetterSuite) TestGetApplicationStatus(c *gc.C) {
 }
 
 func (s *statusGetterSuite) TestBulk(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	s.badTag = names.NewMachineTag("42")
-	machine := s.Factory.MakeMachine(c, nil)
+
+	entity := newMockStatusGetterEntity(ctrl)
+	entity.MockStatusGetter.EXPECT().Status().Return(status.StatusInfo{
+		Status: status.Pending,
+	}, nil)
+
+	tag := names.NewMachineTag("43")
+	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
+
 	result, err := s.getter.Status(context.Background(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: s.badTag.String(),
 		}, {
-			Tag: machine.Tag().String(),
+			Tag: tag.String(),
 		}, {
 			Tag: "bad-tag",
 		}}},
@@ -138,38 +190,18 @@ func (s *statusGetterSuite) TestBulk(c *gc.C) {
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
-type fakeLeadershipChecker struct {
-	isLeader bool
-}
-
-type token struct {
-	isLeader bool
-}
-
-func (t *token) Check() error {
-	if !t.isLeader {
-		return errors.New("not leader")
-	}
-	return nil
-}
-
-func (f *fakeLeadershipChecker) LeadershipCheck(applicationName, unitName string) leadership.Token {
-	return &token{isLeader: f.isLeader}
-}
-
-type statusBaseSuite struct {
-	testing.StateSuite
-	leadershipChecker *fakeLeadershipChecker
-	badTag            names.Tag
-}
-
-func (s *statusBaseSuite) SetUpTest(c *gc.C) {
-	c.Skip("skipping factory based tests. TODO: Re-write without factories")
-	s.StateSuite.SetUpTest(c)
-	s.badTag = nil
-	s.leadershipChecker = &fakeLeadershipChecker{isLeader: true}
-}
-
-func (s *statusBaseSuite) authFunc(tag names.Tag) bool {
+func (s *statusGetterSuite) authFunc(tag names.Tag) bool {
 	return tag != s.badTag
+}
+
+type mockStatusGetterEntity struct {
+	*mocks.MockStatusGetter
+	*mocks.MockEntity
+}
+
+func newMockStatusGetterEntity(ctrl *gomock.Controller) *mockStatusGetterEntity {
+	return &mockStatusGetterEntity{
+		MockStatusGetter: mocks.NewMockStatusGetter(ctrl),
+		MockEntity:       mocks.NewMockEntity(ctrl),
+	}
 }
