@@ -263,7 +263,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		// Cleanup
 		"removal_type",
 		"removal",
-		
+
 		// Sequence
 		"sequence",
 	)

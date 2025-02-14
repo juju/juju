@@ -1,38 +1,39 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package domain
+package sequence
 
 import (
 	"context"
 	"database/sql"
-	
+
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/errors"
 )
 
 type sequence struct {
 	Namespace string `db:"namespace"`
-	Next      uint   `db:"next_value"`
+	Value     uint   `db:"value"`
 }
 
-// NextSequenceValue returns a monotonically incrementing int value for the given namespace.
+// NextValue returns a monotonically incrementing int value for the given namespace.
 // The first such value starts at 0.
-func NextSequenceValue(ctx context.Context, preparer Preparer, tx *sqlair.TX, namespace string) (uint, error) {
+func NextValue(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX, namespace string) (uint, error) {
 	seq := sequence{
 		Namespace: namespace,
 	}
 	updateStmt, err := preparer.Prepare(`
-INSERT INTO sequence (namespace, next_value) VALUES ($sequence.namespace, 0)
-ON CONFLICT DO UPDATE SET next_value = next_value + 1
+INSERT INTO sequence (namespace, value) VALUES ($sequence.namespace, 0)
+ON CONFLICT DO UPDATE SET value = value + 1
 `, seq)
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
-	
+
 	nextStmt, err := preparer.Prepare(`
-SELECT &sequence.next_value FROM sequence WHERE namespace = $sequence.namespace
+SELECT &sequence.value FROM sequence WHERE namespace = $sequence.namespace
 `, seq)
 	if err != nil {
 		return 0, errors.Capture(err)
@@ -48,7 +49,6 @@ SELECT &sequence.next_value FROM sequence WHERE namespace = $sequence.namespace
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return 0, errors.Errorf("reading sequence number for namespace %q: %w", namespace, err)
 	}
-	result := seq.Next
-	seq.Next++
+	result := seq.Value
 	return result, nil
 }
