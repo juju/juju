@@ -1449,6 +1449,32 @@ func (s *resourceServiceSuite) TestImportResourcesDuplicateResourceNames(c *gc.C
 	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }
 
+func (s *resourceServiceSuite) TestImportResourcesDuplicateResourceNamesDifferentApps(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: Create arguments for ImportResources.
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: "app-name1",
+		Resources: []resource.ImportResourceInfo{{
+			Name:   "name",
+			Origin: charmresource.OriginStore,
+		}},
+	}, {
+		ApplicationName: "app-name2",
+		Resources: []resource.ImportResourceInfo{{
+			Name:   "name",
+			Origin: charmresource.OriginStore,
+		}},
+	}}
+	s.state.EXPECT().ImportResources(gomock.Any(), gomock.Any())
+
+	// Act:
+	err := s.service.ImportResources(context.Background(), args)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *resourceServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
