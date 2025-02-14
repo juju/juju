@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/apiserver/internal/handlers/objects"
 	handlerspubsub "github.com/juju/juju/apiserver/internal/handlers/pubsub"
 	handlersresources "github.com/juju/juju/apiserver/internal/handlers/resources"
+	resourcesdownload "github.com/juju/juju/apiserver/internal/handlers/resources/download"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/stateauthenticator"
@@ -825,6 +826,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		resourceAuthFunc,
 		resourceChangeAllowedFunc,
 		&resourceServiceGetter{ctxt: httpCtxt},
+		resourcesdownload.NewDownloader(logger.Child("resourcedownloader"), resourcesdownload.DefaultFileSystem()),
 		logger,
 	), "applications")
 	unitResourceNewOpenerFunc := resourceOpenerGetter(func(req *http.Request, tagKinds ...string) (coreresource.Opener, error) {
@@ -887,6 +889,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, "tools")
 	resourcesMigrationUploadHandler := srv.monitoredHandler(handlersresources.NewResourceMigrationUploadHandler(
 		&migratingResourceServiceGetter{ctxt: httpCtxt},
+		resourcesdownload.NewDownloader(logger.Child("resourcesmigrationdownloader"), resourcesdownload.DefaultFileSystem()),
 		logger,
 	), "applications")
 	registerHandler := srv.monitoredHandler(&registerUserHandler{

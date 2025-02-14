@@ -27,12 +27,27 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Downloader downloads and validates resource blobs.
+type Downloader interface {
+	// Download takes a request body ReadCloser containing a resource blob and
+	// checks that the size and hash match the expected values. It downloads the
+	// blob to a temporary file and returns a ReadCloser that deletes the
+	// temporary file on closure.
+	Download(
+		ctx context.Context,
+		reader io.ReadCloser,
+		expectedSHA384 string,
+		expectedSize int64,
+	) (io.ReadCloser, error)
+}
+
 // ResourceHandler is the HTTP handler for client downloads and
 // uploads of resources.
 type ResourceHandler struct {
 	authFunc              func(*http.Request, ...string) (names.Tag, error)
 	changeAllowedFunc     func(context.Context) error
 	resourceServiceGetter ResourceServiceGetter
+	downloader            Downloader
 	logger                logger.Logger
 }
 
@@ -41,12 +56,14 @@ func NewResourceHandler(
 	authFunc func(*http.Request, ...string) (names.Tag, error),
 	changeAllowedFunc func(context.Context) error,
 	resourceServiceGetter ResourceServiceGetter,
+	downloader Downloader,
 	logger logger.Logger,
 ) *ResourceHandler {
 	return &ResourceHandler{
 		authFunc:              authFunc,
 		changeAllowedFunc:     changeAllowedFunc,
 		resourceServiceGetter: resourceServiceGetter,
+		downloader:            downloader,
 		logger:                logger,
 	}
 }
@@ -136,7 +153,7 @@ func (h *ResourceHandler) download(service ResourceService, req *http.Request) (
 }
 
 func (h *ResourceHandler) upload(service ResourceService, req *http.Request, username string) (*params.UploadResult, error) {
-	uploaded, err := h.getUploadedResource(service, req)
+	reader, uploaded, err := h.getUploadedResource(service, req)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -145,7 +162,7 @@ func (h *ResourceHandler) upload(service ResourceService, req *http.Request, use
 		req.Context(),
 		resource.StoreResourceArgs{
 			ResourceUUID:    uploaded.uuid,
-			Reader:          req.Body,
+			Reader:          reader,
 			RetrievedBy:     username,
 			RetrievedByType: coreresource.User,
 			Size:            uploaded.size,
@@ -201,39 +218,44 @@ type uploadedResource struct {
 
 // getUploadedResource reads the resource from the request, validates that it is
 // known to the controller and validates the uploaded blobs contents.
-func (h *ResourceHandler) getUploadedResource(resourceService ResourceService, req *http.Request) (*uploadedResource, error) {
+func (h *ResourceHandler) getUploadedResource(resourceService ResourceService, req *http.Request) (io.ReadCloser, *uploadedResource, error) {
 	uReq, err := extractUploadRequest(req)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
 	uuid, err := resourceService.GetResourceUUIDByApplicationAndResourceName(req.Context(), uReq.Application, uReq.Name)
 	if errors.Is(err, resourceerrors.ResourceNotFound) {
-		return nil, jujuerrors.NotFoundf("resource %s of application %s", uReq.Name, uReq.Application)
+		return nil, nil, jujuerrors.NotFoundf("resource %s of application %s", uReq.Name, uReq.Application)
 	} else if errors.Is(err, resourceerrors.ApplicationNotFound) {
-		return nil, jujuerrors.NotFoundf("application %s", uReq.Application)
+		return nil, nil, jujuerrors.NotFoundf("application %s", uReq.Application)
 	} else if err != nil {
-		return nil, errors.Errorf("getting resource uuid: %w", err)
+		return nil, nil, errors.Errorf("getting resource uuid: %w", err)
 	}
 
 	res, err := resourceService.GetResource(req.Context(), uuid)
 	if errors.Is(err, resourceerrors.ResourceNotFound) {
-		return nil, jujuerrors.NotFoundf("resource %s of application %s", uReq.Name, uReq.Application)
+		return nil, nil, jujuerrors.NotFoundf("resource %s of application %s", uReq.Name, uReq.Application)
 	} else if errors.Is(err, resourceerrors.ApplicationNotFound) {
-		return nil, jujuerrors.NotFoundf("application %s", uReq.Application)
+		return nil, nil, jujuerrors.NotFoundf("application %s", uReq.Application)
 	} else if err != nil {
-		return nil, errors.Errorf("getting resource details: %w", err)
+		return nil, nil, errors.Errorf("getting resource details: %w", err)
 	}
 
 	switch res.Type {
 	case charmresource.TypeFile:
 		ext := path.Ext(res.Path)
 		if path.Ext(uReq.Filename) != ext {
-			return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
+			return nil, nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
 		}
 	}
 
-	return &uploadedResource{
+	reader, err := h.downloader.Download(req.Context(), req.Body, uReq.Fingerprint.String(), uReq.Size)
+	if err != nil {
+		return nil, nil, errors.Errorf("downloading reosurce body: %w", err)
+	}
+
+	return reader, &uploadedResource{
 		uuid:            res.UUID,
 		applicationName: uReq.Application,
 		resourceName:    res.Resource.Name,
