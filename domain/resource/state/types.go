@@ -7,16 +7,10 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/charm"
 	coreresource "github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
-)
-
-const (
-
-	// statePotential represents a constant string value indicating potential
-	// state for a resource in the DB
-	statePotential = "potential"
 )
 
 // resourceAndAppName represents the resource name and app name, this can be
@@ -39,8 +33,19 @@ type localUUID struct {
 	UUID string `db:"uuid"`
 }
 
-// uuids represents a list of uuids.
+// charmUUID represents the unique identifier of a charm.
+type charmUUID struct {
+	UUID string `db:"uuid"`
+}
+
+// uuids is a slice of resource UUIDs.
 type uuids []string
+
+// applicationResource represents a link between an application and a resource.
+type applicationResource struct {
+	ResourceUUID    string `db:"resource_uuid"`
+	ApplicationUUID string `db:"application_uuid"`
+}
 
 // resourceKind is the kind of the resource, e.g. file or oci-image.
 type resourceKind struct {
@@ -136,6 +141,26 @@ type applicationNameAndID struct {
 	Name          string             `db:"name"`
 }
 
+type applicationID struct {
+	ID coreapplication.ID `db:"uuid"`
+}
+
+// charmResource contains the identifiers of the charm resource in the
+// v_charm_resource view.
+type charmResource struct {
+	CharmUUID    string `db:"charm_uuid"`
+	ResourceName string `db:"name"`
+	Kind         string `db:"kind"`
+}
+
+// getApplicationAndCharmID gets the application and charm ID from the
+// application table using the application name.
+type getApplicationAndCharmID struct {
+	ApplicationID coreapplication.ID `db:"uuid"`
+	CharmID       charm.ID           `db:"charm_uuid"`
+	Name          string             `db:"name"`
+}
+
 // kubernetesApplicationResource represents the mapping of a resource to a unit.
 type kubernetesApplicationResource struct {
 	ResourceUUID string    `db:"resource_uuid"`
@@ -184,4 +209,15 @@ type linkResourceApplication struct {
 // hash represents the hash value from a stored resource blob.
 type hash struct {
 	Hash string `db:"sha384"`
+}
+
+// setResource is used to set resource rows in the resource table.
+type setResource struct {
+	UUID         string    `db:"uuid"`
+	CharmUUID    string    `db:"charm_uuid"`
+	Name         string    `db:"charm_resource_name"`
+	Revision     *int      `db:"revision"`
+	OriginTypeId int       `db:"origin_type_id"`
+	StateID      int       `db:"state_id"`
+	CreatedAt    time.Time `db:"created_at"`
 }

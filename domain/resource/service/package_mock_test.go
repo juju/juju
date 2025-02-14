@@ -122,6 +122,44 @@ func (c *MockStateDeleteApplicationResourcesCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// DeleteImportedResources mocks base method.
+func (m *MockState) DeleteImportedResources(arg0 context.Context, arg1 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteImportedResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteImportedResources indicates an expected call of DeleteImportedResources.
+func (mr *MockStateMockRecorder) DeleteImportedResources(arg0, arg1 any) *MockStateDeleteImportedResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteImportedResources", reflect.TypeOf((*MockState)(nil).DeleteImportedResources), arg0, arg1)
+	return &MockStateDeleteImportedResourcesCall{Call: call}
+}
+
+// MockStateDeleteImportedResourcesCall wrap *gomock.Call
+type MockStateDeleteImportedResourcesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteImportedResourcesCall) Return(arg0 error) *MockStateDeleteImportedResourcesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteImportedResourcesCall) Do(f func(context.Context, []string) error) *MockStateDeleteImportedResourcesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteImportedResourcesCall) DoAndReturn(f func(context.Context, []string) error) *MockStateDeleteImportedResourcesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteResourcesAddedBeforeApplication mocks base method.
 func (m *MockState) DeleteResourcesAddedBeforeApplication(arg0 context.Context, arg1 []resource.UUID) error {
 	m.ctrl.T.Helper()
@@ -389,6 +427,44 @@ func (c *MockStateGetResourcesByApplicationIDCall) Do(f func(context.Context, ap
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetResourcesByApplicationIDCall) DoAndReturn(f func(context.Context, application.ID) ([]resource.Resource, error)) *MockStateGetResourcesByApplicationIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ImportResources mocks base method.
+func (m *MockState) ImportResources(arg0 context.Context, arg1 resource0.ImportResourcesArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportResources", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportResources indicates an expected call of ImportResources.
+func (mr *MockStateMockRecorder) ImportResources(arg0, arg1 any) *MockStateImportResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportResources", reflect.TypeOf((*MockState)(nil).ImportResources), arg0, arg1)
+	return &MockStateImportResourcesCall{Call: call}
+}
+
+// MockStateImportResourcesCall wrap *gomock.Call
+type MockStateImportResourcesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateImportResourcesCall) Return(arg0 error) *MockStateImportResourcesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateImportResourcesCall) Do(f func(context.Context, resource0.ImportResourcesArgs) error) *MockStateImportResourcesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateImportResourcesCall) DoAndReturn(f func(context.Context, resource0.ImportResourcesArgs) error) *MockStateImportResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

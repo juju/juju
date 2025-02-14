@@ -4,12 +4,13 @@
 package resources
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -19,8 +20,8 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/unit"
 	domainresource "github.com/juju/juju/domain/resource"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -28,10 +29,18 @@ import (
 const migrateResourcesPrefix = "/migrate/resources"
 
 type resourcesUploadSuite struct {
-	applicationsServiceGetter *MockApplicationServiceGetter
-	applicationsService       *MockApplicationService
-	resourceServiceGetter     *MockResourceServiceGetter
-	resourceService           *MockResourceService
+	resourceServiceGetter *MockResourceServiceGetter
+	resourceService       *MockResourceService
+
+	content        string
+	origin         charmresource.Origin
+	originStr      string
+	revision       int
+	revisionStr    string
+	size           int64
+	sizeStr        string
+	fingerprint    charmresource.Fingerprint
+	fingerprintStr string
 
 	mux *apiserverhttp.Mux
 	srv *httptest.Server
@@ -40,6 +49,18 @@ type resourcesUploadSuite struct {
 var _ = gc.Suite(&resourcesUploadSuite{})
 
 func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
+	s.content = "resource-content"
+	s.origin = charmresource.OriginStore
+	s.originStr = s.origin.String()
+	s.revision = 3
+	s.revisionStr = strconv.Itoa(s.revision)
+	s.size = int64(len(s.content))
+	s.sizeStr = strconv.Itoa(int(s.size))
+	fp, err := charmresource.GenerateFingerprint(strings.NewReader(s.content))
+	c.Assert(err, jc.ErrorIsNil)
+	s.fingerprint = fp
+	s.fingerprintStr = fp.String()
+
 	s.mux = apiserverhttp.NewMux()
 	s.srv = httptest.NewServer(s.mux)
 }
@@ -59,7 +80,6 @@ func (s *resourcesUploadSuite) TestStub(c *gc.C) {
 func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *gc.C) {
 	// Arrange
 	handler := NewResourceMigrationUploadHandler(
-		nil,
 		nil,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -95,149 +115,21 @@ func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *gc.C) {
 	}
 }
 
-// TestGetUploadTargetBadRequest verifies the handling of bad requests in upload
-// target retrieval when query parameters are wrong
-func (s *resourcesUploadSuite) TestGetUploadTargetBadRequest(c *gc.C) {
-	type testCase struct {
-		name       string
-		query      url.Values
-		errMatches string
-	}
-
-	for _, tc := range []testCase{
-		{
-			name:       "missing name",
-			query:      url.Values{},
-			errMatches: "missing resource name",
-		},
-		{
-			name:       "missing application and unit",
-			query:      url.Values{"name": {"test"}},
-			errMatches: "missing application/unit",
-		},
-		{
-			name:       "both application and unit defined",
-			query:      url.Values{"name": {"test"}, "application": {"testapp"}, "unit": {"testunit"}},
-			errMatches: "application and unit can't be set at the same time",
-		},
-		{
-			name:       "malformed unit name",
-			query:      url.Values{"name": {"test"}, "unit": {"testunit"}},
-			errMatches: "invalid unit name.*",
-		},
-	} {
-		// Act
-		_, err := getUploadTarget(context.Background(), s.applicationsService, tc.query)
-
-		// Assert
-		c.Check(err, jc.ErrorIs, errors.BadRequest, gc.Commentf("(Assert) unexpected error. test case: %s", tc.name))
-		c.Check(err, gc.ErrorMatches, tc.errMatches, gc.Commentf("(Assert) errors doesn't match. test case: %s",
-			tc.name))
-	}
-}
-
-// TestGetUploadTargetCannotGetUnitUUID verifies that getUploadTarget returns
-// an expected error when unit UUID retrieval fails.
-func (s *resourcesUploadSuite) TestGetUploadTargetCannotGetUnitUUID(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-	expectedErr := errors.New("cannot get unit uuid")
-	s.applicationsService.EXPECT().GetUnitUUID(gomock.Any(), gomock.Any()).Return("", expectedErr)
-	query := url.Values{"name": {"test"}, "unit": {"testunit/0"}}
-
-	// Act
-	_, err := getUploadTarget(context.Background(), s.applicationsService, query)
-
-	// Assert
-	c.Check(err, jc.ErrorIs, expectedErr, gc.Commentf("(Assert) unexpected error."))
-}
-
-// TestGetUploadTargetCannotGetApplicationByUnitName verifies that an error
-// is returned when  while retrieving an application by unit name
-func (s *resourcesUploadSuite) TestGetUploadTargetCannotGetApplicationByUnitName(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-	expectedErr := errors.New("cannot get application by unit name")
-	s.applicationsService.EXPECT().GetUnitUUID(gomock.Any(), gomock.Any()).Return("whatever", nil)
-	s.applicationsService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), gomock.Any()).Return("", expectedErr)
-	query := url.Values{"name": {"test"}, "unit": {"testunit/0"}}
-
-	// Act
-	_, err := getUploadTarget(context.Background(), s.applicationsService, query)
-
-	// Assert
-	c.Check(err, jc.ErrorIs, expectedErr, gc.Commentf("(Assert) unexpected error."))
-}
-
-// TestGetUploadTargetCannotGetApplicationByName verifies behavior
-// when GetApplicationIDByName fails while retrieving an application by name
-func (s *resourcesUploadSuite) TestGetUploadTargetCannotGetApplicationByName(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-	expectedErr := errors.New("cannot get application by name")
-	s.applicationsService.EXPECT().GetApplicationIDByName(gomock.Any(), gomock.Any()).Return("", expectedErr)
-	query := url.Values{"name": {"test"}, "application": {"testapplication"}}
-
-	// Act
-	_, err := getUploadTarget(context.Background(), s.applicationsService, query)
-
-	// Assert
-	c.Check(err, jc.ErrorIs, expectedErr, gc.Commentf("(Assert) unexpected error."))
-}
-
-// TestGetUploadTargetByApplication tests retrieving the upload target based
-// on application name.
-func (s *resourcesUploadSuite) TestGetUploadTargetByApplication(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-	s.applicationsService.EXPECT().GetApplicationIDByName(gomock.Any(), "testapplication").Return("testapp-id", nil)
-	query := url.Values{"name": {"test"}, "application": {"testapplication"}}
-
-	// Act
-	target, err := getUploadTarget(context.Background(), s.applicationsService, query)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error."))
-
-	// Assert
-	c.Check(target, gc.Equals, resourceUploadTarget{
-		name:  "test",
-		appID: "testapp-id",
-	}, gc.Commentf("(Assert) unexpected result."))
-}
-
-// TestGetUploadTargetByUnittests retrieving the upload target based
-// on unit name.
-func (s *resourcesUploadSuite) TestGetUploadTargetByUnit(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-	s.applicationsService.EXPECT().GetUnitUUID(gomock.Any(), unit.Name("testunit/0")).Return("testunit-id", nil)
-	s.applicationsService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unit.Name("testunit/0")).Return("testapp-id", nil)
-	query := url.Values{"name": {"test"}, "unit": {"testunit/0"}}
-
-	// Act
-	target, err := getUploadTarget(context.Background(), s.applicationsService, query)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error."))
-
-	// Assert
-	c.Check(target, gc.Equals, resourceUploadTarget{
-		name:     "test",
-		appID:    "testapp-id",
-		unitUUID: "testunit-id",
-	}, gc.Commentf("(Assert) unexpected result."))
-}
-
 // TestServeUploadApplicationResourceNotFound verifies the handler's behavior
 // when the application resource is not found.
 func (s *resourcesUploadSuite) TestServeUploadApplicationResourceNotFound(c *gc.C) {
 	// Arrange
 	defer s.setupHandler(c).Finish()
-	query := s.setupUploadTarget(c, resourceUploadTarget{
-		name:  "test",
-		appID: "testapp-id",
-	})
-	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-		ApplicationID: "testapp-id",
-		Name:          "test",
-	}).Return("", errors.NotFound)
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("", errors.NotFound)
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", nil)
@@ -253,12 +145,20 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationResourceNotFound(c *gc.
 func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *gc.C) {
 	// Arrange
 	defer s.setupHandler(c).Finish()
-	query := s.setupUploadTarget(c, resourceUploadTarget{
-		name:  "test",
-		appID: "testapp-id",
-	})
-	query.Add("timestamp", "not-placeholder")
-	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {"store"},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(errors.New("cannot store resource"))
 
 	// Act
@@ -275,12 +175,20 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *g
 func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *gc.C) {
 	// Arrange
 	defer s.setupHandler(c).Finish()
-	query := s.setupUploadTarget(c, resourceUploadTarget{
-		name:  "test",
-		appID: "testapp-id",
-	})
-	query.Add("timestamp", "not-placeholder")
-	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(resource.Resource{}, errors.New(
 		"cannot get resource"))
@@ -299,35 +207,19 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationGetResourceError(c *gc.
 // not called through not configuring related mock.
 func (s *resourcesUploadSuite) TestServeUploadApplicationWithPlaceholder(c *gc.C) {
 	// Arrange
-	now := time.Now().Truncate(time.Second).UTC()
 	defer s.setupHandler(c).Finish()
-	query := s.setupUploadTarget(c, resourceUploadTarget{
-		name:  "test",
-		appID: "testapp-id",
-	})
-
-	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(resource.Resource{
-		UUID:      "res-uuid",
-		Timestamp: now,
-	}, nil)
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+	}
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
-	var obtained params.ResourceUploadResult
 	c.Check(response.StatusCode, gc.Equals, http.StatusOK,
 		gc.Commentf("(Assert) unexpected status code."))
-	body, err := io.ReadAll(response.Body)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error while reading response body"))
-	c.Assert(json.Unmarshal(body, &obtained), jc.ErrorIsNil,
-		gc.Commentf("(Assert) unexpected error while unmarshalling response"))
-	c.Check(obtained, gc.Equals, params.ResourceUploadResult{
-		ID:        "res-uuid",
-		Timestamp: now,
-	})
 }
 
 // TestServeUploadApplication tests the HTTP endpoint for uploading application
@@ -337,21 +229,28 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 	defer s.setupHandler(c).Finish()
-	query := s.setupUploadTarget(c, resourceUploadTarget{
-		name:  "test",
-		appID: "testapp-id",
-	})
-	query.Add("timestamp", "not-placeholder")
-
-	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-		ApplicationID: "testapp-id",
-		Name:          "test",
-	}).Return("res-uuid", nil)
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
-		RetrievedBy:     "testapp-id",
 		RetrievedByType: resource.Application,
+		Origin:          s.origin,
+		Revision:        s.revision,
+		Fingerprint:     s.fingerprint,
+		Size:            s.size,
 	}).Return(nil)
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
 		UUID:      "res-uuid",
@@ -374,6 +273,130 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 		ID:        "res-uuid",
 		Timestamp: now,
 	})
+}
+
+// TestServeUploadApplicationRetrievedByUser tests that the RetrievedBy and
+// RetrievedByType values are correctly determined for a user retriever.
+func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *gc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+	defer s.setupHandler(c).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"user":        {"username"},
+		"origin":      {"upload"},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
+		ResourceUUID:    "res-uuid",
+		Reader:          http.NoBody,
+		RetrievedByType: resource.User,
+		RetrievedBy:     "username",
+		Origin:          charmresource.OriginUpload,
+		Revision:        -1,
+		Fingerprint:     s.fingerprint,
+		Size:            s.size,
+	}).Return(nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		UUID:      "res-uuid",
+		Timestamp: now,
+	}, nil)
+
+	// Act
+	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+}
+
+// TestServeUploadApplicationRetrievedByApplication tests that the RetrievedBy
+// and RetrievedByType values are correctly determined for an application
+// retriever.
+func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(c *gc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+	defer s.setupHandler(c).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"user":        {"app-name"},
+		"origin":      {"store"},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
+		ResourceUUID:    "res-uuid",
+		Reader:          http.NoBody,
+		RetrievedByType: resource.Application,
+		RetrievedBy:     "app-name",
+		Origin:          s.origin,
+		Revision:        s.revision,
+		Fingerprint:     s.fingerprint,
+		Size:            s.size,
+	}).Return(nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		UUID:      "res-uuid",
+		Timestamp: now,
+	}, nil)
+
+	// Act
+	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+}
+
+// TestServeUploadApplicationRetrievedByUnit tests that the RetrievedBy and
+// RetrievedByType values are correctly determined for a unit retriever.
+func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *gc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+	defer s.setupHandler(c).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"user":        {"app-name/0"},
+		"origin":      {"store"},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
+		ResourceUUID:    "res-uuid",
+		Reader:          http.NoBody,
+		RetrievedByType: resource.Unit,
+		RetrievedBy:     "app-name/0",
+		Origin:          s.origin,
+		Revision:        s.revision,
+		Fingerprint:     s.fingerprint,
+		Size:            s.size,
+	}).Return(nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		UUID:      "res-uuid",
+		Timestamp: now,
+	}, nil)
+
+	// Act
+	_, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
 }
 
 // TestServeUploadUnitWithPlaceholder tests the upload functionality for a unit
@@ -381,38 +404,19 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *gc.C) {
 // test than the one with application, with one call to SetUnitResource.
 func (s *resourcesUploadSuite) TestServeUploadUnitWithPlaceholder(c *gc.C) {
 	// Arrange
-	now := time.Now().Truncate(time.Second).UTC()
 	defer s.setupHandler(c).Finish()
-	query := s.setupUploadTarget(c, resourceUploadTarget{
-		name:     "test",
-		appID:    "testapp-id",
-		unitUUID: "testunit-id",
-	})
-
-	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), gomock.Any()).Return("res-uuid", nil)
-	s.resourceService.EXPECT().SetUnitResource(gomock.Any(), resource.UUID("res-uuid"),
-		unit.UUID("testunit-id")).Return(nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), gomock.Any()).Return(resource.Resource{
-		UUID:      "res-uuid",
-		Timestamp: now,
-	}, nil)
+	query := url.Values{
+		"name": {"resource-name"},
+		"unit": {"testunit-id"},
+	}
 
 	// Act
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
 
 	// Assert
-	var obtained params.ResourceUploadResult
 	c.Check(response.StatusCode, gc.Equals, http.StatusOK,
 		gc.Commentf("(Assert) unexpected status code."))
-	body, err := io.ReadAll(response.Body)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error while reading response body"))
-	c.Assert(json.Unmarshal(body, &obtained), jc.ErrorIsNil,
-		gc.Commentf("(Assert) unexpected error while unmarshalling response"))
-	c.Check(obtained, gc.Equals, params.ResourceUploadResult{
-		ID:        "res-uuid",
-		Timestamp: now,
-	})
 }
 
 // TestServeUploadUnit tests the process of uploading a resource unit and
@@ -420,106 +424,29 @@ func (s *resourcesUploadSuite) TestServeUploadUnitWithPlaceholder(c *gc.C) {
 // test than the one with application, with one call to SetUnitResource.
 func (s *resourcesUploadSuite) TestServeUploadUnit(c *gc.C) {
 	// Arrange
-	now := time.Now().Truncate(time.Second).UTC()
 	defer s.setupHandler(c).Finish()
-	query := s.setupUploadTarget(c, resourceUploadTarget{
-		name:     "test",
-		appID:    "testapp-id",
-		unitUUID: "testunit-id",
-	})
-	query.Add("timestamp", "not-placeholder")
-
-	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-		ApplicationID: "testapp-id",
-		Name:          "test",
-	}).Return("res-uuid", nil)
-	s.resourceService.EXPECT().SetUnitResource(gomock.Any(), resource.UUID("res-uuid"),
-		unit.UUID("testunit-id")).Return(nil)
-	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
-		ResourceUUID:    "res-uuid",
-		Reader:          http.NoBody,
-		RetrievedBy:     "testunit-id",
-		RetrievedByType: resource.Unit,
-	}).Return(nil)
-	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
-		UUID:      "res-uuid",
-		Timestamp: now,
-	}, nil)
-
-	// Act
-	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
-
-	// Assert
-	var obtained params.ResourceUploadResult
-	c.Check(response.StatusCode, gc.Equals, http.StatusOK,
-		gc.Commentf("(Assert) unexpected status code."))
-	body, err := io.ReadAll(response.Body)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error while reading response body"))
-	c.Assert(json.Unmarshal(body, &obtained), jc.ErrorIsNil,
-		gc.Commentf("(Assert) unexpected error while unmarshalling response"))
-	c.Check(obtained, gc.Equals, params.ResourceUploadResult{
-		ID:        "res-uuid",
-		Timestamp: now,
-	})
-}
-
-// TestServeUploadUnitErrorSetUnitResource tests the error handling when failing
-// to set a unit resource during upload processing.
-func (s *resourcesUploadSuite) TestServeUploadUnitErrorSetUnitResource(c *gc.C) {
-	// Arrange
-	defer s.setupHandler(c).Finish()
-	query := s.setupUploadTarget(c, resourceUploadTarget{
-		name:     "test",
-		appID:    "testapp-id",
-		unitUUID: "testunit-id",
-	})
-	query.Add("timestamp", "not-placeholder")
-
-	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), domainresource.GetApplicationResourceIDArgs{
-		ApplicationID: "testapp-id",
-		Name:          "test",
-	}).Return("res-uuid", nil)
-	s.resourceService.EXPECT().SetUnitResource(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(errors.New("cannot set unit resource"))
-
-	// Act
-	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
-
-	// Assert
-	c.Check(response.StatusCode, gc.Equals, http.StatusInternalServerError,
-		gc.Commentf("(Assert) unexpected status code."))
-}
-
-// setupUploadTarget configures the upload query parameters for a given resource
-// upload target and sets up necessary mock expectations.
-func (s *resourcesUploadSuite) setupUploadTarget(c *gc.C, target resourceUploadTarget) (query url.Values) {
-	query = url.Values{"name": {target.name}}
-
-	// Get app & unit uuids from unit name
-	if target.unitUUID != "" {
-		query.Add("unit", "testunit/0")
-		s.applicationsService.EXPECT().GetUnitUUID(gomock.Any(), gomock.Any()).Return(target.unitUUID, nil)
-		s.applicationsService.EXPECT().GetApplicationIDByUnitName(gomock.Any(), gomock.Any()).Return(target.appID, nil)
-		return
+	query := url.Values{
+		"name":      {"resource-name"},
+		"unit":      {"testunit-id"},
+		"timestamp": {"not-placeholder"},
 	}
 
-	// get app uuid from app name
-	query.Add("application", "testapplication")
-	s.applicationsService.EXPECT().GetApplicationIDByName(gomock.Any(), gomock.Any()).Return(target.appID, nil)
-	return query
+	// Act
+	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while executing request"))
+
+	// Assert
+	c.Check(response.StatusCode, gc.Equals, http.StatusOK,
+		gc.Commentf("(Assert) unexpected status code."))
 }
 
 // setupHandler configures the resources migration upload HTTP handler, init
 // mocks and registers it to the mux. It provides cleanup logic.
 func (s *resourcesUploadSuite) setupHandler(c *gc.C) Finisher {
 	finish := s.setupMocks(c).Finish
-	s.expectApplicationService()
 	s.expectResourceService()
 
 	handler := NewResourceMigrationUploadHandler(
-		s.applicationsServiceGetter,
 		s.resourceServiceGetter,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -535,11 +462,6 @@ func (s *resourcesUploadSuite) setupHandler(c *gc.C) Finisher {
 	}
 }
 
-// expectApplicationService prepare mocks for application service
-func (s *resourcesUploadSuite) expectApplicationService() {
-	s.applicationsServiceGetter.EXPECT().Application(gomock.Any()).Return(s.applicationsService, nil)
-}
-
 // expectResourceService prepare mocks for resource service
 func (s *resourcesUploadSuite) expectResourceService() {
 	s.resourceServiceGetter.EXPECT().Resource(gomock.Any()).Return(s.resourceService, nil)
@@ -550,8 +472,6 @@ func (s *resourcesUploadSuite) expectResourceService() {
 func (s *resourcesUploadSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.applicationsServiceGetter = NewMockApplicationServiceGetter(ctrl)
-	s.applicationsService = NewMockApplicationService(ctrl)
 	s.resourceServiceGetter = NewMockResourceServiceGetter(ctrl)
 	s.resourceService = NewMockResourceService(ctrl)
 

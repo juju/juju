@@ -7,37 +7,35 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/resource"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
 type resourcesMigrationUploadHandler struct {
-	resourceServiceGetter    ResourceServiceGetter
-	applicationServiceGetter ApplicationServiceGetter
-	logger                   logger.Logger
+	resourceServiceGetter ResourceServiceGetter
+	logger                logger.Logger
 }
 
 // NewResourceMigrationUploadHandler returns a new HTTP handler for resources
 // uploads during model migrations.
 func NewResourceMigrationUploadHandler(
-	applicationServiceGetter ApplicationServiceGetter,
 	resourceServiceGetter ResourceServiceGetter,
 	logger logger.Logger,
 ) *resourcesMigrationUploadHandler {
 	return &resourcesMigrationUploadHandler{
-		applicationServiceGetter: applicationServiceGetter,
-		resourceServiceGetter:    resourceServiceGetter,
-		logger:                   logger,
+		resourceServiceGetter: resourceServiceGetter,
+		logger:                logger,
 	}
 }
 
@@ -71,12 +69,7 @@ func (h *resourcesMigrationUploadHandler) servePost(w http.ResponseWriter, r *ht
 		return internalerrors.Capture(err)
 	}
 
-	applicationService, err := h.applicationServiceGetter.Application(r)
-	if err != nil {
-		return internalerrors.Capture(err)
-	}
-
-	res, err := h.processPost(r, resourceService, applicationService)
+	res, err := h.processPost(r, resourceService)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
@@ -91,64 +84,88 @@ func (h *resourcesMigrationUploadHandler) servePost(w http.ResponseWriter, r *ht
 func (h *resourcesMigrationUploadHandler) processPost(
 	r *http.Request,
 	resourceService ResourceService,
-	applicationService ApplicationService,
 ) (coreresource.Resource, error) {
 	var empty coreresource.Resource
 	ctx := r.Context()
 	query := r.URL.Query()
+	resourceName := query.Get("name")
+	if resourceName == "" {
+		return empty, errors.BadRequestf("missing resource name")
+	}
+	if isPlaceholder(query) {
+		// If the resource is a placeholder, do nothing. Information about
+		// resources without an associated blob is also migrated during the
+		// database migration, there is nothing to do here.
+		return empty, nil
+	}
+	appName := query.Get("application")
+	if appName == "" {
+		// If the application name is empty, do nothing. Information about unit
+		// resources is also migrated during the database migration. There is
+		// nothing to do here.
+		return empty, nil
+	}
 
-	userID := query.Get("user") // Is allowed to be blank.
+	// Get the resource UUID.
+	resUUID, err := resourceService.GetResourceUUIDByApplicationAndResourceName(
+		ctx, appName, resourceName,
+	)
+	if err != nil {
+		return empty, internalerrors.Errorf(
+			"resource upload failed: getting resource %s on application %s: %w",
+			appName, resourceName, err,
+		)
+	}
 
-	// Get the target of the upload, which is an application with or without
-	// unit.
-	target, err := getUploadTarget(ctx, applicationService, query)
+	details, err := resourceDetailsFromQuery(query)
+	if err != nil {
+		return empty, internalerrors.Errorf("extracting resource details from request: %w", err)
+	}
+
+	retrievedBy, retrievedByType := determineRetrievedBy(query)
+	err = resourceService.StoreResource(ctx, resource.StoreResourceArgs{
+		ResourceUUID:    resUUID,
+		Reader:          r.Body,
+		RetrievedBy:     retrievedBy,
+		RetrievedByType: retrievedByType,
+		Size:            details.size,
+		Fingerprint:     details.fingerprint,
+		Origin:          details.origin,
+		Revision:        details.revision,
+	})
 	if err != nil {
 		return empty, internalerrors.Capture(err)
 	}
 
-	resUUID, err := resourceService.GetApplicationResourceID(ctx,
-		resource.GetApplicationResourceIDArgs{
-			ApplicationID: target.appID,
-			Name:          target.name,
-		})
-	if err != nil {
-		return empty, internalerrors.Errorf("resource upload failed: %w", err)
-	}
-
-	if target.unitUUID != "" {
-		err := resourceService.SetUnitResource(ctx, resUUID, target.unitUUID)
-		if err != nil {
-			return empty, internalerrors.Capture(err)
-		}
-	}
-	if !isPlaceholder(query) {
-		var (
-			retrievedBy     string
-			retrievedByType coreresource.RetrievedByType
-		)
-		if target.unitUUID != "" {
-			retrievedBy = target.unitUUID.String()
-			retrievedByType = coreresource.Unit
-		} else if userID != "" {
-			retrievedBy = userID
-			retrievedByType = coreresource.User
-		} else {
-			retrievedBy = target.appID.String()
-			retrievedByType = coreresource.Application
-		}
-
-		err := resourceService.StoreResource(ctx, resource.StoreResourceArgs{
-			ResourceUUID:    resUUID,
-			Reader:          r.Body,
-			RetrievedBy:     retrievedBy,
-			RetrievedByType: retrievedByType,
-		})
-		if err != nil {
-			return empty, internalerrors.Capture(err)
-		}
-	}
-
 	return resourceService.GetResource(ctx, resUUID)
+}
+
+// determineRetrievedBy determines the entity that retrieved the resource using
+// the origin and user arguments on the query. If it cannot determine an entity,
+// it returns the default values.
+func determineRetrievedBy(query url.Values) (string, coreresource.RetrievedByType) {
+	rawOrigin := query.Get("origin")
+	origin, err := charmresource.ParseOrigin(rawOrigin)
+	if err != nil {
+		// If the origin cannot be determined, or is not present, return the
+		// default values.
+		return "", ""
+	}
+
+	// The user key contains the name of the entity that retrieved this
+	// resource. Confusingly, this can be an application, unit or user.
+	retrievedBy := query.Get("user")
+	switch origin {
+	case charmresource.OriginUpload:
+		return retrievedBy, coreresource.User
+	case charmresource.OriginStore:
+		if names.IsValidUnit(retrievedBy) {
+			return retrievedBy, coreresource.Unit
+		}
+		return retrievedBy, coreresource.Application
+	default:
+		return "", ""
+	}
 }
 
 // isPlaceholder determines if the given query represents a placeholder by
@@ -157,54 +174,44 @@ func isPlaceholder(query url.Values) bool {
 	return query.Get("timestamp") == ""
 }
 
-type resourceUploadTarget struct {
-	name     string
-	appID    coreapplication.ID
-	unitUUID coreunit.UUID
+// resourceDetails contains metadata about the resource from the request header.
+type resourceDetails struct {
+	// origin identifies where the resource will come from.
+	origin charmresource.Origin
+	// revision is the charm store revision of the resource.
+	revision int
+	// fingerprint is the SHA-384 checksum for the resource blob.
+	fingerprint charmresource.Fingerprint
+	// size is the size of the resource, in bytes.
+	size int64
 }
 
-// getUploadTarget resolves the upload target by determining the application ID
-// and optional unit UUID from the query inputs. It validates that either
-// application or unit is specified, but not both, and fetches necessary details
-// using the application service.
-// Returns the name of the resource, the application ID and the unit UUID
-// (if applicable), or an error if any issues occur during resolution.
-func getUploadTarget(
-	ctx context.Context,
-	service ApplicationService,
-	query url.Values,
-) (target resourceUploadTarget, err error) {
-	// Validate parameters
-	target.name = query.Get("name")
-	appName := query.Get("application")
-	unitName := query.Get("unit")
-
-	if target.name == "" {
-		return target, errors.BadRequestf("missing resource name")
+// resourceDetailsFromQuery extracts details about the uploaded resource from
+// the query.
+func resourceDetailsFromQuery(query url.Values) (resourceDetails, error) {
+	var (
+		details resourceDetails
+		err     error
+	)
+	details.origin, err = charmresource.ParseOrigin(query.Get("origin"))
+	if err != nil {
+		return details, errors.BadRequestf("invalid origin: %w", err)
 	}
-
-	switch {
-	case appName == "" && unitName == "":
-		return target, errors.BadRequestf("missing application/unit")
-	case appName != "" && unitName != "":
-		return target, errors.BadRequestf("application and unit can't be set at the same time")
-	}
-
-	// Resolve target by unit name if any
-	if unitName != "" {
-		coreUnitName, err := coreunit.NewName(unitName)
+	if details.origin == charmresource.OriginUpload {
+		details.revision = -1
+	} else {
+		details.revision, err = strconv.Atoi(query.Get("revision"))
 		if err != nil {
-			return target, errors.BadRequestf(err.Error())
+			return details, errors.BadRequestf("invalid revision: %w", err)
 		}
-		target.unitUUID, err = service.GetUnitUUID(ctx, coreUnitName)
-		if err != nil {
-			return target, internalerrors.Capture(err)
-		}
-		target.appID, err = service.GetApplicationIDByUnitName(ctx, coreUnitName)
-		return target, internalerrors.Capture(err)
 	}
-
-	// Resolve target by appName
-	target.appID, err = service.GetApplicationIDByName(ctx, appName)
-	return target, internalerrors.Capture(err)
+	details.size, err = strconv.ParseInt(query.Get("size"), 10, 64)
+	if err != nil {
+		return details, errors.BadRequestf("invalid size: %w", err)
+	}
+	details.fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
+	if err != nil {
+		return details, errors.BadRequestf("invalid fingerprint: %w", err)
+	}
+	return details, nil
 }

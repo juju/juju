@@ -420,16 +420,6 @@ func (w *uploadWrapper) UploadResource(ctx context.Context, res resource.Resourc
 	return w.client.UploadResource(ctx, w.modelUUID, res, content)
 }
 
-// SetPlaceholderResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) SetPlaceholderResource(ctx context.Context, res resource.Resource) error {
-	return w.client.SetPlaceholderResource(ctx, w.modelUUID, res)
-}
-
-// SetUnitResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) SetUnitResource(ctx context.Context, unitName string, res resource.Resource) error {
-	return w.client.SetUnitResource(ctx, w.modelUUID, unitName, res)
-}
-
 func (w *Worker) transferModel(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) error {
 	w.setInfoStatus(ctx, "exporting model")
 	serialized, err := w.config.Facade.Export(ctx)

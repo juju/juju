@@ -262,8 +262,6 @@ type ResourceDownloader interface {
 // the target controller during a migration.
 type ResourceUploader interface {
 	UploadResource(context.Context, resource.Resource, io.Reader) error
-	SetPlaceholderResource(context.Context, resource.Resource) error
-	SetUnitResource(context.Context, string, resource.Resource) error
 }
 
 // UploadBinariesConfig provides all the configuration that the
@@ -423,14 +421,6 @@ func uploadResources(ctx context.Context, config UploadBinariesConfig, logger co
 				return errors.Trace(err)
 			}
 		}
-		for unitName, unitRev := range res.UnitRevisions {
-			if err := config.ResourceUploader.SetUnitResource(ctx, unitName, unitRev); err != nil {
-				return errors.Annotate(err, "cannot set unit resource")
-			}
-		}
-		// Each config.Resources element also contains a
-		// CharmStoreRevision field. This isn't especially important
-		// to migrate so is skipped for now.
 	}
 	return nil
 }

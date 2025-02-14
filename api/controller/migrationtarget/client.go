@@ -158,41 +158,9 @@ func (c *Client) UploadTools(ctx context.Context, modelUUID string, r io.Reader,
 
 // UploadResource uploads a resource to the migration endpoint.
 func (c *Client) UploadResource(ctx context.Context, modelUUID string, res resource.Resource, r io.Reader) error {
-	args := makeResourceArgs(res)
-	args.Add("application", res.ApplicationName)
-	err := c.resourcePost(ctx, modelUUID, args, r)
-	return errors.Trace(err)
-}
-
-// SetPlaceholderResource sets the metadata for a placeholder resource.
-func (c *Client) SetPlaceholderResource(ctx context.Context, modelUUID string, res resource.Resource) error {
-	args := makeResourceArgs(res)
-	args.Add("application", res.ApplicationName)
-	err := c.resourcePost(ctx, modelUUID, args, nil)
-	return errors.Trace(err)
-}
-
-// SetUnitResource sets the metadata for a particular unit resource.
-func (c *Client) SetUnitResource(ctx context.Context, modelUUID, unit string, res resource.Resource) error {
-	args := makeResourceArgs(res)
-	args.Add("unit", unit)
-	err := c.resourcePost(ctx, modelUUID, args, nil)
-	return errors.Trace(err)
-}
-
-func (c *Client) resourcePost(ctx context.Context, modelUUID string, args url.Values, r io.Reader) error {
-	uri := "/migrate/resources?" + args.Encode()
-	contentType := "application/octet-stream"
-	err := c.httpPost(ctx, modelUUID, r, uri, contentType, nil, nil)
-	return errors.Trace(err)
-}
-
-func makeResourceArgs(res resource.Resource) url.Values {
 	args := url.Values{}
 	args.Add("name", res.Name)
 	args.Add("type", res.Type.String())
-	args.Add("path", res.Path)
-	args.Add("description", res.Description)
 	args.Add("origin", res.Origin.String())
 	args.Add("revision", fmt.Sprintf("%d", res.Revision))
 	args.Add("size", fmt.Sprintf("%d", res.Size))
@@ -203,7 +171,11 @@ func makeResourceArgs(res resource.Resource) url.Values {
 	if !res.IsPlaceholder() {
 		args.Add("timestamp", fmt.Sprint(res.Timestamp.UnixNano()))
 	}
-	return args
+	args.Add("application", res.ApplicationName)
+	uri := "/migrate/resources?" + args.Encode()
+	contentType := "application/octet-stream"
+	err := c.httpPost(ctx, modelUUID, r, uri, contentType, nil, nil)
+	return errors.Trace(err)
 }
 
 func (c *Client) httpPost(ctx context.Context, modelUUID string, content io.Reader, endpoint, contentType string, headers map[string]string, response interface{}) error {

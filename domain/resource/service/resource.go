@@ -122,6 +122,28 @@ type State interface {
 		arg resource.UpdateResourceRevisionArgs,
 		resType charmresource.Type,
 	) (string, error)
+
+	// ImportResources sets resources imported in migration. It first builds all the
+	// resources to insert from the arguments, then inserts them at the end so as to
+	// wait as long as possible before turning into a write transaction.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ResourceNotFound] if the resource metadata cannot be
+	//     found on the charm.
+	//   - [resourceerrors.ApplicationNotFound] if the application name of an
+	//     application resource cannot be found in the database.
+	//   - [resourceerrors.UnitNotFound] if the unit name of a unit resource cannot
+	//     be found in the database.
+	//   - [resourceerrors.OriginNotValid] if the resource origin is not valid.
+	ImportResources(ctx context.Context, args resource.ImportResourcesArgs) error
+
+	// DeleteImportedResources deletes all imported resource associated with the
+	// given applications during an import rollback.
+	//
+	// The following error types can be expected to be returned:
+	//   - [resourceerrors.ApplicationNotFound] is returned if the application is
+	//     not found.
+	DeleteImportedResources(ctx context.Context, appNames []string) error
 }
 
 type ResourceStoreGetter interface {
@@ -370,13 +392,13 @@ func (s *Service) storeResource(
 	}
 	if args.Origin == charmresource.OriginUpload && args.Revision != -1 {
 		return errors.Errorf(
-			"resource with origin upload must have revision -1, found %d: %w",
+			"resource with origin upload must have positive -1, found %d: %w",
 			args.Revision, resourceerrors.ResourceRevisionNotValid,
 		)
 	}
 	if args.Origin == charmresource.OriginStore && args.Revision < 0 {
 		return errors.Errorf(
-			"resource with origin upload must have positive revision, found %d, %w",
+			"resource with origin store must have positive revision, found %d, %w",
 			args.Revision, resourceerrors.ResourceRevisionNotValid,
 		)
 	}
@@ -658,6 +680,50 @@ func (s *Service) DeleteResourcesAddedBeforeApplication(ctx context.Context, res
 		}
 	}
 	return s.st.DeleteResourcesAddedBeforeApplication(ctx, resUUIDs)
+}
+
+// ImportResources sets resources imported in migration. It first builds all the
+// resources to insert from the arguments, then inserts them at the end so as to
+// wait as long as possible before turning into a write transaction.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceNotFound] if the resource metadata cannot be
+//     found on the charm.
+//   - [resourceerrors.ApplicationNotFound] if the application name of an
+//     application resource cannot be found in the database.
+//   - [resourceerrors.UnitNotFound] if the unit name of a unit resource cannot
+//     be found in the database.
+//   - [resourceerrors.OriginNotValid] if the resource origin is not valid.
+func (s *Service) ImportResources(ctx context.Context, args resource.ImportResourcesArgs) error {
+	for _, appArg := range args {
+		resourceNames := make(map[string]bool)
+		for _, res := range appArg.Resources {
+			if res.Name == "" {
+				return errors.Errorf("resource on application %s: %w",
+					appArg.ApplicationName, resourceerrors.ResourceNameNotValid)
+			}
+			if _, ok := resourceNames[res.Name]; ok {
+				return errors.Errorf("found multiple resources with the name %s: %w", res.Name, resourceerrors.ResourceNameNotValid)
+			}
+			resourceNames[res.Name] = true
+
+			err := res.Origin.Validate()
+			if err != nil {
+				return errors.Errorf("origin %s of resource %s on application %s: %w",
+					res.Origin, res.Name, appArg.ApplicationName, resourceerrors.OriginNotValid)
+			}
+		}
+	}
+	return s.st.ImportResources(ctx, args)
+}
+
+// DeleteImportedResources deletes all imported resource associated with the
+// given applications during an import rollback.
+func (s *Service) DeleteImportedResources(
+	ctx context.Context,
+	appNames []string,
+) error {
+	return s.st.DeleteImportedResources(ctx, appNames)
 }
 
 // Store the resource with a path made up of the UUID and the resource
