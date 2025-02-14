@@ -263,6 +263,9 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		// Cleanup
 		"removal_type",
 		"removal",
+		
+		// Sequence
+		"sequence",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
