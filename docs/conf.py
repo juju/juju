@@ -210,8 +210,13 @@ extensions = [
     # Make it possible to link to related RTD projects using their internal anchors
     # with, e.g., {external+ops:ref}`manage-configurations`:
     'sphinx.ext.intersphinx',
+    'sphinxext.rediraffe',
     ]
 
+
+# Add redirects, so they can be updated here to land with docs being moved
+# rediraffe_branch = "3.6"
+rediraffe_redirects = "redirects.txt"
 
 # Excludes files or directories from processing
 
