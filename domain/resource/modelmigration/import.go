@@ -162,13 +162,9 @@ func importResourceRevision(name string, rev description.ResourceRevision) (reso
 				charmresource.OriginUpload, revision, resourceerrors.ResourceRevisionNotValid,
 			)
 		}
+		importInfo.Revision = revision
 	case charmresource.OriginUpload:
-		if revision > 0 {
-			return resource.ImportResourceInfo{}, errors.Errorf(
-				"expected resource with origin %q to have revision unset, got %d: %w",
-				charmresource.OriginUpload, revision, resourceerrors.ResourceRevisionNotValid,
-			)
-		}
+		importInfo.Revision = -1
 	default:
 		return resource.ImportResourceInfo{}, errors.Errorf(
 			"unexpected origin %s: %w", origin, resourceerrors.OriginNotValid,
