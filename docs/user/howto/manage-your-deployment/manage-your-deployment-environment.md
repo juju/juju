@@ -1,13 +1,13 @@
 (manage-your-deployment-environment)=
 # Manage your deployment environment
 
-Whether you are a charm user looking to try out some charms or a charm author looking to develop a charm, you will likely need / want all of the following: 
+Whether you are a charm user looking to try out some charms or a charm author looking to develop a charm, you will likely need / want all of the following:
 
-- `juju`, 
+- `juju`,
 - a localhost Kubernetes / machine cloud, and possibly also
 - further deploy or develop tools,
 
-ideally in an isolated test environment and with the confidence that you know not just how to set things up but also tear things down. 
+ideally in an isolated test environment and with the confidence that you know not just how to set things up but also tear things down.
 
 This document shows two basic ways to achieve all of that, one automatic (using an Ubuntu VM pre-equipped with most/all you'll need) and one manual (where you have the option to go without a Multipass VM).
 
@@ -15,12 +15,13 @@ This document shows two basic ways to achieve all of that, one automatic (using 
 The automatic path should be faster and safer for most.
 ```
 
+(set-things-up)=
 ## Set things up
 
 Get an isolated test environment; install the `juju` CLI client; get a cloud, add the cloud to `juju` and bootstrap a controller into the cloud; add a model on the controller:
 
 
-``````{tabs} 
+``````{tabs}
 `````{tab} automatically
 
 1. [Install Multipass](https://multipass.run/docs/install-multipass), then use it with the `charm-dev` blueprint to launch a Juju-ready Ubuntu VM (below, `my-juju-vm`), and launch a shell into the VM:
@@ -48,7 +49,7 @@ However, once it’s done, you’ll have everything you’ll need – all in a n
 sudo snap install multipass
 
 # Launch a Multipass VM from the charm-dev blueprint:
-$ multipass launch --cpus 4 --memory 8G --disk 50G --name my-juju-vm charm-dev 
+$ multipass launch --cpus 4 --memory 8G --disk 50G --name my-juju-vm charm-dev
 
 # Open a shell into the VM:
 $ multipass shell my-juju-vm
@@ -56,7 +57,7 @@ Welcome to Ubuntu 22.04.4 LTS (GNU/Linux 5.15.0-100-generic x86_64)
 # ...
 
 # Type any further commands after the VM shell prompt:
-ubuntu@my-juju-vm:~$ 
+ubuntu@my-juju-vm:~$
 
 ```
 
@@ -164,7 +165,7 @@ If on Windows: Note that Multipass can only be installed on Windows 10 Pro or En
 # Install Multipass. E.g., on a Linux with snapd:
 $ sudo snap install multipass
 
-# Launch a Multipass VM with Ubuntu: 
+# Launch a Multipass VM with Ubuntu:
 $ multipass launch --cpus 4 --memory 8G --disk 50G --name my-juju-vm
 
 # Open a shell into the VM:
@@ -224,7 +225,7 @@ newgrp snap_microk8s
 # Since the juju package is strictly confined, you also need to manually create a path:
 mkdir -p ~/.local/share
 
-# For MicroK8s, if you are working with an existing snap installation, and it is not strictly confined: 
+# For MicroK8s, if you are working with an existing snap installation, and it is not strictly confined:
 # (https://microk8s.io/docs/strict-confinement), you must also:
 #
 # # Share the MicroK8s config with Juju:
@@ -235,7 +236,7 @@ mkdir -p ~/.local/share
 # sudo chown -f -R $USER:$USER /var/snap/juju/current/microk8s/credentials/client.config
 
 # Register your MicroK8s cloud with Juju:
-# Not necessary --juju recognises a localhost MicroK8s cloud automatically, as you can see by running 'juju clouds'. 
+# Not necessary --juju recognises a localhost MicroK8s cloud automatically, as you can see by running 'juju clouds'.
 juju clouds
 # (If for any reason this doesn't happen, you can register it manually using 'juju add-k8s microk8s'.)
 
@@ -243,7 +244,7 @@ juju clouds
 juju bootstrap microk8s my-first-microk8s-controller
 
 
-# Add a model to the controller: 
+# Add a model to the controller:
 juju add-model my-first-microk8s-model
 # Reminder: In Kubernetes every Juju model corresponds to a namespace.
 
@@ -258,11 +259,11 @@ juju status
 ````{dropdown} Example for LXD, assuming a Linux that already has lxd:
 
 ```text
-# lxd init --auto 
+# lxd init --auto
 lxc network set lxdbr0 ipv6.address none
 
 # Register your LXD cloud with Juju:
-# Not necessary --juju recognises a localhost LXD cloud automatically, as you can see by running 'juju clouds'. 
+# Not necessary --juju recognises a localhost LXD cloud automatically, as you can see by running 'juju clouds'.
 juju clouds
 # The LXD cloud appears under the name 'localhost'
 
@@ -270,7 +271,7 @@ juju clouds
 # Bootstrap a controller into your LXD cloud:
 juju bootstrap localhost my-first-lxd-controller
 
-# Add a model to the controller: 
+# Add a model to the controller:
 juju add-model my-first-lxd-model
 
 # Check the model's status:
@@ -338,9 +339,10 @@ my-charm  snap
 
 ``````
 
-## Tear things down 
+(tear-things-down)=
+## Tear things down
 
-``````{tabs} 
+``````{tabs}
 `````{tab} automatically
 
 Delete the Multipass VM:
