@@ -159,10 +159,9 @@ func (s *importSuite) TestImport(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// TestImportRevisionNotValidOriginUpload checks that an error is thrown when a
-// revision is found that is incompatible with a resource with the origin:
-// upload.
-func (s *importSuite) TestImportRevisionNotValidOriginUpload(c *gc.C) {
+// TestImportRevisionOriginUpload checks that when a resource with origin upload
+// is imported, the revision is set to -1.
+func (s *importSuite) TestImportRevisionOriginUpload(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	appName := "app-name"
@@ -182,10 +181,20 @@ func (s *importSuite) TestImportRevisionNotValidOriginUpload(c *gc.C) {
 		Origin:    resOrigin.String(),
 		Timestamp: resTime,
 	})
+	s.resourceService.EXPECT().ImportResources(gomock.Any(), []domainresource.ImportResourcesArg{{
+		ApplicationName: appName,
+		Resources: []domainresource.ImportResourceInfo{{
+			Name:      resName,
+			Origin:    resOrigin,
+			Revision:  -1,
+			Timestamp: resTime,
+		}},
+	}})
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceRevisionNotValid)
+
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TestImportRevisionNotValidOriginStore checks that an error is thrown when a
