@@ -192,8 +192,11 @@ func (s *modelInfoSuite) TearDownTest(c *gc.C) {
 	modelmanager.ResetSupportedFeaturesGetter()
 }
 
-func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
+func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag, authorizerOptions ...apiservertesting.FakeAuthorizerOption) {
 	s.authorizer.Tag = user
+	for _, option := range authorizerOptions {
+		option(&s.authorizer)
+	}
 	var err error
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		s.st, s.ctlrSt, nil, nil,
@@ -286,11 +289,11 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"IsController", nil},
+		{"LatestMigration", nil},
 		{"AllMachines", nil},
 		{"ControllerNodes", nil},
 		{"HAPrimaryMachine", nil},
 		{"ControllerUUID", nil},
-		{"LatestMigration", nil},
 		{"CloudCredential", []interface{}{names.NewCloudCredentialTag("some-cloud/bob/some-credential")}},
 	})
 }
@@ -312,11 +315,11 @@ func (s *modelInfoSuite) TestModelInfoV9(c *gc.C) {
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"IsController", nil},
+		{"LatestMigration", nil},
 		{"AllMachines", nil},
 		{"ControllerNodes", nil},
 		{"HAPrimaryMachine", nil},
 		{"ControllerUUID", nil},
-		{"LatestMigration", nil},
 		{"CloudCredential", []interface{}{names.NewCloudCredentialTag("some-cloud/bob/some-credential")}},
 	})
 }
@@ -354,8 +357,7 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 
 func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	mary := names.NewUserTag("mary@local")
-	s.authorizer.HasWriteTag = mary
-	s.setAPIUser(c, mary)
+	s.setAPIUser(c, mary, apiservertesting.SetTagWithWriteAccess(mary))
 	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
@@ -363,7 +365,8 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 }
 
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
-	s.setAPIUser(c, names.NewUserTag("charlotte@local"))
+	charlotte := names.NewUserTag("charlotte@local")
+	s.setAPIUser(c, charlotte, apiservertesting.SetTagWithReadAccess(charlotte))
 	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte")
@@ -408,11 +411,6 @@ func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
 		errors.Errorf("no users for you"), // Users
 	)
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `no users for you`)
-}
-
-func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *gc.C) {
-	s.st.model.users = nil
-	s.testModelInfoError(c, coretesting.ModelTag.String(), `permission denied`)
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
