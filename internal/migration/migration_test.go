@@ -22,7 +22,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resource"
@@ -239,13 +238,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	app0Res := resourcetesting.NewResource(c, nil, "blob0", "app0", "blob0").Resource
 	app1Res := resourcetesting.NewResource(c, nil, "blob1", "app1", "blob1").Resource
 	app2Res := resourcetesting.NewPlaceholderResource(c, "blob2", "app2")
-	resources := []coremigration.SerializedModelResource{
-		{ApplicationRevision: app0Res},
-		{
-			ApplicationRevision: app1Res,
-		},
-		{ApplicationRevision: app2Res},
-	}
+	resources := []resource.Resource{app0Res, app1Res, app2Res}
 
 	s.charmService.EXPECT().GetCharmArchive(gomock.Any(), domaincharm.CharmLocator{
 		Name:     "postgresql",

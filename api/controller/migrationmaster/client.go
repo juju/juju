@@ -377,13 +377,13 @@ func groupTagIds(tagStrs []string) ([]string, []string, []string, error) {
 	return machines, units, applications, nil
 }
 
-func convertResources(in []params.SerializedModelResource) ([]migration.SerializedModelResource, error) {
+func convertResources(in []params.SerializedModelResource) ([]resource.Resource, error) {
 	if len(in) == 0 {
 		return nil, nil
 	}
-	out := make([]migration.SerializedModelResource, 0, len(in))
+	out := make([]resource.Resource, 0, len(in))
 	for _, resource := range in {
-		outResource, err := convertAppResource(resource)
+		outResource, err := convertResource(resource)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -392,62 +392,35 @@ func convertResources(in []params.SerializedModelResource) ([]migration.Serializ
 	return out, nil
 }
 
-func convertAppResource(in params.SerializedModelResource) (migration.SerializedModelResource, error) {
-	var empty migration.SerializedModelResource
-	appRev, err := convertResourceRevision(in.Application, in.Name, in.ApplicationRevision)
-	if err != nil {
-		return empty, errors.Annotate(err, "application revision")
-	}
-	csRev, err := convertResourceRevision(in.Application, in.Name, in.CharmStoreRevision)
-	if err != nil {
-		return empty, errors.Annotate(err, "charmstore revision")
-	}
-	unitRevs := make(map[string]resource.Resource)
-	for unitName, inUnitRev := range in.UnitRevisions {
-		unitRev, err := convertResourceRevision(in.Application, in.Name, inUnitRev)
-		if err != nil {
-			return empty, errors.Annotate(err, "unit revision")
-		}
-		unitRevs[unitName] = unitRev
-	}
-	return migration.SerializedModelResource{
-		ApplicationRevision: appRev,
-		CharmStoreRevision:  csRev,
-		UnitRevisions:       unitRevs,
-	}, nil
-}
-
-func convertResourceRevision(app, name string, rev params.SerializedModelResourceRevision) (resource.Resource, error) {
+func convertResource(res params.SerializedModelResource) (resource.Resource, error) {
 	var empty resource.Resource
-	type_, err := charmresource.ParseType(rev.Type)
+	type_, err := charmresource.ParseType(res.Type)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	origin, err := charmresource.ParseOrigin(rev.Origin)
+	origin, err := charmresource.ParseOrigin(res.Origin)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
 	var fp charmresource.Fingerprint
-	if rev.FingerprintHex != "" {
-		if fp, err = charmresource.ParseFingerprint(rev.FingerprintHex); err != nil {
+	if res.FingerprintHex != "" {
+		if fp, err = charmresource.ParseFingerprint(res.FingerprintHex); err != nil {
 			return empty, errors.Annotate(err, "invalid fingerprint")
 		}
 	}
 	return resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
-				Name:        name,
-				Type:        type_,
-				Path:        rev.Path,
-				Description: rev.Description,
+				Name: res.Name,
+				Type: type_,
 			},
 			Origin:      origin,
-			Revision:    rev.Revision,
-			Size:        rev.Size,
+			Revision:    res.Revision,
+			Size:        res.Size,
 			Fingerprint: fp,
 		},
-		ApplicationName: app,
-		RetrievedBy:     rev.Username,
-		Timestamp:       rev.Timestamp,
+		ApplicationName: res.Application,
+		RetrievedBy:     res.Username,
+		Timestamp:       res.Timestamp,
 	}, nil
 }

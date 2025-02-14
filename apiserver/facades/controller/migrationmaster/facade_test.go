@@ -374,17 +374,6 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 		Timestamp:      time.Now(),
 		Username:       "bob",
 	})
-	csRev := res.SetCharmStoreRevision(description.ResourceRevisionArgs{
-		Revision:       3,
-		Type:           "file",
-		Path:           "fink.tar.gz",
-		Description:    "knows who",
-		Origin:         "store",
-		FingerprintHex: "deaf",
-		Size:           321,
-		Timestamp:      time.Now(),
-		Username:       "xena",
-	})
 
 	unit := app.AddUnit(description.UnitArgs{
 		Tag: names.NewUnitTag("foo/0"),
@@ -392,21 +381,6 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	unit.SetTools(description.AgentToolsArgs{
 		Version: version.MustParseBinary(tools0),
 	})
-	unitRes := unit.AddResource(description.UnitResourceArgs{
-		Name: "bin",
-		RevisionArgs: description.ResourceRevisionArgs{
-			Revision:       1,
-			Type:           "file",
-			Path:           "bin.tar.gz",
-			Description:    "nose knows",
-			Origin:         "upload",
-			FingerprintHex: "beef",
-			Size:           222,
-			Timestamp:      time.Now(),
-			Username:       "bambam",
-		},
-	})
-	unitRev := unitRes.Revision()
 
 	s.modelExporter.EXPECT().ExportModel(gomock.Any(), map[string]string{}, s.store).Return(s.model, nil)
 
@@ -428,43 +402,15 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 		})
 	}
 	c.Check(serialized.Resources, gc.DeepEquals, []params.SerializedModelResource{{
-		Application: "foo",
-		Name:        "bin",
-		ApplicationRevision: params.SerializedModelResourceRevision{
-			Revision:       appRev.Revision(),
-			Type:           appRev.Type(),
-			Path:           appRev.Path(),
-			Description:    appRev.Description(),
-			Origin:         appRev.Origin(),
-			FingerprintHex: appRev.FingerprintHex(),
-			Size:           appRev.Size(),
-			Timestamp:      appRev.Timestamp(),
-			Username:       appRev.Username(),
-		},
-		CharmStoreRevision: params.SerializedModelResourceRevision{
-			Revision:       csRev.Revision(),
-			Type:           csRev.Type(),
-			Path:           csRev.Path(),
-			Description:    csRev.Description(),
-			Origin:         csRev.Origin(),
-			FingerprintHex: csRev.FingerprintHex(),
-			Size:           csRev.Size(),
-			Timestamp:      csRev.Timestamp(),
-			Username:       csRev.Username(),
-		},
-		UnitRevisions: map[string]params.SerializedModelResourceRevision{
-			"foo/0": {
-				Revision:       unitRev.Revision(),
-				Type:           unitRev.Type(),
-				Path:           unitRev.Path(),
-				Description:    unitRev.Description(),
-				Origin:         unitRev.Origin(),
-				FingerprintHex: unitRev.FingerprintHex(),
-				Size:           unitRev.Size(),
-				Timestamp:      unitRev.Timestamp(),
-				Username:       unitRev.Username(),
-			},
-		},
+		Application:    "foo",
+		Name:           "bin",
+		Revision:       appRev.Revision(),
+		Type:           appRev.Type(),
+		Origin:         appRev.Origin(),
+		FingerprintHex: appRev.FingerprintHex(),
+		Size:           appRev.Size(),
+		Timestamp:      appRev.Timestamp(),
+		Username:       appRev.Username(),
 	}})
 }
 
