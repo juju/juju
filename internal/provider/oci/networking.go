@@ -393,13 +393,13 @@ func (e *Environ) ensureSubnets(
 ) (map[string][]ociCore.Subnet, error) {
 	az, err := e.AvailabilityZones(ctx)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 
 	allSubnets, err := e.allSubnets(controllerUUID, modelUUID, vcn.Id)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 	existingCidrBlocks := map[string]bool{}
@@ -422,13 +422,13 @@ func (e *Environ) ensureSubnets(
 		for ad := range missing {
 			newIPNet, err := e.getFreeSubnet(existingCidrBlocks)
 			if err != nil {
-				providerCommon.HandleCredentialError(err, ctx)
+				providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 				return nil, errors.Trace(err)
 			}
 			newSubnet, err := e.createSubnet(
 				controllerUUID, modelUUID, ad, newIPNet, vcn.Id, []string{*secList.Id}, routeTableId)
 			if err != nil {
-				providerCommon.HandleCredentialError(err, ctx)
+				providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 				return nil, errors.Trace(err)
 			}
 			allSubnets[ad] = []ociCore.Subnet{
@@ -926,7 +926,7 @@ func (e *Environ) Subnets(
 
 	allSubnets, err := e.allSubnetsAsMap(e.Config().UUID())
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 	hasSubnetList := false
@@ -936,13 +936,13 @@ func (e *Environ) Subnets(
 	if id != instance.UnknownId {
 		oInst, err := e.getOCIInstance(ctx, id)
 		if err != nil {
-			providerCommon.HandleCredentialError(err, ctx)
+			providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 			return nil, errors.Trace(err)
 		}
 
 		vnics, err := oInst.getVnics()
 		if err != nil {
-			providerCommon.HandleCredentialError(err, ctx)
+			providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 			return nil, errors.Trace(err)
 		}
 		for _, nic := range vnics {
@@ -1028,19 +1028,19 @@ func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContext, instId instance.Id) (network.InterfaceInfos, error) {
 	oInst, err := e.getOCIInstance(ctx, instId)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 
 	info := network.InterfaceInfos{}
 	vnics, err := oInst.getVnics()
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 	subnets, err := e.allSubnetsAsMap(e.Config().UUID())
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 	for _, iface := range vnics {

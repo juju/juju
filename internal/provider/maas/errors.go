@@ -9,8 +9,13 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 )
 
-// IsAuthorisationFailure determines if the given error has an authorisation failure.
+// IsAuthorisationFailure determines if the given error has an authorisation
+// failure.
 func IsAuthorisationFailure(err error) bool {
+	if err == nil {
+		return false
+	}
+
 	// This should cover most cases.
 	if gomaasapi.IsPermissionError(err) {
 		return true
@@ -20,5 +25,6 @@ func IsAuthorisationFailure(err error) bool {
 	if maasErr, ok := err.(gomaasapi.ServerError); ok {
 		return common.AuthorisationFailureStatusCodes.Contains(maasErr.StatusCode)
 	}
+
 	return false
 }

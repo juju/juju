@@ -246,14 +246,15 @@ func (e *EnvironProvider) Open(ctx context.Context, params environs.OpenParams, 
 	}
 
 	env := &Environ{
-		Compute:    compute,
-		Networking: networking,
-		Storage:    storage,
-		Firewall:   networking,
-		Identity:   identity,
-		ociConfig:  providerConfig,
-		clock:      clock.WallClock,
-		p:          e,
+		Compute:               compute,
+		Networking:            networking,
+		Storage:               storage,
+		Firewall:              networking,
+		Identity:              identity,
+		ociConfig:             providerConfig,
+		clock:                 clock.WallClock,
+		p:                     e,
+		credentialInvalidator: invalidator,
 	}
 
 	if err := env.SetConfig(ctx, params.Config); err != nil {

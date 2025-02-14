@@ -42,17 +42,18 @@ type Environ struct {
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
 
-	Compute    ComputeClient
-	Networking NetworkingClient
-	Storage    StorageClient
-	Firewall   FirewallClient
-	Identity   IdentityClient
-	ociConfig  ociCommon.ConfigurationProvider
-	p          *EnvironProvider
-	clock      clock.Clock
-	ecfgMutex  sync.Mutex
-	ecfgObj    *environConfig
-	namespace  instance.Namespace
+	Compute               ComputeClient
+	Networking            NetworkingClient
+	Storage               StorageClient
+	Firewall              FirewallClient
+	Identity              IdentityClient
+	ociConfig             ociCommon.ConfigurationProvider
+	p                     *EnvironProvider
+	clock                 clock.Clock
+	ecfgMutex             sync.Mutex
+	ecfgObj               *environConfig
+	namespace             instance.Namespace
+	credentialInvalidator environs.CredentialInvalidator
 
 	// subnets contains one subnet for each availability domain
 	// these will get created once the environment is spun up, and
@@ -77,7 +78,7 @@ func (e *Environ) allInstances(ctx envcontext.ProviderCallContext, tags map[stri
 
 	insts, err := e.Compute.ListInstances(context.Background(), compartment)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 
@@ -100,7 +101,7 @@ func (e *Environ) allInstances(ctx envcontext.ProviderCallContext, tags map[stri
 		}
 		inst, err := newInstance(val, e)
 		if err != nil {
-			providerCommon.HandleCredentialError(err, ctx)
+			providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 			return nil, errors.Trace(err)
 		}
 		ret = append(ret, inst)
@@ -116,7 +117,7 @@ func (e *Environ) getOCIInstance(ctx envcontext.ProviderCallContext, id instance
 
 	response, err := e.Compute.GetInstance(context.Background(), request)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 
@@ -184,7 +185,7 @@ func (e *Environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (network
 	domains, err := e.Identity.ListAvailabilityDomains(ociCtx, request)
 
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 
@@ -200,7 +201,7 @@ func (e *Environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (network
 func (e *Environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, err
 	}
 	zones := make(map[instance.Id]string, 0)
@@ -229,7 +230,7 @@ func (e *Environ) getOciInstances(ctx envcontext.ProviderCallContext, ids ...ins
 
 	instances, err := e.Compute.ListInstances(context.Background(), compartmentID)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 
@@ -240,7 +241,7 @@ func (e *Environ) getOciInstances(ctx envcontext.ProviderCallContext, ids ...ins
 	for _, val := range instances {
 		oInstance, err := newInstance(val, e)
 		if err != nil {
-			providerCommon.HandleCredentialError(err, ctx)
+			providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 			return nil, errors.Trace(err)
 		}
 		for _, id := range ids {
@@ -259,7 +260,7 @@ func (e *Environ) getOciInstances(ctx envcontext.ProviderCallContext, ids ...ins
 func (e *Environ) getOciInstancesAsMap(ctx envcontext.ProviderCallContext, ids ...instance.Id) (map[instance.Id]*ociInstance, error) {
 	instances, err := e.getOciInstances(ctx, ids...)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 	ret := map[instance.Id]*ociInstance{}
@@ -276,7 +277,7 @@ func (e *Environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.I
 	}
 	ociInstances, err := e.getOciInstances(ctx, ids...)
 	if err != nil && err != environs.ErrPartialInstances {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 
@@ -311,7 +312,7 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.Pr
 // Create implements environs.Environ.
 func (e *Environ) Create(ctx envcontext.ProviderCallContext, params environs.CreateParams) error {
 	if err := e.ping(); err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	return nil
@@ -369,7 +370,7 @@ func (e *Environ) ControllerInstances(ctx envcontext.ProviderCallContext, contro
 	}
 	instances, err := e.allInstances(ctx, tags)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 	ids := []instance.Id{}
@@ -388,7 +389,7 @@ func (e *Environ) Destroy(ctx envcontext.ProviderCallContext) error {
 func (e *Environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	err := e.Destroy(ctx)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		logger.Errorf(context.TODO(), "Failed to destroy environment through controller: %s", errors.Trace(err))
 	}
 	instances, err := e.allControllerManagedInstances(ctx, controllerUUID)
@@ -396,7 +397,7 @@ func (e *Environ) DestroyController(ctx envcontext.ProviderCallContext, controll
 		if err == environs.ErrNoInstances {
 			return nil
 		}
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	ids := make([]instance.Id, len(instances))
@@ -406,13 +407,13 @@ func (e *Environ) DestroyController(ctx envcontext.ProviderCallContext, controll
 
 	err = e.StopInstances(ctx, ids...)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	logger.Debugf(context.TODO(), "Cleaning up network resources")
 	err = e.cleanupNetworksAndSubnets(controllerUUID, "")
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 
@@ -455,7 +456,7 @@ func (e *Environ) StartInstance(
 ) (*environs.StartInstanceResult, error) {
 	result, err := e.startInstance(ctx, args)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 	return result, nil
@@ -681,13 +682,13 @@ func (e *Environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...insta
 	if err == environs.ErrNoInstances {
 		return nil
 	} else if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return err
 	}
 
 	logger.Debugf(context.TODO(), "terminating instances %v", ids)
 	if err := e.terminateInstances(ctx, ociInstances...); err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return err
 	}
 
@@ -699,7 +700,7 @@ type instError struct {
 	err error
 }
 
-func (o *Environ) terminateInstances(ctx envcontext.ProviderCallContext, instances ...*ociInstance) error {
+func (e *Environ) terminateInstances(ctx envcontext.ProviderCallContext, instances ...*ociInstance) error {
 	wg := sync.WaitGroup{}
 	wg.Add(len(instances))
 	errCh := make(chan instError, len(instances))
@@ -708,14 +709,14 @@ func (o *Environ) terminateInstances(ctx envcontext.ProviderCallContext, instanc
 			defer wg.Done()
 			if err := inst.deleteInstance(ctx); err != nil {
 				errCh <- instError{id: inst.Id(), err: err}
-				providerCommon.HandleCredentialError(err, ctx)
+				providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 				return
 			}
 			err := inst.waitForMachineStatus(
 				ociCore.InstanceLifecycleStateTerminated,
 				resourcePollTimeout)
 			if err != nil && !errors.Is(err, errors.NotFound) {
-				providerCommon.HandleCredentialError(err, ctx)
+				providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 				errCh <- instError{id: inst.Id(), err: err}
 			}
 		}(oInst)
@@ -750,7 +751,7 @@ func (e *Environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.
 	}
 	allInstances, err := e.allInstances(ctx, tags)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
+		providerCommon.HandleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 

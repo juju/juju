@@ -94,7 +94,7 @@ func (o *ociInstance) Id() instance.Id {
 // Status implements instances.Instance
 func (o *ociInstance) Status(ctx envcontext.ProviderCallContext) instance.Status {
 	if err := o.refresh(); err != nil {
-		ocicommon.HandleCredentialError(err, ctx)
+		ocicommon.HandleCredentialError(ctx, o.env.credentialInvalidator, err)
 		return instance.Status{}
 	}
 	state, ok := statusMap[o.raw.LifecycleState]
@@ -162,7 +162,7 @@ func (o *ociInstance) getAddresses() ([]corenetwork.ProviderAddress, error) {
 // Addresses implements instances.Instance
 func (o *ociInstance) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	addresses, err := o.getAddresses()
-	ocicommon.HandleCredentialError(err, ctx)
+	ocicommon.HandleCredentialError(ctx, o.env.credentialInvalidator, err)
 	return addresses, err
 }
 
@@ -181,7 +181,7 @@ func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error 
 	for {
 		addresses, err := o.Addresses(ctx)
 		if err != nil {
-			ocicommon.HandleCredentialError(err, ctx)
+			ocicommon.HandleCredentialError(ctx, o.env.credentialInvalidator, err)
 			return errors.Trace(err)
 		}
 		if iteration >= maxPollIterations {
@@ -218,7 +218,7 @@ func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 	}
 	response, err := o.env.Compute.TerminateInstance(context.Background(), request)
 	if err != nil && !o.env.isNotFound(response.RawResponse) {
-		ocicommon.HandleCredentialError(err, ctx)
+		ocicommon.HandleCredentialError(ctx, o.env.credentialInvalidator, err)
 		return err
 	}
 	iteration := 0
@@ -227,7 +227,7 @@ func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 			if errors.Is(err, errors.NotFound) {
 				break
 			}
-			ocicommon.HandleCredentialError(err, ctx)
+			ocicommon.HandleCredentialError(ctx, o.env.credentialInvalidator, err)
 			return err
 		}
 		logger.Infof(context.TODO(), "Waiting for machine to transition to Terminating: %s", o.raw.LifecycleState)
