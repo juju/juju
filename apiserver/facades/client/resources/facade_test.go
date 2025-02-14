@@ -12,22 +12,28 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiresources "github.com/juju/juju/api/client/resources"
+	"github.com/juju/juju/apiserver/internal/charms"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	coreunit "github.com/juju/juju/core/unit"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainresource "github.com/juju/juju/domain/resource"
+	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&ListResourcesSuite{})
+var _ = gc.Suite(&resourcesSuite{})
 
-type ListResourcesSuite struct {
+type resourcesSuite struct {
 	BaseSuite
 }
 
-func (s *ListResourcesSuite) TestListResourcesOkay(c *gc.C) {
+func (s *resourcesSuite) TestListResourcesOkay(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res2, apiRes2 := newResource(c, "eggs", "a-user", "...")
@@ -111,12 +117,11 @@ func (s *ListResourcesSuite) TestListResourcesOkay(c *gc.C) {
 	})
 }
 
-func (s *ListResourcesSuite) TestListResourcesEmpty(c *gc.C) {
+func (s *resourcesSuite) TestListResourcesEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	tag := names.NewApplicationTag("a-application")
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
-	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(resource.
-		ApplicationResources{}, nil)
+	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(resource.ApplicationResources{}, nil)
 
 	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
@@ -130,7 +135,7 @@ func (s *ListResourcesSuite) TestListResourcesEmpty(c *gc.C) {
 	})
 }
 
-func (s *ListResourcesSuite) TestListResourcesErrorGetAppID(c *gc.C) {
+func (s *resourcesSuite) TestListResourcesErrorGetAppID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	failure := errors.New("<failure>")
 	tag := names.NewApplicationTag("a-application")
@@ -152,14 +157,12 @@ func (s *ListResourcesSuite) TestListResourcesErrorGetAppID(c *gc.C) {
 	})
 }
 
-func (s *ListResourcesSuite) TestListResourcesError(c *gc.C) {
+func (s *resourcesSuite) TestListResourcesError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	failure := errors.New("<failure>")
 	tag := names.NewApplicationTag("a-application")
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "a-application").Return("a-application-id", nil)
-	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(resource.
-		ApplicationResources{},
-		failure)
+	s.resourceService.EXPECT().ListResources(gomock.Any(), coreapplication.ID("a-application-id")).Return(resource.ApplicationResources{}, failure)
 
 	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
@@ -177,7 +180,7 @@ func (s *ListResourcesSuite) TestListResourcesError(c *gc.C) {
 	})
 }
 
-func (s *ListResourcesSuite) TestServiceResources2API(c *gc.C) {
+func (s *resourcesSuite) TestServiceResources2API(c *gc.C) {
 	res1 := resourcetesting.NewResource(c, nil, "res1", "a-application", "data").Resource
 	res2 := resourcetesting.NewResource(c, nil, "res2", "a-application", "data2").Resource
 
@@ -248,4 +251,210 @@ func (s *ListResourcesSuite) TestServiceResources2API(c *gc.C) {
 			apiChRes2,
 		},
 	})
+}
+
+var _ = gc.Suite(&addPendingResourceSuite{})
+
+type addPendingResourceSuite struct {
+	BaseSuite
+
+	appTag               names.ApplicationTag
+	appUUID              coreapplication.ID
+	curl                 *charm.URL
+	charmLoc             applicationcharm.CharmLocator
+	pendingResourceIDOne resource.UUID
+	pendingResourceIDTwo resource.UUID
+	resourceNameOne      string
+	resourceNameTwo      string
+}
+
+func (s *addPendingResourceSuite) SetUpTest(c *gc.C) {
+	s.appTag = names.NewApplicationTag("testapp")
+	s.appUUID = testing.GenApplicationUUID(c)
+	s.curl = charm.MustParseURL("testcharm")
+	var err error
+	s.charmLoc, err = charms.CharmLocatorFromURL(s.curl.String())
+	c.Assert(err, jc.ErrorIsNil)
+	s.pendingResourceIDOne = resourcetesting.GenResourceUUID(c)
+	s.pendingResourceIDTwo = resourcetesting.GenResourceUUID(c)
+	s.resourceNameOne = "foo"
+	s.resourceNameTwo = "bar"
+}
+
+// TestAddPendingResourcesBeforeApplication test the happy path of
+// AddPendingResources were the code leads to calling
+// AddResourcesBeforeApplication.
+func (s *addPendingResourceSuite) TestAddPendingResourcesBeforeApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	resourceRevision := 42
+	s.expectGetApplicationIDByName(applicationerrors.ApplicationNotFound)
+	s.expectResolveResourceForBeforeApplication(resourceRevision)
+	s.expectAddResourcesBeforeApplication(resourceRevision)
+
+	args := params.AddPendingResourcesArgsV2{
+		Entity: params.Entity{Tag: s.appTag.String()},
+		URL:    s.curl.String(),
+		Resources: []params.CharmResource{
+			{
+				Name:   s.resourceNameOne,
+				Type:   charmresource.TypeFile.String(),
+				Origin: charmresource.OriginUpload.String(),
+				Path:   "test",
+			}, {
+				Name:     s.resourceNameTwo,
+				Type:     charmresource.TypeContainerImage.String(),
+				Origin:   charmresource.OriginStore.String(),
+				Revision: resourceRevision,
+				Path:     "test",
+			},
+		},
+	}
+	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Error, gc.IsNil)
+	c.Assert(results.ErrorResult.Error, gc.IsNil)
+	c.Assert(results.PendingIDs, gc.DeepEquals, []string{
+		s.pendingResourceIDOne.String(),
+		s.pendingResourceIDTwo.String(),
+	})
+}
+
+// TestAddPendingResourcesUpdateResource test the happy path of
+// AddPendingResources were the code leads to calling
+// UpdateResourceRevision.
+func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateResource(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	resourceRevision := 42
+	s.expectGetApplicationIDByName(nil)
+	s.expectResolveResourcesStoreContainer(s.resourceNameTwo, resourceRevision)
+	s.expectGetApplicationResourceIDTwo()
+	s.expectUpdateResourceRevisionTwo(resourceRevision)
+
+	args := params.AddPendingResourcesArgsV2{
+		Entity: params.Entity{Tag: s.appTag.String()},
+		URL:    s.curl.String(),
+		Resources: []params.CharmResource{
+			{
+				Name:     s.resourceNameTwo,
+				Type:     charmresource.TypeContainerImage.String(),
+				Origin:   charmresource.OriginStore.String(),
+				Revision: resourceRevision,
+				Path:     "test",
+			},
+		},
+	}
+	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Error, gc.IsNil)
+	c.Assert(results.ErrorResult.Error, gc.IsNil)
+}
+
+// TestAddPendingResourcesUpdateResourceFailTypeUpload tests that sending an
+// resource for upload to update a resource revision fails.
+func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateResourceFailTypeUpload(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectGetApplicationIDByName(nil)
+	s.expectResolveResourcesUploadContainer(c)
+
+	args := params.AddPendingResourcesArgsV2{
+		Entity: params.Entity{Tag: s.appTag.String()},
+		URL:    s.curl.String(),
+		Resources: []params.CharmResource{
+			{
+				Name:   s.resourceNameTwo,
+				Type:   charmresource.TypeContainerImage.String(),
+				Origin: charmresource.OriginUpload.String(),
+				Path:   "test",
+			},
+		},
+	}
+	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.ErrorResult.Error.Code, gc.Equals, params.CodeBadRequest)
+}
+
+func (s *addPendingResourceSuite) expectResolveResourcesUploadContainer(c *gc.C) {
+	resolveArgs := []charmresource.Resource{
+		{
+			Meta:   charmresource.Meta{Name: s.resourceNameTwo, Type: charmresource.TypeContainerImage, Path: "test"},
+			Origin: charmresource.OriginUpload,
+		},
+	}
+	s.repository.EXPECT().ResolveResources(gomock.Any(), resolveArgs, gomock.Any()).Return(resolveArgs, nil)
+}
+
+func (s *addPendingResourceSuite) expectResolveResourcesStoreContainer(resName string, revision int) {
+	resolveArgs := []charmresource.Resource{
+		{
+			Meta:     charmresource.Meta{Name: resName, Type: charmresource.TypeContainerImage, Path: "test"},
+			Origin:   charmresource.OriginStore,
+			Revision: revision,
+		},
+	}
+	s.repository.EXPECT().ResolveResources(gomock.Any(), resolveArgs, gomock.Any()).Return(resolveArgs, nil)
+}
+
+func (s *addPendingResourceSuite) expectGetApplicationIDByName(err error) {
+	var id coreapplication.ID
+	if err == nil {
+		id = s.appUUID
+	}
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), s.appTag.Name).Return(id, err)
+}
+
+func (s *addPendingResourceSuite) expectGetApplicationResourceIDTwo() {
+	getResIDArgs := domainresource.GetApplicationResourceIDArgs{
+		ApplicationID: s.appUUID,
+		Name:          s.resourceNameTwo,
+	}
+	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), getResIDArgs).Return(s.pendingResourceIDTwo, nil)
+}
+
+func (s *addPendingResourceSuite) expectUpdateResourceRevisionTwo(resourceRevision int) {
+	updateResourceArgs := domainresource.UpdateResourceRevisionArgs{
+		ResourceUUID: s.pendingResourceIDTwo,
+		Revision:     resourceRevision,
+	}
+	s.resourceService.EXPECT().UpdateResourceRevision(gomock.Any(), updateResourceArgs).Return(nil)
+}
+
+func (s *addPendingResourceSuite) expectResolveResourceForBeforeApplication(resourceRevision int) {
+	resolveArgs := []charmresource.Resource{
+		{
+			Meta:   charmresource.Meta{Name: s.resourceNameOne, Type: charmresource.TypeFile, Path: "test"},
+			Origin: charmresource.OriginUpload,
+		}, {
+			Meta:     charmresource.Meta{Name: s.resourceNameTwo, Type: charmresource.TypeContainerImage, Path: "test"},
+			Origin:   charmresource.OriginStore,
+			Revision: resourceRevision,
+		},
+	}
+	s.repository.EXPECT().ResolveResources(gomock.Any(), resolveArgs, gomock.Any()).Return(resolveArgs, nil)
+}
+
+func (s *addPendingResourceSuite) expectAddResourcesBeforeApplication(resourceRevision int) {
+	addResourceArgs := domainresource.AddResourcesBeforeApplicationArgs{
+		ApplicationName: s.appTag.Name,
+		CharmLocator:    s.charmLoc,
+		ResourceDetails: []domainresource.AddResourceDetails{
+			{
+				Name:   s.resourceNameOne,
+				Origin: charmresource.OriginUpload,
+			},
+			{
+				Name:     s.resourceNameTwo,
+				Origin:   charmresource.OriginStore,
+				Revision: ptr(resourceRevision),
+			},
+		},
+	}
+	addResourceRetVal := []resource.UUID{s.pendingResourceIDOne, s.pendingResourceIDTwo}
+	s.resourceService.EXPECT().AddResourcesBeforeApplication(gomock.Any(), addResourceArgs).Return(addResourceRetVal, nil)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
