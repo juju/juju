@@ -1,15 +1,17 @@
 (manage-charms)=
-# How to manage charms or bundles
+# How to manage charms
+
+> See also: {ref}`charm`
 
 This document shows various ways in which you may interact with a charm or a bundle.
 
 (build-a-charm)=
 ## Build a charm
 
-See [Charmcraft docs](https://canonical-charmcraft.readthedocs-hosted.com/en/stable/) for how to initialize, pack, and publish a charm on Charmhub.
+See [Charmcraft docs](https://canonical-charmcraft.readthedocs-hosted.com/) for how to initialize, pack, and publish a charm on Charmhub.
 
 
-See [Ops docs](https://ops.readthedocs.io/en/latest/) for how to develop and test a charm.
+See [Ops docs](https://ops.readthedocs.io/) for how to develop and test a charm.
 
 <!--
 > See more: {ref}`charming-history`

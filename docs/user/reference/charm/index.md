@@ -1,11 +1,10 @@
 (charm)=
 # Charm
 
+> See also: {ref}`manage-charms`
+
 ```{toctree}
 :hidden:
-
-channelrevision
-charm-taxonomy
 charm-development-best-practices
 charm-naming-guidelines
 charm-maturity
@@ -20,11 +19,6 @@ Charms are publicly available on [Charmhub](https://charmhub.io/).
 
 (charm-taxonomy)=
 ## Charm taxonomy
-
-While the Juju paradigm is one in which all cloud logic is ideally handled by the Juju engine and all the application lifecycle logic by the charm, that is, a paradigm where charms are 'universal', at present charms are still fundamentally divided into charms designed to deploy on {ref}`machine clouds <machine-cloud>` ({ref}`'machine charms' <machine-charm>`) and charms designed to deploy on {ref}`Kubernetes clouds <kubernetes-cloud>` ({ref}`'Kubernetes charms' <kubernetes-charms>`).
-
-In addition to this fundamental distinction by substrate, charm are sometimes also grouped based on their function,
-
 
 (charm-taxonomy-by-substrate)=
 ### By substrate
@@ -59,7 +53,7 @@ While charms are fundamentally about codifying operations for a given workload, 
 
 
 (workloadless-charm)
-### Workloadless
+#### Workloadless
 
 A **workloadless** charm is a charm that does not run any workload locally.
 
