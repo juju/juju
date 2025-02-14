@@ -12,6 +12,7 @@ package keyupdater
 import (
 	reflect "reflect"
 
+	clock "github.com/juju/clock"
 	facade "github.com/juju/juju/apiserver/facade"
 	http "github.com/juju/juju/core/http"
 	leadership "github.com/juju/juju/core/leadership"
@@ -82,6 +83,44 @@ func (c *MockModelContextAuthCall) Do(f func() facade.Authorizer) *MockModelCont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelContextAuthCall) DoAndReturn(f func() facade.Authorizer) *MockModelContextAuthCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// Clock mocks base method.
+func (m *MockModelContext) Clock() clock.Clock {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Clock")
+	ret0, _ := ret[0].(clock.Clock)
+	return ret0
+}
+
+// Clock indicates an expected call of Clock.
+func (mr *MockModelContextMockRecorder) Clock() *MockModelContextClockCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clock", reflect.TypeOf((*MockModelContext)(nil).Clock))
+	return &MockModelContextClockCall{Call: call}
+}
+
+// MockModelContextClockCall wrap *gomock.Call
+type MockModelContextClockCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelContextClockCall) Return(arg0 clock.Clock) *MockModelContextClockCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelContextClockCall) Do(f func() clock.Clock) *MockModelContextClockCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelContextClockCall) DoAndReturn(f func() clock.Clock) *MockModelContextClockCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -38,6 +38,7 @@ func newMachinerAPI(stdCtx context.Context, ctx facade.ModelContext) (*MachinerA
 		stdCtx,
 		systemState,
 		ctx.State(),
+		ctx.Clock(),
 		domainServices.ControllerConfig(),
 		domainServices.Cloud(),
 		domainServices.Network(),

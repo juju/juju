@@ -375,7 +375,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 
 	modelConfigService := s.ControllerDomainServices(c).Config()
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, u.UnitTag(), nil, lookup, loggertesting.WrapCheckLog(c))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, u.UnitTag(), retry.CallArgs{}, lookup, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
@@ -585,18 +585,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 	// The first attempt is for the public address.
 	// The retry we supply for this fails quickly.
 	// The second is for the private address fallback.
-	var publicAddrSentinel bool
 	retryFactory := func() retry.CallArgs {
-		if !publicAddrSentinel {
-			publicAddrSentinel = true
-
-			return retry.CallArgs{
-				Clock:       clock.WallClock,
-				Delay:       1 * time.Millisecond,
-				MaxDuration: 1 * time.Millisecond,
-			}
-		}
-
 		return retry.CallArgs{
 			Clock:       clock.WallClock,
 			Delay:       1 * time.Millisecond,
@@ -651,7 +640,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	modelConfigService := s.ControllerDomainServices(c).Config()
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), retry.CallArgs{}, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// First no address.
@@ -671,7 +660,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	// We need a new instance here, because unit addresses
 	// are populated in the constructor.
-	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
+	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), retry.CallArgs{}, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -710,7 +699,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 
 	modelConfigService := s.ControllerDomainServices(c).Config()
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), retry.CallArgs{}, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, _, err = netInfo.NetworksForRelation("unknown", prr.rel)
@@ -780,16 +769,14 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	err = prr.ru0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	retryFactory := func() retry.CallArgs {
-		return retry.CallArgs{
-			Clock:       clock.WallClock,
-			Delay:       1 * time.Millisecond,
-			MaxDuration: 1 * time.Millisecond,
-		}
+	retryStrategy := retry.CallArgs{
+		Clock:       clock.WallClock,
+		Delay:       1 * time.Millisecond,
+		MaxDuration: 1 * time.Millisecond,
 	}
 
 	modelConfigService := s.ControllerDomainServices(c).Config()
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.ru0.UnitTag(), retryFactory, nil, loggertesting.WrapCheckLog(c))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.ru0.UnitTag(), retryStrategy, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// At this point we only have a container (local-machine) address.
@@ -810,7 +797,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 
 	// We need a new instance here, because unit addresses
 	// are populated in the constructor.
-	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.ru0.UnitTag(), retryFactory, nil, loggertesting.WrapCheckLog(c))
+	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.ru0.UnitTag(), retryStrategy, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1041,7 +1028,7 @@ func (s *networkInfoSuite) newNetworkInfo(
 	}
 
 	modelConfigService := s.ControllerDomainServices(c).Config()
-	ni, err := uniter.NewNetworkInfoForStrategy(context.Background(), s.ControllerModel(c).State(), s.networkService, modelConfigService, tag, retryFactory, lookupHost, loggertesting.WrapCheckLog(c))
+	ni, err := uniter.NewNetworkInfoForStrategy(context.Background(), s.ControllerModel(c).State(), s.networkService, modelConfigService, tag, retryFactory(), lookupHost, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return ni
 }

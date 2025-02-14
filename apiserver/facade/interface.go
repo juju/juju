@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v8"
 	"github.com/juju/names/v6"
 
@@ -175,6 +176,9 @@ type ModelContext interface {
 
 	// LogDir returns the log directory.
 	LogDir() string
+
+	// Clock returns a instance of the clock.
+	Clock() clock.Clock
 }
 
 // ModelExporter defines a interface for exporting models.

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -177,7 +176,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
-		StatusSetter:         common.NewStatusSetter(st, getAuthFunc, clock.WallClock),
+		StatusSetter:         common.NewStatusSetter(st, getAuthFunc, ctx.Clock()),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, ctx.DomainServices().Machine()),
 		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),

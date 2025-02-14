@@ -7,7 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -35,6 +34,6 @@ func newFacade(ctx facade.ModelContext) (*InstancePollerAPI, error) {
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.DomainServices().ControllerConfig(),
-		clock.WallClock,
+		ctx.Clock(),
 		ctx.Logger().Child("instancepoller"))
 }

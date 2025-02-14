@@ -1346,7 +1346,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 			return nil
 		}
 
-		netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, u.modelConfigService, unitTag, u.logger)
+		netInfo, err := NewNetworkInfo(ctx, u.st, u.clock, u.networkService, u.modelConfigService, unitTag, u.logger)
 		if err != nil {
 			return err
 		}
@@ -2089,7 +2089,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, u.modelConfigService, unitTag, u.logger)
+	netInfo, err := NewNetworkInfo(ctx, u.st, u.clock, u.networkService, u.modelConfigService, unitTag, u.logger)
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
@@ -2569,7 +2569,7 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(ctx context.Context, unitTag 
 			return nil, errors.Trace(err)
 		}
 
-		netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, u.modelConfigService, unitTag, u.logger)
+		netInfo, err := NewNetworkInfo(ctx, u.st, u.clock, u.networkService, u.modelConfigService, unitTag, u.logger)
 		if err != nil {
 			return nil, err
 		}

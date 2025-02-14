@@ -6,6 +6,7 @@ package facadetest
 import (
 	"fmt"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -229,6 +230,10 @@ func (c ModelContext) DataDir() string {
 // LogDir returns the log directory.
 func (c ModelContext) LogDir() string {
 	return c.LogDir_
+}
+
+func (c ModelContext) Clock() clock.Clock {
+	return clock.WallClock
 }
 
 func (c ModelContext) Logger() logger.Logger {

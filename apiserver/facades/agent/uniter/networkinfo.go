@@ -42,10 +42,10 @@ type NetworkInfoBase struct {
 
 	networkService NetworkService
 
-	// retryFactory returns a retry strategy template used to poll for
+	// retryStrategy returns a retry strategy template used to poll for
 	// and resolve addresses that may not yet have landed in state,
 	// such as for CAAS services.
-	retryFactory func() retry.CallArgs
+	retryStrategy retry.CallArgs
 
 	// lookupHost is a function for returning a list of IP addresses in
 	// string form that correspond to an input host/address.
@@ -63,12 +63,13 @@ type NetworkInfoBase struct {
 func NewNetworkInfo(
 	ctx context.Context,
 	st *state.State,
+	clock clock.Clock,
 	networkService NetworkService,
 	modelConfigService ModelConfigService,
 	tag names.UnitTag,
 	logger corelogger.Logger,
 ) (NetworkInfo, error) {
-	n, err := NewNetworkInfoForStrategy(ctx, st, networkService, modelConfigService, tag, defaultRetryFactory, net.LookupHost, logger)
+	n, err := NewNetworkInfoForStrategy(ctx, st, networkService, modelConfigService, tag, defaultRetryFactory(clock), net.LookupHost, logger)
 	return n, errors.Trace(err)
 }
 
@@ -81,7 +82,7 @@ func NewNetworkInfoForStrategy(
 	networkService NetworkService,
 	modelConfigService ModelConfigService,
 	tag names.UnitTag,
-	retryFactory func() retry.CallArgs,
+	retryStrategy retry.CallArgs,
 	lookupHost func(string) ([]string, error),
 	logger corelogger.Logger,
 ) (NetworkInfo, error) {
@@ -129,7 +130,7 @@ func NewNetworkInfoForStrategy(
 		app:            app,
 		bindings:       allBindings,
 		defaultEgress:  cfg.EgressSubnets(),
-		retryFactory:   retryFactory,
+		retryStrategy:  retryStrategy,
 		lookupHost:     lookupHost,
 		logger:         logger,
 	}
@@ -314,7 +315,7 @@ func (n *NetworkInfoBase) pollForAddress(
 	fetcher func() (network.SpaceAddress, error),
 ) (network.SpaceAddress, error) {
 	var address network.SpaceAddress
-	retryArg := n.retryFactory()
+	retryArg := n.retryStrategy
 	retryArg.Func = func() error {
 		var err error
 		address, err = fetcher()
@@ -377,9 +378,9 @@ func uniqueInterfaceAddresses(addrList []params.InterfaceAddress) []params.Inter
 	return uniqueAddrList
 }
 
-var defaultRetryFactory = func() retry.CallArgs {
+var defaultRetryFactory = func(clock clock.Clock) retry.CallArgs {
 	return retry.CallArgs{
-		Clock:       clock.WallClock,
+		Clock:       clock,
 		Delay:       3 * time.Second,
 		MaxDuration: 30 * time.Second,
 	}

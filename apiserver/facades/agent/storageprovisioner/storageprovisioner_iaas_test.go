@@ -7,6 +7,7 @@ import (
 	"context"
 	"sort"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
@@ -84,6 +85,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 	api, err := storageprovisioner.NewStorageProvisionerAPIv4(
 		context.Background(),
 		watcherRegistry,
+		clock.WallClock,
 		backend,
 		storageBackend,
 		blockDeviceService,

@@ -150,7 +150,7 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 		applicationService,
 		leadershipRevoker,
 		ctx.ObjectStore(),
-		clock.WallClock,
+		ctx.Clock(),
 		ctx.Logger().Child("caasapplicationprovisioner"),
 	)
 	if err != nil {

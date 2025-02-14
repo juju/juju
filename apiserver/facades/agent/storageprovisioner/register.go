@@ -44,6 +44,7 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 	return NewStorageProvisionerAPIv4(
 		stdCtx,
 		ctx.WatcherRegistry(),
+		ctx.Clock(),
 		backend,
 		storageBackend,
 		domainServices.BlockDevice(),

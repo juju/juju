@@ -47,6 +47,7 @@ func addOfferAuthHandlers(offerAuthCtxt *crossmodel.AuthContext, mux *apiserverh
 func newOfferAuthContext(
 	ctx context.Context,
 	pool *state.StatePool,
+	clock clock.Clock,
 	accessService AccessService,
 	modelInfoService ModelInfoService,
 	controllerConfigService ControllerConfigService,
@@ -69,7 +70,7 @@ func newOfferAuthContext(
 
 	// Create a bakery service for local offer access authentication. This service
 	// persists keys into DQLite in a TTL collection.
-	store := macaroon.NewExpirableStorage(macaroonService, macaroon.DefaultExpiration, clock.WallClock)
+	store := macaroon.NewExpirableStorage(macaroonService, macaroon.DefaultExpiration, clock)
 	key, err := macaroonService.GetOffersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -83,14 +84,14 @@ func newOfferAuthContext(
 	loginTokenRefreshURL := controllerConfig.LoginTokenRefreshURL()
 	if loginTokenRefreshURL != "" {
 		offerBakery, err := crossmodel.NewJaaSOfferBakery(
-			ctx, loginTokenRefreshURL, location, macaroonService, store, checker,
+			ctx, loginTokenRefreshURL, location, clock, macaroonService, store, checker,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return crossmodel.NewAuthContext(crossmodel.GetBackend(st), accessService, modelTag, key, offerBakery)
 	}
-	offerBakery, err := crossmodel.NewLocalOfferBakery(location, key, store, checker)
+	offerBakery, err := crossmodel.NewLocalOfferBakery(location, key, store, checker, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
