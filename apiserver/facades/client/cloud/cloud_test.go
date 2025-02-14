@@ -869,7 +869,7 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *gc.C) {
 
 	pool := s.pool.EXPECT()
 	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(newModelBackend(c, aCloud, coretesting.ModelTag.Id()),
-		context.NewEmptyCloudCallContext(), nil)
+		context.NewEmptyCloudCallContext(), func() bool { return false }, nil)
 
 	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
 		Force: false,
@@ -904,7 +904,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetError(c *gc.C) {
 	}, nil)
 
 	pool := s.pool.EXPECT()
-	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(nil, nil, errors.New("cannot get a model"))
+	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(nil, nil, nil, errors.New("cannot get a model"))
 
 	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
 		Force: false,
@@ -941,7 +941,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetErrorForce(c *gc.C) {
 	backend.UpdateCloudCredential(tag, jujucloud.Credential{}).Return(nil)
 
 	pool := s.pool.EXPECT()
-	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(nil, nil, errors.New("cannot get a model"))
+	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(nil, nil, nil, errors.New("cannot get a model"))
 
 	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
 		Force: true,
@@ -1002,8 +1002,8 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) {
 	defer s.setup(c, adminTag).Finish()
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
-		func(backend credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool, _ bool,
+		func(credentialcommon.PersistentBackend, context.ProviderCallContext,
+			names.CloudCredentialTag, *jujucloud.Credential, bool, bool,
 		) (params.ErrorResults, error) {
 			return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
 		})
@@ -1026,10 +1026,12 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) {
 
 	pool := s.pool.EXPECT()
 	pool.GetModelCallContext(gomock.Any()).DoAndReturn(func(modelUUID string) (
-		credentialcommon.PersistentBackend, context.ProviderCallContext, error,
+		credentialcommon.PersistentBackend, context.ProviderCallContext, cloud.ModelCallContextReleaser, error,
 	) {
-		return newModelBackend(c, aCloud,
-			modelUUID), context.NewEmptyCloudCallContext(), nil
+		return newModelBackend(c, aCloud, modelUUID),
+			context.NewEmptyCloudCallContext(),
+			func() bool { return false },
+			nil
 	}).MinTimes(1)
 
 	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
@@ -1085,9 +1087,9 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
 
 	pool := s.pool.EXPECT()
 	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(newModelBackend(c, aCloud,
-		coretesting.ModelTag.Id()), context.NewEmptyCloudCallContext(), nil)
+		coretesting.ModelTag.Id()), context.NewEmptyCloudCallContext(), func() bool { return false }, nil)
 	pool.GetModelCallContext("deadbeef-2f18-4fd2-967d-db9663db7bea").Return(newModelBackend(c, aCloud,
-		"deadbeef-2f18-4fd2-967d-db9663db7bea"), context.NewEmptyCloudCallContext(), nil)
+		"deadbeef-2f18-4fd2-967d-db9663db7bea"), context.NewEmptyCloudCallContext(), func() bool { return false }, nil)
 
 	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
 		Force: false,
@@ -1148,9 +1150,9 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *gc.
 
 	pool := s.pool.EXPECT()
 	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(newModelBackend(c, aCloud, coretesting.ModelTag.Id()),
-		context.NewEmptyCloudCallContext(), nil)
+		context.NewEmptyCloudCallContext(), func() bool { return false }, nil)
 	pool.GetModelCallContext("deadbeef-2f18-4fd2-967d-db9663db7bea").Return(newModelBackend(c, aCloud,
-		"deadbeef-2f18-4fd2-967d-db9663db7bea"), nil, nil)
+		"deadbeef-2f18-4fd2-967d-db9663db7bea"), nil, func() bool { return false }, nil)
 
 	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
 		Force: true,
@@ -1209,7 +1211,7 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidation(c *gc.C) {
 
 	pool := s.pool.EXPECT()
 	pool.GetModelCallContext(gomock.Any()).Return(newModelBackend(c, aCloud, coretesting.ModelTag.Id()),
-		context.NewEmptyCloudCallContext(), nil).Times(2)
+		context.NewEmptyCloudCallContext(), func() bool { return false }, nil).Times(2)
 
 	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
 		Force: false,
@@ -1267,9 +1269,9 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidationForce(c *gc.C
 
 	pool := s.pool.EXPECT()
 	pool.GetModelCallContext(gomock.Any()).Return(newModelBackend(c, aCloud, coretesting.ModelTag.Id()),
-		context.NewEmptyCloudCallContext(), nil)
+		context.NewEmptyCloudCallContext(), func() bool { return false }, nil)
 	pool.GetModelCallContext(gomock.Any()).Return(newModelBackend(c, aCloud, "deadbeef-2f18-4fd2-967d-db9663db7bea"),
-		context.NewEmptyCloudCallContext(), nil)
+		context.NewEmptyCloudCallContext(), func() bool { return false }, nil)
 
 	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
 		Force: true,
