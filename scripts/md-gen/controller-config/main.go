@@ -67,12 +67,10 @@ type keyInfo struct {
 func render(data map[string]*keyInfo) string {
 	var mainDoc string
 
-	anchorForKey := func(key string) string {
-		return "heading--" + key
-	}
 	headingForKey := func(key string) string {
-		return fmt.Sprintf(`<a href="#%[1]s"><h2 id="%[1]s"><code>%[2]s</code></h2></a>`,
-			anchorForKey(key), key)
+		anchor := "(controller-config-" + key + ")="
+		heading := "## `" + key + "`"
+		return anchor + "\n" + heading
 	}
 
 	// Sort keys
