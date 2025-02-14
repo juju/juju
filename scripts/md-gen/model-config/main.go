@@ -43,11 +43,10 @@ type keyInfo struct {
 func render(data map[string]*keyInfo) string {
 	var mainDoc string
 
-	anchorForKey := func(key string) string {
-		return key
-	}
 	headingForKey := func(key string) string {
-		return "## " + anchorForKey(key)
+		anchor := "(model-config-" + key + ")="
+		heading := "## `" + key + "`"
+		return anchor + "\n" + heading
 	}
 
 	// Sort keys

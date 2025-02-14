@@ -3,7 +3,8 @@
 
 
 This document gives a list of all the configuration keys that can be applied to a Juju model.
-## agent-metadata-url
+(model-config-agent-metadata-url)=
+## `agent-metadata-url`
 
 URL of private stream.
 
@@ -12,7 +13,8 @@ URL of private stream.
 **Type:** string
 
 
-## agent-stream
+(model-config-agent-stream)=
+## `agent-stream`
 
 Version of Juju to use for deploy/upgrades.
 
@@ -55,7 +57,8 @@ can be targeted in this way:
 
 
 
-## agent-version
+(model-config-agent-version)=
+## `agent-version`
 
 *Note: This value is set by Juju.*
 
@@ -66,7 +69,8 @@ The desired Juju agent version to use.
 **Type:** string
 
 
-## apt-ftp-proxy
+(model-config-apt-ftp-proxy)=
+## `apt-ftp-proxy`
 
 The APT FTP proxy for the model.
 
@@ -75,7 +79,8 @@ The APT FTP proxy for the model.
 **Type:** string
 
 
-## apt-http-proxy
+(model-config-apt-http-proxy)=
+## `apt-http-proxy`
 
 The APT HTTP proxy for the model.
 
@@ -84,7 +89,8 @@ The APT HTTP proxy for the model.
 **Type:** string
 
 
-## apt-https-proxy
+(model-config-apt-https-proxy)=
+## `apt-https-proxy`
 
 The APT HTTPS proxy for the model.
 
@@ -93,7 +99,8 @@ The APT HTTPS proxy for the model.
 **Type:** string
 
 
-## apt-mirror
+(model-config-apt-mirror)=
+## `apt-mirror`
 
 The APT mirror for the model.
 
@@ -119,7 +126,8 @@ The apt-mirror option is often used to point to a local mirror.
 
 
 
-## apt-no-proxy
+(model-config-apt-no-proxy)=
+## `apt-no-proxy`
 
 List of domain addresses not to be proxied for APT (comma-separated).
 
@@ -128,7 +136,8 @@ List of domain addresses not to be proxied for APT (comma-separated).
 **Type:** string
 
 
-## automatically-retry-hooks
+(model-config-automatically-retry-hooks)=
+## `automatically-retry-hooks`
 
 Determines whether the uniter should automatically retry failed hooks.
 
@@ -159,7 +168,8 @@ manually using:
 
 
 
-## backup-dir
+(model-config-backup-dir)=
+## `backup-dir`
 
 Directory used to store the backup working directory.
 
@@ -168,7 +178,8 @@ Directory used to store the backup working directory.
 **Type:** string
 
 
-## charmhub-url
+(model-config-charmhub-url)=
+## `charmhub-url`
 
 The url for CharmHub API calls.
 
@@ -177,7 +188,8 @@ The url for CharmHub API calls.
 **Type:** string
 
 
-## cloudinit-userdata
+(model-config-cloudinit-userdata)=
+## `cloudinit-userdata`
 
 Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model.
 
@@ -265,7 +277,8 @@ line (like the config command)
 
 
 
-## container-image-metadata-defaults-disabled
+(model-config-container-image-metadata-defaults-disabled)=
+## `container-image-metadata-defaults-disabled`
 
 Whether default simplestreams sources are used for image metadata with containers.
 
@@ -274,7 +287,8 @@ Whether default simplestreams sources are used for image metadata with container
 **Type:** bool
 
 
-## container-image-metadata-url
+(model-config-container-image-metadata-url)=
+## `container-image-metadata-url`
 
 The URL at which the metadata used to locate container OS image ids is located.
 
@@ -283,7 +297,8 @@ The URL at which the metadata used to locate container OS image ids is located.
 **Type:** string
 
 
-## container-image-stream
+(model-config-container-image-stream)=
+## `container-image-stream`
 
 The simplestreams stream used to identify which image ids to search when starting a container.
 
@@ -292,7 +307,8 @@ The simplestreams stream used to identify which image ids to search when startin
 **Type:** string
 
 
-## container-inherit-properties
+(model-config-container-inherit-properties)=
+## `container-inherit-properties`
 
 List of properties to be copied from the host machine to new containers created in this model (comma-separated).
 
@@ -325,7 +341,8 @@ For example:
 
 
 
-## container-networking-method
+(model-config-container-networking-method)=
+## `container-networking-method`
 
 Method of container networking setup - one of "provider", "local", or "" (auto-configure).
 
@@ -334,7 +351,8 @@ Method of container networking setup - one of "provider", "local", or "" (auto-c
 **Type:** string
 
 
-## default-base
+(model-config-default-base)=
+## `default-base`
 
 The default base image to use for deploying charms, will act like --base when deploying charms.
 
@@ -343,7 +361,8 @@ The default base image to use for deploying charms, will act like --base when de
 **Type:** string
 
 
-## default-space
+(model-config-default-space)=
+## `default-space`
 
 The default network space used for application endpoints in this model.
 
@@ -352,7 +371,8 @@ The default network space used for application endpoints in this model.
 **Type:** string
 
 
-## development
+(model-config-development)=
+## `development`
 
 Whether the model is in development mode.
 
@@ -361,7 +381,8 @@ Whether the model is in development mode.
 **Type:** bool
 
 
-## disable-network-management
+(model-config-disable-network-management)=
+## `disable-network-management`
 
 Whether the provider should control networks (on MAAS models, set to true for MAAS to control networks.
 
@@ -381,7 +402,8 @@ bridge.
 
 
 
-## disable-telemetry
+(model-config-disable-telemetry)=
+## `disable-telemetry`
 
 Disable telemetry reporting of model information.
 
@@ -390,7 +412,8 @@ Disable telemetry reporting of model information.
 **Type:** bool
 
 
-## egress-subnets
+(model-config-egress-subnets)=
+## `egress-subnets`
 
 Source address(es) for traffic originating from this model.
 
@@ -399,7 +422,8 @@ Source address(es) for traffic originating from this model.
 **Type:** string
 
 
-## enable-os-refresh-update
+(model-config-enable-os-refresh-update)=
+## `enable-os-refresh-update`
 
 Whether newly provisioned instances should run their respective OS's update capability.
 
@@ -427,7 +451,8 @@ latest software available to it by disabling upgrades but enabling updates.
 
 
 
-## enable-os-upgrade
+(model-config-enable-os-upgrade)=
+## `enable-os-upgrade`
 
 Whether newly provisioned instances should run their respective OS's upgrade capability.
 
@@ -455,7 +480,8 @@ latest software available to it by disabling upgrades but enabling updates.
 
 
 
-## extra-info
+(model-config-extra-info)=
+## `extra-info`
 
 Arbitrary user specified string data that is stored against the model.
 
@@ -464,7 +490,8 @@ Arbitrary user specified string data that is stored against the model.
 **Type:** string
 
 
-## firewall-mode
+(model-config-firewall-mode)=
+## `firewall-mode`
 
 *Note: This value cannot be changed after model creation.* 
 
@@ -490,7 +517,8 @@ inside the model. It's useful for clouds without support for either
 global or per instance security groups.
 
 
-## ftp-proxy
+(model-config-ftp-proxy)=
+## `ftp-proxy`
 
 The FTP proxy value to configure on instances, in the `FTP_PROXY` environment variable.
 
@@ -499,7 +527,8 @@ The FTP proxy value to configure on instances, in the `FTP_PROXY` environment va
 **Type:** string
 
 
-## http-proxy
+(model-config-http-proxy)=
+## `http-proxy`
 
 The HTTP proxy value to configure on instances, in the `HTTP_PROXY` environment variable.
 
@@ -508,7 +537,8 @@ The HTTP proxy value to configure on instances, in the `HTTP_PROXY` environment 
 **Type:** string
 
 
-## https-proxy
+(model-config-https-proxy)=
+## `https-proxy`
 
 The HTTPS proxy value to configure on instances, in the `HTTPS_PROXY` environment variable.
 
@@ -517,7 +547,8 @@ The HTTPS proxy value to configure on instances, in the `HTTPS_PROXY` environmen
 **Type:** string
 
 
-## ignore-machine-addresses
+(model-config-ignore-machine-addresses)=
+## `ignore-machine-addresses`
 
 Whether the machine worker should discover machine addresses on startup.
 
@@ -526,7 +557,8 @@ Whether the machine worker should discover machine addresses on startup.
 **Type:** bool
 
 
-## image-metadata-defaults-disabled
+(model-config-image-metadata-defaults-disabled)=
+## `image-metadata-defaults-disabled`
 
 Whether default simplestreams sources are used for image metadata.
 
@@ -535,7 +567,8 @@ Whether default simplestreams sources are used for image metadata.
 **Type:** bool
 
 
-## image-metadata-url
+(model-config-image-metadata-url)=
+## `image-metadata-url`
 
 The URL at which the metadata used to locate OS image ids is located.
 
@@ -544,7 +577,8 @@ The URL at which the metadata used to locate OS image ids is located.
 **Type:** string
 
 
-## image-stream
+(model-config-image-stream)=
+## `image-stream`
 
 The simplestreams stream used to identify which image ids to search when starting an instance.
 
@@ -562,7 +596,8 @@ upgrades.
 
 
 
-## juju-ftp-proxy
+(model-config-juju-ftp-proxy)=
+## `juju-ftp-proxy`
 
 The FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY` environment variable.
 
@@ -571,7 +606,8 @@ The FTP proxy value to pass to charms in the `JUJU_CHARM_FTP_PROXY` environment 
 **Type:** string
 
 
-## juju-http-proxy
+(model-config-juju-http-proxy)=
+## `juju-http-proxy`
 
 The HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environment variable.
 
@@ -580,7 +616,8 @@ The HTTP proxy value to pass to charms in the `JUJU_CHARM_HTTP_PROXY` environmen
 **Type:** string
 
 
-## juju-https-proxy
+(model-config-juju-https-proxy)=
+## `juju-https-proxy`
 
 The HTTPS proxy value to pass to charms in the `JUJU_CHARM_HTTPS_PROXY` environment variable.
 
@@ -589,7 +626,8 @@ The HTTPS proxy value to pass to charms in the `JUJU_CHARM_HTTPS_PROXY` environm
 **Type:** string
 
 
-## juju-no-proxy
+(model-config-juju-no-proxy)=
+## `juju-no-proxy`
 
 List of domain addresses not to be proxied (comma-separated), may contain CIDRs. Passed to charms in the `JUJU_CHARM_NO_PROXY` environment variable.
 
@@ -598,7 +636,8 @@ List of domain addresses not to be proxied (comma-separated), may contain CIDRs.
 **Type:** string
 
 
-## logging-config
+(model-config-logging-config)=
+## `logging-config`
 
 The configuration string to use when configuring Juju agent logging.
 
@@ -677,7 +716,8 @@ To view details about each API request:
 
 
 
-## lxd-snap-channel
+(model-config-lxd-snap-channel)=
+## `lxd-snap-channel`
 
 The channel to use when installing LXD from a snap (cosmic and later).
 
@@ -686,7 +726,8 @@ The channel to use when installing LXD from a snap (cosmic and later).
 **Type:** string
 
 
-## max-action-results-age
+(model-config-max-action-results-age)=
+## `max-action-results-age`
 
 The maximum age for action entries before they are pruned, in human-readable time format.
 
@@ -695,7 +736,8 @@ The maximum age for action entries before they are pruned, in human-readable tim
 **Type:** string
 
 
-## max-action-results-size
+(model-config-max-action-results-size)=
+## `max-action-results-size`
 
 The maximum size for the action collection, in human-readable memory format.
 
@@ -704,7 +746,8 @@ The maximum size for the action collection, in human-readable memory format.
 **Type:** string
 
 
-## mode
+(model-config-mode)=
+## `mode`
 
 Mode is a comma-separated list which sets the
 mode the model should run in. So far only one is implemented
@@ -717,7 +760,8 @@ potentially valuable resources.
 **Type:** string
 
 
-## name
+(model-config-name)=
+## `name`
 
 *Note: This value cannot be changed after model creation.* 
 
@@ -730,7 +774,8 @@ The name of the current model.
 **Type:** string
 
 
-## net-bond-reconfigure-delay
+(model-config-net-bond-reconfigure-delay)=
+## `net-bond-reconfigure-delay`
 
 The amount of time in seconds to sleep between ifdown and ifup when bridging.
 
@@ -739,7 +784,8 @@ The amount of time in seconds to sleep between ifdown and ifup when bridging.
 **Type:** int
 
 
-## no-proxy
+(model-config-no-proxy)=
+## `no-proxy`
 
 List of domain addresses not to be proxied (comma-separated).
 
@@ -748,7 +794,8 @@ List of domain addresses not to be proxied (comma-separated).
 **Type:** string
 
 
-## num-container-provision-workers
+(model-config-num-container-provision-workers)=
+## `num-container-provision-workers`
 
 The number of container provisioning workers to use per machine.
 
@@ -757,7 +804,8 @@ The number of container provisioning workers to use per machine.
 **Type:** int
 
 
-## num-provision-workers
+(model-config-num-provision-workers)=
+## `num-provision-workers`
 
 The number of provisioning workers to use per model.
 
@@ -766,7 +814,8 @@ The number of provisioning workers to use per model.
 **Type:** int
 
 
-## provisioner-harvest-mode
+(model-config-provisioner-harvest-mode)=
+## `provisioner-harvest-mode`
 
 What to do with unknown machines (default destroyed).
 
@@ -804,7 +853,8 @@ Below, the harvest mode key for the current model is set to 'none':
 
 
 
-## proxy-ssh
+(model-config-proxy-ssh)=
+## `proxy-ssh`
 
 Whether SSH commands should be proxied through the API server.
 
@@ -813,7 +863,8 @@ Whether SSH commands should be proxied through the API server.
 **Type:** bool
 
 
-## resource-tags
+(model-config-resource-tags)=
+## `resource-tags`
 
 resource tags.
 
@@ -822,7 +873,8 @@ resource tags.
 **Type:** attrs
 
 
-## saas-ingress-allow
+(model-config-saas-ingress-allow)=
+## `saas-ingress-allow`
 
 Application-offer ingress allowlist is a comma-separated list of
 CIDRs specifying what ingress can be applied to offers in this model.
@@ -832,7 +884,8 @@ CIDRs specifying what ingress can be applied to offers in this model.
 **Type:** string
 
 
-## snap-http-proxy
+(model-config-snap-http-proxy)=
+## `snap-http-proxy`
 
 The HTTP proxy value for installing snaps.
 
@@ -841,7 +894,8 @@ The HTTP proxy value for installing snaps.
 **Type:** string
 
 
-## snap-https-proxy
+(model-config-snap-https-proxy)=
+## `snap-https-proxy`
 
 The HTTPS proxy value for installing snaps.
 
@@ -850,7 +904,8 @@ The HTTPS proxy value for installing snaps.
 **Type:** string
 
 
-## snap-store-assertions
+(model-config-snap-store-assertions)=
+## `snap-store-assertions`
 
 The assertions for the defined snap store proxy.
 
@@ -859,7 +914,8 @@ The assertions for the defined snap store proxy.
 **Type:** string
 
 
-## snap-store-proxy
+(model-config-snap-store-proxy)=
+## `snap-store-proxy`
 
 The snap store proxy for installing snaps.
 
@@ -868,7 +924,8 @@ The snap store proxy for installing snaps.
 **Type:** string
 
 
-## snap-store-proxy-url
+(model-config-snap-store-proxy-url)=
+## `snap-store-proxy-url`
 
 The URL for the defined snap store proxy.
 
@@ -877,7 +934,8 @@ The URL for the defined snap store proxy.
 **Type:** string
 
 
-## ssh-allow
+(model-config-ssh-allow)=
+## `ssh-allow`
 
 SSH allowlist is a comma-separated list of CIDRs from
 which machines in this model will accept connections to the SSH service.
@@ -888,7 +946,8 @@ Currently only the aws & openstack providers support ssh-allow.
 **Type:** string
 
 
-## ssl-hostname-verification
+(model-config-ssl-hostname-verification)=
+## `ssl-hostname-verification`
 
 Whether SSL hostname verification is enabled (default true).
 
@@ -897,7 +956,8 @@ Whether SSL hostname verification is enabled (default true).
 **Type:** bool
 
 
-## storage-default-block-source
+(model-config-storage-default-block-source)=
+## `storage-default-block-source`
 
 The default block storage source for the model.
 
@@ -906,7 +966,8 @@ The default block storage source for the model.
 **Type:** string
 
 
-## storage-default-filesystem-source
+(model-config-storage-default-filesystem-source)=
+## `storage-default-filesystem-source`
 
 The default filesystem storage source for the model.
 
@@ -915,7 +976,8 @@ The default filesystem storage source for the model.
 **Type:** string
 
 
-## test-mode
+(model-config-test-mode)=
+## `test-mode`
 
 Whether the model is intended for testing.
 If true, accessing the charm store does not affect statistical
@@ -926,7 +988,8 @@ data of the store. (default false).
 **Type:** bool
 
 
-## transmit-vendor-metrics
+(model-config-transmit-vendor-metrics)=
+## `transmit-vendor-metrics`
 
 Determines whether metrics declared by charms deployed into this model are sent for anonymized aggregate analytics.
 
@@ -935,7 +998,8 @@ Determines whether metrics declared by charms deployed into this model are sent 
 **Type:** bool
 
 
-## type
+(model-config-type)=
+## `type`
 
 *Note: This value cannot be changed after model creation.* 
 
@@ -948,7 +1012,8 @@ Type of model, e.g. local, ec2.
 **Type:** string
 
 
-## update-status-hook-interval
+(model-config-update-status-hook-interval)=
+## `update-status-hook-interval`
 
 How often to run the charm update-status hook, in human-readable time format (default 5m, range 1-60m).
 
@@ -957,7 +1022,8 @@ How often to run the charm update-status hook, in human-readable time format (de
 **Type:** string
 
 
-## uuid
+(model-config-uuid)=
+## `uuid`
 
 *Note: This value is set by Juju.*
 
