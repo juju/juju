@@ -177,7 +177,7 @@ juju revoke-cloud joe add-model fluffy
 > See more: {ref}`command-juju-revoke-cloud`
 
 (manage-a-users-login-details)=
-## Manager a user's login details
+## Manage a user's login details
 
 **Set a password.** The procedure for how to set a password depends on whether you are the controller creator or rather some other user.
 
@@ -213,11 +213,11 @@ The command also allows an optional username argument, and flags, allowing an ad
 **Log in.** 
 
 ```{important}
-**If you're the controller creator:** <br> You've already been logged in as the `admin` user. To verify, run `juju whoami` or `juju show-user admin`; to set a password, run `juju change-user-password` to set a password; to log out, run `juju logout`.
+**If you're the controller creator:** <br> You've already been logged in as the `admin` user. To verify, run `juju whoami` or `juju show-user admin`; to set a password, run `juju change-user-password`; to log out, run `juju logout`.
 ```
 
 ```{important}
-**If you've just registered an external controller with your client (via `juju register`):** <br> You're already logged in. Run `juju whoami` or `juju show-user <username` to view your user details. 
+**If you've just registered an external controller with your client (via `juju register`):** <br> You're already logged in. Run `juju whoami` or `juju show-user <username>` to view your user details. 
 
 ```
 
