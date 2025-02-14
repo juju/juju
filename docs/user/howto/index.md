@@ -16,9 +16,9 @@ Manage users <manage-users>
 Manage SSH keys <manage-ssh-keys>
 Manage models <manage-models>
 Manage logs <manage-logs>
-Manage charms or bundles<manage-charms>
+Manage charms <manage-charms>
 Manage applications <manage-applications>
-Manage resources (charms) <manage-charm-resources>
+Manage resources <manage-charm-resources>
 Manage actions <manage-actions>
 Manage relations <manage-relations>
 Manage offers <manage-offers>
