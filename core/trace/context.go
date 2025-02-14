@@ -88,20 +88,52 @@ func WithTraceScope(ctx context.Context, traceID, spanID string, flags int) cont
 	return context.WithValue(ctx, traceIDContextKey, traceID)
 }
 
+// RemoveTraceScope returns a new context without the trace scope.
+func RemoveTraceScope(ctx context.Context) context.Context {
+	ctx = context.WithValue(ctx, traceFlagsContextKey, nil)
+	ctx = context.WithValue(ctx, spanIDContextKey, nil)
+	return context.WithValue(ctx, traceIDContextKey, nil)
+}
+
 // ScopeFromContext returns the traceID, spanID and the flags from the context.
 // Both traceID and spanID can be in the form of a hex string or a raw
 // string.
-func ScopeFromContext(ctx context.Context) (string, string, int) {
-	traceID, _ := ctx.Value(traceIDContextKey).(string)
-	spanID, _ := ctx.Value(spanIDContextKey).(string)
-	flags, _ := ctx.Value(traceFlagsContextKey).(int)
-	return traceID, spanID, flags
+func ScopeFromContext(ctx context.Context) (string, string, int, bool) {
+	// You must have all to have one.
+	trace := ctx.Value(traceIDContextKey)
+	if trace == nil {
+		return "", "", 0, false
+	}
+
+	traceID, ok := trace.(string)
+	if !ok {
+		return "", "", 0, false
+	}
+
+	span := ctx.Value(spanIDContextKey)
+	if span == nil {
+		return "", "", 0, false
+	}
+
+	spanID, ok := span.(string)
+	if !ok {
+		return "", "", 0, false
+	}
+
+	flags, ok := ctx.Value(traceFlagsContextKey).(int)
+	return traceID, spanID, flags, ok && traceID != "" && spanID != ""
 }
 
 // TraceIDFromContext returns the traceID from the context.
-func TraceIDFromContext(ctx context.Context) string {
-	traceID, _ := ctx.Value(traceIDContextKey).(string)
-	return traceID
+func TraceIDFromContext(ctx context.Context) (string, bool) {
+	trace := ctx.Value(traceIDContextKey)
+	traceID, ok := trace.(string)
+	return traceID, ok && traceID != ""
+}
+
+// WithTraceID returns a new context with the given trace ID.
+func WithTraceID(ctx context.Context, traceID string) context.Context {
+	return context.WithValue(ctx, traceIDContextKey, traceID)
 }
 
 // NoopTracer is a tracer that does nothing.

@@ -602,7 +602,7 @@ func (conn *Conn) runRequest(
 	// If the request causes a panic, ensure we log that before closing the connection.
 	defer func() {
 		if panicResult := recover(); panicResult != nil {
-			logger.Criticalf(context.TODO(),
+			logger.Criticalf(conn.context,
 				"panic running request %+v with arg %+v: %v\n%v", req, arg, panicResult, string(debug.Stack()))
 			_ = conn.writeErrorResponse(&req.hdr, errors.Errorf("%v", panicResult), recorder)
 		}
@@ -611,8 +611,6 @@ func (conn *Conn) runRequest(
 
 	// Create a request-specific context, cancelled when the
 	// request returns.
-	//
-	// TODO(axw) provide a means for clients to cancel a request.
 	ctx, cancel := context.WithCancel(conn.context)
 	defer cancel()
 
@@ -636,7 +634,8 @@ func (conn *Conn) withTrace(ctx context.Context, request Request, fn func()) {
 
 	// Set the otel.traceid for the goroutine, so profiling tools can then link
 	// the trace to the profile.
-	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, trace.TraceIDFromContext(ctx)), func(ctx context.Context) {
+	traceID, _ := trace.TraceIDFromContext(ctx)
+	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, traceID), func(ctx context.Context) {
 		fn()
 	})
 }

@@ -100,8 +100,11 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 
 	ctx, span = t.clientTracer.Start(ctx, name, trace.WithAttributes(attrs...))
 
-	if spanContext := span.SpanContext(); spanContext.IsSampled() {
-		t.logger.Debugf(context.TODO(), "SpanContext: trace-id %s, span-id %s", spanContext.TraceID(), spanContext.SpanID())
+	// If the span is sampled then we should log the trace and span ID.
+	if t.logger.IsLevelEnabled(logger.TRACE) {
+		if spanContext := span.SpanContext(); spanContext.IsSampled() {
+			t.logger.Tracef(ctx, "SpanContext: trace-id %s, span-id %s", spanContext.TraceID(), spanContext.SpanID())
+		}
 	}
 
 	managed := &managedSpan{
@@ -162,10 +165,11 @@ func (w *tracer) scopedContext(ctx context.Context) (context.Context, context.Ca
 
 // buildRequestContext returns a context that may contain a remote span context.
 func (t *tracer) buildRequestContext(ctx context.Context) context.Context {
-	traceHex, spanHex, flags := coretrace.ScopeFromContext(ctx)
-	if traceHex == "" || spanHex == "" {
+	traceHex, spanHex, flags, ok := coretrace.ScopeFromContext(ctx)
+	if !ok {
 		return ctx
 	}
+
 	traceID, err := trace.TraceIDFromHex(traceHex)
 	if err != nil {
 		// There is clearly something wrong with the trace ID, so we
@@ -194,7 +198,10 @@ func (t *tracer) buildRequestContext(ctx context.Context) context.Context {
 	// We have a remote span context, so we should use it. We should then remove
 	// the traceID and spanID from the context so that we don't attempt to parse
 	// them again.
-	ctx = coretrace.WithTraceScope(ctx, "", "", 0)
+	ctx = coretrace.RemoveTraceScope(ctx)
+
+	// Add the trace ID to the context so that we can log it.
+	ctx = coretrace.WithTraceID(ctx, traceID.String())
 	return trace.ContextWithRemoteSpanContext(ctx, sc)
 }
 

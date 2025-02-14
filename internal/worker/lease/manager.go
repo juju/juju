@@ -403,7 +403,8 @@ func (manager *Manager) withTrace(ctx context.Context, action string, fn func())
 		span.End()
 	}()
 
-	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, trace.TraceIDFromContext(ctx)), func(ctx context.Context) {
+	traceID, _ := trace.TraceIDFromContext(ctx)
+	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, traceID), func(ctx context.Context) {
 		fn()
 	})
 }
