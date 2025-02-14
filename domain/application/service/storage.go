@@ -111,7 +111,7 @@ func (s *Service) AttachStorage(ctx context.Context, storageID corestorage.ID, u
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 func (s *Service) AddStorageForUnit(
-	ctx context.Context, storageName corestorage.Name, unitName coreunit.Name, stor storage.Directive,
+	ctx context.Context, storageName corestorage.Name, unitName coreunit.Name, directive storage.Directive,
 ) ([]corestorage.ID, error) {
 	if err := unitName.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -123,7 +123,7 @@ func (s *Service) AddStorageForUnit(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return s.st.AddStorageForUnit(ctx, storageName, unitUUID, stor)
+	return s.st.AddStorageForUnit(ctx, storageName, unitUUID, directive)
 }
 
 // DetachStorageForUnit detaches the specified storage from the specified unit.

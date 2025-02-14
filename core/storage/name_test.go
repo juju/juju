@@ -21,13 +21,13 @@ func (s *storageNameSuite) TestStorageNameValidity(c *gc.C) {
 }
 
 func assertStorageNameValid(c *gc.C, name string) {
-	result, err := storage.NewName(name)
+	result, err := storage.ParseName(name)
 	c.Assert(err, gc.IsNil)
 	c.Assert(name, gc.Equals, result.String())
 }
 
 func assertStorageNameInvalid(c *gc.C, name string) {
-	_, err := storage.NewName(name)
+	_, err := storage.ParseName(name)
 	c.Assert(err, jc.ErrorIs, storage.InvalidStorageName)
 }
 
@@ -43,12 +43,12 @@ func (s *storageIDSuite) TestStorageIDValidity(c *gc.C) {
 }
 
 func assertStorageIDValid(c *gc.C, id string) {
-	result, err := storage.NewID(id)
+	result, err := storage.ParseID(id)
 	c.Assert(err, gc.IsNil)
 	c.Assert(id, gc.Equals, result.String())
 }
 
 func assertStorageIDInvalid(c *gc.C, id string) {
-	_, err := storage.NewID(id)
+	_, err := storage.ParseID(id)
 	c.Assert(err, jc.ErrorIs, storage.InvalidStorageID)
 }

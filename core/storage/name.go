@@ -33,9 +33,9 @@ var (
 // Name represents a storage name.
 type Name string
 
-// NewName returns a new Name. If the name is invalid, an InvalidStorageName error
+// ParseName returns a new Name. If the name is invalid, an [InvalidStorageName] error
 // will be returned.
-func NewName(name string) (Name, error) {
+func ParseName(name string) (Name, error) {
 	n := Name(name)
 	return n, n.Validate()
 }
@@ -57,9 +57,9 @@ func (n Name) Validate() error {
 // ID represents a storage ID which is a name with a sequence number.
 type ID string
 
-// NewID returns a new ID. If the id is invalid, an InvalidStorageID error
+// ParseID returns a new ID. If the id is invalid, an [InvalidStorageID] error
 // will be returned.
-func NewID(id string) (ID, error) {
+func ParseID(id string) (ID, error) {
 	result := ID(id)
 	return result, result.Validate()
 }

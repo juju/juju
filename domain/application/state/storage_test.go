@@ -9,7 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	
+
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	storagetesting "github.com/juju/juju/core/storage/testing"
 	"github.com/juju/juju/domain/application"
@@ -149,13 +149,13 @@ type charmStorageArg struct {
 
 func (s *applicationStateSuite) insertCharmWithStorage(c *gc.C, stor ...charmStorageArg) string {
 	uuid := charmtesting.GenCharmID(c).String()
-	
+
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if _, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
 			return errors.Capture(err)
 		}
-		
+
 		for _, arg := range stor {
 			_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_storage (

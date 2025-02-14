@@ -28,7 +28,7 @@ func (st *State) insertStorage(ctx context.Context, tx *sqlair.TX, appDetails ap
 	// run in a single transaction. There's a TO-DO in the AddApplication service method.
 	queryStmt, err := st.Prepare(`
 SELECT &charmStorage.name FROM charm_storage
-WHERE charm_uuid = $applicationDetails.charm_uuid
+WHERE  charm_uuid = $applicationDetails.charm_uuid
 `, appDetails, charmStorage{})
 	if err != nil {
 		return errors.Capture(err)
@@ -85,19 +85,19 @@ func (st *State) GetStorageUUIDByID(ctx context.Context, storageID corestorage.I
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	stor := minimalStorage{StorageID: storageID}
+	inst := storageInstance{StorageID: storageID}
 
 	query, err := st.Prepare(`
-SELECT &minimalStorage.*
-FROM storage_instance
-WHERE storage_id = $minimalStorage.storage_id
-`, stor)
+SELECT &storageInstance.*
+FROM   storage_instance
+WHERE  storage_id = $storageInstance.storage_id
+`, inst)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, query, stor).Get(&stor)
+		err = tx.Query(ctx, query, inst).Get(&inst)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("storage %q not found", storageID).Add(storageerrors.StorageNotFound)
 		}
@@ -107,7 +107,7 @@ WHERE storage_id = $minimalStorage.storage_id
 		return "", errors.Errorf("querying storage ID %q: %w", storageID, err)
 	}
 
-	return stor.StorageUUID, nil
+	return inst.StorageUUID, nil
 }
 
 func (st *State) AttachStorage(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error {

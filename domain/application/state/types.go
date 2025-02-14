@@ -878,7 +878,7 @@ func decodeWorkloadStatus(s int) (application.WorkloadStatusType, error) {
 	}
 }
 
-type minimalStorage struct {
+type storageInstance struct {
 	StorageUUID corestorage.UUID `db:"uuid"`
 	StorageID   corestorage.ID   `db:"storage_id"`
 }

@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/application/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
 )
 
 type storageSuite struct {
@@ -33,11 +35,15 @@ var _ = gc.Suite(&storageSuite{})
 func (s *storageSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockState = NewMockState(ctrl)
-
-	s.service = &Service{
-		st:     s.mockState,
-		logger: loggertesting.WrapCheckLog(c),
-	}
+	s.service = NewService(
+		s.mockState,
+		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
+			return provider.CommonStorageProviders()
+		}),
+		nil,
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
 	return ctrl
 }
 
