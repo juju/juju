@@ -10,7 +10,6 @@ import (
 
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/model/service"
@@ -40,7 +39,7 @@ type ExportService interface {
 type exportOperation struct {
 	modelmigration.BaseOperation
 
-	serviceGetter func(modelUUID model.UUID) ExportService
+	serviceGetter func(modelUUID coremodel.UUID) ExportService
 	logger        logger.Logger
 }
 
@@ -89,7 +88,7 @@ func newExportModelConstraintsOperation(l logger.Logger) *exportModelConstraints
 // Setup established the required services needed for retrieving information
 // about the model being exported.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
-	e.serviceGetter = func(modelUUID model.UUID) ExportService {
+	e.serviceGetter = func(modelUUID coremodel.UUID) ExportService {
 		return service.NewModelService(
 			modelUUID,
 			state.NewState(scope.ControllerDB()),
