@@ -203,7 +203,7 @@ Examples of bare charms include:
 (12-factor-app-charm)=
 ## 12-Factor app charm
 
-A **12-Factor app charm** is a {ref}`charm <charm>` that has been created using certain coordinated pairs of {ref}`Rockcraft <rockcraft>` and {ref}`Charmcraft <charmcraft>` profiles designed to give you most of the content you will need to generate a [rock^](https://documentation.ubuntu.com/rockcraft/en/latest/explanation/rocks/) for a charm, and then the charm itself, for a particular type of workload (e.g., an application developed with Flask). 
+A **12-Factor app charm** is a {ref}`charm <charm>` that has been created using certain coordinated pairs of {ref}`Rockcraft <rockcraft>` and {ref}`Charmcraft <charmcraft>` profiles designed to give you most of the content you will need to generate a [rock^](https://documentation.ubuntu.com/rockcraft/en/latest/explanation/rocks.html) for a charm, and then the charm itself, for a particular type of workload (e.g., an application developed with Flask). 
 
 ```{tip}
 
@@ -211,7 +211,7 @@ A **12-Factor app charm** is a {ref}`charm <charm>` that has been created using 
 
 ```
 
-When you initialise a rock with a 12-Factor-app-charm-geared profile, the initialisation will generate all the basic structure and content you'll need for the rock, including a  [`rockcraft.yaml`^](https://canonical-rockcraft.readthedocs-hosted.com/en/latest/reference/rockcraft.yaml/#) prepopulated with an extension matching the profile. Similarly, when you initialise a charm with a 12-Factor-app-charm-geared profile, that will generate all the basic structure content you'll need for the charm, including a `charmcraft.yaml` pre-populated with an extension matching the profile as well as a `src/charm.py` pre-loaded with a library (`paas_charm`) with constructs matching the profile and the extension.
+When you initialise a rock with a 12-Factor-app-charm-geared profile, the initialisation will generate all the basic structure and content you'll need for the rock, including a  [`rockcraft.yaml`^](https://documentation.ubuntu.com/rockcraft/en/latest/reference/rockcraft.yaml.html) prepopulated with an extension matching the profile. Similarly, when you initialise a charm with a 12-Factor-app-charm-geared profile, that will generate all the basic structure content you'll need for the charm, including a `charmcraft.yaml` pre-populated with an extension matching the profile as well as a `src/charm.py` pre-loaded with a library (`paas_charm`) with constructs matching the profile and the extension.
 
 
 At present, there are four pairs of profiles: 
