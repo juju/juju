@@ -10,6 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	gc "gopkg.in/check.v1"
 
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	jujuversion "github.com/juju/juju/core/version"
 )
 
@@ -486,9 +487,29 @@ VALUES (?, ?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');
 		modelUUID, controllerUUID, jujuversion.Current.String())
 	s.assertExecSQLError(c,
 		"UPDATE model SET name = 'new-name' WHERE uuid = ?",
-		"model table is immutable", modelUUID)
+		"model table is immutable, only insertions are allowed", modelUUID)
 
 	s.assertExecSQLError(c,
 		"DELETE FROM model WHERE uuid = ?;",
-		"model table is immutable", modelUUID)
+		"model table is immutable, only insertions are allowed", modelUUID)
+}
+
+func (s *modelSchemaSuite) TestTriggersForUnmodifiableTables(c *gc.C) {
+	s.applyDDL(c, ModelDDL())
+
+	id := charmtesting.GenCharmID(c)
+
+	s.assertExecSQL(c, `
+INSERT INTO charm (uuid, reference_name, architecture_id, revision)
+VALUES (?, 'foo', 0, 1)
+`, id.String())
+	s.assertExecSQL(c, `
+INSERT INTO charm_metadata (charm_uuid, name)
+VALUES (?, 'foo');`,
+		id)
+	s.assertExecSQLError(c,
+		"UPDATE charm_metadata SET name = 'new-name' WHERE charm_uuid = ?",
+		"charm_metadata table is unmodifiable, only insertions and deletions are allowed", id)
+
+	s.assertExecSQL(c, "DELETE FROM charm_metadata WHERE charm_uuid = ?;", id)
 }
