@@ -454,7 +454,7 @@ add_client_ssh_key_to_juju_model() {
 # model is found before attempting to do so.
 #
 # ```
-# destroy_model <model name> [<timeout>]
+# destroy_model <model name>
 # ```
 destroy_model() {
 	if [[ -n ${SKIP_DESTROY} ]]; then
@@ -462,10 +462,9 @@ destroy_model() {
 		return
 	fi
 
-	local name timeout
+	local name
 
 	name=${1}
-	timeout=${2:-30m}
 	shift
 
 	# shellcheck disable=SC2034
@@ -478,7 +477,7 @@ destroy_model() {
 	output="${TEST_DIR}/${name}-destroy.log"
 
 	echo "====> Destroying juju model ${name}"
-	echo "${name}" | xargs -I % timeout "$timeout" juju destroy-model --no-prompt --destroy-storage --force % >"${output}" 2>&1 || true
+	echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt --destroy-storage --force % >"${output}" 2>&1 || true
 	CHK=$(cat "${output}" | grep -i "ERROR\|Unable to get the model status from the API" || true)
 	if [[ -n ${CHK} ]]; then
 		printf '\nFound some issues\n'
@@ -522,7 +521,7 @@ destroy_controller() {
 		echo "====> Destroying model ($(green "${name}"))"
 
 		output="${TEST_DIR}/${name}-destroy-model.log"
-		echo "${name}" | xargs -I % juju destroy-model --no-prompt % >"${output}" 2>&1 || true
+		echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju destroy-model --no-prompt % >"${output}" 2>&1 || true
 
 		echo "====> Destroyed model ($(green "${name}"))"
 		return
@@ -547,9 +546,9 @@ destroy_controller() {
 
 	echo "====> Destroying juju ($(green "${name}"))"
 	if [[ ${KILL_CONTROLLER:-} != "true" ]]; then
-		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --destroy-storage --no-prompt % 2>&1 | OUTPUT "${output}"
+		echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju destroy-controller --destroy-all-models --destroy-storage --no-prompt % 2>&1 | OUTPUT "${output}"
 	else
-		echo "${name}" | xargs -I % juju kill-controller -t 0 --no-prompt % 2>&1 | OUTPUT "${output}"
+		echo "${name}" | xargs -I % timeout "${DESTROY_TIMEOUT}" juju kill-controller -t 0 --no-prompt % 2>&1 | OUTPUT "${output}"
 	fi
 
 	set +e
