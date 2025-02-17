@@ -67,7 +67,7 @@ func (s *storageSuite) TestAttachStorageAlreadyAttached(c *gc.C) {
 	storageUUID := storagetesting.GenStorageUUID(c)
 	s.mockState.EXPECT().GetUnitUUIDByName(gomock.Any(), unit.Name("postgresql/666")).Return(unitUUID, nil)
 	s.mockState.EXPECT().GetStorageUUIDByID(gomock.Any(), corestorage.ID("pgdata/0")).Return(storageUUID, nil)
-	s.mockState.EXPECT().AttachStorage(gomock.Any(), storageUUID, unitUUID).Return(errors.StorageAttachmentAlreadyExists)
+	s.mockState.EXPECT().AttachStorage(gomock.Any(), storageUUID, unitUUID).Return(errors.StorageAlreadyAttached)
 
 	err := s.service.AttachStorage(context.Background(), "pgdata/0", "postgresql/666")
 	c.Assert(err, jc.ErrorIsNil)

@@ -221,13 +221,17 @@ const (
 )
 
 const (
-	// StorageAttachmentAlreadyExists describes an error that occurs when
+	// StorageAlreadyAttached describes an error that occurs when
 	// a storage attachment already exists.
-	StorageAttachmentAlreadyExists = errors.ConstError("storage attachment already exists")
+	StorageAlreadyAttached = errors.ConstError("storage already attached")
 
-	// WrongStorageOwnerError describes an error that occurs when
-	// a storage owner differs from the node to which it is being attached.
-	WrongStorageOwnerError = errors.ConstError("wrong storage owner")
+	// FilesystemAlreadyAttached describes an error that occurs when
+	// a filesystem attachment already exists.
+	FilesystemAlreadyAttached = errors.ConstError("filesystem already attached")
+
+	// VolumeAlreadyAttached describes an error that occurs when
+	// a volume attachment already exists.
+	VolumeAlreadyAttached = errors.ConstError("volume already attached")
 
 	// StorageNotAlive describes an error that occurs when
 	// a storage is not alive.
