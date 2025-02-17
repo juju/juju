@@ -56,6 +56,7 @@ const (
 	GlobalSettingsC   = globalSettingsC
 	SettingsC         = settingsC
 	UnitsC            = unitsC
+	VirtualHostKeysC  = virtualHostKeysC
 )
 
 var (
@@ -1270,4 +1271,31 @@ func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
 		actionIDs[i] = doc.ActionID
 	}
 	return actionIDs, nil
+}
+
+func AddVirtualHostKey(c *gc.C, st *State, docID string, key []byte) *VirtualHostKey {
+	doc := virtualHostKeyDoc{
+		DocId:   st.docID(docID),
+		HostKey: key,
+	}
+	op := []txn.Op{{
+		C:      virtualHostKeysC,
+		Id:     docID,
+		Insert: &doc,
+	}}
+	err := st.db().RunTransaction(op)
+	c.Assert(err, gc.IsNil)
+	return &VirtualHostKey{
+		st:  st,
+		doc: doc,
+	}
+}
+func RemoveVirtualHostKey(c *gc.C, st *State, key *VirtualHostKey) {
+	op := []txn.Op{{
+		C:      virtualHostKeysC,
+		Id:     key.doc.DocId,
+		Remove: true,
+	}}
+	err := st.db().RunTransaction(op)
+	c.Assert(err, gc.IsNil)
 }

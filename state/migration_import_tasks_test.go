@@ -752,3 +752,54 @@ func (s *MigrationImportTasksSuite) firewallRule(ctrl *gomock.Controller, id, se
 	entity.EXPECT().WhitelistCIDRs().Return(whitelist)
 	return entity
 }
+
+func (s *MigrationImportTasksSuite) virtualHostKey(ctrl *gomock.Controller, id string, key []byte) *MockVirtualHostKey {
+	entity := NewMockVirtualHostKey(ctrl)
+	entity.EXPECT().ID().Return(id)
+	entity.EXPECT().HostKey().Return(key)
+	return entity
+}
+
+func (s *MigrationImportTasksSuite) TestImportVirtualHostKeys(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entity0 := s.virtualHostKey(ctrl, "id-1", []byte("foo"))
+	entity1 := s.virtualHostKey(ctrl, "id-2", []byte("bar"))
+
+	entities := []description.VirtualHostKey{
+		entity0,
+		entity1,
+	}
+
+	model := NewMockVirtualHostKeysInput(ctrl)
+	model.EXPECT().VirtualHostKeys().Return(entities)
+	model.EXPECT().DocID("id-1").Return("model-uuid:id-1")
+	model.EXPECT().DocID("id-2").Return("model-uuid:id-2")
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{
+		{
+			C:      virtualHostKeysC,
+			Id:     "model-uuid:id-1",
+			Assert: txn.DocMissing,
+			Insert: virtualHostKeyDoc{
+				DocId:   "model-uuid:id-1",
+				HostKey: []byte("foo"),
+			},
+		},
+		{
+			C:      virtualHostKeysC,
+			Id:     "model-uuid:id-2",
+			Assert: txn.DocMissing,
+			Insert: virtualHostKeyDoc{
+				DocId:   "model-uuid:id-2",
+				HostKey: []byte("bar"),
+			},
+		},
+	}).Return(nil)
+
+	m := ImportVirtualHostKeys{}
+	err := m.Execute(model, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}

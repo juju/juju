@@ -849,3 +849,45 @@ func (ImportRemoteSecrets) Execute(src RemoteSecretsInput, runner TransactionRun
 	}
 	return nil
 }
+
+// VirtualHostKeysDescription defines an in-place usage for reading virtual host keys.
+type VirtualHostKeysDescription interface {
+	VirtualHostKeys() []description.VirtualHostKey
+}
+
+// VirtualHostKeysInput describes the input used for migrating virtual host keys info.
+type VirtualHostKeysInput interface {
+	DocModelNamespace
+	VirtualHostKeysDescription
+}
+
+// ImportVirtualHostKeys describes a way to import
+// virtual host keys from a description.
+type ImportVirtualHostKeys struct{}
+
+// Execute the import on the virtual host keys description.
+func (ImportVirtualHostKeys) Execute(src VirtualHostKeysInput, runner TransactionRunner) error {
+	allVirtualHostKeys := src.VirtualHostKeys()
+	if len(allVirtualHostKeys) == 0 {
+		return nil
+	}
+
+	var ops []txn.Op
+	for _, info := range allVirtualHostKeys {
+		docID := src.DocID(info.ID())
+		ops = append(ops, txn.Op{
+			C:      virtualHostKeysC,
+			Id:     docID,
+			Assert: txn.DocMissing,
+			Insert: virtualHostKeyDoc{
+				DocId:   docID,
+				HostKey: info.HostKey(),
+			},
+		})
+	}
+
+	if err := runner.RunTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}

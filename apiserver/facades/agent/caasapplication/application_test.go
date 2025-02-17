@@ -170,6 +170,7 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 
 	mc := jc.NewMultiChecker()
 	mc.AddExpr("_.AddUnitParams.PasswordHash", gc.Not(gc.IsNil))
+	mc.AddExpr("_.AddUnitParams.VirtualHostKey", gc.Not(gc.HasLen), 0)
 	c.Assert(s.st.app.Calls()[3].Args[0], mc, state.UpsertCAASUnitParams{
 		AddUnitParams: state.AddUnitParams{
 			ProviderId: strPtr("gitlab-0"),

@@ -106,3 +106,22 @@ func (st *State) virtualHostKey(id string) (*VirtualHostKey, error) {
 		doc: doc,
 	}, nil
 }
+
+type virtualHostKeyDocSlice []virtualHostKeyDoc
+
+func (st *State) AllVirtualHostKeys() ([]*VirtualHostKey, error) {
+	vhkDocs := virtualHostKeyDocSlice{}
+	virtualHostKeysCollection, closer := st.db().GetCollection(virtualHostKeysC)
+	defer closer()
+
+	err := virtualHostKeysCollection.Find(nil).All(&vhkDocs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting all virtual host keys")
+	}
+	virtualHostKeys := make([]*VirtualHostKey, len(vhkDocs))
+	for i, doc := range vhkDocs {
+		virtualHostKeys[i] = &VirtualHostKey{st: st, doc: doc}
+	}
+
+	return virtualHostKeys, nil
+}

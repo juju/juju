@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/virtualhostkeys"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -3526,6 +3527,24 @@ func (s *MigrationImportSuite) TestApplicationWithProvisioningState(c *gc.C) {
 		Scaling:     true,
 		ScaleTarget: 1,
 	})
+}
+
+func (s *MigrationImportSuite) TestVirtualHostKeys(c *gc.C) {
+	machineLookup := virtualhostkeys.MachineHostKeyID("0")
+
+	// Add a virtual host key
+	virtualHostKey := state.AddVirtualHostKey(c, s.State, machineLookup.ID, []byte("foo"))
+
+	allVirtualHostKeys, err := s.State.AllVirtualHostKeys()
+	c.Assert(err, gc.IsNil)
+	c.Assert(allVirtualHostKeys, gc.HasLen, 1)
+
+	_, newSt := s.importModel(c, s.State)
+
+	newVirtualHostKey, err := newSt.MachineVirtualHostKey(machineLookup)
+	c.Assert(err, gc.IsNil)
+	c.Assert(newVirtualHostKey.HostKey(), gc.DeepEquals, virtualHostKey.HostKey())
+
 }
 
 // newModel replaces the uuid and name of the config attributes so we

@@ -191,3 +191,23 @@ func (s *VirtualHostKeysSuite) TestIAASUnitWithPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
 }
+
+// TestMissingHostKeyDoesNotBlock verifies that removing
+// a machine that does not have a host key won't fail.
+func (s *VirtualHostKeysSuite) TestMissingHostKeyDoesNotBlock(c *gc.C) {
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	lookupID := virtualhostkeys.MachineHostKeyID(machine.Id())
+	key, err := s.State.MachineVirtualHostKey(lookupID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.RemoveVirtualHostKey(c, s.State, key)
+	_, err = s.State.MachineVirtualHostKey(lookupID)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+}
