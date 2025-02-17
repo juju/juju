@@ -92,9 +92,6 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 	}
 
 	return common.NewCleanupWorker(w, func() {
-		if err := sysState.Close(); err != nil {
-			config.Logger.Errorf("failed to close system state %v", err)
-		}
 		_ = stTracker.Done()
 	}), nil
 }

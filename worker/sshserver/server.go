@@ -8,7 +8,9 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
+	"strconv"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
@@ -50,10 +52,19 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Test
+	min := int64(2000)
+	max := int64(17001)
+	delta := max - min
+	n, err := rand.Int(rand.Reader, big.NewInt(delta))
+	if err != nil {
+		panic(err)
+	}
+	randomNum := n.Int64() + min
 
 	s := &ServerWorker{config: config}
 	s.Server = &ssh.Server{
-		Addr: ":2223",
+		Addr: ":" + strconv.Itoa(int(randomNum)),
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 			return true
 		},
