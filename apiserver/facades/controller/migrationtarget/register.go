@@ -27,6 +27,13 @@ func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(regis
 		registry.MustRegister("MigrationTarget", 3, func(ctx facade.Context) (facade.Facade, error) {
 			return newFacade(ctx, requiredMigrationFacadeVersions)
 		}, reflect.TypeOf((*API)(nil)))
+		// The facade is bumped to version 4 due to a bug in exported charm
+		// data, aside from the fix there are no other changes, but subsequent
+		// major versions of Juju should not use previous versions of the
+		// facade that may contain the bug.
+		registry.MustRegister("MigrationTarget", 4, func(ctx facade.Context) (facade.Facade, error) {
+			return newFacade(ctx, requiredMigrationFacadeVersions)
+		}, reflect.TypeOf((*API)(nil)))
 	}
 }
 
