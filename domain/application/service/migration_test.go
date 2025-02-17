@@ -512,7 +512,12 @@ func (s *migrationServiceSuite) TestRemoveImportedApplication(c *gc.C) {
 func (s *migrationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
-	s.service = NewMigrationService(s.state, s.storageRegistryGetter, s.clock, loggertesting.WrapCheckLog(c))
+	s.service = NewMigrationService(
+		s.state,
+		s.storageRegistryGetter,
+		s.clock,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	return ctrl
 }

@@ -22,6 +22,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/os/ostype"
@@ -61,9 +62,10 @@ var (
 
 // Service provides the API for working with applications.
 type Service struct {
-	st     State
-	logger logger.Logger
-	clock  clock.Clock
+	st            State
+	leaderEnsurer leadership.Ensurer
+	logger        logger.Logger
+	clock         clock.Clock
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	charmStore            CharmStore
@@ -72,6 +74,7 @@ type Service struct {
 // NewService returns a new service reference wrapping the input state.
 func NewService(
 	st State,
+	leaderEnsurer leadership.Ensurer,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	charmStore CharmStore,
 	clock clock.Clock,
@@ -79,6 +82,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		st:                    st,
+		leaderEnsurer:         leaderEnsurer,
 		logger:                logger,
 		clock:                 clock,
 		storageRegistryGetter: storageRegistryGetter,
@@ -114,6 +118,7 @@ type ProviderService struct {
 // NewProviderService returns a new Service for interacting with a models state.
 func NewProviderService(
 	st State,
+	leaderEnsurer leadership.Ensurer,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
@@ -125,6 +130,7 @@ func NewProviderService(
 	return &ProviderService{
 		Service: NewService(
 			st,
+			leaderEnsurer,
 			storageRegistryGetter,
 			charmStore,
 			clock,
@@ -226,6 +232,7 @@ type WatchableService struct {
 // NewWatchableService returns a new service reference wrapping the input state.
 func NewWatchableService(
 	st State,
+	leaderEnsurer leadership.Ensurer,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	modelID coremodel.UUID,
 	watcherFactory WatcherFactory,
@@ -238,6 +245,7 @@ func NewWatchableService(
 	return &WatchableService{
 		ProviderService: NewProviderService(
 			st,
+			leaderEnsurer,
 			storageRegistryGetter,
 			modelID,
 			agentVersionGetter,

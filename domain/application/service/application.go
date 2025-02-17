@@ -162,6 +162,11 @@ type ApplicationState interface {
 	// unit doesn't exist.
 	GetApplicationIDByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.ID, error)
 
+	// GetApplicationIDAndNameByUnitName returns the application ID and name for
+	// the named unit, returning an error satisfying
+	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	GetApplicationIDAndNameByUnitName(ctx context.Context, name coreunit.Name) (coreapplication.ID, string, error)
+
 	// GetCharmModifiedVersion looks up the charm modified version of the given
 	// application. Returns [applicationerrors.ApplicationNotFound] if the
 	// application is not found.
@@ -1559,6 +1564,40 @@ func (s *Service) SetApplicationStatus(
 	}
 
 	return s.st.SetApplicationStatus(ctx, applicationID, encodedStatus)
+}
+
+// SetApplicationStatusForUnitLeader sets the application status using the
+// leader unit of the application. If the application has no leader unit, or
+// the is not the leader unit of the application, an error satisfying
+// [applicationerrors.UnitNotLeader] is returned. If the unit is not found, an
+// error satisfying [applicationerrors.UnitNotFound] is returned.
+func (s *Service) SetApplicationStatusForUnitLeader(
+	ctx context.Context,
+	unitName coreunit.Name,
+	status *corestatus.StatusInfo,
+) error {
+	if err := unitName.Validate(); err != nil {
+		return internalerrors.Errorf("unit name: %w", err)
+	}
+
+	// This will implicitly verify that the status is valid.
+	encodedStatus, err := encodeWorkloadStatus(status)
+	if err != nil {
+		return internalerrors.Errorf("encoding workload status: %w", err)
+	}
+
+	// This returns the UnitNotFound if we can't find the application. This
+	// is because we're doing a reverse lookup from the unit to the application.
+	// We can't return the application not found, as we're not looking up the
+	// application directly.
+	appID, appName, err := s.st.GetApplicationIDAndNameByUnitName(ctx, unitName)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
+		return s.st.SetApplicationStatus(ctx, appID, encodedStatus)
+	})
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (bool, error) {

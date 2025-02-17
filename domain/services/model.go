@@ -182,6 +182,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 
 	return applicationservice.NewWatchableService(
 		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
+		domain.NewLeaseService(s.leaseManager),
 		s.storageRegistry,
 		s.modelUUID,
 		s.modelWatcherFactory("application"),

@@ -30,6 +30,12 @@ type applicationID struct {
 	ID coreapplication.ID `db:"uuid"`
 }
 
+// applicationIDAndName is used to get the ID and name of an application.
+type applicationIDAndName struct {
+	ID   coreapplication.ID `db:"uuid"`
+	Name string             `db:"name"`
+}
+
 // applicationIDAndLife is used to get the ID and life of an application.
 type applicationIDAndLife struct {
 	ID     coreapplication.ID `db:"uuid"`
@@ -104,12 +110,6 @@ type unitPassword struct {
 	UnitUUID                coreunit.UUID `db:"uuid"`
 	PasswordHash            string        `db:"password_hash"`
 	PasswordHashAlgorithmID int           `db:"password_hash_algorithm_id"`
-}
-
-// unitNameAndUUID store the name & uuid of a unit
-type unitNameAndUUID struct {
-	UnitUUID coreunit.UUID `db:"uuid"`
-	Name     coreunit.Name `db:"name"`
 }
 
 type unitUUIDs []coreunit.UUID

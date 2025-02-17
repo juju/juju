@@ -18,7 +18,8 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
-	domaintesting "github.com/juju/juju/domain/schema/testing"
+	schematesting "github.com/juju/juju/domain/schema/testing"
+	domaintesting "github.com/juju/juju/domain/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -26,7 +27,7 @@ import (
 )
 
 type charmSuite struct {
-	domaintesting.ModelSuite
+	schematesting.ModelSuite
 }
 
 var _ = gc.Suite(&charmSuite{})
@@ -119,6 +120,7 @@ func (s *charmSuite) setupService(c *gc.C) *service.Service {
 
 	return service.NewService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
+		domaintesting.NoopLeaderEnsurer(),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),

@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -1449,6 +1450,95 @@ func (s *applicationServiceSuite) TestSetApplicationStatusInvalidStatus(c *gc.C)
 	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "allocating"`)
 }
 
+func (s *applicationServiceSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	unitName := coreunit.Name("foo/666")
+
+	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
+			return fn(ctx)
+		})
+
+	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
+	s.state.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "doink",
+		Data:    []byte(`{"foo":"bar"}`),
+		Since:   &now,
+	})
+
+	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	unitName := coreunit.Name("foo/666")
+
+	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
+			return jujuerrors.NotValidf("not leader")
+		})
+
+	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
+
+	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationStatusForUnitLeaderInvalidUnitName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	unitName := coreunit.Name("!!!!")
+	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	unitName := coreunit.Name("foo/666")
+
+	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).
+		Return(applicationUUID, "foo", applicationerrors.UnitNotFound)
+
+	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -2261,6 +2351,7 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 	s.clock = testclock.NewClock(time.Time{})
 	s.service = NewWatchableService(
 		s.state,
+		domaintesting.NoopLeaderEnsurer(),
 		registry,
 		modelUUID,
 		s.watcherFactory,
