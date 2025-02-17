@@ -58,6 +58,7 @@ CREATE TABLE application_scale (
 
 CREATE TABLE application_exposed_endpoint_space (
     application_uuid TEXT NOT NULL,
+    -- NULL relation_endpoint_uuid represents the wildcard endpoint.
     relation_endpoint_uuid TEXT,
     space_uuid TEXT NOT NULL,
     CONSTRAINT fk_application_exposed_endpoint_space_application
@@ -75,6 +76,7 @@ CREATE TABLE application_exposed_endpoint_space (
 -- There is no FK against the CIDR, because it's currently free-form.
 CREATE TABLE application_exposed_endpoint_cidr (
     application_uuid TEXT NOT NULL,
+    -- NULL relation_endpoint_uuid represents the wildcard endpoint.
     relation_endpoint_uuid TEXT,
     cidr TEXT NOT NULL,
     CONSTRAINT fk_application_exposed_endpoint_cidr_application
