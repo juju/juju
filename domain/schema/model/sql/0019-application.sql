@@ -56,26 +56,48 @@ CREATE TABLE application_scale (
     REFERENCES application (uuid)
 );
 
-CREATE TABLE application_endpoint_space (
+CREATE TABLE application_exposed_endpoint_space (
     application_uuid TEXT NOT NULL,
-    space_uuid TEXT,
-    CONSTRAINT fk_application_endpoint_space_application
+    -- NULL relation_endpoint_uuid represents the wildcard endpoint.
+    relation_endpoint_uuid TEXT,
+    space_uuid TEXT NOT NULL,
+    CONSTRAINT fk_application_exposed_endpoint_space_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),
-    CONSTRAINT fk_application_endpoint_space_space
+    CONSTRAINT fk_application_exposed_endpoint_space_relation
+    FOREIGN KEY (relation_endpoint_uuid)
+    REFERENCES relation_endpoint (uuid),
+    CONSTRAINT fk_application_exposed_endpoint_space_space
     FOREIGN KEY (space_uuid)
     REFERENCES space (uuid),
-    PRIMARY KEY (application_uuid, space_uuid)
+    PRIMARY KEY (application_uuid, relation_endpoint_uuid, space_uuid)
 );
 
-CREATE TABLE application_endpoint_cidr (
+-- There is no FK against the CIDR, because it's currently free-form.
+CREATE TABLE application_exposed_endpoint_cidr (
     application_uuid TEXT NOT NULL,
-    cidr TEXT,
-    CONSTRAINT fk_application_endpoint_cidr_application
+    -- NULL relation_endpoint_uuid represents the wildcard endpoint.
+    relation_endpoint_uuid TEXT,
+    cidr TEXT NOT NULL,
+    CONSTRAINT fk_application_exposed_endpoint_cidr_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),
-    PRIMARY KEY (application_uuid, cidr)
+    CONSTRAINT fk_application_exposed_endpoint_cidr_relation
+    FOREIGN KEY (relation_endpoint_uuid)
+    REFERENCES relation_endpoint (uuid),
+    PRIMARY KEY (application_uuid, relation_endpoint_uuid, cidr)
 );
+
+CREATE VIEW v_application_exposed_endpoint AS
+SELECT
+    aes.application_uuid,
+    aes.relation_endpoint_uuid
+FROM application_exposed_endpoint_space AS aes
+UNION
+SELECT
+    aec.application_uuid,
+    aec.relation_endpoint_uuid
+FROM application_exposed_endpoint_cidr AS aec;
 
 CREATE TABLE application_config_hash (
     application_uuid TEXT NOT NULL PRIMARY KEY,

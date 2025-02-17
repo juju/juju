@@ -381,8 +381,8 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		"application_config_hash",
 		"application_constraint",
 		"application_setting",
-		"application_endpoint_space",
-		"application_endpoint_cidr",
+		"application_exposed_endpoint_space",
+		"application_exposed_endpoint_cidr",
 		"application_storage_directive",
 	} {
 		deleteApplicationReference := fmt.Sprintf(`DELETE FROM %s WHERE application_uuid = $applicationID.uuid`, table)
