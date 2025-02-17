@@ -1,6 +1,7 @@
 import ast
 import datetime
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -314,10 +315,74 @@ latex_elements = ast.literal_eval(latex_config.replace("$PROJECT", project))
 # Auto-generation of documentation
 ##################################
 
+def _major_minor_from_version_string(version):
+    """Get a tuple of version from a juju version string.
+
+    Note that release of juju use Major.Minor.Patch (eg, 3.6.0) but releases will use Major.Minor-betaBeta.
+    This returns a tuple of either (3,6,0) or (3, 6, 'beta5').
+    If neither can be found, this returns None
+    """
+    version_re = re.compile('(?P<major>\d+)\.(?P<minor>\d+)(\.(?P<patch>\d+)|-(?P<beta>beta\d+))(-.*)?')
+    m = version_re.match(version)
+    if m is None:
+        return None
+    return (int(m['major']), int(m['minor']))
+
+
+def _extract_version_from_version_go(version_file):
+    """Extract the version string from a juju version.go file"""
+    # Note that this assumes Major and Minor are integers, but patch might be an integer or something like beta5.
+    version_re = re.compile('const version = "(?P<version>[^"]*)"')
+    for line in version_file:
+        m = version_re.match(line)
+        if m is None:
+            continue
+        version = m['version']
+        return _major_minor_from_version_string(version), version
+    return None, None
+
+
+def get_tree_juju_version():
+    """Read the version of juju as reported by the juju branch that we're building."""
+    try:
+        # This is the location in Juju 3.6
+        with open('../version/version.go', 'rt') as version_file:
+            major_minor, version = _extract_version_from_version_go(version_file)
+    except FileNotFoundError:
+        # This is the location in Juju 4.0
+        with open('../core/version/version.go', 'rt') as version_file:
+            major_minor, version = _extract_version_from_version_go(version_file)
+    if major_minor is None:
+        raise RuntimeError("could not determine the version of Juju for this directory")
+    return major_minor, version
+
+
+def get_juju_version():
+    """Check to see what version of Juju we are running."""
+    # There is probably more that could be done here about all the possible
+    # version strings juju spits out, but this should cover stripping things
+    # like 'genericlinux' and the architecture out.
+    result = subprocess.run(['juju', 'version'], capture_output=True, text=True)
+    version = result.stdout.rstrip()
+    major_minor = _major_minor_from_version_string(version)
+    if major_minor is None:
+        raise RuntimeError('could not determine version from `juju version`: {}'.format(version))
+    return major_minor, version
+
+
 def generate_cli_docs():
     cli_dir = "user/reference/juju-cli/"
     generated_cli_docs_dir = cli_dir + "list-of-juju-cli-commands/"
     cli_index_header = cli_dir + 'cli_index'
+
+    tree_major_minor, tree_version = get_tree_juju_version()
+    juju_major_minor, juju_version = get_juju_version()
+    if tree_major_minor != juju_major_minor:
+        warning = "refusing to rebuild docs with a mismatched minor juju version. Found juju {} in $PATH, but the tree reports version {}".format(juju_version, tree_version)
+        print(warning)
+        raise RuntimeError(warning)
+    else:
+        print("generating cli command docs using juju version found in path: {} for tree version {}".format(juju_version, tree_version))
 
     # Remove existing cli folder to regenerate it
     if os.path.exists(generated_cli_docs_dir):
@@ -343,9 +408,6 @@ def generate_cli_docs():
     # Add in the index file containing the command list.
     subprocess.run(['cp', cli_index_header, generated_cli_docs_dir + 'index.md'])
 
-
-    result = subprocess.run(['juju', 'version'], capture_output=True, text=True)
-    print("generated cli command docs using juju version found in path: " + result.stdout.rstrip())
 
 def generate_controller_config_docs():
     config_reference_dir = 'user/reference/configuration/'
