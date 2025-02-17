@@ -122,7 +122,25 @@ func ModelDDL() *schema.Schema {
 
 	// Generic triggers.
 	patches = append(patches,
-		triggersForImmutableTable("model", "", "model table is immutable"),
+		triggersForImmutableTable("model", "", "model table is immutable, only insertions are allowed"),
+
+		// The charm is unmodifiable.
+		// There is a lot of assumptions in the code that the charm is immutable
+		// from modification. This is a safety net to ensure that the charm is
+		// not modified.
+		triggersForUnmodifiableTable("charm_action", "charm_action table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_config", "charm_config table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_container_mount", "charm_container_mount table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_container", "charm_container table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_device", "charm_device table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_extra_binding", "charm_extra_binding table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_hash", "charm_hash table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_manifest_base", "charm_manifest base table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_metadata", "charm_metadata table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_relation", "charm_relation table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_resource", "charm_resource table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_storage", "charm_storage table is unmodifiable, only insertions and deletions are allowed"),
+		triggersForUnmodifiableTable("charm_term", "charm_term table is unmodifiable, only insertions and deletions are allowed"),
 
 		// Secret permissions do not allow subject or scope to be updated.
 		triggerGuardForTable("secret_permission",
