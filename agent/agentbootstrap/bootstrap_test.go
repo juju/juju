@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/virtualhostkeys"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -310,6 +311,12 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		SharedSecret:   "abc123",
 		SystemIdentity: "def456",
 	})
+
+	// Check that the machine has a virtual host key.
+	lookupID := virtualhostkeys.MachineHostKeyID(m.Id())
+	key, err := st.MachineVirtualHostKey(lookupID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
 
 	// Check the initial storage pool.
 	pm := poolmanager.New(state.NewStateSettings(st), registry)

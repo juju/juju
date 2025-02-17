@@ -58,7 +58,7 @@ func MarshalPrivateKey(privateKey crypto.PrivateKey) ([]byte, error) {
 }
 
 func UnmarshalPrivateKey(data []byte) (crypto.PrivateKey, error) {
-	privateKey, err := gossh.ParsePrivateKey(data)
+	privateKey, err := gossh.ParseRawPrivateKey(data)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to unmarshal private key")
 	}

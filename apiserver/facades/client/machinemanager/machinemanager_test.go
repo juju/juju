@@ -4,6 +4,7 @@
 package machinemanager_test
 
 import (
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -115,6 +117,39 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+// machineTemplateMatcher is a custom matcher
+// for machine templates in Go mock tests.
+// We verify all fields matches except for the
+// VirtualHostKey which is dynamically generated.
+type machineTemplateMatcher struct {
+	expected state.MachineTemplate
+}
+
+func (m machineTemplateMatcher) Matches(x interface{}) bool {
+	mt, ok := x.(state.MachineTemplate)
+	if !ok {
+		return false
+	}
+
+	// Verify the VirtualHostKey is non-empty.
+	if len(mt.VirtualHostKey) == 0 {
+		return false
+	}
+
+	// Create copies to compare all fields except VirtualHostKey
+	expectedCopy := m.expected
+	actualCopy := mt
+
+	expectedCopy.VirtualHostKey = nil
+	actualCopy.VirtualHostKey = nil
+
+	return reflect.DeepEqual(expectedCopy, actualCopy)
+}
+
+func (m machineTemplateMatcher) String() string {
+	return pretty.Sprint(m.expected)
+}
+
 func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -128,7 +163,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
 	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
 
-	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
+	s.st.EXPECT().AddOneMachine(machineTemplateMatcher{state.MachineTemplate{
 		Base: state.UbuntuBase("22.04"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
@@ -145,8 +180,8 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
 			},
 		},
-	}).Return(&state.Machine{}, nil)
-	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
+	}}).Return(&state.Machine{}, nil)
+	s.st.EXPECT().AddOneMachine(machineTemplateMatcher{state.MachineTemplate{
 		Base: state.UbuntuBase("22.04"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
@@ -159,7 +194,7 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 				Attachment: state.VolumeAttachmentParams{ReadOnly: false},
 			},
 		},
-	}).Return(&state.Machine{}, nil)
+	}}).Return(&state.Machine{}, nil)
 
 	machines, err := s.api.AddMachines(params.AddMachines{MachineParams: apiParams})
 	c.Assert(err, jc.ErrorIsNil)

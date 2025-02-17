@@ -5,6 +5,7 @@ package ssh_test
 
 import (
 	"crypto"
+	"crypto/ed25519"
 
 	jc "github.com/juju/testing/checkers"
 	gossh "golang.org/x/crypto/ssh"
@@ -55,7 +56,25 @@ func (s *KeySuite) TestGenerateHostKeys(c *gc.C) {
 	}
 }
 
-func (s *KeySuite) TestGenerateED25519KeyString(c *gc.C) {
+func (s *KeySuite) TestKeyMarshalling(c *gc.C) {
+	privateKey, err := ssh.ED25519()
+	c.Assert(err, gc.IsNil)
+
+	want, ok := privateKey.(ed25519.PrivateKey)
+	c.Assert(ok, gc.Equals, true)
+
+	data, err := ssh.MarshalPrivateKey(privateKey)
+	c.Assert(err, gc.IsNil)
+
+	unmarshalledKey, err := ssh.UnmarshalPrivateKey(data)
+	c.Assert(err, gc.IsNil)
+	got, ok := unmarshalledKey.(*ed25519.PrivateKey)
+	c.Assert(ok, gc.Equals, true)
+
+	c.Assert(want, gc.DeepEquals, *got)
+}
+
+func (s *KeySuite) TestGenerateMarshalledED25519Key(c *gc.C) {
 	keyStr, err := ssh.NewMarshalledED25519()
 	c.Assert(err, gc.IsNil)
 

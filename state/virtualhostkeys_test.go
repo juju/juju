@@ -40,6 +40,9 @@ func (s *VirtualHostKeysSuite) TestMachineVirtualHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
+// TestCAASUnitVirtualHostKey copies setup from
+// `(s *CAASApplicationSuite) TestUpsertCAASUnit`
+// to verify CAAS unit host keys are created.
 func (s *VirtualHostKeysSuite) TestCAASUnitVirtualHostKey(c *gc.C) {
 	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { _ = caasSt.Close() })
@@ -166,4 +169,25 @@ func (s *VirtualHostKeysSuite) TestIAASUnitVirtualHostKeyDoesNotExist(c *gc.C) {
 
 	_, err = s.State.UnitVirtualHostKey(virtualhostkeys.UnitHostKeyID(unit.Name()))
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *VirtualHostKeysSuite) TestIAASUnitWithPlacement(c *gc.C) {
+	ch := state.AddTestingCharmForSeries(c, s.State, "quantal", "wordpress")
+	app := s.AddTestingApplication(c, "wordpress", ch)
+	u, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	id, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	lookupID := virtualhostkeys.MachineHostKeyID(m.Id())
+	key, err := s.State.MachineVirtualHostKey(lookupID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
 }
