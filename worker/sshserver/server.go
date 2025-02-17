@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
@@ -78,9 +79,28 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	// Set hostkey
 	s.Server.AddHostKey(signer)
 
+	if s.config.Listener == nil {
+		listener, err := net.Listen("tcp", ":2229")
+		if err != nil {
+			return nil, err
+		}
+		s.config.Listener = listener
+	}
+	listener := newSyncListener(s.config.Listener)
+
+	// Start server
+	s.tomb.Go(func() error {
+		err := s.Server.Serve(listener)
+		if errors.Is(err, ssh.ErrServerClosed) {
+			return nil
+		}
+		return err
+	})
+
 	// Handle server cleanup
 	s.tomb.Go(func() error {
 		<-s.tomb.Dying()
+		<-listener.ready
 		if err := s.Server.Close(); err != nil {
 			// There's really not a lot we can do if the shutdown fails,
 			// either due to a timeout or another reason. So we simply log it.
@@ -88,20 +108,6 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 			return err
 		}
 		return nil
-	})
-
-	// Start server
-	s.tomb.Go(func() error {
-		var err error
-		if s.config.Listener != nil {
-			err = s.Server.Serve(s.config.Listener)
-		} else {
-			err = s.Server.ListenAndServe()
-		}
-		if errors.Is(err, ssh.ErrServerClosed) {
-			return nil
-		}
-		return err
 	})
 
 	return s, nil
@@ -206,4 +212,37 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 
 	server.AddHostKey(signer)
 	server.HandleConn(terminatingServerPipe)
+}
+
+// syncListener is a test to verify whether
+// the SSH server is failing due to a race conditon.
+// The SSH server tracks the listeners in use
+// but if the server's close() method executes
+// before we reach a safe point in the Serve() method
+// then the server's map of listeners will be empty.
+// A safe point to indicate the server is ready is
+// right before we start accepting connections.
+// Accept() will return with error if the underlying
+// listener is already closed.
+type syncListener struct {
+	net.Listener
+	// ready indicates when the server has reached
+	// a safe point that it can be killed.
+	ready chan struct{}
+	once  *sync.Once
+}
+
+func newSyncListener(l net.Listener) syncListener {
+	return syncListener{
+		Listener: l,
+		ready:    make(chan struct{}),
+		once:     &sync.Once{},
+	}
+}
+
+func (l syncListener) Accept() (net.Conn, error) {
+	l.once.Do(func() {
+		close(l.ready)
+	})
+	return l.Listener.Accept()
 }
