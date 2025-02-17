@@ -62,7 +62,7 @@ feat(api): add user authentication feature
 # "add user authentication feature" summarizes the change concisely
 
 This commit adds user authentication to the API. Users can now sign up,
-log in, and log out. Passwords are hashed using bcrypt. Token-based 
+log in, and log out. Passwords are hashed using bcrypt. Token-based
 authentication is implemented using JWT.
 
 # body: Detailed explanation of the change
