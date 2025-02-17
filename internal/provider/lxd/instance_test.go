@@ -21,6 +21,9 @@ type instanceSuite struct {
 var _ = gc.Suite(&instanceSuite{})
 
 func (s *instanceSuite) TestNewInstance(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
 	inst := lxd.NewInstance(s.Container, s.Env)
 
 	c.Check(lxd.ExposeInstContainer(inst), gc.Equals, s.Container)
@@ -29,6 +32,9 @@ func (s *instanceSuite) TestNewInstance(c *gc.C) {
 }
 
 func (s *instanceSuite) TestID(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
 	id := s.Instance.Id()
 
 	c.Check(id, gc.Equals, instance.Id("spam"))
@@ -36,6 +42,9 @@ func (s *instanceSuite) TestID(c *gc.C) {
 }
 
 func (s *instanceSuite) TestStatus(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
 	instanceStatus := s.Instance.Status(envcontext.WithoutCredentialInvalidator(context.Background()))
 
 	c.Check(instanceStatus.Message, gc.Equals, "Running")
@@ -43,6 +52,9 @@ func (s *instanceSuite) TestStatus(c *gc.C) {
 }
 
 func (s *instanceSuite) TestAddresses(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
 	addresses, err := s.Instance.Addresses(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 

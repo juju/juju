@@ -122,7 +122,9 @@ func (s *environPolicySuite) TestConstraintsValidatorArchWithUnsupportedArches(c
 	s.svr = lxd.NewMockServer(ctrl)
 	s.svr.EXPECT().SupportedArches().Return([]string{arch.AMD64, arch.ARM64, "i386", "armhf", "ppc64"}).MaxTimes(1)
 
-	s.env = s.NewEnviron(c, s.svr, nil, environscloudspec.CloudSpec{})
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	s.env = s.NewEnviron(c, s.svr, nil, environscloudspec.CloudSpec{}, invalidator)
 
 	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -296,7 +298,9 @@ func (s *environPolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.svr = lxd.NewMockServer(ctrl)
 	s.svr.EXPECT().SupportedArches().Return([]string{arch.AMD64}).MaxTimes(1)
 
-	s.env = s.NewEnviron(c, s.svr, nil, environscloudspec.CloudSpec{})
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	s.env = s.NewEnviron(c, s.svr, nil, environscloudspec.CloudSpec{}, invalidator)
 
 	return ctrl
 }
