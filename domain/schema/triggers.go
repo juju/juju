@@ -42,6 +42,24 @@ CREATE TRIGGER trg_%[1]s_immutable_delete
 	}
 }
 
+// triggersForUnmodifiableTable returns a function that creates triggers to
+// prevent updates on the given table. The tableName is the name of the table to
+// create the triggers for. The errMsg is the error message that
+// will be returned if the trigger is fired.
+func triggersForUnmodifiableTable(tableName, errMsg string) func() schema.Patch {
+	return func() schema.Patch {
+		stmt := fmt.Sprintf(`
+CREATE TRIGGER trg_%[1]s_immutable_update
+    BEFORE UPDATE ON %[1]s
+    FOR EACH ROW
+    BEGIN
+        SELECT RAISE(FAIL, '%[2]s');
+    END;
+`[1:], tableName, errMsg)
+		return schema.MakePatch(stmt)
+	}
+}
+
 // triggerGuardForTable returns a function that creates triggers to prevent
 // updates on the given table when the specified condition (guard) is met. The
 // tableName is the name of the table to create the triggers for. The condition

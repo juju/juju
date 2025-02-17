@@ -450,6 +450,20 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 
 		"trg_secret_permission_guard_update",
 		"trg_sequence_charm_local_guard_update",
+
+		"trg_charm_action_immutable_update",
+		"trg_charm_config_immutable_update",
+		"trg_charm_container_immutable_update",
+		"trg_charm_container_mount_immutable_update",
+		"trg_charm_device_immutable_update",
+		"trg_charm_extra_binding_immutable_update",
+		"trg_charm_hash_immutable_update",
+		"trg_charm_manifest_base_immutable_update",
+		"trg_charm_metadata_immutable_update",
+		"trg_charm_relation_immutable_update",
+		"trg_charm_resource_immutable_update",
+		"trg_charm_storage_immutable_update",
+		"trg_charm_term_immutable_update",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")

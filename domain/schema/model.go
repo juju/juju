@@ -124,6 +124,24 @@ func ModelDDL() *schema.Schema {
 	patches = append(patches,
 		triggersForImmutableTable("model", "", "model table is immutable"),
 
+		// The charm is unmodifiable.
+		// There is a lot of assumptions in the code that the charm is immutable
+		// from modification. This is a safety net to ensure that the charm is
+		// not modified.
+		triggersForUnmodifiableTable("charm_action", "charm action table is immutable"),
+		triggersForUnmodifiableTable("charm_config", "charm config table is immutable"),
+		triggersForUnmodifiableTable("charm_container_mount", "charm container mount table is immutable"),
+		triggersForUnmodifiableTable("charm_container", "charm container table is immutable"),
+		triggersForUnmodifiableTable("charm_device", "charm device table is immutable"),
+		triggersForUnmodifiableTable("charm_extra_binding", "charm extra binding table is immutable"),
+		triggersForUnmodifiableTable("charm_hash", "charm hash table is immutable"),
+		triggersForUnmodifiableTable("charm_manifest_base", "charm manifest base table is immutable"),
+		triggersForUnmodifiableTable("charm_metadata", "charm metadata table is immutable"),
+		triggersForUnmodifiableTable("charm_relation", "charm relation table is immutable"),
+		triggersForUnmodifiableTable("charm_resource", "charm resource table is immutable"),
+		triggersForUnmodifiableTable("charm_storage", "charm storage table is immutable"),
+		triggersForUnmodifiableTable("charm_term", "charm term table is immutable"),
+
 		// Secret permissions do not allow subject or scope to be updated.
 		triggerGuardForTable("secret_permission",
 			"OLD.subject_type_id <> NEW.subject_type_id OR OLD.scope_uuid <> NEW.scope_uuid OR OLD.scope_type_id <> NEW.scope_type_id",
