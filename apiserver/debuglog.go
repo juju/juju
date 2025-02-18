@@ -140,8 +140,11 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if p.Firehose {
 				logFile = filepath.Join(h.logDir, "logsink.log")
 			} else {
-				modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
-				logFile = corelogger.ModelLogFile(h.logDir, m.UUID(), modelOwnerAndName)
+				logFile = corelogger.ModelLogFile(h.logDir, corelogger.LoggerKey{
+					ModelUUID:  m.UUID(),
+					ModelName:  m.Name(),
+					ModelOwner: m.Owner().Id(),
+				})
 				modelUUID = m.UUID()
 			}
 

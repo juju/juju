@@ -267,7 +267,7 @@ type dummyModelLogger struct {
 	corelogger.ModelLogger
 }
 
-func (dummyModelLogger) GetLogWriter(modelUUID, modelName, modelOwner string) (corelogger.LogWriterCloser, error) {
+func (dummyModelLogger) GetLogWriter(ctx context.Context, modelUUID string) (corelogger.LogWriterCloser, error) {
 	return stubLogger{}, nil
 }
 

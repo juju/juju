@@ -29,7 +29,7 @@ import (
 
 // NewModelLoggerFunc is a function that creates a new model logger.
 type NewModelLoggerFunc func(ctx context.Context,
-	modelUUID string,
+	key corelogger.LoggerKey,
 	newLogWriter corelogger.LogWriterForModelFunc,
 	bufferSize int,
 	flushInterval time.Duration,
@@ -157,6 +157,8 @@ func outputFunc(in worker.Worker, out interface{}) error {
 		*outPointer = inWorker
 	case *logger.LoggerContextGetter:
 		*outPointer = inWorker
+	case *logger.ModelLoggerInitializer:
+		*outPointer = inWorker
 	default:
 		return errors.Errorf("out should be *logger.Logger; got %T", out)
 	}
@@ -166,11 +168,13 @@ func outputFunc(in worker.Worker, out interface{}) error {
 // getLoggerForModelFunc returns a function which can be called to get a logger which can store
 // logs for a specified model.
 func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger logger.Logger, logDir string) logger.LogWriterForModelFunc {
-	return func(ctx context.Context, modelUUID string) (logger.LogWriterCloser, error) {
-		if !names.IsValidModel(modelUUID) {
+	return func(ctx context.Context, key corelogger.LoggerKey) (logger.LogWriterCloser, error) {
+		modelUUID := key.ModelUUID
+
+		if !names.IsValidModel(key.ModelUUID) {
 			return nil, errors.NotValidf("model UUID %q", modelUUID)
 		}
-		logFilename := logger.ModelLogFile(logDir, modelUUID)
+		logFilename := logger.ModelLogFile(logDir, key)
 		if err := paths.PrimeLogFile(logFilename); err != nil && !errors.Is(err, os.ErrPermission) {
 			// If we don't have permission to chown this, it means we are running rootless.
 			return nil, errors.Annotate(err, "unable to prime log file")

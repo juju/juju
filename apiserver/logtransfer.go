@@ -55,12 +55,7 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		return errors.Trace(err)
 	}
 
-	m, err := st.Model()
-	if err != nil {
-		st.Release()
-		return errors.Trace(err)
-	}
-	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(st.State.ModelUUID(), m.Name(), m.Owner().Id()); err != nil {
+	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), st.State.ModelUUID()); err != nil {
 		return errors.Trace(err)
 	}
 	s.releaser = func() error {

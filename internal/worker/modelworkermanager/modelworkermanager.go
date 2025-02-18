@@ -286,7 +286,7 @@ func (m *modelWorkerManager) ensure(cfg NewModelConfig) error {
 func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		modelUUID := cfg.ModelUUID
-		modelName := fmt.Sprintf("%q (%s)", corelogger.ModelFilePrefix(cfg.ModelOwner, cfg.ModelName), cfg.ModelUUID)
+		modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s-%s", cfg.ModelOwner, cfg.ModelName), cfg.ModelUUID)
 		m.config.Logger.Debugf(context.TODO(), "starting workers for model %s", modelName)
 
 		// Get the provider domain services for the model.

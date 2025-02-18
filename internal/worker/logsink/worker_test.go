@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -31,7 +32,24 @@ type workerSuite struct {
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestKilledGetLoggerErrDying(c *gc.C) {
+func (s *workerSuite) TestKilledInitializeLoggerErrDying(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	w.Kill()
+
+	worker := w.(*LogSink)
+	err := worker.InitializeLogger(context.Background(), logger.LoggerKey{
+		ModelUUID: "foo",
+	})
+	c.Assert(err, jc.ErrorIs, logger.ErrLoggerDying)
+}
+
+func (s *workerSuite) TestKilledGetLogger(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
@@ -43,10 +61,14 @@ func (s *workerSuite) TestKilledGetLoggerErrDying(c *gc.C) {
 
 	worker := w.(*LogSink)
 	_, err := worker.GetLogWriter(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, logger.ErrLoggerDying)
+
+	// Interestingly, this is not ErrLoggerDying, as the internal worker package
+	// does not check for the tomb dying state when getting a worker, so we
+	// end up with a NotFound error instead.
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *workerSuite) TestKilledGetLoggerContextErrDying(c *gc.C) {
+func (s *workerSuite) TestKilledGetLoggerContext(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
@@ -58,7 +80,11 @@ func (s *workerSuite) TestKilledGetLoggerContextErrDying(c *gc.C) {
 
 	worker := w.(*LogSink)
 	_, err := worker.GetLoggerContext(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, logger.ErrLoggerDying)
+
+	// Interestingly, this is not ErrLoggerDying, as the internal worker package
+	// does not check for the tomb dying state when getting a worker, so we
+	// end up with a NotFound error instead.
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *workerSuite) TestClose(c *gc.C) {
@@ -85,11 +111,58 @@ func (s *workerSuite) TestGetLogWriter(c *gc.C) {
 	s.ensureStartup(c)
 
 	worker := w.(*LogSink)
+	err := worker.InitializeLogger(context.Background(), logger.LoggerKey{
+		ModelUUID:  "foo",
+		ModelName:  "foo",
+		ModelOwner: "bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	logger, err := worker.GetLogWriter(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(logger, gc.NotNil)
 
 	workertest.CheckKill(c, w)
+}
+
+func (s *workerSuite) TestGetLogWriterNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	worker := w.(*LogSink)
+
+	_, err := worker.GetLogWriter(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+
+	workertest.CheckKill(c, w)
+}
+
+func (s *workerSuite) TestInitializeLoggerIsCached(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	worker := w.(*LogSink)
+
+	for i := 0; i < 10; i++ {
+		err := worker.InitializeLogger(context.Background(), logger.LoggerKey{
+			ModelUUID:  "foo",
+			ModelName:  "foo",
+			ModelOwner: "bar",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	workertest.CheckKill(c, w)
+
+	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
 }
 
 func (s *workerSuite) TestGetLogWriterIsCached(c *gc.C) {
@@ -101,6 +174,12 @@ func (s *workerSuite) TestGetLogWriterIsCached(c *gc.C) {
 	s.ensureStartup(c)
 
 	worker := w.(*LogSink)
+	err := worker.InitializeLogger(context.Background(), logger.LoggerKey{
+		ModelUUID:  "foo",
+		ModelName:  "foo",
+		ModelOwner: "bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 10; i++ {
 		logger, err := worker.GetLogWriter(context.Background(), "foo")
@@ -122,9 +201,32 @@ func (s *workerSuite) TestGetLoggerContext(c *gc.C) {
 	s.ensureStartup(c)
 
 	worker := w.(*LogSink)
+	err := worker.InitializeLogger(context.Background(), logger.LoggerKey{
+		ModelUUID:  "foo",
+		ModelName:  "foo",
+		ModelOwner: "bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	logger, err := worker.GetLoggerContext(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(logger, gc.NotNil)
+
+	workertest.CheckKill(c, w)
+}
+
+func (s *workerSuite) TestGetLoggerContextNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	worker := w.(*LogSink)
+
+	_, err := worker.GetLoggerContext(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	workertest.CheckKill(c, w)
 }
@@ -138,6 +240,12 @@ func (s *workerSuite) TestGetLoggerContextIsCached(c *gc.C) {
 	s.ensureStartup(c)
 
 	worker := w.(*LogSink)
+	err := worker.InitializeLogger(context.Background(), logger.LoggerKey{
+		ModelUUID:  "foo",
+		ModelName:  "foo",
+		ModelOwner: "bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 10; i++ {
 		logger, err := worker.GetLoggerContext(context.Background(), "foo")
@@ -159,6 +267,12 @@ func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *gc.
 	s.ensureStartup(c)
 
 	worker := w.(*LogSink)
+	err := worker.InitializeLogger(context.Background(), logger.LoggerKey{
+		ModelUUID:  "foo",
+		ModelName:  "foo",
+		ModelOwner: "bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// They both should use the same underlying model logger.
 
@@ -192,11 +306,11 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(Config{
 		LogSinkConfig: DefaultLogSinkConfig(),
-		NewModelLogger: func(ctx context.Context, modelUUID string, newLogWriter logger.LogWriterForModelFunc, bufferSize int, flushInterval time.Duration, clock clock.Clock) (worker.Worker, error) {
+		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, newLogWriter logger.LogWriterForModelFunc, bufferSize int, flushInterval time.Duration, clock clock.Clock) (worker.Worker, error) {
 			atomic.AddInt64(&s.called, 1)
 			return newLoggerWorker(), nil
 		},
-		LogWriterForModelFunc: func(ctx context.Context, modelUUID string) (logger.LogWriterCloser, error) {
+		LogWriterForModelFunc: func(ctx context.Context, key logger.LoggerKey) (logger.LogWriterCloser, error) {
 			return s.logWriter, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),

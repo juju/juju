@@ -117,10 +117,14 @@ func (s *LoggersSuite) TestLoggerConfigureLoggers(c *gc.C) {
 func (s *LoggersSuite) newModelLogger(c *gc.C) *modelLogger {
 	s.modelUUID = uuid.MustNewUUID().String()
 
-	fn := func(ctx context.Context, modelUUID string) (corelogger.LogWriterCloser, error) {
+	fn := func(ctx context.Context, key corelogger.LoggerKey) (corelogger.LogWriterCloser, error) {
 		return s.logWriter, nil
 	}
-	w, err := NewModelLogger(context.Background(), s.modelUUID, fn, 10, time.Second, clock.WallClock)
+	w, err := NewModelLogger(context.Background(), corelogger.LoggerKey{
+		ModelUUID:  s.modelUUID,
+		ModelName:  "foo",
+		ModelOwner: "bar",
+	}, fn, 10, time.Second, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return w.(*modelLogger)
