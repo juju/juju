@@ -90,8 +90,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
 
 	modelUUID := modeltesting.GenModelUUID(c)
 	modelFn := modelbootstrap.CreateGlobalModelRecord(modelUUID, domainmodel.GlobalModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        cloudName,
+		Cloud: cloudName,
 		Credential: credential.Key{
 			Cloud: cloudName,
 			Name:  credentialName,
@@ -105,7 +104,8 @@ func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
 	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelbootstrap.CreateReadOnlyModel(modelUUID, uuid.MustNewUUID())(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
+	err = modelbootstrap.CreateModelDBModelRecord(modelUUID, uuid.MustNewUUID(), jujuversion.Current)(
+		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machinebootstrap.InsertMachine("0")(
