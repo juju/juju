@@ -49,6 +49,8 @@ type AddApplicationArg struct {
 	Settings ApplicationSettings
 	// Scale contains the scale information for the application.
 	Scale int
+	// Status contains the status of the application.
+	Status *StatusInfo[WorkloadStatusType]
 }
 
 // AddApplicationResourceArg defines the arguments required to add a resource to an application.

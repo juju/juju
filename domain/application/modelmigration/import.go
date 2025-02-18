@@ -91,25 +91,6 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	return nil
 }
 
-func makeStatusParam(statusVal description.Status) corestatus.StatusInfo {
-	p := corestatus.StatusInfo{
-		Status:  corestatus.Status(statusVal.Value()),
-		Message: statusVal.Message(),
-		Data:    statusVal.Data(),
-		Since:   ptr(statusVal.Updated()),
-	}
-	// Older versions of Juju would pass through NeverSet() on the status
-	// description for application statuses that hadn't been explicitly
-	// set by the lead unit. If that is the case, we make the status what
-	// the new code expects.
-	if statusVal.NeverSet() {
-		p.Status = corestatus.Unset
-		p.Message = ""
-		p.Data = nil
-	}
-	return p
-}
-
 // Execute the import, adding the application to the model. This also includes
 // the charm and any units that are associated with the application.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
@@ -138,8 +119,8 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				}
 				arg.CloudContainer = cldContainer
 			}
-			arg.WorkloadStatus = makeStatusParam(unit.WorkloadStatus())
-			arg.AgentStatus = makeStatusParam(unit.AgentStatus())
+			arg.WorkloadStatus = i.importStatus(unit.WorkloadStatus())
+			arg.AgentStatus = i.importStatus(unit.AgentStatus())
 			unitArgs = append(unitArgs, arg)
 		}
 
@@ -173,12 +154,15 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return internalerrors.Errorf("importing application settings: %w", err)
 		}
 
+		applicationStatus := i.importStatus(app.Status())
+
 		err = i.service.ImportApplication(ctx, app.Name(), service.ImportApplicationArgs{
 			Charm:               charm,
 			CharmOrigin:         origin,
 			Units:               unitArgs,
 			ApplicationConfig:   applicationConfig,
 			ApplicationSettings: applicationSettings,
+			ApplicationStatus:   &applicationStatus,
 
 			// ReferenceName is the name of the charm URL, not the application
 			// name and not the charm name in the metadata, but the name of
@@ -284,6 +268,25 @@ func (i *importOperation) importApplicationSettings(app description.Application)
 	return application.ApplicationSettings{
 		Trust: trust,
 	}, nil
+}
+
+func (i *importOperation) importStatus(s description.Status) corestatus.StatusInfo {
+	// Older versions of Juju would pass through NeverSet() on the status
+	// description for application statuses that hadn't been explicitly
+	// set by the lead unit. If that is the case, we make the status what
+	// the new code expects.
+	if s == nil || s.NeverSet() {
+		return corestatus.StatusInfo{
+			Status: corestatus.Unset,
+		}
+	}
+
+	return corestatus.StatusInfo{
+		Status:  corestatus.Status(s.Value()),
+		Message: s.Message(),
+		Data:    s.Data(),
+		Since:   ptr(s.Updated()),
+	}
 }
 
 // importCharmOrigin returns the charm origin for an application

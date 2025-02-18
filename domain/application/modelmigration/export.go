@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -49,10 +50,10 @@ type ExportService interface {
 	// needing to load the charm metadata.
 	GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error)
 
-	// GetCharm returns the charm metadata for the given charm ID.
-	// It returns an error.CharmNotFound if the charm can not be found by the
-	// ID.
-	GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, error)
+	// GetCharmByApplicationName returns the charm metadata for the given charm
+	// ID. It returns an error.CharmNotFound if the charm can not be found by
+	// the ID.
+	GetCharmByApplicationName(ctx context.Context, name string) (internalcharm.Charm, charm.CharmLocator, error)
 
 	// GetApplicationConfigAndSettings returns the application config and
 	// settings for the specified application. This will return the application
@@ -62,6 +63,11 @@ type ExportService interface {
 	// [applicationerrors.ApplicationNotFound] error is returned. If no config
 	// is set for the application, an empty config is returned.
 	GetApplicationConfigAndSettings(ctx context.Context, name string) (config.ConfigAttributes, application.ApplicationSettings, error)
+
+	// GetApplicationStatus returns the status of the specified application.
+	// If the application does not exist, a [applicationerrors.ApplicationNotFound]
+	// error is returned.
+	GetApplicationStatus(ctx context.Context, name string) (*corestatus.StatusInfo, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -120,31 +126,28 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			coreapplication.TrustConfigOptionName: settings.Trust,
 		})
 
-		// TODO(stickupkid): To locate a charm, we currently need to know the
-		// charm URL of the application. This is not going to work like this in
-		// the future, we can use the charm_uuid instead.
-
-		curl, err := internalcharm.ParseURL(app.CharmURL())
+		status, err := e.service.GetApplicationStatus(ctx, app.Name())
 		if err != nil {
-			return fmt.Errorf("parsing charm URL %q: %v", app.CharmURL(), err)
+			return fmt.Errorf("getting application status for %q: %v", app.Name(), err)
+		}
+		// Application status is optional.
+		if status != nil {
+			now := e.clock.Now().UTC()
+			if status.Since != nil {
+				now = *status.Since
+			}
+
+			app.SetStatus(description.StatusArgs{
+				Value:   status.Status.String(),
+				Message: status.Message,
+				Data:    status.Data,
+				Updated: now,
+			})
 		}
 
-		source, err := charm.ParseCharmSchema(internalcharm.Schema(curl.Schema))
+		charm, _, err := e.service.GetCharmByApplicationName(ctx, app.Name())
 		if err != nil {
-			return fmt.Errorf("parsing charm source %q: %v", curl.Schema, err)
-		}
-		charmID, err := e.service.GetCharmID(ctx, charm.GetCharmArgs{
-			Name:     curl.Name,
-			Revision: &curl.Revision,
-			Source:   source,
-		})
-		if err != nil {
-			return fmt.Errorf("getting charm ID for %q: %v", app.CharmURL(), err)
-		}
-
-		charm, _, err := e.service.GetCharm(ctx, charmID)
-		if err != nil {
-			return fmt.Errorf("getting charm %q: %v", charmID, err)
+			return fmt.Errorf("getting charm %v", err)
 		}
 
 		if err := e.exportCharm(ctx, app, charm); err != nil {

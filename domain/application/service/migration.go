@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -70,7 +71,7 @@ func (s *MigrationService) GetCharmID(ctx context.Context, args charm.GetCharmAr
 	return "", applicationerrors.CharmNotFound
 }
 
-// GetCharm returns the charm using the charm ID.
+// GetCharmByApplicationName returns the charm using the application name.
 // Calling this method will return all the data associated with the charm.
 // It is not expected to call this method for all calls, instead use the move
 // focused and specific methods. That's because this method is very expensive
@@ -79,9 +80,14 @@ func (s *MigrationService) GetCharmID(ctx context.Context, args charm.GetCharmAr
 //
 // If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 // returned.
-func (s *MigrationService) GetCharm(ctx context.Context, id corecharm.ID) (internalcharm.Charm, charm.CharmLocator, error) {
-	if err := id.Validate(); err != nil {
-		return nil, charm.CharmLocator{}, fmt.Errorf("charm id: %w", err)
+func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name string) (internalcharm.Charm, charm.CharmLocator, error) {
+	if !isValidApplicationName(name) {
+		return nil, charm.CharmLocator{}, applicationerrors.ApplicationNameNotValid
+	}
+
+	id, err := s.st.GetCharmIDByApplicationName(ctx, name)
+	if err != nil {
+		return nil, charm.CharmLocator{}, errors.Trace(err)
 	}
 
 	ch, _, err := s.st.GetCharm(ctx, id)
@@ -161,6 +167,31 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 	return result, settings, nil
 }
 
+// GetApplicationStatus returns the status of the specified application.
+// If the application does not exist, a [applicationerrors.ApplicationNotFound]
+// error is returned.
+func (s *MigrationService) GetApplicationStatus(ctx context.Context, name string) (*corestatus.StatusInfo, error) {
+	if !isValidApplicationName(name) {
+		return nil, applicationerrors.ApplicationNameNotValid
+	}
+
+	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	status, err := s.st.GetApplicationStatus(ctx, appID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	decodedStatus, err := decodeWorkloadStatus(status)
+	if err != nil {
+		return nil, errors.Annotatef(err, "decoding workload status")
+	}
+	return decodedStatus, nil
+}
+
 // ImportApplication imports the specified application and units if required,
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
@@ -178,6 +209,7 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		DownloadInfo:        args.DownloadInfo,
 		ApplicationConfig:   args.ApplicationConfig,
 		ApplicationSettings: args.ApplicationSettings,
+		ApplicationStatus:   args.ApplicationStatus,
 	})
 	if err != nil {
 		return errors.Annotatef(err, "creating application args")

@@ -144,6 +144,12 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 		Data:    map[string]any{"foo": "bar"},
 		Updated: updatedAt,
 	})
+	app.SetStatus(description.StatusArgs{
+		Value:   "running",
+		Message: "application status",
+		Data:    map[string]any{"foo": "bar"},
+		Updated: updatedAt,
+	})
 	app.SetCharmMetadata(description.CharmMetadataArgs{
 		Name: "prometheus",
 	})
@@ -163,41 +169,13 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 		Platform: "arm64/ubuntu/24.04",
 	})
 
+	var importArgs service.ImportApplicationArgs
 	s.importService.EXPECT().ImportApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
 	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
-		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
-		c.Assert(args.Units, gc.DeepEquals, []service.ImportUnitArg{{
-			UnitName:     "prometheus/0",
-			PasswordHash: ptr("passwordhash"),
-			CloudContainer: ptr(application.CloudContainerParams{
-				ProviderID: "provider-id",
-				Address: ptr(network.SpaceAddress{
-					MachineAddress: network.MachineAddress{
-						Value: "10.6.6.6",
-						Type:  "ipv4",
-						Scope: "local-machine",
-					},
-					SpaceID: "666",
-				}),
-				AddressOrigin: ptr(network.OriginProvider),
-				Ports:         ptr([]string{"6666"}),
-			}),
-			AgentStatus: status.StatusInfo{
-				Status:  "idle",
-				Message: "agent status",
-				Data:    map[string]any{"foo": "bar"},
-				Since:   ptr(updatedAt),
-			},
-			WorkloadStatus: status.StatusInfo{
-				Status:  "waiting",
-				Message: "workload status",
-				Data:    map[string]any{"foo": "bar"},
-				Since:   ptr(updatedAt),
-			},
-		}})
+		importArgs = args
 		return nil
 	})
 
@@ -208,6 +186,43 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 
 	err := importOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
+	c.Check(importArgs.ApplicationStatus, gc.DeepEquals, &status.StatusInfo{
+		Status:  "running",
+		Message: "application status",
+		Data:    map[string]any{"foo": "bar"},
+		Since:   ptr(updatedAt),
+	})
+	c.Check(importArgs.Units, gc.DeepEquals, []service.ImportUnitArg{{
+		UnitName:     "prometheus/0",
+		PasswordHash: ptr("passwordhash"),
+		CloudContainer: ptr(application.CloudContainerParams{
+			ProviderID: "provider-id",
+			Address: ptr(network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.6.6.6",
+					Type:  "ipv4",
+					Scope: "local-machine",
+				},
+				SpaceID: "666",
+			}),
+			AddressOrigin: ptr(network.OriginProvider),
+			Ports:         ptr([]string{"6666"}),
+		}),
+		AgentStatus: status.StatusInfo{
+			Status:  "idle",
+			Message: "agent status",
+			Data:    map[string]any{"foo": "bar"},
+			Since:   ptr(updatedAt),
+		},
+		WorkloadStatus: status.StatusInfo{
+			Status:  "waiting",
+			Message: "workload status",
+			Data:    map[string]any{"foo": "bar"},
+			Since:   ptr(updatedAt),
+		},
+	}})
 }
 
 func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *gc.C) {
@@ -250,18 +265,13 @@ func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *g
 		Platform: "arm64/ubuntu/24.04",
 	})
 
+	var importArgs service.ImportApplicationArgs
 	s.importService.EXPECT().ImportApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
 	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
-		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
-		c.Check(args.ApplicationConfig, jc.DeepEquals, config.ConfigAttributes{
-			"foo": "bar",
-		})
-		c.Check(args.ApplicationSettings, jc.DeepEquals, application.ApplicationSettings{
-			Trust: true,
-		})
+		importArgs = args
 		return nil
 	})
 
@@ -272,6 +282,77 @@ func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *g
 
 	err := importOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
+	c.Check(importArgs.ApplicationConfig, jc.DeepEquals, config.ConfigAttributes{
+		"foo": "bar",
+	})
+	c.Check(importArgs.ApplicationSettings, jc.DeepEquals, application.ApplicationSettings{
+		Trust: true,
+	})
+}
+
+func (s *importSuite) TestApplicationImportWithApplicationStatusNotSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	appArgs := description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("prometheus"),
+		CharmURL: "ch:prometheus-1",
+		CharmConfig: map[string]interface{}{
+			"foo": "bar",
+		},
+		ApplicationConfig: map[string]interface{}{
+			"trust": true,
+		},
+	}
+	app := model.AddApplication(appArgs)
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmConfigs(description.CharmConfigsArgs{
+		Configs: map[string]description.CharmConfig{
+			"foo": charmConfig{ConfigType: "string", DefaultValue: "baz"},
+		},
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	var importArgs service.ImportApplicationArgs
+	s.importService.EXPECT().ImportApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		importArgs = args
+		return nil
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(importArgs.ApplicationStatus, jc.DeepEquals, &status.StatusInfo{
+		Status: status.Unset,
+	})
 }
 
 func (s *importSuite) TestImportCharmMetadataEmpty(c *gc.C) {

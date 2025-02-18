@@ -478,9 +478,6 @@ func makeCreateApplicationArgs(
 	origin corecharm.Origin,
 	args AddApplicationArgs,
 ) (application.AddApplicationArg, error) {
-	// TODO (stickupkid): These should be done either in the application
-	// state in one transaction, or be operating on the domain/charm types.
-
 	storageDirectives := make(map[string]storage.Directive)
 	for n, sc := range args.Storage {
 		storageDirectives[n] = sc
@@ -537,6 +534,11 @@ func makeCreateApplicationArgs(
 		return application.AddApplicationArg{}, fmt.Errorf("encoding application config: %w", err)
 	}
 
+	applicationStatus, err := encodeWorkloadStatus(args.ApplicationStatus)
+	if err != nil {
+		return application.AddApplicationArg{}, fmt.Errorf("encoding application status: %w", err)
+	}
+
 	return application.AddApplicationArg{
 		Charm:             ch,
 		CharmDownloadInfo: args.DownloadInfo,
@@ -547,6 +549,7 @@ func makeCreateApplicationArgs(
 		Storage:           makeStorageArgs(storageDirectives),
 		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,
+		Status:            applicationStatus,
 	}, nil
 }
 

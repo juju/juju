@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v8"
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
@@ -14,8 +15,8 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -38,6 +39,7 @@ func (s *exportSuite) TestApplicationExportEmpty(c *gc.C) {
 
 	exportOp := exportOperation{
 		service: s.exportService,
+		clock:   clock.WallClock,
 	}
 
 	err := exportOp.Execute(context.Background(), model)
@@ -59,12 +61,13 @@ func (s *exportSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 		Tag: names.NewUnitTag("prometheus/0"),
 	})
 
-	s.expectCharmID()
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()
+	s.expectApplicationStatus()
 
 	exportOp := exportOperation{
 		service: s.exportService,
+		clock:   clock.WallClock,
 	}
 
 	err := exportOp.Execute(context.Background(), model)
@@ -184,6 +187,7 @@ func (s *exportSuite) TestExportCharmMetadata(c *gc.C) {
 
 	exportOp := exportOperation{
 		service: s.exportService,
+		clock:   clock.WallClock,
 	}
 
 	args, err := exportOp.exportCharmMetadata(meta, "{}")
@@ -307,6 +311,7 @@ func (s *exportSuite) TestExportCharmManifest(c *gc.C) {
 
 	exportOp := exportOperation{
 		service: s.exportService,
+		clock:   clock.WallClock,
 	}
 
 	args, err := exportOp.exportCharmManifest(manifest)
@@ -334,6 +339,7 @@ func (s *exportSuite) TestExportCharmConfig(c *gc.C) {
 
 	exportOp := exportOperation{
 		service: s.exportService,
+		clock:   clock.WallClock,
 	}
 
 	args, err := exportOp.exportCharmConfig(config)
@@ -364,6 +370,7 @@ func (s *exportSuite) TestExportCharmActions(c *gc.C) {
 
 	exportOp := exportOperation{
 		service: s.exportService,
+		clock:   clock.WallClock,
 	}
 
 	args, err := exportOp.exportCharmActions(actions)
@@ -387,14 +394,6 @@ func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *exportSuite) expectCharmID() {
-	s.exportService.EXPECT().GetCharmID(gomock.Any(), charm.GetCharmArgs{
-		Name:     "prometheus",
-		Revision: ptr(1),
-		Source:   charm.CharmHubSource,
-	}).Return(corecharm.ID("deadbeef"), nil)
-}
-
 func (s *exportSuite) expectMinimalCharm() {
 	meta := &internalcharm.Meta{
 		Name: "prometheus",
@@ -411,7 +410,7 @@ func (s *exportSuite) expectMinimalCharm() {
 	locator := charm.CharmLocator{
 		Revision: 1,
 	}
-	s.exportService.EXPECT().GetCharm(gomock.Any(), corecharm.ID("deadbeef")).Return(ch, locator, nil)
+	s.exportService.EXPECT().GetCharmByApplicationName(gomock.Any(), "prometheus").Return(ch, locator, nil)
 }
 
 func (s *exportSuite) expectApplicationConfig() {
@@ -422,4 +421,10 @@ func (s *exportSuite) expectApplicationConfig() {
 		Trust: true,
 	}
 	s.exportService.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), "prometheus").Return(config, settings, nil)
+}
+
+func (s *exportSuite) expectApplicationStatus() {
+	s.exportService.EXPECT().GetApplicationStatus(gomock.Any(), "prometheus").Return(&corestatus.StatusInfo{
+		Status: corestatus.Running,
+	}, nil)
 }

@@ -60,6 +60,10 @@ type AddApplicationArgs struct {
 
 	// ApplicationSettings contains the application settings.
 	ApplicationSettings application.ApplicationSettings
+
+	// ApplicationStatus contains the application status. It's optional
+	// and if not provided, the application will be started with no status.
+	ApplicationStatus *status.StatusInfo
 }
 
 // AddressParams contains parameters for a unit/cloud container address.
@@ -195,6 +199,14 @@ type ImportApplicationArgs struct {
 
 	// ApplicationSettings contains the application settings.
 	ApplicationSettings application.ApplicationSettings
+
+	// ApplicationStatus contains the application status. It's optional
+	// and if not provided, the application will be started with no status.
+	ApplicationStatus *status.StatusInfo
+
+	// ResolvedResources contains a list of ResolvedResource instances,
+	// TODO (stickupkid): This isn't currently wired up.
+	ResolvedResources ResolvedResources
 
 	// Units contains the units to import.
 	Units []ImportUnitArg

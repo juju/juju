@@ -15,6 +15,7 @@ import (
 
 	charm "github.com/juju/juju/core/charm"
 	config "github.com/juju/juju/core/config"
+	status "github.com/juju/juju/core/status"
 	application "github.com/juju/juju/domain/application"
 	charm0 "github.com/juju/juju/domain/application/charm"
 	service "github.com/juju/juju/domain/application/service"
@@ -184,42 +185,81 @@ func (c *MockExportServiceGetApplicationConfigAndSettingsCall) DoAndReturn(f fun
 	return c
 }
 
-// GetCharm mocks base method.
-func (m *MockExportService) GetCharm(arg0 context.Context, arg1 charm.ID) (charm1.Charm, charm0.CharmLocator, error) {
+// GetApplicationStatus mocks base method.
+func (m *MockExportService) GetApplicationStatus(arg0 context.Context, arg1 string) (*status.StatusInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharm", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetApplicationStatus", arg0, arg1)
+	ret0, _ := ret[0].(*status.StatusInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationStatus indicates an expected call of GetApplicationStatus.
+func (mr *MockExportServiceMockRecorder) GetApplicationStatus(arg0, arg1 any) *MockExportServiceGetApplicationStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStatus", reflect.TypeOf((*MockExportService)(nil).GetApplicationStatus), arg0, arg1)
+	return &MockExportServiceGetApplicationStatusCall{Call: call}
+}
+
+// MockExportServiceGetApplicationStatusCall wrap *gomock.Call
+type MockExportServiceGetApplicationStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockExportServiceGetApplicationStatusCall) Return(arg0 *status.StatusInfo, arg1 error) *MockExportServiceGetApplicationStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockExportServiceGetApplicationStatusCall) Do(f func(context.Context, string) (*status.StatusInfo, error)) *MockExportServiceGetApplicationStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockExportServiceGetApplicationStatusCall) DoAndReturn(f func(context.Context, string) (*status.StatusInfo, error)) *MockExportServiceGetApplicationStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetCharmByApplicationName mocks base method.
+func (m *MockExportService) GetCharmByApplicationName(arg0 context.Context, arg1 string) (charm1.Charm, charm0.CharmLocator, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmByApplicationName", arg0, arg1)
 	ret0, _ := ret[0].(charm1.Charm)
 	ret1, _ := ret[1].(charm0.CharmLocator)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// GetCharm indicates an expected call of GetCharm.
-func (mr *MockExportServiceMockRecorder) GetCharm(arg0, arg1 any) *MockExportServiceGetCharmCall {
+// GetCharmByApplicationName indicates an expected call of GetCharmByApplicationName.
+func (mr *MockExportServiceMockRecorder) GetCharmByApplicationName(arg0, arg1 any) *MockExportServiceGetCharmByApplicationNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharm", reflect.TypeOf((*MockExportService)(nil).GetCharm), arg0, arg1)
-	return &MockExportServiceGetCharmCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmByApplicationName", reflect.TypeOf((*MockExportService)(nil).GetCharmByApplicationName), arg0, arg1)
+	return &MockExportServiceGetCharmByApplicationNameCall{Call: call}
 }
 
-// MockExportServiceGetCharmCall wrap *gomock.Call
-type MockExportServiceGetCharmCall struct {
+// MockExportServiceGetCharmByApplicationNameCall wrap *gomock.Call
+type MockExportServiceGetCharmByApplicationNameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockExportServiceGetCharmCall) Return(arg0 charm1.Charm, arg1 charm0.CharmLocator, arg2 error) *MockExportServiceGetCharmCall {
+func (c *MockExportServiceGetCharmByApplicationNameCall) Return(arg0 charm1.Charm, arg1 charm0.CharmLocator, arg2 error) *MockExportServiceGetCharmByApplicationNameCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExportServiceGetCharmCall) Do(f func(context.Context, charm.ID) (charm1.Charm, charm0.CharmLocator, error)) *MockExportServiceGetCharmCall {
+func (c *MockExportServiceGetCharmByApplicationNameCall) Do(f func(context.Context, string) (charm1.Charm, charm0.CharmLocator, error)) *MockExportServiceGetCharmByApplicationNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceGetCharmCall) DoAndReturn(f func(context.Context, charm.ID) (charm1.Charm, charm0.CharmLocator, error)) *MockExportServiceGetCharmCall {
+func (c *MockExportServiceGetCharmByApplicationNameCall) DoAndReturn(f func(context.Context, string) (charm1.Charm, charm0.CharmLocator, error)) *MockExportServiceGetCharmByApplicationNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
