@@ -153,6 +153,7 @@ func (p *environProvider) Open(ctx context.Context, args environs.OpenParams, in
 		p,
 		args.Cloud,
 		args.Config,
+		invalidator,
 	)
 	return env, errors.Trace(err)
 }

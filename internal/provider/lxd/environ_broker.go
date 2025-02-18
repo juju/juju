@@ -31,7 +31,7 @@ import (
 func (env *environ) StartInstance(
 	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
-	logger.Debugf(context.TODO(), "StartInstance: %q, %s", args.InstanceConfig.MachineId, args.InstanceConfig.Base)
+	logger.Debugf(ctx, "StartInstance: %q, %s", args.InstanceConfig.MachineId, args.InstanceConfig.Base)
 
 	arch, virtType, err := env.finishInstanceConfig(args)
 	if err != nil {
@@ -40,13 +40,13 @@ func (env *environ) StartInstance(
 
 	container, err := env.newContainer(ctx, args, arch, virtType)
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		if args.StatusCallback != nil {
 			_ = args.StatusCallback(ctx, status.ProvisioningError, err.Error(), nil)
 		}
 		return nil, errors.Trace(err)
 	}
-	logger.Infof(context.TODO(), "started instance %q", container.Name)
+	logger.Infof(ctx, "started instance %q", container.Name)
 	inst := newInstance(container, env)
 
 	// Build the result.
@@ -441,13 +441,13 @@ func (env *environ) StopInstances(ctx envcontext.ProviderCallContext, instances 
 		if strings.HasPrefix(name, prefix) {
 			names = append(names, name)
 		} else {
-			logger.Warningf(context.TODO(), "ignoring request to stop container %q - not in namespace %q", name, prefix)
+			logger.Warningf(ctx, "ignoring request to stop container %q - not in namespace %q", name, prefix)
 		}
 	}
 
 	err := env.server().RemoveContainers(names)
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 	}
 	return errors.Trace(err)
 }
