@@ -1182,6 +1182,60 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
+// TestUpdateResourceRevisionFile tests the happy path for the UpdateUploadResource
+// method for file resource types.
+func (s *resourceServiceSuite) TestUpdateUploadResourceFile(c *gc.C) {
+	s.testUpdateUploadResource(c, charmresource.TypeFile)
+}
+
+// TestUpdateResourceRevisionFile tests the happy path for the UpdateUploadResource
+// method for container image resource types.
+func (s *resourceServiceSuite) TestUpdateUploadResourceImage(c *gc.C) {
+	s.testUpdateUploadResource(c, charmresource.TypeContainerImage)
+}
+
+func (s *resourceServiceSuite) testUpdateUploadResource(c *gc.C, resourceType charmresource.Type) {
+	defer s.setupMocks(c).Finish()
+
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	oldResUUID := resourcetesting.GenResourceUUID(c)
+	newResUUID := resourcetesting.GenResourceUUID(c)
+
+	s.state.EXPECT().GetResourceType(gomock.Any(), oldResUUID).Return(resourceType, nil)
+	expectedArgs := resource.StateUpdateUploadResourceArgs{
+		ResourceType: resourceType,
+		ResourceUUID: oldResUUID,
+	}
+	s.state.EXPECT().UpdateUploadResourceAndDeletePriorVersion(gomock.Any(), expectedArgs).Return(fp.String(), newResUUID, nil)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Remove(gomock.Any(), blobPath(oldResUUID, fp.String())).Return(nil)
+
+	obtainedResourceUUID, err := s.service.UpdateUploadResource(context.Background(), oldResUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedResourceUUID, gc.Equals, newResUUID)
+}
+
+// TestUpdateResourceRevisionNoFingerprint tests no attempt to remove from a store, a
+// resource with is not stored.
+func (s *resourceServiceSuite) TestUpdateUploadResourceNoFingerprint(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	oldResUUID := resourcetesting.GenResourceUUID(c)
+	newResUUID := resourcetesting.GenResourceUUID(c)
+
+	s.state.EXPECT().GetResourceType(gomock.Any(), oldResUUID).Return(charmresource.TypeFile, nil)
+	expectedArgs := resource.StateUpdateUploadResourceArgs{
+		ResourceType: charmresource.TypeFile,
+		ResourceUUID: oldResUUID,
+	}
+	s.state.EXPECT().UpdateUploadResourceAndDeletePriorVersion(gomock.Any(), expectedArgs).Return("", newResUUID, nil)
+
+	obtainedResourceUUID, err := s.service.UpdateUploadResource(context.Background(), oldResUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedResourceUUID, gc.Equals, newResUUID)
+}
+
 // TestAddResourcesBeforeApplication tests the happy path for the
 // AddResourcesBeforeApplication method.
 func (s *resourceServiceSuite) TestAddResourcesBeforeApplication(c *gc.C) {

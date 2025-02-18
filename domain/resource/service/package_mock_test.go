@@ -700,6 +700,46 @@ func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) DoAndReturn(f
 	return c
 }
 
+// UpdateUploadResourceAndDeletePriorVersion mocks base method.
+func (m *MockState) UpdateUploadResourceAndDeletePriorVersion(arg0 context.Context, arg1 resource0.StateUpdateUploadResourceArgs) (string, resource.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateUploadResourceAndDeletePriorVersion", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(resource.UUID)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// UpdateUploadResourceAndDeletePriorVersion indicates an expected call of UpdateUploadResourceAndDeletePriorVersion.
+func (mr *MockStateMockRecorder) UpdateUploadResourceAndDeletePriorVersion(arg0, arg1 any) *MockStateUpdateUploadResourceAndDeletePriorVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUploadResourceAndDeletePriorVersion", reflect.TypeOf((*MockState)(nil).UpdateUploadResourceAndDeletePriorVersion), arg0, arg1)
+	return &MockStateUpdateUploadResourceAndDeletePriorVersionCall{Call: call}
+}
+
+// MockStateUpdateUploadResourceAndDeletePriorVersionCall wrap *gomock.Call
+type MockStateUpdateUploadResourceAndDeletePriorVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateUpdateUploadResourceAndDeletePriorVersionCall) Return(arg0 string, arg1 resource.UUID, arg2 error) *MockStateUpdateUploadResourceAndDeletePriorVersionCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateUpdateUploadResourceAndDeletePriorVersionCall) Do(f func(context.Context, resource0.StateUpdateUploadResourceArgs) (string, resource.UUID, error)) *MockStateUpdateUploadResourceAndDeletePriorVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateUpdateUploadResourceAndDeletePriorVersionCall) DoAndReturn(f func(context.Context, resource0.StateUpdateUploadResourceArgs) (string, resource.UUID, error)) *MockStateUpdateUploadResourceAndDeletePriorVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockResourceStoreGetter is a mock of ResourceStoreGetter interface.
 type MockResourceStoreGetter struct {
 	ctrl     *gomock.Controller
