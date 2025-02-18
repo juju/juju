@@ -89,6 +89,7 @@ import (
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/secretbackendrotate"
 	"github.com/juju/juju/worker/singular"
+	"github.com/juju/juju/worker/sshserver"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
 	"github.com/juju/juju/worker/stateconverter"
@@ -782,6 +783,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:  controlsocket.NewWorker,
 			SocketName: paths.ControlSocket(paths.OSUnixLike),
 		})),
+
+		// The ssh server worker runs on the controller machine.
+		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
+			StateName:              stateName,
+			Logger:                 loggo.GetLogger("juju.worker.sshserver"),
+			NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
+			NewServerWorker:        sshserver.NewServerWorker,
+		})),
 	}
 
 	return manifolds
@@ -1193,4 +1202,6 @@ const (
 	charmhubHTTPClientName = "charmhub-http-client"
 
 	controlSocketName = "control-socket"
+
+	sshServerName = "ssh-server"
 )
