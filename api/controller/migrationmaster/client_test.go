@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/description/v8"
+	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"

@@ -6,7 +6,7 @@ package migration_test
 import (
 	"context"
 
-	"github.com/juju/description/v8"
+	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"

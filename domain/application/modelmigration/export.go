@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v8"
+	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"

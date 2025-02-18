@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v8"
+	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
