@@ -15,6 +15,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
@@ -91,6 +92,14 @@ type ApplicationService interface {
 	// Returns [github.com/juju/juju/domain/application.ApplicationNotFound] if
 	// the application is not found.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
+	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	GetUnitWorkloadStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
+
+	// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
 	// application.

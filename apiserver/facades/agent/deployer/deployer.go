@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/objectstore"
+	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
@@ -36,6 +37,8 @@ type ApplicationService interface {
 	GetUnitLife(context.Context, coreunit.Name) (life.Value, error)
 	EnsureUnitDead(context.Context, coreunit.Name, leadership.Revoker) error
 	RemoveUnit(context.Context, coreunit.Name, leadership.Revoker) error
+	GetUnitWorkloadStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
+	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
 }
 
 // DeployerAPI provides access to the Deployer API facade.
@@ -43,7 +46,7 @@ type DeployerAPI struct {
 	*common.PasswordChanger
 	*common.APIAddresser
 	*common.UnitsWatcher
-	*common.StatusSetter
+	unitStatusSetter *common.UnitStatusSetter
 
 	canRead  func(tag names.Tag) bool
 	canWrite func(tag names.Tag) bool
@@ -101,7 +104,7 @@ func NewDeployerAPI(
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),
 		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getCanWatch),
-		StatusSetter:           common.NewStatusSetter(st, getAuthFunc, clock),
+		unitStatusSetter:       common.NewUnitStatusSetter(st, applicationService, clock, getAuthFunc),
 		controllerConfigGetter: controllerConfigGetter,
 		applicationService:     applicationService,
 		leadershipRevoker:      leadershipRevoker,
@@ -129,7 +132,7 @@ func (d *DeployerAPI) ConnectionInfo(ctx context.Context) (result params.Deploye
 
 // SetStatus sets the status of the specified entities.
 func (d *DeployerAPI) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	return d.StatusSetter.SetStatus(ctx, args)
+	return d.unitStatusSetter.SetStatus(ctx, args)
 }
 
 // ModelUUID returns the model UUID that this facade is deploying into.

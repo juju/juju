@@ -30,7 +30,7 @@ type ModelPresenceContext struct {
 	Presence ModelPresence
 }
 
-func (c *ModelPresenceContext) unitPresence(unit UnitStatusGetter) (bool, error) {
+func (c *ModelPresenceContext) unitPresence(unit UnitState) (bool, error) {
 	agent := names.NewUnitTag(unit.Name()).String()
 	status, err := c.Presence.AgentStatus(agent)
 	return status == presence.Alive, err
@@ -92,9 +92,9 @@ type StatusAndErr struct {
 	Err    error
 }
 
-// UnitStatusGetter defines the unit functionality required to
+// UnitState defines the unit functionality required to
 // determine unit agent and workload status.
-type UnitStatusGetter interface {
+type UnitState interface {
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
 	ShouldBeAssigned() bool
@@ -104,7 +104,7 @@ type UnitStatusGetter interface {
 
 // UnitStatus returns the unit agent and workload status for a given
 // unit, with special handling for agent presence.
-func (c *ModelPresenceContext) UnitStatus(ctx context.Context, unit UnitStatusGetter) (agent StatusAndErr, workload StatusAndErr) {
+func (c *ModelPresenceContext) UnitStatus(ctx context.Context, unit UnitState) (agent StatusAndErr, workload StatusAndErr) {
 	agent.Status, agent.Err = unit.AgentStatus()
 	workload.Status, workload.Err = unit.Status()
 	if !canBeLost(agent.Status, workload.Status) {
