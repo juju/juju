@@ -129,7 +129,7 @@ SELECT
     cct.name AS type
 FROM application AS a
 LEFT JOIN application_config AS ac ON a.uuid = ac.application_uuid
-INNER JOIN charm_config_type AS cct ON ac.type_id = cct.id;
+JOIN charm_config_type AS cct ON ac.type_id = cct.id;
 
 CREATE TABLE application_constraint (
     application_uuid TEXT NOT NULL PRIMARY KEY,
@@ -211,7 +211,7 @@ SELECT
     cspace.space,
     czone.zone
 FROM application_constraint AS ac
-INNER JOIN "constraint" AS c ON ac.constraint_uuid = c.uuid
+JOIN "constraint" AS c ON ac.constraint_uuid = c.uuid
 LEFT JOIN container_type AS ctype ON c.container_type_id = ctype.id
 LEFT JOIN constraint_tag AS ctag ON c.uuid = ctag.constraint_uuid
 LEFT JOIN constraint_space AS cspace ON c.uuid = cspace.constraint_uuid

@@ -41,7 +41,7 @@ SELECT
     c.allocate_public_ip,
     c.image_id
 FROM model_constraint AS mc
-INNER JOIN v_constraint AS c ON mc.constraint_uuid = c.uuid;
+JOIN v_constraint AS c ON mc.constraint_uuid = c.uuid;
 
 -- v_model_constraint_tag is a view of all the constraint tags set for the
 -- current model. It is expected that this view can be empty.
@@ -50,8 +50,8 @@ SELECT
     ct.constraint_uuid,
     ct.tag
 FROM constraint_tag AS ct
-INNER JOIN "constraint" AS c ON ct.constraint_uuid = c.uuid
-INNER JOIN model_constraint AS mc ON c.uuid = mc.constraint_uuid;
+JOIN "constraint" AS c ON ct.constraint_uuid = c.uuid
+JOIN model_constraint AS mc ON c.uuid = mc.constraint_uuid;
 
 -- v_model_constraint_space is a view of all the constraint spaces set for the
 -- current model. It is expected that this view can be empty.
@@ -61,8 +61,8 @@ SELECT
     cs.space,
     cs."exclude"
 FROM constraint_space AS cs
-INNER JOIN "constraint" AS c ON cs.constraint_uuid = c.uuid
-INNER JOIN model_constraint AS mc ON c.uuid = mc.constraint_uuid;
+JOIN "constraint" AS c ON cs.constraint_uuid = c.uuid
+JOIN model_constraint AS mc ON c.uuid = mc.constraint_uuid;
 
 -- v_model_constraint_zone is a view of all the constraint zones set for the
 -- current model. It is expected that this view can be empty.
@@ -71,5 +71,5 @@ SELECT
     cz.constraint_uuid,
     cz.zone
 FROM constraint_zone AS cz
-INNER JOIN "constraint" AS c ON cz.constraint_uuid = c.uuid
-INNER JOIN model_constraint AS mc ON c.uuid = mc.constraint_uuid;
+JOIN "constraint" AS c ON cz.constraint_uuid = c.uuid
+JOIN model_constraint AS mc ON c.uuid = mc.constraint_uuid;

@@ -76,4 +76,4 @@ SELECT
     ms.updated_at,
     msv.status
 FROM machine_cloud_instance_status AS ms
-INNER JOIN machine_cloud_instance_status_value AS msv ON ms.status_id = msv.id;
+JOIN machine_cloud_instance_status_value AS msv ON ms.status_id = msv.id;

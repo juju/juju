@@ -138,7 +138,7 @@ SELECT
     ms.updated_at,
     msv.status
 FROM machine_status AS ms
-INNER JOIN machine_status_value AS msv ON ms.status_id = msv.id;
+JOIN machine_status_value AS msv ON ms.status_id = msv.id;
 
 -- machine_removals table is a table which represents machines that are marked
 -- for removal.
