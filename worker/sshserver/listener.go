@@ -44,6 +44,8 @@ func newAcceptOnceListener(l net.Listener) (acceptOnceListener, chan struct{}) {
 	}, c
 }
 
+// Accept runs the listeners accept, but firstly closes the closeAllowed channel,
+// signalling that any routines waiting to close the listener may proceed.
 func (l acceptOnceListener) Accept() (net.Conn, error) {
 	l.once.Do(func() {
 		close(l.closeAllowed)
