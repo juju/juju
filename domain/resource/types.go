@@ -183,10 +183,8 @@ type ImportResourceInfo struct {
 // ImportUnitResourceInfo contains information about a single unit resource for the
 // ImportResources method.
 type ImportUnitResourceInfo struct {
-	// ResourceName is the name of the resource.
-	ResourceName string
+	ImportResourceInfo
+
 	// UnitName is the name of the unit using the resource.
 	UnitName string
-	// Timestamp is the time the resource was added to the model.
-	Timestamp time.Time
 }

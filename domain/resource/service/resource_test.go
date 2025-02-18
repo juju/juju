@@ -1392,13 +1392,21 @@ func (s *resourceServiceSuite) TestImportResources(c *gc.C) {
 			Timestamp: time.Now().Truncate(time.Second).UTC(),
 		}},
 		UnitResources: []resource.ImportUnitResourceInfo{{
-			ResourceName: "app-1-resource-1",
-			UnitName:     "unit-name",
-			Timestamp:    time.Now().Truncate(time.Second).UTC(),
+			UnitName: "unit-name",
+			ImportResourceInfo: resource.ImportResourceInfo{
+				Name:      "app-1-resource-1",
+				Origin:    charmresource.OriginStore,
+				Revision:  3,
+				Timestamp: time.Now().Truncate(time.Second).UTC(),
+			},
 		}, {
-			ResourceName: "app-1-resource-2",
-			UnitName:     "unit-name",
-			Timestamp:    time.Now().Truncate(time.Second).UTC(),
+			ImportResourceInfo: resource.ImportResourceInfo{
+				Name:      "app-1-resource-2",
+				Origin:    charmresource.OriginUpload,
+				Revision:  -1,
+				Timestamp: time.Now().Truncate(time.Second).UTC(),
+			},
+			UnitName: "unit-name",
 		}},
 	}, {
 		ApplicationName: "app-name-2",

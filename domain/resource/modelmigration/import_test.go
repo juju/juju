@@ -96,14 +96,29 @@ func (s *importSuite) TestImport(c *gc.C) {
 		Timestamp: res2Time,
 	})
 	unitName := "app-name/0"
-	unitResTime := time.Now().Truncate(time.Second).Add(-time.Hour * 2).UTC()
+	unitRes1Time := time.Now().Truncate(time.Second).Add(-time.Hour * 2).UTC()
 	unit := app.AddUnit(description.UnitArgs{
 		Tag: names.NewUnitTag(unitName),
 	})
 	unit.AddResource(description.UnitResourceArgs{
 		Name: res1Name,
 		RevisionArgs: description.ResourceRevisionArgs{
-			Timestamp: unitResTime,
+			Timestamp: unitRes1Time,
+			Revision:  res1Revision,
+			Origin:    res1Origin.String(),
+		},
+	})
+	// Arrange: Give the unit a version of the second resource with a different
+	// origin and revision to its application resource.
+	unitRes2Revision := 4
+	unitRes2Origin := resource.OriginStore
+	unitRes2Time := time.Now().Truncate(time.Second).Add(-time.Hour).UTC()
+	unit.AddResource(description.UnitResourceArgs{
+		Name: res2Name,
+		RevisionArgs: description.ResourceRevisionArgs{
+			Timestamp: unitRes2Time,
+			Revision:  unitRes2Revision,
+			Origin:    unitRes2Origin.String(),
 		},
 	})
 
@@ -121,9 +136,21 @@ func (s *importSuite) TestImport(c *gc.C) {
 			Timestamp: res2Time,
 		}},
 		UnitResources: []domainresource.ImportUnitResourceInfo{{
-			ResourceName: res1Name,
-			UnitName:     unitName,
-			Timestamp:    unitResTime,
+			UnitName: unitName,
+			ImportResourceInfo: domainresource.ImportResourceInfo{
+				Name:      res1Name,
+				Origin:    res1Origin,
+				Revision:  res1Revision,
+				Timestamp: unitRes1Time,
+			},
+		}, {
+			UnitName: unitName,
+			ImportResourceInfo: domainresource.ImportResourceInfo{
+				Name:      res2Name,
+				Origin:    unitRes2Origin,
+				Revision:  unitRes2Revision,
+				Timestamp: unitRes2Time,
+			},
 		}},
 	}})
 

@@ -237,3 +237,9 @@ type resourceCharmData struct {
 	CharmUUID string `db:"charm_uuid"`
 	Name      string `db:"charm_resource_name"`
 }
+
+type uuidOriginAndRevision struct {
+	UUID     coreresource.UUID
+	Origin   charmresource.Origin
+	Revision int
+}
