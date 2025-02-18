@@ -102,7 +102,7 @@ func (s *ManifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		DebugLogger: s.logger,
 		NewWorker:   s.newWorker,
-		NewModelLogger: func(ctx context.Context, modelUUID string, newLogWriter logger.LogWriterForModelFunc, bufferSize int, flushInterval time.Duration, clock clock.Clock) (worker.Worker, error) {
+		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, newLogWriter logger.LogWriterForModelFunc, bufferSize int, flushInterval time.Duration, clock clock.Clock) (worker.Worker, error) {
 			return nil, nil
 		},
 		ClockName:          "clock",

@@ -37,16 +37,16 @@ type modelLogger struct {
 // by the supplied loggerForModelFunc.
 func NewModelLogger(
 	ctx context.Context,
-	modelUUID string,
+	key corelogger.LoggerKey,
 	newLogWriter corelogger.LogWriterForModelFunc,
 	bufferSize int,
 	flushInterval time.Duration,
 	clock clock.Clock,
 ) (worker.Worker, error) {
 	// Create a newLogWriter for the model.
-	logger, err := newLogWriter(ctx, modelUUID)
+	logger, err := newLogWriter(ctx, key)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting logger for model %q", modelUUID)
+		return nil, errors.Annotatef(err, "getting logger for model %q", key.ModelName)
 	}
 
 	// Create a buffered log writer for the model, so that it correctly handles
@@ -59,7 +59,7 @@ func NewModelLogger(
 			clock,
 		),
 		closer:    logger,
-		modelUUID: modelUUID,
+		modelUUID: key.ModelUUID,
 	}
 
 	// Create a new logger context for the model. This will use the buffered

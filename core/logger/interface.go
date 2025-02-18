@@ -229,16 +229,27 @@ type LoggerContextGetter interface {
 	GetLoggerContext(ctx context.Context, namespace string) (LoggerContext, error)
 }
 
-// LogWriterForModelFunc is a function which returns a log writer for a given model.
-type LogWriterForModelFunc func(ctx context.Context, modelUUID string) (LogWriterCloser, error)
+// LogWriterForModelFunc is a function which returns a log writer for a given
+// model.
+type LogWriterForModelFunc func(ctx context.Context, key LoggerKey) (LogWriterCloser, error)
 
-// ModelFilePrefix makes a log file prefix from the model owner and name.
-func ModelFilePrefix(owner, name string) string {
-	return fmt.Sprintf("%s-%s", owner, name)
+// LoggerKey is a key used to identify a logger.
+type LoggerKey struct {
+	ModelUUID  string
+	ModelName  string
+	ModelOwner string
 }
 
 // ModelLogFile makes an absolute model log file path.
-func ModelLogFile(logDir, modelUUID string) string {
-	filename := names.NewModelTag(modelUUID).ShortId() + ".log"
+func ModelLogFile(logDir string, key LoggerKey) string {
+	filename := fmt.Sprintf("%s-%s-%s.log", key.ModelOwner, key.ModelName, names.NewModelTag(key.ModelUUID).ShortId())
 	return filepath.Join(logDir, "models", filename)
+}
+
+// ModelLoggerInitializer is an interface that provides a method to initialize a
+// logger.
+type ModelLoggerInitializer interface {
+	// InitializeLogger initializes the logger for the specified key.
+	// If the logger is already running, it will return nil.
+	InitializeLogger(ctx context.Context, key LoggerKey) error
 }

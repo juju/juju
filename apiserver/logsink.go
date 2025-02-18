@@ -56,11 +56,8 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 
 	s.entity = entity.Tag().String()
 	s.modelUUID = st.ModelUUID()
-	m, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(s.modelUUID, m.Name(), m.Owner().Id()); err != nil {
+
+	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), s.modelUUID); err != nil {
 		return errors.Trace(err)
 	}
 	s.releaser = func() error {
