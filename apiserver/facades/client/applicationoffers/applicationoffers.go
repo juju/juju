@@ -241,6 +241,7 @@ func (api *OffersAPIv5) modifyOneOfferAccess(user names.UserTag, modelUUID strin
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return errors.Trace(err)
 		}
+		canModifyOffer = err == nil
 	}
 
 	if !canModifyOffer {

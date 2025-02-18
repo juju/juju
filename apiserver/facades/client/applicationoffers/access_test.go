@@ -402,3 +402,25 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *gc.C) {
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 }
+
+// TestModifyOfferAccessForModelAdminPermission tests modifying offer access when authorized as model admin.
+// It validates bugfix https://bugs.launchpad.net/juju/+bug/2082494
+func (s *offerAccessSuite) TestModifyOfferAccessForModelAdminPermission(c *gc.C) {
+	modelUUID := utils.MustNewUUID().String()
+	s.setupOffer(modelUUID, "test", "admin", "someoffer")
+	st := s.mockStatePool.st[modelUUID]
+	st.(*mockState).users["luke"] = &mockUser{"luke"}
+
+	s.authorizer.Tag = names.NewUserTag("admin-model-" + modelUUID)
+	args := params.ModifyOfferAccessRequest{
+		Changes: []params.ModifyOfferAccess{{
+			UserTag:  "user-luke",
+			Action:   params.GrantOfferAccess,
+			Access:   params.OfferReadAccess,
+			OfferURL: "admin/test.someoffer",
+		}}}
+
+	result, err := s.api.ModifyOfferAccess(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.OneError(), jc.ErrorIsNil)
+}
