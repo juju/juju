@@ -784,7 +784,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SocketName: paths.ControlSocket(paths.OSUnixLike),
 		})),
 
-		// Unplugging until timeout issue fixed.
+		// The ssh server worker runs on the controller machine.
 		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
 			StateName:              stateName,
 			Logger:                 loggo.GetLogger("juju.worker.sshserver"),
