@@ -1,13 +1,17 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package sshserver_test
 
 import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/worker/sshserver"
 	"github.com/juju/testing"
 	"google.golang.org/grpc/test/bufconn"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/worker/sshserver"
 )
 
 type listenerSuite struct {
