@@ -110,6 +110,33 @@ See the full list in these milestone pages:
 >
 > 30 Nov 2024: end of bug fix support
 
+### :juju: **Juju 3.5.6** - 11 January 2025
+
+:hammer_and_wrench: Fixes:
+- Fix [controller restart meant sidecar charm k8s workloads restarts](https://bugs.launchpad.net/bugs/2036594)
+- Fix [allocate-public-ip not applied in AWS EC2 provider](https://bugs.launchpad.net/bugs/2080238)
+- Fix [Cannot log into controller where model was migrated](https://bugs.launchpad.net/bugs/2084043)
+- Fix [Potential race in provisioner while destroying model with machine-with-placemen](https://bugs.launchpad.net/bugs/2084448)
+- Fix [Juju cannot enable HA when IPs reside in 100.64.0.0/10](https://bugs.launchpad.net/bugs/2091088)
+- Fix [juju register failed with permission denied](https://bugs.launchpad.net/bugs/2073741)
+- Fix [Juju bootstrap ignores --bootstrap-base parameter](https://bugs.launchpad.net/bugs/2084364)
+- Fix [google vpc firewall rule left around after model/controller destroy](https://bugs.launchpad.net/bugs/2090804)
+
+See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.5.6).
+
+### :juju: **Juju 3.5.5** - 02 December 2024
+
+:hammer_and_wrench: Fixes:
+- Fix [Peer relation disappears too early on application removal](https://bugs.launchpad.net/bugs/1998282)
+- Fix [Logout doesn't remove the cookie](https://bugs.launchpad.net/bugs/2072473)
+- Fix [microk8s juju: cloud skip-tls-verify for MAAS cloud does not work](https://bugs.launchpad.net/bugs/2072653)
+- Fix [Manual provider error on re-configuring HA](https://bugs.launchpad.net/bugs/2073986)
+- Fix [Superfluous checks hindered upgrade-controller](https://bugs.launchpad.net/bugs/2075304)
+- Fix [relation-ids does not include peer relations on app removal](https://bugs.launchpad.net/bugs/2076599)
+- Fix [Migrating a model with an external offer breaks the consumer](https://bugs.launchpad.net/bugs/2078672)
+
+See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.5.5).
+
 ### :juju: **Juju 3.5.4** - 11 September 2024
 
 :hammer_and_wrench: Fixes:

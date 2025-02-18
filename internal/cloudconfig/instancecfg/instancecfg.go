@@ -351,6 +351,9 @@ type StateInitializationParams struct {
 	// StoragePools is one or more named storage pools to create
 	// in the controller model.
 	StoragePools map[string]storage.Attrs
+
+	// SSHServerHostKey holds the host key to be used within the embedded SSH server for Juju.
+	SSHServerHostKey string
 }
 
 type stateInitializationParamsInternal struct {
@@ -374,6 +377,7 @@ type stateInitializationParamsInternal struct {
 	ControllerCloudCredential               *cloud.Credential                 `yaml:"controller-cloud-credential,omitempty"`
 	ControllerCharmPath                     string                            `yaml:"controller-charm-path,omitempty"`
 	ControllerCharmChannel                  charm.Channel                     `yaml:"controller-charm-channel,omitempty"`
+	SSHServerHostKey                        string                            `yaml:"ssh-server-host-key,omitempty"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -407,6 +411,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		ControllerCloudCredential:               p.ControllerCloudCredential,
 		ControllerCharmPath:                     p.ControllerCharmPath,
 		ControllerCharmChannel:                  p.ControllerCharmChannel,
+		SSHServerHostKey:                        p.SSHServerHostKey,
 	}
 	return yaml.Marshal(&internal)
 }
@@ -455,6 +460,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ControllerCloudCredential:               internal.ControllerCloudCredential,
 		ControllerCharmPath:                     internal.ControllerCharmPath,
 		ControllerCharmChannel:                  internal.ControllerCharmChannel,
+		SSHServerHostKey:                        internal.SSHServerHostKey,
 	}
 	return nil
 }

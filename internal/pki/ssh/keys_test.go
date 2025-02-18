@@ -7,6 +7,7 @@ import (
 	"crypto"
 
 	jc "github.com/juju/testing/checkers"
+	gossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/pki/ssh"
@@ -52,4 +53,14 @@ func (s *KeySuite) TestGenerateHostKeys(c *gc.C) {
 		c.Assert(typedKey.Equal(key), jc.IsTrue)
 		c.Assert(typedKey.Equal(key2), jc.IsFalse)
 	}
+}
+
+func (s *KeySuite) TestGenerateED25519KeyString(c *gc.C) {
+	keyStr, err := ssh.GenerateED25519KeyString()
+	c.Assert(err, gc.IsNil)
+
+	signer, err := gossh.ParsePrivateKey([]byte(keyStr))
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(signer.PublicKey().Type(), gc.Equals, "ssh-ed25519")
 }

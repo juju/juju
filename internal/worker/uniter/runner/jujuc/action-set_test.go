@@ -70,7 +70,7 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 	}, {
 		summary: "invalid keys are an error",
 		command: []string{"result-Value=5"},
-		errMsg:  "ERROR key \"result-Value\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric, hyphens and periods\n",
+		errMsg:  "ERROR key \"result-Value\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens\n",
 		code:    2,
 	}, {
 		summary: "reserved key is an error",

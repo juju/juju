@@ -4,13 +4,18 @@
 package testing
 
 import (
+	"crypto/ed25519"
+	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"math/rand"
+	"sync"
 
 	mgotesting "github.com/juju/mgo/v3/testing"
+	cryptossh "golang.org/x/crypto/ssh"
 )
 
 // CACert and CAKey make up a CA key pair.
@@ -21,6 +26,8 @@ import (
 //
 //revive:disable:exported
 var (
+	once sync.Once
+
 	// CACert and CAKey make up a CA key pair and ServerCert and ServerKey
 	// hold a CA-signed server cert/key.
 	CACert, CAKey, ServerCert, ServerKey = chooseGeneratedCA()
@@ -40,6 +47,9 @@ var (
 	OtherCACert, OtherCAKey = chooseGeneratedOtherCA()
 	// OtherCACertX509 and OtherCAKeyRSA hold their parsed equivalents.
 	OtherCACertX509, OtherCAKeyRSA = mustParseCertAndKey(OtherCACert, OtherCAKey)
+
+	// SSHServerHostKey for testing
+	SSHServerHostKey = mustGenerateSSHServerHostKey()
 )
 
 //revive:enable:exported
@@ -87,12 +97,7 @@ func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.Privat
 
 	key, ok := tlsCert.PrivateKey.(*rsa.PrivateKey)
 	if !ok {
-		if err != nil {
-			panic(fmt.Errorf("private key with unexpected type %T", tlsCert.PrivateKey))
-		}
-	}
-	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("private key with unexpected type %T", tlsCert.PrivateKey))
 	}
 	return cert, key
 }
@@ -104,4 +109,23 @@ func serverCerts() *mgotesting.Certs {
 		ServerCert: serverCert,
 		ServerKey:  serverKey,
 	}
+}
+
+func mustGenerateSSHServerHostKey() string {
+	var k string
+	once.Do(func() {
+		_, privateKey, err := ed25519.GenerateKey(cryptorand.Reader)
+		if err != nil {
+			panic("failed to generate ED25519 key")
+		}
+
+		pemKey, err := cryptossh.MarshalPrivateKey(privateKey, "")
+		if err != nil {
+			panic("failed to marshal private key")
+		}
+
+		k = string(pem.EncodeToMemory(pemKey))
+	})
+
+	return k
 }

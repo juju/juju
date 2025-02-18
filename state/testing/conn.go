@@ -60,6 +60,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 	}
 
 	ctlr, err := state.Initialize(state.InitializeParams{
+		SSHServerHostKey: testing.SSHServerHostKey,
 		Clock:            args.Clock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{

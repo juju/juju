@@ -1410,6 +1410,7 @@ network:
       macaddress: "00:11:22:33:44:77"
       parameters:
         primary: eno3
+        gratuitous-arp: 1
 `[1:]
 	np := MustNetplanFromYaml(c, input)
 

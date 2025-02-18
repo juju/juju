@@ -10,17 +10,19 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v4"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/caas"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/pki"
-	"github.com/juju/juju/internal/ssh"
+	internalssh "github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -46,6 +48,9 @@ const (
 
 	// CAPrivateKeyKey is the key for the controller's CA certificate private key.
 	CAPrivateKeyKey = "ca-private-key"
+
+	// SSHServerHostKey is the host key used for the embedded SSH server.
+	SSHServerHostKeyKey = "ssh-server-host-key"
 
 	// BootstrapTimeoutKey is the attribute key for the amount of time to wait
 	// for bootstrap to complete.
@@ -98,6 +103,7 @@ var BootstrapConfigAttributes = []string{
 	AuthorizedKeysPathKey,
 	CACertKey,
 	CAPrivateKeyKey,
+	SSHServerHostKeyKey,
 	BootstrapTimeoutKey,
 	BootstrapRetryDelayKey,
 	BootstrapAddressesDelayKey,
@@ -150,6 +156,10 @@ func BootstrapConfigSchema() configschema.Fields {
 				CACertKey),
 			Type: configschema.Tstring,
 		},
+		SSHServerHostKeyKey: {
+			Description: "Sets the bootstrapped controller's SSH server host key",
+			Type:        configschema.Tstring,
+		},
 		BootstrapTimeoutKey: {
 			Description: "Controls how long Juju will wait for a bootstrap to " +
 				"complete before considering it failed in seconds",
@@ -188,12 +198,7 @@ func BootstrapConfigSchema() configschema.Fields {
 // IsBootstrapAttribute reports whether or not the specified
 // attribute name is only relevant during bootstrap.
 func IsBootstrapAttribute(attr string) bool {
-	for _, a := range BootstrapConfigAttributes {
-		if attr == a {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(BootstrapConfigAttributes, attr)
 }
 
 // Config contains bootstrap-specific configuration.
@@ -204,6 +209,7 @@ type Config struct {
 	AuthorizedKeys          []string
 	CACert                  string
 	CAPrivateKey            string
+	SSHServerHostKey        string
 	ControllerServiceType   string
 	ControllerExternalName  string
 	ControllerExternalIPs   []string
@@ -237,19 +243,27 @@ func (c Config) Validate() error {
 	if len(c.ControllerExternalIPs) > 1 && c.ControllerServiceType == string(caas.ServiceLoadBalancer) {
 		return errors.NewNotValid(nil, fmt.Sprintf("only 1 external IP is allowed with service type %q", caas.ServiceLoadBalancer))
 	}
+	if c.SSHServerHostKey != "" {
+		// The errors given by this can be kind of misleading, if the key is not
+		// of the correct format, it will say "no key found", which is not very
+		// helpful. What it really means is "no valid key found".
+		if _, err := ssh.ParsePrivateKey([]byte(c.SSHServerHostKey)); err != nil {
+			return errors.Annotatef(err, "validating %s", SSHServerHostKeyKey)
+		}
+	}
 	return nil
 }
 
 // NewConfig creates a new Config from the supplied attributes.
 // Default values will be used where defaults are available.
 //
-// If ca-cert or ca-private-key are not set, then we will check
-// if ca-cert-path or ca-private-key-path are set, and read the
-// contents. If none of those are set, we will look for files
+// If ca-cert, ca-private-key or ssh-server-host-key are not set,
+// then we will check if ca-cert-path, ca-private-key-path ssh-server-host-key-path,
+// are set, and read the contents. If none of those are set, we will look for files
 // in well-defined locations: $JUJU_DATA/ca-cert.pem, and
 // $JUJU_DATA/ca-private-key.pem. If none of these are set, an
 // error is returned.
-func NewConfig(attrs map[string]interface{}) (Config, error) {
+func NewConfig(attrs map[string]any) (Config, error) {
 	cfg, err := coreconfig.NewConfig(attrs, configSchema, configDefaults)
 	if err != nil {
 		return Config{}, errors.Trace(err)
@@ -266,7 +280,7 @@ func NewConfig(attrs map[string]interface{}) (Config, error) {
 	if controllerExternalName, ok := attrs[ControllerExternalName].(string); ok {
 		config.ControllerExternalName = controllerExternalName
 	}
-	if externalIps, ok := attrs[ControllerExternalIPs].([]interface{}); ok {
+	if externalIps, ok := attrs[ControllerExternalIPs].([]any); ok {
 		for _, ip := range externalIps {
 			config.ControllerExternalIPs = append(config.ControllerExternalIPs, ip.(string))
 		}
@@ -334,7 +348,7 @@ func NewConfig(attrs map[string]interface{}) (Config, error) {
 	// If authorized keys is not returned we will just get back the zero value
 	// of a string which is safe to parse.
 	authorizedKeys, _ := attrs[AuthorizedKeysKey].(string)
-	config.AuthorizedKeys, err = ssh.SplitAuthorizedKeysByDelimiter(authorizedKeysDelimiter, authorizedKeys)
+	config.AuthorizedKeys, err = internalssh.SplitAuthorizedKeysByDelimiter(authorizedKeysDelimiter, authorizedKeys)
 	if err != nil {
 		return Config{}, fmt.Errorf("cannot parse and split authorized keys: %w", err)
 	}
@@ -349,7 +363,7 @@ func NewConfig(attrs map[string]interface{}) (Config, error) {
 		}
 		defer file.Close()
 
-		keys, err := ssh.SplitAuthorizedKeysReader(file)
+		keys, err := internalssh.SplitAuthorizedKeysReader(file)
 		if err != nil {
 			return Config{}, fmt.Errorf(
 				"cannot split authorized key file %q: %w",
@@ -360,13 +374,27 @@ func NewConfig(attrs map[string]interface{}) (Config, error) {
 		config.AuthorizedKeys = append(config.AuthorizedKeys, keys...)
 	}
 
+	// Try get the key from the attribute map or try load it from file.
+	// If it isn't present, this is OK, we allow the controller to generate it
+	// on "jujud bootstrap-state" command.
+	if sshServerHostKey, ok := attrs[SSHServerHostKeyKey].(string); ok {
+		config.SSHServerHostKey = sshServerHostKey
+	} else {
+		var userSpecified bool
+		var err error
+		config.SSHServerHostKey, userSpecified, err = readFileAttr(attrs, SSHServerHostKeyKey, SSHServerHostKeyKey)
+		if err != nil && (userSpecified || !os.IsNotExist(errors.Cause(err))) {
+			return Config{}, errors.Annotatef(err, "reading %q from file", SSHServerHostKeyKey)
+		}
+	}
+
 	return config, config.Validate()
 }
 
 // readFileAttr reads the contents of an attribute from a file, if the
 // corresponding "-path" attribute is set, or otherwise from a default
 // path.
-func readFileAttr(attrs map[string]interface{}, key, defaultPath string) (content string, userSpecified bool, _ error) {
+func readFileAttr(attrs map[string]any, key, defaultPath string) (content string, userSpecified bool, _ error) {
 	path, ok := attrs[key+"-path"].(string)
 	if ok {
 		userSpecified = true
@@ -419,6 +447,14 @@ var configSchema = configschema.Fields{
 		Type:  configschema.Tstring,
 		Group: configschema.JujuGroup,
 	},
+	SSHServerHostKeyKey: {
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
+	},
+	SSHServerHostKeyKey + "-path": {
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
+	},
 	ControllerExternalName: {
 		Type:  configschema.Tstring,
 		Group: configschema.JujuGroup,
@@ -430,7 +466,7 @@ var configSchema = configschema.Fields{
 	ControllerServiceType: {
 		Type:  configschema.Tstring,
 		Group: configschema.JujuGroup,
-		Values: []interface{}{
+		Values: []any{
 			string(caas.ServiceCluster),
 			string(caas.ServiceLoadBalancer),
 			string(caas.ServiceExternal),
@@ -451,17 +487,19 @@ var configSchema = configschema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	AdminSecretKey:             schema.Omit,
-	AuthorizedKeysKey:          schema.Omit,
-	AuthorizedKeysPathKey:      schema.Omit,
-	CACertKey:                  schema.Omit,
-	CACertKey + "-path":        schema.Omit,
-	CAPrivateKeyKey:            schema.Omit,
-	CAPrivateKeyKey + "-path":  schema.Omit,
-	ControllerServiceType:      schema.Omit,
-	ControllerExternalName:     schema.Omit,
-	ControllerExternalIPs:      schema.Omit,
-	BootstrapTimeoutKey:        DefaultBootstrapSSHTimeout,
-	BootstrapRetryDelayKey:     DefaultBootstrapSSHRetryDelay,
-	BootstrapAddressesDelayKey: DefaultBootstrapSSHAddressesDelay,
+	AdminSecretKey:                schema.Omit,
+	AuthorizedKeysKey:             schema.Omit,
+	AuthorizedKeysPathKey:         schema.Omit,
+	CACertKey:                     schema.Omit,
+	CACertKey + "-path":           schema.Omit,
+	CAPrivateKeyKey:               schema.Omit,
+	CAPrivateKeyKey + "-path":     schema.Omit,
+	SSHServerHostKeyKey:           schema.Omit,
+	SSHServerHostKeyKey + "-path": schema.Omit,
+	ControllerServiceType:         schema.Omit,
+	ControllerExternalName:        schema.Omit,
+	ControllerExternalIPs:         schema.Omit,
+	BootstrapTimeoutKey:           DefaultBootstrapSSHTimeout,
+	BootstrapRetryDelayKey:        DefaultBootstrapSSHRetryDelay,
+	BootstrapAddressesDelayKey:    DefaultBootstrapSSHAddressesDelay,
 }
