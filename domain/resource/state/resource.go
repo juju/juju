@@ -1615,6 +1615,224 @@ func (st *State) buildResourcesToAdd(
 	return resources, result, nil
 }
 
+// UpdateResource adds a new row in the resource table with the specified origin
+// and revision. Next, it sets it on the application_resource table, removing the
+// old resource for this charm resource. Finally, it updates the charm modified
+// version.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.CharmResourceNotFound] if the charm or charm resource
+//     do not exist.
+func (st *State) UpdateResource(
+	ctx context.Context,
+	args resource.UpdateResourceArgs,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	resourceUUID, err := coreresource.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		charmID, err := st.getApplicationResourceCharmUUID(ctx, tx, args.ApplicationID, args.Name)
+		if err != nil {
+			return errors.Errorf("getting application resource charm uuid: %w", err)
+		}
+
+		res := addResource{
+			UUID:      resourceUUID.String(),
+			CharmUUID: charmID.String(),
+			Name:      args.Name,
+			Revision:  args.Revision,
+			Origin:    args.Origin.String(),
+			State:     resource.StateAvailable.String(),
+			CreatedAt: st.clock.Now(),
+		}
+		err = st.addResource(ctx, tx, res)
+		if err != nil {
+			return errors.Errorf("inserting new resource record: %w", err)
+		}
+
+		// Update the application resource table to point to the new resource.
+		// First get the UUID of the resource currently linked for this charm
+		// resource, then update it.
+		currentlyLinkedResourceUUID, err := st.getResourceLinkedToApplication(ctx, tx, args.ApplicationID, args.Name)
+		if err != nil {
+			return errors.Errorf("getting resource currently linked to application: %w", err)
+		}
+
+		err = st.updateApplicationResource(ctx, tx, args.ApplicationID, currentlyLinkedResourceUUID, resourceUUID)
+		if err != nil {
+			return errors.Errorf("updating application resource: %w", err)
+		}
+
+		err = st.incrementCharmModifiedVersion(ctx, tx, resourceUUID)
+		if err != nil {
+			return errors.Errorf("incrementing charm modified version: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// getApplicationResourceCharmUUID checks that the resource with the given name
+// exists on the applications charm, and returns the charm UUID.
+func (st *State) getApplicationResourceCharmUUID(
+	ctx context.Context,
+	tx *sqlair.TX,
+	applicationID application.ID,
+	resourceName string,
+) (corecharm.ID, error) {
+	// Check the resource exists on the charm and get the charm ID.
+	charmRes := getResourceCharmID{
+		ApplicationID: applicationID,
+		ResourceName:  resourceName,
+	}
+	getCharmResourceCharmIDStmt, err := st.Prepare(`
+SELECT vcr.charm_uuid AS &getResourceCharmID.charm_uuid
+FROM   v_charm_resource vcr
+JOIN   application a ON a.charm_uuid = vcr.charm_uuid
+WHERE  vcr.name = $getResourceCharmID.name
+AND    a.uuid   = $getResourceCharmID.application_uuid
+`, charmRes)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, getCharmResourceCharmIDStmt, charmRes).Get(&charmRes)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", resourceerrors.CharmResourceNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return charmRes.CharmID, nil
+}
+
+func (st *State) addResource(
+	ctx context.Context,
+	tx *sqlair.TX,
+	res addResource,
+) error {
+	// Insert the new resource.
+	insertStmt, err := st.Prepare(`
+INSERT INTO resource (uuid, charm_uuid, charm_resource_name, revision, 
+       origin_type_id, state_id, created_at)
+SELECT $addResource.uuid,
+       $addResource.charm_uuid,
+       $addResource.charm_resource_name,
+       $addResource.revision,
+       rot.id,
+       rs.id,
+       $addResource.created_at
+FROM   resource_origin_type rot,
+       resource_state rs
+WHERE  rot.name = $addResource.origin_type_name
+AND    rs.name = $addResource.state_name`, res)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, insertStmt, res).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// updateApplicationResource removes an old uuid associated with an
+// application, and adds a new one.
+func (st *State) updateApplicationResource(
+	ctx context.Context,
+	tx *sqlair.TX,
+	applicationID application.ID,
+	oldResourceUUID coreresource.UUID,
+	newResourceUUID coreresource.UUID,
+) error {
+	type updateApplicationResource struct {
+		ApplicationID   application.ID    `db:"application_uuid"`
+		OldResourceUUID coreresource.UUID `db:"old_resource_uuid"`
+		NewResourceUUID coreresource.UUID `db:"new_resource_uuid"`
+	}
+	args := updateApplicationResource{
+		ApplicationID:   applicationID,
+		OldResourceUUID: oldResourceUUID,
+		NewResourceUUID: newResourceUUID,
+	}
+	updateApplicationResourceStmt, err := st.Prepare(`
+UPDATE application_resource
+SET    resource_uuid = $updateApplicationResource.new_resource_uuid
+WHERE  application_uuid = $updateApplicationResource.application_uuid
+AND    resource_uuid = $updateApplicationResource.old_resource_uuid
+`, args)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, updateApplicationResourceStmt, args).Get(&outcome)
+	if err != nil {
+		return errors.Errorf("updating application resource: %w", err)
+	}
+
+	rows, err := outcome.Result().RowsAffected()
+	if err != nil {
+		return errors.Capture(err)
+	} else if rows != 1 {
+		return errors.Errorf("updating resource application resource: expected 1 row affected, got %d", rows)
+	}
+
+	return nil
+}
+
+// getResourceUUIDLinkedToApplication returns the UUID of the resource with the
+// given name currently linked to the given application.
+func (st *State) getResourceLinkedToApplication(
+	ctx context.Context,
+	tx *sqlair.TX,
+	applicationID application.ID,
+	resourceName string,
+) (coreresource.UUID, error) {
+	type arguments struct {
+		ResourceName    string `db:"resource_name"`
+		ApplicationUUID string `db:"application_uuid"`
+	}
+	args := arguments{
+		ResourceName:    resourceName,
+		ApplicationUUID: applicationID.String(),
+	}
+	uuid := resourceUUID{}
+	stmt, err := st.Prepare(`
+SELECT r.uuid AS &resourceUUID.uuid
+FROM   application a
+JOIN   charm_resource cr ON cr.charm_uuid = a.charm_uuid
+JOIN   resource r ON r.charm_uuid = cr.charm_uuid AND r.charm_resource_name = cr.name
+JOIN   application_resource ar ON ar.resource_uuid = r.uuid AND ar.application_uuid = a.uuid
+WHERE  cr.name = $arguments.resource_name
+AND    a.uuid = $arguments.application_uuid
+`, uuid, args)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, args).Get(&uuid)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", resourceerrors.ResourceNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return coreresource.UUID(uuid.UUID), nil
+}
+
 // UpdateResourceRevisionAndDeletePriorVersion updates the revision of resource
 // to a new version. Increments charm modified version for the application to
 // trigger use of the new resource revision by the application. Any stored
