@@ -140,7 +140,8 @@ func (s *tracerSuite) TestBuildRequestContextWithBackgroundContext(c *gc.C) {
 	ctx := w.(*tracer).buildRequestContext(context.Background())
 	c.Check(ctx, gc.NotNil)
 
-	traceID, spanID, flags := coretrace.ScopeFromContext(ctx)
+	traceID, spanID, flags, ok := coretrace.ScopeFromContext(ctx)
+	c.Assert(ok, jc.IsFalse)
 	c.Check(traceID, gc.Equals, "")
 	c.Check(spanID, gc.Equals, "")
 	c.Check(flags, gc.Equals, 0)
@@ -159,7 +160,8 @@ func (s *tracerSuite) TestBuildRequestContextWithBrokenTraceID(c *gc.C) {
 	ctx = w.(*tracer).buildRequestContext(ctx)
 	c.Check(ctx, gc.NotNil)
 
-	traceID, spanID, flags := coretrace.ScopeFromContext(ctx)
+	traceID, spanID, flags, ok := coretrace.ScopeFromContext(ctx)
+	c.Assert(ok, jc.IsFalse)
 	c.Check(traceID, gc.Equals, "")
 	c.Check(spanID, gc.Equals, "")
 	c.Check(flags, gc.Equals, 0)
@@ -178,7 +180,8 @@ func (s *tracerSuite) TestBuildRequestContextWithBrokenSpanID(c *gc.C) {
 	ctx = w.(*tracer).buildRequestContext(ctx)
 	c.Check(ctx, gc.NotNil)
 
-	traceID, spanID, flags := coretrace.ScopeFromContext(ctx)
+	traceID, spanID, flags, ok := coretrace.ScopeFromContext(ctx)
+	c.Assert(ok, jc.IsFalse)
 	c.Check(traceID, gc.Equals, "")
 	c.Check(spanID, gc.Equals, "")
 	c.Check(flags, gc.Equals, 0)
@@ -197,7 +200,8 @@ func (s *tracerSuite) TestBuildRequestContext(c *gc.C) {
 	ctx = w.(*tracer).buildRequestContext(ctx)
 	c.Check(ctx, gc.NotNil)
 
-	traceID, spanID, flags := coretrace.ScopeFromContext(ctx)
+	traceID, spanID, flags, ok := coretrace.ScopeFromContext(ctx)
+	c.Assert(ok, jc.IsFalse)
 	c.Check(traceID, gc.Equals, "")
 	c.Check(spanID, gc.Equals, "")
 	c.Check(flags, gc.Equals, 0)

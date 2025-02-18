@@ -377,8 +377,15 @@ func (s *loggerSink) Enabled(level int) bool {
 // only be called when Enabled(level) is true. See Logger.Info for more
 // details.
 func (s *loggerSink) Info(level int, msg string, keysAndValues ...any) {
+	// OpenTelemetry is very chatty, so we're going to log info statements
+	// as trace statements. We can up the level if it becomes a problem.
+
+	if !s.Logger.IsLevelEnabled(logger.TRACE) {
+		return
+	}
+
 	format, args := s.formatKeysAndValues([]any{level, msg}, keysAndValues)
-	s.Logger.Infof(context.TODO(), "%d: %s"+format, args...)
+	s.Logger.Tracef(context.TODO(), "%d: %s"+format, args...)
 }
 
 // Error logs an error, with the given message and key/value pairs as

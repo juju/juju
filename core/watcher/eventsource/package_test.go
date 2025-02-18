@@ -43,6 +43,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/resource",
 		"core/secrets",
 		"core/status",
+		"core/trace",
 		"core/watcher",
 		"core/unit",
 		"internal/charm/resource",
