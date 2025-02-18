@@ -146,6 +146,6 @@ func NewWarningWriter(writer io.Writer) loggo.Writer {
 // Write implements Writer.
 // WARNING The message...
 func (w *warningWriter) Write(entry loggo.Entry) {
-	loggocolor.SeverityColor[entry.Level].Fprintf(w.writer, entry.Level.String())
+	loggocolor.SeverityColor[entry.Level].Fprintf(w.writer, "%s", entry.Level.String())
 	fmt.Fprintf(w.writer, " %s\n", entry.Message)
 }

@@ -43,6 +43,7 @@ hash
 internal
 io
 iter
+iter
 log
 maps
 math
@@ -65,6 +66,4 @@ unicode
 unique
 unsafe
 vendor/golang.org/x
-iter
-maps
-unique
+weak

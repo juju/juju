@@ -1,6 +1,6 @@
 module github.com/juju/juju/scripts/juju-mongotop
 
-go 1.23
+go 1.24
 
 require github.com/olekukonko/tablewriter v0.0.5
 
