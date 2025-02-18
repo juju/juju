@@ -133,6 +133,9 @@ type BootstrapParams struct {
 	// AdminSecret contains the administrator password.
 	AdminSecret string
 
+	// SSHServerHostKey is the controller's SSH server host key.
+	SSHServerHostKey string
+
 	// CAPrivateKey is the controller's CA certificate private key.
 	CAPrivateKey string
 
@@ -600,6 +603,9 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
+	// Set SSHServerHostKey if provided by the user.
+	instanceConfig.Bootstrap.StateInitializationParams.SSHServerHostKey = args.SSHServerHostKey
+
 	matchingTools, err := bootstrapParams.AvailableTools.Match(coretools.Filter{
 		Arch:   result.Arch,
 		OSType: result.Base.OS,
@@ -872,6 +878,7 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerExternalIPs = append([]string(nil), args.ControllerExternalIPs...)
 	pcfg.Bootstrap.ControllerCharmPath = args.ControllerCharmPath
 	pcfg.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
+	pcfg.Bootstrap.SSHServerHostKey = args.SSHServerHostKey
 	return nil
 }
 

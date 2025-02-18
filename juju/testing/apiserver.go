@@ -290,6 +290,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		AdminPassword:      AdminSecret,
 		NewPolicy:          stateenvirons.GetNewPolicyFunc(domainServices.Cloud(), domainServices.Credential(), modelConfigServiceGetter, storageServiceGetter),
 		CharmServiceGetter: charmServiceGetter,
+		SSHServerHostKey:   coretesting.SSHServerHostKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl

@@ -69,6 +69,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ObjectStoreS3StaticSession:         schema.String(),
 	SystemSSHKeys:                      schema.String(),
 	JujudControllerSnapSource:          schema.String(),
+	SSHServerPort:                      schema.ForceInt(),
+	SSHMaxConcurrentConnections:        schema.ForceInt(),
 }, schema.Defaults{
 	AgentRateLimitMax:                  schema.Omit,
 	AgentRateLimitRate:                 schema.Omit,
@@ -127,6 +129,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ObjectStoreS3StaticSession:         schema.Omit,
 	SystemSSHKeys:                      schema.Omit,
 	JujudControllerSnapSource:          DefaultJujudControllerSnapSource,
+	SSHServerPort:                      DefaultSSHServerPort,
+	SSHMaxConcurrentConnections:        DefaultSSHMaxConcurrentConnections,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -174,9 +178,9 @@ var ConfigSchema = configschema.Fields{
 	},
 	APIPortOpenDelay: {
 		Type: configschema.Tstring,
-		Description: `The duration that the controller will wait 
-between when the controller has been deemed to be ready to open 
-the api-port and when the api-port is actually opened 
+		Description: `The duration that the controller will wait
+between when the controller has been deemed to be ready to open
+the api-port and when the api-port is actually opened
 (only used when a controller-api-port value is set).`,
 	},
 	ControllerAPIPort: {
@@ -221,8 +225,8 @@ set, the api-port isn't opened until the controllers have started properly.`,
 	},
 	AllowModelAccessKey: {
 		Type: configschema.Tbool,
-		Description: `Determines if the controller allows users to 
-connect to models they have been authorized for even when 
+		Description: `Determines if the controller allows users to
+connect to models they have been authorized for even when
 they don't have any access rights to the controller itself`,
 	},
 	MongoMemoryProfile: {
@@ -316,8 +320,8 @@ Use "caas-image-repo" instead.`,
 	},
 	QueryTracingThreshold: {
 		Type: configschema.Tstring,
-		Description: `The minimum duration of a query for it to be traced. The lower the 
-threshold, the more queries will be output. A value of 0 means all queries 
+		Description: `The minimum duration of a query for it to be traced. The lower the
+threshold, the more queries will be output. A value of 0 means all queries
 will be output if tracing is enabled.`,
 	},
 	OpenTelemetryEnabled: {
@@ -371,5 +375,13 @@ will be output if tracing is enabled.`,
 	JujudControllerSnapSource: {
 		Type:        configschema.Tstring,
 		Description: `The source for the jujud-controller snap.`,
+	},
+	SSHServerPort: {
+		Type:        configschema.Tint,
+		Description: `The port used for ssh connections to the controller`,
+	},
+	SSHMaxConcurrentConnections: {
+		Type:        configschema.Tint,
+		Description: `The maximum number of concurrent ssh connections to the controller`,
 	},
 }

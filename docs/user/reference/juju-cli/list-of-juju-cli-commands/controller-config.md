@@ -91,9 +91,11 @@ The following keys are available:
       description: The time taken to add a new token to the ratelimit bucket
     api-port-open-delay:
       type: string
-      description: "The duration that the controller will wait \nbetween when the controller
-        has been deemed to be ready to open \nthe api-port and when the api-port is actually
-        opened \n(only used when a controller-api-port value is set)."
+      description: |-
+        The duration that the controller will wait
+        between when the controller has been deemed to be ready to open
+        the api-port and when the api-port is actually opened
+        (only used when a controller-api-port value is set).
     application-resource-download-limit:
       type: int
       description: The maximum number of concurrent resources downloads per application
@@ -208,6 +210,13 @@ The following keys are available:
       description: Enable query tracing for the dqlite driver
     query-tracing-threshold:
       type: string
-      description: "The minimum duration of a query for it to be traced. The lower the
-        \nthreshold, the more queries will be output. A value of 0 means all queries \nwill
-        be output if tracing is enabled."
+      description: |-
+        The minimum duration of a query for it to be traced. The lower the
+        threshold, the more queries will be output. A value of 0 means all queries
+        will be output if tracing is enabled.
+    ssh-max-concurrent-connections:
+      type: int
+      description: The maximum number of concurrent ssh connections to the controller
+    ssh-server-port:
+      type: int
+      description: The port used for ssh connections to the controller

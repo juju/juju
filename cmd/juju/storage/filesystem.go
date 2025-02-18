@@ -32,7 +32,7 @@ type FilesystemInfo struct {
 	Storage string `yaml:"storage,omitempty" json:"storage,omitempty"`
 
 	// Attachments is the set of entities attached to the filesystem.
-	Attachments *FilesystemAttachments
+	Attachments *FilesystemAttachments `yaml:"attachments,omitempty" json:"attachments,omitempty"`
 
 	// Pool is the name of the storage pool that the filesystem came from.
 	Pool string `yaml:"pool,omitempty" json:"pool,omitempty"`

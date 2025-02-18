@@ -172,6 +172,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 				"foo":  "bar",
 			},
 		},
+		SSHServerHostKey: testing.SSHServerHostKey,
 	}
 	adminUser := names.NewLocalUserTag("agent-admin")
 	bootstrap, err := agentbootstrap.NewAgentBootstrap(
@@ -346,6 +347,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		},
 		ControllerConfig:      testing.FakeControllerConfig(),
 		ControllerModelConfig: modelCfg,
+		SSHServerHostKey:      testing.SSHServerHostKey,
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")

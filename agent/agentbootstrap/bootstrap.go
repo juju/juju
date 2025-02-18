@@ -298,7 +298,8 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	b.logger.Debugf(context.TODO(), "initializing address %v", info.Addrs)
 
 	ctrl, err := state.Initialize(state.InitializeParams{
-		Clock: clock.WallClock,
+		SSHServerHostKey: stateParams.SSHServerHostKey,
+		Clock:            clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
 			Type:                    modelType,
 			Owner:                   b.adminUser,

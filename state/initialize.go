@@ -73,6 +73,9 @@ type InitializeParams struct {
 	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
 	// and should disapear as soon as we migrate units and applications.
 	CharmServiceGetter func(modelUUID coremodel.UUID) CharmService
+
+	// SSHServerHostKey holds the embedded SSH server host key.
+	SSHServerHostKey string
 }
 
 // Validate checks that the state initialization parameters are valid.
@@ -96,6 +99,9 @@ func (p InitializeParams) Validate() error {
 	}
 	if p.AdminPassword == "" {
 		return errors.NotValidf("empty AdminPassword")
+	}
+	if p.SSHServerHostKey == "" {
+		return errors.NotValidf("empty SSHServerHostKey")
 	}
 	return nil
 }
@@ -170,6 +176,13 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	}
 	var ops []txn.Op
 	ops = append(ops,
+		txn.Op{
+			C:  controllersC,
+			Id: sshServerHostKeyDocId,
+			Insert: &sshServerHostKeyDoc{
+				Key: args.SSHServerHostKey,
+			},
+		},
 		txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,

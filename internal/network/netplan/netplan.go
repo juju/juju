@@ -209,9 +209,9 @@ type BondParameters struct {
 	UpDelay            IntString `yaml:"up-delay,omitempty"`
 	DownDelay          IntString `yaml:"down-delay,omitempty"`
 	FailOverMACPolicy  IntString `yaml:"fail-over-mac-policy,omitempty"`
-	// Netplan misspelled this as 'gratuitious-arp', not sure if it works with that name.
-	// We may need custom handling of both spellings.
-	GratuitousARP         *int      `yaml:"gratuitious-arp,omitempty"` // nolint: misspell
+	// Netplan misspelled this and retained it along with the corrected spelling.
+	GratuitousARPLegacy   *int      `yaml:"gratuitious-arp,omitempty"` // nolint: misspell
+	GratuitousARP         *int      `yaml:"gratuitous-arp,omitempty"`
 	PacketsPerSlave       *int      `yaml:"packets-per-slave,omitempty"`
 	PrimaryReselectPolicy IntString `yaml:"primary-reselect-policy,omitempty"`
 	ResendIGMP            *int      `yaml:"resend-igmp,omitempty"`

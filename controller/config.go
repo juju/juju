@@ -310,10 +310,24 @@ const (
 	// Can be set to "legacy", "snapstore", "local" or "local-dangerous".
 	// Cannot be changed.
 	JujudControllerSnapSource = "jujud-controller-snap-source"
+
+	// SSHServerPort is the port used for the embedded SSH server.
+	SSHServerPort = "ssh-server-port"
+
+	// SSHMaxConcurrentConnections is the maximum number of concurrent SSH
+	// connections to the controller.
+	SSHMaxConcurrentConnections = "ssh-max-concurrent-connections"
 )
 
 // Attribute Defaults
 const (
+	// DefaultSSHMaxConcurrentConnections is the default maximum number of
+	// concurrent SSH connections to the controller.
+	DefaultSSHMaxConcurrentConnections = 100
+
+	// DefaultSSHServerPort is the default port used for the embedded SSH server.
+	DefaultSSHServerPort = 17022
+
 	// DefaultApplicationResourceDownloadLimit allows unlimited
 	// resource download requests initiated by a unit agent per application.
 	DefaultApplicationResourceDownloadLimit = 0
@@ -531,6 +545,8 @@ var (
 		ObjectStoreS3StaticSession,
 		SystemSSHKeys,
 		JujudControllerSnapSource,
+		SSHMaxConcurrentConnections,
+		SSHServerPort,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -590,6 +606,8 @@ var (
 		ObjectStoreS3StaticKey,
 		ObjectStoreS3StaticSecret,
 		ObjectStoreS3StaticSession,
+		SSHMaxConcurrentConnections,
+		SSHServerPort,
 	)
 
 	methodNameRE = regexp.MustCompile(`[[:alpha:]][[:alnum:]]*\.[[:alpha:]][[:alnum:]]*`)
@@ -1137,6 +1155,17 @@ func (c Config) ObjectStoreS3StaticSession() string {
 	return c.asString(ObjectStoreS3StaticSession)
 }
 
+// SSHServerPort returns the port the SSH server listens on.
+func (c Config) SSHServerPort() int {
+	return c.intOrDefault(SSHServerPort, DefaultSSHServerPort)
+}
+
+// SSHMaxConcurrentConnections returns the maximum number of concurrent
+// SSH connections that the controller will allow.
+func (c Config) SSHMaxConcurrentConnections() int {
+	return c.intOrDefault(SSHMaxConcurrentConnections, DefaultSSHMaxConcurrentConnections)
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -1412,6 +1441,27 @@ func Validate(c Config) error {
 		case "snapstore", "local", "local-dangerous":
 		default:
 			return errors.Errorf("%s value %q must be one of legacy, snapstore, local or local-dangerous.", JujudControllerSnapSource, v)
+		}
+	}
+
+	if v, ok := c[SSHServerPort].(int); ok {
+		if v <= 0 {
+			return errors.NotValidf("non-positive integer for ssh-server-port")
+		}
+		if v == c.APIPort() {
+			return errors.NotValidf("ssh-server-port matching api-port")
+		}
+		if v == c.StatePort() {
+			return errors.NotValidf("ssh-server-port matching state-port")
+		}
+		if v == c.ControllerAPIPort() {
+			return errors.NotValidf("ssh-server-port matching controller-api-port")
+		}
+	}
+
+	if v, ok := c[SSHMaxConcurrentConnections].(int); ok {
+		if v <= 0 {
+			return errors.NotValidf("non-positive integer for ssh-max-concurrent-connections")
 		}
 	}
 

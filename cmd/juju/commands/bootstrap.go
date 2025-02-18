@@ -111,7 +111,7 @@ bootstrap by changing the following settings in your configuration
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10  # default: 10 seconds
 
-It is possible to override the base e.g. ubuntu@22.04, Juju attempts 
+It is possible to override the base e.g. ubuntu@22.04, Juju attempts
 to bootstrap on to, by supplying a base argument to '--bootstrap-base'.
 
 An error is emitted if the determined base is not supported. Using the
@@ -876,6 +876,7 @@ to create a new model to deploy %sworkloads.
 		RegionInheritedConfig:         cloud.RegionConfig,
 		AdminSecret:                   bootstrapCfg.bootstrap.AdminSecret,
 		CAPrivateKey:                  bootstrapCfg.bootstrap.CAPrivateKey,
+		SSHServerHostKey:              bootstrapCfg.bootstrap.SSHServerHostKey,
 		ControllerServiceType:         bootstrapCfg.bootstrap.ControllerServiceType,
 		ControllerExternalName:        bootstrapCfg.bootstrap.ControllerExternalName,
 		ControllerExternalIPs:         append([]string(nil), bootstrapCfg.bootstrap.ControllerExternalIPs...),

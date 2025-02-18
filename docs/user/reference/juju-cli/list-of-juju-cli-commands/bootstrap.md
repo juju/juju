@@ -99,7 +99,7 @@ bootstrap by changing the following settings in your configuration
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10  # default: 10 seconds
 
-It is possible to override the base e.g. ubuntu@22.04, Juju attempts 
+It is possible to override the base e.g. ubuntu@22.04, Juju attempts
 to bootstrap on to, by supplying a base argument to '--bootstrap-base'.
 
 An error is emitted if the determined base is not supported. Using the
@@ -213,6 +213,9 @@ Bootstrap configuration keys:
         Controls the kubernetes service type for Juju controllers, see
         https://kubernetes.io/docs/reference/kubernetes-api/service-resources/service-v1/#ServiceSpec
         valid values are one of cluster, loadbalancer, external
+    ssh-server-host-key:
+      type: string
+      description: Sets the bootstrapped controller's SSH server host key
     
 
 Controller configuration keys:
@@ -231,17 +234,20 @@ Controller configuration keys:
       description: The time taken to add a new token to the ratelimit bucket
     allow-model-access:
       type: bool
-      description: "Determines if the controller allows users to \nconnect to models they
-        have been authorized for even when \nthey don't have any access rights to the
-        controller itself"
+      description: |-
+        Determines if the controller allows users to
+        connect to models they have been authorized for even when
+        they don't have any access rights to the controller itself
     api-port:
       type: int
       description: The port used for api connections
     api-port-open-delay:
       type: string
-      description: "The duration that the controller will wait \nbetween when the controller
-        has been deemed to be ready to open \nthe api-port and when the api-port is actually
-        opened \n(only used when a controller-api-port value is set)."
+      description: |-
+        The duration that the controller will wait
+        between when the controller has been deemed to be ready to open
+        the api-port and when the api-port is actually opened
+        (only used when a controller-api-port value is set).
     application-resource-download-limit:
       type: int
       description: The maximum number of concurrent resources downloads per application
@@ -398,12 +404,19 @@ Controller configuration keys:
       description: Enable query tracing for the dqlite driver
     query-tracing-threshold:
       type: string
-      description: "The minimum duration of a query for it to be traced. The lower the
-        \nthreshold, the more queries will be output. A value of 0 means all queries \nwill
-        be output if tracing is enabled."
+      description: |-
+        The minimum duration of a query for it to be traced. The lower the
+        threshold, the more queries will be output. A value of 0 means all queries
+        will be output if tracing is enabled.
     set-numa-control-policy:
       type: bool
       description: Determines if the NUMA control policy is set
+    ssh-max-concurrent-connections:
+      type: int
+      description: The maximum number of concurrent ssh connections to the controller
+    ssh-server-port:
+      type: int
+      description: The port used for ssh connections to the controller
     state-port:
       type: int
       description: The port used for mongo connections
