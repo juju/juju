@@ -498,7 +498,7 @@ func (c *neutronFirewaller) UpdateGroupController(ctx envcontext.ProviderCallCon
 		if err != nil {
 			logger.Errorf(context.TODO(), "error updating controller for security group %s: %v", group.Id, err)
 			failed = append(failed, group.Id)
-			if common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx) {
+			if common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx) {
 				// No need to continue here since we will 100% fail with an invalid credential.
 				break
 			}

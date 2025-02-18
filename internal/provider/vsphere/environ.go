@@ -66,7 +66,7 @@ func (env *environ) withClient(ctx context.Context, callCtx callcontext.Provider
 		// LP #1849194: this is a case at bootstrap time, where a connection
 		// to vsphere failed. It can be wrong Credentials only, differently
 		// from all the other HandleCredentialError cases
-		common.HandleCredentialError(IsAuthorisationFailure, err, callCtx)
+		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, callCtx)
 		return errors.Annotate(err, "dialing client")
 	}
 	defer client.Close(ctx)

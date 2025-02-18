@@ -14,7 +14,7 @@ import (
 // handleCredentialError wraps the common handler,
 // passing the Openstack-specific auth failure detection.
 func handleCredentialError(err error, ctx envcontext.ProviderCallContext) {
-	common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+	common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
 }
 
 // IsAuthorisationFailure determines if the given error has an

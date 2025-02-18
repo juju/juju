@@ -58,5 +58,5 @@ func IsAuthorisationFailure(err error) bool {
 //
 //	if Oracle believes that they are expired
 func HandleCredentialError(err error, ctx envcontext.ProviderCallContext) {
-	common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+	common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 const (
@@ -38,8 +39,9 @@ var AuthorisationFailureStatusCodes = set.NewInts(
 	http.StatusProxyAuthRequired,
 )
 
-// HandleCredentialError determines if a given error relates to an invalid credential.
-// If it is, the credential is invalidated and the return bool is true.
+// HandleCredentialError determines if a given error relates to an invalid
+// credential. If it is, the credential is invalidated and the return bool is
+// true.
 func HandleCredentialError(ctx context.Context, invalidator environs.CredentialInvalidator, isAuthError func(error) bool, err error) bool {
 	if invalidator == nil {
 		logger.Warningf(ctx, "no credential invalidator provided to handle error")
@@ -55,4 +57,20 @@ func HandleCredentialError(ctx context.Context, invalidator environs.CredentialI
 		return true
 	}
 	return false
+}
+
+// LegacyHandleCredentialError determines if a given error relates to an invalid
+// credential. If it is, the credential is invalidated and the return bool is
+// true.
+// Deprecated: use HandleCredentialError instead.
+func LegacyHandleCredentialError(isAuthError func(error) bool, err error, ctx envcontext.ProviderCallContext) bool {
+	denied := isAuthError(errors.Cause(err))
+	if denied {
+		converted := fmt.Errorf("cloud denied access: %w", CredentialNotValidError(err))
+		invalidateErr := ctx.InvalidateCredential(converted.Error())
+		if invalidateErr != nil {
+			logger.Warningf(context.TODO(), "could not invalidate stored cloud credential on the controller: %v", invalidateErr)
+		}
+	}
+	return denied
 }
