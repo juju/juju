@@ -80,7 +80,6 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
 		SystemState:     sysState,
 		NewServerWorker: config.NewServerWorker,
