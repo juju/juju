@@ -10,7 +10,9 @@ import (
 )
 
 // StateBackend provides an interface for upgrading the global state database.
-type StateBackend interface{}
+type StateBackend interface {
+	AddVirtualHostKeys() error
+}
 
 // Model is an interface providing access to the details of a model within the
 // controller.
@@ -26,4 +28,10 @@ func NewStateBackend(pool *state.StatePool) StateBackend {
 
 type stateBackend struct {
 	pool *state.StatePool
+}
+
+// AddVirtualHostKeys runs an upgrade to
+// create missing virtual host keys.
+func (s stateBackend) AddVirtualHostKeys() error {
+	return state.AddVirtualHostKeys(s.pool)
 }

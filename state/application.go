@@ -2427,7 +2427,7 @@ func (a *Application) addUnitOps(
 	ops = append(ops, a.incUnitCountOp(asserts))
 
 	if len(args.VirtualHostKey) > 0 {
-		hostKeyOps, err := newUnitVirtualHostKeysOps(a.st, uNames, args.VirtualHostKey)
+		hostKeyOps, err := newUnitVirtualHostKeysOps(a.st.ModelUUID(), uNames, args.VirtualHostKey)
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}

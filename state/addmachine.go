@@ -328,7 +328,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	}
 	ops := append(prereqOps, machineOp)
 
-	addvirtualHostKeyOps, err := newMachineVirtualHostKeysOps(st, mdoc.Id, template.VirtualHostKey)
+	addvirtualHostKeyOps, err := newMachineVirtualHostKeysOps(st.ModelUUID(), mdoc.Id, template.VirtualHostKey)
 	if err != nil {
 		return nil, nil, err
 	}

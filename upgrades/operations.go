@@ -18,7 +18,9 @@ import (
 // All state-based operations are run before API-based operations
 // (below).
 var stateUpgradeOperations = func() []Operation {
-	steps := []Operation{}
+	steps := []Operation{
+		upgradeToVersion{version.MustParse("3.6.4"), stateStepsFor364()},
+	}
 	return steps
 }
 

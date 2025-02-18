@@ -7,6 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
+
+	"github.com/juju/juju/pki/ssh"
 )
 
 // Until we add 3.0 upgrade steps, keep static analysis happy.
@@ -94,4 +96,86 @@ func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error))
 		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
+}
+
+// AddVirtualHostKeys creates virtual host keys for CAAS units and machines.
+func AddVirtualHostKeys(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	virtualHostKeysCollection, vhkCloser := st.db().GetRawCollection(virtualHostKeysC)
+	defer vhkCloser()
+	virtualHostKeys := []virtualHostKeyDoc{}
+	err = virtualHostKeysCollection.Find(nil).All(&virtualHostKeys)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get all virtual host keys")
+	}
+
+	hostKeyMap := map[string]struct{}{}
+	for _, virtualHostKey := range virtualHostKeys {
+		hostKeyMap[virtualHostKey.DocId] = struct{}{}
+	}
+
+	machinesCollection, machineCloser := st.db().GetRawCollection(machinesC)
+	defer machineCloser()
+	mdocs := machineDocSlice{}
+	err = machinesCollection.Find(nil).All(&mdocs)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get all machines")
+	}
+
+	var ops []txn.Op
+	for _, doc := range mdocs {
+		machineLookup := ensureModelUUID(doc.ModelUUID, machineHostKeyID(doc.Id))
+		if _, ok := hostKeyMap[machineLookup]; ok {
+			continue
+		}
+		key, err := ssh.NewMarshalledED25519()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		addOps, err := newMachineVirtualHostKeysOps(doc.ModelUUID, doc.Id, key)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, addOps...)
+	}
+
+	err = runForAllModelStates(pool, func(st *State) error {
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if model.Type() == ModelTypeCAAS {
+			// add host keys for CaaS units.
+			units, err := st.allUnits()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			for _, unit := range units {
+				unitLookup := ensureModelUUID(st.ModelUUID(), unitHostKeyID(unit.Tag().Id()))
+				if _, ok := hostKeyMap[unitLookup]; ok {
+					continue
+				}
+				key, err := ssh.NewMarshalledED25519()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				addOps, err := newUnitVirtualHostKeysOps(st.ModelUUID(), unit.Tag().Id(), key)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				ops = append(ops, addOps...)
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
 }
