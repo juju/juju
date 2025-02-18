@@ -33,6 +33,11 @@ type localUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// resourceUUID represents a unique identifier for a resource.
+type resourceUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // charmUUID represents the unique identifier of a charm.
 type charmUUID struct {
 	UUID string `db:"uuid"`
@@ -161,6 +166,12 @@ type getApplicationAndCharmID struct {
 	Name          string             `db:"name"`
 }
 
+type getResourceCharmID struct {
+	ApplicationID coreapplication.ID `db:"application_uuid"`
+	CharmID       charm.ID           `db:"charm_uuid"`
+	ResourceName  string             `db:"name"`
+}
+
 // kubernetesApplicationResource represents the mapping of a resource to a unit.
 type kubernetesApplicationResource struct {
 	ResourceUUID string    `db:"resource_uuid"`
@@ -220,4 +231,15 @@ type setResource struct {
 	OriginTypeId int       `db:"origin_type_id"`
 	StateID      int       `db:"state_id"`
 	CreatedAt    time.Time `db:"created_at"`
+}
+
+// addResource is used to set resource rows in the resource table.
+type addResource struct {
+	UUID      string    `db:"uuid"`
+	CharmUUID string    `db:"charm_uuid"`
+	Name      string    `db:"charm_resource_name"`
+	Revision  *int      `db:"revision"`
+	Origin    string    `db:"origin_type_name"`
+	State     string    `db:"state_name"`
+	CreatedAt time.Time `db:"created_at"`
 }

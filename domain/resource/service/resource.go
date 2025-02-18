@@ -123,6 +123,14 @@ type State interface {
 		resType charmresource.Type,
 	) (string, error)
 
+	// UpdateResource updates the revision of resource to a new version.
+	// Increments charm modified version for the application to trigger use of
+	// the new resource revision by the application.
+	UpdateResource(
+		ctx context.Context,
+		arg resource.UpdateResourceArgs,
+	) error
+
 	// ImportResources sets resources imported in migration. It first builds all the
 	// resources to insert from the arguments, then inserts them at the end so as to
 	// wait as long as possible before turning into a write transaction.
@@ -665,6 +673,33 @@ func (s *Service) UpdateResourceRevision(ctx context.Context, arg resource.Updat
 		}
 	}
 	return err
+}
+
+// UpdateResource adds a new entry in the resource table with the desired
+// parameters and sets it on the application.
+func (s *Service) UpdateResource(ctx context.Context, args resource.UpdateResourceArgs) error {
+	if err := args.ApplicationID.Validate(); err != nil {
+		return errors.Errorf("application id: %w: %w", resourceerrors.ArgumentNotValid, err)
+	}
+	if args.Name == "" {
+		return resourceerrors.ResourceNameNotValid
+	}
+	if err := args.Origin.Validate(); err != nil {
+		return errors.Errorf("resource origin: :%w, %w", resourceerrors.ArgumentNotValid, err)
+	}
+	if args.Origin == charmresource.OriginUpload && args.Revision != nil {
+		return errors.Errorf(
+			"resource with origin upload should not have a revision, found %d: %w",
+			*args.Revision, resourceerrors.ResourceRevisionNotValid,
+		)
+	}
+	if args.Origin == charmresource.OriginStore && args.Revision == nil {
+		return errors.Errorf(
+			"resource with origin store must have revision, found nil: %w",
+			resourceerrors.ResourceRevisionNotValid,
+		)
+	}
+	return s.st.UpdateResource(ctx, args)
 }
 
 // DeleteResourcesAddedBeforeApplication removes all resources for the

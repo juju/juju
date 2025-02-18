@@ -125,6 +125,19 @@ type AddResourceDetails struct {
 	Revision *int
 }
 
+// UpdateResourceArgs holds arguments to add a new resource revision and link it
+// to the application.
+type UpdateResourceArgs struct {
+	// ApplicationID is the ID of the application this resource belongs to.
+	ApplicationID application.ID
+	// Name is the resource name.
+	Name string
+	// Revision is the revision of the resource to use.
+	Revision *int
+	// Origin is the origin of the resource to use.
+	Origin charmresource.Origin
+}
+
 // UpdateResourceRevisionArgs holds arguments to update a resource to have
 // a new revision.
 type UpdateResourceRevisionArgs struct {
