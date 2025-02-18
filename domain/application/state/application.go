@@ -611,6 +611,59 @@ func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UU
 	return nil
 }
 
+// GetUnitWorkloadStatusesForApplication returns the workload statuses for all units
+// of the specified application, returning an error satisfying
+// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
+func (st *State) GetUnitWorkloadStatusesForApplication(ctx context.Context, appId coreapplication.ID) (map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType], error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, jujuerrors.Trace(err)
+	}
+
+	ident := applicationID{ID: appId}
+	getUnitStatusesStmt, err := st.Prepare(`
+SELECT &unitStatusInfo.*
+FROM unit_workload_status
+JOIN unit ON unit.uuid = unit_workload_status.unit_uuid
+WHERE unit.application_uuid = $applicationID.uuid
+`, unitStatusInfo{}, ident)
+	if err != nil {
+		return nil, jujuerrors.Trace(err)
+	}
+
+	var unitStatuses []unitStatusInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkApplicationExists(ctx, tx, ident)
+		if err != nil && !errors.Is(err, applicationerrors.ApplicationIsDead) {
+			return err
+		}
+		err = tx.Query(ctx, getUnitStatusesStmt, ident).GetAll(&unitStatuses)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting workload statuses for application %q: %w", appId, err)
+	}
+
+	statuses := make(map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType], len(unitStatuses))
+	for _, unitStatus := range unitStatuses {
+		statusID, err := decodeWorkloadStatus(unitStatus.StatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitStatus.UnitUUID, err)
+		}
+		statuses[unitStatus.UnitUUID] = application.StatusInfo[application.WorkloadStatusType]{
+			Status:  statusID,
+			Message: unitStatus.Message,
+			Data:    unitStatus.Data,
+			Since:   unitStatus.UpdatedAt,
+		}
+	}
+
+	return statuses, nil
+}
+
 func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
 	result := &application.CloudContainer{
 		ProviderID: cloudContainer.ProviderID,
@@ -3536,7 +3589,7 @@ WHERE name = $applicationDetails.name
 	}
 	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, name)
+		return "", errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, name)
 	} else if err != nil {
 		return "", errors.Errorf("looking up UUID for application %q: %w", name, err)
 	}
