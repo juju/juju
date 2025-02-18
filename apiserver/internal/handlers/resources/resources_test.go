@@ -79,6 +79,7 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 				Path: "foo.tgz",
 			},
 			Fingerprint: fp,
+			Origin:      charmresource.OriginUpload,
 			Size:        int64(len(s.resourceContent)),
 		},
 		UUID:        s.resourceUUID,
@@ -236,14 +237,8 @@ func (s *ResourcesHandlerSuite) TestGetNotFoundError(c *gc.C) {
 
 func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
 	// Arrange:
-
-	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
-		gomock.Any(),
-		s.applicationName,
-		s.resourceName,
-	).Return(s.resourceUUID, nil)
-
 	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
 		s.resource, nil,
 	)
@@ -275,6 +270,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
 	)
 
 	req := s.newUploadRequest(c)
+	req.URL.RawQuery += fmt.Sprintf("&pendingid=%s", s.resourceUUID)
 
 	// Act:
 	s.serveHTTP(req)
@@ -327,9 +323,13 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
 		s.resourceName,
 	).Return(s.resourceUUID, nil)
 
+	newResourceUUID := coreresourcetesting.GenResourceUUID(c)
+	s.resourceService.EXPECT().UpdateUploadResource(gomock.Any(), s.resourceUUID).Return(newResourceUUID, nil)
+
 	res := s.resource
 	res.Type = charmresource.TypeContainerImage
-	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+	res.UUID = newResourceUUID
+	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
 		res, nil,
 	)
 
@@ -341,7 +341,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
 	).Return(s.resourceReader, nil)
 
 	s.resourceService.EXPECT().StoreResourceAndIncrementCharmModifiedVersion(gomock.Any(), domainresource.StoreResourceArgs{
-		ResourceUUID:    s.resourceUUID,
+		ResourceUUID:    newResourceUUID,
 		Reader:          s.resourceReader,
 		RetrievedBy:     s.username,
 		RetrievedByType: coreresource.User,
@@ -355,7 +355,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
 	expectedResource := res
 	expectedResource.Origin = charmresource.OriginUpload
 	expectedResource.Revision = -1
-	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+	s.resourceService.EXPECT().GetResource(gomock.Any(), newResourceUUID).Return(
 		expectedResource, nil,
 	)
 
@@ -380,12 +380,7 @@ func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
 	// Arrange:
 	req := s.newUploadRequest(c)
 	req.Header.Set("Content-Disposition", "form-data; filename=different.ext")
-
-	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
-		gomock.Any(),
-		s.applicationName,
-		s.resourceName,
-	).Return(s.resourceUUID, nil)
+	req.URL.RawQuery += fmt.Sprintf("&pendingid=%s", s.resourceUUID)
 
 	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
 		s.resource, nil,
@@ -400,6 +395,30 @@ func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
+// TestPutNotValidOrigin tests that we only upload blobs to resources with
+// type upload.
+func (s *ResourcesHandlerSuite) TestPutNotValidOrigin(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	req := s.newUploadRequest(c)
+	req.URL.RawQuery += fmt.Sprintf("&pendingid=%s", s.resourceUUID)
+
+	res := s.resource
+	res.Origin = charmresource.OriginStore
+	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
+		res, nil,
+	)
+
+	// Act:
+	s.serveHTTP(req)
+
+	// Assert:
+	_, expected := apiFailure(fmt.Sprintf(`resource %q is not of type upload`, s.resourceUUID),
+		"")
+	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
+}
+
 // TestPutWithPending checks that clients can still upload resources marked as
 // pending, though this concept is deprecated and no longer used by the
 // controller.
@@ -407,13 +426,7 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	// Arrange:
 	req := s.newUploadRequest(c)
-	req.URL.RawQuery += "&pendingid=some-unique-id"
-
-	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
-		gomock.Any(),
-		s.applicationName,
-		s.resourceName,
-	).Return(s.resourceUUID, nil)
+	req.URL.RawQuery += fmt.Sprintf("&pendingid=%s", s.resourceUUID)
 
 	s.resourceService.EXPECT().GetResource(gomock.Any(), s.resourceUUID).Return(
 		s.resource, nil,

@@ -218,22 +218,21 @@ type uploadedResource struct {
 
 // getUploadedResource reads the resource from the request, validates that it is
 // known to the controller and validates the uploaded blobs contents.
-func (h *ResourceHandler) getUploadedResource(resourceService ResourceService, req *http.Request) (io.ReadCloser, *uploadedResource, error) {
+func (h *ResourceHandler) getUploadedResource(
+	resourceService ResourceService,
+	req *http.Request,
+) (io.ReadCloser, *uploadedResource, error) {
 	uReq, err := extractUploadRequest(req)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
 
-	uuid, err := resourceService.GetResourceUUIDByApplicationAndResourceName(req.Context(), uReq.Application, uReq.Name)
-	if errors.Is(err, resourceerrors.ResourceNotFound) {
-		return nil, nil, jujuerrors.NotFoundf("resource %s of application %s", uReq.Name, uReq.Application)
-	} else if errors.Is(err, resourceerrors.ApplicationNotFound) {
-		return nil, nil, jujuerrors.NotFoundf("application %s", uReq.Application)
-	} else if err != nil {
+	resUUID, err := getResourceUUID(req.Context(), resourceService, uReq)
+	if err != nil {
 		return nil, nil, errors.Errorf("getting resource uuid: %w", err)
 	}
 
-	res, err := resourceService.GetResource(req.Context(), uuid)
+	res, err := resourceService.GetResource(req.Context(), resUUID)
 	if errors.Is(err, resourceerrors.ResourceNotFound) {
 		return nil, nil, jujuerrors.NotFoundf("resource %s of application %s", uReq.Name, uReq.Application)
 	} else if errors.Is(err, resourceerrors.ApplicationNotFound) {
@@ -242,11 +241,17 @@ func (h *ResourceHandler) getUploadedResource(resourceService ResourceService, r
 		return nil, nil, errors.Errorf("getting resource details: %w", err)
 	}
 
+	// Only attach a blob to a resource configured to be uploaded.
+	if res.Origin != charmresource.OriginUpload {
+		return nil, nil, errors.Errorf("resource %q is not of type upload", res.UUID)
+	}
+
 	switch res.Type {
 	case charmresource.TypeFile:
 		ext := path.Ext(res.Path)
 		if path.Ext(uReq.Filename) != ext {
-			return nil, nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
+			return nil, nil,
+				errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
 		}
 	}
 
@@ -262,6 +267,36 @@ func (h *ResourceHandler) getUploadedResource(resourceService ResourceService, r
 		size:            uReq.Size,
 		fingerprint:     uReq.Fingerprint,
 	}, nil
+}
+
+// getResourceUUID returns the resource uuid to match the new resource blob to.
+func getResourceUUID(
+	ctx context.Context,
+	resourceService ResourceService,
+	uReq api.UploadRequest,
+) (coreresource.UUID, error) {
+	// If there is a valid PendingID in the request, the client has already
+	// setup the resource to expect a new upload, no need to do it again.
+	updatedResourceUUID, err := coreresource.ParseUUID(uReq.PendingID)
+	if err == nil {
+		return updatedResourceUUID, nil
+	}
+
+	// The client attempting to upload the resource, hasn't setup to match
+	// a resource to a new uploaded blob. Do that for them here.
+	oldResourceUUID, err := resourceService.GetResourceUUIDByApplicationAndResourceName(ctx, uReq.Application, uReq.Name)
+	if errors.Is(err, resourceerrors.ResourceNotFound) || errors.Is(err, resourceerrors.ApplicationNotFound) {
+		return "", jujuerrors.NotFoundf("application %q, resource %q", uReq.Application, uReq.Name)
+	} else if err != nil {
+		return "", errors.Errorf("getting resource uuid: %w", err)
+	}
+
+	newResourceUUID, err := resourceService.UpdateUploadResource(ctx, oldResourceUUID)
+	if err != nil {
+		return "", errors.Errorf("updating resource uuid: %w", err)
+	}
+
+	return newResourceUUID, nil
 }
 
 // extractUploadRequest pulls the required info from the HTTP request.
@@ -281,6 +316,8 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 		return ur, errors.Errorf("parsing fingerprint: %w", err)
 	}
 
+	pendingID := req.URL.Query().Get(api.QueryParamPendingID)
+
 	filename, err := extractFilename(req)
 	if err != nil {
 		return ur, errors.Capture(err)
@@ -297,6 +334,7 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 		Filename:    filename,
 		Size:        size,
 		Fingerprint: fp,
+		PendingID:   pendingID,
 	}
 	return ur, nil
 }
