@@ -10,8 +10,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	charmtesting "github.com/juju/juju/core/charm/testing"
+	storagetesting "github.com/juju/juju/core/storage/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -134,4 +137,81 @@ func (s *applicationStateSuite) TestCreateApplicationWithStorageButCharmHasNone(
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
 		[]charm.Storage{}, addStorageArgs), nil)
 	c.Assert(err, gc.ErrorMatches, `.*storage \["foo"\] is not supported`)
+}
+
+type charmStorageArg struct {
+	name     string
+	kind     int
+	min, max int
+	readOnly bool
+	location string
+}
+
+func (s *applicationStateSuite) insertCharmWithStorage(c *gc.C, stor ...charmStorageArg) string {
+	uuid := charmtesting.GenCharmID(c).String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		var err error
+		if _, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Capture(err)
+		}
+
+		for _, arg := range stor {
+			_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_storage (
+    charm_uuid,
+    name,
+    storage_kind_id,
+    read_only,
+    count_min,
+    count_max,
+    location
+) VALUES
+    (?, ?, ?, ?, ?, ?, ?);`,
+				uuid, arg.name, arg.kind, arg.readOnly, arg.min, arg.max, arg.location)
+			if err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return uuid
+}
+
+var (
+	filesystemStorage = charmStorageArg{
+		name:     "pgdata",
+		kind:     1,
+		min:      1,
+		max:      2,
+		readOnly: true,
+		location: "/tmp",
+	}
+)
+
+func (s *applicationStateSuite) TestGetStorageUUIDByID(c *gc.C) {
+	ctx := context.Background()
+
+	charmUUID := s.insertCharmWithStorage(c, filesystemStorage)
+	uuid := storagetesting.GenStorageUUID(c)
+
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, storage_pool, size_mib)
+VALUES (?, ?, ?, ?, ?, ?, ?)`, uuid, charmUUID, "pgdata", "pgdata/0", 0, "pool", 666)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.state.GetStorageUUIDByID(ctx, "pgdata/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, uuid)
+}
+
+func (s *applicationStateSuite) TestGetStorageUUIDByIDNotFound(c *gc.C) {
+	ctx := context.Background()
+
+	_, err := s.state.GetStorageUUIDByID(ctx, "pgdata/0")
+	c.Assert(err, jc.ErrorIs, storageerrors.StorageNotFound)
 }

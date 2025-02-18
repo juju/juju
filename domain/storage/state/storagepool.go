@@ -16,16 +16,11 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// StoragePoolState represents database interactions dealing with storage pools.
-type StoragePoolState struct {
-	*domain.StateBase
-}
-
 type poolAttributes map[string]string
 
 // CreateStoragePool creates a storage pool, returning an error satisfying [storageerrors.PoolAlreadyExists]
 // if a pool with the same name already exists.
-func (st StoragePoolState) CreateStoragePool(ctx context.Context, pool domainstorage.StoragePoolDetails) error {
+func (st State) CreateStoragePool(ctx context.Context, pool domainstorage.StoragePoolDetails) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -177,7 +172,7 @@ ON CONFLICT(storage_pool_uuid, key) DO UPDATE SET key=excluded.key,
 
 // DeleteStoragePool deletes a storage pool, returning an error satisfying
 // [errors.NotFound] if it doesn't exist.
-func (st StoragePoolState) DeleteStoragePool(ctx context.Context, name string) error {
+func (st State) DeleteStoragePool(ctx context.Context, name string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -226,7 +221,7 @@ WHERE  storage_pool.uuid = (select uuid FROM storage_pool WHERE name = $M.name)
 
 // ReplaceStoragePool replaces an existing storage pool, returning an error
 // satisfying [errors.NotFound] if a pool with the name does not exist.
-func (st StoragePoolState) ReplaceStoragePool(ctx context.Context, pool domainstorage.StoragePoolDetails) error {
+func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.StoragePoolDetails) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -311,7 +306,7 @@ FROM   storage_pool sp
 }
 
 // ListStoragePools returns the storage pools matching the specified filter.
-func (st StoragePoolState) ListStoragePools(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) ([]domainstorage.StoragePoolDetails, error) {
+func (st State) ListStoragePools(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) ([]domainstorage.StoragePoolDetails, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -352,7 +347,7 @@ func buildStoragePoolsFilter(wantNames domainstorage.Names, wantProviders domain
 
 // GetStoragePoolByName returns the storage pool with the specified name, returning an error
 // satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
-func (st StoragePoolState) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error) {
+func (st State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error) {
 	db, err := st.DB()
 	if err != nil {
 		return domainstorage.StoragePoolDetails{}, errors.Trace(err)

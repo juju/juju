@@ -19,14 +19,16 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
+	storage "github.com/juju/juju/core/storage"
 	unit "github.com/juju/juju/core/unit"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	application0 "github.com/juju/juju/domain/application"
 	architecture "github.com/juju/juju/domain/application/architecture"
 	charm0 "github.com/juju/juju/domain/application/charm"
 	life "github.com/juju/juju/domain/life"
-	storage "github.com/juju/juju/domain/storage"
+	storage0 "github.com/juju/juju/domain/storage"
 	envcontext "github.com/juju/juju/environs/envcontext"
+	storage1 "github.com/juju/juju/internal/storage"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -52,6 +54,45 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// AddStorageForUnit mocks base method.
+func (m *MockState) AddStorageForUnit(ctx context.Context, storageName storage.Name, unitUUID unit.UUID, stor storage1.Directive) ([]storage.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddStorageForUnit", ctx, storageName, unitUUID, stor)
+	ret0, _ := ret[0].([]storage.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddStorageForUnit indicates an expected call of AddStorageForUnit.
+func (mr *MockStateMockRecorder) AddStorageForUnit(ctx, storageName, unitUUID, stor any) *MockStateAddStorageForUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddStorageForUnit", reflect.TypeOf((*MockState)(nil).AddStorageForUnit), ctx, storageName, unitUUID, stor)
+	return &MockStateAddStorageForUnitCall{Call: call}
+}
+
+// MockStateAddStorageForUnitCall wrap *gomock.Call
+type MockStateAddStorageForUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAddStorageForUnitCall) Return(arg0 []storage.ID, arg1 error) *MockStateAddStorageForUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAddStorageForUnitCall) Do(f func(context.Context, storage.Name, unit.UUID, storage1.Directive) ([]storage.ID, error)) *MockStateAddStorageForUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAddStorageForUnitCall) DoAndReturn(f func(context.Context, storage.Name, unit.UUID, storage1.Directive) ([]storage.ID, error)) *MockStateAddStorageForUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // AddUnits mocks base method.
@@ -88,6 +129,44 @@ func (c *MockStateAddUnitsCall) Do(f func(context.Context, application.ID, []app
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateAddUnitsCall) DoAndReturn(f func(context.Context, application.ID, []application0.AddUnitArg) error) *MockStateAddUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AttachStorage mocks base method.
+func (m *MockState) AttachStorage(ctx context.Context, storageUUID storage.UUID, unitUUID unit.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AttachStorage", ctx, storageUUID, unitUUID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AttachStorage indicates an expected call of AttachStorage.
+func (mr *MockStateMockRecorder) AttachStorage(ctx, storageUUID, unitUUID any) *MockStateAttachStorageCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachStorage", reflect.TypeOf((*MockState)(nil).AttachStorage), ctx, storageUUID, unitUUID)
+	return &MockStateAttachStorageCall{Call: call}
+}
+
+// MockStateAttachStorageCall wrap *gomock.Call
+type MockStateAttachStorageCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAttachStorageCall) Return(arg0 error) *MockStateAttachStorageCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAttachStorageCall) Do(f func(context.Context, storage.UUID, unit.UUID) error) *MockStateAttachStorageCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAttachStorageCall) DoAndReturn(f func(context.Context, storage.UUID, unit.UUID) error) *MockStateAttachStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -242,6 +321,82 @@ func (c *MockStateDeleteUnitCall) Do(f func(context.Context, unit.Name) (bool, e
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateDeleteUnitCall) DoAndReturn(f func(context.Context, unit.Name) (bool, error)) *MockStateDeleteUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DetachStorage mocks base method.
+func (m *MockState) DetachStorage(ctx context.Context, storageUUID storage.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DetachStorage", ctx, storageUUID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DetachStorage indicates an expected call of DetachStorage.
+func (mr *MockStateMockRecorder) DetachStorage(ctx, storageUUID any) *MockStateDetachStorageCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetachStorage", reflect.TypeOf((*MockState)(nil).DetachStorage), ctx, storageUUID)
+	return &MockStateDetachStorageCall{Call: call}
+}
+
+// MockStateDetachStorageCall wrap *gomock.Call
+type MockStateDetachStorageCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDetachStorageCall) Return(arg0 error) *MockStateDetachStorageCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDetachStorageCall) Do(f func(context.Context, storage.UUID) error) *MockStateDetachStorageCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDetachStorageCall) DoAndReturn(f func(context.Context, storage.UUID) error) *MockStateDetachStorageCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DetachStorageForUnit mocks base method.
+func (m *MockState) DetachStorageForUnit(ctx context.Context, storageUUID storage.UUID, unitUUID unit.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DetachStorageForUnit", ctx, storageUUID, unitUUID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DetachStorageForUnit indicates an expected call of DetachStorageForUnit.
+func (mr *MockStateMockRecorder) DetachStorageForUnit(ctx, storageUUID, unitUUID any) *MockStateDetachStorageForUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetachStorageForUnit", reflect.TypeOf((*MockState)(nil).DetachStorageForUnit), ctx, storageUUID, unitUUID)
+	return &MockStateDetachStorageForUnitCall{Call: call}
+}
+
+// MockStateDetachStorageForUnitCall wrap *gomock.Call
+type MockStateDetachStorageForUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDetachStorageForUnitCall) Return(arg0 error) *MockStateDetachStorageForUnitCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDetachStorageForUnitCall) Do(f func(context.Context, storage.UUID, unit.UUID) error) *MockStateDetachStorageForUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDetachStorageForUnitCall) DoAndReturn(f func(context.Context, storage.UUID, unit.UUID) error) *MockStateDetachStorageForUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1663,10 +1818,10 @@ func (c *MockStateGetModelTypeCall) DoAndReturn(f func(context.Context) (model.M
 }
 
 // GetStoragePoolByName mocks base method.
-func (m *MockState) GetStoragePoolByName(ctx context.Context, name string) (storage.StoragePoolDetails, error) {
+func (m *MockState) GetStoragePoolByName(ctx context.Context, name string) (storage0.StoragePoolDetails, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetStoragePoolByName", ctx, name)
-	ret0, _ := ret[0].(storage.StoragePoolDetails)
+	ret0, _ := ret[0].(storage0.StoragePoolDetails)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1684,19 +1839,58 @@ type MockStateGetStoragePoolByNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetStoragePoolByNameCall) Return(arg0 storage.StoragePoolDetails, arg1 error) *MockStateGetStoragePoolByNameCall {
+func (c *MockStateGetStoragePoolByNameCall) Return(arg0 storage0.StoragePoolDetails, arg1 error) *MockStateGetStoragePoolByNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetStoragePoolByNameCall) Do(f func(context.Context, string) (storage.StoragePoolDetails, error)) *MockStateGetStoragePoolByNameCall {
+func (c *MockStateGetStoragePoolByNameCall) Do(f func(context.Context, string) (storage0.StoragePoolDetails, error)) *MockStateGetStoragePoolByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetStoragePoolByNameCall) DoAndReturn(f func(context.Context, string) (storage.StoragePoolDetails, error)) *MockStateGetStoragePoolByNameCall {
+func (c *MockStateGetStoragePoolByNameCall) DoAndReturn(f func(context.Context, string) (storage0.StoragePoolDetails, error)) *MockStateGetStoragePoolByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetStorageUUIDByID mocks base method.
+func (m *MockState) GetStorageUUIDByID(ctx context.Context, storageID storage.ID) (storage.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStorageUUIDByID", ctx, storageID)
+	ret0, _ := ret[0].(storage.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStorageUUIDByID indicates an expected call of GetStorageUUIDByID.
+func (mr *MockStateMockRecorder) GetStorageUUIDByID(ctx, storageID any) *MockStateGetStorageUUIDByIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStorageUUIDByID", reflect.TypeOf((*MockState)(nil).GetStorageUUIDByID), ctx, storageID)
+	return &MockStateGetStorageUUIDByIDCall{Call: call}
+}
+
+// MockStateGetStorageUUIDByIDCall wrap *gomock.Call
+type MockStateGetStorageUUIDByIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetStorageUUIDByIDCall) Return(arg0 storage.UUID, arg1 error) *MockStateGetStorageUUIDByIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetStorageUUIDByIDCall) Do(f func(context.Context, storage.ID) (storage.UUID, error)) *MockStateGetStorageUUIDByIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetStorageUUIDByIDCall) DoAndReturn(f func(context.Context, storage.ID) (storage.UUID, error)) *MockStateGetStorageUUIDByIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2704,10 +2898,10 @@ func (c *MockStateSetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context,
 }
 
 // StorageDefaults mocks base method.
-func (m *MockState) StorageDefaults(arg0 context.Context) (storage.StorageDefaults, error) {
+func (m *MockState) StorageDefaults(arg0 context.Context) (storage0.StorageDefaults, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StorageDefaults", arg0)
-	ret0, _ := ret[0].(storage.StorageDefaults)
+	ret0, _ := ret[0].(storage0.StorageDefaults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2725,19 +2919,19 @@ type MockStateStorageDefaultsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateStorageDefaultsCall) Return(arg0 storage.StorageDefaults, arg1 error) *MockStateStorageDefaultsCall {
+func (c *MockStateStorageDefaultsCall) Return(arg0 storage0.StorageDefaults, arg1 error) *MockStateStorageDefaultsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateStorageDefaultsCall) Do(f func(context.Context) (storage.StorageDefaults, error)) *MockStateStorageDefaultsCall {
+func (c *MockStateStorageDefaultsCall) Do(f func(context.Context) (storage0.StorageDefaults, error)) *MockStateStorageDefaultsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateStorageDefaultsCall) DoAndReturn(f func(context.Context) (storage.StorageDefaults, error)) *MockStateStorageDefaultsCall {
+func (c *MockStateStorageDefaultsCall) DoAndReturn(f func(context.Context) (storage0.StorageDefaults, error)) *MockStateStorageDefaultsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

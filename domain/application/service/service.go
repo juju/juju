@@ -48,6 +48,7 @@ import (
 type State interface {
 	ApplicationState
 	CharmState
+	StorageState
 }
 
 const (
