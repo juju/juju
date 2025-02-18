@@ -8,13 +8,21 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 )
 
 // SystemState holds methods on a state that has been retrieved
 // via state.SystemState().
 type SystemState interface {
+	// WatchControllerConfig returns a NotifyWatcher for controller settings.
 	WatchControllerConfig() state.NotifyWatcher
+	// ControllerConfig returns the config values for the controller.
+	ControllerConfig() (controller.Config, error)
+	// SSHServerHostKey returns the host key for the SSH server. This key was set
+	// during the controller bootstrap process via bootstrap-state and is currently
+	// a FIXED value.
+	SSHServerHostKey() (string, error)
 }
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
@@ -80,11 +88,35 @@ func (ssw *serverWrapperWorker) Wait() error {
 	return ssw.catacomb.Wait()
 }
 
+func (ssw *serverWrapperWorker) getLatestControllerConfig() (port, maxConns int, err error) {
+	ctrlCfg, err := ssw.config.SystemState.ControllerConfig()
+	if err != nil {
+		return port, maxConns, errors.Trace(err)
+	}
+
+	return ctrlCfg.SSHServerPort(), ctrlCfg.SSHMaxConcurrentConnections(), nil
+}
+
 // loop is the main loop of the server wrapper worker. It starts the server worker
 // and listens for changes in the controller configuration.
 func (ssw *serverWrapperWorker) loop() error {
+	jumpHostKey, err := ssw.config.SystemState.SSHServerHostKey()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if jumpHostKey == "" {
+		return errors.New("jump host key is empty")
+	}
+
+	port, _, err := ssw.getLatestControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
-		Logger: ssw.config.Logger,
+		Logger:      ssw.config.Logger,
+		JumpHostKey: jumpHostKey,
+		Port:        port,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -94,30 +126,34 @@ func (ssw *serverWrapperWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	controllerConfig := ssw.config.SystemState.WatchControllerConfig()
-	if err := ssw.catacomb.Add(controllerConfig); err != nil {
+	controllerConfigWatcher := ssw.config.SystemState.WatchControllerConfig()
+	if err := ssw.catacomb.Add(controllerConfigWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
-	changesChan := controllerConfig.Changes()
+	changesChan := controllerConfigWatcher.Changes()
 	for {
 		select {
 		case <-ssw.catacomb.Dying():
 			return ssw.catacomb.ErrDying()
 		case <-changesChan:
-			// TODO(ale8k): Once the configuration PR is merged, get the max conns & port
-			// from controller config. Get the HostKey from server info, and feed them through
-			// to NewServerWorker.
-
 			// Restart the server worker.
 			srv.Kill()
 			if err := srv.Wait(); err != nil {
 				return errors.Trace(err)
 			}
 
+			// Get latest controller configuration.
+			port, _, err := ssw.getLatestControllerConfig()
+			if err != nil {
+				return errors.Trace(err)
+			}
+
 			// Start the server again.
 			srv, err = ssw.config.NewServerWorker(ServerWorkerConfig{
-				Logger: ssw.config.Logger,
+				Logger:      ssw.config.Logger,
+				JumpHostKey: jumpHostKey,
+				Port:        port,
 			})
 			if err != nil {
 				return errors.Trace(err)
