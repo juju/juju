@@ -519,6 +519,46 @@ func (c *MockStateGetApplicationConstraintsCall) DoAndReturn(f func(context.Cont
 	return c
 }
 
+// GetApplicationIDAndNameByUnitName mocks base method.
+func (m *MockState) GetApplicationIDAndNameByUnitName(ctx context.Context, name unit.Name) (application.ID, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationIDAndNameByUnitName", ctx, name)
+	ret0, _ := ret[0].(application.ID)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetApplicationIDAndNameByUnitName indicates an expected call of GetApplicationIDAndNameByUnitName.
+func (mr *MockStateMockRecorder) GetApplicationIDAndNameByUnitName(ctx, name any) *MockStateGetApplicationIDAndNameByUnitNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDAndNameByUnitName", reflect.TypeOf((*MockState)(nil).GetApplicationIDAndNameByUnitName), ctx, name)
+	return &MockStateGetApplicationIDAndNameByUnitNameCall{Call: call}
+}
+
+// MockStateGetApplicationIDAndNameByUnitNameCall wrap *gomock.Call
+type MockStateGetApplicationIDAndNameByUnitNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationIDAndNameByUnitNameCall) Return(arg0 application.ID, arg1 string, arg2 error) *MockStateGetApplicationIDAndNameByUnitNameCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationIDAndNameByUnitNameCall) Do(f func(context.Context, unit.Name) (application.ID, string, error)) *MockStateGetApplicationIDAndNameByUnitNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationIDAndNameByUnitNameCall) DoAndReturn(f func(context.Context, unit.Name) (application.ID, string, error)) *MockStateGetApplicationIDAndNameByUnitNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationIDByName mocks base method.
 func (m *MockState) GetApplicationIDByName(ctx context.Context, name string) (application.ID, error) {
 	m.ctrl.T.Helper()

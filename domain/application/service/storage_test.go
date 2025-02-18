@@ -37,6 +37,7 @@ func (s *storageSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockState = NewMockState(ctrl)
 	s.service = NewService(
 		s.mockState,
+		nil,
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
