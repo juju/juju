@@ -317,4 +317,4 @@ LEFT JOIN unit AS suu ON sp.subject_uuid = suu.uuid
 LEFT JOIN application AS sua ON sp.subject_uuid = sua.uuid
 LEFT JOIN unit AS scu ON sp.scope_uuid = scu.uuid
 LEFT JOIN application AS sca ON sp.scope_uuid = sca.uuid
-INNER JOIN model AS m;
+JOIN model AS m;

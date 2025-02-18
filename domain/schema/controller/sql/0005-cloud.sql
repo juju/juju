@@ -74,7 +74,7 @@ WITH
 controllers AS (
     SELECT m.cloud_uuid
     FROM model AS m
-    INNER JOIN user AS u ON m.owner_uuid = u.uuid
+    JOIN user AS u ON m.owner_uuid = u.uuid
     WHERE
         m.name = 'controller'
         AND u.name = 'admin'
@@ -92,7 +92,7 @@ SELECT
     c.skip_tls_verify,
     IIF(controllers.cloud_uuid IS null, false, true) AS is_controller_cloud
 FROM cloud AS c
-INNER JOIN cloud_type AS ct ON c.cloud_type_id = ct.id
+JOIN cloud_type AS ct ON c.cloud_type_id = ct.id
 LEFT JOIN controllers ON c.uuid = controllers.cloud_uuid;
 
 -- v_cloud_auth is a connivance view similar to v_cloud but includes a row for
@@ -113,7 +113,7 @@ SELECT
     at.type AS auth_type
 FROM v_cloud AS c
 LEFT JOIN cloud_auth_type AS cat ON c.uuid = cat.cloud_uuid
-INNER JOIN auth_type AS at ON cat.auth_type_id = at.id;
+JOIN auth_type AS at ON cat.auth_type_id = at.id;
 
 CREATE TABLE cloud_defaults (
     cloud_uuid TEXT NOT NULL,
@@ -224,9 +224,9 @@ SELECT
     cc.invalid_reason,
     u.name AS owner_name
 FROM cloud_credential AS cc
-INNER JOIN cloud AS c ON cc.cloud_uuid = c.uuid
-INNER JOIN user AS u ON cc.owner_uuid = u.uuid
-INNER JOIN auth_type AS at ON cc.auth_type_id = at.id;
+JOIN cloud AS c ON cc.cloud_uuid = c.uuid
+JOIN user AS u ON cc.owner_uuid = u.uuid
+JOIN auth_type AS at ON cc.auth_type_id = at.id;
 
 CREATE TABLE cloud_credential_attributes (
     cloud_credential_uuid TEXT NOT NULL,
@@ -258,6 +258,6 @@ SELECT
     cca."key" AS attribute_key,
     cca.value AS attribute_value
 FROM v_cloud_credential AS cc
-INNER JOIN
+JOIN
     cloud_credential_attributes AS cca
     ON cc.uuid = cca.cloud_credential_uuid;

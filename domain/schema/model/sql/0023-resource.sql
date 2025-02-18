@@ -173,8 +173,8 @@ SELECT
     r.last_polled,
     rs.name AS state
 FROM resource AS r
-INNER JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
-INNER JOIN resource_state AS rs ON r.state_id = rs.id;
+JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
+JOIN resource_state AS rs ON r.state_id = rs.id;
 
 CREATE VIEW v_resource AS
 SELECT
@@ -196,12 +196,12 @@ SELECT
     COALESCE(rfs.size, ris.size) AS size,
     COALESCE(rfs.sha384, ris.sha384) AS sha384
 FROM resource AS r
-INNER JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
-INNER JOIN application AS a ON ar.application_uuid = a.uuid
-INNER JOIN charm_resource AS cr ON r.charm_uuid = cr.charm_uuid AND r.charm_resource_name = cr.name
-INNER JOIN charm_resource_kind AS crk ON cr.kind_id = crk.id
-INNER JOIN resource_origin_type AS rot ON r.origin_type_id = rot.id
-INNER JOIN resource_state AS rs ON r.state_id = rs.id
+JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
+JOIN application AS a ON ar.application_uuid = a.uuid
+JOIN charm_resource AS cr ON r.charm_uuid = cr.charm_uuid AND r.charm_resource_name = cr.name
+JOIN charm_resource_kind AS crk ON cr.kind_id = crk.id
+JOIN resource_origin_type AS rot ON r.origin_type_id = rot.id
+JOIN resource_state AS rs ON r.state_id = rs.id
 LEFT JOIN resource_retrieved_by AS rrb ON r.uuid = rrb.resource_uuid
 LEFT JOIN resource_retrieved_by_type AS rrbt ON rrb.retrieved_by_type_id = rrbt.id
 LEFT JOIN resource_file_store AS rfs ON r.uuid = rfs.resource_uuid

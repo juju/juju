@@ -26,9 +26,9 @@ SELECT
     upsk.public_key,
     upsk.user_uuid
 FROM model_authorized_keys AS mak
-INNER JOIN user_public_ssh_key AS upsk ON mak.user_public_ssh_key_id = upsk.id
-INNER JOIN user AS u ON upsk.user_uuid = u.uuid
-INNER JOIN user_authentication AS ua ON u.uuid = ua.user_uuid
+JOIN user_public_ssh_key AS upsk ON mak.user_public_ssh_key_id = upsk.id
+JOIN user AS u ON upsk.user_uuid = u.uuid
+JOIN user_authentication AS ua ON u.uuid = ua.user_uuid
 WHERE
     u.removed = FALSE
     AND ua.disabled = FALSE;

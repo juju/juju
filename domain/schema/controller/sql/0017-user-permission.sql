@@ -89,8 +89,8 @@ SELECT
     at.type AS access_type,
     ot.type AS object_type
 FROM permission AS p
-INNER JOIN permission_access_type AS at ON p.access_type_id = at.id
-INNER JOIN permission_object_type AS ot ON p.object_type_id = ot.id;
+JOIN permission_access_type AS at ON p.access_type_id = at.id
+JOIN permission_object_type AS ot ON p.object_type_id = ot.id;
 
 -- All model permissions, verifying the model does exist.
 CREATE VIEW v_permission_model AS
@@ -101,7 +101,7 @@ SELECT
     p.access_type,
     p.object_type
 FROM v_permission AS p
-INNER JOIN model ON p.grant_on = model.uuid
+JOIN model ON p.grant_on = model.uuid
 WHERE p.object_type = 'model';
 
 -- All controller cloud, verifying the cloud does exist.
@@ -113,7 +113,7 @@ SELECT
     p.access_type,
     p.object_type
 FROM v_permission AS p
-INNER JOIN cloud ON p.grant_on = cloud.name
+JOIN cloud ON p.grant_on = cloud.name
 WHERE p.object_type = 'cloud';
 
 -- All controller permissions, verifying the controller does exists.
@@ -125,7 +125,7 @@ SELECT
     p.access_type,
     p.object_type
 FROM v_permission AS p
-INNER JOIN controller ON p.grant_on = controller.uuid
+JOIN controller ON p.grant_on = controller.uuid
 WHERE p.object_type = 'controller';
 
 -- All offer permissions, NOT verifying the offer does exist.
@@ -148,5 +148,5 @@ SELECT
     p.access_type,
     p.object_type
 FROM v_permission AS p
-INNER JOIN user AS u ON p.grant_to = u.uuid
+JOIN user AS u ON p.grant_to = u.uuid
 WHERE u.name = 'everyone@external';

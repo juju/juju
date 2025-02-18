@@ -6,6 +6,7 @@ capitalisation.keywords = upper
 capitalisation.functions = upper
 capitalisation.literals = true
 convention.not_equal = consistent
+exclude_rules = L051
 
 [sqlfluff:indentation]
 tab_space_size = 4

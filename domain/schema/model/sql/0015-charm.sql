@@ -647,4 +647,4 @@ SELECT
     c.architecture_id,
     cm.name
 FROM charm AS c
-INNER JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
+JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
