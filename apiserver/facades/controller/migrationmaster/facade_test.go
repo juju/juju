@@ -364,15 +364,13 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 
 	res := app.AddResource(description.ResourceArgs{Name: "bin"})
 	appRev := res.SetApplicationRevision(description.ResourceRevisionArgs{
-		Revision:       2,
-		Type:           "file",
-		Path:           "bin.tar.gz",
-		Description:    "who knows",
-		Origin:         "upload",
-		FingerprintHex: "abcd",
-		Size:           123,
-		Timestamp:      time.Now(),
-		Username:       "bob",
+		Revision:    2,
+		Type:        "file",
+		Origin:      "upload",
+		SHA384:      "abcd",
+		Size:        123,
+		Timestamp:   time.Now(),
+		RetrievedBy: "bob",
 	})
 
 	unit := app.AddUnit(description.UnitArgs{
@@ -407,10 +405,10 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 		Revision:       appRev.Revision(),
 		Type:           appRev.Type(),
 		Origin:         appRev.Origin(),
-		FingerprintHex: appRev.FingerprintHex(),
+		FingerprintHex: appRev.SHA384(),
 		Size:           appRev.Size(),
 		Timestamp:      appRev.Timestamp(),
-		Username:       appRev.Username(),
+		Username:       appRev.RetrievedBy(),
 	}})
 }
 
