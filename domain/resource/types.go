@@ -125,6 +125,24 @@ type AddResourceDetails struct {
 	Revision *int
 }
 
+// UpdateUploadResourceArgs holds arguments to update the resource to
+// expect a new blob to be uploaded.
+type UpdateUploadResourceArgs struct {
+	// ApplicationID is the ID of the application this resource belongs to.
+	ApplicationID application.ID
+	// Name is the resource name.
+	Name string
+}
+
+// StateUpdateUploadResourceArgs holds arguments for the state method to
+// update the resource to expect a new blob to be uploaded.
+type StateUpdateUploadResourceArgs struct {
+	// ResourceType is the type of the resource
+	ResourceType charmresource.Type
+	// ResourceUUID is the unique identifier of the resource.
+	ResourceUUID coreresource.UUID
+}
+
 // UpdateResourceRevisionArgs holds arguments to update a resource to have
 // a new revision.
 type UpdateResourceRevisionArgs struct {

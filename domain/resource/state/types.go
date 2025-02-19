@@ -221,3 +221,19 @@ type setResource struct {
 	StateID      int       `db:"state_id"`
 	CreatedAt    time.Time `db:"created_at"`
 }
+
+// addResource is used to set resource rows in the resource table.
+type addResource struct {
+	UUID      string    `db:"uuid"`
+	CharmUUID string    `db:"charm_uuid"`
+	Name      string    `db:"charm_resource_name"`
+	Revision  *int      `db:"revision"`
+	Origin    string    `db:"origin_type_name"`
+	State     string    `db:"state_name"`
+	CreatedAt time.Time `db:"created_at"`
+}
+
+type resourceCharmData struct {
+	CharmUUID string `db:"charm_uuid"`
+	Name      string `db:"charm_resource_name"`
+}

@@ -123,6 +123,16 @@ type State interface {
 		resType charmresource.Type,
 	) (string, error)
 
+	// UpdateUploadResourceAndDeletePriorVersion deletes a reference to the old
+	// stored blob, saving the hash to return. Adds a new row in the resource
+	// table which indicates the resource will be updated. Next, it sets it on the
+	// application_resource table, removing the old resource for this charm
+	// resource.
+	UpdateUploadResourceAndDeletePriorVersion(
+		ctx context.Context,
+		arg resource.StateUpdateUploadResourceArgs,
+	) (string, coreresource.UUID, error)
+
 	// ImportResources sets resources imported in migration. It first builds all the
 	// resources to insert from the arguments, then inserts them at the end so as to
 	// wait as long as possible before turning into a write transaction.
@@ -321,7 +331,7 @@ func (s *Service) GetResource(
 }
 
 // StoreResource adds the application resource to blob storage and updates the
-// metadata. It also sets the retrival information for the resource.
+// metadata. It also sets the retrieval information for the resource.
 //
 // The Size and Fingerprint should be validated against the resource blob before
 // the resource is passed in.
@@ -652,19 +662,66 @@ func (s *Service) UpdateResourceRevision(ctx context.Context, arg resource.Updat
 	if err != nil {
 		return err
 	}
-
-	if droppedHash != "" {
-		store, err := s.resourceStoreGetter.GetResourceStore(ctx, resType)
-		if err != nil {
-			return errors.Errorf("getting resource store for %s: %w", resType.String(), err)
-		}
-
-		err = store.Remove(ctx, blobPath(arg.ResourceUUID, droppedHash))
-		if err != nil {
-			s.logger.Errorf(context.TODO(), "failed to remove resource with ID %s from the store", arg.ResourceUUID)
-		}
+	if err = s.removeDroppedHashFromStore(ctx, arg.ResourceUUID, droppedHash, resType); err != nil {
+		return err
 	}
 	return err
+}
+
+// UpdateUploadResource adds a new entry for an uploaded blob in the resource
+// table with the desired parameters and sets it on the application. Any previous
+// resource blob is removed. The new resource UUID is returned.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceUUIDNotValid] is returned if the Resource ID is not valid.
+func (s *Service) UpdateUploadResource(
+	ctx context.Context,
+	resourceToUpdate coreresource.UUID,
+) (coreresource.UUID, error) {
+	if err := resourceToUpdate.Validate(); err != nil {
+		return "", errors.Errorf("%w: %w", resourceerrors.ResourceUUIDNotValid, err)
+	}
+
+	resType, err := s.st.GetResourceType(ctx, resourceToUpdate)
+	if err != nil {
+		return "", err
+	}
+
+	stateArgs := resource.StateUpdateUploadResourceArgs{
+		ResourceType: resType,
+		ResourceUUID: resourceToUpdate,
+	}
+	droppedHash, newResourceUUID, err := s.st.UpdateUploadResourceAndDeletePriorVersion(ctx, stateArgs)
+	if err != nil {
+		return "", err
+	}
+
+	if err = s.removeDroppedHashFromStore(ctx, resourceToUpdate, droppedHash, resType); err != nil {
+		return "", err
+	}
+	return newResourceUUID, err
+}
+
+// removeDroppedHashFromStore removes the resource blob on its store.
+func (s *Service) removeDroppedHashFromStore(
+	ctx context.Context,
+	resourceUUID coreresource.UUID,
+	droppedHash string,
+	resType charmresource.Type,
+) error {
+	if droppedHash == "" {
+		return nil
+	}
+	store, err := s.resourceStoreGetter.GetResourceStore(ctx, resType)
+	if err != nil {
+		return errors.Errorf("getting resource store for %s: %w", resType.String(), err)
+	}
+
+	err = store.Remove(ctx, blobPath(resourceUUID, droppedHash))
+	if err != nil {
+		s.logger.Errorf(context.TODO(), "failed to remove resource with ID %s from the store", resourceUUID)
+	}
+	return nil
 }
 
 // DeleteResourcesAddedBeforeApplication removes all resources for the

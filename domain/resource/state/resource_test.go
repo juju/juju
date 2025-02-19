@@ -2275,16 +2275,21 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFile(c *g
 	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
 	s.checkResourceOriginAndRevision(c, resID.String(), "store", 5)
 	// Assert: Check that the resource has been remove from the stored blob
+	s.checkResourceFileStore(c, resID)
+}
+
+func (s *resourceSuite) checkResourceFileStore(c *gc.C, resID coreresource.UUID) {
+	// Assert: Check that the resource has been remove from the stored blob
 	var (
 		foundStoreUUID string
 	)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT store_uuid
 FROM   resource_file_store
 WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	})
-	c.Check(err, jc.ErrorIs, sqlair.ErrNoRows)
+	c.Check(err, gc.ErrorMatches, "sql: no rows in result set")
 }
 
 // TestUpdateResourceRevisionAndDeletePriorVersionImage tests that a resource
@@ -2336,11 +2341,15 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImage(c *
 	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
 	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
 	s.checkResourceOriginAndRevision(c, resID.String(), charmresource.OriginStore.String(), 5)
+	s.checkResourceImageStore(c, resID)
+}
+
+func (s *resourceSuite) checkResourceImageStore(c *gc.C, resID coreresource.UUID) {
 	// Assert: Check that the resource has been remove from the stored blob
 	var (
 		foundStoreUUID string
 	)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT store_storage_key
 FROM   resource_image_store
@@ -2417,6 +2426,119 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
 	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
 	s.checkResourceOriginAndRevision(c, resID.String(), "store", 5)
+}
+
+// TestUpdateResourceStoreToUpload tests updating a resource with origin store,
+// to a resource with origin upload.
+func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionUpload(c *gc.C) {
+	s.testUpdateUploadResourceAndDeletePriorVersion(c, charmresource.OriginUpload)
+}
+
+// TestUpdateResourceStoreToUpload tests updating a resource with origin store,
+// to a resource with origin upload. Start with a store origin and revision
+func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionRevision(c *gc.C) {
+	s.testUpdateUploadResourceAndDeletePriorVersion(c, charmresource.OriginStore)
+}
+
+func (s *resourceSuite) testUpdateUploadResourceAndDeletePriorVersion(c *gc.C, origin charmresource.Origin) {
+	// Arrange: a resource to update.
+	originalUUID := coreresource.UUID("resource-id")
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	input := resourceData{
+		UUID:                     originalUUID.String(),
+		ApplicationUUID:          s.constants.fakeApplicationUUID1,
+		Type:                     charmresource.TypeContainerImage,
+		Name:                     "resource-name",
+		Revision:                 17,
+		OriginType:               origin.String(),
+		ContainerImageStorageKey: "file-store-uuid",
+		Size:                     42,
+		SHA384:                   fp.String(),
+	}
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(context.Background(), tx)
+		return errors.Capture(err)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	args := resource.StateUpdateUploadResourceArgs{
+		ResourceType: charmresource.TypeContainerImage,
+		ResourceUUID: originalUUID,
+	}
+
+	// Act: update resource to expect upload.
+	droppedHash, obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(context.Background(), args)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to update resource: %v", errors.ErrorStack(err)))
+	c.Check(droppedHash, gc.Equals, fp.String())
+
+	// Assert check the application resource was updated to the newly inserted
+	// record and that it has the correct origin and revision.
+	s.checkApplicationResourceUpdated(c, input.ApplicationUUID, obtainedUUID.String())
+
+	// Check that the resource_image_store no longer references the old resource
+	s.checkResourceImageStore(c, originalUUID)
+}
+
+func (s *resourceSuite) checkApplicationResourceUpdated(c *gc.C, appID, expectedResourceUUID string) {
+	var (
+		foundOrigin string
+		foundUUID   string
+	)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT uuid, origin_type
+FROM   v_resource
+WHERE  application_uuid = ?
+`, appID).Scan(&foundUUID, &foundOrigin)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(foundOrigin, gc.Equals, charmresource.OriginUpload.String())
+	// Check that the uuid of the resource has been updated.
+	c.Check(foundUUID, gc.Equals, expectedResourceUUID)
+}
+
+func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionFileStore(c *gc.C) {
+	// Arrange: a resource to update.
+	originalUUID := coreresource.UUID("resource-id")
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	input := resourceData{
+		UUID:            originalUUID.String(),
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Type:            charmresource.TypeFile,
+		Name:            "resource-name",
+		OriginType:      charmresource.OriginUpload.String(),
+		ObjectStoreUUID: "object-store-uuid",
+		Size:            42,
+		SHA384:          fp.String(),
+	}
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := input.insert(context.Background(), tx)
+		return errors.Capture(err)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	args := resource.StateUpdateUploadResourceArgs{
+		ResourceType: charmresource.TypeFile,
+		ResourceUUID: originalUUID,
+	}
+
+	// Act: update resource to expect upload.
+	droppedHash, obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(context.Background(), args)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to update resource: %v", errors.ErrorStack(err)))
+	c.Check(droppedHash, gc.Equals, fp.String())
+
+	// Assert check the application resource was updated to the newly inserted
+	// record and that it has the correct origin and revision.
+	s.checkApplicationResourceUpdated(c, input.ApplicationUUID, obtainedUUID.String())
+
+	// Check that the resource_image_store no longer references the old resource
+	s.checkResourceFileStore(c, originalUUID)
 }
 
 // TestDeleteResourcesAddedBeforeApplication tests the happy path for
