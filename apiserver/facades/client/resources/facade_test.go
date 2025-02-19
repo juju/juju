@@ -320,10 +320,10 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesBeforeApplication(c *gc
 	})
 }
 
-// TestAddPendingResourcesUpdateResource test the happy path of
-// AddPendingResources were the code leads to calling
-// UpdateResourceRevision.
-func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateResource(c *gc.C) {
+// TestAddPendingResourcesUpdateStoreResource test the happy path of
+// AddPendingResources for a store resource where the code leads to
+// calling UpdateResourceRevision.
+func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateStoreResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	resourceRevision := 42
@@ -354,13 +354,16 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateResource(c *gc.C)
 	c.Assert(results, gc.DeepEquals, expectedResults)
 }
 
-// TestAddPendingResourcesUpdateResourceFailTypeUpload tests that sending an
-// resource for upload to update a resource revision fails.
-func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateResourceFailTypeUpload(c *gc.C) {
+// TestAddPendingResourcesUpdateUploadResource test the happy path of
+// AddPendingResources for an upload resource where the code leads to
+// calling UpdateUploadResource.
+func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateUploadResource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectGetApplicationIDByName(nil)
 	s.expectResolveResourcesUploadContainer(c)
+	s.expectGetApplicationResourceIDTwo()
+	newUUIDTwo := s.expectUpdateUploadResourceTwo(c)
 
 	args := params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{Tag: s.appTag.String()},
@@ -374,9 +377,13 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateResourceFailTypeU
 			},
 		},
 	}
+	expectedResults := params.AddPendingResourcesResult{
+		ErrorResult: params.ErrorResult{},
+		PendingIDs:  []string{newUUIDTwo.String()},
+	}
 	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.ErrorResult.Error.Code, gc.Equals, params.CodeBadRequest)
+	c.Assert(results, gc.DeepEquals, expectedResults)
 }
 
 func (s *addPendingResourceSuite) expectResolveResourcesUploadContainer(c *gc.C) {
@@ -423,6 +430,12 @@ func (s *addPendingResourceSuite) expectUpdateResourceRevisionTwo(c *gc.C, resou
 	}
 	newUUID := resourcetesting.GenResourceUUID(c)
 	s.resourceService.EXPECT().UpdateResourceRevision(gomock.Any(), updateResourceArgs).Return(newUUID, nil)
+	return newUUID
+}
+
+func (s *addPendingResourceSuite) expectUpdateUploadResourceTwo(c *gc.C) resource.UUID {
+	newUUID := resourcetesting.GenResourceUUID(c)
+	s.resourceService.EXPECT().UpdateUploadResource(gomock.Any(), s.pendingResourceIDTwo).Return(newUUID, nil)
 	return newUUID
 }
 

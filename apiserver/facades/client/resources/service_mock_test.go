@@ -262,6 +262,45 @@ func (c *MockResourceServiceUpdateResourceRevisionCall) DoAndReturn(f func(conte
 	return c
 }
 
+// UpdateUploadResource mocks base method.
+func (m *MockResourceService) UpdateUploadResource(arg0 context.Context, arg1 resource.UUID) (resource.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateUploadResource", arg0, arg1)
+	ret0, _ := ret[0].(resource.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateUploadResource indicates an expected call of UpdateUploadResource.
+func (mr *MockResourceServiceMockRecorder) UpdateUploadResource(arg0, arg1 any) *MockResourceServiceUpdateUploadResourceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUploadResource", reflect.TypeOf((*MockResourceService)(nil).UpdateUploadResource), arg0, arg1)
+	return &MockResourceServiceUpdateUploadResourceCall{Call: call}
+}
+
+// MockResourceServiceUpdateUploadResourceCall wrap *gomock.Call
+type MockResourceServiceUpdateUploadResourceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockResourceServiceUpdateUploadResourceCall) Return(arg0 resource.UUID, arg1 error) *MockResourceServiceUpdateUploadResourceCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockResourceServiceUpdateUploadResourceCall) Do(f func(context.Context, resource.UUID) (resource.UUID, error)) *MockResourceServiceUpdateUploadResourceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockResourceServiceUpdateUploadResourceCall) DoAndReturn(f func(context.Context, resource.UUID) (resource.UUID, error)) *MockResourceServiceUpdateUploadResourceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockNewCharmRepository is a mock of NewCharmRepository interface.
 type MockNewCharmRepository struct {
 	ctrl     *gomock.Controller

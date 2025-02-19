@@ -29,11 +29,15 @@ type ResourceService interface {
 	// ListResources returns the resources for the given application.
 	ListResources(ctx context.Context, applicationID coreapplication.ID) (coreresource.ApplicationResources, error)
 
-	// UpdateResourceRevision updates the revision of a store resource to a new
-	// version. Increments charm modified version for the application to
-	// trigger use of the new resource revision by the application. To allow for
-	// a resource upgrade, the current resource blob is removed.
+	// UpdateResourceRevision adds a new entry for the revision in the resource
+	// table with the desired parameters and sets it on the application. Any
+	// previous resource blob is removed. The new resource UUID is returned.
 	UpdateResourceRevision(ctx context.Context, args resource.UpdateResourceRevisionArgs) (coreresource.UUID, error)
+
+	// UpdateUploadResource adds a new entry for an uploaded blob in the resource
+	// table with the desired parameters and sets it on the application. Any
+	// previous resource blob is removed. The new resource UUID is returned.
+	UpdateUploadResource(ctx context.Context, resourceToUpdate coreresource.UUID) (coreresource.UUID, error)
 }
 
 // ApplicationService defines methods to manage application.

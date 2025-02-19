@@ -208,7 +208,7 @@ func (a *API) AddPendingResources(
 	applicationID, err := a.applicationService.GetApplicationIDByName(ctx, appName)
 	if err == nil {
 		// The application does exist, therefore the intent is to
-		// update an resource to use a specific revision.
+		// update a resource.
 		newUUIDs, err := a.updateResources(ctx, applicationID, resolvedResources)
 		result.Error = apiservererrors.ServerError(err)
 		result.PendingIDs = newUUIDs
@@ -303,16 +303,10 @@ func (a *API) updateResources(
 ) ([]string, error) {
 	newUUIDs := make([]string, len(resources))
 	for i, res := range resources {
-		if res.Origin == charmresource.OriginUpload {
-			// Codify the juju cli client behavior. UpdateResource
-			// should only be used to revision numbers.
-			return nil, &params.Error{
-				Message: fmt.Sprintf("upload of resource %q", res.Name),
-				Code:    params.CodeBadRequest,
-			}
-		}
 		newUUID, err := a.updateResource(ctx, appID, res)
-		if err != nil {
+		if errors.Is(err, resourceerrors.ArgumentNotValid) || errors.Is(err, resourceerrors.ResourceUUIDNotValid) {
+			return nil, internalerrors.Errorf("%w, %w", err, errors.NotValid)
+		} else if err != nil {
 			// TODO: hml 2025-02-18
 			// This behavior conflicts with what actually happens in the
 			// juju cli where it does not make bulk calls to this method.
@@ -329,7 +323,7 @@ func (a *API) updateResources(
 	return newUUIDs, nil
 }
 
-// updateResource updates the revision of a specific resource.
+// updateResource updates the resource based on origin.
 func (a *API) updateResource(
 	ctx context.Context,
 	appID coreapplication.ID,
@@ -348,11 +342,19 @@ func (a *API) updateResource(
 		return "", internalerrors.Capture(err)
 	}
 
-	arg := resource.UpdateResourceRevisionArgs{
-		ResourceUUID: resourceID,
-		Revision:     res.Revision,
+	var newUUID coreresource.UUID
+	switch res.Origin {
+	case charmresource.OriginStore:
+		arg := resource.UpdateResourceRevisionArgs{
+			ResourceUUID: resourceID,
+			Revision:     res.Revision,
+		}
+		newUUID, err = a.resourceService.UpdateResourceRevision(ctx, arg)
+	case charmresource.OriginUpload:
+		newUUID, err = a.resourceService.UpdateUploadResource(ctx, resourceID)
+	default:
+		return "", internalerrors.Errorf("unknown origin %q", res.Origin)
 	}
-	newUUID, err := a.resourceService.UpdateResourceRevision(ctx, arg)
 	return newUUID, internalerrors.Capture(err)
 }
 
