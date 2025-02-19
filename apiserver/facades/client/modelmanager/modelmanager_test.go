@@ -235,8 +235,11 @@ func (s *modelManagerSuite) TearDownTest(c *gc.C) {
 	modelmanager.ResetSupportedFeaturesGetter()
 }
 
-func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
+func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag, authorizerOptions ...apiservertesting.FakeAuthorizerOption) {
 	s.authoriser.Tag = user
+	for _, option := range authorizerOptions {
+		option(&s.authoriser)
+	}
 	newBroker := func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error) {
 		return s.caasBroker, nil
 	}
@@ -290,10 +293,10 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"GetBackend",
 		"Model",
 		"IsController",
+		"LatestMigration",
 		"AllMachines",
 		"ControllerNodes",
 		"HAPrimaryMachine",
-		"LatestMigration",
 	)
 
 	// Check that Model.LastModelConnection is called three times
@@ -460,10 +463,10 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"GetBackend",
 		"Model",
 		"IsController",
+		"LatestMigration",
 		"AllMachines",
 		"ControllerNodes",
 		"HAPrimaryMachine",
-		"LatestMigration",
 	)
 	s.caasBroker.CheckCallNames(c, "Create")
 
@@ -642,7 +645,8 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestModelDefaultsAsNormalUser(c *gc.C) {
-	s.setAPIUser(c, names.NewUserTag("charlie"))
+	charlie := names.NewUserTag("charlie")
+	s.setAPIUser(c, charlie)
 	got, err := s.api.ModelDefaultsForClouds(params.Entities{
 		Entities: []params.Entity{{Tag: names.NewCloudTag("dummy").String()}},
 	})
@@ -813,7 +817,7 @@ func (s *modelManagerSuite) TestDumpModelsDBUsers(c *gc.C) {
 func (s *modelManagerSuite) TestAddModelCanCreateModel(c *gc.C) {
 	addModelUser := names.NewUserTag("add-model")
 	s.ctlrSt.cloudUsers[addModelUser.Id()] = permission.AddModelAccess
-	s.setAPIUser(c, addModelUser)
+	s.setAPIUser(c, addModelUser, apiservertesting.SetTagWithAdminAccess(addModelUser))
 	_, err := s.api.CreateModel(createArgs(addModelUser))
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -853,8 +857,11 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.apiserver.modelmanager").SetLogLevel(loggo.TRACE)
 }
 
-func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
+func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag, authorizerOptions ...apiservertesting.FakeAuthorizerOption) {
 	s.authoriser.Tag = user
+	for _, option := range authorizerOptions {
+		option(&s.authoriser)
+	}
 	st := common.NewModelManagerBackend(s.Model, s.StatePool)
 	ctlrSt := common.NewModelManagerBackend(s.Model, s.StatePool)
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
@@ -1361,7 +1368,7 @@ func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
-	s.setAPIUser(c, user.UserTag())
+	s.setAPIUser(c, user.UserTag(), apiservertesting.SetTagWithReadAccess(user.UserTag()))
 	s.assertModelAccess(c, st)
 }
 
@@ -1383,7 +1390,7 @@ func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
 
 	s.assertNewUser(c, modelUser, userTag, apiUser)
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
-	s.setAPIUser(c, userTag)
+	s.setAPIUser(c, userTag, apiservertesting.SetTagWithReadAccess(userTag))
 	s.assertModelAccess(c, st)
 }
 
@@ -1404,7 +1411,7 @@ func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
-	s.setAPIUser(c, user.UserTag())
+	s.setAPIUser(c, user.UserTag(), apiservertesting.SetTagWithWriteAccess(user.UserTag()))
 	s.assertModelAccess(c, st)
 }
 

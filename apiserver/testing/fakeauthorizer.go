@@ -14,6 +14,45 @@ import (
 	"github.com/juju/juju/core/permission"
 )
 
+// FakeAuthorizerOption defines a function that modifies the fake authorizer
+type FakeAuthorizerOption func(*FakeAuthorizer)
+
+// SetTagWithWriteAccess returns a FakeAuthorizerOption that modifies the fake
+// authorizer so that it will grant read access to the specified user.
+func SetTagWithReadAccess(ut names.UserTag) FakeAuthorizerOption {
+	return func(a *FakeAuthorizer) {
+		a.Tag = ut
+		a.HasReadTag = ut
+	}
+}
+
+// SetTagWithWriteAccess returns a FakeAuthorizerOption that modifies the fake
+// authorizer so that it will grant read and write access to the specified user.
+func SetTagWithWriteAccess(ut names.UserTag) FakeAuthorizerOption {
+	return func(a *FakeAuthorizer) {
+		a.Tag = ut
+		a.HasWriteTag = ut
+	}
+}
+
+// SetTagWithAdminAccess returns a FakeAuthorizerOption that modifies the fake
+// authorizer so that it will grant admin access to the specified user.
+func SetTagWithAdminAccess(ut names.UserTag) FakeAuthorizerOption {
+	return func(a *FakeAuthorizer) {
+		a.Tag = ut
+		a.AdminTag = ut
+	}
+}
+
+// SetTagWithConsumeAccess returns a FakeAuthorizerOption that modifies the fake
+// authorizer so that it will grant consume access to the specified user.
+func SetTagWithConsumeAccess(ut names.UserTag) FakeAuthorizerOption {
+	return func(a *FakeAuthorizer) {
+		a.Tag = ut
+		a.HasConsumeTag = ut
+	}
+}
+
 // FakeAuthorizer implements the facade.Authorizer interface.
 type FakeAuthorizer struct {
 	Tag           names.Tag
@@ -22,6 +61,7 @@ type FakeAuthorizer struct {
 	AdminTag      names.UserTag
 	HasConsumeTag names.UserTag
 	HasWriteTag   names.UserTag
+	HasReadTag    names.UserTag
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag names.Tag) bool {
@@ -78,7 +118,11 @@ func (fa FakeAuthorizer) HasPermission(operation permission.Access, target names
 		if fa.AdminTag != emptyTag && ut == fa.AdminTag {
 			return nil
 		}
-		if ut == fa.HasWriteTag && (operation == permission.WriteAccess || operation == permission.ReadAccess) {
+		if fa.HasWriteTag != emptyTag && ut == fa.HasWriteTag && (operation == permission.WriteAccess || operation == permission.ReadAccess) {
+			return nil
+		}
+
+		if fa.HasReadTag != emptyTag && ut == fa.HasReadTag && operation == permission.ReadAccess {
 			return nil
 		}
 

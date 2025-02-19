@@ -130,11 +130,6 @@ func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
 	return apiservererrors.ErrPerm
 }
 
-func (m *ModelManagerAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
-	err := m.authorizer.HasPermission(permission.WriteAccess, modelTag)
-	return err == nil, err
-}
-
 // ConfigSource describes a type that is able to provide config.
 // Abstracted primarily for testing.
 type ConfigSource interface {
@@ -889,6 +884,11 @@ func (m *ModelManagerAPI) modelInfo(args params.Entities, includeDefaultOS bool)
 }
 
 func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool, withDefaultOS bool) (params.ModelInfo, error) {
+	// If the logged in user does not have at least read permission, we return an error.
+	if err := m.authorizer.HasPermission(permission.ReadAccess, tag); err != nil {
+		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+	}
+
 	st, release, err := m.state.GetBackend(tag.Id())
 	if errors.IsNotFound(err) {
 		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
@@ -903,6 +903,25 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool, wit
 	} else if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
+
+	// If the user is a controller superuser, they are considered a model
+	// admin.
+	adminAccess := m.isAdmin
+	if !adminAccess {
+		// otherwise we do a check to see if the user has admin access to the model
+		err = m.authorizer.HasPermission(permission.AdminAccess, model.ModelTag())
+		adminAccess = err == nil
+	}
+	// Admin users also have write access to the model.
+	writeAccess := adminAccess
+	if !writeAccess {
+		// Otherwise we do a check to see if the user has write access to the model.
+		err = m.authorizer.HasPermission(permission.WriteAccess, model.ModelTag())
+		writeAccess = err == nil
+	}
+	// At this point, if the user does not have write access, they must have
+	// read access otherwise we would've returned on the initial check at the
+	// beginning of this method.
 
 	info := params.ModelInfo{
 		Name:           model.Name(),
@@ -977,24 +996,16 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool, wit
 		info.Status = entityStatus
 	}
 
-	// If the user is a controller superuser, they are considered a model
-	// admin.
-	modelAdmin := m.isAdmin
-	if !m.isAdmin {
-		err = m.authorizer.HasPermission(permission.AdminAccess, model.ModelTag())
-		modelAdmin = err == nil
-	}
-
 	users, err := model.Users()
 	if shouldErr(err) {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
 	if err == nil {
 		for _, user := range users {
-			if !modelAdmin && m.authCheck(user.UserTag) != nil {
+			if !adminAccess && m.authCheck(user.UserTag) != nil {
 				// The authenticated user is neither the a controller
 				// superuser, a model administrator, nor the model user, so
-				// has no business knowing about the model user.
+				// has no business knowing about other model user.
 				continue
 			}
 
@@ -1003,36 +1014,6 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool, wit
 				return params.ModelInfo{}, errors.Trace(err)
 			}
 			info.Users = append(info.Users, userInfo)
-		}
-
-		if len(info.Users) == 0 {
-			// No users, which means the authenticated user doesn't
-			// have access to the model.
-			return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
-		}
-	}
-
-	canSeeMachinesAndSecrets := modelAdmin
-	if !canSeeMachinesAndSecrets {
-		canSeeMachinesAndSecrets, err = m.hasWriteAccess(tag)
-		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
-			return params.ModelInfo{}, errors.Trace(err)
-		}
-	}
-	if canSeeMachinesAndSecrets {
-		if info.Machines, err = common.ModelMachineInfo(st); shouldErr(err) {
-			return params.ModelInfo{}, err
-		}
-	}
-	if withSecrets && canSeeMachinesAndSecrets {
-		if info.SecretBackends, err = commonsecrets.BackendSummaryInfo(
-			m.state, st, st, st.ControllerUUID(), false, commonsecrets.BackendFilter{},
-		); shouldErr(err) {
-			return params.ModelInfo{}, err
-		}
-		// Don't expose the id.
-		for i := range info.SecretBackends {
-			info.SecretBackends[i].ID = ""
 		}
 	}
 
@@ -1071,6 +1052,31 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool, wit
 
 		info.SupportedFeatures = append(info.SupportedFeatures, mappedFeat)
 	}
+
+	// Users that do not have write access (only have read access) we return
+	// the info gathered so far.
+	if !writeAccess {
+		return info, nil
+	}
+
+	// For users with write access we also return info on machines and, if
+	// specified, info on secrets.
+
+	if info.Machines, err = common.ModelMachineInfo(st); shouldErr(err) {
+		return params.ModelInfo{}, err
+	}
+	if withSecrets {
+		if info.SecretBackends, err = commonsecrets.BackendSummaryInfo(
+			m.state, st, st, st.ControllerUUID(), false, commonsecrets.BackendFilter{},
+		); shouldErr(err) {
+			return params.ModelInfo{}, err
+		}
+		// Don't expose the id.
+		for i := range info.SecretBackends {
+			info.SecretBackends[i].ID = ""
+		}
+	}
+
 	return info, nil
 }
 
