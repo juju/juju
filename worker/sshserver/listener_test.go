@@ -5,7 +5,6 @@ package sshserver_test
 
 import (
 	"sync"
-	"time"
 
 	"github.com/juju/testing"
 	"google.golang.org/grpc/test/bufconn"
@@ -34,9 +33,6 @@ func (s *listenerSuite) TestAcceptOnceListener(c *gc.C) {
 		<-closeAllowed
 		listener.Close()
 	}()
-
-	// Artificial sleep to ensure close is definitely waiting on <-closeAllowed
-	time.Sleep(100 * time.Millisecond)
 
 	go func() {
 		defer wg.Done()
