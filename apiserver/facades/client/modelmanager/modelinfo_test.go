@@ -298,6 +298,39 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	})
 }
 
+func (s *modelInfoSuite) TestModelInfoAsReader(c *gc.C) {
+	charlotte := names.NewUserTag("charlotte")
+	s.setAPIUser(c, charlotte, apiservertesting.SetTagWithReadAccess(charlotte))
+
+	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) {
+		return mockSecretProvider{}, nil
+	})
+
+	_true := true
+	expectedModelInfo := s.expectedModelInfo(c, &_true)
+	expectedModelInfo.Users = []params.ModelUserInfo{{
+		UserName:       charlotte.Id(),
+		DisplayName:    "Charlotte",
+		Access:         params.ModelReadAccess,
+		LastConnection: &time.Time{},
+	}}
+	expectedModelInfo.Machines = []params.ModelMachineInfo{}
+	expectedModelInfo.SecretBackends = []params.SecretBackendResult{}
+
+	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
+
+	c.Assert(info, jc.DeepEquals, info)
+	s.st.CheckCalls(c, []jujutesting.StubCall{
+		{"ControllerTag", nil},
+		{"ControllerTag", nil},
+		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
+		{"Model", nil},
+		{"IsController", nil},
+		{"LatestMigration", nil},
+		{"CloudCredential", []interface{}{names.NewCloudCredentialTag("some-cloud/bob/some-credential")}},
+	})
+}
+
 func (s *modelInfoSuite) TestModelInfoV9(c *gc.C) {
 	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) {
 		return mockSecretProvider{}, nil
