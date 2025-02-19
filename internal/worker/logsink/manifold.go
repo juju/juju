@@ -89,6 +89,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 		Output: outputFunc,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			var controllerDomainServices services.ControllerDomainServices
 			if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
 				return nil, errors.Trace(err)
@@ -156,6 +160,8 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	case *logger.ModelLogger:
 		*outPointer = inWorker
 	case *logger.LoggerContextGetter:
+		*outPointer = inWorker
+	case *logger.ModelLogSinkGetter:
 		*outPointer = inWorker
 	default:
 		return errors.Errorf("out should be *logger.Logger; got %T", out)

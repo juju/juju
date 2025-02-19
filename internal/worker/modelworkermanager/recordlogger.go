@@ -53,7 +53,7 @@ func (l *recordLogger) Write(entry loggo.Entry) {
 	}})
 
 	if err != nil {
-		l.logger.Warningf(context.TODO(), "writing model logs failed for model %q, %v", l.modelUUID, err)
+		l.logger.Warningf(context.Background(), "writing model logs failed for model %q, %v", l.modelUUID, err)
 	}
 }
 

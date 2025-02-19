@@ -641,6 +641,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:          agentName,
 			DebugLogger:        internallogger.GetLogger("juju.worker.logsink"),
 			NewWorker:          logsink.NewWorker,
+			NewModelLogger:     logsink.NewModelLogger,
 		})),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
