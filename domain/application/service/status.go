@@ -202,5 +202,32 @@ func decodeWorkloadStatus(s *application.StatusInfo[application.WorkloadStatusTy
 		Data:    data,
 		Since:   s.Since,
 	}, nil
+}
 
+// reduceWorkloadStatuses reduces a list of workload statuses to a single status.
+// We do this by taking the highest priority status from the list.
+func reduceWorkloadStatuses(statuses []application.StatusInfo[application.WorkloadStatusType]) application.StatusInfo[application.WorkloadStatusType] {
+	// By providing an unknown default, we get a reasonable answer
+	// even if there are no units.
+	result := application.StatusInfo[application.WorkloadStatusType]{
+		Status: application.WorkloadStatusUnknown,
+	}
+	for _, s := range statuses {
+		if statusSeverities[s.Status] > statusSeverities[result.Status] {
+			result = s
+		}
+	}
+	return result
+}
+
+// statusSeverities holds status values with a severity measure.
+// Status values with higher severity are used in preference to others.
+var statusSeverities = map[application.WorkloadStatusType]int{
+	application.WorkloadStatusBlocked:     90,
+	application.WorkloadStatusMaintenance: 80, // Maintenance (us busy) is higher than Waiting (someone else busy)
+	application.WorkloadStatusWaiting:     70,
+	application.WorkloadStatusActive:      60,
+	application.WorkloadStatusTerminated:  50,
+	application.WorkloadStatusUnknown:     40,
+	application.WorkloadStatusUnset:       30,
 }

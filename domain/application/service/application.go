@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -1569,18 +1571,12 @@ func (s *Service) GetApplicationStatus(ctx context.Context, appID coreapplicatio
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
-
-	deocodedStatuses := []corestatus.StatusInfo{}
-	for _, unitStatus := range unitStatuses {
-		status, err := decodeWorkloadStatus(&unitStatus)
-		if err != nil {
-			return nil, internalerrors.Capture(err)
-		}
-		deocodedStatuses = append(deocodedStatuses, *status)
+	derivedApplicationStatus := reduceWorkloadStatuses(slices.Collect(maps.Values(unitStatuses)))
+	decodedStatus, err := decodeWorkloadStatus(&derivedApplicationStatus)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
 	}
-	derivedStatus := corestatus.DeriveStatus(deocodedStatuses)
-	return &derivedStatus, nil
-
+	return decodedStatus, nil
 }
 
 // SetApplicationStatus saves the given application status, overwriting any
