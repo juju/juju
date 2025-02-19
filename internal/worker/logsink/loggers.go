@@ -17,7 +17,6 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -178,7 +177,9 @@ func (d *modelLogger) Wait() error {
 
 func (d *modelLogger) loop() error {
 	// Close the buffered log writer when the model logger is stopped or killed.
-	defer d.bufferedLogCloser()
+	defer func() {
+		_ = d.bufferedLogCloser()
+	}()
 
 	// Wait for the heat death of the universe.
 	<-d.tomb.Dying()
@@ -194,7 +195,7 @@ type bufferedLogWriterCloser struct {
 }
 
 func (l *bufferedLogWriterCloser) Write(entry loggo.Entry) {
-	err := l.Log([]logger.LogRecord{{
+	err := l.Log([]corelogger.LogRecord{{
 		Time:      entry.Timestamp,
 		Entity:    "controller-" + l.machineID,
 		Module:    entry.Module,
