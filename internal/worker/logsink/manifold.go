@@ -19,7 +19,6 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/services"
@@ -35,7 +34,7 @@ type NewModelLoggerFunc func(ctx context.Context,
 // Manifold will depend.
 type ManifoldConfig struct {
 	// DebugLogger is used to emit debug messages.
-	DebugLogger logger.Logger
+	DebugLogger corelogger.Logger
 
 	// NewWorker creates a log sink worker.
 	NewWorker func(cfg Config) (worker.Worker, error)
@@ -156,11 +155,11 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	}
 
 	switch outPointer := out.(type) {
-	case *logger.ModelLogger:
+	case *corelogger.ModelLogger:
 		*outPointer = inWorker
-	case *logger.LoggerContextGetter:
+	case *corelogger.LoggerContextGetter:
 		*outPointer = inWorker
-	case *logger.ModelLogSinkGetter:
+	case *corelogger.ModelLogSinkGetter:
 		*outPointer = inWorker
 	default:
 		return errors.Errorf("out should be *logger.Logger; got %T", out)
@@ -170,14 +169,14 @@ func outputFunc(in worker.Worker, out interface{}) error {
 
 // getLoggerForModelFunc returns a function which can be called to get a logger which can store
 // logs for a specified model.
-func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger logger.Logger, logDir string) logger.LogWriterForModelFunc {
-	return func(ctx context.Context, key corelogger.LoggerKey) (logger.LogWriterCloser, error) {
+func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger corelogger.Logger, logDir string) corelogger.LogWriterForModelFunc {
+	return func(ctx context.Context, key corelogger.LoggerKey) (corelogger.LogWriterCloser, error) {
 		modelUUID := key.ModelUUID
 
 		if !names.IsValidModel(key.ModelUUID) {
 			return nil, errors.NotValidf("model UUID %q", modelUUID)
 		}
-		logFilename := logger.ModelLogFile(logDir, key)
+		logFilename := corelogger.ModelLogFile(logDir, key)
 		if err := paths.PrimeLogFile(logFilename); err != nil && !errors.Is(err, os.ErrPermission) {
 			// If we don't have permission to chown this, it means we are running rootless.
 			return nil, errors.Annotate(err, "unable to prime log file")
@@ -202,7 +201,7 @@ type logWriter struct {
 }
 
 // Log implements logger.Log.
-func (lw *logWriter) Log(records []logger.LogRecord) error {
+func (lw *logWriter) Log(records []corelogger.LogRecord) error {
 	for _, r := range records {
 		line, err := json.Marshal(&r)
 		if err != nil {

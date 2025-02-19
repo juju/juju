@@ -34,9 +34,10 @@ func (t *ToolsImportSuite) TestPackageDependencies(c *gc.C) {
 		[]string{
 			"core/logger",
 			"core/trace",
-			"juju/names",
+			"internal/errors",
 			"internal/logger",
 			"internal/tools",
+			"juju/names",
 		})
 }
 
