@@ -115,7 +115,8 @@ directly there but rather in a local clone, as that will make it easier for you
 to iterate during the PR review process.
 
 If you create a new page make sure to index it appropriately in the correct
-overview page. If you delete a page, make sure to set up a redirect in the
+overview page (usually, an index page in the directory where you've created the
+page). If you delete a page, make sure to set up a redirect in the
 `juju/docs/redirects.txt` file.
 
 ### Standards

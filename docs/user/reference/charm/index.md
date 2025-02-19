@@ -12,18 +12,13 @@ charm-maturity
 
 In Juju, a **charm** is an operator -- software that wraps an {ref}`application <application>` and that contains all of the instructions necessary for deploying, configuring, scaling, integrating, etc., the applicationon any {ref}`Juju-supported cloud <list-of-supported-clouds`.
 
-
-## The charm store
-
-Charms are publicly available on [Charmhub](https://charmhub.io/).
+Charms are often published on [Charmhub](https://charmhub.io/).
 
 (charm-taxonomy)=
 ## Charm taxonomy
 
 (charm-taxonomy-by-substrate)=
 ### By substrate
-
-> This is the only distinction that matters for a charm user.
 
 (kubernetes-charm)=
 #### Kubernetes

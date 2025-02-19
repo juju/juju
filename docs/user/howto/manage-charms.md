@@ -1,5 +1,5 @@
 (manage-charms)=
-# How to manage charms
+# How to manage charms or bundles
 
 > See also: {ref}`charm`
 
