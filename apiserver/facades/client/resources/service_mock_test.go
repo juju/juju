@@ -224,11 +224,12 @@ func (c *MockResourceServiceListResourcesCall) DoAndReturn(f func(context.Contex
 }
 
 // UpdateResourceRevision mocks base method.
-func (m *MockResourceService) UpdateResourceRevision(arg0 context.Context, arg1 resource0.UpdateResourceRevisionArgs) error {
+func (m *MockResourceService) UpdateResourceRevision(arg0 context.Context, arg1 resource0.UpdateResourceRevisionArgs) (resource.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateResourceRevision", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(resource.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateResourceRevision indicates an expected call of UpdateResourceRevision.
@@ -244,19 +245,19 @@ type MockResourceServiceUpdateResourceRevisionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockResourceServiceUpdateResourceRevisionCall) Return(arg0 error) *MockResourceServiceUpdateResourceRevisionCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockResourceServiceUpdateResourceRevisionCall) Return(arg0 resource.UUID, arg1 error) *MockResourceServiceUpdateResourceRevisionCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceServiceUpdateResourceRevisionCall) Do(f func(context.Context, resource0.UpdateResourceRevisionArgs) error) *MockResourceServiceUpdateResourceRevisionCall {
+func (c *MockResourceServiceUpdateResourceRevisionCall) Do(f func(context.Context, resource0.UpdateResourceRevisionArgs) (resource.UUID, error)) *MockResourceServiceUpdateResourceRevisionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceServiceUpdateResourceRevisionCall) DoAndReturn(f func(context.Context, resource0.UpdateResourceRevisionArgs) error) *MockResourceServiceUpdateResourceRevisionCall {
+func (c *MockResourceServiceUpdateResourceRevisionCall) DoAndReturn(f func(context.Context, resource0.UpdateResourceRevisionArgs) (resource.UUID, error)) *MockResourceServiceUpdateResourceRevisionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

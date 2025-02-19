@@ -209,8 +209,9 @@ func (a *API) AddPendingResources(
 	if err == nil {
 		// The application does exist, therefore the intent is to
 		// update an resource to use a specific revision.
-		err := a.updateResources(ctx, applicationID, resolvedResources)
+		newUUIDs, err := a.updateResources(ctx, applicationID, resolvedResources)
 		result.Error = apiservererrors.ServerError(err)
+		result.PendingIDs = newUUIDs
 		return result, nil
 	} else if !errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return result, internalerrors.Capture(err)
@@ -299,17 +300,18 @@ func (a *API) updateResources(
 	ctx context.Context,
 	appID coreapplication.ID,
 	resources []charmresource.Resource,
-) error {
-	for _, res := range resources {
+) ([]string, error) {
+	newUUIDs := make([]string, len(resources))
+	for i, res := range resources {
 		if res.Origin == charmresource.OriginUpload {
 			// Codify the juju cli client behavior. UpdateResource
 			// should only be used to revision numbers.
-			return &params.Error{
+			return nil, &params.Error{
 				Message: fmt.Sprintf("upload of resource %q", res.Name),
 				Code:    params.CodeBadRequest,
 			}
 		}
-		err := a.updateResource(ctx, appID, res)
+		newUUID, err := a.updateResource(ctx, appID, res)
 		if err != nil {
 			// TODO: hml 2025-02-18
 			// This behavior conflicts with what actually happens in the
@@ -320,10 +322,11 @@ func (a *API) updateResources(
 			// We don't bother aggregating errors since a partial
 			// completion is disruptive and a retry of this endpoint
 			// is not expensive.
-			return internalerrors.Capture(err)
+			return nil, internalerrors.Capture(err)
 		}
+		newUUIDs[i] = newUUID.String()
 	}
-	return nil
+	return newUUIDs, nil
 }
 
 // updateResource updates the revision of a specific resource.
@@ -331,7 +334,7 @@ func (a *API) updateResource(
 	ctx context.Context,
 	appID coreapplication.ID,
 	res charmresource.Resource,
-) error {
+) (coreresource.UUID, error) {
 	resourceID, err := a.resourceService.GetApplicationResourceID(ctx,
 		resource.GetApplicationResourceIDArgs{
 			ApplicationID: appID,
@@ -339,18 +342,18 @@ func (a *API) updateResource(
 		},
 	)
 	if errors.Is(err, resourceerrors.ResourceNameNotValid) || errors.Is(err, resourceerrors.ResourceNotFound) {
-		return internalerrors.Errorf("resource %q: %w", res.Name,
+		return "", internalerrors.Errorf("resource %q: %w", res.Name,
 			err)
 	} else if err != nil {
-		return internalerrors.Capture(err)
+		return "", internalerrors.Capture(err)
 	}
 
 	arg := resource.UpdateResourceRevisionArgs{
 		ResourceUUID: resourceID,
 		Revision:     res.Revision,
 	}
-	err = a.resourceService.UpdateResourceRevision(ctx, arg)
-	return internalerrors.Capture(err)
+	newUUID, err := a.resourceService.UpdateResourceRevision(ctx, arg)
+	return newUUID, internalerrors.Capture(err)
 }
 
 func parseApplicationTag(tagStr string) (names.ApplicationTag, *params.Error) {

@@ -33,7 +33,7 @@ type ResourceService interface {
 	// version. Increments charm modified version for the application to
 	// trigger use of the new resource revision by the application. To allow for
 	// a resource upgrade, the current resource blob is removed.
-	UpdateResourceRevision(ctx context.Context, args resource.UpdateResourceRevisionArgs) error
+	UpdateResourceRevision(ctx context.Context, args resource.UpdateResourceRevisionArgs) (coreresource.UUID, error)
 }
 
 // ApplicationService defines methods to manage application.

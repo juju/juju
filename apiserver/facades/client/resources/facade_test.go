@@ -330,7 +330,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateResource(c *gc.C)
 	s.expectGetApplicationIDByName(nil)
 	s.expectResolveResourcesStoreContainer(s.resourceNameTwo, resourceRevision)
 	s.expectGetApplicationResourceIDTwo()
-	s.expectUpdateResourceRevisionTwo(resourceRevision)
+	newUUIDTwo := s.expectUpdateResourceRevisionTwo(c, resourceRevision)
 
 	args := params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{Tag: s.appTag.String()},
@@ -345,10 +345,13 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateResource(c *gc.C)
 			},
 		},
 	}
+	expectedResults := params.AddPendingResourcesResult{
+		ErrorResult: params.ErrorResult{},
+		PendingIDs:  []string{newUUIDTwo.String()},
+	}
 	results, err := s.newFacade(c).AddPendingResources(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Error, gc.IsNil)
-	c.Assert(results.ErrorResult.Error, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, expectedResults)
 }
 
 // TestAddPendingResourcesUpdateResourceFailTypeUpload tests that sending an
@@ -413,12 +416,14 @@ func (s *addPendingResourceSuite) expectGetApplicationResourceIDTwo() {
 	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), getResIDArgs).Return(s.pendingResourceIDTwo, nil)
 }
 
-func (s *addPendingResourceSuite) expectUpdateResourceRevisionTwo(resourceRevision int) {
+func (s *addPendingResourceSuite) expectUpdateResourceRevisionTwo(c *gc.C, resourceRevision int) resource.UUID {
 	updateResourceArgs := domainresource.UpdateResourceRevisionArgs{
 		ResourceUUID: s.pendingResourceIDTwo,
 		Revision:     resourceRevision,
 	}
-	s.resourceService.EXPECT().UpdateResourceRevision(gomock.Any(), updateResourceArgs).Return(nil)
+	newUUID := resourcetesting.GenResourceUUID(c)
+	s.resourceService.EXPECT().UpdateResourceRevision(gomock.Any(), updateResourceArgs).Return(newUUID, nil)
+	return newUUID
 }
 
 func (s *addPendingResourceSuite) expectResolveResourceForBeforeApplication(resourceRevision int) {

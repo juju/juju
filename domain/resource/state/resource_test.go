@@ -2203,13 +2203,14 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFile(c *g
 		Revision:     5,
 	}
 
-	droppedHash, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
+	droppedHash, obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
 
 	c.Check(droppedHash, gc.Equals, expected.Fingerprint.String())
-	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
+	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
 	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
-	s.checkResourceOriginAndRevision(c, resID.String(), "store", 5)
+	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), "store", 5)
 	// Assert: Check that the resource has been remove from the stored blob
 	s.checkResourceFileStore(c, resID)
 }
@@ -2270,13 +2271,14 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImage(c *
 		Revision:     5,
 	}
 
-	droppedHash, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
+	droppedHash, obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
 
 	c.Check(droppedHash, gc.Equals, expected.Fingerprint.String())
-	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
+	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
 	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
-	s.checkResourceOriginAndRevision(c, resID.String(), charmresource.OriginStore.String(), 5)
+	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), charmresource.OriginStore.String(), 5)
 	s.checkResourceImageStore(c, resID)
 }
 
@@ -2320,13 +2322,14 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	})
 	c.Assert(err, jc.ErrorIs, sqlair.ErrNoRows)
 
-	droppedHash, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
+	droppedHash, obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
 
 	c.Check(droppedHash, gc.Equals, "")
-	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
+	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
 	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
-	s.checkResourceOriginAndRevision(c, resID.String(), charmresource.OriginStore.String(), 5)
+	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), charmresource.OriginStore.String(), 5)
 }
 
 // TestUpdateResourceRevisionAndDeletePriorVersionImageNotStored tests that a
@@ -2355,13 +2358,14 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	})
 	c.Check(err, gc.ErrorMatches, "sql: no rows in result set")
 
-	droppedHash, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
+	droppedHash, obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
 
 	c.Check(droppedHash, gc.Equals, "")
-	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
+	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
 	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
-	s.checkResourceOriginAndRevision(c, resID.String(), "store", 5)
+	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), "store", 5)
 }
 
 // TestUpdateResourceStoreToUpload tests updating a resource with origin store,

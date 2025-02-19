@@ -662,12 +662,13 @@ func (c *MockStateSetUnitResourceCall) DoAndReturn(f func(context.Context, resou
 }
 
 // UpdateResourceRevisionAndDeletePriorVersion mocks base method.
-func (m *MockState) UpdateResourceRevisionAndDeletePriorVersion(arg0 context.Context, arg1 resource0.UpdateResourceRevisionArgs, arg2 resource1.Type) (string, error) {
+func (m *MockState) UpdateResourceRevisionAndDeletePriorVersion(arg0 context.Context, arg1 resource0.UpdateResourceRevisionArgs, arg2 resource1.Type) (string, resource.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateResourceRevisionAndDeletePriorVersion", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(resource.UUID)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // UpdateResourceRevisionAndDeletePriorVersion indicates an expected call of UpdateResourceRevisionAndDeletePriorVersion.
@@ -683,19 +684,19 @@ type MockStateUpdateResourceRevisionAndDeletePriorVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) Return(arg0 string, arg1 error) *MockStateUpdateResourceRevisionAndDeletePriorVersionCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) Return(arg0 string, arg1 resource.UUID, arg2 error) *MockStateUpdateResourceRevisionAndDeletePriorVersionCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) Do(f func(context.Context, resource0.UpdateResourceRevisionArgs, resource1.Type) (string, error)) *MockStateUpdateResourceRevisionAndDeletePriorVersionCall {
+func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) Do(f func(context.Context, resource0.UpdateResourceRevisionArgs, resource1.Type) (string, resource.UUID, error)) *MockStateUpdateResourceRevisionAndDeletePriorVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) DoAndReturn(f func(context.Context, resource0.UpdateResourceRevisionArgs, resource1.Type) (string, error)) *MockStateUpdateResourceRevisionAndDeletePriorVersionCall {
+func (c *MockStateUpdateResourceRevisionAndDeletePriorVersionCall) DoAndReturn(f func(context.Context, resource0.UpdateResourceRevisionArgs, resource1.Type) (string, resource.UUID, error)) *MockStateUpdateResourceRevisionAndDeletePriorVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
