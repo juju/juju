@@ -1756,6 +1756,7 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 	// Arrange : Insert several resources
 	// - 1 with no unit (state available)
 	// - 1 with no unit (state potential)
+	// - 1 with no unit (state potential, but without revision)
 	// - 1 associated with two units (state available)
 	// - 1 with the same name as above, no unit (state potential)
 	// - 1 associated with one unit (state available)
@@ -1773,6 +1774,16 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 		CreatedAt:       now,
 		Type:            charmresource.TypeFile,
 		State:           resource.StatePotential.String(),
+		Revision:        2,
+	}
+	noUnitPotentialNoRevRes := resourceData{
+		UUID:            "no-unit-potential-placedholder-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "no-unit-placeholder",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		State:           resource.StatePotential.String(),
+		// No revision
 	}
 	withUnit1AvailableRes := resourceData{
 		UUID:            "with-unit-available-uuid",
@@ -1797,6 +1808,7 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 		CreatedAt:       now,
 		Type:            charmresource.TypeFile,
 		State:           resource.StatePotential.String(),
+		Revision:        2,
 	}
 	withUnitBisAvailableRes := resourceData{
 		UUID:            "with-unit-bis-available-uuid",
@@ -1809,6 +1821,7 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		for _, input := range []resourceData{
+			noUnitPotentialNoRevRes,
 			noUnitAvailableRes,
 			noUnitPotentialRes,
 			withUnit1AvailableRes,
