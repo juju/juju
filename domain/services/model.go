@@ -113,6 +113,7 @@ func NewModelServices(
 	leaseManager lease.ModelLeaseManagerGetter,
 	clock clock.Clock,
 	logger logger.Logger,
+	loggerContext logger.LoggerContext,
 ) *ModelServices {
 	return &ModelServices{
 		modelServiceFactoryBase: modelServiceFactoryBase{
@@ -120,7 +121,8 @@ func NewModelServices(
 				controllerDB: controllerDB,
 				logger:       logger,
 			},
-			modelDB: modelDB,
+			loggerContext: loggerContext,
+			modelDB:       modelDB,
 		},
 		clock:             clock,
 		modelUUID:         modelUUID,
@@ -161,7 +163,7 @@ func (s *ModelServices) Config() *modelconfigservice.WatchableService {
 // Machine returns the model's machine service.
 func (s *ModelServices) Machine() *machineservice.WatchableService {
 	return machineservice.NewWatchableService(
-		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, s.logger.Child("machine")),
+		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, s.loggerContext.GetLogger("machine")),
 		s.modelWatcherFactory("machine"),
 		providertracker.ProviderRunner[machineservice.Provider](s.providerFactory, s.modelUUID.String()),
 	)
@@ -172,13 +174,13 @@ func (s *ModelServices) BlockDevice() *blockdeviceservice.WatchableService {
 	return blockdeviceservice.NewWatchableService(
 		blockdevicestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory("blockdevice"),
-		s.logger.Child("blockdevice"),
+		s.loggerContext.GetLogger("blockdevice"),
 	)
 }
 
 // Application returns the model's application service.
 func (s *ModelServices) Application() *applicationservice.WatchableService {
-	log := s.logger.Child("application")
+	log := s.loggerContext.GetLogger("application")
 
 	return applicationservice.NewWatchableService(
 		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
@@ -230,7 +232,7 @@ func (s *ModelServices) KeyUpdater() *keyupdaterservice.WatchableService {
 
 // Network returns the model's network service.
 func (s *ModelServices) Network() *networkservice.WatchableService {
-	log := s.logger.Child("network")
+	log := s.loggerContext.GetLogger("network")
 
 	return networkservice.NewWatchableService(
 		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
@@ -251,14 +253,14 @@ func (s *ModelServices) Annotation() *annotationService.Service {
 func (s *ModelServices) Storage() *storageservice.Service {
 	return storageservice.NewService(
 		storagestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.logger.Child("storage"),
+		s.loggerContext.GetLogger("storage"),
 		s.storageRegistry,
 	)
 }
 
 // Secret returns the model's secret service.
 func (s *ModelServices) Secret(params secretservice.SecretServiceParams) *secretservice.WatchableService {
-	log := s.logger.Child("secret")
+	log := s.loggerContext.GetLogger("secret")
 	return secretservice.NewWatchableService(
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
@@ -283,7 +285,7 @@ func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
 func (s *ModelServices) ModelSecretBackend() *secretbackendservice.ModelSecretBackendService {
 	state := secretbackendstate.NewState(
 		changestream.NewTxnRunnerFactory(s.controllerDB),
-		s.logger.Child("modelsecretbackend"),
+		s.loggerContext.GetLogger("modelsecretbackend"),
 	)
 	return secretbackendservice.NewModelSecretBackendService(s.modelUUID, state)
 }
@@ -302,7 +304,7 @@ func (s *ModelServices) ModelInfo() *modelservice.ModelService {
 	return modelservice.NewModelService(
 		s.modelUUID,
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("modelinfo")),
+		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.loggerContext.GetLogger("modelinfo")),
 		modelservice.EnvironVersionProviderGetter(),
 	)
 }
@@ -330,7 +332,7 @@ func (s *ModelServices) CloudImageMetadata() *cloudimagemetadataservice.Service 
 		cloudimagemetadatastate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 			s.clock,
-			s.logger.Child("cloudimagemetadata"),
+			s.loggerContext.GetLogger("cloudimagemetadata"),
 		),
 	)
 }
@@ -340,7 +342,7 @@ func (s *ModelServices) Port() *portservice.WatchableService {
 	return portservice.NewWatchableService(
 		portstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory("port"),
-		s.logger.Child("port"),
+		s.loggerContext.GetLogger("port"),
 	)
 }
 
@@ -348,7 +350,7 @@ func (s *ModelServices) Port() *portservice.WatchableService {
 func (s *ModelServices) BlockCommand() *blockcommandservice.Service {
 	return blockcommandservice.NewService(
 		blockcommandstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.logger.Child("blockcommand"),
+		s.loggerContext.GetLogger("blockcommand"),
 	)
 }
 
@@ -359,7 +361,7 @@ func (s *ModelServices) Resource() *resourceservice.Service {
 		return containerimageresourcestoreservice.NewService(
 			containerimageresourcestorestate.NewState(
 				changestream.NewTxnRunnerFactory(s.modelDB),
-				s.logger.Child("containerimageresourcestore.state"),
+				s.loggerContext.GetLogger("containerimageresourcestore.state"),
 			))
 	}
 	resourceStoreFactory := store.NewResourceStoreFactory(
@@ -370,10 +372,10 @@ func (s *ModelServices) Resource() *resourceservice.Service {
 		resourcestate.NewState(
 			changestream.NewTxnRunnerFactory(s.modelDB),
 			s.clock,
-			s.logger.Child("resource.state"),
+			s.loggerContext.GetLogger("resource.state"),
 		),
 		resourceStoreFactory,
-		s.logger.Child("resource.service"),
+		s.loggerContext.GetLogger("resource.service"),
 	)
 }
 
@@ -384,17 +386,17 @@ func (s *ModelServices) Relation() *relationservice.WatchableService {
 		relationstate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 			s.clock,
-			s.logger.Child("relation.state"),
+			s.loggerContext.GetLogger("relation.state"),
 		),
 		s.modelWatcherFactory("relation.watcher"),
-		s.logger.Child("relation.service"),
+		s.loggerContext.GetLogger("relation.service"),
 	)
 }
 
 // Removal returns the service for working
 // with entity removals in the current model.
 func (s *ModelServices) Removal() *removalservice.WatchableService {
-	log := s.logger.Child("removal")
+	log := s.loggerContext.GetLogger("removal")
 
 	return removalservice.NewWatchableService(
 		removalstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),

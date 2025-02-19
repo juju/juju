@@ -209,7 +209,10 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 
 	modelUUID := coremodel.UUID(model.Tag().Id())
 
-	domainServices := i.domainServices.ServicesForModel(modelUUID)
+	domainServices, err := i.domainServices.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

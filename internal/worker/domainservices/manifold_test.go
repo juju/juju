@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/storage"
 	domainservices "github.com/juju/juju/domain/services"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -226,6 +227,7 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
 		s.modelLeaseManagerGetter,
 		s.clock,
 		s.logger,
+		loggertesting.WrapCheckLogForContext(c),
 	)
 	c.Assert(factory, gc.NotNil)
 }
@@ -243,10 +245,12 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 		s.leaseManager,
 		s.clock,
 		s.logger,
+		s.loggerContextGetter,
 	)
 	c.Assert(factory, gc.NotNil)
 
-	modelFactory := factory.ServicesForModel("model")
+	modelFactory, err := factory.ServicesForModel(context.Background(), "model")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelFactory, gc.NotNil)
 }
 
@@ -281,6 +285,7 @@ func noopDomainServicesGetter(
 	lease.Manager,
 	clock.Clock,
 	logger.Logger,
+	logger.LoggerContextGetter,
 ) services.DomainServicesGetter {
 	return nil
 }
@@ -304,6 +309,7 @@ func noopModelDomainServices(
 	lease.ModelLeaseManagerGetter,
 	clock.Clock,
 	logger.Logger,
+	logger.LoggerContext,
 ) services.ModelDomainServices {
 	return nil
 }

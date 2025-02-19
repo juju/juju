@@ -4,6 +4,7 @@
 package domainservices
 
 import (
+	context "context"
 	"net/http"
 	"testing"
 
@@ -41,10 +42,11 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	domaintesting.ControllerSuite
 
-	logger    logger.Logger
-	clock     clock.Clock
-	dbDeleter *MockDBDeleter
-	dbGetter  *MockWatchableDBGetter
+	logger              logger.Logger
+	loggerContextGetter loggerContextGetter
+	clock               clock.Clock
+	dbDeleter           *MockDBDeleter
+	dbGetter            *MockWatchableDBGetter
 
 	domainServicesGetter     *MockDomainServicesGetter
 	controllerDomainServices *MockControllerDomainServices
@@ -116,6 +118,7 @@ func NewModelDomainServices(
 	leaseManager lease.ModelLeaseManagerGetter,
 	clock clock.Clock,
 	logger logger.Logger,
+	loggerContext logger.LoggerContext,
 ) services.ModelDomainServices {
 	return domainservices.NewModelServices(
 		modelUUID,
@@ -128,5 +131,12 @@ func NewModelDomainServices(
 		leaseManager,
 		clock,
 		logger,
+		loggerContext,
 	)
+}
+
+type loggerContextGetter struct{}
+
+func (l loggerContextGetter) GetLoggerContext(context.Context, logger.LoggerKey) (logger.LoggerContext, error) {
+	return nil, nil
 }

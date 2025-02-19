@@ -4,6 +4,8 @@
 package services
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/model"
 	accessservice "github.com/juju/juju/domain/access/service"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
@@ -149,7 +151,7 @@ type DomainServices interface {
 // model.
 type DomainServicesGetter interface {
 	// ServicesForModel returns a DomainServices for the given model.
-	ServicesForModel(modelID model.UUID) DomainServices
+	ServicesForModel(ctx context.Context, modelID model.UUID) (DomainServices, error)
 }
 
 // ProviderServices provides access to the services required by the

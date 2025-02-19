@@ -285,7 +285,12 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func(context.Context) (
 
 		// Get the provider domain services for the model.
 		cfg.ProviderServicesGetter = m.config.ProviderServicesGetter
-		cfg.DomainServices = m.config.DomainServicesGetter.ServicesForModel(model.UUID(modelUUID))
+
+		var err error
+		cfg.DomainServices, err = m.config.DomainServicesGetter.ServicesForModel(ctx, model.UUID(modelUUID))
+		if err != nil {
+			return nil, errors.Annotate(err, "unable to get domain services")
+		}
 
 		cfg.HTTPClientGetter = m.config.HTTPClientGetter
 

@@ -30,12 +30,13 @@ func (s *serviceFactoryBase) controllerWatcherFactory(childLogName string) *doma
 type modelServiceFactoryBase struct {
 	serviceFactoryBase
 
-	modelDB changestream.WatchableDBFactory
+	loggerContext logger.LoggerContext
+	modelDB       changestream.WatchableDBFactory
 }
 
 func (s *modelServiceFactoryBase) modelWatcherFactory(childLogName string) *domain.WatcherFactory {
 	return domain.NewWatcherFactory(
 		s.modelDB,
-		s.logger.Child(childLogName),
+		s.loggerContext.GetLogger(childLogName),
 	)
 }

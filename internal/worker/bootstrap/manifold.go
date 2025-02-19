@@ -234,7 +234,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
-			controllerModelDomainServices := domainServicesGetter.ServicesForModel(controllerModel.UUID)
+			controllerModelDomainServices, err := domainServicesGetter.ServicesForModel(ctx, controllerModel.UUID)
+			if err != nil {
+				_ = stTracker.Done()
+				return nil, errors.Trace(err)
+			}
 
 			applicationService := controllerModelDomainServices.Application()
 

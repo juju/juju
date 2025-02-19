@@ -106,6 +106,7 @@ func (s *workerSuite) getConfig() Config {
 			lease.Manager,
 			clock.Clock,
 			logger.Logger,
+			logger.LoggerContextGetter,
 		) services.DomainServicesGetter {
 			return s.domainServicesGetter
 		},
@@ -127,6 +128,7 @@ func (s *workerSuite) getConfig() Config {
 			lease.ModelLeaseManagerGetter,
 			clock.Clock,
 			logger.Logger,
+			logger.LoggerContext,
 		) services.ModelDomainServices {
 			return s.modelDomainServices
 		},

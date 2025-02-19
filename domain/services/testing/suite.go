@@ -94,19 +94,25 @@ func (s stubDBDeleter) DeleteDB(namespace string) error {
 // ControllerDomainServices conveniently constructs a domain services for the
 // controller model.
 func (s *DomainServicesSuite) ControllerDomainServices(c *gc.C) services.DomainServices {
-	return s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(s.ControllerModelUUID)
+	svc, err := s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(context.Background(), s.ControllerModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	return svc
 }
 
 // DefaultModelDomainServices conveniently constructs a domain services for the
 // default model.
 func (s *DomainServicesSuite) DefaultModelDomainServices(c *gc.C) services.DomainServices {
-	return s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(s.ControllerModelUUID)
+	svc, err := s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(context.Background(), s.ControllerModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	return svc
 }
 
 // ModelDomainServices conveniently constructs a domain services for the
 // default model.
 func (s *DomainServicesSuite) ModelDomainServices(c *gc.C, modelUUID model.UUID) services.DomainServices {
-	return s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(modelUUID)
+	svc, err := s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	return svc
 }
 
 func (s *DomainServicesSuite) SeedControllerConfig(c *gc.C) {
@@ -250,7 +256,7 @@ type domainServices struct {
 // DomainServicesGetterWithStorageRegistry interface to use in tests with the
 // additional storage provider.
 func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, objectStore objectstore.ObjectStore, leaseManager lease.Checker, storageRegistry storage.ProviderRegistry) DomainServicesGetterFunc {
-	return func(modelUUID model.UUID) services.DomainServices {
+	return func(ctx context.Context, modelUUID model.UUID) (services.DomainServices, error) {
 		clock := clock.WallClock
 		logger := loggertesting.WrapCheckLog(c)
 		controllerServices := domainservices.NewControllerServices(databasetesting.ConstFactory(s.TxnRunner()), stubDBDeleter{}, clock, logger)
@@ -271,11 +277,12 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 			}),
 			clock,
 			logger,
+			loggertesting.WrapCheckLogForContext(c),
 		)
 		return &domainServices{
 			ControllerServices: controllerServices,
 			ModelServices:      modelServices,
-		}
+		}, nil
 	}
 }
 
@@ -323,11 +330,11 @@ func (s *DomainServicesSuite) SetUpTest(c *gc.C) {
 
 // DomainServicesGetterFunc is a convenience type for translating a getter
 // function into the DomainServicesGetter interface.
-type DomainServicesGetterFunc func(model.UUID) services.DomainServices
+type DomainServicesGetterFunc func(context.Context, model.UUID) (services.DomainServices, error)
 
 // ServicesForModel implements the DomainServicesGetter interface.
-func (s DomainServicesGetterFunc) ServicesForModel(modelUUID model.UUID) services.DomainServices {
-	return s(modelUUID)
+func (s DomainServicesGetterFunc) ServicesForModel(ctx context.Context, modelUUID model.UUID) (services.DomainServices, error) {
+	return s(ctx, modelUUID)
 }
 
 // ObjectStoreServicesGetterFunc is a convenience type for translating a getter

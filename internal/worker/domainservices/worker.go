@@ -5,6 +5,9 @@ package domainservices
 
 import (
 	"context"
+	"database/sql"
+	"sync"
+	"weak"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -54,9 +57,18 @@ type Config struct {
 	// Clock is used to provides a main Clock
 	Clock clock.Clock
 
-	NewDomainServicesGetter     DomainServicesGetterFn
+	// LoggerContextGetter is used to get a logger context for the model. This
+	// will allow access to the model logs.
+	LoggerContextGetter logger.LoggerContextGetter
+
+	// NewDomainServicesGetter to get the new domain services.
+	NewDomainServicesGetter DomainServicesGetterFn
+
+	// NewControllerDomainServices to get the new controller domain services.
 	NewControllerDomainServices ControllerDomainServicesFn
-	NewModelDomainServices      ModelDomainServicesFn
+
+	// NewModelDomainServices to get the new model domain services.
+	NewModelDomainServices ModelDomainServicesFn
 }
 
 // Validate validates the domain services configuration.
@@ -79,7 +91,9 @@ func (config Config) Validate() error {
 	if config.PublicKeyImporter == nil {
 		return errors.NotValidf("nil PublicKeyImporter")
 	}
-
+	if config.LoggerContextGetter == nil {
+		return errors.NotValidf("nil LoggerContextGetter")
+	}
 	if config.LeaseManager == nil {
 		return errors.NotValidf("nil LeaseManager")
 	}
@@ -121,6 +135,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.LeaseManager,
 			config.Clock,
 			config.Logger,
+			config.LoggerContextGetter,
 		),
 	}
 	w.tomb.Go(func() error {
@@ -177,7 +192,6 @@ type domainServices struct {
 type domainServicesGetter struct {
 	ctrlFactory            services.ControllerDomainServices
 	dbGetter               changestream.WatchableDBGetter
-	logger                 logger.Logger
 	clock                  clock.Clock
 	newModelDomainServices ModelDomainServicesFn
 	providerFactory        providertracker.ProviderFactory
@@ -185,11 +199,18 @@ type domainServicesGetter struct {
 	storageRegistryGetter  storage.StorageRegistryGetter
 	publicKeyImporter      domainservices.PublicKeyImporter
 	leaseManager           lease.Manager
+	logger                 logger.Logger
+	loggerContextGetter    *modelLoggerContextGetter
 }
 
 // ServicesForModel returns the domain services for the given model uuid.
 // This will late bind the model domain services to the actual domain services.
-func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) services.DomainServices {
+func (s *domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID coremodel.UUID) (services.DomainServices, error) {
+	loggerContext, err := s.loggerContextGetter.GetLoggerContext(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &domainServices{
 		ControllerDomainServices: s.ctrlFactory,
 		ModelDomainServices: s.newModelDomainServices(
@@ -210,8 +231,9 @@ func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) servic
 			},
 			s.clock,
 			s.logger,
+			loggerContext,
 		),
-	}
+	}, nil
 }
 
 // modelObjectStoreGetter is an object store getter that returns a singular
@@ -259,4 +281,73 @@ func (s modelApplicationLeaseManager) GetLeaseManager() (lease.Checker, error) {
 	}
 
 	return checker, nil
+}
+
+type modelLoggerContextGetter struct {
+	mutex    sync.Mutex
+	contexts map[coremodel.UUID]weak.Pointer[logger.LoggerContext]
+
+	loggerContextGetter logger.LoggerContextGetter
+	dbGetter            changestream.WatchableDBGetter
+}
+
+func newModelLoggerContextGetter(
+	loggerContextGetter logger.LoggerContextGetter,
+	dbGetter changestream.WatchableDBGetter,
+
+) *modelLoggerContextGetter {
+	return &modelLoggerContextGetter{
+		contexts: make(map[coremodel.UUID]weak.Pointer[logger.LoggerContext]),
+
+		loggerContextGetter: loggerContextGetter,
+		dbGetter:            dbGetter,
+	}
+}
+
+func (m *modelLoggerContextGetter) GetLoggerContext(ctx context.Context, modelUUID coremodel.UUID) (logger.LoggerContext, error) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	ptr, exists := m.contexts[modelUUID]
+	if !exists {
+		return m.getLoggerContext(ctx, modelUUID)
+	}
+
+	loggerContext := ptr.Value()
+	if loggerContext == nil {
+		return m.getLoggerContext(ctx, modelUUID)
+	}
+
+	return *loggerContext, nil
+}
+
+func (m *modelLoggerContextGetter) getLoggerContext(ctx context.Context, modelUUID coremodel.UUID) (logger.LoggerContext, error) {
+	db, err := m.dbGetter.GetWatchableDB(modelUUID.String())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var name, owner string
+	if err := db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, "SELECT name, credential_owner FROM model WHERE uuid = ?", modelUUID.String())
+		if err := row.Scan(&name, &owner); err != nil {
+			return errors.Trace(err)
+		}
+		return row.Err()
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	loggerContext, err := m.loggerContextGetter.GetLoggerContext(ctx, logger.LoggerKey{
+		ModelUUID:  modelUUID.String(),
+		ModelName:  name,
+		ModelOwner: owner,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	m.contexts[modelUUID] = weak.Make(&loggerContext)
+
+	return loggerContext, nil
 }
