@@ -494,9 +494,9 @@ func resourceToSerialized(app string, desc description.Resource) params.Serializ
 	res.Revision = rr.Revision()
 	res.Type = rr.Type()
 	res.Origin = rr.Origin()
-	res.FingerprintHex = rr.FingerprintHex()
+	res.FingerprintHex = rr.SHA384()
 	res.Size = rr.Size()
 	res.Timestamp = rr.Timestamp()
-	res.Username = rr.Username()
+	res.Username = rr.RetrievedBy()
 	return res
 }
