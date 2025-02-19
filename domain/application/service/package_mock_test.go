@@ -2012,6 +2012,45 @@ func (c *MockStateGetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
+// GetUnitWorkloadStatusesForApplication mocks base method.
+func (m *MockState) GetUnitWorkloadStatusesForApplication(arg0 context.Context, arg1 application.ID) (map[unit.UUID]application0.StatusInfo[application0.WorkloadStatusType], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitWorkloadStatusesForApplication", arg0, arg1)
+	ret0, _ := ret[0].(map[unit.UUID]application0.StatusInfo[application0.WorkloadStatusType])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitWorkloadStatusesForApplication indicates an expected call of GetUnitWorkloadStatusesForApplication.
+func (mr *MockStateMockRecorder) GetUnitWorkloadStatusesForApplication(arg0, arg1 any) *MockStateGetUnitWorkloadStatusesForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatusesForApplication", reflect.TypeOf((*MockState)(nil).GetUnitWorkloadStatusesForApplication), arg0, arg1)
+	return &MockStateGetUnitWorkloadStatusesForApplicationCall{Call: call}
+}
+
+// MockStateGetUnitWorkloadStatusesForApplicationCall wrap *gomock.Call
+type MockStateGetUnitWorkloadStatusesForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitWorkloadStatusesForApplicationCall) Return(arg0 map[unit.UUID]application0.StatusInfo[application0.WorkloadStatusType], arg1 error) *MockStateGetUnitWorkloadStatusesForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitWorkloadStatusesForApplicationCall) Do(f func(context.Context, application.ID) (map[unit.UUID]application0.StatusInfo[application0.WorkloadStatusType], error)) *MockStateGetUnitWorkloadStatusesForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitWorkloadStatusesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (map[unit.UUID]application0.StatusInfo[application0.WorkloadStatusType], error)) *MockStateGetUnitWorkloadStatusesForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatementApplicationConfigHash mocks base method.
 func (m *MockState) InitialWatchStatementApplicationConfigHash(appName string) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()

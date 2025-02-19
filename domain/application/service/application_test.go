@@ -1457,6 +1457,70 @@ func (s *applicationServiceSuite) TestGetApplicationStatus(c *gc.C) {
 	})
 }
 
+func (s *applicationServiceSuite) TestGetApplicationStatusFallbacktoUnits(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+		&application.StatusInfo[application.WorkloadStatusType]{
+			Status: application.WorkloadStatusUnset,
+		}, nil)
+
+	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), applicationUUID).Return(
+		map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType]{
+			"unit-1": {
+				Status:  application.WorkloadStatusActive,
+				Message: "doink-1",
+				Data:    []byte(`{"foo":"bar-1"}`),
+				Since:   &now,
+			},
+			"unit-2": {
+				Status:  application.WorkloadStatusBlocked,
+				Message: "doink-2",
+				Data:    []byte(`{"foo":"bar-2"}`),
+				Since:   &now,
+			},
+			"unit-3": {
+				Status:  application.WorkloadStatusMaintenance,
+				Message: "doink-3",
+				Data:    []byte(`{"foo":"bar-3"}`),
+				Since:   &now,
+			},
+		}, nil)
+
+	obtained, err := s.service.GetApplicationStatus(context.Background(), applicationUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	// We pick the status from the units with the highest 'severity'
+	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+		Status:  corestatus.Blocked,
+		Message: "doink-2",
+		Data:    map[string]interface{}{"foo": "bar-2"},
+		Since:   &now,
+	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationStatusFallbacktoUnitsNoUnits(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+		&application.StatusInfo[application.WorkloadStatusType]{
+			Status: application.WorkloadStatusUnset,
+		}, nil)
+
+	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), applicationUUID).Return(
+		map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType]{}, nil,
+	)
+
+	obtained, err := s.service.GetApplicationStatus(context.Background(), applicationUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+		Status: corestatus.Unknown,
+	})
+}
+
 func (s *applicationServiceSuite) TestSetApplicationStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

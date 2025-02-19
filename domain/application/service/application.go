@@ -80,6 +80,11 @@ type ApplicationState interface {
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	SetUnitWorkloadStatus(context.Context, coreunit.UUID, *application.StatusInfo[application.WorkloadStatusType]) error
 
+	// GetUnitWorkloadStatusesForApplication returns the workload statuses for all units
+	// of the specified application, returning an error satisfying
+	// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
+	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType], error)
+
 	// DeleteUnit deletes the specified unit.
 	// If the unit's application is Dying and no
 	// other references to it exist, true is returned to
@@ -1543,11 +1548,39 @@ func (s *Service) GetApplicationStatus(ctx context.Context, appID coreapplicatio
 		return nil, internalerrors.Errorf("application ID: %w", err)
 	}
 
-	info, err := s.st.GetApplicationStatus(ctx, appID)
+	applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
-	return decodeWorkloadStatus(info)
+	if applicationStatus.Status != application.WorkloadStatusUnset {
+		return decodeWorkloadStatus(applicationStatus)
+	}
+
+	// The application status is unset. However, we can still derive the status
+	// of the application using the workload statuses of all the application's
+	// units.
+	//
+	// NOTE: It is possible that between these two calls to state someone else
+	// calls SetApplicationStatus and changes the status. This would potentially
+	// lead to an out of date status being returned here. In this specific case,
+	// we don't mind so long as we have 'eventual' (i.e. milliseconds) consistency.
+
+	unitStatuses, err := s.st.GetUnitWorkloadStatusesForApplication(ctx, appID)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	deocodedStatuses := []corestatus.StatusInfo{}
+	for _, unitStatus := range unitStatuses {
+		status, err := decodeWorkloadStatus(&unitStatus)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+		deocodedStatuses = append(deocodedStatuses, *status)
+	}
+	derivedStatus := corestatus.DeriveStatus(deocodedStatuses)
+	return &derivedStatus, nil
+
 }
 
 // SetApplicationStatus saves the given application status, overwriting any
