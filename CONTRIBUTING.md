@@ -114,6 +114,11 @@ page on GitHub** -- though we still recommend you do not make changes there
 directly there but rather in a local clone, as that will make it easier for you
 to iterate during the PR review process.
 
+If you create a new page make sure to index it appropriately in the correct
+overview page (usually, an index page in the directory where you've created the
+page). If you delete a page, make sure to set up a redirect in the
+`juju/docs/redirects.txt` file.
+
 ### Standards
 
 All changes should follow the existing patterns, including
