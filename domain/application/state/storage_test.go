@@ -198,7 +198,7 @@ func (s *applicationStateSuite) TestGetStorageUUIDByID(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, storage_pool, size_mib)
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, storage_pool, requested_size_mib)
 VALUES (?, ?, ?, ?, ?, ?, ?)`, uuid, charmUUID, "pgdata", "pgdata/0", 0, "pool", 666)
 		return err
 	})
