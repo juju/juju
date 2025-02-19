@@ -111,7 +111,7 @@ CREATE TABLE storage_instance (
     -- with an ID. Storage pools, once created, cannot be renamed so
     -- this will not be able to become "orphaned".
     storage_pool TEXT NOT NULL,
-    size_mib INT NOT NULL,
+    requested_size_mib INT NOT NULL,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
@@ -119,6 +119,9 @@ CREATE TABLE storage_instance (
     FOREIGN KEY (charm_uuid, storage_name)
     REFERENCES charm_storage (charm_uuid, name)
 );
+
+CREATE UNIQUE INDEX idx_storage_instance_id
+ON storage_instance (storage_id);
 
 -- storage_unit_owner is used to indicate when
 -- a unit is the owner of a storage instance.
@@ -169,10 +172,10 @@ INSERT INTO storage_provisioning_status VALUES
 
 CREATE TABLE storage_volume (
     uuid TEXT NOT NULL PRIMARY KEY,
+    volume_id TEXT NOT NULL,
     life_id INT NOT NULL,
-    name TEXT NOT NULL,
+    name TEXT,
     provider_id TEXT,
-    storage_pool_uuid TEXT,
     size_mib INT,
     hardware_id TEXT,
     wwn TEXT,
@@ -181,13 +184,13 @@ CREATE TABLE storage_volume (
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
-    CONSTRAINT fk_storage_volume_pool
-    FOREIGN KEY (storage_pool_uuid)
-    REFERENCES storage_pool (uuid),
     CONSTRAINT fk_storage_vol_provisioning_status
     FOREIGN KEY (provisioning_status_id)
     REFERENCES storage_provisioning_status (id)
 );
+
+CREATE UNIQUE INDEX idx_storage_volume_id
+ON storage_volume (volume_id);
 
 -- An instance can have at most one volume.
 -- A volume can have at most one instance.
@@ -232,21 +235,21 @@ CREATE TABLE storage_volume_attachment (
 
 CREATE TABLE storage_filesystem (
     uuid TEXT NOT NULL PRIMARY KEY,
+    filesystem_id TEXT NOT NULL,
     life_id INT NOT NULL,
     provider_id TEXT,
-    storage_pool_uuid TEXT,
     size_mib INT,
     provisioning_status_id INT NOT NULL,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
-    CONSTRAINT fk_storage_filesystem_pool
-    FOREIGN KEY (storage_pool_uuid)
-    REFERENCES storage_pool (uuid),
     CONSTRAINT fk_storage_fs_provisioning_status
     FOREIGN KEY (provisioning_status_id)
     REFERENCES storage_provisioning_status (id)
 );
+
+CREATE UNIQUE INDEX idx_storage_filesystem_id
+ON storage_filesystem (filesystem_id);
 
 -- An instance can have at most one filesystem.
 -- A filesystem can have at most one instance.
