@@ -34,7 +34,7 @@ type acceptOnceListener struct {
 
 // newAcceptOnceListener returns a listener and a closedAllowed channel. You are
 // expected to receive from the closeAlloed channel within your Close() function.
-// The channel is closed once an accept has occured at least once.
+// The channel is closed once an accept has occurred at least once.
 func newAcceptOnceListener(l net.Listener) (acceptOnceListener, chan struct{}) {
 	c := make(chan struct{})
 	return acceptOnceListener{
