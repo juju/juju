@@ -216,17 +216,17 @@ type ModelLogger interface {
 
 	// GetLogWriter returns a log writer for the given model and keeps
 	// track of it, returning the same one if called again.
-	GetLogWriter(ctx context.Context, modelUUID string) (LogWriterCloser, error)
+	GetLogWriter(ctx context.Context, key LoggerKey) (LogWriterCloser, error)
 
 	// RemoveLogWriter stops tracking the given's model's log writer and
 	// calls Close() on the log writer.
-	RemoveLogWriter(modelUUID string) error
+	RemoveLogWriter(key LoggerKey) error
 }
 
 // LoggerContextGetter is an interface that is used to get a LoggerContext.
 type LoggerContextGetter interface {
 	// GetLoggerContext returns a LoggerContext for the given name.
-	GetLoggerContext(ctx context.Context, namespace string) (LoggerContext, error)
+	GetLoggerContext(ctx context.Context, key LoggerKey) (LoggerContext, error)
 }
 
 // LogWriterForModelFunc is a function which returns a log writer for a given
@@ -244,12 +244,4 @@ type LoggerKey struct {
 func ModelLogFile(logDir string, key LoggerKey) string {
 	filename := fmt.Sprintf("%s-%s-%s.log", key.ModelOwner, key.ModelName, names.NewModelTag(key.ModelUUID).ShortId())
 	return filepath.Join(logDir, "models", filename)
-}
-
-// ModelLoggerInitializer is an interface that provides a method to initialize a
-// logger.
-type ModelLoggerInitializer interface {
-	// InitializeLogger initializes the logger for the specified key.
-	// If the logger is already running, it will return nil.
-	InitializeLogger(ctx context.Context, key LoggerKey) error
 }
