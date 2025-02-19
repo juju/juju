@@ -933,16 +933,14 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 		modelIdKey:      k.modelUUID,
 	}
 
-	if consumer.Kind() != names.ModelTagKind {
-		appName := consumer.Id()
-		if consumer.Kind() == names.UnitTagKind {
-			appName, _ = names.UnitApplication(consumer.Id())
-		}
-		labels = utils.LabelsMerge(labels,
-			map[string]string{
-				constants.LabelKubernetesAppName: appName,
-			})
+	appName := consumer.Id()
+	if consumer.Kind() == names.UnitTagKind {
+		appName, _ = names.UnitApplication(consumer.Id())
 	}
+	labels = utils.LabelsMerge(labels,
+		map[string]string{
+			constants.LabelKubernetesAppName: appName,
+		})
 
 	// Compose the name of the service account and role and role binding.
 	// We'll use the tag string, but for models we'll use the model name, since
