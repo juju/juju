@@ -476,6 +476,10 @@ WHERE application_uuid = $resourceIdentity.application_uuid`
 		for _, res := range resources {
 
 			if res.State == resource.StatePotential.String() {
+				if res.Revision == nil {
+					// Discard nil revision, those are placeholders
+					continue
+				}
 				// Convert to charm resource.
 				charmRes, err := res.toCharmResource()
 				if err != nil {

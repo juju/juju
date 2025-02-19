@@ -68,7 +68,7 @@ type resourceView struct {
 	ApplicationName string    `db:"application_name"`
 	Name            string    `db:"name"`
 	CreatedAt       time.Time `db:"created_at"`
-	Revision        int       `db:"revision"`
+	Revision        *int      `db:"revision"`
 	OriginType      string    `db:"origin_type"`
 	RetrievedBy     string    `db:"retrieved_by"`
 	RetrievedByType string    `db:"retrieved_by_type"`
@@ -98,6 +98,10 @@ func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
 			return charmresource.Resource{}, errors.Errorf("converting resource fingerprint: %w", err)
 		}
 	}
+	var revision int
+	if rv.Revision != nil {
+		revision = *rv.Revision
+	}
 
 	return charmresource.Resource{
 		Meta: charmresource.Meta{
@@ -107,7 +111,7 @@ func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
 			Description: rv.Description,
 		},
 		Origin:      origin,
-		Revision:    rv.Revision,
+		Revision:    revision,
 		Fingerprint: fingerprint,
 		Size:        rv.Size,
 	}, nil
