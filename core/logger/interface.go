@@ -158,21 +158,21 @@ type LoggerContext interface {
 
 	// ConfigureLoggers configures loggers according to the given string
 	// specification, which specifies a set of modules and their associated
-	// logging levels. Loggers are colon- or semicolon-separated; each
-	// module is specified as <modulename>=<level>.  White space outside of
-	// module names and levels is ignored. The root module is specified
-	// with the name "<root>".
+	// logging levels. Loggers are colon- or semicolon-separated; each module is
+	// specified as <modulename>=<level>.  White space outside of module names
+	// and levels is ignored. The root module is specified with the name
+	// "<root>".
 	//
 	// An example specification:
 	//
-	//	<root>=ERROR; foo.bar=WARNING
+	//  <root>=ERROR; foo.bar=WARNING
 	//
 	// Label matching can be applied to the loggers by providing a set of labels
-	// to the function. If a logger has a label that matches the provided labels,
-	// then the logger will be configured with the provided level. If the logger
-	// does not have a label that matches the provided labels, then the logger
-	// will not be configured. No labels will configure all loggers in the
-	// specification.
+	// to the function. If a logger has a label that matches the provided
+	// labels, then the logger will be configured with the provided level. If
+	// the logger does not have a label that matches the provided labels, then
+	// the logger will not be configured. No labels will configure all loggers
+	// in the specification.
 	ConfigureLoggers(specification string) error
 
 	// ResetLoggerLevels iterates through the known logging modules and sets the
@@ -189,9 +189,9 @@ type LoggerContext interface {
 	// The name cannot be empty, and the writer cannot be nil. If an existing
 	// writer exists with the specified name, an error is returned.
 	//
-	// Note: we're relying on loggo.Writer here, until we do model level logging.
-	// Deprecated: This will be removed in the future and is only here whilst
-	// we cut things across.
+	// Note: we're relying on loggo.Writer here, until we do model level
+	// logging. Deprecated: This will be removed in the future and is only here
+	// whilst we cut things across.
 	AddWriter(name string, writer loggo.Writer) error
 }
 
@@ -227,6 +227,13 @@ type ModelLogger interface {
 type LoggerContextGetter interface {
 	// GetLoggerContext returns a LoggerContext for the given name.
 	GetLoggerContext(ctx context.Context, key LoggerKey) (LoggerContext, error)
+}
+
+// ModelLogSinkGetter gets the ModelLogger or the LoggerContext for a given
+// model.
+type ModelLogSinkGetter interface {
+	ModelLogger
+	LoggerContextGetter
 }
 
 // LogWriterForModelFunc is a function which returns a log writer for a given

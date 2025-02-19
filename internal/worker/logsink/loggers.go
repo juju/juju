@@ -8,6 +8,7 @@ import (
 	"io"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -29,7 +30,9 @@ type modelLogger struct {
 	tomb tomb.Tomb
 
 	bufferedLogWriter *bufferedLogWriterCloser
-	loggerContext     corelogger.LoggerContext
+	bufferedLogCloser func() error
+
+	loggerContext corelogger.LoggerContext
 }
 
 // NewModelLogger returns a new model logger instance.
@@ -43,6 +46,20 @@ func NewModelLogger(
 	flushInterval time.Duration,
 	clock clock.Clock,
 ) (worker.Worker, error) {
+	return newModelLogger(ctx, key, newLogWriter, bufferSize, flushInterval, clock)
+}
+
+// newModelLogger returns a new model logger instance.
+// The actual loggers returned for each model are created
+// by the supplied loggerForModelFunc.
+func newModelLogger(
+	ctx context.Context,
+	key corelogger.LoggerKey,
+	newLogWriter corelogger.LogWriterForModelFunc,
+	bufferSize int,
+	flushInterval time.Duration,
+	clock clock.Clock,
+) (*modelLogger, error) {
 	// Create a newLogWriter for the model.
 	logger, err := newLogWriter(ctx, key)
 	if err != nil {
@@ -68,7 +85,11 @@ func NewModelLogger(
 
 	w := &modelLogger{
 		bufferedLogWriter: bufferedLogWriter,
-		loggerContext:     loggerContext,
+		bufferedLogCloser: sync.OnceValue(func() error {
+			return bufferedLogWriter.Close()
+		}),
+
+		loggerContext: loggerContext,
 	}
 
 	if err := w.AddWriter("model-sink", bufferedLogWriter); err != nil {
@@ -136,6 +157,11 @@ func (d *modelLogger) AddWriter(name string, writer loggo.Writer) error {
 	return d.loggerContext.AddWriter(name, writer)
 }
 
+// Close closes the model logger.
+func (d *modelLogger) Close() error {
+	return d.bufferedLogCloser()
+}
+
 // Kill stops the model logger.
 func (d *modelLogger) Kill() {
 	d.tomb.Kill(nil)
@@ -148,7 +174,7 @@ func (d *modelLogger) Wait() error {
 
 func (d *modelLogger) loop() error {
 	// Close the buffered log writer when the model logger is stopped or killed.
-	defer d.bufferedLogWriter.Close()
+	defer d.bufferedLogCloser()
 
 	// Wait for the heat death of the universe.
 	<-d.tomb.Dying()

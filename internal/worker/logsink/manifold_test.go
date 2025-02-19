@@ -66,6 +66,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		DomainServicesName: "domain-services",
 		DebugLogger:        s.logger,
 		NewWorker:          s.newWorker,
+		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, newLogWriter logger.LogWriterForModelFunc, bufferSize int, flushInterval time.Duration, clock clock.Clock) (worker.Worker, error) {
+			return nil, nil
+		},
 	})
 }
 
@@ -161,6 +164,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config := args[0].(Config)
 	c.Assert(config.LogWriterForModelFunc, gc.NotNil)
 	config.LogWriterForModelFunc = nil
+
+	c.Assert(config.NewModelLogger, gc.NotNil)
+	config.NewModelLogger = nil
 
 	expectedConfig := Config{
 		Logger: s.logger,

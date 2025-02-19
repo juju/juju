@@ -27,6 +27,8 @@ type LoggersSuite struct {
 
 var _ = gc.Suite(&LoggersSuite{})
 
+var _ LogSinkWriter = (*modelLogger)(nil)
+
 func (s *LoggersSuite) TestLoggers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

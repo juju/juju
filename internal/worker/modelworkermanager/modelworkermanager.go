@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
 	internalworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/state"
 )
 
@@ -62,12 +62,6 @@ type RecordLogger interface {
 	Log([]corelogger.LogRecord) error
 }
 
-// ModelLogger is a database backed loggo Writer.
-type ModelLogger interface {
-	loggo.Writer
-	Close() error
-}
-
 // MetricSink describes a way to unregister a model metrics collector. This
 // ensures that we correctly tidy up after the removal of a model.
 type MetricSink = agentengine.MetricSink
@@ -89,8 +83,8 @@ type NewModelConfig struct {
 	ModelOwner             string
 	ModelUUID              string
 	ModelType              state.ModelType
-	ModelLogger            ModelLogger
 	ModelMetrics           MetricSink
+	LoggerContext          corelogger.LoggerContext
 	ControllerConfig       controller.Config
 	ProviderServicesGetter ProviderServicesGetter
 	DomainServices         services.DomainServices
@@ -114,7 +108,7 @@ type Config struct {
 	Controller             Controller
 	NewModelWorker         NewModelWorkerFunc
 	ErrorDelay             time.Duration
-	LogSink                corelogger.ModelLogger
+	LogSinkGetter          corelogger.ModelLogSinkGetter
 	ProviderServicesGetter ProviderServicesGetter
 	DomainServicesGetter   services.DomainServicesGetter
 	GetControllerConfig    GetControllerConfigFunc
@@ -145,8 +139,8 @@ func (config Config) Validate() error {
 	if config.NewModelWorker == nil {
 		return errors.NotValidf("nil NewModelWorker")
 	}
-	if config.LogSink == nil {
-		return errors.NotValidf("nil LogSink")
+	if config.LogSinkGetter == nil {
+		return errors.NotValidf("nil LogSinkGetter")
 	}
 	if config.ErrorDelay <= 0 {
 		return errors.NotValidf("non-positive ErrorDelay")
@@ -277,17 +271,22 @@ func (m *modelWorkerManager) ensure(cfg NewModelConfig) error {
 	starter := m.starter(cfg)
 	// If the worker is already running, this will return an AlreadyExists
 	// error and the start function will not be called.
-	if err := m.runner.StartWorker(cfg.ModelUUID, starter); !errors.Is(err, errors.AlreadyExists) {
+	if err := m.runner.StartWorker(cfg.ModelUUID, func() (worker.Worker, error) {
+		ctx, cancel := m.scopedContext()
+		defer cancel()
+
+		return starter(ctx)
+	}); !errors.Is(err, errors.AlreadyExists) {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, error) {
-	return func() (worker.Worker, error) {
+func (m *modelWorkerManager) starter(cfg NewModelConfig) func(context.Context) (worker.Worker, error) {
+	return func(ctx context.Context) (worker.Worker, error) {
 		modelUUID := cfg.ModelUUID
 		modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s-%s", cfg.ModelOwner, cfg.ModelName), cfg.ModelUUID)
-		m.config.Logger.Debugf(context.TODO(), "starting workers for model %s", modelName)
+		m.config.Logger.Debugf(ctx, "starting workers for model %s", modelName)
 
 		// Get the provider domain services for the model.
 		cfg.ProviderServicesGetter = m.config.ProviderServicesGetter
@@ -298,9 +297,6 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		// Get the controller config for the model worker so that we correctly
 		// handle the case where the controller config changes between model
 		// worker restarts.
-		ctx, cancel := context.WithCancel(m.catacomb.Context(context.Background()))
-		defer cancel()
-
 		controllerConfigService := cfg.DomainServices.ControllerConfig()
 		controllerConfig, err := m.config.GetControllerConfig(ctx, controllerConfigService)
 		if err != nil {
@@ -308,28 +304,52 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		}
 		cfg.ControllerConfig = controllerConfig
 
-		logSink, err := m.config.LogSink.GetLogWriter(ctx, corelogger.LoggerKey{
+		// Setup the logger for the model worker.
+		loggerKey := corelogger.LoggerKey{
 			ModelUUID:  modelUUID,
 			ModelName:  cfg.ModelName,
 			ModelOwner: cfg.ModelOwner,
-		})
+		}
+
+		logSink, err := m.config.LogSinkGetter.GetLogWriter(ctx, loggerKey)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		cfg.ModelLogger = newModelLogger(
+		// LoggerContext for the model worker, this is then used for all
+		// logging.
+		cfg.LoggerContext, err = m.config.LogSinkGetter.GetLoggerContext(ctx, loggerKey)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		modelLogger := newModelLogger(
 			"controller-"+m.config.MachineID,
 			modelUUID,
 			logSink,
 			m.config.Logger,
 		)
+
+		if err := cfg.LoggerContext.AddWriter("logsink", modelLogger); err != nil {
+			modelLogger.Close()
+			m.config.Logger.Errorf(ctx, "unable to configure logging for model: %v", err)
+		}
+
 		worker, err := m.config.NewModelWorker(cfg)
 		if err != nil {
-			cfg.ModelLogger.Close()
+			modelLogger.Close()
 			return nil, errors.Annotatef(err, "cannot manage model %s", modelName)
 		}
-		return worker, nil
+		return common.NewCleanupWorker(worker, func() {
+			m.config.Logger.Debugf(context.Background(), "closing db logger for %q", modelUUID)
+			_ = modelLogger.Close()
+
+		}), nil
 	}
+}
+
+func (m *modelWorkerManager) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(m.catacomb.Context(context.Background()))
 }
 
 func neverFatal(error) bool {

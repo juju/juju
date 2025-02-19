@@ -37,7 +37,7 @@ type ManifoldSuite struct {
 	manifold               dependency.Manifold
 	getter                 dependency.Getter
 	stateTracker           stubStateTracker
-	modelLogger            dummyModelLogger
+	logSinkGetter          dummyLogSinkGetter
 	domainServicesGetter   services.DomainServicesGetter
 	providerServicesGetter services.ProviderServicesGetter
 	httpClientGetter       http.HTTPClientGetter
@@ -67,7 +67,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.httpClientGetter = stubHTTPclientGetter{}
 	s.stub.ResetCalls()
 
-	s.modelLogger = dummyModelLogger{}
+	s.logSinkGetter = dummyLogSinkGetter{}
 	s.logger = loggertesting.WrapCheckLog(c)
 
 	s.getter = s.newGetter(nil)
@@ -101,7 +101,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"agent":             &fakeAgent{},
 		"authority":         s.authority,
 		"state":             &s.stateTracker,
-		"log-sink":          s.modelLogger,
+		"log-sink":          s.logSinkGetter,
 		"domain-services":   s.domainServicesGetter,
 		"provider-services": s.providerServicesGetter,
 		"http-client":       s.httpClientGetter,
@@ -181,7 +181,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ErrorDelay:             jworker.RestartDelay,
 		Logger:                 s.logger,
 		MachineID:              "1",
-		LogSink:                dummyModelLogger{},
+		LogSinkGetter:          dummyLogSinkGetter{},
 		ProviderServicesGetter: providerServicesGetter{},
 		DomainServicesGetter:   s.domainServicesGetter,
 		HTTPClientGetter:       s.httpClientGetter,
@@ -241,6 +241,10 @@ func (f *fakeAgent) Tag() names.Tag {
 
 type stubLogger struct {
 	logger.LogWriterCloser
+}
+
+func (stubLogger) Close() error {
+	return nil
 }
 
 type stubDomainServicesGetter struct {

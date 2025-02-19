@@ -143,8 +143,8 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var logSink logger.ModelLogger
-	if err := getter.Get(config.LogSinkName, &logSink); err != nil {
+	var logSinkGetter logger.ModelLogSinkGetter
+	if err := getter.Get(config.LogSinkName, &logSinkGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -183,7 +183,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		Controller: StatePoolController{
 			StatePool: statePool,
 		},
-		LogSink:                logSink,
+		LogSinkGetter:          logSinkGetter,
 		NewModelWorker:         config.NewModelWorker,
 		ErrorDelay:             jworker.RestartDelay,
 		DomainServicesGetter:   domainServicesGetter,
