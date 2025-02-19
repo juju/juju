@@ -1,4 +1,3 @@
-
 CREATE TABLE agent_version (
     target_version TEXT NOT NULL
 );
