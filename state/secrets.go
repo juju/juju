@@ -580,7 +580,8 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 	if len(uris) == 0 || len(uris) > 1 && len(revisions) > 0 {
 		return nil, errors.Errorf("PROGRAMMING ERROR: invalid secret deletion args uris=%v, revisions=%v", uris, revisions)
 	}
-	session := st.MongoSession()
+	session := st.MongoSession().Copy()
+	defer session.Close()
 	err = session.StartTransaction()
 	if err != nil {
 		return nil, errors.Trace(err)
