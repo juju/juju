@@ -61,7 +61,7 @@ type resourceOriginAndRevision struct {
 }
 
 // resourceView represents the view model for a resource entity. It contains
-// all fields from v_resource table view.
+// all fields from v_application_resource
 type resourceView struct {
 	UUID            string    `db:"uuid"`
 	ApplicationUUID string    `db:"application_uuid"`

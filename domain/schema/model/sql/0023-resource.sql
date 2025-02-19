@@ -165,22 +165,10 @@ CREATE TABLE resource_image_store (
     REFERENCES resource_container_image_metadata_store (storage_key)
 );
 
-CREATE VIEW v_application_resource AS
-SELECT
-    r.uuid,
-    ar.application_uuid,
-    r.charm_resource_name AS name,
-    r.last_polled,
-    rs.name AS state
-FROM resource AS r
-JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
-JOIN resource_state AS rs ON r.state_id = rs.id;
-
+-- View of all resources with plain text enum types, and solved fields from charm table
 CREATE VIEW v_resource AS
 SELECT
     r.uuid,
-    ar.application_uuid,
-    a.name AS application_name,
     r.charm_resource_name AS name,
     r.created_at,
     r.revision,
@@ -196,8 +184,6 @@ SELECT
     COALESCE(rfs.size, ris.size) AS size,
     COALESCE(rfs.sha384, ris.sha384) AS sha384
 FROM resource AS r
-JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
-JOIN application AS a ON ar.application_uuid = a.uuid
 JOIN charm_resource AS cr ON r.charm_uuid = cr.charm_uuid AND r.charm_resource_name = cr.name
 JOIN charm_resource_kind AS crk ON cr.kind_id = crk.id
 JOIN resource_origin_type AS rot ON r.origin_type_id = rot.id
@@ -206,3 +192,50 @@ LEFT JOIN resource_retrieved_by AS rrb ON r.uuid = rrb.resource_uuid
 LEFT JOIN resource_retrieved_by_type AS rrbt ON rrb.retrieved_by_type_id = rrbt.id
 LEFT JOIN resource_file_store AS rfs ON r.uuid = rfs.resource_uuid
 LEFT JOIN resource_image_store AS ris ON r.uuid = ris.resource_uuid;
+
+-- View of all resources linked to application
+CREATE VIEW v_application_resource AS
+SELECT
+    r.uuid,
+    r.name,
+    r.created_at,
+    r.revision,
+    r.origin_type,
+    r.state,
+    r.retrieved_by,
+    r.retrieved_by_type,
+    r.path,
+    r.description,
+    r.kind_name,
+    r.size,
+    r.sha384,
+    ar.application_uuid,
+    a.name AS application_name
+FROM v_resource AS r
+JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
+JOIN application AS a ON ar.application_uuid = a.uuid;
+
+-- View of all resources linked to units
+CREATE VIEW v_unit_resource AS
+SELECT
+    r.uuid,
+    r.name,
+    r.created_at,
+    r.revision,
+    r.origin_type,
+    r.state,
+    r.retrieved_by,
+    r.retrieved_by_type,
+    r.path,
+    r.description,
+    r.kind_name,
+    r.size,
+    r.sha384,
+    ur.unit_uuid,
+    u.name AS unit_name,
+    a.uuid AS application_uuid,
+    a.name AS application_name
+FROM v_resource AS r
+JOIN unit_resource AS ur ON r.uuid = ur.resource_uuid
+JOIN unit AS u ON ur.unit_uuid = u.uuid
+JOIN application AS a ON u.application_uuid = a.uuid
