@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	internalpassword "github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/storage"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -222,10 +221,6 @@ type ModelArgs struct {
 
 	// Constraints contains the initial constraints for the model.
 	Constraints constraints.Value
-
-	// StorageProviderRegistry is used to determine and store the
-	// details of the default storage pools.
-	StorageProviderRegistry storage.ProviderRegistry
 
 	// Owner is the user that owns the model.
 	Owner names.UserTag

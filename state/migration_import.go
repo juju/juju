@@ -72,15 +72,14 @@ func (ctrl *Controller) Import(
 	}
 
 	args := ModelArgs{
-		Type:                    modelType,
-		CloudName:               model.Cloud(),
-		CloudRegion:             model.CloudRegion(),
-		Config:                  cfg,
-		Owner:                   model.Owner(),
-		MigrationMode:           MigrationModeImporting,
-		EnvironVersion:          model.EnvironVersion(),
-		PasswordHash:            model.PasswordHash(),
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
+		Type:           modelType,
+		CloudName:      model.Cloud(),
+		CloudRegion:    model.CloudRegion(),
+		Config:         cfg,
+		Owner:          model.Owner(),
+		MigrationMode:  MigrationModeImporting,
+		EnvironVersion: model.EnvironVersion(),
+		PasswordHash:   model.PasswordHash(),
 	}
 	if creds := model.CloudCredential(); creds != nil {
 		// Need to add credential or make sure an existing credential
