@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -30,10 +29,7 @@ import (
 // NewModelLoggerFunc is a function that creates a new model logger.
 type NewModelLoggerFunc func(ctx context.Context,
 	key corelogger.LoggerKey,
-	newLogWriter corelogger.LogWriterForModelFunc,
-	bufferSize int,
-	flushInterval time.Duration,
-	clock clock.Clock) (worker.Worker, error)
+	cfg ModelLoggerConfig) (worker.Worker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
@@ -126,10 +122,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotate(err, "unable to set owner for log directory")
 			}
 
+			machineID := agent.CurrentConfig().Tag().Id()
+
 			w, err := config.NewWorker(Config{
 				Logger:         config.DebugLogger,
 				Clock:          clock,
 				LogSinkConfig:  logSinkConfig,
+				MachineID:      machineID,
 				NewModelLogger: config.NewModelLogger,
 				LogWriterForModelFunc: getLoggerForModelFunc(
 					controllerCfg.ModelLogfileMaxSizeMB(),

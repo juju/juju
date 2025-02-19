@@ -35,18 +35,24 @@ type modelLogger struct {
 	loggerContext corelogger.LoggerContext
 }
 
+// ModelLoggerConfig holds the configuration for a model logger.
+type ModelLoggerConfig struct {
+	MachineID     string
+	NewLogWriter  corelogger.LogWriterForModelFunc
+	BufferSize    int
+	FlushInterval time.Duration
+	Clock         clock.Clock
+}
+
 // NewModelLogger returns a new model logger instance.
 // The actual loggers returned for each model are created
 // by the supplied loggerForModelFunc.
 func NewModelLogger(
 	ctx context.Context,
 	key corelogger.LoggerKey,
-	newLogWriter corelogger.LogWriterForModelFunc,
-	bufferSize int,
-	flushInterval time.Duration,
-	clock clock.Clock,
+	config ModelLoggerConfig,
 ) (worker.Worker, error) {
-	return newModelLogger(ctx, key, newLogWriter, bufferSize, flushInterval, clock)
+	return newModelLogger(ctx, key, config)
 }
 
 // newModelLogger returns a new model logger instance.
@@ -55,13 +61,10 @@ func NewModelLogger(
 func newModelLogger(
 	ctx context.Context,
 	key corelogger.LoggerKey,
-	newLogWriter corelogger.LogWriterForModelFunc,
-	bufferSize int,
-	flushInterval time.Duration,
-	clock clock.Clock,
+	config ModelLoggerConfig,
 ) (*modelLogger, error) {
 	// Create a newLogWriter for the model.
-	logger, err := newLogWriter(ctx, key)
+	logger, err := config.NewLogWriter(ctx, key)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting logger for model %q", key.ModelName)
 	}
@@ -71,12 +74,13 @@ func newModelLogger(
 	bufferedLogWriter := &bufferedLogWriterCloser{
 		BufferedLogWriter: corelogger.NewBufferedLogWriter(
 			logger,
-			bufferSize,
-			flushInterval,
-			clock,
+			config.BufferSize,
+			config.FlushInterval,
+			config.Clock,
 		),
 		closer:    logger,
 		modelUUID: key.ModelUUID,
+		machineID: config.MachineID,
 	}
 
 	// Create a new logger context for the model. This will use the buffered
@@ -186,12 +190,13 @@ type bufferedLogWriterCloser struct {
 	closer io.Closer
 
 	modelUUID string
+	machineID string
 }
 
 func (l *bufferedLogWriterCloser) Write(entry loggo.Entry) {
 	err := l.Log([]logger.LogRecord{{
 		Time:      entry.Timestamp,
-		Entity:    "model",
+		Entity:    "controller-" + l.machineID,
 		Module:    entry.Module,
 		Location:  filepath.Base(entry.Filename) + strconv.Itoa(entry.Line),
 		Level:     corelogger.Level(entry.Level),

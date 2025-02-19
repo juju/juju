@@ -126,7 +126,13 @@ func (s *LoggersSuite) newModelLogger(c *gc.C) *modelLogger {
 		ModelUUID:  s.modelUUID,
 		ModelName:  "foo",
 		ModelOwner: "bar",
-	}, fn, 10, time.Second, clock.WallClock)
+	}, ModelLoggerConfig{
+		MachineID:     "0",
+		NewLogWriter:  fn,
+		BufferSize:    10,
+		FlushInterval: time.Second,
+		Clock:         clock.WallClock,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	return w.(*modelLogger)

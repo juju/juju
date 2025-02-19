@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
 	internalworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/state"
 )
 
@@ -101,7 +100,6 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 type Config struct {
 	Authority              pki.Authority
 	Logger                 corelogger.Logger
-	MachineID              string
 	ModelWatcher           ModelWatcher
 	ModelMetrics           ModelMetrics
 	Mux                    *apiserverhttp.Mux
@@ -123,9 +121,6 @@ func (config Config) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if config.MachineID == "" {
-		return errors.NotValidf("empty MachineID")
 	}
 	if config.ModelWatcher == nil {
 		return errors.NotValidf("nil ModelConfigWatcher")
@@ -304,47 +299,22 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func(context.Context) (
 		}
 		cfg.ControllerConfig = controllerConfig
 
-		// Setup the logger for the model worker.
-		loggerKey := corelogger.LoggerKey{
+		// LoggerContext for the model worker, this is then used for all
+		// logging.
+		cfg.LoggerContext, err = m.config.LogSinkGetter.GetLoggerContext(ctx, corelogger.LoggerKey{
 			ModelUUID:  modelUUID,
 			ModelName:  cfg.ModelName,
 			ModelOwner: cfg.ModelOwner,
-		}
-
-		logSink, err := m.config.LogSinkGetter.GetLogWriter(ctx, loggerKey)
+		})
 		if err != nil {
 			return nil, errors.Trace(err)
-		}
-
-		// LoggerContext for the model worker, this is then used for all
-		// logging.
-		cfg.LoggerContext, err = m.config.LogSinkGetter.GetLoggerContext(ctx, loggerKey)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		modelLogger := newModelLogger(
-			"controller-"+m.config.MachineID,
-			modelUUID,
-			logSink,
-			m.config.Logger,
-		)
-
-		if err := cfg.LoggerContext.AddWriter("logsink", modelLogger); err != nil {
-			modelLogger.Close()
-			m.config.Logger.Errorf(ctx, "unable to configure logging for model: %v", err)
 		}
 
 		worker, err := m.config.NewModelWorker(cfg)
 		if err != nil {
-			modelLogger.Close()
 			return nil, errors.Annotatef(err, "cannot manage model %s", modelName)
 		}
-		return common.NewCleanupWorker(worker, func() {
-			m.config.Logger.Debugf(context.Background(), "closing db logger for %q", modelUUID)
-			_ = modelLogger.Close()
-
-		}), nil
+		return worker, nil
 	}
 }
 
