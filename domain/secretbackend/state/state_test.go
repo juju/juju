@@ -35,6 +35,7 @@ import (
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
@@ -1321,6 +1322,75 @@ func (s *stateSuite) TestListSecretBackendsEmpty(c *gc.C) {
 	backends, err := s.state.ListSecretBackends(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(backends, gc.IsNil)
+}
+
+func (s *stateSuite) TestGetActiveModelSecretBackendIAASDefaultBackend(c *gc.C) {
+	modelUUID := s.createModel(c, coremodel.IAAS)
+	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, provider.Internal)
+	c.Assert(err, gc.IsNil)
+
+	activeBackendID, backend, err := s.state.GetActiveModelSecretBackend(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(activeBackendID, gc.Equals, s.internalBackendID)
+	c.Assert(backend, jc.DeepEquals, &provider.ModelBackendConfig{
+		ControllerUUID: s.controllerUUID,
+		ModelUUID:      modelUUID.String(),
+		ModelName:      "my-model",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "controller",
+		},
+	})
+}
+
+func (s *stateSuite) TestGetActiveModelSecretBackendWithVaultBackend(c *gc.C) {
+	modelUUID := s.createModel(c, coremodel.IAAS)
+	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
+	c.Assert(err, gc.IsNil)
+
+	activeBackendID, backend, err := s.state.GetActiveModelSecretBackend(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(activeBackendID, gc.Equals, s.vaultBackendID)
+	c.Assert(backend, jc.DeepEquals, &provider.ModelBackendConfig{
+		ControllerUUID: s.controllerUUID,
+		ModelUUID:      modelUUID.String(),
+		ModelName:      "my-model",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "vault",
+			Config: map[string]any{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+	})
+}
+
+func (s *stateSuite) TestGetActiveModelSecretBackendCAASDefaultBackend(c *gc.C) {
+	modelUUID := s.createModel(c, coremodel.CAAS)
+	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, kubernetes.BackendName)
+	c.Assert(err, gc.IsNil)
+
+	activeBackendID, backend, err := s.state.GetActiveModelSecretBackend(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(activeBackendID, gc.Equals, s.kubernetesBackendID)
+	c.Assert(backend, jc.DeepEquals, &provider.ModelBackendConfig{
+		ControllerUUID: s.controllerUUID,
+		ModelUUID:      modelUUID.String(),
+		ModelName:      "my-model",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "kubernetes",
+			Config: map[string]any{
+				"endpoint":  "https://my-cloud.com",
+				"namespace": "my-model",
+				"ca-certs":  []string{"my-ca-cert"},
+				"token":     "token val",
+			},
+		},
+	})
+}
+
+func (s *stateSuite) TestGetActiveModelSecretBackendFailedWithModelNotFound(c *gc.C) {
+	_, _, err := s.state.GetActiveModelSecretBackend(context.Background(), modeltesting.GenModelUUID(c))
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *stateSuite) TestGetSecretBackendByName(c *gc.C) {
