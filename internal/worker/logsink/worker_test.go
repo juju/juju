@@ -225,7 +225,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(Config{
 		LogSinkConfig: DefaultLogSinkConfig(),
-		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, newLogWriter logger.LogWriterForModelFunc, bufferSize int, flushInterval time.Duration, clock clock.Clock) (worker.Worker, error) {
+		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
 			atomic.AddInt64(&s.called, 1)
 			return newLoggerWorker(), nil
 		},

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
@@ -72,7 +70,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.getter = s.newGetter(nil)
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
-		AgentName:                    "agent",
 		AuthorityName:                "authority",
 		StateName:                    "state",
 		LogSinkName:                  "log-sink",
@@ -98,7 +95,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
-		"agent":             &fakeAgent{},
 		"authority":         s.authority,
 		"state":             &s.stateTracker,
 		"log-sink":          s.logSinkGetter,
@@ -128,7 +124,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"agent", "authority", "state", "log-sink", "domain-services", "provider-services", "http-client"}
+var expectedInputs = []string{"authority", "state", "log-sink", "domain-services", "provider-services", "http-client"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -180,7 +176,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		},
 		ErrorDelay:             jworker.RestartDelay,
 		Logger:                 s.logger,
-		MachineID:              "1",
 		LogSinkGetter:          dummyLogSinkGetter{},
 		ProviderServicesGetter: providerServicesGetter{},
 		DomainServicesGetter:   s.domainServicesGetter,
@@ -224,19 +219,6 @@ func (s *stubStateTracker) Done() error {
 func (s *stubStateTracker) Report() map[string]any {
 	s.MethodCall(s, "Report")
 	return nil
-}
-
-type fakeAgent struct {
-	agent.Agent
-	agent.Config
-}
-
-func (f *fakeAgent) CurrentConfig() agent.Config {
-	return f
-}
-
-func (f *fakeAgent) Tag() names.Tag {
-	return names.NewMachineTag("1")
 }
 
 type stubLogger struct {

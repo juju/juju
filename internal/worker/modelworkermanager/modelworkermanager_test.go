@@ -227,7 +227,6 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	config := modelworkermanager.Config{
 		Authority:              s.authority,
 		Logger:                 loggertesting.WrapCheckLog(c),
-		MachineID:              "1",
 		ModelWatcher:           watcher,
 		Controller:             mockController,
 		NewModelWorker:         s.startModelWorker,

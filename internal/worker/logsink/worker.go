@@ -32,6 +32,7 @@ type Config struct {
 	Logger                logger.Logger
 	Clock                 clock.Clock
 	LogSinkConfig         LogSinkConfig
+	MachineID             string
 	NewModelLogger        NewModelLoggerFunc
 	LogWriterForModelFunc logger.LogWriterForModelFunc
 }
@@ -227,10 +228,13 @@ func (w *LogSink) initLogger(key logger.LoggerKey) error {
 		return w.cfg.NewModelLogger(
 			ctx,
 			key,
-			w.cfg.LogWriterForModelFunc,
-			w.cfg.LogSinkConfig.LoggerBufferSize,
-			w.cfg.LogSinkConfig.LoggerFlushInterval,
-			w.cfg.Clock,
+			ModelLoggerConfig{
+				MachineID:     w.cfg.MachineID,
+				NewLogWriter:  w.cfg.LogWriterForModelFunc,
+				BufferSize:    w.cfg.LogSinkConfig.LoggerBufferSize,
+				FlushInterval: w.cfg.LogSinkConfig.LoggerFlushInterval,
+				Clock:         w.cfg.Clock,
+			},
 		)
 	})
 	if errors.Is(err, errors.AlreadyExists) {

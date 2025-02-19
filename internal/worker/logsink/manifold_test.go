@@ -66,7 +66,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		DomainServicesName: "domain-services",
 		DebugLogger:        s.logger,
 		NewWorker:          s.newWorker,
-		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, newLogWriter logger.LogWriterForModelFunc, bufferSize int, flushInterval time.Duration, clock clock.Clock) (worker.Worker, error) {
+		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
 			return nil, nil
 		},
 	})
@@ -105,7 +105,7 @@ func (s *ManifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		DebugLogger: s.logger,
 		NewWorker:   s.newWorker,
-		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, newLogWriter logger.LogWriterForModelFunc, bufferSize int, flushInterval time.Duration, clock clock.Clock) (worker.Worker, error) {
+		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
 			return nil, nil
 		},
 		ClockName:          "clock",
@@ -175,6 +175,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 			LoggerBufferSize:    1000,
 			LoggerFlushInterval: time.Second,
 		},
+		MachineID: "1",
 	}
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "NewWorker")
