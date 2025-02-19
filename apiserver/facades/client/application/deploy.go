@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -28,7 +29,6 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -181,27 +181,41 @@ func DeployApplication(
 			}
 		}
 
-		charmResources := args.Charm.Meta().Resources
-		resolvedResources := make(applicationservice.ResolvedResources, 0,
-			len(charmResources))
-		for _, res := range charmResources {
-			resolvedResources = append(resolvedResources, applicationservice.ResolvedResource{
-				Name:   res.Name,
-				Origin: charmresource.OriginUpload,
-			})
+		pendingResources, err := transformToPendingResources(args.Resources)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 
-		_, err = applicationService.CreateApplication(ctx, args.ApplicationName, args.Charm, args.CharmOrigin, applicationservice.AddApplicationArgs{
-			ReferenceName:     chURL.Name,
-			Storage:           args.Storage,
-			DownloadInfo:      downloadInfo,
-			ResolvedResources: resolvedResources,
-		}, unitArgs...)
+		_, err = applicationService.CreateApplication(
+			ctx,
+			args.ApplicationName,
+			args.Charm,
+			args.CharmOrigin,
+			applicationservice.AddApplicationArgs{
+				ReferenceName:    chURL.Name,
+				Storage:          args.Storage,
+				DownloadInfo:     downloadInfo,
+				PendingResources: pendingResources,
+			},
+			unitArgs...,
+		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 	return app, errors.Trace(err)
+}
+
+func transformToPendingResources(argResources map[string]string) ([]coreresource.UUID, error) {
+	var pendingResources []coreresource.UUID
+	for _, res := range argResources {
+		resUUID, err := coreresource.ParseUUID(res)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		pendingResources = append(pendingResources, resUUID)
+	}
+	return pendingResources, nil
 }
 
 // addUnits starts n units of the given application using the specified placement

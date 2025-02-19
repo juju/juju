@@ -7,7 +7,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
@@ -18,12 +17,14 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/resource/testing"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
-	"github.com/juju/juju/internal/charm/resource"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -384,14 +385,10 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	s.setupAPI(c)
 	s.expectCharm(c, "foo")
 	s.expectCharmConfig(c, 2)
-	s.expectCharmMeta("foo", map[string]resource.Meta{
-		"bar": {
-			Name: "bar",
-		},
-	}, 8)
+	s.expectCharmMeta("foo", nil, 8)
 	s.expectReadSequence("foo", 1)
 	s.expectAddApplication()
-	s.expectCreateApplication("foo", []string{"bar"})
+	s.expectCreateApplicationForDeploy("foo", nil)
 
 	errorResults, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{
@@ -416,6 +413,140 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errorResults.Results, gc.HasLen, 1)
 	c.Assert(errorResults.Results[0].Error, gc.IsNil)
+}
+
+// TestDeployWithResources test the scenario of deploying
+// local charms, or charms via bundles that have resources.
+// Deploy rather than DeployFromRepository is called by the
+// clients. In this case PendingResources, uuids, must be
+// provided for all charm resources.
+func (s *applicationSuite) TestDeployWithPendingResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	resourceUUID := testing.GenResourceUUID(c)
+	s.expectCharm(c, "foo")
+	s.expectCharmConfig(c, 2)
+	s.expectCharmMeta("foo", map[string]charmresource.Meta{
+		"bar": {
+			Name: "bar",
+		},
+	}, 8)
+	s.expectReadSequence("foo", 1)
+	s.expectAddApplication()
+	s.expectCreateApplicationForDeploy("foo", nil)
+
+	errorResults, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{
+			{
+				ApplicationName: "foo",
+				CharmURL:        "local:foo-42",
+				CharmOrigin: &params.CharmOrigin{
+					Type:   "charm",
+					Source: "local",
+					Base: params.Base{
+						Name:    "ubuntu",
+						Channel: "24.04",
+					},
+					Architecture: "amd64",
+					Revision:     ptr(42),
+					Track:        ptr("1.0"),
+					Risk:         "stable",
+				},
+				Resources: map[string]string{"foo": resourceUUID.String()},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errorResults.Results, gc.HasLen, 1)
+	c.Assert(errorResults.Results[0].Error, gc.IsNil)
+}
+
+func (s *applicationSuite) TestDeployFailureDeletesPendingResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	s.expectCharm(c, "foo")
+	s.expectCharmConfig(c, 2)
+	s.expectCharmMeta("foo", map[string]charmresource.Meta{
+		"bar": {
+			Name: "bar",
+		},
+	}, 8)
+	s.expectReadSequence("foo", 1)
+	resourceUUID := testing.GenResourceUUID(c)
+	s.expectDeletePendingResources([]resource.UUID{resourceUUID})
+	s.expectAddApplication()
+	s.expectCreateApplicationForDeploy("foo", errors.Errorf("fail test"))
+
+	errorResults, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{
+			{
+				ApplicationName: "foo",
+				CharmURL:        "local:foo-42",
+				CharmOrigin: &params.CharmOrigin{
+					Type:   "charm",
+					Source: "local",
+					Base: params.Base{
+						Name:    "ubuntu",
+						Channel: "24.04",
+					},
+					Architecture: "amd64",
+					Revision:     ptr(42),
+					Track:        ptr("1.0"),
+					Risk:         "stable",
+				},
+				Resources: map[string]string{"bar": resourceUUID.String()},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errorResults.Results, gc.HasLen, 1)
+	c.Assert(errorResults.Results[0].Error, gc.NotNil)
+}
+
+// TestDeployMismatchedResources validates Deploy fails if the charm resource
+// count and pending resource count do not match.
+func (s *applicationSuite) TestDeployMismatchedResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	s.expectCharm(c, "foo")
+	s.expectCharmMeta("foo", map[string]charmresource.Meta{
+		"bar": {
+			Name: "bar",
+		},
+		"foo": {
+			Name: "foo",
+		},
+	}, 2)
+	resourceUUID := testing.GenResourceUUID(c)
+	s.expectDeletePendingResources([]resource.UUID{resourceUUID})
+
+	errorResults, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{
+			{
+				ApplicationName: "foo",
+				CharmURL:        "local:foo-42",
+				CharmOrigin: &params.CharmOrigin{
+					Type:   "charm",
+					Source: "local",
+					Base: params.Base{
+						Name:    "ubuntu",
+						Channel: "24.04",
+					},
+					Architecture: "amd64",
+					Revision:     ptr(42),
+					Track:        ptr("1.0"),
+					Risk:         "stable",
+				},
+				Resources: map[string]string{"bar": resourceUUID.String()},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errorResults.Results, gc.HasLen, 1)
+	c.Assert(errorResults.Results[0].Error, gc.NotNil)
 }
 
 func (s *applicationSuite) TestDeployInvalidSource(c *gc.C) {
@@ -573,27 +704,20 @@ func (s *applicationSuite) expectAddApplication() {
 	s.backend.EXPECT().AddApplication(gomock.Any(), s.objectStore).Return(s.application, nil)
 }
 
-func (s *applicationSuite) expectCreateApplication(name string, resources []string) {
+// expectCreateApplicationForDeploy should only be used when calling
+// api.Deploy(). DO NOT use for DeployFromRepository(), the expectations
+// are different.
+func (s *applicationSuite) expectCreateApplicationForDeploy(name string, retErr error) {
 	s.applicationService.EXPECT().CreateApplication(gomock.Any(),
 		name,
 		gomock.Any(),
 		gomock.Any(),
-		gomock.Cond(func(x any) bool {
-			args, ok := x.(applicationservice.AddApplicationArgs)
-			if !ok {
-				return false
-			}
-			names := set.NewStrings()
-			for _, res := range args.ResolvedResources {
-				if res.Origin != resource.OriginUpload || res.Revision != nil {
-					return false
-				}
-				names.Add(res.Name)
-			}
-			input := set.NewStrings(resources...)
-			return len(names.Difference(input)) == 0 && len(input.Difference(names)) == 0
-		}),
-	).Return(application.ID("app-"+name), nil)
+		gomock.AssignableToTypeOf(applicationservice.AddApplicationArgs{}),
+	).Return(application.ID("app-"+name), retErr)
+}
+
+func (s *applicationSuite) expectDeletePendingResources(resSlice []resource.UUID) {
+	s.resourceService.EXPECT().DeleteResourcesAddedBeforeApplication(gomock.Any(), resSlice).Return(nil)
 }
 
 func (s *applicationSuite) expectSpaceName(c *gc.C, name string) {
@@ -639,7 +763,7 @@ options:
 	s.charm.EXPECT().Config().Return(cfg).Times(times)
 }
 
-func (s *applicationSuite) expectCharmMeta(name string, resources map[string]resource.Meta, times int) {
+func (s *applicationSuite) expectCharmMeta(name string, resources map[string]charmresource.Meta, times int) {
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
 		Name:      name,
 		Resources: resources,

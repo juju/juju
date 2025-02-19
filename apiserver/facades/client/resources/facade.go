@@ -14,13 +14,20 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms"
+	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/resource"
+	coreresource "github.com/juju/juju/core/resource"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -148,10 +155,18 @@ func (a *API) ListResources(ctx context.Context, args params.ListResourcesArgs) 
 	return r, nil
 }
 
-// AddPendingResources adds the provided resources (info) to the Juju
-// model in a pending state, meaning they are not available until
-// resolved. Handles CharmHub and Local charms.
-func (a *API) AddPendingResources(ctx context.Context, args params.AddPendingResourcesArgsV2) (params.AddPendingResourcesResult, error) {
+// AddPendingResources handles 2 scenarios
+//  1. Adds the provided resources (info) to the Juju model before the
+//     application exists. These resources are resolved when the
+//     application is created using the returned Resource UUIDs.
+//  2. Updates which resource revision an application uses, changing the
+//     origin to store. No Resource IDs are returned.
+//
+// Handles CharmHub and Local charms.
+func (a *API) AddPendingResources(
+	ctx context.Context,
+	args params.AddPendingResourcesArgsV2,
+) (params.AddPendingResourcesResult, error) {
 	var result params.AddPendingResourcesResult
 
 	tag, apiErr := parseApplicationTag(args.Tag)
@@ -159,14 +174,49 @@ func (a *API) AddPendingResources(ctx context.Context, args params.AddPendingRes
 		result.Error = apiErr
 		return result, nil
 	}
-	applicationID := tag.Id()
+	appName := tag.Id()
 
 	requestedOrigin, err := charms.ConvertParamsOrigin(args.CharmOrigin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	ids, err := a.addPendingResources(ctx, applicationID, args.URL, requestedOrigin, args.Resources)
+
+	charmLocator, curl, err := a.getCharmLocatorAndURL(args.URL)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	var resources []charmresource.Resource
+	for _, apiRes := range args.Resources {
+		res, err := apiresources.API2CharmResource(apiRes)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(errors.Annotatef(err, "bad resource info for %q", apiRes.Name))
+			return result, nil
+		}
+
+		resources = append(resources, res)
+	}
+
+	resolvedResources, err := a.resolveResources(ctx, curl, requestedOrigin, resources)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	applicationID, err := a.applicationService.GetApplicationIDByName(ctx, appName)
+	if err == nil {
+		// The application does exist, therefore the intent is to
+		// update an resource to use a specific revision.
+		err := a.updateResources(ctx, applicationID, resolvedResources)
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	} else if !errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return result, internalerrors.Capture(err)
+	}
+
+	ids, err := a.addPendingResources(ctx, appName, charmLocator, resolvedResources)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -175,59 +225,141 @@ func (a *API) AddPendingResources(ctx context.Context, args params.AddPendingRes
 	return result, nil
 }
 
-func (a *API) addPendingResources(ctx context.Context, appName, chRef string, origin corecharm.Origin, apiResources []params.CharmResource) ([]string, error) {
-	var resources []charmresource.Resource
-	for _, apiRes := range apiResources {
-		res, err := apiresources.API2CharmResource(apiRes)
-		if err != nil {
-			return nil, errors.Annotatef(err, "bad resource info for %q", apiRes.Name)
-		}
-		resources = append(resources, res)
+func (a *API) resolveResources(
+	ctx context.Context,
+	curl *charm.URL,
+	origin corecharm.Origin,
+	resources []charmresource.Resource,
+) ([]charmresource.Resource, error) {
+	id := corecharm.CharmID{
+		URL:    curl,
+		Origin: origin,
+	}
+	repo, err := a.factory(ctx, id.URL)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	if chRef != "" {
-		cURL, err := charm.ParseURL(chRef)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		id := corecharm.CharmID{
-			URL:    cURL,
-			Origin: origin,
-		}
-		repository, err := a.factory(ctx, id.URL)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		resources, err = repository.ResolveResources(ctx, resources, id)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	resolvedResources, err := repo.ResolveResources(ctx, resources, id)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	var ids []string
+	return resolvedResources, nil
+}
+
+func (a *API) getCharmLocatorAndURL(
+	charmURLStr string,
+) (applicationcharm.CharmLocator, *charm.URL, error) {
+	curl, err := charm.ParseURL(charmURLStr)
+	if err != nil {
+		return applicationcharm.CharmLocator{}, nil,
+			errors.Annotatef(err, "parsing charm URL %q", charmURLStr)
+	}
+	charmLocator, err := apiservercharms.CharmLocatorFromURL(charmURLStr)
+	return charmLocator, curl, err
+}
+
+// addPendingResources transforms and validates the resource
+// data before saving the intention of which resource blob
+// to use with an application currently being deployed.
+func (a *API) addPendingResources(
+	ctx context.Context,
+	appName string,
+	charmLocator applicationcharm.CharmLocator,
+	resources []charmresource.Resource,
+) ([]string, error) {
+	args := resource.AddResourcesBeforeApplicationArgs{
+		ApplicationName: appName,
+		CharmLocator:    charmLocator,
+		ResourceDetails: make([]resource.AddResourceDetails, len(resources)),
+	}
+	for i, res := range resources {
+		args.ResourceDetails[i] = resource.AddResourceDetails{
+			Name:   res.Name,
+			Origin: res.Origin,
+		}
+		if res.Origin == charmresource.OriginStore {
+			args.ResourceDetails[i].Revision = &res.Revision
+		}
+	}
+	ids, err := a.resourceService.AddResourcesBeforeApplication(ctx, args)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	returnIDs := make([]string, len(ids))
+	for i, id := range ids {
+		returnIDs[i] = id.String()
+	}
+	return returnIDs, nil
+}
+
+// updateResources handles updates of all provided resources.
+func (a *API) updateResources(
+	ctx context.Context,
+	appID coreapplication.ID,
+	resources []charmresource.Resource,
+) error {
 	for _, res := range resources {
-		pendingID, err := a.addPendingResource(appName, res)
+		if res.Origin == charmresource.OriginUpload {
+			// Codify the juju cli client behavior. UpdateResource
+			// should only be used to revision numbers.
+			return &params.Error{
+				Message: fmt.Sprintf("upload of resource %q", res.Name),
+				Code:    params.CodeBadRequest,
+			}
+		}
+		err := a.updateResource(ctx, appID, res)
 		if err != nil {
+			// TODO: hml 2025-02-18
+			// This behavior conflicts with what actually happens in the
+			// juju cli where it does not make bulk calls to this method.
+			// Work should be done to remove any successfully created
+			// resources, to change the expected behavior.
+			//
 			// We don't bother aggregating errors since a partial
 			// completion is disruptive and a retry of this endpoint
 			// is not expensive.
-			return nil, err
+			return internalerrors.Capture(err)
 		}
-		ids = append(ids, pendingID)
 	}
-	return ids, nil
+	return nil
 }
 
-func (a *API) addPendingResource(appName string, chRes charmresource.Resource) (pendingID string, err error) {
-	return "", errors.Errorf("not implemented")
+// updateResource updates the revision of a specific resource.
+func (a *API) updateResource(
+	ctx context.Context,
+	appID coreapplication.ID,
+	res charmresource.Resource,
+) error {
+	resourceID, err := a.resourceService.GetApplicationResourceID(ctx,
+		resource.GetApplicationResourceIDArgs{
+			ApplicationID: appID,
+			Name:          res.Name,
+		},
+	)
+	if errors.Is(err, resourceerrors.ResourceNameNotValid) || errors.Is(err, resourceerrors.ResourceNotFound) {
+		return internalerrors.Errorf("resource %q: %w", res.Name,
+			err)
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	arg := resource.UpdateResourceRevisionArgs{
+		ResourceUUID: resourceID,
+		Revision:     res.Revision,
+	}
+	err = a.resourceService.UpdateResourceRevision(ctx, arg)
+	return internalerrors.Capture(err)
 }
 
-func parseApplicationTag(tagStr string) (names.ApplicationTag, *params.Error) { // note the concrete error type
+func parseApplicationTag(tagStr string) (names.ApplicationTag, *params.Error) {
 	applicationTag, err := names.ParseApplicationTag(tagStr)
 	if err != nil {
 		return applicationTag, &params.Error{
 			Message: err.Error(),
-			Code:    params.CodeBadRequest,
+			// Note the concrete error type.
+			Code: params.CodeBadRequest,
 		}
 	}
 	return applicationTag, nil
@@ -241,7 +373,7 @@ func errorResult(err error) params.ResourcesResult {
 	}
 }
 
-func applicationResources2APIResult(svcRes resource.ApplicationResources) params.ResourcesResult {
+func applicationResources2APIResult(svcRes coreresource.ApplicationResources) params.ResourcesResult {
 	var result params.ResourcesResult
 	for _, res := range svcRes.Resources {
 		result.Resources = append(result.Resources, apiresources.Resource2API(res))

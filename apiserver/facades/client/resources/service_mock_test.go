@@ -16,7 +16,8 @@ import (
 	application "github.com/juju/juju/core/application"
 	charm "github.com/juju/juju/core/charm"
 	resource "github.com/juju/juju/core/resource"
-	resource0 "github.com/juju/juju/internal/charm/resource"
+	resource0 "github.com/juju/juju/domain/resource"
+	resource1 "github.com/juju/juju/internal/charm/resource"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -105,6 +106,84 @@ func (m *MockResourceService) EXPECT() *MockResourceServiceMockRecorder {
 	return m.recorder
 }
 
+// AddResourcesBeforeApplication mocks base method.
+func (m *MockResourceService) AddResourcesBeforeApplication(arg0 context.Context, arg1 resource0.AddResourcesBeforeApplicationArgs) ([]resource.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddResourcesBeforeApplication", arg0, arg1)
+	ret0, _ := ret[0].([]resource.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddResourcesBeforeApplication indicates an expected call of AddResourcesBeforeApplication.
+func (mr *MockResourceServiceMockRecorder) AddResourcesBeforeApplication(arg0, arg1 any) *MockResourceServiceAddResourcesBeforeApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddResourcesBeforeApplication", reflect.TypeOf((*MockResourceService)(nil).AddResourcesBeforeApplication), arg0, arg1)
+	return &MockResourceServiceAddResourcesBeforeApplicationCall{Call: call}
+}
+
+// MockResourceServiceAddResourcesBeforeApplicationCall wrap *gomock.Call
+type MockResourceServiceAddResourcesBeforeApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockResourceServiceAddResourcesBeforeApplicationCall) Return(arg0 []resource.UUID, arg1 error) *MockResourceServiceAddResourcesBeforeApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockResourceServiceAddResourcesBeforeApplicationCall) Do(f func(context.Context, resource0.AddResourcesBeforeApplicationArgs) ([]resource.UUID, error)) *MockResourceServiceAddResourcesBeforeApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockResourceServiceAddResourcesBeforeApplicationCall) DoAndReturn(f func(context.Context, resource0.AddResourcesBeforeApplicationArgs) ([]resource.UUID, error)) *MockResourceServiceAddResourcesBeforeApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationResourceID mocks base method.
+func (m *MockResourceService) GetApplicationResourceID(arg0 context.Context, arg1 resource0.GetApplicationResourceIDArgs) (resource.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationResourceID", arg0, arg1)
+	ret0, _ := ret[0].(resource.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationResourceID indicates an expected call of GetApplicationResourceID.
+func (mr *MockResourceServiceMockRecorder) GetApplicationResourceID(arg0, arg1 any) *MockResourceServiceGetApplicationResourceIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationResourceID", reflect.TypeOf((*MockResourceService)(nil).GetApplicationResourceID), arg0, arg1)
+	return &MockResourceServiceGetApplicationResourceIDCall{Call: call}
+}
+
+// MockResourceServiceGetApplicationResourceIDCall wrap *gomock.Call
+type MockResourceServiceGetApplicationResourceIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockResourceServiceGetApplicationResourceIDCall) Return(arg0 resource.UUID, arg1 error) *MockResourceServiceGetApplicationResourceIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockResourceServiceGetApplicationResourceIDCall) Do(f func(context.Context, resource0.GetApplicationResourceIDArgs) (resource.UUID, error)) *MockResourceServiceGetApplicationResourceIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockResourceServiceGetApplicationResourceIDCall) DoAndReturn(f func(context.Context, resource0.GetApplicationResourceIDArgs) (resource.UUID, error)) *MockResourceServiceGetApplicationResourceIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ListResources mocks base method.
 func (m *MockResourceService) ListResources(arg0 context.Context, arg1 application.ID) (resource.ApplicationResources, error) {
 	m.ctrl.T.Helper()
@@ -144,6 +223,44 @@ func (c *MockResourceServiceListResourcesCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// UpdateResourceRevision mocks base method.
+func (m *MockResourceService) UpdateResourceRevision(arg0 context.Context, arg1 resource0.UpdateResourceRevisionArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateResourceRevision", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateResourceRevision indicates an expected call of UpdateResourceRevision.
+func (mr *MockResourceServiceMockRecorder) UpdateResourceRevision(arg0, arg1 any) *MockResourceServiceUpdateResourceRevisionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateResourceRevision", reflect.TypeOf((*MockResourceService)(nil).UpdateResourceRevision), arg0, arg1)
+	return &MockResourceServiceUpdateResourceRevisionCall{Call: call}
+}
+
+// MockResourceServiceUpdateResourceRevisionCall wrap *gomock.Call
+type MockResourceServiceUpdateResourceRevisionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockResourceServiceUpdateResourceRevisionCall) Return(arg0 error) *MockResourceServiceUpdateResourceRevisionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockResourceServiceUpdateResourceRevisionCall) Do(f func(context.Context, resource0.UpdateResourceRevisionArgs) error) *MockResourceServiceUpdateResourceRevisionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockResourceServiceUpdateResourceRevisionCall) DoAndReturn(f func(context.Context, resource0.UpdateResourceRevisionArgs) error) *MockResourceServiceUpdateResourceRevisionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockNewCharmRepository is a mock of NewCharmRepository interface.
 type MockNewCharmRepository struct {
 	ctrl     *gomock.Controller
@@ -168,10 +285,10 @@ func (m *MockNewCharmRepository) EXPECT() *MockNewCharmRepositoryMockRecorder {
 }
 
 // ResolveResources mocks base method.
-func (m *MockNewCharmRepository) ResolveResources(arg0 context.Context, arg1 []resource0.Resource, arg2 charm.CharmID) ([]resource0.Resource, error) {
+func (m *MockNewCharmRepository) ResolveResources(arg0 context.Context, arg1 []resource1.Resource, arg2 charm.CharmID) ([]resource1.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveResources", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]resource0.Resource)
+	ret0, _ := ret[0].([]resource1.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -189,19 +306,19 @@ type MockNewCharmRepositoryResolveResourcesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockNewCharmRepositoryResolveResourcesCall) Return(arg0 []resource0.Resource, arg1 error) *MockNewCharmRepositoryResolveResourcesCall {
+func (c *MockNewCharmRepositoryResolveResourcesCall) Return(arg0 []resource1.Resource, arg1 error) *MockNewCharmRepositoryResolveResourcesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNewCharmRepositoryResolveResourcesCall) Do(f func(context.Context, []resource0.Resource, charm.CharmID) ([]resource0.Resource, error)) *MockNewCharmRepositoryResolveResourcesCall {
+func (c *MockNewCharmRepositoryResolveResourcesCall) Do(f func(context.Context, []resource1.Resource, charm.CharmID) ([]resource1.Resource, error)) *MockNewCharmRepositoryResolveResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNewCharmRepositoryResolveResourcesCall) DoAndReturn(f func(context.Context, []resource0.Resource, charm.CharmID) ([]resource0.Resource, error)) *MockNewCharmRepositoryResolveResourcesCall {
+func (c *MockNewCharmRepositoryResolveResourcesCall) DoAndReturn(f func(context.Context, []resource1.Resource, charm.CharmID) ([]resource1.Resource, error)) *MockNewCharmRepositoryResolveResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
