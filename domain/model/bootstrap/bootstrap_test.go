@@ -195,8 +195,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraints(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	args := model.GlobalModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        s.cloudName,
+		Cloud: s.cloudName,
 		Credential: credential.Key{
 			Cloud: s.cloudName,
 			Name:  s.credentialName,
@@ -211,7 +210,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraints(c *gc.C) {
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateReadOnlyModel(modelUUID, controllerUUID)
+	fn = CreateModelDBModelRecord(modelUUID, controllerUUID, jujuversion.Current)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -267,8 +266,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *gc.
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	args := model.GlobalModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        s.cloudName,
+		Cloud: s.cloudName,
 		Credential: credential.Key{
 			Cloud: s.cloudName,
 			Name:  s.credentialName,
@@ -283,7 +281,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *gc.
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateReadOnlyModel(modelUUID, controllerUUID)
+	fn = CreateModelDBModelRecord(modelUUID, controllerUUID, jujuversion.Current)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -311,8 +309,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *g
 	modelUUID := modeltesting.GenModelUUID(c)
 
 	args := model.GlobalModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        s.cloudName,
+		Cloud: s.cloudName,
 		Credential: credential.Key{
 			Cloud: s.cloudName,
 			Name:  s.credentialName,
@@ -327,7 +324,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *g
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateReadOnlyModel(modelUUID, controllerUUID)
+	fn = CreateModelDBModelRecord(modelUUID, controllerUUID, jujuversion.Current)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 

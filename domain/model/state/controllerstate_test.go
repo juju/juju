@@ -1463,7 +1463,6 @@ func (m *stateSuite) TestGetEmptyCredentialsModel(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(retrievedModel, gc.NotNil)
 
-		c.Check(retrievedModel.AgentVersion, jc.DeepEquals, modelCreationArgs.AgentVersion)
 		c.Check(retrievedModel.Cloud, gc.Equals, modelCreationArgs.Cloud)
 		c.Check(retrievedModel.CloudRegion, gc.Equals, modelCreationArgs.CloudRegion)
 		c.Check(retrievedModel.Credential, jc.DeepEquals, modelCreationArgs.Credential)

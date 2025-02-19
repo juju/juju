@@ -808,6 +808,9 @@ func InsertModelInfo(
 
 	v := dbModelAgent{TargetVersion: args.AgentVersion.String()}
 	vStmt, err := preparer.Prepare("INSERT INTO agent_version (*) VALUES ($dbModelAgent.*)", v)
+	if err != nil {
+		return errors.Capture(err)
+	}
 
 	if err := tx.Query(ctx, roStmt, m).Run(); err != nil {
 		return fmt.Errorf("creating model read-only record for %q: %w", args.UUID, err)

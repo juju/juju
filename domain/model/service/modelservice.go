@@ -68,6 +68,16 @@ type ControllerState interface {
 	GetModelState(context.Context, coremodel.UUID) (model.ModelState, error)
 }
 
+// AgentBinaryFinder represents a helper for establishing if agent binaries for
+// a specific Juju version are available.
+type AgentBinaryFinder interface {
+	// HasBinariesForVersion will interrogate the tools available in the system
+	// and return true or false if agent binaries exist for the provided
+	// version. Any errors finding the requested binaries will be returned
+	// through error.
+	HasBinariesForVersion(version.Number) (bool, error)
+}
+
 // ModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state.
 type ModelService struct {
@@ -234,6 +244,13 @@ func (s *ModelService) GetStatus(ctx context.Context) (model.StatusInfo, error) 
 		Status: corestatus.Available,
 		Since:  now,
 	}, nil
+}
+
+// agentBinaryFinderFn is func type for the AgentBinaryFinder interface.
+type agentBinaryFinderFn func(version.Number) (bool, error)
+
+func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, error) {
+	return t(v)
 }
 
 // DefaultAgentBinaryFinder is a transition implementation of the agent binary

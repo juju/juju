@@ -116,32 +116,14 @@ type ModelDeleter interface {
 // Service defines a service for interacting with the underlying state based
 // information of a model.
 type Service struct {
-	st                State
-	modelDeleter      ModelDeleter
-	agentBinaryFinder AgentBinaryFinder
-	logger            logger.Logger
+	st           State
+	modelDeleter ModelDeleter
+	logger       logger.Logger
 }
-
-// AgentBinaryFinder represents a helper for establishing if agent binaries for
-// a specific Juju version are available.
-type AgentBinaryFinder interface {
-	// HasBinariesForVersion will interrogate the tools available in the system
-	// and return true or false if agent binaries exist for the provided
-	// version. Any errors finding the requested binaries will be returned
-	// through error.
-	HasBinariesForVersion(version.Number) (bool, error)
-}
-
-// agentBinaryFinderFn is func type for the AgentBinaryFinder interface.
-type agentBinaryFinderFn func(version.Number) (bool, error)
 
 var (
 	caasCloudTypes = []string{cloud.CloudTypeKubernetes}
 )
-
-func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, error) {
-	return t(v)
-}
 
 // NewService returns a new Service for interacting with a models state.
 func NewService(

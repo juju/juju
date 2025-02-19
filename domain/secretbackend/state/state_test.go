@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
-	"github.com/juju/juju/core/version"
 	userstate "github.com/juju/juju/domain/access/state"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
@@ -220,9 +219,8 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 		modelUUID,
 		modelType,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
