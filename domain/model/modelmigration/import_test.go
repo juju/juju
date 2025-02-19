@@ -472,11 +472,6 @@ func (i *importSuite) TestImportModelConstraintsNoOperations(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-// ptr returns a pointer to the value t passed in.
-func ptr[T any](t T) *T {
-	return &t
-}
-
 // TestImportModelConstraints is asserting the happy path of setting constraints
 // from the description package on to the imported model via the service.
 func (i *importSuite) TestImportModelConstraints(c *gc.C) {
