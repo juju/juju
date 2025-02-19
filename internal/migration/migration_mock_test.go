@@ -14,7 +14,7 @@ import (
 	io "io"
 	reflect "reflect"
 
-	description "github.com/juju/description/v8"
+	description "github.com/juju/description/v9"
 	controller "github.com/juju/juju/controller"
 	life "github.com/juju/juju/core/life"
 	modelmigration "github.com/juju/juju/core/modelmigration"
