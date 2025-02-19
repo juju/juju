@@ -98,42 +98,16 @@ func (s *SecretService) getBackendForUserSecrets(ctx context.Context, accessor S
 	}
 	modelUUID := coremodel.UUID(mUUID)
 
-	modelBackend, err := s.secretBackendState.GetModelSecretBackendDetails(ctx, modelUUID)
+	activeBackendID, modelBackendCfg, err := s.secretBackendState.GetActiveModelSecretBackend(ctx, modelUUID)
 	if err != nil {
 		return nil, "", errors.Errorf("getting model secret backend: %w", err)
 	}
-	activeBackendID := modelBackend.SecretBackendID
 
-	backends, err := s.secretBackendState.ListSecretBackendsForModel(ctx, modelUUID, true)
-	if err != nil {
-		return nil, "", errors.Errorf("listing secret backends: %w", err)
-	}
-
-	var cfg *provider.ModelBackendConfig
-	for _, b := range backends {
-		if b.ID == activeBackendID {
-			cfg = &provider.ModelBackendConfig{
-				ControllerUUID: modelBackend.ControllerUUID,
-				ModelUUID:      mUUID,
-				ModelName:      modelBackend.ModelName,
-				BackendConfig: provider.BackendConfig{
-					BackendType: b.BackendType,
-					Config:      b.Config,
-				},
-			}
-			break
-		}
-	}
-
-	if cfg == nil {
-		return nil, "", fmt.Errorf("active backend config for %q: %w", activeBackendID, backenderrors.NotFound)
-	}
-
-	p, err := s.providerGetter(cfg.BackendType)
+	p, err := s.providerGetter(modelBackendCfg.BackendType)
 	if err != nil {
 		return nil, "", errors.Capture(err)
 	}
-	err = p.Initialise(cfg)
+	err = p.Initialise(modelBackendCfg)
 	if err != nil {
 		return nil, "", errors.Errorf("initialising secrets provider: %w", err)
 	}
@@ -149,7 +123,7 @@ func (s *SecretService) getBackendForUserSecrets(ctx context.Context, accessor S
 	s.logger.Debugf(ctx, "secrets for %s:\nowned: %v", accessor, ownedRevisions)
 
 	// Get the restricted config for the provided accessor.
-	restrictedConfig, err := p.RestrictedConfig(ctx, cfg, true, false, secrets.Accessor{
+	restrictedConfig, err := p.RestrictedConfig(ctx, modelBackendCfg, true, false, secrets.Accessor{
 		Kind: secrets.ModelAccessor,
 		ID:   accessor.ID,
 	}, ownedRevisions, provider.SecretRevisions{})
@@ -158,16 +132,16 @@ func (s *SecretService) getBackendForUserSecrets(ctx context.Context, accessor S
 	}
 
 	info := &provider.ModelBackendConfig{
-		ControllerUUID: cfg.ControllerUUID,
-		ModelUUID:      cfg.ModelUUID,
-		ModelName:      cfg.ModelName,
+		ControllerUUID: modelBackendCfg.ControllerUUID,
+		ModelUUID:      modelBackendCfg.ModelUUID,
+		ModelName:      modelBackendCfg.ModelName,
 		BackendConfig:  *restrictedConfig,
 	}
-	backend, err := p.NewBackend(info)
+	sb, err := p.NewBackend(info)
 	if err != nil {
 		return nil, "", errors.Capture(err)
 	}
-	return backend, activeBackendID, nil
+	return sb, activeBackendID, nil
 }
 
 func (s *SecretService) loadBackendInfo(ctx context.Context, activeOnly bool) error {

@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
-	"github.com/juju/juju/domain/secretbackend"
 	domaintesting "github.com/juju/juju/domain/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -132,18 +131,13 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 		}
 	}
 
-	s.secretBackendState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), s.modelID).Return(
-		secretbackend.ModelSecretBackend{
-			SecretBackendID: "backend-id",
-			ControllerUUID:  coretesting.ControllerTag.Id(),
-			ModelName:       "some-model",
-		}, nil,
-	)
-
-	s.secretBackendState.EXPECT().ListSecretBackendsForModel(gomock.Any(), s.modelID, true).Return(
-		[]*secretbackend.SecretBackend{
-			{
-				ID:          "backend-id",
+	s.secretBackendState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelID).Return(
+		"backend-id",
+		&provider.ModelBackendConfig{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      s.modelID.String(),
+			ModelName:      "some-model",
+			BackendConfig: provider.BackendConfig{
 				BackendType: "active-type",
 				Config:      map[string]any{"foo": "active-type"},
 			},
@@ -271,18 +265,13 @@ func (s *serviceSuite) TestUpdateUserSecretFailedLabelExistsWithCleanup(c *gc.C)
 func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFailed, labelExists bool) {
 	defer s.setupMocks(c).Finish()
 
-	s.secretBackendState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), s.modelID).Return(
-		secretbackend.ModelSecretBackend{
-			SecretBackendID: "backend-id",
-			ControllerUUID:  coretesting.ControllerTag.Id(),
-			ModelName:       "some-model",
-		}, nil,
-	)
-
-	s.secretBackendState.EXPECT().ListSecretBackendsForModel(gomock.Any(), s.modelID, true).Return(
-		[]*secretbackend.SecretBackend{
-			{
-				ID:          "backend-id",
+	s.secretBackendState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelID).Return(
+		"backend-id",
+		&provider.ModelBackendConfig{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      s.modelID.String(),
+			ModelName:      "some-model",
+			BackendConfig: provider.BackendConfig{
 				BackendType: "active-type",
 				Config:      map[string]any{"foo": "active-type"},
 			},
