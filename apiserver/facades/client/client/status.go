@@ -56,7 +56,9 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	}
 
 	var noStatus params.FullStatus
-	var context statusContext
+	context := statusContext{
+		applicationService: c.applicationService,
+	}
 
 	modelInfo, err := c.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
@@ -461,6 +463,8 @@ type applicationStatusInfo struct {
 }
 
 type statusContext struct {
+	applicationService ApplicationService
+
 	providerType string
 	model        *state.Model
 	status       *state.ModelStatus
@@ -1182,9 +1186,19 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 	for _, u := range units {
 		appUnits = append(appUnits, u)
 	}
-	displayStatus, err := common.ApplicationDisplayStatus(context.model, application, appUnits)
-	if err == nil {
-		applicationStatus = displayStatus
+
+	appId, err := context.applicationService.GetApplicationIDByName(ctx, application.Name())
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ApplicationStatus{Err: apiservererrors.ServerError(errors.NotFoundf("application %q", application.Name()))}
+	} else if err != nil {
+		return params.ApplicationStatus{Err: apiservererrors.ServerError(errors.Trace(err))}
+	}
+
+	displayStatus, err := context.applicationService.GetApplicationStatus(ctx, appId)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ApplicationStatus{Err: apiservererrors.ServerError(errors.NotFoundf("application %q", application.Name()))}
+	} else if err == nil && displayStatus != nil {
+		applicationStatus = *displayStatus
 	}
 	processedStatus.Status.Status = applicationStatus.Status.String()
 	processedStatus.Status.Info = applicationStatus.Message

@@ -101,6 +101,11 @@ type ApplicationService interface {
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
 
+	// GetApplicationStatus looks up the status of the specified application,
+	// returning an error satisfying [applicationerrors.ApplicationNotFound] if the
+	// application is not found.
+	GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error)
+
 	// GetCharmModifiedVersion looks up the charm modified version of the given
 	// application.
 	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)

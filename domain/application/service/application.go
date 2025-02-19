@@ -859,6 +859,8 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, p
 
 // GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
 // error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+//
+// TODO(jack-w-shaw): Take container status into account when it's implemented
 func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
 	if err := unitName.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -1543,6 +1545,8 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 // GetApplicationStatus looks up the status of the specified application,
 // returning an error satisfying [applicationerrors.ApplicationNotFound] if the
 // application is not found.
+//
+// TODO(jack-w-shaw): Take container status into account when it's implemented
 func (s *Service) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error) {
 	if err := appID.Validate(); err != nil {
 		return nil, internalerrors.Errorf("application ID: %w", err)

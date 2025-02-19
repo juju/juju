@@ -278,6 +278,45 @@ func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(contex
 	return c
 }
 
+// GetApplicationStatus mocks base method.
+func (m *MockApplicationService) GetApplicationStatus(arg0 context.Context, arg1 application.ID) (*status.StatusInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationStatus", arg0, arg1)
+	ret0, _ := ret[0].(*status.StatusInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationStatus indicates an expected call of GetApplicationStatus.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationStatus(arg0, arg1 any) *MockApplicationServiceGetApplicationStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStatus", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationStatus), arg0, arg1)
+	return &MockApplicationServiceGetApplicationStatusCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationStatusCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationStatusCall) Return(arg0 *status.StatusInfo, arg1 error) *MockApplicationServiceGetApplicationStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationStatusCall) Do(f func(context.Context, application.ID) (*status.StatusInfo, error)) *MockApplicationServiceGetApplicationStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID) (*status.StatusInfo, error)) *MockApplicationServiceGetApplicationStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAvailableCharmArchiveSHA256 mocks base method.
 func (m *MockApplicationService) GetAvailableCharmArchiveSHA256(arg0 context.Context, arg1 charm.CharmLocator) (string, error) {
 	m.ctrl.T.Helper()

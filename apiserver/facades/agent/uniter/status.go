@@ -7,12 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -21,8 +23,9 @@ import (
 // status from different entities, this particular separation from
 // base is because we have a shim to support unit/agent split.
 type StatusAPI struct {
-	model             *state.Model
-	leadershipChecker leadership.Checker
+	model              *state.Model
+	leadershipChecker  leadership.Checker
+	applicationService ApplicationService
 
 	agentSetter       *common.StatusSetter
 	unitSetter        *common.UnitStatusSetter
@@ -41,13 +44,14 @@ func NewStatusAPI(model *state.Model, applicationService ApplicationService, get
 	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
 	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, getCanModify, clock)
 	return &StatusAPI{
-		model:             model,
-		leadershipChecker: leadershipChecker,
-		agentSetter:       agentSetter,
-		unitSetter:        unitSetter,
-		unitGetter:        unitGetter,
-		applicationSetter: applicationSetter,
-		getCanModify:      getCanModify,
+		model:              model,
+		leadershipChecker:  leadershipChecker,
+		applicationService: applicationService,
+		agentSetter:        agentSetter,
+		unitSetter:         unitSetter,
+		unitGetter:         unitGetter,
+		applicationSetter:  applicationSetter,
+		getCanModify:       getCanModify,
 	}
 }
 
@@ -144,7 +148,7 @@ func (s *StatusAPI) ApplicationStatus(ctx context.Context, args params.Entities)
 			continue
 		}
 
-		result.Results[i] = s.getAppAndUnitStatus(application)
+		result.Results[i] = s.getAppAndUnitStatus(ctx, application)
 	}
 	return result, nil
 }
@@ -158,14 +162,27 @@ func (s *StatusAPI) toStatusResult(i status.StatusInfo) params.StatusResult {
 	}
 }
 
-func (s *StatusAPI) getAppAndUnitStatus(application *state.Application) params.ApplicationStatusResult {
+func (s *StatusAPI) getAppAndUnitStatus(ctx context.Context, application *state.Application) params.ApplicationStatusResult {
 	result := params.ApplicationStatusResult{
 		Units: make(map[string]params.StatusResult),
 	}
 	appStatus := status.StatusInfo{Status: status.Unknown}
-	aStatus, err := common.ApplicationDisplayStatus(s.model, application, nil)
-	if err == nil {
-		appStatus = aStatus
+
+	appId, err := s.applicationService.GetApplicationIDByName(ctx, application.Name())
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		result.Error = apiservererrors.ServerError(errors.NotFoundf("application %q", application.Name()))
+		return result
+	} else if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
+
+	aStatus, err := s.applicationService.GetApplicationStatus(ctx, appId)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		result.Error = apiservererrors.ServerError(errors.NotFoundf("application %q", application.Name()))
+		return result
+	} else if err == nil && aStatus != nil {
+		appStatus = *aStatus
 	}
 	result.Application = s.toStatusResult(appStatus)
 
