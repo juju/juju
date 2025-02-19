@@ -5,11 +5,12 @@ package schema
 
 import (
 	"github.com/juju/collections/set"
-	charmtesting "github.com/juju/juju/core/charm/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	_ "github.com/mattn/go-sqlite3"
 	gc "gopkg.in/check.v1"
+
+	charmtesting "github.com/juju/juju/core/charm/testing"
 )
 
 type modelSchemaSuite struct {

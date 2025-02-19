@@ -6,14 +6,12 @@ package agentbootstrap
 import (
 	"context"
 	"fmt"
-	jujuversion "github.com/juju/juju/core/version"
-	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -29,6 +27,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	jujuversion "github.com/juju/juju/core/version"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	cloudimagemetadatabootstrap "github.com/juju/juju/domain/cloudimagemetadata/bootstrap"
@@ -37,6 +36,7 @@ import (
 	machinebootstrap "github.com/juju/juju/domain/machine/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
 	secretbackendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"

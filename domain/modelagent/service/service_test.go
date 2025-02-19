@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
