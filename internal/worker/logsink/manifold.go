@@ -157,8 +157,6 @@ func outputFunc(in worker.Worker, out interface{}) error {
 		*outPointer = inWorker
 	case *logger.LoggerContextGetter:
 		*outPointer = inWorker
-	case *logger.ModelLoggerInitializer:
-		*outPointer = inWorker
 	default:
 		return errors.Errorf("out should be *logger.Logger; got %T", out)
 	}

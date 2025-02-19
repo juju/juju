@@ -54,13 +54,24 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		st.Release()
 		return errors.Trace(err)
 	}
+	m, err := st.Model()
+	if err != nil {
+		st.Release()
+		return errors.Trace(err)
+	}
 
-	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), st.State.ModelUUID()); err != nil {
+	key := corelogger.LoggerKey{
+		ModelUUID:  st.State.ModelUUID(),
+		ModelName:  m.Name(),
+		ModelOwner: m.Owner().Id(),
+	}
+
+	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), key); err != nil {
 		return errors.Trace(err)
 	}
 	s.releaser = func() error {
 		if removed := st.Release(); removed {
-			return s.modelLogger.RemoveLogWriter(st.State.ModelUUID())
+			return s.modelLogger.RemoveLogWriter(key)
 		}
 		return nil
 	}

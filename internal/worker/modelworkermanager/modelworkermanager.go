@@ -308,7 +308,11 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		}
 		cfg.ControllerConfig = controllerConfig
 
-		logSink, err := m.config.LogSink.GetLogWriter(ctx, modelUUID)
+		logSink, err := m.config.LogSink.GetLogWriter(ctx, corelogger.LoggerKey{
+			ModelUUID:  modelUUID,
+			ModelName:  cfg.ModelName,
+			ModelOwner: cfg.ModelOwner,
+		})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
