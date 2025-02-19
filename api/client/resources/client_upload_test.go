@@ -137,18 +137,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
-	args := params.AddPendingResourcesArgsV2{
-		Entity: params.Entity{Tag: "application-a-application"},
-		URL:    "ch:spam",
-		CharmOrigin: params.CharmOrigin{
-			Source:       "charm-hub",
-			ID:           "id",
-			Risk:         "stable",
-			Base:         params.Base{Name: "ubuntu", Channel: "22.04/stable"},
-			Architecture: "arm64",
-		},
-		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
-	}
+	addArgs := newAddPendingResourcesArgsV2(apiResult)
 	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []string{uuid.String()}
@@ -156,7 +145,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 	results := params.AddPendingResourcesResult{
 		PendingIDs: expected,
 	}
-	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, result).SetArg(3, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &addArgs, result).SetArg(3, results).Return(nil)
 
 	cURL := "ch:spam"
 	pendingIDs, err := s.client.AddPendingResources(context.Background(),
@@ -182,10 +171,7 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
-	args := params.AddPendingResourcesArgsV2{
-		Entity:    params.Entity{Tag: "application-a-application"},
-		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
-	}
+	addArgs := newAddPendingResourcesArgsV2(apiResult)
 	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
@@ -206,10 +192,11 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := context.Background()
-	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &addArgs, gomock.Any()).SetArg(3, results).Return(nil)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
 
-	uploadID, err := s.client.UploadPendingResource(ctx, "a-application", res[0].Resource, "file.zip", strings.NewReader(data))
+	uploadArgs := newUploadPendingResourceArgs(res, data)
+	uploadID, err := s.client.UploadPendingResource(ctx, uploadArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadID, gc.Equals, expected)
 }
@@ -218,19 +205,17 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
-	args := params.AddPendingResourcesArgsV2{
-		Entity:    params.Entity{Tag: "application-a-application"},
-		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
-	}
+	addArgs := newAddPendingResourcesArgsV2(apiResult)
 	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
 	results := params.AddPendingResourcesResult{
 		PendingIDs: []string{expected},
 	}
-	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &addArgs, gomock.Any()).SetArg(3, results).Return(nil)
 
-	uploadID, err := s.client.UploadPendingResource(context.Background(), "a-application", res[0].Resource, "file.zip", nil)
+	uploadArgs := newUploadPendingResourceArgsNoData(res)
+	uploadID, err := s.client.UploadPendingResource(context.Background(), uploadArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadID, gc.Equals, expected)
 }
@@ -239,8 +224,7 @@ func (s *UploadSuite) TestUploadPendingResourceBadApplication(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	res, _ := newResourceResult(c, "spam")
-	_, err := s.client.UploadPendingResource(context.Background(), "???", res[0].Resource, "file.zip", nil)
+	_, err := s.client.UploadPendingResource(context.Background(), resources.UploadPendingResourceArgs{})
 	c.Assert(err, gc.ErrorMatches, `.*invalid application.*`)
 }
 
@@ -248,10 +232,7 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	res, apiResult := newResourceResult(c, "spam")
-	args := params.AddPendingResourcesArgsV2{
-		Entity:    params.Entity{Tag: "application-a-application"},
-		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
-	}
+	addArgs := newAddPendingResourcesArgsV2(apiResult)
 	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
@@ -271,11 +252,51 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := context.Background()
-	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &addArgs, gomock.Any()).SetArg(3, results).Return(nil)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 
-	_, err = s.client.UploadPendingResource(ctx, "a-application", res[0].Resource, "file.zip", strings.NewReader(data))
+	uploadArgs := newUploadPendingResourceArgs(res, data)
+	_, err = s.client.UploadPendingResource(ctx, uploadArgs)
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func newAddPendingResourcesArgsV2(apiResult params.ResourcesResult) params.AddPendingResourcesArgsV2 {
+	return params.AddPendingResourcesArgsV2{
+		Entity: params.Entity{Tag: "application-a-application"},
+		URL:    "ch:spam",
+		CharmOrigin: params.CharmOrigin{
+			Source:       "charm-hub",
+			ID:           "id",
+			Risk:         "stable",
+			Base:         params.Base{Name: "ubuntu", Channel: "22.04/stable"},
+			Architecture: "arm64",
+		},
+		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
+	}
+}
+
+func newUploadPendingResourceArgs(res []coreresources.Resource, data string) resources.UploadPendingResourceArgs {
+	args := newUploadPendingResourceArgsNoData(res)
+	args.Reader = strings.NewReader(data)
+	return args
+}
+
+func newUploadPendingResourceArgsNoData(res []coreresources.Resource) resources.UploadPendingResourceArgs {
+	return resources.UploadPendingResourceArgs{
+		ApplicationID: "a-application",
+		CharmID: resources.CharmID{
+			URL: "ch:spam",
+			Origin: apicharm.Origin{
+				Source:       apicharm.OriginCharmHub,
+				ID:           "id",
+				Risk:         "stable",
+				Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
+				Architecture: "arm64",
+			},
+		},
+		Resource: res[0].Resource,
+		Filename: "file.zip",
+	}
 }
 
 func newResourceResult(c *gc.C, names ...string) ([]coreresources.Resource, params.ResourcesResult) {

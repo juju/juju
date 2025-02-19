@@ -216,29 +216,49 @@ func newAddPendingResourcesArgsV2(ctx context.Context, tag names.ApplicationTag,
 	return args, nil
 }
 
+// UploadPendingResourceArgs holds the arguments for the
+// UploadPendingResources method.
+type UploadPendingResourceArgs struct {
+	// ApplicationID identifies the application being deployed.
+	ApplicationID string
+
+	// CharmID identifies the application's charm.
+	CharmID CharmID
+
+	// Resources holds the charm store info for each of the resources
+	// that should be added/updated on the controller.
+	Resource charmresource.Resource
+
+	// Filename is the name of the file provided by the user.
+	Filename string
+
+	// Reader is a ReadSeeker with the contents of the file provided
+	// by the user.
+	Reader io.ReadSeeker
+}
+
 // UploadPendingResource sends the provided resource blob up to Juju
 // and makes it available by calling AddPendingResources to compute the
 // pendingID first, then it uses the client.Upload to actually send it.
-// Pending resources IDs are required for resources uploaded before
-// AddApplication has been called.
-func (c Client) UploadPendingResource(ctx context.Context, application string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
-	if !names.IsValidApplication(application) {
-		return "", errors.Errorf("invalid application %q", application)
+func (c Client) UploadPendingResource(ctx context.Context, args UploadPendingResourceArgs) (pendingID string, err error) {
+	if !names.IsValidApplication(args.ApplicationID) {
+		return "", errors.Errorf("invalid application %q", args.ApplicationID)
 	}
 
 	ids, err := c.AddPendingResources(ctx, AddPendingResourcesArgs{
-		ApplicationID: application,
-		Resources:     []charmresource.Resource{res},
+		ApplicationID: args.ApplicationID,
+		CharmID:       args.CharmID,
+		Resources:     []charmresource.Resource{args.Resource},
 	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	pendingID = ids[0]
 
-	if reader == nil {
+	if args.Reader == nil {
 		return pendingID, nil
 	}
-	return pendingID, c.Upload(ctx, application, res.Name, filename, pendingID, reader)
+	return pendingID, c.Upload(ctx, args.ApplicationID, args.Resource.Name, args.Filename, pendingID, args.Reader)
 }
 
 func resolveErrors(errs []error) error {
