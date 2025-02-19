@@ -5,10 +5,21 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/virtualhostkeys"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"
 )
+
+// unitHostKeyID provides the virtual host key
+// lookup value for a unit based on the unit name.
+func unitHostKeyID(unitName string) string {
+	return "unit" + "-" + unitName + "-" + "hostkey"
+}
+
+// machineHostKeyID provides the virtual host key
+// lookup value for a machine based on the machine ID.
+func machineHostKeyID(machineID string) string {
+	return "machine" + "-" + machineID + "-" + "hostkey"
+}
 
 // VirtualHostKey represents the state of a virtual host key.
 type VirtualHostKey struct {
@@ -34,8 +45,8 @@ func newVirtualHostKeyDoc(st *State, hostKeyID string, hostkey []byte) (virtualH
 }
 
 func newMachineVirtualHostKeysOps(st *State, machineID string, hostKey []byte) ([]txn.Op, error) {
-	hostKeyID := virtualhostkeys.MachineHostKeyID(machineID)
-	doc, err := newVirtualHostKeyDoc(st, hostKeyID.ID, hostKey)
+	hostKeyID := machineHostKeyID(machineID)
+	doc, err := newVirtualHostKeyDoc(st, hostKeyID, hostKey)
 	if err != nil {
 		return nil, err
 	}
@@ -48,8 +59,8 @@ func newMachineVirtualHostKeysOps(st *State, machineID string, hostKey []byte) (
 }
 
 func newUnitVirtualHostKeysOps(st *State, unitName string, hostKey []byte) ([]txn.Op, error) {
-	hostKeyID := virtualhostkeys.UnitHostKeyID(unitName)
-	doc, err := newVirtualHostKeyDoc(st, hostKeyID.ID, hostKey)
+	hostKeyID := unitHostKeyID(unitName)
+	doc, err := newVirtualHostKeyDoc(st, hostKeyID, hostKey)
 	if err != nil {
 		return nil, err
 	}
@@ -62,8 +73,8 @@ func newUnitVirtualHostKeysOps(st *State, unitName string, hostKey []byte) ([]tx
 }
 
 func removeMachineVirtualHostKeyOps(state *State, machineID string) []txn.Op {
-	machineLookup := virtualhostkeys.MachineHostKeyID(machineID)
-	docID := state.docID(machineLookup.ID)
+	machineLookup := machineHostKeyID(machineID)
+	docID := state.docID(machineLookup)
 	return []txn.Op{{
 		C:      virtualHostKeysC,
 		Id:     docID,
@@ -72,8 +83,8 @@ func removeMachineVirtualHostKeyOps(state *State, machineID string) []txn.Op {
 }
 
 func removeUnitVirtualHostKeysOps(state *State, unitName string) []txn.Op {
-	unitLookup := virtualhostkeys.UnitHostKeyID(unitName)
-	docID := state.docID(unitLookup.ID)
+	unitLookup := unitHostKeyID(unitName)
+	docID := state.docID(unitLookup)
 	return []txn.Op{{
 		C:      virtualHostKeysC,
 		Id:     docID,
@@ -81,12 +92,14 @@ func removeUnitVirtualHostKeysOps(state *State, unitName string) []txn.Op {
 	}}
 }
 
-func (st *State) MachineVirtualHostKey(lookup virtualhostkeys.MachineLookup) (*VirtualHostKey, error) {
-	return st.virtualHostKey(lookup.ID)
+// MachineVirtualHostKey returns the virtual host key for a machine.
+func (st *State) MachineVirtualHostKey(machineID string) (*VirtualHostKey, error) {
+	return st.virtualHostKey(machineHostKeyID(machineID))
 }
 
-func (st *State) UnitVirtualHostKey(lookup virtualhostkeys.UnitLookup) (*VirtualHostKey, error) {
-	return st.virtualHostKey(lookup.ID)
+// UnitVirtualHostKey returns the virtual host key for a unit.
+func (st *State) UnitVirtualHostKey(unitID string) (*VirtualHostKey, error) {
+	return st.virtualHostKey(unitHostKeyID(unitID))
 }
 
 func (st *State) virtualHostKey(id string) (*VirtualHostKey, error) {

@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/virtualhostkeys"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -313,8 +312,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	})
 
 	// Check that the machine has a virtual host key.
-	lookupID := virtualhostkeys.MachineHostKeyID(m.Id())
-	key, err := st.MachineVirtualHostKey(lookupID)
+	key, err := st.MachineVirtualHostKey(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
 

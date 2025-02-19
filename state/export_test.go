@@ -1273,7 +1273,16 @@ func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
 	return actionIDs, nil
 }
 
-func AddVirtualHostKey(c *gc.C, st *State, docID string, key []byte) *VirtualHostKey {
+func AddVirtualHostKey(c *gc.C, st *State, tag names.Tag, key []byte) *VirtualHostKey {
+	var docID string
+	switch tag.Kind() {
+	case names.UnitTagKind:
+		docID = unitHostKeyID(tag.Id())
+	case names.MachineTagKind:
+		docID = machineHostKeyID(tag.Id())
+	default:
+		c.Fatalf("unsupported tag kind %q for creating a virtual host key", tag.Kind())
+	}
 	doc := virtualHostKeyDoc{
 		DocId:   st.docID(docID),
 		HostKey: key,

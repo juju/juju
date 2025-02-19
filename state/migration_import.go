@@ -2869,6 +2869,6 @@ func (i *importer) virtualHostKeys() error {
 	if err := migration.Run(); err != nil {
 		return errors.Trace(err)
 	}
-	i.logger.Debugf("importing application offer succeeded")
+	i.logger.Debugf("importing virtual host key succeeded")
 	return nil
 }

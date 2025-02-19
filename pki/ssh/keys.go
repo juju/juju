@@ -49,6 +49,7 @@ func ED25519() (crypto.PrivateKey, error) {
 	return pk, err
 }
 
+// MarshalPrivateKey marshals a private key to a PEM encoded byte slice.
 func MarshalPrivateKey(privateKey crypto.PrivateKey) ([]byte, error) {
 	pemKey, err := gossh.MarshalPrivateKey(privateKey, "")
 	if err != nil {
@@ -57,6 +58,7 @@ func MarshalPrivateKey(privateKey crypto.PrivateKey) ([]byte, error) {
 	return pem.EncodeToMemory(pemKey), nil
 }
 
+// UnmarshalPrivateKey unmarshals a private key from a PEM encoded byte slice.
 func UnmarshalPrivateKey(data []byte) (crypto.PrivateKey, error) {
 	privateKey, err := gossh.ParseRawPrivateKey(data)
 	if err != nil {

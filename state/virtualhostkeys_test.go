@@ -8,7 +8,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/virtualhostkeys"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -27,8 +26,7 @@ func (s *VirtualHostKeysSuite) TestMachineVirtualHostKey(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	lookupID := virtualhostkeys.MachineHostKeyID(machine.Id())
-	key, err := s.State.MachineVirtualHostKey(lookupID)
+	key, err := s.State.MachineVirtualHostKey(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
 
@@ -36,7 +34,7 @@ func (s *VirtualHostKeysSuite) TestMachineVirtualHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.MachineVirtualHostKey(lookupID)
+	_, err = s.State.MachineVirtualHostKey(machine.Id())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -132,8 +130,7 @@ func (s *VirtualHostKeysSuite) TestCAASUnitVirtualHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit, gc.NotNil)
 
-	lookupID := virtualhostkeys.UnitHostKeyID(unit.UnitTag().Id())
-	key, err := st.UnitVirtualHostKey(lookupID)
+	key, err := st.UnitVirtualHostKey(unit.UnitTag().Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(key.HostKey()), gc.Equals, "foo")
 
@@ -167,7 +164,7 @@ func (s *VirtualHostKeysSuite) TestIAASUnitVirtualHostKeyDoesNotExist(c *gc.C) {
 	err = unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.UnitVirtualHostKey(virtualhostkeys.UnitHostKeyID(unit.Name()))
+	_, err = s.State.UnitVirtualHostKey(unit.Tag().Id())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -186,8 +183,7 @@ func (s *VirtualHostKeysSuite) TestIAASUnitWithPlacement(c *gc.C) {
 	m, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	lookupID := virtualhostkeys.MachineHostKeyID(m.Id())
-	key, err := s.State.MachineVirtualHostKey(lookupID)
+	key, err := s.State.MachineVirtualHostKey(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
 }
@@ -198,12 +194,11 @@ func (s *VirtualHostKeysSuite) TestMissingHostKeyDoesNotBlock(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	lookupID := virtualhostkeys.MachineHostKeyID(machine.Id())
-	key, err := s.State.MachineVirtualHostKey(lookupID)
+	key, err := s.State.MachineVirtualHostKey(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	state.RemoveVirtualHostKey(c, s.State, key)
-	_, err = s.State.MachineVirtualHostKey(lookupID)
+	_, err = s.State.MachineVirtualHostKey(machine.Id())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	err = machine.EnsureDead()
