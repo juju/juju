@@ -69,7 +69,7 @@ func (s *Server) FindImage(
 		// We already have an image with the given alias, so just use that.
 		target = entry.Target
 		if image, _, err := s.GetImage(target); err == nil && isCompatibleVirtType(virtType, image.Type) {
-			logger.Debugf(context.TODO(), "Found image locally - %q %q", image.Filename, target)
+			logger.Debugf(ctx, "Found image locally - %q %q", image.Filename, target)
 			return SourcedImage{
 				Image:     image,
 				LXDServer: s.InstanceServer,
@@ -91,7 +91,7 @@ func (s *Server) FindImage(
 	for _, remote := range sources {
 		source, err := ConnectImageRemote(ctx, remote)
 		if err != nil {
-			logger.Infof(context.TODO(), "failed to connect to %q: %s", remote.Host, err)
+			logger.Infof(ctx, "failed to connect to %q: %s", remote.Host, err)
 			lastErr = errors.Trace(err)
 			continue
 		}
@@ -100,7 +100,7 @@ func (s *Server) FindImage(
 		// image found that matches the alias.
 		res, _, err := source.GetImageAliasType(string(virtType), alias)
 		if err != nil {
-			logger.Debugf(context.TODO(), "failed to get alias %q from %q: %s", alias, remote.Name, err)
+			logger.Debugf(ctx, "failed to get alias %q from %q: %s", alias, remote.Name, err)
 		} else if res != nil && res.Target != "" {
 			// If the image is found by an alias prefer that over the one
 			// from the local alias.
@@ -122,7 +122,7 @@ func (s *Server) FindImage(
 			continue
 		}
 
-		logger.Debugf(context.TODO(), "Found image remotely - %q %q %q", remote.Name, image.Filename, target)
+		logger.Debugf(ctx, "found image remotely - %q %q %q", remote.Name, image.Filename, target)
 
 		// In order to support auto-update, we need to set the
 		// fingerprint of the image to the alias that was used to
@@ -142,7 +142,7 @@ func (s *Server) FindImage(
 		}
 
 		// Set the image copy reference to the original image.
-		logger.Debugf(context.TODO(), "found image remotely - %q %q %q", remote.Name, image.Filename, target)
+		logger.Debugf(ctx, "found image remotely - %q %q %q %q", remote.Name, image.Filename, imageRef.Fingerprint, target)
 		sourced.Image = &imageRef
 		sourced.LXDServer = source
 		sourced.Fingerprint = image.Fingerprint
@@ -170,6 +170,13 @@ func (s *Server) FindImage(
 	// the Fingerprint attribute to ensure the alias is correctly recorded.
 	sourced.Image.Fingerprint = sourced.Fingerprint
 
+	// Delete the LXD lookup alias, as we have now copied the image locally.
+	// This ensures that if you mix both containers and virtual machines, they
+	// can both exist.
+	if err := s.InstanceServer.DeleteImageAlias(alias); err != nil && !IsLXDNotFound(err) {
+		return sourced, errors.Trace(err)
+	}
+
 	return sourced, nil
 }
 
@@ -187,6 +194,7 @@ func (s *Server) CopyRemoteImage(
 	}
 	req := &lxd.ImageCopyArgs{
 		AutoUpdate: true,
+		Type:       sourced.Image.Type,
 		Aliases:    newAliases,
 	}
 	progress := func(op api.Operation) {

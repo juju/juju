@@ -160,6 +160,7 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 		rSvr1.EXPECT().GetImageAliasType(imageType, "16.04/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
 		rSvr2.EXPECT().GetImageAliasType(imageType, "16.04/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
 		rSvr2.EXPECT().GetImage("foo-remote-target").Return(&image, lxdtesting.ETag, nil),
+		iSvr.EXPECT().DeleteImageAlias("16.04/amd64").Return(nil),
 	)
 
 	jujuSvr, err := lxd.NewServer(iSvr)
@@ -213,6 +214,7 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 		rSvr.EXPECT().GetImage("foo-remote-target").Return(&image, lxdtesting.ETag, nil),
 		iSvr.EXPECT().CopyImage(rSvr, image, copyReq).Return(copyOp, nil),
 		iSvr.EXPECT().GetImageAliases().Return(nil, nil),
+		iSvr.EXPECT().DeleteImageAlias("16.04/amd64").Return(nil),
 	)
 
 	s.expectAlias(iSvr, "16.04/"+s.Arch(), "fingerprint")
