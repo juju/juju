@@ -611,6 +611,15 @@ func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UU
 	return nil
 }
 
+// GetUnitCloudContainerStatus returns the cloud container status of the specified
+// unit, returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+//
+// TODO(jack-w-shaw): Implement me!
+func (st *State) GetUnitCloudContainerStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.CloudContainerStatusType], error) {
+	return nil, nil
+}
+
 // GetUnitWorkloadStatusesForApplication returns the workload statuses for all units
 // of the specified application, returning an error satisfying
 // [applicationerrors.ApplicationNotFound] if the application doesn't exist.
@@ -662,6 +671,16 @@ WHERE unit.application_uuid = $applicationID.uuid
 	}
 
 	return statuses, nil
+}
+
+// GetUnitCloudContainerStatusesForApplication returns the cloud container
+// statuses for all units of the specified application, returning an error
+// satisfying [applicationerrors.ApplicationNotFound] if the application
+// doesn't exist.
+//
+// TODO(jack-w-shaw): Implement me!
+func (st *State) GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.UUID]application.StatusInfo[application.CloudContainerStatusType], error) {
+	return nil, nil
 }
 
 func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
