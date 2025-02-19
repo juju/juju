@@ -43,7 +43,11 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status
 		return err
 	}
 	switch entity := entity.(type) {
+	// Use ApplicationStatusSetter for setting application status.
 	case *state.Application:
+		return apiservererrors.ErrPerm
+	// Use UnitStatusSetter for setting unit status.
+	case *state.Unit:
 		return apiservererrors.ErrPerm
 	case status.StatusSetter:
 		sInfo := status.StatusInfo{

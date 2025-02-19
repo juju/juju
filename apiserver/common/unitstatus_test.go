@@ -1,208 +1,271 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package common_test
 
 import (
 	"context"
-	"errors"
+	"time"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/rpc/params"
 )
 
-type UnitStatusSuite struct {
-	testing.IsolationSuite
-	ctx  common.ModelPresenceContext
-	unit *fakeStatusUnit
+type unitStatusSuite struct {
+	entityFinder       *mocks.MockEntityFinder
+	applicationService *mocks.MockApplicationService
+	now                time.Time
+	clock              *mocks.MockClock
+
+	badTag names.Tag
 }
 
-var _ = gc.Suite(&UnitStatusSuite{})
+func (s *unitStatusSuite) SetUpTest(c *gc.C) {
+	s.badTag = nil
+}
 
-func (s *UnitStatusSuite) SetUpTest(c *gc.C) {
-	c.Skip("skipping factory based tests. TODO: Re-write without factories")
-	s.unit = &fakeStatusUnit{
-		app: "foo",
-		agentStatus: status.StatusInfo{
-			Status:  status.Started,
-			Message: "agent ok",
+func (s *unitStatusSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.entityFinder = mocks.NewMockEntityFinder(ctrl)
+	s.applicationService = mocks.NewMockApplicationService(ctrl)
+
+	s.now = time.Now()
+	s.clock = mocks.NewMockClock(ctrl)
+	s.clock.EXPECT().Now().Return(s.now).AnyTimes()
+
+	return ctrl
+}
+
+func (s *unitStatusSuite) authFunc(tag names.Tag) bool {
+	return tag != s.badTag
+}
+
+type unitSetStatusSuite struct {
+	unitStatusSuite
+}
+
+var _ = gc.Suite(&unitSetStatusSuite{})
+
+func (s *unitSetStatusSuite) TestSetStatusUnauthorised(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewUnitTag("ubuntu/42")
+	s.badTag = tag
+
+	setter := common.NewUnitStatusSetter(s.entityFinder, s.applicationService, s.clock, func() (common.AuthFunc, error) {
+		return s.authFunc, nil
+	})
+	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+		Tag:    tag.String(),
+		Status: status.Executing.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *unitSetStatusSuite) TestSetStatusNotATag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	setter := common.NewUnitStatusSetter(s.entityFinder, s.applicationService, s.clock, func() (common.AuthFunc, error) {
+		return s.authFunc, nil
+	})
+	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+		Tag:    "not a tag",
+		Status: status.Executing.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+}
+
+func (s *unitSetStatusSuite) TestSetStatusNotAUnitTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("42")
+
+	setter := common.NewUnitStatusSetter(s.entityFinder, s.applicationService, s.clock, func() (common.AuthFunc, error) {
+		return s.authFunc, nil
+	})
+	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+		Tag:    tag.String(),
+		Status: status.Executing.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"machine-42" is not a valid unit tag`)
+}
+
+func (s *unitSetStatusSuite) TestSetStatusUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewUnitTag("ubuntu/42")
+
+	s.applicationService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), gomock.Any()).Return(applicationerrors.UnitNotFound)
+
+	setter := common.NewUnitStatusSetter(s.entityFinder, s.applicationService, s.clock, func() (common.AuthFunc, error) {
+		return s.authFunc, nil
+	})
+	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+		Tag:    tag.String(),
+		Status: status.Executing.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+}
+
+type mockUnit struct {
+	*mocks.MockStatusSetter
+	*mocks.MockEntity
+}
+
+func (s *unitSetStatusSuite) TestSetStatus(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	tag := names.NewUnitTag("ubuntu/42")
+
+	sInfo := status.StatusInfo{
+		Status:  status.Active,
+		Message: "msg",
+		Data: map[string]interface{}{
+			"key": "value",
 		},
-		status: status.StatusInfo{
-			Status:  status.Idle,
-			Message: "unit ok",
+		Since: &s.now,
+	}
+
+	s.applicationService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), &sInfo).Return(nil)
+
+	unit := mockUnit{MockStatusSetter: mocks.NewMockStatusSetter(ctrl)}
+	unit.MockStatusSetter.EXPECT().SetStatus(sInfo).Return(nil)
+	s.entityFinder.EXPECT().FindEntity(tag).Return(unit, nil)
+
+	setter := common.NewUnitStatusSetter(s.entityFinder, s.applicationService, s.clock, func() (common.AuthFunc, error) {
+		return s.authFunc, nil
+	})
+
+	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+		Tag:    tag.String(),
+		Status: status.Active.String(),
+		Info:   "msg",
+		Data: map[string]interface{}{
+			"key": "value",
 		},
-		presence:         true,
-		shouldBeAssigned: true,
-	}
-	s.ctx = common.ModelPresenceContext{
-		Presence: agentAlive(names.NewUnitTag(s.unit.Name()).String()),
-	}
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
 }
 
-func (s *UnitStatusSuite) checkUntouched(c *gc.C) {
-	agent, workload := s.ctx.UnitStatus(context.Background(), s.unit)
-	c.Check(agent.Status, jc.DeepEquals, s.unit.agentStatus)
-	c.Check(agent.Err, jc.ErrorIsNil)
-	c.Check(workload.Status, jc.DeepEquals, s.unit.status)
-	c.Check(workload.Err, jc.ErrorIsNil)
+type unitGetStatusSuite struct {
+	unitStatusSuite
 }
 
-func (s *UnitStatusSuite) checkLost(c *gc.C) {
-	agent, workload := s.ctx.UnitStatus(context.Background(), s.unit)
-	c.Check(agent.Status, jc.DeepEquals, status.StatusInfo{
-		Status:  status.Lost,
-		Message: "agent is not communicating with the server",
+var _ = gc.Suite(&unitGetStatusSuite{})
+
+func (s *unitGetStatusSuite) TestStatusUnauthorised(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewUnitTag("ubuntu/42")
+	s.badTag = tag
+
+	getter := common.NewUnitStatusGetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+		return s.authFunc, nil
 	})
-	c.Check(agent.Err, jc.ErrorIsNil)
-	c.Check(workload.Status, jc.DeepEquals, status.StatusInfo{
-		Status:  status.Unknown,
-		Message: "agent lost, see 'juju show-status-log foo/2'",
+	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: tag.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *unitGetStatusSuite) TestStatusNotATag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	getter := common.NewUnitStatusGetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+		return s.authFunc, nil
 	})
-	c.Check(workload.Err, jc.ErrorIsNil)
+	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: "not a tag",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
-func (s *UnitStatusSuite) TestNormal(c *gc.C) {
-	s.checkUntouched(c)
-}
+func (s *unitGetStatusSuite) TestStatusNotAUnitTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-func (s *UnitStatusSuite) TestCAASNormal(c *gc.C) {
-	s.unit.shouldBeAssigned = false
-	s.ctx.Presence = agentAlive(names.NewApplicationTag(s.unit.app).String())
-	s.checkUntouched(c)
-}
+	tag := names.NewMachineTag("42")
 
-func (s *UnitStatusSuite) TestErrors(c *gc.C) {
-	s.unit.agentStatusErr = errors.New("agent status error")
-	s.unit.statusErr = errors.New("status error")
-
-	agent, workload := s.ctx.UnitStatus(context.Background(), s.unit)
-	c.Check(agent.Err, gc.ErrorMatches, "agent status error")
-	c.Check(workload.Err, gc.ErrorMatches, "status error")
-}
-
-func (s *UnitStatusSuite) TestLost(c *gc.C) {
-	s.ctx.Presence = agentDown(s.unit.Tag().String())
-	s.checkLost(c)
-}
-
-func (s *UnitStatusSuite) TestCAASLost(c *gc.C) {
-	s.unit.shouldBeAssigned = false
-	s.ctx.Presence = agentDown(names.NewApplicationTag(s.unit.app).String())
-	s.checkLost(c)
-}
-
-func (s *UnitStatusSuite) TestLostTerminated(c *gc.C) {
-	s.unit.status.Status = status.Terminated
-	s.unit.status.Message = ""
-
-	s.ctx.Presence = agentDown(s.unit.Tag().String())
-
-	agent, workload := s.ctx.UnitStatus(context.Background(), s.unit)
-	c.Check(agent.Status, jc.DeepEquals, status.StatusInfo{
-		Status:  status.Lost,
-		Message: "agent is not communicating with the server",
+	getter := common.NewUnitStatusGetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+		return s.authFunc, nil
 	})
-	c.Check(agent.Err, jc.ErrorIsNil)
-	c.Check(workload.Status, jc.DeepEquals, status.StatusInfo{
-		Status:  status.Terminated,
-		Message: "",
+	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: tag.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"machine-42" is not a valid unit tag`)
+}
+
+func (s *unitGetStatusSuite) TestStatusUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewUnitTag("ubuntu/42")
+
+	s.applicationService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(nil, applicationerrors.UnitNotFound)
+
+	getter := common.NewUnitStatusGetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+		return s.authFunc, nil
 	})
-	c.Check(workload.Err, jc.ErrorIsNil)
+	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: tag.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *UnitStatusSuite) TestCAASLostTerminated(c *gc.C) {
-	s.unit.shouldBeAssigned = false
-	s.unit.status.Status = status.Terminated
-	s.unit.status.Message = ""
+func (s *unitGetStatusSuite) TestStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-	s.ctx.Presence = agentDown(names.NewApplicationTag(s.unit.app).String())
+	tag := names.NewUnitTag("ubuntu/42")
 
-	agent, workload := s.ctx.UnitStatus(context.Background(), s.unit)
-	c.Check(agent.Status, jc.DeepEquals, status.StatusInfo{
-		Status:  status.Lost,
-		Message: "agent is not communicating with the server",
+	s.applicationService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(&status.StatusInfo{
+		Status:  status.Active,
+		Message: "msg",
+		Data: map[string]interface{}{
+			"key": "value",
+		},
+		Since: &s.now,
+	}, nil)
+
+	getter := common.NewUnitStatusGetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+		return s.authFunc, nil
 	})
-	c.Check(agent.Err, jc.ErrorIsNil)
-	c.Check(workload.Status, jc.DeepEquals, status.StatusInfo{
-		Status:  status.Terminated,
-		Message: "",
+	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: tag.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0], gc.DeepEquals, params.StatusResult{
+		Status: status.Active.String(),
+		Info:   "msg",
+		Data: map[string]interface{}{
+			"key": "value",
+		},
+		Since: &s.now,
 	})
-	c.Check(workload.Err, jc.ErrorIsNil)
-}
-func (s *UnitStatusSuite) TestLostAndDead(c *gc.C) {
-	s.ctx.Presence = agentDown(s.unit.Tag().String())
-	s.unit.life = state.Dead
-	// Status is untouched if unit is Dead.
-	s.checkUntouched(c)
-}
-
-func (s *UnitStatusSuite) TestPresenceError(c *gc.C) {
-	s.ctx.Presence = presenceError(s.unit.Tag().String())
-	// Presence error gets ignored, so no output is unchanged.
-	s.checkUntouched(c)
-}
-
-func (s *UnitStatusSuite) TestNotLostIfAllocating(c *gc.C) {
-	s.ctx.Presence = agentDown(s.unit.Tag().String())
-	s.unit.agentStatus.Status = status.Allocating
-	s.checkUntouched(c)
-}
-
-func (s *UnitStatusSuite) TestCantBeLostDuringInstall(c *gc.C) {
-	s.ctx.Presence = agentDown(s.unit.Tag().String())
-	s.unit.agentStatus.Status = status.Executing
-	s.unit.agentStatus.Message = "running install hook"
-	s.checkUntouched(c)
-}
-
-func (s *UnitStatusSuite) TestCantBeLostDuringWorkloadInstall(c *gc.C) {
-	s.ctx.Presence = agentDown(s.unit.Tag().String())
-	s.unit.status.Status = status.Maintenance
-	s.unit.status.Message = "installing charm software"
-	s.checkUntouched(c)
-}
-
-type fakeStatusUnit struct {
-	app              string
-	agentStatus      status.StatusInfo
-	agentStatusErr   error
-	status           status.StatusInfo
-	statusErr        error
-	presence         bool
-	life             state.Life
-	shouldBeAssigned bool
-}
-
-func (u *fakeStatusUnit) Name() string {
-	return u.app + "/2"
-}
-
-func (u *fakeStatusUnit) Tag() names.Tag {
-	return names.NewUnitTag(u.Name())
-}
-
-func (u *fakeStatusUnit) AgentStatus() (status.StatusInfo, error) {
-	return u.agentStatus, u.agentStatusErr
-}
-
-func (u *fakeStatusUnit) Status() (status.StatusInfo, error) {
-	return u.status, u.statusErr
-}
-
-func (u *fakeStatusUnit) Life() state.Life {
-	return u.life
-}
-
-func (u *fakeStatusUnit) ShouldBeAssigned() bool {
-	return u.shouldBeAssigned
-}
-
-func (u *fakeStatusUnit) IsSidecar() (bool, error) {
-	return false, nil
 }

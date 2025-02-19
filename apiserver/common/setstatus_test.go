@@ -48,7 +48,7 @@ func (s *statusSetterSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *statusSetterSuite) TestUnauthorized(c *gc.C) {
+func (s *statusSetterSuite) TestUnauthorised(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewMachineTag("42")
@@ -118,11 +118,9 @@ func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	entity := newMockStatusSetterEntity(ctrl)
-	entity.MockStatusSetter.EXPECT().SetStatus(status.StatusInfo{
-		Status: status.Active,
-		Since:  &s.now,
-	}).Return(nil)
+	// Calls to set the status of a unit should be going through the
+	// UnitStatusSetter, so permission denied here.
+	entity := &state.Unit{}
 
 	tag := names.NewUnitTag("wordpress/1")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
@@ -133,19 +131,19 @@ func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
+func (s *statusSetterSuite) TestSetApplicationStatus(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	// Calls to set the status of a application should be going through the
+	// Calls to set the status of an application should be going through the
 	// ApplicationStatusSetter that checks for leadership, so permission denied
 	// here.
 	entity := &state.Application{}
 
-	tag := names.NewUnitTag("wordpress/1")
+	tag := names.NewApplicationTag("wordpress")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
 
 	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{

@@ -419,11 +419,18 @@ func (s *deployerSuite) TestSetStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.makeDeployerAPI(c)
 
+	now := s.Clock.Now()
+
+	s.applicationService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("mysql/0"), &status.StatusInfo{
+		Status:  status.Blocked,
+		Message: "waiting",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	}).Return(nil)
+
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: "unit-mysql-0", Status: "blocked", Info: "waiting", Data: map[string]interface{}{"foo": "bar"}},
-			{Tag: "unit-mysql-1", Status: "blocked", Info: "waiting", Data: map[string]interface{}{"foo": "bar"}},
-			{Tag: "unit-fake-42", Status: "blocked", Info: "waiting", Data: map[string]interface{}{"foo": "bar"}},
 		},
 	}
 	results, err := s.deployer.SetStatus(context.Background(), args)
@@ -431,16 +438,6 @@ func (s *deployerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
 		},
-	})
-	sInfo, err := s.principal0.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	sInfo.Since = nil
-	c.Assert(sInfo, jc.DeepEquals, status.StatusInfo{
-		Status:  status.Blocked,
-		Message: "waiting",
-		Data:    map[string]interface{}{"foo": "bar"},
 	})
 }

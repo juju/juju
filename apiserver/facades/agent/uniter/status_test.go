@@ -21,9 +21,10 @@ import (
 
 type statusBaseSuite struct {
 	testing.StateSuite
-	leadershipChecker *fakeLeadershipChecker
-	badTag            names.Tag
-	api               *uniter.StatusAPI
+	applicationService *MockApplicationService
+	leadershipChecker  *fakeLeadershipChecker
+	badTag             names.Tag
+	api                *uniter.StatusAPI
 }
 
 func (s *statusBaseSuite) SetUpTest(c *gc.C) {
@@ -42,7 +43,7 @@ func (s *statusBaseSuite) newStatusAPI() *uniter.StatusAPI {
 	auth := func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	}
-	return uniter.NewStatusAPI(s.StateSuite.Model, auth, s.leadershipChecker, clock.WallClock)
+	return uniter.NewStatusAPI(s.StateSuite.Model, s.applicationService, auth, s.leadershipChecker, clock.WallClock)
 }
 
 type ApplicationStatusAPISuite struct {

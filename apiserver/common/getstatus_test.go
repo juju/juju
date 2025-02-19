@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 )
 
 type statusGetterSuite struct {
@@ -112,13 +113,7 @@ func (s *statusGetterSuite) TestGetUnitStatus(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	// The status has to be a valid workload status, because get status
-	// on the unit returns the workload status not the agent status as it
-	// does on a machine.
-	entity := newMockStatusGetterEntity(ctrl)
-	entity.MockStatusGetter.EXPECT().Status().Return(status.StatusInfo{
-		Status: status.Maintenance,
-	}, nil)
+	entity := &state.Unit{}
 
 	tag := names.NewUnitTag("wordpress/1")
 	s.entityFinder.EXPECT().FindEntity(tag).Return(entity, nil)
@@ -130,9 +125,7 @@ func (s *statusGetterSuite) TestGetUnitStatus(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
-	unitStatus := result.Results[0]
-	c.Assert(unitStatus.Error, gc.IsNil)
-	c.Assert(unitStatus.Status, gc.Equals, status.Maintenance.String())
+	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *statusGetterSuite) TestGetApplicationStatus(c *gc.C) {
