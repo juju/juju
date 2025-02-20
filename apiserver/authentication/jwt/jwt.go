@@ -85,13 +85,18 @@ func (j *JWTAuthenticator) Authenticate(req *http.Request) (authentication.AuthI
 		return authentication.AuthInfo{}, errors.NotFoundf("authorization header missing")
 	}
 
-	parts := strings.Fields(authHeader)
-	if len(parts) != 2 || parts[0] != "Bearer" {
+	authScheme, rest, spaceFound := strings.Cut(authHeader, " ")
+	if !spaceFound || authScheme != "Bearer" {
+		// Invalid header format or no header provided.
+		return authentication.AuthInfo{}, errors.NotFoundf("authorization header format")
+	}
+	rawToken, _, spaceFound := strings.Cut(rest, " ")
+	if spaceFound {
 		// Invalid header format or no header provided.
 		return authentication.AuthInfo{}, errors.NotFoundf("authorization header format")
 	}
 
-	token, entity, err := j.Parse(req.Context(), parts[1])
+	token, entity, err := j.Parse(req.Context(), rawToken)
 	if err != nil {
 		return authentication.AuthInfo{}, fmt.Errorf("parsing jwt: %w", err)
 	}
