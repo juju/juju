@@ -309,8 +309,9 @@ WHERE uuid IN ($uuids[:])`, resUUIDs)
 	return nil
 }
 
-// GetApplicationResourceID returns the ID of the application resource
-// specified by natural key of application and resource name.
+// GetApplicationResourceID returns the ID of the application resource specified
+// by natural key of application and resource name. Only resources with state
+// available will be returned, not state potential.
 func (st *State) GetApplicationResourceID(
 	ctx context.Context,
 	args resource.GetApplicationResourceIDArgs,
@@ -330,9 +331,10 @@ func (st *State) GetApplicationResourceID(
 	// Prepare the SQL statement to retrieve the resource UUID.
 	stmt, err := st.Prepare(`
 SELECT uuid as &resourceIdentity.uuid 
-FROM v_application_resource
-WHERE name = $resourceIdentity.name 
-AND application_uuid = $resourceIdentity.application_uuid
+FROM   v_application_resource
+WHERE  name = $resourceIdentity.name 
+AND    application_uuid = $resourceIdentity.application_uuid
+AND    state = 'available'
 `, resource)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -353,7 +355,8 @@ AND application_uuid = $resourceIdentity.application_uuid
 }
 
 // GetResourceUUIDByApplicationAndResourceName returns the ID of the application
-// resource specified by natural key of application and resource name.
+// resource specified by natural key of application and resource name. Only
+// resources with state available will be returned, not state potential.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ApplicationNotFound] is returned if the application is
@@ -386,6 +389,7 @@ JOIN   application_resource ar ON r.uuid = ar.resource_uuid
 JOIN   application a           ON ar.application_uuid = a.uuid
 WHERE  r.charm_resource_name = $resourceAndAppName.resource_name 
 AND    a.name = $resourceAndAppName.application_name
+AND    r.state_id = 0 -- Only check available resources, not potential.
 `, names, uuid)
 	if err != nil {
 		return "", errors.Capture(err)
