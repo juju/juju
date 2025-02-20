@@ -2231,7 +2231,7 @@ func (st *State) getResourceToSet(typeIDs typeIDs, charmID corecharm.ID, res res
 		return setResource{}, "", errors.Capture(err)
 	}
 	revision := (*int)(nil)
-	if res.Revision > 0 {
+	if res.Revision >= 0 {
 		revision = &res.Revision
 	}
 	return setResource{

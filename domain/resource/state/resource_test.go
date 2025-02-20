@@ -2712,6 +2712,10 @@ func (s *resourceSuite) TestImportResourcesOnLocalCharm(c *gc.C) {
 	s.checkRepoResourceNotSet(c, charmUUID, setRes)
 }
 
+// TestImportResourcesUnitResourceNotMatchingApplicationResources checks that we
+// correctly import unit resources that have a revision and origin that do not
+// match those of the application resource with the same name. These should have
+// a row in the resource table created for them that the unit resource links to.
 func (s *resourceSuite) TestImportResourcesUnitResourceNotMatchingApplicationResources(c *gc.C) {
 	// Arrange: Add charm resources for the resources we are going to set.
 	resName := "resource-name"
@@ -2733,6 +2737,7 @@ func (s *resourceSuite) TestImportResourcesUnitResourceNotMatchingApplicationRes
 		ImportResourceInfo: resource.ImportResourceInfo{
 			Name:      resName,
 			Origin:    charmresource.OriginUpload,
+			Revision:  -1,
 			Timestamp: time.Now().Truncate(time.Second).UTC(),
 		},
 	}

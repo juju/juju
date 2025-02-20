@@ -229,7 +229,7 @@ func (v *deployFromRepositoryValidator) resolveResources(
 	result := make(applicationservice.ResolvedResources, 0, len(resolvedResources))
 	for _, res := range resolvedResources {
 		var revision *int
-		if res.Revision > 0 {
+		if res.Revision >= 0 {
 			revision = &res.Revision
 		}
 		result = append(result, applicationservice.ResolvedResource{
