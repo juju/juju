@@ -311,8 +311,6 @@ func (s *OpenerSuite) expectServiceMethods(
 			RetrievedByType: retrevedByType,
 			Size:            s.resourceSize,
 			Fingerprint:     s.resourceFingerprint,
-			Origin:          charmresource.OriginStore,
-			Revision:        s.resourceRevision,
 		},
 	)
 

@@ -167,8 +167,6 @@ func (h *ResourceHandler) upload(service ResourceService, req *http.Request, use
 			RetrievedByType: coreresource.User,
 			Size:            uploaded.size,
 			Fingerprint:     uploaded.fingerprint,
-			Origin:          charmresource.OriginUpload,
-			Revision:        -1,
 		},
 	)
 	if err != nil {
