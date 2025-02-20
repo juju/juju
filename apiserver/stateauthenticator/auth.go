@@ -221,15 +221,19 @@ func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 		return params.LoginRequest{Macaroons: macaroons}, nil
 	}
 
-	parts := strings.Fields(authHeader)
-	if len(parts) != 2 || parts[0] != "Basic" {
+	authScheme, rest, spaceFound := strings.Cut(authHeader, " ")
+	if !spaceFound || authScheme != "Basic" {
 		// Invalid header format or no header provided.
 		return params.LoginRequest{}, errors.NotValidf("request format")
 	}
-
+	b64Challenge, _, spaceFound := strings.Cut(rest, " ")
+	if spaceFound {
+		// Invalid header format or no header provided.
+		return params.LoginRequest{}, errors.NotValidf("request format")
+	}
 	// Challenge is a base64-encoded "tag:pass" string.
 	// See RFC 2617, Section 2.
-	challenge, err := base64.StdEncoding.DecodeString(parts[1])
+	challenge, err := base64.StdEncoding.DecodeString(b64Challenge)
 	if err != nil {
 		return params.LoginRequest{}, errors.NotValidf("request format")
 	}
