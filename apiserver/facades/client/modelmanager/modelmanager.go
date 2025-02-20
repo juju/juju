@@ -37,7 +37,6 @@ import (
 	environsContext "github.com/juju/juju/environs/envcontext"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -553,16 +552,13 @@ Please choose a different model name.
 		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
 	}
 
-	storageProviderRegistry := provider.NewStorageProviderRegistry(broker)
-
 	model, st, err := m.state.NewModel(state.ModelArgs{
-		Type:                    state.ModelTypeCAAS,
-		CloudName:               cloudTag.Id(),
-		CloudRegion:             cloudRegionName,
-		CloudCredential:         cloudCredentialTag,
-		Config:                  newConfig,
-		Owner:                   ownerTag,
-		StorageProviderRegistry: storageProviderRegistry,
+		Type:            state.ModelTypeCAAS,
+		CloudName:       cloudTag.Id(),
+		CloudRegion:     cloudRegionName,
+		CloudCredential: cloudCredentialTag,
+		Config:          newConfig,
+		Owner:           ownerTag,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create new model")
@@ -601,20 +597,18 @@ func (m *ModelManagerAPI) newIAASModel(
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create environ")
 	}
-	storageProviderRegistry := provider.NewStorageProviderRegistry(env)
 
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
 	model, st, err := m.state.NewModel(state.ModelArgs{
-		Type:                    state.ModelTypeIAAS,
-		CloudName:               cloudTag.Id(),
-		CloudRegion:             cloudRegionName,
-		CloudCredential:         cloudCredentialTag,
-		Config:                  newConfig,
-		Owner:                   ownerTag,
-		StorageProviderRegistry: storageProviderRegistry,
-		EnvironVersion:          env.Provider().Version(),
+		Type:            state.ModelTypeIAAS,
+		CloudName:       cloudTag.Id(),
+		CloudRegion:     cloudRegionName,
+		CloudCredential: cloudCredentialTag,
+		Config:          newConfig,
+		Owner:           ownerTag,
+		EnvironVersion:  env.Provider().Version(),
 	})
 	if err != nil {
 		// Clean up the environ.
