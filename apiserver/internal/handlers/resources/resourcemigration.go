@@ -125,12 +125,31 @@ func (h *resourcesMigrationUploadHandler) processPost(
 		return empty, internalerrors.Errorf("extracting resource details from request: %w", err)
 	}
 
+	// Check that the resource associated with the UUID has the expected Origin
+	// and revision, to prevent updating the blob of another revision or origin
+	// that may have been updated between the start of the http call and the
+	// retrieval of resource UUID from application name and resource name.
+	res, err := resourceService.GetResource(ctx, resUUID)
+	if err != nil {
+		return empty, internalerrors.Errorf("getting resource %s on application %s: %w", appName,
+			resourceName, err)
+	}
+	if res.Origin != details.origin || (res.Origin != charmresource.OriginUpload && res.Revision != details.revision) {
+		// In this case, we won't interrupt migration, because the user will
+		// be able to recover after the migration. However, we log an error in
+		// order to make it notice something get wrong and why.
+		h.logger.Errorf(ctx, "resource upload failed: resource %s on application %s has unexpected origin or revision: %s != %s, %d != %d",
+			appName, resourceName, res.Origin, details.origin, res.Revision, details.revision,
+		)
+		return res, nil
+	}
+	retrievedBy, retrievedByType := determineRetrievedBy(query)
+
 	reader, err := h.downloader.Download(r.Context(), r.Body, details.fingerprint.String(), details.size)
 	if err != nil {
 		return empty, internalerrors.Errorf("validating resource size and hash: %w", err)
 	}
 
-	retrievedBy, retrievedByType := determineRetrievedBy(query)
 	err = resourceService.StoreResource(ctx, resource.StoreResourceArgs{
 		ResourceUUID:    resUUID,
 		Reader:          reader,
@@ -138,8 +157,6 @@ func (h *resourcesMigrationUploadHandler) processPost(
 		RetrievedByType: retrievedByType,
 		Size:            details.size,
 		Fingerprint:     details.fingerprint,
-		Origin:          details.origin,
-		Revision:        details.revision,
 	})
 	if err != nil {
 		return empty, internalerrors.Capture(err)
