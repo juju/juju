@@ -18,9 +18,12 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/virtualhostname"
 	jujussh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/rpc/params"
 )
+
+type embeddedAuthenticationContextKey struct{}
 
 // ServerWorkerConfig holds the configuration required by the server worker.
 type ServerWorkerConfig struct {
@@ -91,6 +94,12 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	s.Server = &ssh.Server{
 		ConnCallback: s.connCallback(),
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
+			// Delay the authentication to the embedded server.
+			// In Juju 3.6, public keys are associated with models rather than users,
+			// making it impossible to perform the authentication check at this point.
+			// Therefore, we delay the authentication until we instantiate the embedded server,
+			// at which point we have the destination model UUID.
+			ctx.SetValue(embeddedAuthenticationContextKey{}, true)
 			return true
 		},
 		PasswordHandler: func(ctx ssh.Context, password string) bool {
@@ -184,14 +193,14 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		}
 		return
 	}
-
-	signer, err := s.hostKeySignerForTarget(d.DestAddr)
+	info, err := virtualhostname.Parse(d.DestAddr)
 	if err != nil {
-		s.config.Logger.Errorf("failed to get host key signer for target %q: %v", d.DestAddr, err)
-		err := newChan.Reject(gossh.ConnectionFailed, fmt.Sprintf("Failed to get host key for target %s", d.DestAddr))
-		if err != nil {
-			s.config.Logger.Errorf("failed to reject channel: %v", err)
-		}
+		s.rejectChannel(newChan, "Failed to parse destination address")
+		return
+	}
+	signer, err := s.hostKeySignerForTarget(info.String())
+	if err != nil {
+		s.rejectChannel(newChan, "Failed to get host key")
 		return
 	}
 
@@ -230,11 +239,40 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 
 		return nil
 	})
+
+	// either if the value is set to false or not set the embedded authentication is disabled.
+	embeddedAuthentication, _ := ctx.Value(embeddedAuthenticationContextKey{}).(bool)
+	server := s.newEmbeddedSSHServer(embeddedAuthentication, info.ModelUUID())
+
+	server.AddHostKey(signer)
+	server.HandleConn(terminatingServerPipe)
+}
+
+// newEmbeddedSSHServer creates the embedded server to jump the connection. If
+// embeddedAuth is set to true, it will setup the PublicKeyHandler to authenticate
+// requests going to destinationModelUUID.
+func (s *ServerWorker) newEmbeddedSSHServer(embeddedAuth bool, destinationModelUUID string) *ssh.Server {
 	forwardHandler := &ssh.ForwardedTCPHandler{}
-	server := &ssh.Server{
-		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
+
+	var publicKeyHandler func(ctx ssh.Context, key ssh.PublicKey) bool
+
+	if embeddedAuth {
+		publicKeyHandler = func(ctx ssh.Context, key ssh.PublicKey) bool {
+			sshPkiAuthArgs := params.VerifyPublicKeyArgs{
+				PublicKey: key.Marshal(),
+				ModelUUID: destinationModelUUID,
+			}
+			err := s.config.FacadeClient.VerifyPublicKey(sshPkiAuthArgs)
+			if err != nil {
+				s.config.Logger.Errorf("failed to authenticate user: %v", err)
+				return false
+			}
 			return true
-		},
+		}
+	}
+
+	return &ssh.Server{
+		PublicKeyHandler: publicKeyHandler,
 		LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, dhost string, dport uint32) bool {
 			return true
 		}),
@@ -251,12 +289,9 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 			"cancel-tcpip-forward": forwardHandler.HandleSSHRequest,
 		},
 		Handler: func(s ssh.Session) {
-			_, _ = s.Write([]byte(fmt.Sprintf("Your final destination is: %s as user: %s\n", d.DestAddr, s.User())))
+			_, _ = s.Write([]byte(fmt.Sprintf("Your final destination is: %s as user: %s\n", destinationModelUUID, s.User())))
 		},
 	}
-
-	server.AddHostKey(signer)
-	server.HandleConn(terminatingServerPipe)
 }
 
 // hostKeySignerForTarget returns a signer for the target hostname, by calling the facade client.
@@ -310,5 +345,12 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 func (s *ServerWorker) Report() map[string]any {
 	return map[string]any{
 		"concurrent_connections": s.concurrentConnections.Load(),
+	}
+}
+
+func (s *ServerWorker) rejectChannel(newChan gossh.NewChannel, reason string) {
+	err := newChan.Reject(gossh.ConnectionFailed, reason)
+	if err != nil {
+		s.config.Logger.Errorf("failed to reject channel: %v", err)
 	}
 }

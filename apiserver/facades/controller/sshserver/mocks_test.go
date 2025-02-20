@@ -41,6 +41,21 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
+// AuthorizedKeysForModel mocks base method.
+func (m *MockBackend) AuthorizedKeysForModel(arg0 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AuthorizedKeysForModel", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AuthorizedKeysForModel indicates an expected call of AuthorizedKeysForModel.
+func (mr *MockBackendMockRecorder) AuthorizedKeysForModel(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizedKeysForModel", reflect.TypeOf((*MockBackend)(nil).AuthorizedKeysForModel), arg0)
+}
+
 // ControllerConfig mocks base method.
 func (m *MockBackend) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()

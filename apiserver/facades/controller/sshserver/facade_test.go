@@ -4,8 +4,13 @@
 package sshserver_test
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+
+	"github.com/gliderlabs/ssh"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
+	gossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/sshserver"
@@ -110,4 +115,71 @@ func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
 	key, err := f.HostKeyForTarget(params.SSHHostKeyRequestArg{Hostname: "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(key, gc.DeepEquals, params.SSHHostKeyResult{HostKey: []byte("hostkey")})
+}
+
+func (s *sshserverSuite) TestSSHAuthentication(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	k, err := rsa.GenerateKey(rand.Reader, 2048)
+	c.Assert(err, gc.IsNil)
+	authKeys1, err := gossh.NewSignerFromKey(k)
+	c.Assert(err, gc.IsNil)
+
+	k, err = rsa.GenerateKey(rand.Reader, 2048)
+	c.Assert(err, gc.IsNil)
+	authKeys2, err := gossh.NewSignerFromKey(k)
+	c.Assert(err, gc.IsNil)
+
+	s.ctxMock.EXPECT().Resources().Times(1)
+	s.backendMock.EXPECT().AuthorizedKeysForModel("abcd").Return(
+		[]string{string(authKeys1.PublicKey().Marshal())}, nil).Times(2)
+
+	s.backendMock.EXPECT().AuthorizedKeysForModel("not-existing").Return(
+		[]string{""}, nil)
+
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
+
+	testCases := []struct {
+		name            string
+		userKey         ssh.PublicKey
+		modelUUID       string
+		expectedSuccess bool
+		expectedError   string
+	}{
+		{
+			name:            "test for key added to a model",
+			modelUUID:       "abcd",
+			userKey:         authKeys1.PublicKey(),
+			expectedSuccess: true,
+		},
+		{
+			name:            "test for key not added to model",
+			modelUUID:       "abcd",
+			userKey:         authKeys2.PublicKey(),
+			expectedSuccess: false,
+			expectedError:   "matching public key not found",
+		},
+		{
+			name:            "test for not-existing model",
+			modelUUID:       "not-existing",
+			userKey:         authKeys1.PublicKey(),
+			expectedSuccess: false,
+			expectedError:   "matching public key not found",
+		},
+	}
+
+	for _, tc := range testCases {
+		c.Logf("test: %s", tc.name)
+		publicKeyToVerify := params.VerifyPublicKeyArgs{
+			PublicKey: tc.userKey.Marshal(),
+			ModelUUID: tc.modelUUID,
+		}
+		results, err := f.VerifyPublicKey(publicKeyToVerify)
+		if tc.expectedSuccess {
+			c.Assert(err, gc.IsNil)
+		} else {
+			c.Assert(results.Error, gc.ErrorMatches, tc.expectedError)
+		}
+	}
 }

@@ -86,6 +86,20 @@ func (mr *MockFacadeClientMockRecorder) SSHServerHostKey() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SSHServerHostKey", reflect.TypeOf((*MockFacadeClient)(nil).SSHServerHostKey))
 }
 
+// VerifyPublicKey mocks base method.
+func (m *MockFacadeClient) VerifyPublicKey(arg0 params.VerifyPublicKeyArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VerifyPublicKey", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// VerifyPublicKey indicates an expected call of VerifyPublicKey.
+func (mr *MockFacadeClientMockRecorder) VerifyPublicKey(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyPublicKey", reflect.TypeOf((*MockFacadeClient)(nil).VerifyPublicKey), arg0)
+}
+
 // WatchControllerConfig mocks base method.
 func (m *MockFacadeClient) WatchControllerConfig() (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
