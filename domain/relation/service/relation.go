@@ -27,9 +27,9 @@ type State interface {
 	// relation endpoint based on the provided arguments.
 	GetRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (corerelation.EndpointUUID, error)
 
-	// WatchRelationApplicationSettingTable provides the table name to set up
+	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
-	WatchRelationApplicationSettingTable() string
+	WatcherApplicationSettingsNamespace() string
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -307,7 +307,7 @@ func (s *WatchableService) WatchApplicationSettings(
 		return nil, internalerrors.Capture(internalerrors.Errorf("watch application settings: %w", err))
 	}
 	return s.watcherFactory.NewValueWatcher(
-		s.st.WatchRelationApplicationSettingTable(), relationEndpointUUID.String(),
+		s.st.WatcherApplicationSettingsNamespace(), relationEndpointUUID.String(),
 		changestream.All)
 }
 

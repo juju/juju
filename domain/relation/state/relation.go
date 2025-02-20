@@ -98,8 +98,8 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 			if len(errs) > 0 {
 				return errors.Join(errs...)
 			}
-			return fmt.Errorf("%w: relationUUID is %s, applicationID is %s", relationerrors.RelationEndpointNotFound,
-				args.RelationUUID, args.ApplicationID)
+			return fmt.Errorf("relationUUID %q with applicationID %q: %w",
+				args.RelationUUID, args.ApplicationID, relationerrors.RelationEndpointNotFound)
 		}
 		return errors.Capture(err)
 	})
@@ -107,7 +107,9 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 	return corerelation.EndpointUUID(relationEndpoint.UUID), errors.Capture(err)
 }
 
-func (st *State) WatchRelationApplicationSettingTable() string {
+// WatcherApplicationSettingsNamespace returns the namespace string used for
+// tracking application settings in the database.
+func (st *State) WatcherApplicationSettingsNamespace() string {
 	return "relation_application_setting"
 }
 
