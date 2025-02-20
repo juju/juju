@@ -14,6 +14,7 @@ import (
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	"github.com/juju/worker/v3"
 	gossh "golang.org/x/crypto/ssh"
 	"gopkg.in/tomb.v2"
@@ -26,12 +27,17 @@ type ServerWorkerConfig struct {
 	// the server on a pre-existing listener, you can provide it here. Otherwise,
 	// leave this value nil and a listener will be spawned.
 	Listener net.Listener
+
+	Authenticator Authenticator
 }
 
 // Validate validates the workers configuration is as expected.
 func (c ServerWorkerConfig) Validate() error {
 	if c.Logger == nil {
 		return errors.NotValidf("Logger is required")
+	}
+	if c.Authenticator == nil {
+		return errors.NotValidf("Authenticator is required")
 	}
 	return nil
 }
@@ -56,7 +62,11 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	s := &ServerWorker{config: config}
 	s.Server = &ssh.Server{
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
-			return true
+			if !names.IsValidUserName(ctx.User()) {
+				s.config.Logger.Errorf("username not valid")
+				return false
+			}
+			return s.config.Authenticator.PublicKeyAuthentication(names.NewUserTag(ctx.User()), key)
 		},
 		PasswordHandler: func(ctx ssh.Context, password string) bool {
 			return true

@@ -23,12 +23,14 @@ var _ = gc.Suite(&workerSuite{})
 func newServerWrapperWorkerConfig(
 	l *mocks.MockLogger,
 	s *mocks.MockSystemState,
+	a *mocks.MockAuthenticator,
 	modifier func(*sshserver.ServerWrapperWorkerConfig),
 ) *sshserver.ServerWrapperWorkerConfig {
 	cfg := &sshserver.ServerWrapperWorkerConfig{
 		NewServerWorker: func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:          l,
 		SystemState:     s,
+		Authenticator:   a,
 	}
 
 	modifier(cfg)
@@ -42,14 +44,16 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 
 	mockLogger := mocks.NewMockLogger(ctrl)
 	mockSystemState := mocks.NewMockSystemState(ctrl)
+	mockAuthenticator := mocks.NewMockAuthenticator(ctrl)
 
-	cfg := newServerWrapperWorkerConfig(mockLogger, mockSystemState, func(cfg *sshserver.ServerWrapperWorkerConfig) {})
+	cfg := newServerWrapperWorkerConfig(mockLogger, mockSystemState, mockAuthenticator, func(cfg *sshserver.ServerWrapperWorkerConfig) {})
 	c.Assert(cfg.Validate(), gc.IsNil)
 
 	// Test no Logger.
 	cfg = newServerWrapperWorkerConfig(
 		mockLogger,
 		mockSystemState,
+		mockAuthenticator,
 		func(cfg *sshserver.ServerWrapperWorkerConfig) {
 			cfg.Logger = nil
 		},
@@ -60,8 +64,20 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	cfg = newServerWrapperWorkerConfig(
 		mockLogger,
 		mockSystemState,
+		mockAuthenticator,
 		func(cfg *sshserver.ServerWrapperWorkerConfig) {
 			cfg.SystemState = nil
+		},
+	)
+	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+
+	// Test no SystemState.
+	cfg = newServerWrapperWorkerConfig(
+		mockLogger,
+		mockSystemState,
+		mockAuthenticator,
+		func(cfg *sshserver.ServerWrapperWorkerConfig) {
+			cfg.Authenticator = nil
 		},
 	)
 	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
@@ -70,6 +86,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	cfg = newServerWrapperWorkerConfig(
 		mockLogger,
 		mockSystemState,
+		mockAuthenticator,
 		func(cfg *sshserver.ServerWrapperWorkerConfig) {
 			cfg.NewServerWorker = nil
 		},
@@ -83,6 +100,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 
 	mockLogger := mocks.NewMockLogger(ctrl)
 	mockSystemState := mocks.NewMockSystemState(ctrl)
+	mockAuthenticator := mocks.NewMockAuthenticator(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
 	defer workertest.DirtyKill(c, serverWorker)
@@ -94,8 +112,9 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	mockSystemState.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher)
 
 	cfg := sshserver.ServerWrapperWorkerConfig{
-		SystemState: mockSystemState,
-		Logger:      mockLogger,
+		Logger:        mockLogger,
+		SystemState:   mockSystemState,
+		Authenticator: mockAuthenticator,
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
@@ -124,6 +143,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 
 	mockLogger := mocks.NewMockLogger(ctrl)
 	mockSystemState := mocks.NewMockSystemState(ctrl)
+	mockAuthenticator := mocks.NewMockAuthenticator(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
 	defer workertest.DirtyKill(c, serverWorker)
@@ -136,8 +156,9 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 
 	startCounter := 0
 	cfg := sshserver.ServerWrapperWorkerConfig{
-		SystemState: mockSystemState,
-		Logger:      mockLogger,
+		Logger:        mockLogger,
+		SystemState:   mockSystemState,
+		Authenticator: mockAuthenticator,
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
 			startCounter++
 			return serverWorker, nil

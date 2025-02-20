@@ -4,7 +4,9 @@
 package sshserver
 
 import (
+	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
@@ -17,9 +19,15 @@ type SystemState interface {
 	WatchControllerConfig() state.NotifyWatcher
 }
 
+// Authenticator is the interface with the method to authorize ssh connections.
+type Authenticator interface {
+	PublicKeyAuthentication(userTag names.UserTag, publicKey ssh.PublicKey) bool
+}
+
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
 type ServerWrapperWorkerConfig struct {
 	SystemState     SystemState
+	Authenticator   Authenticator
 	NewServerWorker func(ServerWorkerConfig) (worker.Worker, error)
 	Logger          Logger
 }
@@ -28,6 +36,9 @@ type ServerWrapperWorkerConfig struct {
 func (c ServerWrapperWorkerConfig) Validate() error {
 	if c.SystemState == nil {
 		return errors.NotValidf("SystemState is required")
+	}
+	if c.Authenticator == nil {
+		return errors.NotValidf("Authorizer is required")
 	}
 	if c.NewServerWorker == nil {
 		return errors.NotValidf("NewSSHServer is required")
@@ -84,12 +95,12 @@ func (ssw *serverWrapperWorker) Wait() error {
 // and listens for changes in the controller configuration.
 func (ssw *serverWrapperWorker) loop() error {
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
-		Logger: ssw.config.Logger,
+		Logger:        ssw.config.Logger,
+		Authenticator: ssw.config.Authenticator,
 	})
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if err := ssw.catacomb.Add(srv); err != nil {
 		return errors.Trace(err)
 	}
@@ -117,7 +128,8 @@ func (ssw *serverWrapperWorker) loop() error {
 
 			// Start the server again.
 			srv, err = ssw.config.NewServerWorker(ServerWorkerConfig{
-				Logger: ssw.config.Logger,
+				Logger:        ssw.config.Logger,
+				Authenticator: ssw.config.Authenticator,
 			})
 			if err != nil {
 				return errors.Trace(err)
