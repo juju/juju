@@ -1278,6 +1278,41 @@ ORDER BY array_index ASC;
 	return result, nil
 }
 
+// checkUnitNotDead checks if the unit exists and is not dead. It's possible to
+// access alive and dying units, but not dead ones:
+// - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
+// - If the unit is dead, [applicationerrors.UnitIsDead] is returned.
+func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, ident unitUUID) error {
+	type life struct {
+		LifeID domainlife.Life `db:"life_id"`
+	}
+
+	query := `
+SELECT &life.*
+FROM unit
+WHERE uuid = $unitUUID.uuid;
+`
+	stmt, err := st.Prepare(query, ident, life{})
+	if err != nil {
+		return internalerrors.Errorf("preparing query for unit %q: %w", ident.UnitUUID, err)
+	}
+
+	var result life
+	err = tx.Query(ctx, stmt, ident).Get(&result)
+	if errors.Is(err, sql.ErrNoRows) {
+		return applicationerrors.UnitNotFound
+	} else if err != nil {
+		return internalerrors.Errorf("checking unit %q exists: %w", ident.UnitUUID, err)
+	}
+
+	switch result.LifeID {
+	case domainlife.Dead:
+		return applicationerrors.UnitIsDead
+	default:
+		return nil
+	}
+}
+
 // checkApplicationNameAvailable checks if the application name is available.
 // If the application name is available, nil is returned. If the application
 // name is not available, [applicationerrors.ApplicationAlreadyExists] is
@@ -1306,23 +1341,27 @@ WHERE name = $applicationDetails.name
 	return nil
 }
 
-// checkApplicationExists checks if the application exists and is not dead. It's
-// possible to access alive and dying applications, but not dead ones. If the
-// application is dead, [applicationerrors.ApplicationIsDead] is returned. If
-// the application is not found, [applicationerrors.ApplicationNotFound] is
-// returned.
-func (st *State) checkApplicationExists(ctx context.Context, tx *sqlair.TX, ident applicationID) error {
+// checkApplicationNotDead checks if the application exists and is not dead. It's
+// possible to access alive and dying applications, but not dead ones.
+//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
+//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+//     is returned.
+func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, ident applicationID) error {
+	type life struct {
+		LifeID domainlife.Life `db:"life_id"`
+	}
+
 	query := `
-SELECT &applicationLife.*
+SELECT &life.*
 FROM application
 WHERE uuid = $applicationID.uuid;
 `
-	stmt, err := st.Prepare(query, ident, applicationLife{})
+	stmt, err := st.Prepare(query, ident, life{})
 	if err != nil {
 		return internalerrors.Errorf("preparing query for application %q: %w", ident.ID, err)
 	}
 
-	var result applicationLife
+	var result life
 	err = tx.Query(ctx, stmt, ident).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
 		return applicationerrors.ApplicationNotFound

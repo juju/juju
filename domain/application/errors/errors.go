@@ -80,6 +80,10 @@ const (
 	// a unit that is not alive.
 	UnitNotAlive = errors.ConstError("unit is not alive")
 
+	// UnitIsDead describes an error that occurs when trying to access
+	// an application that is dead.
+	UnitIsDead = errors.ConstError("unit is dead")
+
 	// InvalidApplicationState describes an error where the application state is
 	// invalid. There are missing required fields.
 	InvalidApplicationState = errors.ConstError("invalid application state")

@@ -1687,7 +1687,25 @@ func (s *applicationStateSuite) TestSetUnitAgentStatus(c *gc.C) {
 		c, "unit_agent", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
 }
 
-func (s *applicationStateSuite) TestSetWorkloadStatus(c *gc.C) {
+func (s *applicationStateSuite) TestGetUnitWorkloadStatusUnitNotFound(c *gc.C) {
+	_, err := s.state.GetUnitWorkloadStatus(context.Background(), "missing-uuid")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *applicationStateSuite) TestGetUnitWorkloadStatusDead(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Dead, u1)
+
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitIsDead)
+}
+
+func (s *applicationStateSuite) TestGetUnitWorkloadStatusUnsetStatus(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
@@ -1698,6 +1716,16 @@ func (s *applicationStateSuite) TestSetWorkloadStatus(c *gc.C) {
 
 	_, err = s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitStatusNotFound)
+}
+
+func (s *applicationStateSuite) TestSetWorkloadStatus(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
 
 	status := &application.StatusInfo[application.WorkloadStatusType]{
 		Status:  application.WorkloadStatusActive,
@@ -1753,6 +1781,24 @@ func (s *applicationStateSuite) TestGetUnitCloudContainerStatusUnset(c *gc.C) {
 
 	_, err = s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitStatusNotFound)
+}
+
+func (s *applicationStateSuite) TestGetUnitCloudContainerStatusUnitNotFound(c *gc.C) {
+	_, err := s.state.GetUnitCloudContainerStatus(context.Background(), "missing-uuid")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *applicationStateSuite) TestGetUnitCloudContainerStatusDead(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Dead, u1)
+
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitIsDead)
 }
 
 func (s *applicationStateSuite) TestGetUnitCloudContainerStatus(c *gc.C) {

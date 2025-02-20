@@ -43,11 +43,6 @@ type applicationIDAndLife struct {
 	LifeID life.Life          `db:"life_id"`
 }
 
-// applicationLife is used to get the life of an application.
-type applicationLife struct {
-	LifeID life.Life `db:"life_id"`
-}
-
 type applicationChannel struct {
 	ApplicationID coreapplication.ID `db:"application_uuid"`
 	Track         string             `db:"track"`
