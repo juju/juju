@@ -312,7 +312,9 @@ func (s *State) GetModelType(ctx context.Context, uuid coremodel.UUID) (coremode
 	return modelType, nil
 }
 
-// GetControllerModel returns the model the controller is running in.
+// GetControllerModel returns the model the controller is running in. If no
+// controller model exists then an error satisfying [modelerrors.NotFound] is
+// returned.
 func (s *State) GetControllerModel(ctx context.Context) (coremodel.Model, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -332,11 +334,9 @@ FROM   controller
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).Get(&controllerModelUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			// If there is no controller model, something has gone terribly
-			// wrong. There is no point making this a modelerrors.NotFound type
-			// as that implies the error is catchable and something can be done
-			// about it, this is not the case.
-			return errors.New("controller model not found")
+			return errors.New("no controller model exists").Add(
+				modelerrors.NotFound,
+			)
 		} else if err != nil {
 			return errors.Capture(err)
 		}
@@ -1054,7 +1054,7 @@ func (s *State) ListModelSummariesForUser(ctx context.Context, userName user.Nam
 SELECT    (p.access_type, m.uuid, m.name, m.cloud_name, m.cloud_region_name, 
           m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name, 
           m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
-          m.life, mll.time) AS (&dbModelSummary.*)
+          m.life, mll.time, m.is_controller_model) AS (&dbModelSummary.*)
 FROM      v_user_auth u
 JOIN      v_permission p ON p.grant_to = u.uuid
 JOIN      v_model m ON m.uuid = p.grant_on
@@ -1068,11 +1068,14 @@ AND       u.name = $dbUserName.name
 		return nil, errors.Capture(err)
 	}
 
-	controllerInfo := dbController{}
+	type controllerUUID struct {
+		UUID string `db:"uuid"`
+	}
+
+	cu := controllerUUID{}
 	controllerUUIDstmt, err := s.Prepare(`
-SELECT &dbController.*
-FROM controller
-`, controllerInfo)
+SELECT &controllerUUID.* FROM controller
+`, cu)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1086,11 +1089,10 @@ FROM controller
 			return errors.Capture(err)
 		}
 
-		err = tx.Query(ctx, controllerUUIDstmt).Get(&controllerInfo)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// If this happens something is very wrong.
-			return errors.New("controller uuid not found")
-		} else if err != nil {
+		err = tx.Query(ctx, controllerUUIDstmt).Get(&cu)
+		// We don't care about no rows here. We hare fine with the controller
+		// values being empty or not set.
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
 		return nil
@@ -1101,7 +1103,7 @@ FROM controller
 
 	modelSummaries := make([]coremodel.UserModelSummary, len(models))
 	for i, m := range models {
-		modelSummaries[i], err = m.decodeUserModelSummary(controllerInfo)
+		modelSummaries[i], err = m.decodeUserModelSummary(cu.UUID)
 		if err != nil {
 			return nil, errors.Errorf("getting model summaries for user: %w", err)
 		}
@@ -1127,18 +1129,21 @@ func (s *State) ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSum
 SELECT    (m.uuid, m.name, m.cloud_name, m.cloud_region_name, 
           m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name, 
           m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
-          m.life) AS (&dbModelSummary.*)
+          m.life, m.is_controller_model) AS (&dbModelSummary.*)
 FROM      v_model m 
 `, dbModelSummary{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	controllerInfo := dbController{}
+	type controllerUUID struct {
+		UUID string `db:"uuid"`
+	}
+
+	cu := controllerUUID{}
 	controllerUUIDstmt, err := s.Prepare(`
-SELECT &dbController.*
-FROM controller
-`, controllerInfo)
+SELECT &controllerUUID.* FROM controller
+`, cu)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1146,19 +1151,17 @@ FROM controller
 	var models []dbModelSummary
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, modelStmt).GetAll(&models)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return modelerrors.NotFound
-		} else if err != nil {
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
 
-		err = tx.Query(ctx, controllerUUIDstmt).Get(&controllerInfo)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// If this happens something is very wrong.
-			return errors.New("controller uuid not found")
-		} else if err != nil {
+		err = tx.Query(ctx, controllerUUIDstmt).Get(&cu)
+		// We don't care about no rows here. We hare fine with the controller
+		// values being empty or not set.
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
+
 		return nil
 	})
 	if err != nil {
@@ -1167,9 +1170,9 @@ FROM controller
 
 	modelSummaries := make([]coremodel.ModelSummary, len(models))
 	for i, m := range models {
-		modelSummaries[i], err = m.decodeModelSummary(controllerInfo)
+		modelSummaries[i], err = m.decodeModelSummary(cu.UUID)
 		if err != nil {
-			return nil, errors.Errorf("getting all model sumaries: %w", err)
+			return nil, errors.Errorf("decoding model summary result %d: %w", i, err)
 		}
 	}
 
