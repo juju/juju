@@ -44,6 +44,10 @@ type Database interface {
 	// for calling those collections' closers.
 	Copy() (Database, SessionCloser)
 
+	// CopyRaw returns a matching Database with its own session, and the
+	// session, which must be closed when the Database is no longer needed.
+	CopyRaw() (Database, *mgo.Session)
+
 	// CopyForModel returns a matching Database with its own session and
 	// its own modelUUID and a func that must be called when the Database is no
 	// longer needed.
@@ -272,7 +276,7 @@ type database struct {
 // after an mgo/txn transaction is run.
 type RunTransactionObserverFunc func(dbName, modelUUID string, attempt int, duration time.Duration, ops []txn.Op, err error)
 
-func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
+func (db *database) copySession(modelUUID string) (*database, *mgo.Session) {
 	session := db.raw.Session.Copy()
 	return &database{
 		raw:            db.raw.With(session),
@@ -282,7 +286,7 @@ func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 		ownSession:     true,
 		clock:          db.clock,
 		maxTxnAttempts: db.maxTxnAttempts,
-	}, session.Close
+	}, session
 }
 
 func (db *database) setTracker(tracker *queryTracker) {
@@ -293,12 +297,19 @@ func (db *database) setTracker(tracker *queryTracker) {
 
 // Copy is part of the Database interface.
 func (db *database) Copy() (Database, SessionCloser) {
+	result, session := db.copySession(db.modelUUID)
+	return result, session.Close
+}
+
+// CopyRaw is part of the Database interface.
+func (db *database) CopyRaw() (Database, *mgo.Session) {
 	return db.copySession(db.modelUUID)
 }
 
 // CopyForModel is part of the Database interface.
 func (db *database) CopyForModel(modelUUID string) (Database, SessionCloser) {
-	return db.copySession(modelUUID)
+	result, session := db.copySession(modelUUID)
+	return result, session.Close
 }
 
 // GetCollection is part of the Database interface.

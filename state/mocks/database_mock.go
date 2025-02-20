@@ -73,6 +73,21 @@ func (mr *MockDatabaseMockRecorder) CopyForModel(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyForModel", reflect.TypeOf((*MockDatabase)(nil).CopyForModel), arg0)
 }
 
+// CopyRaw mocks base method.
+func (m *MockDatabase) CopyRaw() (state.Database, *mgo.Session) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CopyRaw")
+	ret0, _ := ret[0].(state.Database)
+	ret1, _ := ret[1].(*mgo.Session)
+	return ret0, ret1
+}
+
+// CopyRaw indicates an expected call of CopyRaw.
+func (mr *MockDatabaseMockRecorder) CopyRaw() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyRaw", reflect.TypeOf((*MockDatabase)(nil).CopyRaw))
+}
+
 // GetCollection mocks base method.
 func (m *MockDatabase) GetCollection(arg0 string) (mongo.Collection, state.SessionCloser) {
 	m.ctrl.T.Helper()
