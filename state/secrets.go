@@ -2238,8 +2238,23 @@ func (w *obsoleteSecretsWatcher) mergedOwnedChanges(currentChanges []string, cha
 	return currentChanges, nil
 }
 
+func secretChangeURI(c string) string {
+	parts := strings.Split(c, "/")
+	return parts[0]
+}
+
 func (w *obsoleteSecretsWatcher) mergeRevisionChanges(currentChanges []string, obsolete []string) []string {
 	newChanges := set.NewStrings(currentChanges...).Union(set.NewStrings(obsolete...))
+	// If the entire secret was deleted, we don't want to emit any changes for
+	// revisions of that secret.
+	for _, c := range newChanges.Values() {
+		uriRevStr := w.backend.localID(c)
+		uri, err := secrets.ParseURI(secretChangeURI(uriRevStr))
+		// Error should always be nil.
+		if err != nil || !w.known.Contains(w.backend.docID(uri.ID)) {
+			newChanges.Remove(c)
+		}
+	}
 	return newChanges.Values()
 }
 
@@ -2282,8 +2297,12 @@ func (w *obsoleteSecretsWatcher) loop() (err error) {
 			if !ok {
 				return tomb.ErrDying
 			}
+			logger.Criticalf("OWNED CH: %v", change)
 			if changes, err = w.mergedOwnedChanges(changes, change); err != nil {
 				return err
+			}
+			if len(changes) > 0 {
+				out = w.out
 			}
 		case <-timeout:
 			if len(changes) > 0 {
