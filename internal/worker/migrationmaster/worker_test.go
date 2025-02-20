@@ -31,6 +31,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
+	coreresource "github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
@@ -223,9 +224,9 @@ func (s *Suite) makeStatus(phase coremigration.Phase) coremigration.MigrationSta
 }
 
 func (s *Suite) TestSuccessfulMigration(c *gc.C) {
-	s.facade.exportedResources = []coremigration.SerializedModelResource{{
-		ApplicationRevision: resourcetesting.NewResource(c, nil, "blob", "app", "").Resource,
-	}}
+	s.facade.exportedResources = []coreresource.Resource{
+		resourcetesting.NewResource(c, nil, "blob", "app", "").Resource,
+	}
 
 	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.facade.queueMinionReports(makeMinionReports(coremigration.QUIESCE))
@@ -311,9 +312,9 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 
 func (s *Suite) TestIncompatibleTarget(c *gc.C) {
 	s.connection.facadeVersion = 1
-	s.facade.exportedResources = []coremigration.SerializedModelResource{{
-		ApplicationRevision: resourcetesting.NewResource(c, nil, "blob", "app", "").Resource,
-	}}
+	s.facade.exportedResources = []coreresource.Resource{
+		resourcetesting.NewResource(c, nil, "blob", "app", "").Resource,
+	}
 
 	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.facade.queueMinionReports(makeMinionReports(coremigration.QUIESCE))
@@ -1250,7 +1251,7 @@ type stubMasterFacade struct {
 	minionReportsErr      error
 	minionReportTimeout   time.Duration
 
-	exportedResources []coremigration.SerializedModelResource
+	exportedResources []coreresource.Resource
 
 	statuses []string
 }

@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
@@ -276,7 +275,7 @@ type UploadBinariesConfig struct {
 	ToolsDownloader ToolsDownloader
 	ToolsUploader   ToolsUploader
 
-	Resources          []migration.SerializedModelResource
+	Resources          []resource.Resource
 	ResourceDownloader ResourceDownloader
 	ResourceUploader   ResourceUploader
 }
@@ -412,11 +411,8 @@ func uploadTools(ctx context.Context, config UploadBinariesConfig, logger corelo
 
 func uploadResources(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
 	for _, res := range config.Resources {
-		if res.ApplicationRevision.IsPlaceholder() {
-			// Resource placeholders created in the migration import rather
-			// than attempting to post empty resources.
-		} else {
-			err := uploadAppResource(ctx, config, res.ApplicationRevision, logger)
+		if !res.IsPlaceholder() {
+			err := uploadAppResource(ctx, config, res, logger)
 			if err != nil {
 				return errors.Trace(err)
 			}

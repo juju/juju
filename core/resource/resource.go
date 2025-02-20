@@ -78,7 +78,6 @@ func (res Resource) Validate() error {
 	}
 
 	// TODO(ericsnow) Require that RetrievedBy be set if timestamp is?
-
 	if res.Timestamp.IsZero() && res.RetrievedBy != "" {
 		return errors.NewNotValid(nil, "missing timestamp")
 	}

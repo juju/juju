@@ -311,10 +311,8 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 
 	fpHash := charmresource.NewFingerprintHash()
 	appFp := fpHash.Fingerprint()
-	unitFp := fpHash.Fingerprint()
 
 	appTs := time.Now()
-	unitTs := appTs.Add(time.Hour)
 
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -327,43 +325,15 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 				URI:     "/tools/0",
 			}},
 			Resources: []params.SerializedModelResource{{
-				Application: "fooapp",
-				Name:        "bin",
-				ApplicationRevision: params.SerializedModelResourceRevision{
-					Revision:       2,
-					Type:           "file",
-					Path:           "bin.tar.gz",
-					Description:    "who knows",
-					Origin:         "upload",
-					FingerprintHex: appFp.Hex(),
-					Size:           123,
-					Timestamp:      appTs,
-					Username:       "bob",
-				},
-				CharmStoreRevision: params.SerializedModelResourceRevision{
-					// Imitate a placeholder for the test by having no Timestamp
-					// and an empty Fingerpritn
-					Revision:    3,
-					Type:        "file",
-					Path:        "fink.tar.gz",
-					Description: "knows who",
-					Origin:      "store",
-					Size:        321,
-					Username:    "xena",
-				},
-				UnitRevisions: map[string]params.SerializedModelResourceRevision{
-					"fooapp/0": {
-						Revision:       1,
-						Type:           "file",
-						Path:           "blink.tar.gz",
-						Description:    "bo knows",
-						Origin:         "store",
-						FingerprintHex: unitFp.Hex(),
-						Size:           222,
-						Timestamp:      unitTs,
-						Username:       "bambam",
-					},
-				},
+				Application:    "fooapp",
+				Name:           "bin",
+				Revision:       2,
+				Type:           "file",
+				Origin:         "upload",
+				FingerprintHex: appFp.Hex(),
+				Size:           123,
+				Timestamp:      appTs,
+				Username:       "bob",
 			}},
 		}
 		return nil
@@ -380,58 +350,20 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 		Tools: map[version.Binary]string{
 			version.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/0",
 		},
-		Resources: []migration.SerializedModelResource{{
-			ApplicationRevision: resource.Resource{
-				Resource: charmresource.Resource{
-					Meta: charmresource.Meta{
-						Name:        "bin",
-						Type:        charmresource.TypeFile,
-						Path:        "bin.tar.gz",
-						Description: "who knows",
-					},
-					Origin:      charmresource.OriginUpload,
-					Revision:    2,
-					Fingerprint: appFp,
-					Size:        123,
+		Resources: []resource.Resource{{
+			Resource: charmresource.Resource{
+				Meta: charmresource.Meta{
+					Name: "bin",
+					Type: charmresource.TypeFile,
 				},
-				ApplicationName: "fooapp",
-				RetrievedBy:     "bob",
-				Timestamp:       appTs,
+				Origin:      charmresource.OriginUpload,
+				Revision:    2,
+				Fingerprint: appFp,
+				Size:        123,
 			},
-			CharmStoreRevision: resource.Resource{
-				Resource: charmresource.Resource{
-					Meta: charmresource.Meta{
-						Name:        "bin",
-						Type:        charmresource.TypeFile,
-						Path:        "fink.tar.gz",
-						Description: "knows who",
-					},
-					Origin:   charmresource.OriginStore,
-					Revision: 3,
-					Size:     321,
-				},
-				ApplicationName: "fooapp",
-				RetrievedBy:     "xena",
-			},
-			UnitRevisions: map[string]resource.Resource{
-				"fooapp/0": {
-					Resource: charmresource.Resource{
-						Meta: charmresource.Meta{
-							Name:        "bin",
-							Type:        charmresource.TypeFile,
-							Path:        "blink.tar.gz",
-							Description: "bo knows",
-						},
-						Origin:      charmresource.OriginStore,
-						Revision:    1,
-						Fingerprint: unitFp,
-						Size:        222,
-					},
-					ApplicationName: "fooapp",
-					RetrievedBy:     "bambam",
-					Timestamp:       unitTs,
-				},
-			},
+			ApplicationName: "fooapp",
+			RetrievedBy:     "bob",
+			Timestamp:       appTs,
 		}},
 	})
 }
