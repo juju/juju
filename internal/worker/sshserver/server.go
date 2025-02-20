@@ -17,9 +17,12 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/virtualhostname"
 	jujussh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/rpc/params"
 )
+
+type authenticatedViaPublicKey struct{}
 
 // ServerWorkerConfig holds the configuration required by the server worker.
 type ServerWorkerConfig struct {
@@ -146,7 +149,8 @@ func (s *ServerWorker) NewJumpServer() *ssh.Server {
 	server := ssh.Server{
 		ConnCallback: s.connCallback(),
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
-			return false
+			ctx.SetValue(authenticatedViaPublicKey{}, true)
+			return true
 		},
 		PasswordHandler: func(ctx ssh.Context, password string) bool {
 			return false
@@ -199,14 +203,14 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		}
 		return
 	}
-
-	signer, err := s.hostKeySignerForTarget(d.DestAddr)
+	info, err := virtualhostname.Parse(d.DestAddr)
 	if err != nil {
-		s.config.Logger.Errorf("failed to get host key signer for target %q: %v", d.DestAddr, err)
-		err := newChan.Reject(gossh.ConnectionFailed, fmt.Sprintf("Failed to get host key for target %s", d.DestAddr))
-		if err != nil {
-			s.config.Logger.Errorf("failed to reject channel: %v", err)
-		}
+		s.rejectChannel(newChan, "Failed to parse destination address")
+		return
+	}
+	signer, err := s.hostKeySignerForTarget(info.String())
+	if err != nil {
+		s.rejectChannel(newChan, "Failed to get host key")
 		return
 	}
 
@@ -221,29 +225,11 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	// Since we only need the raw data to redirect, we can discard them.
 	go gossh.DiscardRequests(reqs)
 
-	forwardHandler := &ssh.ForwardedTCPHandler{}
-	server := &ssh.Server{
-		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
-			return true
-		},
-		LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, dhost string, dport uint32) bool {
-			return true
-		}),
-		// ReversePortForwarding will not be supported.
-		ReversePortForwardingCallback: ssh.ReversePortForwardingCallback(func(ctx ssh.Context, host string, port uint32) bool {
-			return false
-		}),
-		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"session":      ssh.DefaultSessionHandler,
-			"direct-tcpip": ssh.DirectTCPIPHandler,
-		},
-		RequestHandlers: map[string]ssh.RequestHandler{
-			"tcpip-forward":        forwardHandler.HandleSSHRequest,
-			"cancel-tcpip-forward": forwardHandler.HandleSSHRequest,
-		},
-		Handler: func(s ssh.Session) {
-			_, _ = s.Write([]byte(fmt.Sprintf("Your final destination is: %s as user: %s\n", d.DestAddr, s.User())))
-		},
+	server, err := s.newEmbeddedSSHServer(ctx, info)
+	if err != nil {
+		s.config.Logger.Errorf("failed to create embedded server: %v", err)
+		ch.Close()
+		return
 	}
 
 	server.AddHostKey(signer)
@@ -297,9 +283,74 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 	}
 }
 
+// newEmbeddedSSHServer creates a new embedded SSH server for the given context and model info.
+func (s *ServerWorker) newEmbeddedSSHServer(ctx ssh.Context, info virtualhostname.Info) (*ssh.Server, error) {
+	authenticatedViaPublicKey, _ := ctx.Value(authenticatedViaPublicKey{}).(bool)
+	var keysToVerify []gossh.PublicKey
+	var err error
+	// if the user is authenticated via public key, we need to verify the key
+	// against the model's authorized keys.
+	// if the user is not authenticated via public key, we need to verify the
+	// key against the public keys in the jwt claims.
+	if authenticatedViaPublicKey {
+		sshPkiAuthArgs := params.ListAuthorizedKeysArgs{
+			ModelUUID: info.ModelUUID(),
+		}
+		keysToVerify, err = s.config.FacadeClient.ListPublicKeysForModel(sshPkiAuthArgs)
+		if err != nil {
+			s.config.Logger.Errorf("failed to fetch public keys for model: %v", err)
+			return nil, errors.Trace(err)
+		}
+	}
+
+	forwardHandler := &ssh.ForwardedTCPHandler{}
+	server := &ssh.Server{
+		PublicKeyHandler: func(ctx ssh.Context, keyPresented ssh.PublicKey) bool {
+			for _, key := range keysToVerify {
+				if ssh.KeysEqual(key, keyPresented) {
+					return true
+				}
+			}
+			return false
+		},
+		LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, dhost string, dport uint32) bool {
+			return true
+		}),
+		// ReversePortForwarding will not be supported.
+		ReversePortForwardingCallback: ssh.ReversePortForwardingCallback(func(ctx ssh.Context, host string, port uint32) bool {
+			return false
+		}),
+		ChannelHandlers: map[string]ssh.ChannelHandler{
+			"session":      ssh.DefaultSessionHandler,
+			"direct-tcpip": ssh.DirectTCPIPHandler,
+		},
+		RequestHandlers: map[string]ssh.RequestHandler{
+			"tcpip-forward":        forwardHandler.HandleSSHRequest,
+			"cancel-tcpip-forward": forwardHandler.HandleSSHRequest,
+		},
+		Handler: func(s ssh.Session) {
+			_, _ = s.Write([]byte(fmt.Sprintf("Your final destination is: %s as user: %s\n", info.ModelUUID(), s.User())))
+		},
+	}
+
+	if s.config.disableAuth {
+		server.PublicKeyHandler = nil
+		server.PasswordHandler = nil
+	}
+
+	return server, nil
+}
+
 // Report returns a map of metrics from the server worker.
 func (s *ServerWorker) Report() map[string]any {
 	return map[string]any{
 		"concurrent_connections": s.concurrentConnections.Load(),
+	}
+}
+
+func (s *ServerWorker) rejectChannel(newChan gossh.NewChannel, reason string) {
+	err := newChan.Reject(gossh.ConnectionFailed, reason)
+	if err != nil {
+		s.config.Logger.Errorf("failed to reject channel: %v", err)
 	}
 }
