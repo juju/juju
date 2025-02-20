@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -616,59 +617,85 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	}
 
 	// Check that we're exporting the metadata.
-
 	exportedCharmMetadata := exported.CharmMetadata()
 	c.Assert(exportedCharmMetadata, gc.NotNil)
-	c.Check(exportedCharmMetadata.Name(), gc.Equals, ch.Meta().Name)
-	c.Check(exportedCharmMetadata.Summary(), gc.Equals, ch.Meta().Summary)
-	c.Check(exportedCharmMetadata.Description(), gc.Equals, ch.Meta().Description)
-	c.Check(exportedCharmMetadata.Categories(), jc.DeepEquals, ch.Meta().Categories)
-	c.Check(exportedCharmMetadata.Tags(), jc.DeepEquals, ch.Meta().Tags)
-	c.Check(exportedCharmMetadata.Subordinate(), gc.Equals, ch.Meta().Subordinate)
-	c.Check(exportedCharmMetadata.Terms(), jc.DeepEquals, ch.Meta().Terms)
+	s.assertMigrateCharmMetadata(c, exportedCharmMetadata, ch.Meta())
 
+	// Check that we're exporting the manifest.
+	exportedCharmManifest := exported.CharmManifest()
+	c.Assert(exportedCharmManifest, gc.NotNil)
+	s.assertMigrateCharmManifest(c, exportedCharmManifest, ch.Manifest())
+
+	// Check that we're exporting the actions.
+	exportedCharmActions := exported.CharmActions()
+	c.Assert(exportedCharmActions, gc.NotNil)
+	s.assertMigrateCharmActions(c, exportedCharmActions, ch.Actions())
+
+	// Check that we're exporting the configs.
+	exportedCharmConfigs := exported.CharmConfigs()
+	c.Assert(exportedCharmConfigs, gc.NotNil)
+	s.assertMigrateCharmConfigs(c, exportedCharmConfigs, ch.Config())
+}
+
+func (s *MigrationExportSuite) assertMigrateCharmMetadata(c *gc.C, exported description.CharmMetadata, meta *charm.Meta) {
+	c.Assert(exported, gc.NotNil)
+	c.Check(exported.Name(), gc.Equals, meta.Name)
+	c.Check(exported.Summary(), gc.Equals, meta.Summary)
+	c.Check(exported.Description(), gc.Equals, meta.Description)
+	c.Check(exported.Categories(), jc.DeepEquals, meta.Categories)
+	c.Check(exported.Tags(), jc.DeepEquals, meta.Tags)
+	c.Check(exported.Subordinate(), gc.Equals, meta.Subordinate)
+	c.Check(exported.Terms(), jc.DeepEquals, meta.Terms)
+	c.Check(exported.MinJujuVersion(), jc.DeepEquals, meta.MinJujuVersion.String())
+	c.Check(exported.RunAs(), jc.DeepEquals, string(meta.CharmUser))
+
+	// Check we're exporting ExtraBindings metadata.
 	extraBindings := make(map[string]string)
-	for name, binding := range ch.Meta().ExtraBindings {
+	for name, binding := range meta.ExtraBindings {
 		extraBindings[name] = binding.Name
 	}
-	c.Check(exportedCharmMetadata.ExtraBindings(), jc.DeepEquals, extraBindings)
+	c.Check(exported.ExtraBindings(), jc.DeepEquals, extraBindings)
 
+	// Check we're exporting Provides metadata.
 	expectedProvides := make(map[string]string)
-	for name, provider := range ch.Meta().Provides {
+	for name, provider := range meta.Provides {
 		expectedProvides[name] = provider.Name
 	}
 	exportedProvides := make(map[string]string)
-	for name, provider := range exportedCharmMetadata.Provides() {
+	for name, provider := range exported.Provides() {
 		exportedProvides[name] = provider.Name()
 	}
 	c.Check(exportedProvides, jc.DeepEquals, expectedProvides)
 
+	// Check we're exporting Requires metadata.
 	expectedRequires := make(map[string]string)
-	for name, provider := range ch.Meta().Requires {
+	for name, provider := range meta.Requires {
 		expectedRequires[name] = provider.Name
 	}
 	exportedRequires := make(map[string]string)
-	for name, provider := range exportedCharmMetadata.Requires() {
+	for name, provider := range exported.Requires() {
 		exportedRequires[name] = provider.Name()
 	}
 	c.Check(exportedRequires, jc.DeepEquals, expectedRequires)
 
+	// Check we're exporting Peers metadata.
 	expectedPeers := make(map[string]string)
-	for name, provider := range ch.Meta().Peers {
+	for name, provider := range meta.Peers {
 		expectedPeers[name] = provider.Name
 	}
 	exportedPeers := make(map[string]string)
-	for name, provider := range exportedCharmMetadata.Peers() {
+	for name, provider := range exported.Peers() {
 		exportedPeers[name] = provider.Name()
 	}
 	c.Check(exportedPeers, jc.DeepEquals, expectedPeers)
 
+	// Check we're exporting Containers metadata.
 	expectedContainers := make(map[string]charm.Container)
-	for name, container := range ch.Meta().Containers {
+	for name, container := range meta.Containers {
 		expectedContainers[name] = container
 	}
 	exportedContainers := make(map[string]charm.Container)
-	for name, container := range exportedCharmMetadata.Containers() {
+	for name, container := range exported.Containers() {
 		c := charm.Container{
 			Resource: container.Resource(),
 			Uid:      container.Uid(),
@@ -684,13 +711,90 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	}
 	c.Check(exportedContainers, jc.DeepEquals, expectedContainers)
 
-	// Check that we're exporting the manifest.
+	// Check we're exporting Assumes metadata.
+	assumes, err := json.Marshal(meta.Assumes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(exported.Assumes(), gc.Equals, string(assumes))
 
-	exportedCharmManifest := exported.CharmManifest()
-	c.Assert(exportedCharmManifest, gc.NotNil)
+	// Check that we're exporting Storage metadata
+	expectedStorage := make(map[string]charm.Storage)
+	for name, storage := range meta.Storage {
+		expectedStorage[name] = storage
+	}
+	exportedStorage := make(map[string]charm.Storage)
+	for name, storage := range exported.Storage() {
+		exportedStorage[name] = charm.Storage{
+			Name:        storage.Name(),
+			Description: storage.Description(),
+			Type:        charm.StorageType(storage.Type()),
+			Shared:      storage.Shared(),
+			ReadOnly:    storage.Readonly(),
+			CountMin:    storage.CountMin(),
+			CountMax:    storage.CountMax(),
+			MinimumSize: uint64(storage.MinimumSize()),
+			Location:    storage.Location(),
+			Properties:  storage.Properties(),
+		}
+	}
+	c.Check(exportedStorage, jc.DeepEquals, expectedStorage)
 
+	// Check that we're exporting Devices metadata
+	expectedDevices := make(map[string]charm.Device)
+	for name, device := range meta.Devices {
+		expectedDevices[name] = device
+	}
+	exportedDevices := make(map[string]charm.Device)
+	for name, device := range exported.Devices() {
+		exportedDevices[name] = charm.Device{
+			Name:        device.Name(),
+			Description: device.Description(),
+			Type:        charm.DeviceType(device.Type()),
+			CountMin:    int64(device.CountMin()),
+			CountMax:    int64(device.CountMax()),
+		}
+	}
+	c.Check(exportedDevices, jc.DeepEquals, expectedDevices)
+
+	// Check that we're exporting Payloads metadata
+	expectedPayloads := make(map[string]charm.PayloadClass)
+	for name, payload := range meta.PayloadClasses {
+		expectedPayloads[name] = payload
+	}
+	exportedPayloads := make(map[string]charm.PayloadClass)
+	for name, payload := range exported.Payloads() {
+		exportedPayloads[name] = charm.PayloadClass{
+			Name: payload.Name(),
+			Type: payload.Type(),
+		}
+	}
+	c.Check(exportedPayloads, jc.DeepEquals, expectedPayloads)
+
+	// Check that we're exporting Resources metadata
+	expectedResources := make(map[string]charmresource.Meta)
+	for name, resource := range meta.Resources {
+		expectedResources[name] = resource
+	}
+	exportedResources := make(map[string]charmresource.Meta)
+	for name, resource := range exported.Resources() {
+		t, err := charmresource.ParseType(resource.Type())
+		c.Assert(err, jc.ErrorIsNil)
+		exportedResources[name] = charmresource.Meta{
+			Name:        resource.Name(),
+			Description: resource.Description(),
+			Type:        t,
+			Path:        resource.Path(),
+		}
+	}
+	c.Check(exportedResources, jc.DeepEquals, expectedResources)
+}
+
+func (s *MigrationExportSuite) assertMigrateCharmManifest(
+	c *gc.C,
+	exported description.CharmManifest,
+	manifest *charm.Manifest,
+) {
 	expectedManifestBases := make([]string, 0)
-	for _, base := range ch.Manifest().Bases {
+	for _, base := range manifest.Bases {
 		expectedManifestBases = append(expectedManifestBases, fmt.Sprintf("%s %s %v",
 			base.Name,
 			base.Channel.String(),
@@ -698,7 +802,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		))
 	}
 	exportedManifestBases := make([]string, 0)
-	for _, base := range exportedCharmManifest.Bases() {
+	for _, base := range exported.Bases() {
 		exportedManifestBases = append(exportedManifestBases, fmt.Sprintf("%s %s %v",
 			base.Name(),
 			base.Channel(),
@@ -706,12 +810,13 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		))
 	}
 	c.Check(exportedManifestBases, jc.DeepEquals, expectedManifestBases)
+}
 
-	// Check that we're exporting the actions.
-
-	exportedCharmActions := exported.CharmActions()
-	c.Assert(exportedCharmActions, gc.NotNil)
-
+func (s *MigrationExportSuite) assertMigrateCharmActions(
+	c *gc.C,
+	exported description.CharmActions,
+	actions *charm.Actions,
+) {
 	type actionSpec struct {
 		Description    string
 		Parallel       bool
@@ -720,7 +825,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	}
 
 	expectedActions := make(map[string]actionSpec)
-	for name, action := range ch.Actions().ActionSpecs {
+	for name, action := range actions.ActionSpecs {
 		expectedActions[name] = actionSpec{
 			Description:    action.Description,
 			Parallel:       action.Parallel,
@@ -730,7 +835,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	}
 
 	exportedActions := make(map[string]actionSpec)
-	for name, action := range exportedCharmActions.Actions() {
+	for name, action := range exported.Actions() {
 		exportedActions[name] = actionSpec{
 			Description:    action.Description(),
 			Parallel:       action.Parallel(),
@@ -739,12 +844,13 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 		}
 	}
 	c.Check(exportedActions, jc.DeepEquals, expectedActions)
+}
 
-	// Check that we're exporting the config.
-
-	exportedCharmConfig := exported.CharmConfigs()
-	c.Assert(exportedCharmConfig, gc.NotNil)
-
+func (s *MigrationExportSuite) assertMigrateCharmConfigs(
+	c *gc.C,
+	exported description.CharmConfigs,
+	config *charm.Config,
+) {
 	type configSpec struct {
 		Type        string
 		Description string
@@ -752,7 +858,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	}
 
 	expectedConfigs := make(map[string]configSpec)
-	for name, config := range ch.Config().Options {
+	for name, config := range config.Options {
 		expectedConfigs[name] = configSpec{
 			Type:        config.Type,
 			Description: config.Description,
@@ -761,7 +867,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, isSidecar bool
 	}
 
 	exportedConfigs := make(map[string]configSpec)
-	for name, config := range exportedCharmConfig.Configs() {
+	for name, config := range exported.Configs() {
 		exportedConfigs[name] = configSpec{
 			Type:        config.Type(),
 			Description: config.Description(),
