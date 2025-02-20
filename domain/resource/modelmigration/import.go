@@ -107,10 +107,13 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			unitResources := unit.Resources()
 			for _, res := range unitResources {
 				unitRevision := res.Revision()
+				arg, err := importResourceRevision(res.Name(), unitRevision)
+				if err != nil {
+					return errors.Errorf("importing unit resource %q: %w", res.Name(), err)
+				}
 				appArgs.UnitResources = append(appArgs.UnitResources, resource.ImportUnitResourceInfo{
-					ResourceName: res.Name(),
-					UnitName:     unit.Name(),
-					Timestamp:    unitRevision.Timestamp(),
+					ImportResourceInfo: arg,
+					UnitName:           unit.Name(),
 				})
 			}
 		}

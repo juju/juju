@@ -2611,9 +2611,8 @@ func (s *resourceSuite) TestImportResources(c *gc.C) {
 		Timestamp: time.Now().Truncate(time.Second).UTC(),
 	}
 	app1Res1Unit := resource.ImportUnitResourceInfo{
-		ResourceName: app1Res1Name,
-		UnitName:     s.constants.fakeUnitName1,
-		Timestamp:    time.Now().Truncate(time.Second).UTC(),
+		UnitName:           s.constants.fakeUnitName1,
+		ImportResourceInfo: app1Res1,
 	}
 
 	app1Res2 := resource.ImportResourceInfo{
@@ -2623,9 +2622,8 @@ func (s *resourceSuite) TestImportResources(c *gc.C) {
 		Timestamp: time.Now().Truncate(time.Second).UTC(),
 	}
 	app1Res2Unit := resource.ImportUnitResourceInfo{
-		ResourceName: app1Res2Name,
-		UnitName:     s.constants.fakeUnitName1,
-		Timestamp:    time.Now().Truncate(time.Second).UTC(),
+		UnitName:           s.constants.fakeUnitName1,
+		ImportResourceInfo: app1Res2,
 	}
 	app2Res := resource.ImportResourceInfo{
 		Name:      app2ResName,
@@ -2647,10 +2645,15 @@ func (s *resourceSuite) TestImportResources(c *gc.C) {
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Assert: Check the resources were set and linked ot the application.
-	app1Res1UUID := s.checkResourceSet(c, fakeCharmUUID, s.constants.fakeApplicationUUID1, app1Res1)
-	app1Res2UUID := s.checkResourceSet(c, fakeCharmUUID, s.constants.fakeApplicationUUID1, app1Res2)
-	app2ResUUID := s.checkResourceSet(c, fakeCharmUUID, s.constants.fakeApplicationUUID2, app2Res)
+	// Assert: Check the resources were set.
+	app1Res1UUID := s.checkResourceSet(c, fakeCharmUUID, app1Res1)
+	app1Res2UUID := s.checkResourceSet(c, fakeCharmUUID, app1Res2)
+	app2ResUUID := s.checkResourceSet(c, fakeCharmUUID, app2Res)
+
+	// Assert: Check the application resources were set.
+	s.checkApplicationResourceSet(c, s.constants.fakeApplicationUUID1, app1Res1UUID)
+	s.checkApplicationResourceSet(c, s.constants.fakeApplicationUUID1, app1Res2UUID)
+	s.checkApplicationResourceSet(c, s.constants.fakeApplicationUUID2, app2ResUUID)
 
 	// Assert: Check the repo resources were set and linked ot the application
 	// (the testing charm has source "charmhub" so we expect these to be set).
@@ -2702,10 +2705,85 @@ func (s *resourceSuite) TestImportResourcesOnLocalCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert: Check the resources were set and linked to the application.
-	_ = s.checkResourceSet(c, charmUUID, appUUID, setRes)
+	resUUID := s.checkResourceSet(c, charmUUID, setRes)
+	s.checkApplicationResourceSet(c, appUUID, resUUID)
 
 	// Assert: Check the resource has no repo resources associated with it.
 	s.checkRepoResourceNotSet(c, charmUUID, setRes)
+}
+
+// TestImportResourcesUnitResourceNotMatchingApplicationResources checks that we
+// correctly import unit resources that have a revision and origin that do not
+// match those of the application resource with the same name. These should have
+// a row in the resource table created for them that the unit resource links to.
+func (s *resourceSuite) TestImportResourcesUnitResourceNotMatchingApplicationResources(c *gc.C) {
+	// Arrange: Add charm resources for the resources we are going to set.
+	resName := "resource-name"
+	s.addCharmResource(c, fakeCharmUUID, charmresource.Meta{
+		Name: resName,
+		Type: charmresource.TypeFile,
+	})
+
+	// Arrange: Create arguments for ImportResources containing the resources we
+	// want to set.
+	res := resource.ImportResourceInfo{
+		Name:      resName,
+		Origin:    charmresource.OriginStore,
+		Revision:  3,
+		Timestamp: time.Now().Truncate(time.Second).UTC(),
+	}
+	resUnit1 := resource.ImportUnitResourceInfo{
+		UnitName: s.constants.fakeUnitName1,
+		ImportResourceInfo: resource.ImportResourceInfo{
+			Name:      resName,
+			Origin:    charmresource.OriginUpload,
+			Revision:  -1,
+			Timestamp: time.Now().Truncate(time.Second).UTC(),
+		},
+	}
+	resUnit2 := resource.ImportUnitResourceInfo{
+		UnitName: s.constants.fakeUnitName2,
+		ImportResourceInfo: resource.ImportResourceInfo{
+			Name:      resName,
+			Origin:    charmresource.OriginStore,
+			Revision:  2,
+			Timestamp: time.Now().Truncate(time.Second).UTC(),
+		},
+	}
+	resUnit3 := resource.ImportUnitResourceInfo{
+		UnitName:           s.constants.fakeUnitName3,
+		ImportResourceInfo: res,
+	}
+
+	args := []resource.ImportResourcesArg{{
+		ApplicationName: s.constants.fakeApplicationName1,
+		Resources:       []resource.ImportResourceInfo{res},
+		UnitResources:   []resource.ImportUnitResourceInfo{resUnit1, resUnit2, resUnit3},
+	}}
+
+	// Act: Set the resources.
+	err := s.state.ImportResources(context.Background(), args)
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert: Check the application resources were set and linked ot the
+	// application.
+	resUUID := s.checkResourceSet(c, fakeCharmUUID, res)
+	s.checkApplicationResourceSet(c, s.constants.fakeApplicationUUID1, resUUID)
+
+	// Assert: Rows in the resource table were set for the unit resource.
+	resUnit1UUID := s.checkResourceSet(c, fakeCharmUUID, resUnit1.ImportResourceInfo)
+	resUnit2UUID := s.checkResourceSet(c, fakeCharmUUID, resUnit2.ImportResourceInfo)
+	resUnit3UUID := s.checkResourceSet(c, fakeCharmUUID, resUnit3.ImportResourceInfo)
+
+	// Assert: the application resource had the same origin and revision as unit
+	// resource 3, so it should be the same resource.
+	c.Assert(resUUID, gc.Equals, resUnit3UUID)
+
+	// Assert: Check the unit resources were set.
+	s.checkUnitResourceSet(c, resUnit1UUID, s.constants.fakeUnitUUID1, resUnit1)
+	s.checkUnitResourceSet(c, resUnit2UUID, s.constants.fakeUnitUUID2, resUnit2)
+	s.checkUnitResourceSet(c, resUnit3UUID, s.constants.fakeUnitUUID3, resUnit3)
 }
 
 func (s *resourceSuite) TestImportResourcesEmpty(c *gc.C) {
@@ -2770,8 +2848,8 @@ func (s *resourceSuite) TestImportResourcesUnitNotFound(c *gc.C) {
 		Origin: charmresource.OriginStore,
 	}
 	app1Res1Unit := resource.ImportUnitResourceInfo{
-		ResourceName: app1Res1Name,
-		UnitName:     "bad-unit-name",
+		UnitName:           "bad-unit-name",
+		ImportResourceInfo: app1Res1,
 	}
 
 	args := []resource.ImportResourcesArg{{
@@ -2843,9 +2921,8 @@ func (s *resourceSuite) TestDeleteImportedApplicationResources(c *gc.C) {
 		Timestamp: time.Now().Truncate(time.Second).UTC(),
 	}
 	app1Res1Unit := resource.ImportUnitResourceInfo{
-		ResourceName: app1Res1Name,
-		UnitName:     s.constants.fakeUnitName1,
-		Timestamp:    time.Now().Truncate(time.Second).UTC(),
+		UnitName:           s.constants.fakeUnitName1,
+		ImportResourceInfo: app1Res1,
 	}
 
 	app1Res2 := resource.ImportResourceInfo{
@@ -2855,9 +2932,8 @@ func (s *resourceSuite) TestDeleteImportedApplicationResources(c *gc.C) {
 		Timestamp: time.Now().Truncate(time.Second).UTC(),
 	}
 	app1Res2Unit := resource.ImportUnitResourceInfo{
-		ResourceName: app1Res2Name,
-		UnitName:     s.constants.fakeUnitName1,
-		Timestamp:    time.Now().Truncate(time.Second).UTC(),
+		UnitName:           s.constants.fakeUnitName1,
+		ImportResourceInfo: app1Res2,
 	}
 	app2Res := resource.ImportResourceInfo{
 		Name:      app2ResName,
@@ -2926,33 +3002,39 @@ VALUES (?, ?, ?, ?, ?)`,
 func (s *resourceSuite) checkResourceSet(
 	c *gc.C,
 	charmUUID string,
-	expectedAppID string,
 	res resource.ImportResourceInfo,
 ) string {
 	var (
-		uuid         string
-		revision     sql.NullInt64
-		originTypeID int
-		createdAt    time.Time
+		uuid      string
+		createdAt time.Time
 	)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
-SELECT uuid, revision, origin_type_id, created_at 
+SELECT uuid, created_at 
 FROM   resource
 WHERE  charm_resource_name = ? 
 AND    charm_uuid = ? 
+AND    COALESCE(revision, '') = COALESCE(?, '') -- Revision may be NULL
+AND    origin_type_id = ?
 AND    state_id = 0 -- "available"
-`, res.Name, charmUUID).Scan(&uuid, &revision, &originTypeID, &createdAt)
+`, res.Name, charmUUID, NullableRevision(res.Revision), OriginTypeID(res.Origin.String())).Scan(
+			&uuid, &createdAt,
+		)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(uuid, gc.Not(gc.Equals), "")
-	c.Check(revision.Valid, jc.IsTrue)
-	c.Check(revision.Int64, gc.Equals, int64(res.Revision))
-	c.Check(originTypeID, gc.Equals, OriginTypeID(res.Origin.String()))
 	c.Check(createdAt, gc.Equals, res.Timestamp)
 
+	return uuid
+}
+
+func (s *resourceSuite) checkApplicationResourceSet(
+	c *gc.C,
+	expectedAppID string,
+	uuid string,
+) {
 	var appID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT application_uuid
 FROM   application_resource
@@ -2961,8 +3043,6 @@ WHERE  resource_uuid = ?
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(appID, gc.Equals, expectedAppID)
-
-	return uuid
 }
 
 // checkRepoResourceSet checks for the repository resource record ("potential"
@@ -3560,4 +3640,11 @@ func StateID(state string) int {
 		"potential": 1,
 	}[state]
 	return res
+}
+
+func NullableRevision(revision int) sql.NullInt64 {
+	if revision <= 0 {
+		return sql.NullInt64{Valid: false}
+	}
+	return sql.NullInt64{Valid: true, Int64: int64(revision)}
 }

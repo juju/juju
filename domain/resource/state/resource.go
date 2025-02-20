@@ -2156,13 +2156,14 @@ func (st *State) getResourcesToSetForApplication(
 	}
 
 	// Get unit resources to set.
-	unitResourcesToSet, err := st.getUnitResourcesToSet(
-		ctx, tx, args.UnitResources, resourceNameToUUID,
+	unitResourcesToSet, resourcesToSet, err := st.getUnitResourcesToSet(
+		ctx, tx, typeIDs, charmID, args.UnitResources, resourceNameToUUID,
 	)
 	if err != nil {
 		return toSet, errors.Errorf("getting unit resources for application %q: %w", args.ApplicationName, err)
 	}
 	toSet.unitResources = append(toSet.unitResources, unitResourcesToSet...)
+	toSet.resources = append(toSet.resources, resourcesToSet...)
 
 	return toSet, nil
 }
@@ -2177,8 +2178,9 @@ func (st *State) getResourcesToSet(
 	charmID corecharm.ID,
 	appID application.ID,
 	resources []resource.ImportResourceInfo,
-) (toSet resourcesToSet, resourceNameToUUID map[string]coreresource.UUID, err error) {
-	resourceNameToUUID = make(map[string]coreresource.UUID)
+) (resourcesToSet, map[string]uuidOriginAndRevision, error) {
+	var toSet resourcesToSet
+	resourceNameToInfo := make(map[string]uuidOriginAndRevision)
 	for _, res := range resources {
 		// Check that the charm resource exists and get its kind before we
 		// attempt to set it.
@@ -2193,7 +2195,11 @@ func (st *State) getResourcesToSet(
 			return toSet, nil, errors.Capture(err)
 		}
 		toSet.resources = append(toSet.resources, resourceToSet)
-		resourceNameToUUID[res.Name] = resourceUUID
+		resourceNameToInfo[res.Name] = uuidOriginAndRevision{
+			UUID:     resourceUUID,
+			Origin:   res.Origin,
+			Revision: res.Revision,
+		}
 
 		// Add application resource to set.
 		toSet.applicationResources = append(toSet.applicationResources, applicationResource{
@@ -2211,7 +2217,7 @@ func (st *State) getResourcesToSet(
 			AddedAt:      res.Timestamp,
 		})
 	}
-	return toSet, resourceNameToUUID, nil
+	return toSet, resourceNameToInfo, nil
 }
 
 func (st *State) getResourceToSet(typeIDs typeIDs, charmID corecharm.ID, res resource.ImportResourceInfo) (setResource, coreresource.UUID, error) {
@@ -2224,11 +2230,15 @@ func (st *State) getResourceToSet(typeIDs typeIDs, charmID corecharm.ID, res res
 	if err != nil {
 		return setResource{}, "", errors.Capture(err)
 	}
+	revision := (*int)(nil)
+	if res.Revision >= 0 {
+		revision = &res.Revision
+	}
 	return setResource{
 		UUID:         resourceUUID.String(),
 		CharmUUID:    charmID.String(),
 		Name:         res.Name,
-		Revision:     &res.Revision,
+		Revision:     revision,
 		OriginTypeId: originID,
 		StateID:      typeIDs.stateAvailableID,
 		CreatedAt:    res.Timestamp,
@@ -2278,31 +2288,68 @@ func (st *State) getPotentialResourcePlaceholdersToSet(
 
 // getUnitResourcesToSet gets the unit resources to set for the given arguments,
 // checking that the unit exists for each unit resources.
+// If a unit resource references a revision and origin that is not already in
+// the resources to set, then add them in.
 func (st *State) getUnitResourcesToSet(
 	ctx context.Context,
 	tx *sqlair.TX,
+	typeIDs typeIDs,
+	charmID corecharm.ID,
 	unitResources []resource.ImportUnitResourceInfo,
-	resourceNameToUUID map[string]coreresource.UUID,
-) ([]unitResource, error) {
+	resourceNameToInfos map[string]uuidOriginAndRevision,
+) ([]unitResource, []setResource, error) {
 	var unitResourcesToSet []unitResource
-	for _, res := range unitResources {
-		unitUUID, err := st.getUnitUUID(ctx, tx, res.UnitName)
+	var resourcesToSet []setResource
+	resourcesSetForUnit := make(map[string][]uuidOriginAndRevision)
+	for _, unitRes := range unitResources {
+		unitUUID, err := st.getUnitUUID(ctx, tx, unitRes.UnitName)
 		if err != nil {
-			return nil, errors.Errorf("getting uuid of unit %q: %w", res.UnitName, err)
+			return nil, nil, errors.Errorf("getting uuid of unit %q: %w", unitRes.UnitName, err)
 		}
 
-		resUUID, ok := resourceNameToUUID[res.ResourceName]
+		// Get the info about the resource being set for this unit resource.
+		resInfo, ok := resourceNameToInfos[unitRes.Name]
 		if !ok {
-			return nil, errors.Errorf("unit resource for unknown resource: %q", res.ResourceName)
+			return nil, nil, errors.Errorf("unit resource for unknown resource: %q", unitRes.Name)
+		}
+
+		// Check if the resource being set for this name has a matching origin
+		// and revision. If it does not, add another resourceToSet with the
+		// correct origin and revision.
+		resourceUUID, ok := getUUIDAlreadySet(resInfo, resourcesSetForUnit[unitRes.Name], unitRes.Origin, unitRes.Revision)
+		if !ok {
+			res, resUUID, err := st.getResourceToSet(typeIDs, charmID, unitRes.ImportResourceInfo)
+			if err != nil {
+				return nil, nil, errors.Capture(err)
+			}
+			resourcesToSet = append(resourcesToSet, res)
+			resourcesSetForUnit[unitRes.Name] = append(resourcesSetForUnit[unitRes.Name], uuidOriginAndRevision{
+				UUID:     resUUID,
+				Origin:   unitRes.Origin,
+				Revision: unitRes.Revision,
+			})
+			resourceUUID = resUUID
 		}
 
 		unitResourcesToSet = append(unitResourcesToSet, unitResource{
-			ResourceUUID: resUUID.String(),
+			ResourceUUID: resourceUUID.String(),
 			UnitUUID:     unitUUID.String(),
-			AddedAt:      res.Timestamp,
+			AddedAt:      unitRes.Timestamp,
 		})
 	}
-	return unitResourcesToSet, nil
+	return unitResourcesToSet, resourcesToSet, nil
+}
+
+func getUUIDAlreadySet(resourceSet uuidOriginAndRevision, resourcesSetForUnit []uuidOriginAndRevision, origin charmresource.Origin, revision int) (coreresource.UUID, bool) {
+	if resourceSet.Revision == revision && resourceSet.Origin == origin {
+		return resourceSet.UUID, true
+	}
+	for _, info := range resourcesSetForUnit {
+		if origin == info.Origin && revision == info.Revision {
+			return info.UUID, true
+		}
+	}
+	return "", false
 }
 
 // insertResources inserts resources, application resources, kubernetes
