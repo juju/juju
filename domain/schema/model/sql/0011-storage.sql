@@ -174,7 +174,6 @@ CREATE TABLE storage_volume (
     uuid TEXT NOT NULL PRIMARY KEY,
     volume_id TEXT NOT NULL,
     life_id INT NOT NULL,
-    name TEXT,
     provider_id TEXT,
     size_mib INT,
     hardware_id TEXT,
