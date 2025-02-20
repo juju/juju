@@ -45,6 +45,7 @@ type workerFixture struct {
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubDBGetter
+	jwtParserGetter      jwtParserGetter
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -91,6 +92,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		SysLogger:                         s.sysLogger,
 		CharmhubHTTPClient:                s.charmhubHTTPClient,
 		DBGetter:                          s.dbGetter,
+		JWTParserGetter:                   s.jwtParserGetter,
 	}
 }
 
@@ -157,6 +159,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.DBGetter = nil },
 		"nil DBGetter not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.JWTParserGetter = nil },
+		"nil JWTParserGetter not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

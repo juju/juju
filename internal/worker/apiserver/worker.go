@@ -4,8 +4,6 @@
 package apiserver
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/juju/clock"
@@ -18,13 +16,13 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
-	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/worker/jwtparser"
 	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/state"
 )
@@ -38,6 +36,7 @@ type Config struct {
 	Mux                               *apiserverhttp.Mux
 	MultiwatcherFactory               multiwatcher.Factory
 	LocalMacaroonAuthenticator        macaroon.LocalMacaroonAuthenticator
+	JWTParserGetter                   jwtparser.Getter
 	StatePool                         *state.StatePool
 	Controller                        *cache.Controller
 	LeaseManager                      lease.Manager
@@ -114,6 +113,9 @@ func (config Config) Validate() error {
 	if config.DBGetter == nil {
 		return errors.NotValidf("nil DBGetter")
 	}
+	if config.JWTParserGetter == nil {
+		return errors.NotValidf("nil JWTParserGetter")
+	}
 	return nil
 }
 
@@ -148,11 +150,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
 
-	jwtAuthenticator, err := gatherJWTAuthenticator(controllerConfig)
-	if err != nil {
-		return nil, fmt.Errorf("gathering authenticators for apiserver: %w", err)
-	}
-
 	serverConfig := apiserver.ServerConfig{
 		StatePool:                     config.StatePool,
 		Controller:                    config.Controller,
@@ -165,7 +162,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		MultiwatcherFactory:           config.MultiwatcherFactory,
 		Mux:                           config.Mux,
 		LocalMacaroonAuthenticator:    config.LocalMacaroonAuthenticator,
-		JWTAuthenticator:              jwtAuthenticator,
+		JWTAuthenticator:              getJWTAuthenticator(config.JWTParserGetter),
 		UpgradeComplete:               config.UpgradeComplete,
 		PublicDNSName:                 controllerConfig.AutocertDNSName(),
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),
@@ -183,18 +180,17 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return config.NewServer(serverConfig)
 }
 
-// gatherJWTAuthenticator is responsible for building up the jwt authenticator
-// if this controller has been provisioned to trust external jwt tokens.
-func gatherJWTAuthenticator(controllerConfig jujucontroller.Config) (jwt.Authenticator, error) {
-	jwtRefreshURL := controllerConfig.LoginTokenRefreshURL()
-	if jwtRefreshURL == "" {
-		return nil, nil
+// getJWTAuthenticator will return a JWT authenticator based on the
+// provided JWTParserGetter. If the getter returns nil, a NotImplementedAuthenticator
+// will be returned. A not implemented error will ensure other
+// authenticators are also tried.
+func getJWTAuthenticator(jwtParserGetter jwtparser.Getter) jwt.Authenticator {
+	var jwtAuthenticator jwt.Authenticator
+	jwtAuthenticator = &jwt.NotImplementedAuthenticator{}
+	if parser := jwtParserGetter.Get(); parser != nil {
+		jwtAuthenticator = jwt.NewAuthenticator(parser)
 	}
-	jwtAuthenticator := jwt.NewAuthenticator(jwtRefreshURL)
-	if err := jwtAuthenticator.RegisterJWKSCache(context.Background()); err != nil {
-		return nil, err
-	}
-	return jwtAuthenticator, nil
+	return jwtAuthenticator
 }
 
 func newServerShim(config apiserver.ServerConfig) (worker.Worker, error) {

@@ -65,6 +65,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/jwtparser"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/modelcache"
 	"github.com/juju/juju/internal/worker/multiwatcher"
@@ -1068,13 +1069,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 func gatherJWTAuthenticator(controllerConfig jujucontroller.Config) (jwt.Authenticator, error) {
 	jwtRefreshURL := controllerConfig.LoginTokenRefreshURL()
 	if jwtRefreshURL == "" {
-		return nil, nil
+		return &jwt.NotImplementedAuthenticator{}, nil
 	}
-	jwtAuthenticator := jwt.NewAuthenticator(jwtRefreshURL)
-	if err := jwtAuthenticator.RegisterJWKSCache(stdcontext.Background()); err != nil {
+	parser := jwtparser.NewParser(jwtRefreshURL)
+	if err := parser.RegisterJWKSCache(stdcontext.Background()); err != nil {
 		return nil, err
 	}
-	return jwtAuthenticator, nil
+	return jwt.NewAuthenticator(parser), nil
 }
 
 type noopSysLogger struct{}

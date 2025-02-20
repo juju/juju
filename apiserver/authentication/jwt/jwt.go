@@ -5,15 +5,12 @@ package jwt
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -22,17 +19,45 @@ import (
 	"github.com/juju/juju/core/permission"
 )
 
+// Authenticator defines an interface for authenticating requests.
 type Authenticator interface {
 	authentication.RequestAuthenticator
-	TokenParser
+}
+
+// TokenParser defines an interface for parsing JWT tokens.
+type TokenParser interface {
+	Parse(ctx context.Context, tok string) (jwt.Token, error)
+}
+
+// NotImplementedAuthenticator is an authenticator that always returns
+// NotImplemented error.
+type NotImplementedAuthenticator struct{}
+
+// Authenticate satisfies the Authenticator interface.
+func (n *NotImplementedAuthenticator) Authenticate(req *http.Request) (authentication.AuthInfo, error) {
+	return authentication.AuthInfo{}, errors.NotImplemented
+}
+
+// AuthenticateLoginRequest satisfies the Authenticator interface.
+func (n *NotImplementedAuthenticator) AuthenticateLoginRequest(
+	ctx context.Context,
+	_, _ string,
+	authParams authentication.AuthParams,
+) (authentication.AuthInfo, error) {
+	return authentication.AuthInfo{}, errors.NotImplemented
 }
 
 // JWTAuthenticator is an authenticator responsible for handling JWT tokens from
 // a client.
 type JWTAuthenticator struct {
-	cache      *jwk.Cache
-	httpClient *http.Client
-	refreshURL string
+	parser TokenParser
+}
+
+// NewAuthenticator creates a new JWT authenticator with the supplied parser.
+func NewAuthenticator(parser TokenParser) *JWTAuthenticator {
+	return &JWTAuthenticator{
+		parser: parser,
+	}
 }
 
 // PermissionDelegator is responsible for handling authorization questions
@@ -50,32 +75,17 @@ type TokenEntity struct {
 	User names.UserTag
 }
 
-// TokenParser parses a jwt token returning the token and
-// entity derived from the token subject.
-type TokenParser interface {
-	// Parse parses the supplied token string and returns both the constructed
-	// jwt and the entity found within the token.
-	Parse(ctx context.Context, tok string) (jwt.Token, authentication.Entity, error)
-}
-
-func NewAuthenticator(refreshURL string) *JWTAuthenticator {
-	httpClient := &http.Client{
-		Timeout: 30 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
+// Authenticate implements EntityAuthenticator
+func (j *JWTAuthenticator) Parse(ctx context.Context, tok string) (jwt.Token, TokenEntity, error) {
+	token, err := j.parser.Parse(ctx, tok)
+	if err != nil {
+		return nil, TokenEntity{}, errors.Trace(err)
 	}
-	return NewAuthenticatorWithHTTPClient(httpClient, refreshURL)
-}
-
-func NewAuthenticatorWithHTTPClient(
-	client *http.Client,
-	refreshURL string,
-) *JWTAuthenticator {
-	return &JWTAuthenticator{
-		httpClient: client,
-		refreshURL: refreshURL,
+	entity, err := userFromToken(token)
+	if err != nil {
+		return nil, TokenEntity{}, errors.Trace(err)
 	}
+	return token, entity, nil
 }
 
 // Authenticate implements EntityAuthenticator
@@ -164,47 +174,6 @@ func (p *PermissionDelegator) PermissionError(
 			subject: perm,
 		},
 	}
-}
-
-// Parse parses the bytes into a jwt.
-func (j *JWTAuthenticator) Parse(ctx context.Context, tok string) (jwt.Token, authentication.Entity, error) {
-	if j == nil || j.refreshURL == "" {
-		return nil, nil, errors.New("no jwt authToken parser configured")
-	}
-	tokBytes, err := base64.StdEncoding.DecodeString(tok)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "invalid jwt authToken in request")
-	}
-
-	jwkSet, err := j.cache.Get(ctx, j.refreshURL)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "refreshing jwt key")
-	}
-
-	jwtTok, err := jwt.Parse(
-		tokBytes,
-		jwt.WithKeySet(jwkSet),
-	)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	entity, err := userFromToken(jwtTok)
-	return jwtTok, entity, err
-}
-
-// RegisterJWKSCache sets up the token key cache and refreshes the public key.
-func (j *JWTAuthenticator) RegisterJWKSCache(ctx context.Context) error {
-	j.cache = jwk.NewCache(ctx)
-
-	err := j.cache.Register(j.refreshURL, jwk.WithHTTPClient(j.httpClient))
-	if err != nil {
-		return fmt.Errorf("registering jwk cache with url %q: %w", j.refreshURL, err)
-	}
-	_, err = j.cache.Refresh(ctx, j.refreshURL)
-	if err != nil {
-		return fmt.Errorf("refreshing jwk cache at %q: %w", j.refreshURL, err)
-	}
-	return nil
 }
 
 func userFromToken(token jwt.Token) (TokenEntity, error) {
