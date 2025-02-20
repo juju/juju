@@ -80,40 +80,40 @@ func (c *MockStateGetRelationEndpointUUIDCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
-// WatchRelationApplicationSettingTable mocks base method.
-func (m *MockState) WatchRelationApplicationSettingTable() string {
+// WatcherApplicationSettingsNamespace mocks base method.
+func (m *MockState) WatcherApplicationSettingsNamespace() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchRelationApplicationSettingTable")
+	ret := m.ctrl.Call(m, "WatcherApplicationSettingsNamespace")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// WatchRelationApplicationSettingTable indicates an expected call of WatchRelationApplicationSettingTable.
-func (mr *MockStateMockRecorder) WatchRelationApplicationSettingTable() *MockStateWatchRelationApplicationSettingTableCall {
+// WatcherApplicationSettingsNamespace indicates an expected call of WatcherApplicationSettingsNamespace.
+func (mr *MockStateMockRecorder) WatcherApplicationSettingsNamespace() *MockStateWatcherApplicationSettingsNamespaceCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationApplicationSettingTable", reflect.TypeOf((*MockState)(nil).WatchRelationApplicationSettingTable))
-	return &MockStateWatchRelationApplicationSettingTableCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatcherApplicationSettingsNamespace", reflect.TypeOf((*MockState)(nil).WatcherApplicationSettingsNamespace))
+	return &MockStateWatcherApplicationSettingsNamespaceCall{Call: call}
 }
 
-// MockStateWatchRelationApplicationSettingTableCall wrap *gomock.Call
-type MockStateWatchRelationApplicationSettingTableCall struct {
+// MockStateWatcherApplicationSettingsNamespaceCall wrap *gomock.Call
+type MockStateWatcherApplicationSettingsNamespaceCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateWatchRelationApplicationSettingTableCall) Return(arg0 string) *MockStateWatchRelationApplicationSettingTableCall {
+func (c *MockStateWatcherApplicationSettingsNamespaceCall) Return(arg0 string) *MockStateWatcherApplicationSettingsNamespaceCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateWatchRelationApplicationSettingTableCall) Do(f func() string) *MockStateWatchRelationApplicationSettingTableCall {
+func (c *MockStateWatcherApplicationSettingsNamespaceCall) Do(f func() string) *MockStateWatcherApplicationSettingsNamespaceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateWatchRelationApplicationSettingTableCall) DoAndReturn(f func() string) *MockStateWatchRelationApplicationSettingTableCall {
+func (c *MockStateWatcherApplicationSettingsNamespaceCall) DoAndReturn(f func() string) *MockStateWatcherApplicationSettingsNamespaceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
