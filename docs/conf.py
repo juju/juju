@@ -327,7 +327,7 @@ def _major_minor_from_version_string(version):
     This returns a tuple of either (3,6,0) or (3, 6, 'beta5').
     If neither can be found, this returns None
     """
-    version_re = re.compile('(?P<major>\d+)\.(?P<minor>\d+)(\.(?P<patch>\d+)|-(?P<beta>beta\d+))(-.*)?')
+    version_re = re.compile(r'(?P<major>\d+)\.(?P<minor>\d+)(\.(?P<patch>\d+)|-(?P<beta>beta\d+))(-.*)?')
     m = version_re.match(version)
     if m is None:
         return None
@@ -337,7 +337,7 @@ def _major_minor_from_version_string(version):
 def _extract_version_from_version_go(version_file):
     """Extract the version string from a juju version.go file"""
     # Note that this assumes Major and Minor are integers, but patch might be an integer or something like beta5.
-    version_re = re.compile('const version = "(?P<version>[^"]*)"')
+    version_re = re.compile(r'const version = "(?P<version>[^"]*)"')
     for line in version_file:
         m = version_re.match(line)
         if m is None:
@@ -383,7 +383,8 @@ def generate_cli_docs():
     tree_major_minor, tree_version = get_tree_juju_version()
     juju_major_minor, juju_version = get_juju_version()
     if tree_major_minor != juju_major_minor:
-        warning = "refusing to rebuild docs with a mismatched minor juju version. Found juju {} in $PATH, but the tree reports version {}".format(juju_version, tree_version)
+        warning = ("refusing to rebuild docs with a mismatched minor juju version.\n" +
+                "Found juju {} in $PATH, but the tree reports version {}".format(juju_version, tree_version))
         print(warning)
         raise RuntimeError(warning)
     else:
