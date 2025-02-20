@@ -105,7 +105,7 @@ type ModelDomainServices interface {
 	// Storage returns the storage service.
 	Storage() *storageservice.Service
 	// Secret returns the secret service.
-	Secret(secretservice.SecretServiceParams) *secretservice.WatchableService
+	Secret() *secretservice.WatchableService
 	// ModelInfo returns the model service for the model.
 	// Note: This should be called model, but we have naming conflicts with
 	// the model service. As this is only for model information, we

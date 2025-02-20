@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/domain"
 	domainsecret "github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/domain/secretbackend"
+	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -54,7 +55,7 @@ type AtomicState interface {
 type State interface {
 	AtomicState
 
-	GetModelUUID(ctx context.Context) (string, error)
+	GetModelUUID(ctx context.Context) (coremodel.UUID, error)
 	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)
@@ -176,6 +177,10 @@ type SecretBackendState interface {
 	ListSecretBackendsForModel(
 		ctx context.Context, modelUUID coremodel.UUID, includeEmpty bool,
 	) ([]*secretbackend.SecretBackend, error)
+
+	// GetActiveModelSecretBackend returns the active secret backend ID and config for the given model.
+	// It returns an error satisfying [modelerrors.NotFound] if the model provided does not exist.
+	GetActiveModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, *provider.ModelBackendConfig, error)
 }
 
 // WatcherFactory describes methods for creating watchers.

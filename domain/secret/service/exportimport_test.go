@@ -207,7 +207,7 @@ func (s *serviceSuite) TestImportSecrets(c *gc.C) {
 		Data:           map[string]string{"foo": "bar"},
 		RevisionID:     ptr(s.fakeUUID.String()),
 	})
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(
 		func() error { return nil }, nil,
 	)

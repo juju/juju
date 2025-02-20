@@ -148,11 +148,10 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 		return errors.Annotate(err, "importing remote secrets")
 	}
 
-	modelUUID, err := s.secretState.GetModelUUID(ctx)
+	modelID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
 		return errors.Annotate(err, "getting model uuid")
 	}
-	modelID := coremodel.UUID(modelUUID)
 
 	for _, md := range modelSecrets.Secrets {
 		revisions := modelSecrets.Revisions[md.URI.ID]

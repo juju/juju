@@ -257,7 +257,7 @@ func (s *ModelServices) Storage() *storageservice.Service {
 }
 
 // Secret returns the model's secret service.
-func (s *ModelServices) Secret(params secretservice.SecretServiceParams) *secretservice.WatchableService {
+func (s *ModelServices) Secret() *secretservice.WatchableService {
 	log := s.logger.Child("secret")
 	return secretservice.NewWatchableService(
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
@@ -265,7 +265,6 @@ func (s *ModelServices) Secret(params secretservice.SecretServiceParams) *secret
 		domain.NewLeaseService(s.leaseManager),
 		s.modelWatcherFactory("secret"),
 		log,
-		params,
 	)
 }
 

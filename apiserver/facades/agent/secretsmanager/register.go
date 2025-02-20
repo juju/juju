@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
-	secretservice "github.com/juju/juju/domain/secret/service"
-	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/rpc/params"
 )
@@ -42,13 +40,7 @@ func NewSecretManagerAPI(_ context.Context, ctx facade.ModelContext) (*SecretsMa
 	}
 
 	backendService := domainServices.SecretBackend()
-	secretService := domainServices.Secret(
-		secretservice.SecretServiceParams{
-			BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-				backendService, ctx.ModelUUID(),
-			),
-		},
-	)
+	secretService := domainServices.Secret()
 
 	controllerAPI := common.NewControllerConfigAPI(
 		ctx.State(),

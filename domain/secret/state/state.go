@@ -16,6 +16,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -44,13 +45,13 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *Stat
 
 // GetModelUUID returns the uuid of the model,
 // or an error satisfying [modelerrors.NotFound]
-func (st State) GetModelUUID(ctx context.Context) (string, error) {
+func (st State) GetModelUUID(ctx context.Context) (coremodel.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	var modelUUID string
+	var modelUUID coremodel.UUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		modelUUID, err = st.getModelUUID(ctx, tx)
@@ -59,24 +60,22 @@ func (st State) GetModelUUID(ctx context.Context) (string, error) {
 	return modelUUID, errors.Trace(err)
 }
 
-func (st State) getModelUUID(ctx context.Context, tx *sqlair.TX) (string, error) {
-	result := sqlair.M{}
+func (st State) getModelUUID(ctx context.Context, tx *sqlair.TX) (coremodel.UUID, error) {
+	result := modelUUID{}
 
-	getModelUUIDSQL := "SELECT &M.uuid FROM model"
-	getModelUUIDStmt, err := st.Prepare(getModelUUIDSQL, result)
+	getModelUUIDStmt, err := st.Prepare("SELECT &modelUUID.uuid FROM model", result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	err = tx.Query(ctx, getModelUUIDStmt).Get(&result)
-	if err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return "", modelerrors.NotFound
-		} else {
-			return "", errors.Annotatef(err, "looking up model UUID")
-		}
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", modelerrors.NotFound
 	}
-	return result["uuid"].(string), nil
+	if err != nil {
+		return "", errors.Annotatef(err, "looking up model UUID")
+	}
+	return result.UUID, nil
 }
 
 // GetApplicationUUID returns the UUID of the application with the given name, returning an error satisfying
@@ -270,7 +269,7 @@ func (st State) CreateUserSecret(
 			return errors.Annotatef(err, "cannot get current model UUID for secret %q", uri)
 		}
 
-		if err := st.grantSecretOwnerManage(ctx, tx, uri, modelUUID, domainsecret.SubjectModel); err != nil {
+		if err := st.grantSecretOwnerManage(ctx, tx, uri, modelUUID.String(), domainsecret.SubjectModel); err != nil {
 			return errors.Annotatef(err, "granting owner manage access for secret %q", uri)
 		}
 		return nil
@@ -3173,7 +3172,7 @@ HAVING sruc.current_revision < MAX(sr.revision)`
 			return nil, errors.Trace(err)
 		}
 		// We need to set the source model UUID to mark it as a remote secret for consumer side to use.
-		uri.SourceUUID = modelUUID
+		uri.SourceUUID = modelUUID.String()
 		secretURIs[i] = uri.String()
 	}
 	return secretURIs, nil

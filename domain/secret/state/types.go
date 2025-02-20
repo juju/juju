@@ -10,12 +10,17 @@ import (
 	"github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	domainsecret "github.com/juju/juju/domain/secret"
 )
 
 // These structs represent the persistent secretMetadata entity schema in the database.
+
+type modelUUID struct {
+	UUID coremodel.UUID `db:"uuid"`
+}
 
 type secretID struct {
 	ID string `db:"id"`

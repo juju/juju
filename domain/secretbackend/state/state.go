@@ -52,31 +52,42 @@ func (s *State) GetModelSecretBackendDetails(ctx context.Context, uuid coremodel
 		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
 
-	stmt, err := s.Prepare(`
-SELECT &ModelSecretBackend.*
-FROM   v_model_secret_backend
-WHERE  uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
-	if err != nil {
-		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
-	}
-	var m ModelSecretBackend
+	var backend secretbackend.ModelSecretBackend
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
-		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("cannot get secret backend for model %q: %w", uuid, modelerrors.NotFound)
-		}
-		return errors.Trace(err)
+		var err error
+		backend, err = s.getModelSecretBackendDetails(ctx, tx, uuid)
+		return err
 	})
 	if err != nil {
 		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
+	return backend, nil
+}
+
+func (s *State) getModelSecretBackendDetails(ctx context.Context, tx *sqlair.TX, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
+	input := modelIdentifier{ModelID: uuid}
+	stmt, err := s.Prepare(`
+SELECT &ModelSecretBackend.*
+FROM   v_model_secret_backend
+WHERE  uuid = $modelIdentifier.uuid`, input, ModelSecretBackend{})
+	if err != nil {
+		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
+	}
+	var backend ModelSecretBackend
+	err = tx.Query(ctx, stmt, input).Get(&backend)
+	if errors.Is(err, sql.ErrNoRows) {
+		return secretbackend.ModelSecretBackend{}, fmt.Errorf("cannot get secret backend for model %q: %w", uuid, modelerrors.NotFound)
+	}
+	if err != nil {
+		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
+	}
 	return secretbackend.ModelSecretBackend{
-		ControllerUUID:    m.ControllerUUID,
-		ModelID:           m.ModelID,
-		ModelName:         m.ModelName,
-		ModelType:         m.ModelType,
-		SecretBackendID:   m.SecretBackendID,
-		SecretBackendName: m.SecretBackendName,
+		ControllerUUID:    backend.ControllerUUID,
+		ModelID:           backend.ModelID,
+		ModelName:         backend.ModelName,
+		ModelType:         backend.ModelType,
+		SecretBackendID:   backend.SecretBackendID,
+		SecretBackendName: backend.SecretBackendName,
 	}, nil
 }
 
@@ -744,6 +755,43 @@ WHERE b.%s = $M.identifier`, columName)
 		return nil, fmt.Errorf("querying secret backends: %w", err)
 	}
 	return rows.toSecretBackends()[0], nil
+}
+
+// GetActiveModelSecretBackend returns the active secret backend ID and config for the given model.
+// It returns an error satisfying [modelerrors.NotFound] if the model provided does not exist.
+func (s *State) GetActiveModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, *provider.ModelBackendConfig, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	var (
+		modelBackend secretbackend.ModelSecretBackend
+		backend      *secretbackend.SecretBackend
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		modelBackend, err = s.getModelSecretBackendDetails(ctx, tx, modelUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if modelBackend.ModelType == coremodel.CAAS && modelBackend.SecretBackendName == kubernetes.BackendName {
+			backend, err = s.getK8sSecretBackendForModel(ctx, tx, modelUUID)
+		} else {
+			backend, err = s.getSecretBackend(ctx, tx, secretbackend.BackendIdentifier{ID: modelBackend.SecretBackendID})
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	return modelBackend.SecretBackendID, &provider.ModelBackendConfig{
+		ControllerUUID: modelBackend.ControllerUUID,
+		ModelUUID:      modelUUID.String(),
+		ModelName:      modelBackend.ModelName,
+		BackendConfig: provider.BackendConfig{
+			BackendType: backend.BackendType,
+			Config:      backend.Config,
+		},
+	}, nil
 }
 
 // GetSecretBackend returns the secret backend for the given backend ID or Name.

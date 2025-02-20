@@ -22,7 +22,6 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
-	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -883,12 +882,8 @@ func newSecretsRevisionWatcher(_ context.Context, context facade.ModelContext) (
 
 	return &srvSecretsRevisionWatcher{
 		watcherCommon: newWatcherCommon(context),
-		secretService: context.DomainServices().Secret(
-			secretservice.SecretServiceParams{
-				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
-			},
-		),
-		watcher: watcher,
+		secretService: context.DomainServices().Secret(),
+		watcher:       watcher,
 	}, nil
 }
 

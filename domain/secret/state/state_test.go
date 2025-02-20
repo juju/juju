@@ -65,7 +65,7 @@ func (s *stateSuite) TestGetModelUUID(c *gc.C) {
 
 	got, err := st.GetModelUUID(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.Equals, s.modelUUID)
+	c.Assert(got.String(), gc.Equals, s.modelUUID)
 }
 
 func (s *stateSuite) TestGetSecretNotFound(c *gc.C) {

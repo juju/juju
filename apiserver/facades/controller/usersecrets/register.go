@@ -9,8 +9,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	secretservice "github.com/juju/juju/domain/secret/service"
-	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -26,16 +24,8 @@ func NewUserSecretsManager(stdCtx context.Context, ctx facade.ModelContext) (*Us
 		return nil, apiservererrors.ErrPerm
 	}
 	domainServices := ctx.DomainServices()
-	backendService := domainServices.SecretBackend()
-
 	return &UserSecretsManager{
 		watcherRegistry: ctx.WatcherRegistry(),
-		secretService: domainServices.Secret(
-			secretservice.SecretServiceParams{
-				BackendUserSecretConfigGetter: secretbackendservice.UserSecretBackendConfigGetterFunc(
-					backendService, ctx.ModelUUID(),
-				),
-			},
-		),
+		secretService:   domainServices.Secret(),
 	}, nil
 }

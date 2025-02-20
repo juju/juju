@@ -14,7 +14,6 @@ import (
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
-	secretservice "github.com/juju/juju/domain/secret/service"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -45,11 +44,7 @@ func makeAPI(stdCtx context.Context, ctx facade.ModelContext) (*API, error) {
 		modelInfo.UUID,
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
 		externalControllerService,
-		domainServices.Secret(
-			secretservice.SecretServiceParams{
-				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
-			},
-		),
+		domainServices.Secret(),
 		common.NewControllerConfigAPI(systemState, controllerConfigService, externalControllerService),
 		ctx.Resources(), ctx.Auth(),
 		ctx.Logger().Child("remoterelations", corelogger.CMR),

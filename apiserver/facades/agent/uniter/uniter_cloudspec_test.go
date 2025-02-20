@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
-	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/rpc/params"
@@ -46,11 +45,7 @@ func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 		domainServices.ControllerConfig(),
 		domainServices.Config(),
 		domainServices.ModelInfo(),
-		domainServices.Secret(
-			secretservice.SecretServiceParams{
-				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
-			},
-		),
+		domainServices.Secret(),
 		domainServices.Network(),
 		domainServices.Machine(),
 		domainServices.Cloud(),
@@ -86,11 +81,7 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 		domainServices.ControllerConfig(),
 		domainServices.Config(),
 		domainServices.ModelInfo(),
-		domainServices.Secret(
-			secretservice.SecretServiceParams{
-				BackendUserSecretConfigGetter: secretservice.NotImplementedBackendUserSecretConfigGetter,
-			},
-		),
+		domainServices.Secret(),
 		domainServices.Network(),
 		domainServices.Machine(),
 		domainServices.Cloud(),
