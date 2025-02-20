@@ -163,7 +163,12 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 		// anything else, so cannot miss the change entirely.
 		chg, err := pebbleClient.Change(notice.Key)
 		if err != nil {
-			return errors.Annotatef(err, "failed to get change %q", notice.Key)
+			// Couldn't fetch change associated with notice, likely because it's
+			// been pruned. Pebble prunes changes when they're 7 days old or
+			// there's more than 500 total changes, so it's an old notice -- ignore.
+			n.logger.Debugf("container %q: ignoring %s notice, change %q: %v",
+				containerName, notice.Type, notice.Key, err)
+			return nil
 		}
 
 		// Although we determine that a check has reached the failure threshold

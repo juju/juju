@@ -205,6 +205,26 @@ func (s *pebbleNoticerSuite) TestIgnoreUnhandledType(c *gc.C) {
 	}
 }
 
+// TestIgnoreChangeError verifies that if we can't find the change associated
+// with the notice, we ignore it (probably an old notice whose change was pruned).
+func (s *pebbleNoticerSuite) TestIgnoreChangeError(c *gc.C) {
+	s.setUpWorker(c, []string{"c1"})
+	defer workertest.CleanKill(c, s.worker)
+
+	s.clients["c1"].AddNotice(c, &client.Notice{
+		ID:           "1",
+		Type:         "change-update",
+		Key:          "42",
+		LastRepeated: time.Now(),
+		LastData:     map[string]string{"kind": "perform-check", "check-name": "http-check"},
+	})
+	select {
+	case <-s.workloadEventChan:
+		c.Fatalf("should ignore this notice")
+	case <-time.After(testing.ShortWait):
+	}
+}
+
 func (s *pebbleNoticerSuite) TestMultipleContainers(c *gc.C) {
 	s.setUpWorker(c, []string{"c1", "c2"})
 	defer workertest.CleanKill(c, s.worker)
