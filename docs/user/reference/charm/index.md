@@ -41,24 +41,32 @@ Example machine charms:
 - [Vault](https://charmhub.io/vault)
 - [Rsyslog](https://charmhub.io/rsyslog)
 
+(infrastructure-agnostic-charm)=
+#### Infrastructure-agnostic
+
+While charms are still very much either for {ref}`Kubernetes <kubernetes-charm>` or {ref}`machines <machine-charm>`, some {ref}`workloadless <workloadless-charm>` charms are in fact infrastructure-agnostic and can be deployed on both.
+
+```{note}
+That is because most of the difference between a machine charm and a Kubernetes charm comes from how the charm handles the workload. So, if a charm does not have a workload, and its metadata does not stipulate Kubernetes, and the charm does not do anything that would only make sense on machines / Kubernetes, it can run perfectly fine on both machines and Kubernetes -- the details of the deployment will differ (the charm will be deployed on a machine vs. a container in a pod), but the deployment will be successful. Example workloadless charms that are cloud-agnostic: [Azure Storage Integrator](https://charmhub.io/azure-storage-integrator).
+```
+
+
 (charm-taxonomy-by-function)=
 ### By function
 
 While charms are fundamentally about codifying operations for a given workload, some have a slightly different function.
 
 
-(workloadless-charm)
+(workloadless-charm)=
 #### Workloadless
 
 A **workloadless** charm is a charm that does not run any workload locally.
 
+Because of their nature, workloadless charms are often {ref}`infrastructure-agnostic <infrastructure-agostic-charm>`.
+
 Examples:
 
-- [Traefik Route k8s](https://charmhub.io/traefik-route-k8s)
-
-```{note}
-Interestingly, some workloadless charms can be cloud-agnostic. That is because most of the difference between a machine charm and a Kubernetes charm comes from how the charm communicates with the workload (on machines they're in the same machine but on Kubernetes they are in different containers, even if on the same pod). So, if a charm does not have a workload, and its metadata does not stipulate Kubernetes, and the charm does not do anything that would only make sense on machines / Kubernetes, it can run perfectly fine on both machines and Kubernetes -- the details of the deployment will differ (the charm will be deployed on machine vs. a container in a pod), but the deployment will be successful. Example workloadless charms that are cloud-agnostic: [Azure Storage Integrator](https://charmhub.io/azure-storage-integrator).
-```
+- [Data Integrator](https://charmhub.io/data-integrator)
 
 (configurator-charm)=
 #### Configurator
@@ -97,7 +105,7 @@ Examples:
 (principal-charm)=
 #### Principal
 
-In {ref}`machine charms <machine-charm>`, a **principal charm** is any that is not {ref}`subordinate <subordinate-charm>`.
+In {ref}`machine charms <machine-charm>`, a **principal charm** is any charm that has a {ref}`subordinate <subordinate-charm>`.
 
 (subordinate-charm)=
 #### Subordinate
