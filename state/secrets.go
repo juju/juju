@@ -580,7 +580,7 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 	if len(uris) == 0 || len(uris) > 1 && len(revisions) > 0 {
 		return nil, errors.Errorf("PROGRAMMING ERROR: invalid secret deletion args uris=%v, revisions=%v", uris, revisions)
 	}
-	session := st.MongoSession().Copy()
+	db, session := st.db().CopyRaw()
 	defer session.Close()
 	err = session.StartTransaction()
 	if err != nil {
@@ -601,7 +601,7 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 	if len(revisions) > 0 {
 		uri := uris[0]
 
-		secretRevisionsCollection, closer := st.db().GetCollection(secretRevisionsC)
+		secretRevisionsCollection, closer := db.GetCollection(secretRevisionsC)
 		defer closer()
 
 		var savedRevisionDocs []secretRevisionDoc
@@ -641,7 +641,7 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 			}
 			// Decrement the count of secret revisions stored in the external backends.
 			// This allows backends without stored revisions to be removed without using force.
-			globalRefCountsCollection, closer := st.db().GetCollection(globalRefcountsC)
+			globalRefCountsCollection, closer := db.GetCollection(globalRefcountsC)
 			defer closer()
 			for backendID, count := range externalRevisionCounts {
 				if secrets.IsInternalSecretBackendID(backendID) {
@@ -659,7 +659,7 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 	}
 
 	for _, uri := range uris {
-		deletedExternal, err := st.deleteOne(uri)
+		deletedExternal, err := st.deleteOne(db, uri)
 		if err != nil {
 			return nil, errors.Annotatef(err, "deleting secret %q", uri.String())
 		}
@@ -673,11 +673,11 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 	return external, nil
 }
 
-func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ error) {
-	secretMetadataCollection, closer := st.db().GetCollection(secretMetadataC)
+func (st *State) deleteOne(db Database, uri *secrets.URI) (external []secrets.ValueRef, _ error) {
+	secretMetadataCollection, closer := db.GetCollection(secretMetadataC)
 	defer closer()
 
-	secretRevisionsCollection, closer := st.db().GetCollection(secretRevisionsC)
+	secretRevisionsCollection, closer := db.GetCollection(secretRevisionsC)
 	defer closer()
 
 	var md secretMetadataDoc
@@ -695,7 +695,7 @@ func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ err
 		return nil, errors.Annotatef(err, "deleting revisions for %s", uri.String())
 	}
 
-	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
+	secretRotateCollection, closer := db.GetCollection(secretRotateC)
 	defer closer()
 	_, err = secretRotateCollection.Writeable().RemoveAll(bson.D{{
 		"_id", uri.ID,
@@ -728,7 +728,7 @@ func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ err
 		return nil, errors.Annotatef(err, "deleting revisions for %s", uri.String())
 	}
 
-	secretPermissionsCollection, closer := st.db().GetCollection(secretPermissionsC)
+	secretPermissionsCollection, closer := db.GetCollection(secretPermissionsC)
 	defer closer()
 	_, err = secretPermissionsCollection.Writeable().RemoveAll(bson.D{{
 		"_id", bson.D{{"$regex", fmt.Sprintf("%s#.*", uri.ID)}},
@@ -744,7 +744,7 @@ func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ err
 		return nil, errors.Trace(err)
 	}
 
-	refCountsCollection, closer := st.db().GetCollection(refcountsC)
+	refCountsCollection, closer := db.GetCollection(refcountsC)
 	defer closer()
 	_, err = refCountsCollection.Writeable().RemoveAll(bson.D{{
 		"_id", fmt.Sprintf("%s#%s", uri.ID, "consumer"),
@@ -755,7 +755,7 @@ func (st *State) deleteOne(uri *secrets.URI) (external []secrets.ValueRef, _ err
 
 	// Decrement the count of secret revisions stored in the external backends.
 	// This allows backends without stored revisions to be removed without using force.
-	globalRefCountsCollection, closer := st.db().GetCollection(globalRefcountsC)
+	globalRefCountsCollection, closer := db.GetCollection(globalRefcountsC)
 	defer closer()
 	for backendID, count := range externalRevisionCounts {
 		if secrets.IsInternalSecretBackendID(backendID) {
