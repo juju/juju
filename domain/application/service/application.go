@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -80,10 +82,21 @@ type ApplicationState interface {
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	SetUnitWorkloadStatus(context.Context, coreunit.UUID, *application.StatusInfo[application.WorkloadStatusType]) error
 
+	// GetUnitCloudContainerStatus returns the cloud container status of the specified
+	// unit, returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+	// doesn't exist.
+	GetUnitCloudContainerStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.CloudContainerStatusType], error)
+
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses for all units
 	// of the specified application, returning an error satisfying
 	// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
 	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType], error)
+
+	// GetUnitCloudContainerStatusesForApplication returns the cloud container
+	// statuses for all units of the specified application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFound] if the application
+	// doesn't exist.
+	GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.UUID]application.StatusInfo[application.CloudContainerStatusType], error)
 
 	// DeleteUnit deletes the specified unit.
 	// If the unit's application is Dying and no
@@ -867,11 +880,11 @@ func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	agentStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
+	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return decodeWorkloadStatus(agentStatus)
+	return decodeWorkloadStatus(workloadStatus)
 }
 
 // SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
@@ -889,6 +902,29 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 		return errors.Trace(err)
 	}
 	return s.st.SetUnitWorkloadStatus(ctx, unitUUID, workloadStatus)
+}
+
+// GetUnitDisplayStatus returns the display status of the specified unit. The display
+// status a function of both the unit workload status and the cloud container status.
+// It returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+// exist.
+func (s *Service) GetUnitDisplayStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	containerStatus, err := s.st.GetUnitCloudContainerStatus(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return unitDisplayStatus(workloadStatus, containerStatus)
 }
 
 // DeleteApplication deletes the specified application, returning an error
@@ -1570,17 +1606,11 @@ func (s *Service) GetApplicationStatus(ctx context.Context, appID coreapplicatio
 		return nil, internalerrors.Capture(err)
 	}
 
-	deocodedStatuses := []corestatus.StatusInfo{}
-	for _, unitStatus := range unitStatuses {
-		status, err := decodeWorkloadStatus(&unitStatus)
-		if err != nil {
-			return nil, internalerrors.Capture(err)
-		}
-		deocodedStatuses = append(deocodedStatuses, *status)
+	derivedApplicationStatus, err := reduceWorkloadStatuses(slices.Collect(maps.Values(unitStatuses)))
+	if err != nil {
+		return nil, internalerrors.Capture(err)
 	}
-	derivedStatus := corestatus.DeriveStatus(deocodedStatuses)
-	return &derivedStatus, nil
-
+	return derivedApplicationStatus, nil
 }
 
 // SetApplicationStatus saves the given application status, overwriting any
@@ -1636,6 +1666,38 @@ func (s *Service) SetApplicationStatusForUnitLeader(
 	return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
 		return s.st.SetApplicationStatus(ctx, appID, encodedStatus)
 	})
+}
+
+// GetApplicationDisplayStatus returns the display status of the specified application.
+// The display status is equal to the application status if it is set, otherwise it is
+// derived from the unit display statuses.
+func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error) {
+	if err := appID.Validate(); err != nil {
+		return nil, internalerrors.Errorf("application ID: %w", err)
+	}
+
+	applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	if applicationStatus.Status != application.WorkloadStatusUnset {
+		return decodeWorkloadStatus(applicationStatus)
+	}
+
+	unitStatuses, err := s.st.GetUnitWorkloadStatusesForApplication(ctx, appID)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	cloudContainerStatuses, err := s.st.GetUnitCloudContainerStatusesForApplication(ctx, appID)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(unitStatuses, cloudContainerStatuses)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	return derivedApplicationStatus, nil
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (bool, error) {

@@ -14,7 +14,7 @@ func UnitDisplayStatus(unitStatus, containerStatus StatusInfo) StatusInfo {
 	}
 	if containerStatus.Status == "" {
 		// No container update received from k8s yet.
-		// Unit may have set sttaus, in which case use it.
+		// Unit may have set status, in which case use it.
 		if isStatusModified(unitStatus) {
 			return unitStatus
 		}
