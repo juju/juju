@@ -736,7 +736,8 @@ type applicationConstraint struct {
 	VirtType         sql.NullString `db:"virt_type"`
 	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
 	ImageID          sql.NullString `db:"image_id"`
-	Space            sql.NullString `db:"space"`
+	SpaceName        sql.NullString `db:"space_name"`
+	SpaceExclude     sql.NullBool   `db:"space_exclude"`
 	Tag              sql.NullString `db:"tag"`
 	Zone             sql.NullString `db:"zone"`
 }

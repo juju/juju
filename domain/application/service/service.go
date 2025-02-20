@@ -193,7 +193,7 @@ func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID c
 		return err
 	}
 
-	return s.st.SetApplicationConstraints(ctx, appID, cons)
+	return s.st.SetApplicationConstraints(ctx, appID, application.FromCoreConstraints(cons))
 }
 
 func (s *ProviderService) validateConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error {

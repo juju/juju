@@ -294,7 +294,7 @@ type ApplicationState interface {
 	// application ID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
+	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (application.Constraints, error)
 
 	// SetApplicationConstraints sets the application constraints for the
 	// specified application ID.
@@ -304,7 +304,7 @@ type ApplicationState interface {
 	// error is returned.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error
+	SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons application.Constraints) error
 
 	// GetApplicationStatus looks up the status of the specified application,
 	// returning an error satisfying [applicationerrors.ApplicationNotFound] if the
@@ -1606,7 +1606,7 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 	}
 
 	cons, err := s.st.GetApplicationConstraints(ctx, appID)
-	return cons, internalerrors.Capture(err)
+	return application.ToCoreConstraints(cons), internalerrors.Capture(err)
 }
 
 // GetApplicationStatus looks up the status of the specified application,
