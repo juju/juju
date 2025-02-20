@@ -721,10 +721,10 @@ func (c *MockStateGetLatestRevisionCall) DoAndReturn(f func(context.Context, *se
 }
 
 // GetModelUUID mocks base method.
-func (m *MockState) GetModelUUID(arg0 context.Context) (string, error) {
+func (m *MockState) GetModelUUID(arg0 context.Context) (model.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelUUID", arg0)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(model.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -742,19 +742,19 @@ type MockStateGetModelUUIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetModelUUIDCall) Return(arg0 string, arg1 error) *MockStateGetModelUUIDCall {
+func (c *MockStateGetModelUUIDCall) Return(arg0 model.UUID, arg1 error) *MockStateGetModelUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelUUIDCall) Do(f func(context.Context) (string, error)) *MockStateGetModelUUIDCall {
+func (c *MockStateGetModelUUIDCall) Do(f func(context.Context) (model.UUID, error)) *MockStateGetModelUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelUUIDCall) DoAndReturn(f func(context.Context) (string, error)) *MockStateGetModelUUIDCall {
+func (c *MockStateGetModelUUIDCall) DoAndReturn(f func(context.Context) (model.UUID, error)) *MockStateGetModelUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

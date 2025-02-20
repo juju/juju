@@ -55,7 +55,7 @@ type AtomicState interface {
 type State interface {
 	AtomicState
 
-	GetModelUUID(ctx context.Context) (string, error)
+	GetModelUUID(ctx context.Context) (coremodel.UUID, error)
 	DeleteObsoleteUserSecretRevisions(ctx context.Context) ([]string, error)
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)

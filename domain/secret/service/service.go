@@ -15,7 +15,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -78,7 +77,7 @@ func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*sec
 	}
 	result := make([]*secrets.URI, count)
 	for i := 0; i < count; i++ {
-		result[i] = secrets.NewURI().WithSource(modelUUID)
+		result[i] = secrets.NewURI().WithSource(modelUUID.String())
 	}
 	return result, nil
 }
@@ -92,11 +91,10 @@ func (s *SecretService) getBackend(cfg *provider.ModelBackendConfig) (provider.S
 }
 
 func (s *SecretService) getBackendForUserSecrets(ctx context.Context, accessor SecretAccessor) (provider.SecretsBackend, string, error) {
-	mUUID, err := s.secretState.GetModelUUID(ctx)
+	modelUUID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
 		return nil, "", errors.Errorf("getting model UUID: %w", err)
 	}
-	modelUUID := coremodel.UUID(mUUID)
 
 	activeBackendID, modelBackendCfg, err := s.secretBackendState.GetActiveModelSecretBackend(ctx, modelUUID)
 	if err != nil {
@@ -145,11 +143,10 @@ func (s *SecretService) getBackendForUserSecrets(ctx context.Context, accessor S
 }
 
 func (s *SecretService) loadBackendInfo(ctx context.Context, activeOnly bool) error {
-	mUUID, err := s.secretState.GetModelUUID(ctx)
+	modelUUID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
 		return errors.Errorf("getting model UUID: %w", err)
 	}
-	modelUUID := coremodel.UUID(mUUID)
 
 	modelBackend, err := s.secretBackendState.GetModelSecretBackendDetails(ctx, modelUUID)
 	if err != nil {
@@ -170,7 +167,7 @@ func (s *SecretService) loadBackendInfo(ctx context.Context, activeOnly bool) er
 
 		cfg := provider.ModelBackendConfig{
 			ControllerUUID: modelBackend.ControllerUUID,
-			ModelUUID:      mUUID,
+			ModelUUID:      modelUUID.String(),
 			ModelName:      modelBackend.ModelName,
 			BackendConfig: provider.BackendConfig{
 				BackendType: b.BackendType,
@@ -256,7 +253,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	if err != nil {
 		return jujuerrors.Annotate(err, "getting model uuid")
 	}
-	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
+	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, p.ValueRef, modelID, revisionID.String())
 	if err != nil {
 		return jujuerrors.Trace(err)
 	}
@@ -318,7 +315,7 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 	if err != nil {
 		return jujuerrors.Annotate(err, "getting model uuid")
 	}
-	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
+	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, p.ValueRef, modelID, revisionID.String())
 	if err != nil {
 		return jujuerrors.Trace(err)
 	}
@@ -425,7 +422,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 				return errors.Errorf("getting model uuid: %w", err)
 			}
 			rollBack, err := s.secretBackendState.AddSecretBackendReference(
-				innerCtx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
+				innerCtx, p.ValueRef, modelID, revisionID.String())
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -503,7 +500,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 				return jujuerrors.Annotate(err, "getting model uuid")
 			}
 			rollBack, err := s.secretBackendState.AddSecretBackendReference(
-				innerCtx, p.ValueRef, coremodel.UUID(modelID), revisionID.String())
+				innerCtx, p.ValueRef, modelID, revisionID.String())
 			if err != nil {
 				return jujuerrors.Trace(err)
 			}
@@ -763,7 +760,7 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	}
 
 	// For local secrets, check those which may be owned by the caller.
-	if uri == nil || uri.IsLocal(modelUUID) {
+	if uri == nil || uri.IsLocal(modelUUID.String()) {
 		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(ctx, uri, unitName, label)
 		if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
 			return nil, nil, jujuerrors.Trace(err)
@@ -904,7 +901,7 @@ func (s *SecretService) ChangeSecretBackend(
 
 	return withCaveat(ctx, func(innerCtx context.Context) (errOut error) {
 		rollBack, err := s.secretBackendState.UpdateSecretBackendReference(
-			innerCtx, params.ValueRef, coremodel.UUID(modelID), revisionID.String())
+			innerCtx, params.ValueRef, modelID, revisionID.String())
 		if err != nil {
 			return errors.Capture(err)
 		}

@@ -25,7 +25,6 @@ import (
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/database"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
@@ -50,30 +49,32 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *Stat
 func (s *State) GetModelSecretBackendDetails(ctx context.Context, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
 	db, err := s.DB()
 	if err != nil {
-		return secretbackend.ModelSecretBackend{}, internalerrors.Capture(err)
+		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
 
-	var m secretbackend.ModelSecretBackend
+	var backend secretbackend.ModelSecretBackend
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		m, err = s.getModelSecretBackendDetails(ctx, tx, uuid)
+		var err error
+		backend, err = s.getModelSecretBackendDetails(ctx, tx, uuid)
 		return err
 	})
 	if err != nil {
-		return secretbackend.ModelSecretBackend{}, internalerrors.Capture(err)
+		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
-	return m, nil
+	return backend, nil
 }
 
 func (s *State) getModelSecretBackendDetails(ctx context.Context, tx *sqlair.TX, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
+	input := modelIdentifier{ModelID: uuid}
 	stmt, err := s.Prepare(`
 SELECT &ModelSecretBackend.*
 FROM   v_model_secret_backend
-WHERE  uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
+WHERE  uuid = $modelIdentifier.uuid`, input, ModelSecretBackend{})
 	if err != nil {
 		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
-	var m ModelSecretBackend
-	err = tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
+	var backend ModelSecretBackend
+	err = tx.Query(ctx, stmt, input).Get(&backend)
 	if errors.Is(err, sql.ErrNoRows) {
 		return secretbackend.ModelSecretBackend{}, fmt.Errorf("cannot get secret backend for model %q: %w", uuid, modelerrors.NotFound)
 	}
@@ -81,12 +82,12 @@ WHERE  uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
 		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
 	return secretbackend.ModelSecretBackend{
-		ControllerUUID:    m.ControllerUUID,
-		ModelID:           m.ModelID,
-		ModelName:         m.ModelName,
-		ModelType:         m.ModelType,
-		SecretBackendID:   m.SecretBackendID,
-		SecretBackendName: m.SecretBackendName,
+		ControllerUUID:    backend.ControllerUUID,
+		ModelID:           backend.ModelID,
+		ModelName:         backend.ModelName,
+		ModelType:         backend.ModelType,
+		SecretBackendID:   backend.SecretBackendID,
+		SecretBackendName: backend.SecretBackendName,
 	}, nil
 }
 
@@ -761,7 +762,7 @@ WHERE b.%s = $M.identifier`, columName)
 func (s *State) GetActiveModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, *provider.ModelBackendConfig, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", nil, internalerrors.Capture(err)
+		return "", nil, errors.Trace(err)
 	}
 	var (
 		modelBackend secretbackend.ModelSecretBackend
@@ -770,17 +771,17 @@ func (s *State) GetActiveModelSecretBackend(ctx context.Context, modelUUID corem
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		modelBackend, err = s.getModelSecretBackendDetails(ctx, tx, modelUUID)
 		if err != nil {
-			return internalerrors.Capture(err)
+			return errors.Trace(err)
 		}
 		if modelBackend.ModelType == coremodel.CAAS && modelBackend.SecretBackendName == kubernetes.BackendName {
 			backend, err = s.getK8sSecretBackendForModel(ctx, tx, modelUUID)
 		} else {
 			backend, err = s.getSecretBackend(ctx, tx, secretbackend.BackendIdentifier{ID: modelBackend.SecretBackendID})
 		}
-		return internalerrors.Capture(err)
+		return errors.Trace(err)
 	})
 	if err != nil {
-		return "", nil, internalerrors.Capture(err)
+		return "", nil, errors.Trace(err)
 	}
 	return modelBackend.SecretBackendID, &provider.ModelBackendConfig{
 		ControllerUUID: modelBackend.ControllerUUID,

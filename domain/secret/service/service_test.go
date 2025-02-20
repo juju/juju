@@ -88,7 +88,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *serviceSuite) TestCreateUserSecretURIs(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
 
 	got, err := s.service.CreateSecretURIs(context.Background(), 2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -189,7 +189,7 @@ func (s *serviceSuite) assertCreateUserSecret(c *gc.C, isInternal, finalStepFail
 		},
 	)
 
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil).AnyTimes()
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil).AnyTimes()
 	uri := coresecrets.NewURI()
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), params.ValueRef, s.modelID, s.fakeUUID.String()).Return(
@@ -356,7 +356,7 @@ func (s *serviceSuite) assertUpdateUserSecret(c *gc.C, isInternal, finalStepFail
 		SubjectID:     s.modelID.String(),
 	}).Return("manage", nil)
 	s.state.EXPECT().GetLatestRevision(gomock.Any(), uri).Return(2, nil)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil).AnyTimes()
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil).AnyTimes()
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), params.ValueRef, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -429,7 +429,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
 			c.Assert(got, jc.DeepEquals, want)
 			return nil
 		})
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -470,7 +470,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecretFailedLabelAlreadyExists(c *gc.C
 
 	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "mariadb/0").Return(unitUUID, nil)
 	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, unitUUID, "my secret").Return(true, nil)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -534,7 +534,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *gc.C) {
 			c.Assert(got, jc.DeepEquals, want)
 			return nil
 		})
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -577,7 +577,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecretFailedLabelExists(c *gc.C
 
 	s.state.EXPECT().GetApplicationUUID(domaintesting.IsAtomicContextChecker, "mariadb").Return(appUUID, nil)
 	s.state.EXPECT().CheckApplicationSecretLabelExists(domaintesting.IsAtomicContextChecker, appUUID, "my secret").Return(true, nil)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -630,7 +630,7 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -681,7 +681,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForUnitOwned(c *gc.C) {
 		coresecrets.RotateNever, // No rotate policy.
 		nil)
 
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -731,7 +731,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForUnitOwnedFailedLabelExists(c *gc.
 		coresecrets.RotateNever, // No rotate policy.
 		nil)
 
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -782,7 +782,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwned(c *gc.C) {
 		coresecrets.RotateNever, // No rotate policy.
 		nil)
 
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -832,7 +832,7 @@ func (s *serviceSuite) TestUpdateCharmSecretForAppOwnedFailedLabelExists(c *gc.C
 		coresecrets.RotateNever, // No rotate policy.
 		nil)
 
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -1460,7 +1460,7 @@ func (s *serviceSuite) TestChangeSecretBackendToExternalBackend(c *gc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, valueRef, nil).Return(nil)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().UpdateSecretBackendReference(gomock.Any(), valueRef, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -1490,7 +1490,7 @@ func (s *serviceSuite) TestChangeSecretBackendToInternalBackend(c *gc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(nil)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().UpdateSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -1520,7 +1520,7 @@ func (s *serviceSuite) TestChangeSecretBackendFailedAndRollback(c *gc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(errors.New("boom"))
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().UpdateSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -1573,7 +1573,7 @@ func (s *serviceSuite) TestChangeSecretBackendFailedSecretNotFound(c *gc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(secreterrors.SecretNotFound)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID.String(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
 	s.secretBackendState.EXPECT().UpdateSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String()).Return(func() error {
 		rollbackCalled = true
@@ -1843,7 +1843,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretUpda
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
 		Return(md, revs, nil)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
 	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
 		SubjectID:     "mariadb/0",
 		SubjectTypeID: domainsecret.SubjectUnit,
@@ -1877,7 +1877,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelForUnitOwnedSecretLook
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
 		Return(md, revs, nil)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
 
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", nil, "foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1898,7 +1898,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelLookupURI(c *gc.C) {
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
 		Return(md, revs, nil)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
 	s.state.EXPECT().GetURIByConsumerLabel(gomock.Any(), "foo", "mariadb/0").Return(uri, nil)
 
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", nil, "foo")
@@ -1921,7 +1921,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelUpdateLabel(c *gc.C) {
 
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
 		Return(md, revs, nil)
-	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil)
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
 
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", uri, "foo")
 	c.Assert(err, jc.ErrorIsNil)
