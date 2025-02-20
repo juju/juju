@@ -293,8 +293,10 @@ func (facade *Facade) getExecSecretToken(cloudSpec environscloudspec.CloudSpec, 
 	return broker.GetSecretToken(k8sprovider.ExecRBACResourceName)
 }
 
+// HostKeyForTarget returns the host key for the target entity. In addition, it also returns
+// the jump server's host key.
 func (facade *Facade) HostKeyForTarget(arg params.SSHHostKeyRequestArg) params.SSHHostKeyResult {
-	// Check if model writer? reader? what?
+	// Check if model writer? reader? what? Which would be best?
 	// if err := facade.checkIsModelAdmin(); err != nil {
 	// 	return params.SSHHostKeyResult{}, errors.Trace(err)
 	// }
