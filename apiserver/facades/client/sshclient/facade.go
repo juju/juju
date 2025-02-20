@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
@@ -290,4 +291,55 @@ func (facade *Facade) getExecSecretToken(cloudSpec environscloudspec.CloudSpec, 
 		return "", errors.Annotate(err, "failed to open kubernetes client")
 	}
 	return broker.GetSecretToken(k8sprovider.ExecRBACResourceName)
+}
+
+func (facade *Facade) HostKeyForTarget(arg params.SSHHostKeyRequestArg) params.SSHHostKeyResult {
+	// Check if model writer? reader? what?
+	// if err := facade.checkIsModelAdmin(); err != nil {
+	// 	return params.SSHHostKeyResult{}, errors.Trace(err)
+	// }
+
+	var res params.SSHHostKeyResult
+
+	info, err := virtualhostname.Parse(arg.Hostname)
+	if err != nil {
+		res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to parse hostname"))
+		return res
+	}
+
+	var hostkey string
+	switch info.Target() {
+	case virtualhostname.MachineTarget:
+		machineId, _ := info.Machine()
+		hostkey, err = facade.backend.MachineVirtualHostKeyPEM(machineId)
+		if err != nil {
+			res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get machine host key"))
+			return res
+		}
+	case virtualhostname.ContainerTarget:
+		fallthrough
+	case virtualhostname.UnitTarget:
+		unitName, _ := info.Unit()
+		hostkey, err = facade.backend.UnitVirtualHostKeyPEM(unitName)
+		if err != nil {
+			res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get unit host key"))
+			return res
+		}
+	default:
+		res.Error = apiservererrors.ServerError(errors.NotValidf("unsupported target: %v", info.Target()))
+		return res
+	}
+
+	res.HostKey = hostkey
+
+	// Get controller jumpserver hostkey.
+	jumpHostKey, err := facade.backend.SSHServerHostKey()
+	if err != nil {
+		res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get controller jumpserver host key"))
+		return res
+	}
+
+	res.JumpServerHostKey = jumpHostKey
+
+	return res
 }

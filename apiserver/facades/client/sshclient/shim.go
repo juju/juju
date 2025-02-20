@@ -23,6 +23,19 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	Model() (Model, error)
 	CloudSpec() (environscloudspec.CloudSpec, error)
+
+	// SSHServerHostKey returns the host key for the SSH server.
+	// This key was set during the controller bootstrap process via
+	// bootstrap-state and is currently a FIXED value.
+	SSHServerHostKey() (string, error)
+
+	// UnitVirtualHostKey calls the underlying UnitVirtualHostKey state method
+	// and encodes the result into a PEM string.
+	UnitVirtualHostKeyPEM(unitID string) (string, error)
+
+	// MachineVirtualHostKey calls the underlying MachineVirtualHostKey state method
+	// and encodes the result into a PEM string.
+	MachineVirtualHostKeyPEM(machineID int) (string, error)
 }
 
 // Model defines a point of use interface for the model from state.
@@ -133,4 +146,18 @@ func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
 	default:
 		return nil, errors.Errorf("unsupported entity: %q", tagString)
 	}
+}
+
+// UnitVirtualHostKey calls the underlying UnitVirtualHostKey state method
+// and encodes the result into a PEM string.
+func (b *backend) UnitVirtualHostKeyPEM(unitID string) (string, error) {
+	// TODO(ale8k): Plug in state method once merged.
+	return "", errors.NotImplementedf("UnitVirtualHostKeyPEM")
+}
+
+// MachineVirtualHostKey calls the underlying MachineVirtualHostKey state method
+// and encodes the result into a PEM string.
+func (b *backend) MachineVirtualHostKeyPEM(machineID int) (string, error) {
+	// TODO(ale8k): Plug in state method once merged.
+	return "", errors.NotImplementedf("MachineVirtualHostKey")
 }
