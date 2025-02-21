@@ -6,7 +6,6 @@ package resource
 import (
 	"bytes"
 	"context"
-	"io"
 	"os"
 	"path"
 	"strings"
@@ -128,11 +127,16 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", chID, expectedStore)
 	s.stub.CheckCall(c, 2, "Open", "foobar.txt")
 
-	expectedUpload := charmresource.Resource{
-		Meta:   du.resources["upload"],
-		Origin: charmresource.OriginUpload,
+	expectedUploadArgs := apiresources.UploadPendingResourceArgs{
+		ApplicationID: "mysql",
+		CharmID:       chID,
+		Resource: charmresource.Resource{
+			Meta:   du.resources["upload"],
+			Origin: charmresource.OriginUpload,
+		},
+		Filename: "foobar.txt",
 	}
-	s.stub.CheckCall(c, 3, "UploadPendingResource", "mysql", expectedUpload, "foobar.txt", "file contents")
+	s.stub.CheckCall(c, 3, "UploadPendingResource", expectedUploadArgs)
 }
 
 func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
@@ -233,11 +237,16 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 	s.stub.CheckCall(c, 1, "AddPendingResources", "mysql", chID, expectedStore)
 	s.stub.CheckCall(c, 2, "Open", "foobar.txt")
 
-	expectedUpload := charmresource.Resource{
-		Meta:   du.resources["upload"],
-		Origin: charmresource.OriginUpload,
+	expectedUploadArgs := apiresources.UploadPendingResourceArgs{
+		ApplicationID: "mysql",
+		CharmID:       chID,
+		Resource: charmresource.Resource{
+			Meta:   du.resources["upload"],
+			Origin: charmresource.OriginUpload,
+		},
+		Filename: "foobar.txt",
 	}
-	s.stub.CheckCall(c, 3, "UploadPendingResource", "mysql", expectedUpload, "foobar.txt", "file contents")
+	s.stub.CheckCall(c, 3, "UploadPendingResource", expectedUploadArgs)
 }
 
 func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
@@ -431,13 +440,18 @@ password: 'hunter2',,
 			"mysql_image": "id-mysql_image",
 		})
 
-		expectedUpload := charmresource.Resource{
-			Meta:   resourceMeta["mysql_image"],
-			Origin: charmresource.OriginUpload,
+		expectedUploadArgs := apiresources.UploadPendingResourceArgs{
+			ApplicationID: "mysql",
+			CharmID:       chID,
+			Resource: charmresource.Resource{
+				Meta:   resourceMeta["mysql_image"],
+				Origin: charmresource.OriginUpload,
+			},
+			Filename: resourceValue,
 		}
 
 		s.stub.CheckCallNames(c, "Open", "Open", "UploadPendingResource")
-		s.stub.CheckCall(c, 2, "UploadPendingResource", "mysql", expectedUpload, resourceValue, t.expectedUploadData)
+		s.stub.CheckCall(c, 2, "UploadPendingResource", expectedUploadArgs)
 	}
 }
 
@@ -554,19 +568,20 @@ func (s uploadDeps) AddPendingResources(ctx context.Context, applicationID strin
 	return ids, nil
 }
 
-func (s uploadDeps) UploadPendingResource(_ context.Context, applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error) {
+func (s uploadDeps) UploadPendingResource(_ context.Context, args apiresources.UploadPendingResourceArgs) (id string, err error) {
 	data := new(bytes.Buffer)
 
 	// we care the right data has been passed, not the right io.ReaderSeeker pointer.
-	_, err = data.ReadFrom(r)
+	_, err = data.ReadFrom(args.Reader)
 	if err != nil {
 		return "", err
 	}
-	s.stub.AddCall("UploadPendingResource", applicationID, resource, filename, data.String())
+	args.Reader = nil
+	s.stub.AddCall("UploadPendingResource", args)
 	if err := s.stub.NextErr(); err != nil {
 		return "", err
 	}
-	return "id-" + resource.Name, nil
+	return "id-" + args.Resource.Name, nil
 }
 
 func (s uploadDeps) Open(name string) (modelcmd.ReadSeekCloser, error) {

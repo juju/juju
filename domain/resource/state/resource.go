@@ -1042,49 +1042,6 @@ ON CONFLICT(resource_uuid) DO UPDATE SET retrieved_by_type_id=excluded.retrieved
 	return nil
 }
 
-// updateOriginAndRevision sets the resource origin and revision.
-func (st *State) updateOriginAndRevision(
-	ctx context.Context,
-	tx *sqlair.TX,
-	resourceUUID coreresource.UUID,
-	origin charmresource.Origin,
-	revision int,
-) error {
-	originAndRevision := resourceOriginAndRevision{
-		UUID:     resourceUUID.String(),
-		Origin:   origin.String(),
-		Revision: revision,
-	}
-	updateOriginAndRevisionStmt, err := st.Prepare(`
-UPDATE resource
-SET    revision = $resourceOriginAndRevision.revision,
-       origin_type_id = (
-    SELECT id
-    FROM resource_origin_type
-    WHERE name = $resourceOriginAndRevision.origin_name
-)
-WHERE  uuid = $resourceOriginAndRevision.uuid
-`, originAndRevision)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var outcome sqlair.Outcome
-	err = tx.Query(ctx, updateOriginAndRevisionStmt, originAndRevision).Get(&outcome)
-	if err != nil {
-		return errors.Errorf("updating resource origin and revision: %w", err)
-	}
-
-	rows, err := outcome.Result().RowsAffected()
-	if err != nil {
-		return errors.Capture(err)
-	} else if rows != 1 {
-		return errors.Errorf("updating resource origin and revision: expected 1 row affected, got %d", rows)
-	}
-
-	return nil
-}
-
 // incrementCharmModifiedVersion increments the charm modified version on the
 // application associated with a resource.
 func (st *State) incrementCharmModifiedVersion(ctx context.Context, tx *sqlair.TX, resourceUUID coreresource.UUID) error {
@@ -1642,7 +1599,8 @@ func (st *State) buildResourcesToAdd(
 
 // UpdateUploadResourceAndDeletePriorVersion deletes a reference to the old
 // stored blob, saving the hash to return. Adds a new row in the resource
-// table which indicates the resource will be updated. Next, it sets it on the
+// table with an Upload origin and nil revision, which indicates the resource
+// will be updated via an uploaded blob. Next, it sets it on the
 // application_resource table, removing the old resource for this charm
 // resource.
 //
@@ -1658,7 +1616,7 @@ func (st *State) UpdateUploadResourceAndDeletePriorVersion(
 		return "", "", errors.Capture(err)
 	}
 
-	newResourceUUID, err := coreresource.NewUUID()
+	newUUID, err := coreresource.NewUUID()
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -1677,7 +1635,7 @@ func (st *State) UpdateUploadResourceAndDeletePriorVersion(
 		}
 
 		res := addResource{
-			UUID:      newResourceUUID.String(),
+			UUID:      newUUID.String(),
 			CharmUUID: resourceToUpdate.CharmUUID,
 			Name:      resourceToUpdate.Name,
 			Origin:    charmresource.OriginUpload.String(),
@@ -1689,7 +1647,7 @@ func (st *State) UpdateUploadResourceAndDeletePriorVersion(
 			return errors.Errorf("inserting new resource record: %w", err)
 		}
 
-		err = st.replaceResourceInApplicationResource(ctx, tx, args.ResourceUUID, newResourceUUID)
+		err = st.replaceResourceInApplicationResource(ctx, tx, args.ResourceUUID, newUUID)
 		if err != nil {
 			return errors.Errorf("updating application resource: %w", err)
 		}
@@ -1700,7 +1658,7 @@ func (st *State) UpdateUploadResourceAndDeletePriorVersion(
 		return "", "", errors.Capture(err)
 	}
 
-	return droppedHash, newResourceUUID, nil
+	return droppedHash, newUUID, nil
 }
 
 // getResourceCharmDataForUpdate returns a resourceCharmData for the given
@@ -1807,25 +1765,35 @@ WHERE  resource_uuid = $update.old_uuid
 	if err != nil {
 		return errors.Capture(err)
 	} else if rows != 1 {
-		return errors.Errorf("updating resource application resource: expected 1 row affected, got %d", rows)
+		return errors.Errorf("updating application resource: expected 1 row changed, got %d", rows)
 	}
 
 	return nil
 }
 
-// UpdateResourceRevisionAndDeletePriorVersion updates the revision of resource
-// to a new version. Increments charm modified version for the application to
-// trigger use of the new resource revision by the application. Any stored
-// resource will be deleted from the DB. The droppedHash will be returned to aid
-// in removing from the object store.
+// UpdateResourceRevisionAndDeletePriorVersion deletes a reference to the old
+// stored blob, saving the hash to return. Adds a new row in the resource
+// table with a Store origin and new revision which indicates the resource will
+// be updated. Next, it sets it on the application_resource table, removing the
+// old resource for this charm resource. Lastly the charm modified version is
+// updated to enable the resource upgrade.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceNotFound] is returned if the resource cannot be
+//     found.
 func (st *State) UpdateResourceRevisionAndDeletePriorVersion(
 	ctx context.Context,
 	args resource.UpdateResourceRevisionArgs,
 	resourceType charmresource.Type,
-) (string, error) {
+) (string, coreresource.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
+	}
+
+	newUUID, err := coreresource.NewUUID()
+	if err != nil {
+		return "", "", errors.Capture(err)
 	}
 
 	var droppedHash string
@@ -1834,16 +1802,32 @@ func (st *State) UpdateResourceRevisionAndDeletePriorVersion(
 		if err != nil {
 			return errors.Errorf("deleting resource blob reference: %w", err)
 		}
-		err = st.updateOriginAndRevision(
-			ctx,
-			tx,
-			args.ResourceUUID,
-			charmresource.OriginStore,
-			args.Revision)
+
+		resourceToUpdate, err := st.getResourceCharmDataForUpdate(ctx, tx, args.ResourceUUID)
 		if err != nil {
-			return errors.Errorf("updating resource revision and origin: %w", err)
+			return errors.Errorf("getting resource with uuid: %w", err)
 		}
-		err = st.incrementCharmModifiedVersion(ctx, tx, args.ResourceUUID)
+
+		res := addResource{
+			UUID:      newUUID.String(),
+			CharmUUID: resourceToUpdate.CharmUUID,
+			Name:      resourceToUpdate.Name,
+			Revision:  &args.Revision,
+			Origin:    charmresource.OriginStore.String(),
+			State:     resource.StateAvailable.String(),
+			CreatedAt: st.clock.Now(),
+		}
+		err = st.addResource(ctx, tx, res)
+		if err != nil {
+			return errors.Errorf("inserting new resource record: %w", err)
+		}
+
+		err = st.replaceResourceInApplicationResource(ctx, tx, args.ResourceUUID, newUUID)
+		if err != nil {
+			return errors.Errorf("updating application resource: %w", err)
+		}
+
+		err = st.incrementCharmModifiedVersion(ctx, tx, newUUID)
 		if err != nil {
 			return errors.Errorf(
 				"incrementing charm modified version for application of resource %s: %w",
@@ -1851,7 +1835,7 @@ func (st *State) UpdateResourceRevisionAndDeletePriorVersion(
 		}
 		return nil
 	})
-	return droppedHash, errors.Capture(err)
+	return droppedHash, newUUID, errors.Capture(err)
 }
 
 // deleteResourceBlobLink deletes the link between a resource and its stored blob.

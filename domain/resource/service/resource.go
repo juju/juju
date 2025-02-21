@@ -112,16 +112,17 @@ type State interface {
 	// application/resource combination will be overwritten.
 	SetRepositoryResources(ctx context.Context, config resource.SetRepositoryResourcesArgs) error
 
-	// UpdateResourceRevisionAndDeletePriorVersion updates the revision of resource
-	// to a new version. Increments charm modified version for the application to
-	// trigger use of the new resource revision by the application. Any stored
-	// resource will be deleted from the DB. The droppedHash will be returned to aid
-	// in removing from the object store.
+	// UpdateResourceRevisionAndDeletePriorVersion deletes a reference to the old
+	// stored blob, saving the hash to return. Adds a new row in the resource
+	// table with a Store origin and new revision which indicates the resource will
+	// be updated. Next, it sets it on the application_resource table, removing the
+	// old resource for this charm resource. Lastly the charm modified version is
+	// updated to enable the resource upgrade.
 	UpdateResourceRevisionAndDeletePriorVersion(
 		ctx context.Context,
 		arg resource.UpdateResourceRevisionArgs,
 		resType charmresource.Type,
-	) (string, error)
+	) (string, coreresource.UUID, error)
 
 	// UpdateUploadResourceAndDeletePriorVersion deletes a reference to the old
 	// stored blob, saving the hash to return. Adds a new row in the resource
@@ -623,17 +624,25 @@ func (s *Service) AddResourcesBeforeApplication(ctx context.Context, arg resourc
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceUUIDNotValid] is returned if the Resource ID is not valid.
-func (s *Service) UpdateResourceRevision(ctx context.Context, arg resource.UpdateResourceRevisionArgs) error {
+//   - [resourceerrors.ArgumentNotValid] is returned if the Revision is less than 0.
+func (s *Service) UpdateResourceRevision(
+	ctx context.Context,
+	arg resource.UpdateResourceRevisionArgs,
+) (coreresource.UUID, error) {
 	if err := arg.ResourceUUID.Validate(); err != nil {
-		return errors.Errorf("%w: %w", resourceerrors.ResourceUUIDNotValid, err)
+		return "", errors.Errorf("%w: %w", resourceerrors.ResourceUUIDNotValid, err)
+	}
+
+	if arg.Revision < 0 {
+		return "", errors.Errorf("revision less than 0: %w", resourceerrors.ArgumentNotValid)
 	}
 
 	resType, err := s.st.GetResourceType(ctx, arg.ResourceUUID)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	droppedHash, err := s.st.UpdateResourceRevisionAndDeletePriorVersion(
+	droppedHash, newUUID, err := s.st.UpdateResourceRevisionAndDeletePriorVersion(
 		ctx,
 		resource.UpdateResourceRevisionArgs{
 			ResourceUUID: arg.ResourceUUID,
@@ -642,12 +651,12 @@ func (s *Service) UpdateResourceRevision(ctx context.Context, arg resource.Updat
 		resType,
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err = s.removeDroppedHashFromStore(ctx, arg.ResourceUUID, droppedHash, resType); err != nil {
-		return err
+		return "", err
 	}
-	return err
+	return newUUID, err
 }
 
 // UpdateUploadResource adds a new entry for an uploaded blob in the resource

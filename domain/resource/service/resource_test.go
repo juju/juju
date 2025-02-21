@@ -1048,7 +1048,8 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionFile(c *gc.C) {
 		ResourceUUID: resUUID,
 		Revision:     4,
 	}
-	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeFile).Return(fp.String(), nil)
+	expectedUUID := resourcetesting.GenResourceUUID(c)
+	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeFile).Return(fp.String(), expectedUUID, nil)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeFile).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Remove(gomock.Any(), blobPath(resUUID, fp.String())).Return(nil)
 
@@ -1056,8 +1057,9 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionFile(c *gc.C) {
 		ResourceUUID: resUUID,
 		Revision:     4,
 	}
-	err = s.service.UpdateResourceRevision(context.Background(), args)
+	newUUID, err := s.service.UpdateResourceRevision(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newUUID, gc.Equals, expectedUUID)
 }
 
 // TestUpdateResourceRevisionFile tests the happy path for the UpdateResourceRevision
@@ -1074,7 +1076,8 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionImage(c *gc.C) {
 		ResourceUUID: resUUID,
 		Revision:     4,
 	}
-	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeContainerImage).Return(fp.String(), nil)
+	expectedUUID := resourcetesting.GenResourceUUID(c)
+	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeContainerImage).Return(fp.String(), expectedUUID, nil)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeContainerImage).Return(s.resourceStore, nil)
 	s.resourceStore.EXPECT().Remove(gomock.Any(), blobPath(resUUID, fp.String())).Return(nil)
 
@@ -1082,8 +1085,9 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionImage(c *gc.C) {
 		ResourceUUID: resUUID,
 		Revision:     4,
 	}
-	err = s.service.UpdateResourceRevision(context.Background(), args)
+	newUUID, err := s.service.UpdateResourceRevision(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newUUID, gc.Equals, expectedUUID)
 }
 
 // TestUpdateResourceRevisionNoFingerprint tests no attempt to remove from a store, a
@@ -1098,18 +1102,19 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionNoFingerprint(c *gc.C) 
 		ResourceUUID: resUUID,
 		Revision:     4,
 	}
-
-	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeFile).Return("", nil)
+	expectedUUID := resourcetesting.GenResourceUUID(c)
+	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeFile).Return("", expectedUUID, nil)
 
 	args := resource.UpdateResourceRevisionArgs{
 		ResourceUUID: resUUID,
 		Revision:     4,
 	}
-	err := s.service.UpdateResourceRevision(context.Background(), args)
+	newUUID, err := s.service.UpdateResourceRevision(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newUUID, gc.Equals, expectedUUID)
 }
 
-// TestUpdateResourceRevisionFailValidate tests that a NotValid error is returned
+// TestUpdateResourceRevisionNotValid tests that a NotValid error is returned
 // for a bad ResourceUUID.
 func (s *resourceServiceSuite) TestUpdateResourceRevisionNotValid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -1119,8 +1124,22 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionNotValid(c *gc.C) {
 		Revision:     4,
 	}
 
-	err := s.service.UpdateResourceRevision(context.Background(), args)
+	_, err := s.service.UpdateResourceRevision(context.Background(), args)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+// TestUpdateResourceRevisionFailValidate tests that a NotValid error is returned
+// for revision less than zero.
+func (s *resourceServiceSuite) TestUpdateResourceRevisionRevisionNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := resource.UpdateResourceRevisionArgs{
+		ResourceUUID: resourcetesting.GenResourceUUID(c),
+		Revision:     -1,
+	}
+
+	_, err := s.service.UpdateResourceRevision(context.Background(), args)
+	c.Assert(err, jc.ErrorIs, resourceerrors.ArgumentNotValid)
 }
 
 // TestUpdateResourceRevisionFile tests the happy path for the UpdateUploadResource
