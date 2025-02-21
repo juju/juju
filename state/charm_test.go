@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
@@ -750,6 +751,35 @@ func (s *CharmSuite) TestAddCharmMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ch2.IsPlaceholder(), jc.IsFalse)
 	c.Check(ch2.IsUploaded(), jc.IsTrue, gc.Commentf("expected charm with populated SHA/storage path to have the PendingUpload flag unset"))
+}
+
+func (s *CharmSuite) TestAddCharmMetadataParallel(c *gc.C) {
+	dummy1 := s.dummyCharm(c, "ch:quantal/dummy-1")
+	dummy1.SHA256 = ""
+	dummy1.StoragePath = ""
+
+	// Below we attempt to add the same charm multiple times in parallel
+	// and expect all operations to succeed.
+	num := 20
+	errors := make(chan error, num)
+	for i := 0; i < 20; i++ {
+		go func() {
+			_, err := s.State.AddCharmMetadata(dummy1)
+			select {
+			case errors <- err:
+			default:
+			}
+		}()
+	}
+
+	for i := 0; i < num; i++ {
+		select {
+		case err := <-errors:
+			c.Check(err, jc.ErrorIsNil)
+		case <-time.After(time.Second):
+			c.Fatalf("timeout reached")
+		}
+	}
 }
 
 func (s *CharmSuite) TestAddCharmMetadataUpdatesPlaceholder(c *gc.C) {
