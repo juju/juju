@@ -2297,7 +2297,6 @@ func (w *obsoleteSecretsWatcher) loop() (err error) {
 			if !ok {
 				return tomb.ErrDying
 			}
-			logger.Criticalf("OWNED CH: %v", change)
 			if changes, err = w.mergedOwnedChanges(changes, change); err != nil {
 				return err
 			}
