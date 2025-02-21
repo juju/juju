@@ -21,7 +21,7 @@ var _ = gc.Suite(&statusSuite{})
 // state packages.
 func (s *statusSuite) TestCloudContainerStatusDBValues(c *gc.C) {
 	db := s.DB()
-	rows, err := db.Query("SELECT id, status FROM cloud_container_status_value")
+	rows, err := db.Query("SELECT id, status FROM k8s_pod_status_value")
 	c.Assert(err, jc.ErrorIsNil)
 	defer rows.Close()
 
