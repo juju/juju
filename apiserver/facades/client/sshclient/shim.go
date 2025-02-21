@@ -4,10 +4,13 @@
 package sshclient
 
 import (
+	"strconv"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/virtualhostname"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -133,4 +136,41 @@ func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
 	default:
 		return nil, errors.Errorf("unsupported entity: %q", tagString)
 	}
+}
+
+// getVirtualHostnameForEntity returns the virtual hostname for the given entity. It parses the tag string to
+// evaluate if the entity is a machine or a unit. If the entity is a unit, it also takes an optional container
+// name which is used to construct the virtual hostname.
+func getVirtualHostnameForEntity(modelUUID string, tagString string, container *string) (string, error) {
+	tag, err := names.ParseTag(tagString)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var info virtualhostname.Info
+	switch tag := tag.(type) {
+	case names.MachineTag:
+		machine, err := strconv.Atoi(tag.Id())
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		info, err = virtualhostname.NewInfoMachineTarget(modelUUID, machine)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	case names.UnitTag:
+		if container != nil {
+			info, err = virtualhostname.NewInfoContainerTarget(modelUUID, tag.Id(), *container)
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+		} else {
+			info, err = virtualhostname.NewInfoUnitTarget(modelUUID, tag.Id())
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+		}
+	default:
+		return "", errors.Errorf("unsupported entity: %q", tagString)
+	}
+	return info.String(), nil
 }

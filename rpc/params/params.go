@@ -1515,3 +1515,9 @@ type CLICommandStatus struct {
 	Done   bool     `json:"done,omitempty"`
 	Error  *Error   `json:"error,omitempty"`
 }
+
+// VirtualHostnameTargetArg holds the target entity and an optional container name to resolve a virtual hostname.
+type VirtualHostnameTargetArg struct {
+	Entity    Entity  `json:"entity"`
+	Container *string `json:"container,omitempty"`
+}

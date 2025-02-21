@@ -66,6 +66,23 @@ func (facade *Facade) checkIsModelAdmin() error {
 	return facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
 }
 
+// VirtualHostname returns the virtual hostname for the given entity.
+func (facade *Facade) VirtualHostname(arg params.VirtualHostnameTargetArg) (params.SSHAddressResult, error) {
+	if err := facade.checkIsModelAdmin(); err != nil {
+		return params.SSHAddressResult{}, errors.Trace(err)
+	}
+	modelUUID := facade.backend.ModelTag().Id()
+	virtualHostname, err := getVirtualHostnameForEntity(modelUUID, arg.Entity.Tag, arg.Container)
+	if err != nil {
+		return params.SSHAddressResult{
+			Error: apiservererrors.ServerError(err),
+		}, errors.Trace(err)
+	}
+	return params.SSHAddressResult{
+		Address: virtualHostname,
+	}, nil
+}
+
 // PublicAddress reports the preferred public network address for one
 // or more entities. Machines and units are supported.
 func (facade *Facade) PublicAddress(args params.Entities) (params.SSHAddressResults, error) {
