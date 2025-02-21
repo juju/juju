@@ -92,7 +92,7 @@ func printClouds(ctx *cmd.Context, credStore jujuclient.CredentialStore) error {
 		return err
 	}
 
-	fmt.Fprintln(ctx.Stdout, "You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.")
+	fmt.Fprintln(ctx.Stdout, "You can bootstrap on these clouds. See '--regions <cloud>' for all regions.")
 	clouds := cloudList{}
 	for name := range publicClouds {
 		clouds.public = append(clouds.public, name)
