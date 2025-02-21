@@ -349,7 +349,7 @@ func (st *State) deleteCloudServices(ctx context.Context, tx *sqlair.TX, appUUID
 	deleteNodeStmt, err := st.Prepare(`
 DELETE FROM net_node WHERE uuid IN (
     SELECT net_node_uuid
-    FROM cloud_service
+    FROM k8s_service
     WHERE application_uuid = $applicationDetails.uuid
 )`, app)
 	if err != nil {
@@ -357,7 +357,7 @@ DELETE FROM net_node WHERE uuid IN (
 	}
 
 	deleteCloudServiceStmt, err := st.Prepare(`
-DELETE FROM cloud_service
+DELETE FROM k8s_service
 WHERE application_uuid = $applicationDetails.uuid
 `, app)
 	if err != nil {
@@ -969,7 +969,7 @@ func (st *State) upsertUnitCloudContainer(
 
 	queryStmt, err := st.Prepare(`
 SELECT &cloudContainer.*
-FROM cloud_container
+FROM k8s_pod
 WHERE unit_uuid = $cloudContainer.unit_uuid
 `, containerInfo)
 	if err != nil {
@@ -977,14 +977,14 @@ WHERE unit_uuid = $cloudContainer.unit_uuid
 	}
 
 	insertStmt, err := st.Prepare(`
-INSERT INTO cloud_container (*) VALUES ($cloudContainer.*)
+INSERT INTO k8s_pod (*) VALUES ($cloudContainer.*)
 `, containerInfo)
 	if err != nil {
 		return jujuerrors.Trace(err)
 	}
 
 	updateStmt, err := st.Prepare(`
-UPDATE cloud_container SET
+UPDATE k8s_pod SET
     provider_id = $cloudContainer.provider_id
 WHERE unit_uuid = $cloudContainer.unit_uuid
 `, containerInfo)
@@ -1136,7 +1136,7 @@ func (st *State) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, u
 		UnitUUID: unitUUID,
 	}
 	deleteStmt, err := st.Prepare(`
-DELETE FROM cloud_container_port
+DELETE FROM k8s_pod_port
 WHERE port NOT IN ($ports[:])
 AND unit_uuid = $cloudContainerPort.unit_uuid;
 `, ports{}, ccPort)
@@ -1145,7 +1145,7 @@ AND unit_uuid = $cloudContainerPort.unit_uuid;
 	}
 
 	upsertStmt, err := sqlair.Prepare(`
-INSERT INTO cloud_container_port (*)
+INSERT INTO k8s_pod_port (*)
 VALUES ($cloudContainerPort.*)
 ON CONFLICT(unit_uuid, port)
 DO NOTHING
@@ -1316,7 +1316,7 @@ func (st *State) deleteCloudContainer(ctx context.Context, tx *sqlair.TX, unitUU
 	}
 
 	deleteCloudContainerStmt, err := st.Prepare(`
-DELETE FROM cloud_container
+DELETE FROM k8s_pod
 WHERE unit_uuid = $cloudContainer.unit_uuid`, cloudContainer)
 	if err != nil {
 		return jujuerrors.Trace(err)
@@ -1362,7 +1362,7 @@ func (st *State) deleteCloudContainerPorts(ctx context.Context, tx *sqlair.TX, u
 		UnitUUID: unitUUID,
 	}
 	deleteStmt, err := st.Prepare(`
-DELETE FROM cloud_container_port
+DELETE FROM k8s_pod_port
 WHERE unit_uuid = $cloudContainer.unit_uuid`, cloudContainer)
 	if err != nil {
 		return jujuerrors.Trace(err)
@@ -1402,7 +1402,7 @@ func (st *State) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, 
 		"unit_state_relation",
 		"unit_agent_status",
 		"unit_workload_status",
-		"cloud_container_status",
+		"k8s_pod_status",
 	} {
 		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $minimalUnit.uuid`, table)
 		deleteUnitReferenceStmt, err := st.Prepare(deleteUnitReference, unit)
@@ -1750,7 +1750,7 @@ func (st *State) UpsertCloudService(ctx context.Context, applicationName, provid
 
 	// Query any existing records for application and provider id.
 	queryExistingStmt, err := st.Prepare(`
-SELECT &cloudService.* FROM cloud_service
+SELECT &cloudService.* FROM k8s_service
 WHERE application_uuid = $cloudService.application_uuid
 AND provider_id = $cloudService.provider_id`, serviceInfo)
 	if err != nil {
@@ -1765,7 +1765,7 @@ INSERT INTO net_node (uuid) VALUES ($cloudService.net_node_uuid)
 	}
 
 	insertStmt, err := st.Prepare(`
-INSERT INTO cloud_service (*) VALUES ($cloudService.*)
+INSERT INTO k8s_service (*) VALUES ($cloudService.*)
 `, serviceInfo)
 	if err != nil {
 		return jujuerrors.Trace(err)
@@ -1939,7 +1939,7 @@ func (st *State) setCloudContainerStatus(
 		UpdatedAt: status.Since,
 	}
 	stmt, err := st.Prepare(`
-INSERT INTO cloud_container_status (*) VALUES ($unitStatusInfo.*)
+INSERT INTO k8s_pod_status (*) VALUES ($unitStatusInfo.*)
 ON CONFLICT(unit_uuid) DO UPDATE SET
     status_id = excluded.status_id,
     message = excluded.message,

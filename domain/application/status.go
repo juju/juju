@@ -28,7 +28,7 @@ const (
 )
 
 // CloudContainerStatusType represents the status of a cloud container
-// as recorded in the cloud_container_status_value lookup table.
+// as recorded in the k8s_pod_status_value lookup table.
 type CloudContainerStatusType int
 
 const (

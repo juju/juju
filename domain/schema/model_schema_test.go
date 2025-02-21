@@ -37,7 +37,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"application_scale",
 		"application_setting",
 		"application_status",
-		"cloud_service",
+		"k8s_service",
 		"workload_status_value",
 
 		// Annotations
@@ -103,10 +103,10 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"ip_address_dns_server_address",
 
 		// Unit
-		"cloud_container_port",
-		"cloud_container_status_value",
-		"cloud_container_status",
-		"cloud_container",
+		"k8s_pod_port",
+		"k8s_pod_status_value",
+		"k8s_pod_status",
+		"k8s_pod",
 		"unit_agent_status_value",
 		"unit_agent_status",
 		"unit_agent",

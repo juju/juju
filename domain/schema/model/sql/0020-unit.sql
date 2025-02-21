@@ -121,25 +121,25 @@ CREATE TABLE unit_state_relation (
 );
 
 -- cloud containers belong to a k8s unit.
-CREATE TABLE cloud_container (
+CREATE TABLE k8s_pod (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     -- provider_id comes from the provider, no FK.
     -- it represents the k8s pod UID.
     provider_id TEXT NOT NULL,
-    CONSTRAINT fk_cloud_container_unit
+    CONSTRAINT fk_k8s_pod_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid)
 );
 
-CREATE UNIQUE INDEX idx_cloud_container_provider
-ON cloud_container (provider_id);
+CREATE UNIQUE INDEX idx_k8s_pod_provider
+ON k8s_pod (provider_id);
 
-CREATE TABLE cloud_container_port (
+CREATE TABLE k8s_pod_port (
     unit_uuid TEXT NOT NULL,
     port TEXT NOT NULL,
-    CONSTRAINT fk_cloud_container_port_cloud_container
+    CONSTRAINT fk_k8s_pod_port_k8s_pod
     FOREIGN KEY (unit_uuid)
-    REFERENCES cloud_container (unit_uuid),
+    REFERENCES k8s_pod (unit_uuid),
     PRIMARY KEY (unit_uuid, port)
 );
 
@@ -159,12 +159,12 @@ INSERT INTO unit_agent_status_value VALUES
 (6, 'rebooting');
 
 -- Status values for cloud containers.
-CREATE TABLE cloud_container_status_value (
+CREATE TABLE k8s_pod_status_value (
     id INT PRIMARY KEY,
     status TEXT NOT NULL
 );
 
-INSERT INTO cloud_container_status_value VALUES
+INSERT INTO k8s_pod_status_value VALUES
 (0, 'waiting'),
 (1, 'blocked'),
 (2, 'running');
@@ -197,16 +197,16 @@ CREATE TABLE unit_workload_status (
     REFERENCES workload_status_value (id)
 );
 
-CREATE TABLE cloud_container_status (
+CREATE TABLE k8s_pod_status (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     status_id INT NOT NULL,
     message TEXT,
     data TEXT,
     updated_at DATETIME,
-    CONSTRAINT fk_cloud_container_status_unit
+    CONSTRAINT fk_k8s_pod_status_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
-    CONSTRAINT fk_cloud_container_status_status
+    CONSTRAINT fk_k8s_pod_status_status
     FOREIGN KEY (status_id)
-    REFERENCES cloud_container_status_value (id)
+    REFERENCES k8s_pod_status_value (id)
 );

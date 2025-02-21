@@ -869,7 +869,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNew(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var providerID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM cloud_service WHERE application_uuid = ?", appID).Scan(&providerID)
+		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appID).Scan(&providerID)
 		if err != nil {
 			return err
 		}
@@ -887,7 +887,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceExisting(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var providerID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM cloud_service WHERE application_uuid = ?", appID).Scan(&providerID)
+		err := tx.QueryRowContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appID).Scan(&providerID)
 		if err != nil {
 			return err
 		}
@@ -906,7 +906,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var providerIds []string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, "SELECT provider_id FROM cloud_service WHERE application_uuid = ?", appID)
+		rows, err := tx.QueryContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appID)
 		if err != nil {
 			return err
 		}
@@ -982,7 +982,7 @@ func (s *applicationStateSuite) assertContainerAddressValues(
 		err := tx.QueryRowContext(ctx, `
 
 SELECT cc.provider_id, a.address_value, a.type_id, a.origin_id,a.scope_id,a.config_type_id
-FROM cloud_container cc
+FROM k8s_pod cc
 JOIN unit u ON cc.unit_uuid = u.uuid
 JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
 JOIN ip_address a ON a.device_uuid = lld.uuid
@@ -1013,9 +1013,9 @@ func (s *applicationStateSuite) assertContainerPortValues(c *gc.C, unitName stri
 		rows, err := tx.QueryContext(ctx, `
 
 SELECT ccp.port
-FROM cloud_container cc
+FROM k8s_pod cc
 JOIN unit u ON cc.unit_uuid = u.uuid
-JOIN cloud_container_port ccp ON ccp.unit_uuid = cc.unit_uuid
+JOIN k8s_pod_port ccp ON ccp.unit_uuid = cc.unit_uuid
 WHERE u.name=?`,
 
 			unitName)
@@ -1079,7 +1079,7 @@ func (s *applicationStateSuite) TestUpdateCAASUnitCloudContainer(c *gc.C) {
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err = tx.QueryRowContext(ctx, `
 
-SELECT provider_id FROM cloud_container cc
+SELECT provider_id FROM k8s_pod cc
 JOIN unit u ON cc.unit_uuid = u.uuid
 WHERE u.name=?`,
 
@@ -1152,7 +1152,7 @@ func (s *applicationStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 		c, "unit_workload", unitUUID, int(application.WorkloadStatusWaiting), "workload status", now, []byte(`{"foo": "bar"}`),
 	)
 	s.assertUnitStatus(
-		c, "cloud_container", unitUUID, int(application.CloudContainerStatusRunning), "container status", now, []byte(`{"foo": "bar"}`),
+		c, "k8s_pod", unitUUID, int(application.CloudContainerStatusRunning), "container status", now, []byte(`{"foo": "bar"}`),
 	)
 }
 
@@ -1173,7 +1173,7 @@ func (s *applicationStateSuite) TestInsertUnit(c *gc.C) {
 	var providerId string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err = tx.QueryRowContext(ctx, `
-SELECT provider_id FROM cloud_container cc
+SELECT provider_id FROM k8s_pod cc
 JOIN unit u ON cc.unit_uuid = u.uuid
 WHERE u.name=?`,
 			"foo/666").Scan(&providerId)
@@ -1209,7 +1209,7 @@ func (s *applicationStateSuite) TestInsertCAASUnit(c *gc.C) {
 	var providerId string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err = tx.QueryRowContext(ctx, `
-SELECT provider_id FROM cloud_container cc
+SELECT provider_id FROM k8s_pod cc
 JOIN unit u ON cc.unit_uuid = u.uuid
 WHERE u.name=?`,
 			"foo/666").Scan(&providerId)
@@ -1247,7 +1247,7 @@ func (s *applicationStateSuite) TestInsertCAASUnitAlreadyExists(c *gc.C) {
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err = tx.QueryRowContext(ctx, `
-SELECT provider_id FROM cloud_container cc
+SELECT provider_id FROM k8s_pod cc
 JOIN unit u ON cc.unit_uuid = u.uuid
 WHERE u.name=?`,
 			"foo/0").Scan(&providerId)
@@ -1454,7 +1454,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", u1.UnitName).Scan(&unitCount); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container WHERE unit_uuid=?", unitUUID).Scan(&containerCount); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM k8s_pod WHERE unit_uuid=?", unitUUID).Scan(&containerCount); err != nil {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM link_layer_device WHERE net_node_uuid=?", netNodeUUID).Scan(&deviceCount); err != nil {
@@ -1463,7 +1463,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM ip_address WHERE device_uuid=?", deviceUUID).Scan(&addressCount); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_port WHERE unit_uuid=?", unitUUID).Scan(&portCount); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM k8s_pod_port WHERE unit_uuid=?", unitUUID).Scan(&portCount); err != nil {
 			return err
 		}
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_agent_status WHERE unit_uuid=?", unitUUID).Scan(&agentStatusCount); err != nil {
@@ -1472,7 +1472,7 @@ func (s *applicationStateSuite) TestDeleteUnit(c *gc.C) {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_workload_status WHERE unit_uuid=?", unitUUID).Scan(&workloadStatusCount); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM cloud_container_status WHERE unit_uuid=?", unitUUID).Scan(&cloudContainerStatusCount); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM k8s_pod_status WHERE unit_uuid=?", unitUUID).Scan(&cloudContainerStatusCount); err != nil {
 			return err
 		}
 		return nil
@@ -1660,7 +1660,7 @@ func (s *applicationStateSuite) TestSetCloudContainerStatus(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
-		c, "cloud_container", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
+		c, "k8s_pod", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
 }
 
 func (s *applicationStateSuite) TestSetUnitAgentStatus(c *gc.C) {
