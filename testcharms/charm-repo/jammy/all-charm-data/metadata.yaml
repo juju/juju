@@ -1,0 +1,94 @@
+name: all-charm-data
+summary: "This is a dummy charm that has options for all the metadata as well as actions, config and a manifest."
+description: |
+  This is a longer description which
+  potentially contains multiple lines.
+
+assumes:
+  - k8s-api
+  - juju < 3.0
+
+charm-user: root
+
+containers:
+  snappass:
+    resource: snappass-image
+    bases:
+      - name: ubuntu
+        channel: 20.04/stable
+        architectures:
+          - amd64
+          - arm64
+    mounts:
+      - storage: data
+        location: /var/lib/snappass
+    uid: 1
+    gid: 2
+  redis:
+    resource: redis-image
+
+devices:
+  miner:
+    type: gpu
+    description: "A gpu device"
+    countmax: 9
+
+display-name: spoogy
+
+docs: "https://example.com/docs"
+
+extra-bindings:
+  db-client:
+  admin-api:
+  foo-bar:
+
+issues: "https://example.com/issues"
+
+maintainer: "Bloe Joggs"
+
+peer:
+  rel:
+    interface: http
+    limit: 1
+    optional: false
+    scope: container
+
+provides:
+  server:
+    interface: mysql
+  server-admin:
+    interface: mysql-root
+  db-router:
+    interface: db-router
+
+requires:
+  metrics-client:
+    interface: metrics
+
+resources:
+  snappass-image:
+    type: oci-image
+    description: Docker image for SnapPass
+  redis-image:
+    type: oci-image
+    description: Docker image for Redis
+  test-file:
+    type: file
+    filename: test.txt
+    description: test resource
+
+source: "https://example.com/source"
+
+storage:
+  data:
+    type: filesystem
+    description: "Data storage for SnapPass"
+    location: /var/lib/snappass
+    read-only: true
+    multiple:
+      range: 1-10
+    minimum-size: 1GB
+    properties:
+      - transient
+
+subordinate: false

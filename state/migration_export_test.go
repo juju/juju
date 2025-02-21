@@ -877,6 +877,71 @@ func (s *MigrationExportSuite) assertMigrateCharmConfigs(
 	c.Check(exportedConfigs, jc.DeepEquals, expectedConfigs)
 }
 
+func (s *MigrationExportSuite) TestCharmDataMigrated(c *gc.C) {
+	st := s.State
+	f := factory.NewFactory(st, s.StatePool)
+
+	_, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	var ch *state.Charm
+	ch = f.MakeCharm(c, &factory.CharmParams{
+		Name:   "all-charm-data",
+		Series: "jammy",
+	})
+	fmt.Printf("%#v", ch.Meta())
+
+	f.MakeApplication(c, &factory.ApplicationParams{
+		Charm: ch,
+		CharmConfig: map[string]interface{}{
+			"foo": "bar",
+		},
+		CharmOrigin: &state.CharmOrigin{
+			Channel: &state.Channel{
+				Risk: "beta",
+			},
+			Platform: &state.Platform{
+				Architecture: "amd64",
+				OS:           "ubuntu",
+				Channel:      "20.04/stable",
+			},
+		},
+		Devices: map[string]state.DeviceConstraints{
+			"miner": {Count: 1},
+		},
+		Storage: map[string]state.StorageConstraints{
+			"data": {Count: 1, Size: 1024, Pool: "modelscoped-unreleasable"},
+		},
+	})
+
+	model, err := st.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	applications := model.Applications()
+	c.Assert(applications, gc.HasLen, 1)
+
+	exported := applications[0]
+
+	// Check that we're exporting the metadata.
+	exportedCharmMetadata := exported.CharmMetadata()
+	c.Assert(exportedCharmMetadata, gc.NotNil)
+	s.assertMigrateCharmMetadata(c, exportedCharmMetadata, ch.Meta())
+
+	// Check that we're exporting the manifest.
+	exportedCharmManifest := exported.CharmManifest()
+	c.Assert(exportedCharmManifest, gc.NotNil)
+	s.assertMigrateCharmManifest(c, exportedCharmManifest, ch.Manifest())
+
+	// Check that we're exporting the actions.
+	exportedCharmActions := exported.CharmActions()
+	c.Assert(exportedCharmActions, gc.NotNil)
+	s.assertMigrateCharmActions(c, exportedCharmActions, ch.Actions())
+
+	// Check that we're exporting the configs.
+	exportedCharmConfigs := exported.CharmConfigs()
+	c.Assert(exportedCharmConfigs, gc.NotNil)
+	s.assertMigrateCharmConfigs(c, exportedCharmConfigs, ch.Config())
+}
+
 func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 	f := factory.NewFactory(s.State, s.StatePool)
 

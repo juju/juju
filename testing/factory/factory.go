@@ -107,6 +107,7 @@ type ApplicationParams struct {
 	ApplicationConfig       map[string]interface{}
 	ApplicationConfigFields environschema.Fields
 	CharmConfig             map[string]interface{}
+	Devices                 map[string]state.DeviceConstraints
 	Storage                 map[string]state.StorageConstraints
 	Constraints             constraints.Value
 	EndpointBindings        map[string]string
@@ -540,6 +541,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Charm:             params.Charm,
 		CharmOrigin:       params.CharmOrigin,
 		CharmConfig:       params.CharmConfig,
+		Devices:           params.Devices,
 		ApplicationConfig: appConfig,
 		Storage:           params.Storage,
 		Constraints:       params.Constraints,
