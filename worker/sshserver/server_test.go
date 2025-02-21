@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
@@ -15,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/sshserver"
-	"github.com/juju/juju/worker/sshserver/mocks"
 )
 
 type sshServerSuite struct {
@@ -48,14 +48,13 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	mockLogger := mocks.NewMockLogger(ctrl)
-	mockLogger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
+	l := loggo.GetLogger("test")
 
 	// Firstly, start the server on an in-memory listener
 	listener := bufconn.Listen(8 * 1024)
 
 	server, err := sshserver.NewServerWorker(sshserver.ServerWorkerConfig{
-		Logger:   mockLogger,
+		Logger:   l,
 		Listener: listener,
 	})
 	c.Assert(err, gc.IsNil)
