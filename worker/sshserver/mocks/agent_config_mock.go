@@ -27,7 +27,6 @@ import (
 type MockConfig struct {
 	ctrl     *gomock.Controller
 	recorder *MockConfigMockRecorder
-	isgomock struct{}
 }
 
 // MockConfigMockRecorder is the mock recorder for MockConfig.
@@ -417,30 +416,30 @@ func (mr *MockConfigMockRecorder) UpgradedToVersion() *gomock.Call {
 }
 
 // Value mocks base method.
-func (m *MockConfig) Value(key string) string {
+func (m *MockConfig) Value(arg0 string) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Value", key)
+	ret := m.ctrl.Call(m, "Value", arg0)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // Value indicates an expected call of Value.
-func (mr *MockConfigMockRecorder) Value(key any) *gomock.Call {
+func (mr *MockConfigMockRecorder) Value(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockConfig)(nil).Value), key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockConfig)(nil).Value), arg0)
 }
 
 // WriteCommands mocks base method.
-func (m *MockConfig) WriteCommands(renderer shell.Renderer) ([]string, error) {
+func (m *MockConfig) WriteCommands(arg0 shell.Renderer) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WriteCommands", renderer)
+	ret := m.ctrl.Call(m, "WriteCommands", arg0)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WriteCommands indicates an expected call of WriteCommands.
-func (mr *MockConfigMockRecorder) WriteCommands(renderer any) *gomock.Call {
+func (mr *MockConfigMockRecorder) WriteCommands(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteCommands", reflect.TypeOf((*MockConfig)(nil).WriteCommands), renderer)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteCommands", reflect.TypeOf((*MockConfig)(nil).WriteCommands), arg0)
 }
