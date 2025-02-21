@@ -86,8 +86,8 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	return NewModelManagerAPI(
 		stdCtx,
 		backend.(StateBackend),
-		func(modelUUID coremodel.UUID, legacyState facade.LegacyStateExporter) ModelExporter {
-			return ctx.ModelExporter(modelUUID, legacyState)
+		func(c context.Context, modelUUID coremodel.UUID, legacyState facade.LegacyStateExporter) (ModelExporter, error) {
+			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		commonmodel.NewModelManagerBackend(ctrlModel, pool),
 		controllerUUID,

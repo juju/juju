@@ -42,8 +42,12 @@ func makeStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModel
 	domainServices := ctx.DomainServices()
 
 	backendService := domainServices.SecretBackend()
-	secretInfoGetter := func(modelUUID coremodel.UUID) SecretService {
-		return ctx.DomainServicesForModel(modelUUID).Secret()
+	secretInfoGetter := func(c context.Context, modelUUID coremodel.UUID) (SecretService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, fmt.Errorf("retrieving domain services for model %q: %w", modelUUID, err)
+		}
+		return svc.Secret(), nil
 	}
 
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
@@ -59,8 +63,8 @@ func makeStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModel
 		modelInfo.UUID,
 		secretInfoGetter,
 		backendService,
-		&crossModelShim{st.RemoteEntities()},
-		&stateBackendShim{st},
+		&crossModelShim{RemoteEntities: st.RemoteEntities()},
+		&stateBackendShim{State: st},
 		ctx.Logger().Child("crossmodelsecrets", corelogger.SECRETS),
 	)
 }

@@ -81,7 +81,7 @@ type ModelManagerAPI struct {
 	networkService       NetworkService
 	secretBackendService SecretBackendService
 
-	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
+	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error)
 	store         objectstore.ObjectStore
 
 	// ToolsFinder is used to find tools for a given version.
@@ -97,7 +97,7 @@ type ModelManagerAPI struct {
 func NewModelManagerAPI(
 	ctx context.Context,
 	st StateBackend,
-	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
+	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	ctlrSt commonmodel.ModelManagerBackend,
 	controllerUUID uuid.UUID,
 	services Services,
@@ -121,12 +121,16 @@ func NewModelManagerAPI(
 	}
 	isAdmin := err == nil
 
-	machinServiceGetter := func(modelUUID coremodel.UUID) commonmodel.MachineService {
-		return services.DomainServicesGetter.DomainServicesForModel(modelUUID).Machine()
+	machineServiceGetter := func(ctx context.Context, modelUUID coremodel.UUID) (commonmodel.MachineService, error) {
+		svc, err := services.DomainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Machine(), nil
 	}
 
 	return &ModelManagerAPI{
-		ModelStatusAPI:       commonmodel.NewModelStatusAPI(st, machinServiceGetter, authorizer, apiUser),
+		ModelStatusAPI:       commonmodel.NewModelStatusAPI(st, machineServiceGetter, authorizer, apiUser),
 		state:                st,
 		domainServicesGetter: services.DomainServicesGetter,
 		modelExporter:        modelExporter,
@@ -284,7 +288,10 @@ func (m *ModelManagerAPI) createModelNew(
 
 	// We use the returned model UUID as we can guarantee that's the one that
 	// was written to the database.
-	modelDomainServices := m.domainServicesGetter.DomainServicesForModel(modelID)
+	modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelID)
+	if err != nil {
+		return coremodel.UUID(""), errors.Trace(err)
+	}
 	modelInfoService := modelDomainServices.ModelInfo()
 
 	modelConfigService := modelDomainServices.Config()
@@ -464,7 +471,11 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		args.Config[config.UUIDKey] = modelUUID.String()
 	}
 
-	configService := m.domainServicesGetter.DomainServicesForModel(modelUUID).Config()
+	svc, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	configService := svc.Config()
 	newConfig, err := configService.ModelConfig(ctx)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to get config")
@@ -648,7 +659,12 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 		exportConfig.SkipLinkLayerDevices = true
 	}
 
-	model, err := m.modelExporter(coremodel.UUID(modelTag.Id()), modelState).ExportModelPartial(ctx, exportConfig, m.store)
+	modelExporter, err := m.modelExporter(ctx, coremodel.UUID(modelTag.Id()), modelState)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	model, err := modelExporter.ExportModelPartial(ctx, exportConfig, m.store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -991,7 +1007,10 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			}
 		}
 
-		domainServices := m.domainServicesGetter.DomainServicesForModel(coremodel.UUID(modelUUID))
+		domainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, coremodel.UUID(modelUUID))
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		err = commonmodel.DestroyModel(
 			ctx, st,
@@ -1166,7 +1185,10 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		return !ignoreNotFoundError || !isNotFound
 	}
 
-	modelDomainServices := m.domainServicesGetter.DomainServicesForModel(coremodel.UUID(modelUUID))
+	modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, coremodel.UUID(modelUUID))
+	if shouldErr(err) {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
 	modelInfoService := modelDomainServices.ModelInfo()
 	modelInfo, err := modelInfoService.GetModelInfo(ctx)
 	if shouldErr(err) {

@@ -71,7 +71,7 @@ type ModelDomainServices interface {
 // ModelDomainServicesGetter is an interface that provides a way to get a
 // ModelDomainServices based on a model UUID.
 type ModelDomainServicesGetter interface {
-	DomainServicesForModel(modelUUID model.UUID) ModelDomainServices
+	DomainServicesForModel(ctx context.Context, modelUUID model.UUID) (ModelDomainServices, error)
 }
 
 type modelDomainServicesGetter struct {
@@ -84,8 +84,12 @@ func newModelDomainServicesGetter(facadeContext facade.MultiModelContext) ModelD
 	}
 }
 
-func (f *modelDomainServicesGetter) DomainServicesForModel(modelUUID model.UUID) ModelDomainServices {
-	return &modelDomainServices{domainServices: f.facadeContext.DomainServicesForModel(modelUUID)}
+func (f *modelDomainServicesGetter) DomainServicesForModel(ctx context.Context, modelUUID model.UUID) (ModelDomainServices, error) {
+	services, err := f.facadeContext.DomainServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return nil, err
+	}
+	return &modelDomainServices{domainServices: services}, nil
 }
 
 type modelDomainServices struct {

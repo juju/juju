@@ -47,26 +47,34 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 		backend,
 		c.blockCommandService,
 		c.modelInfoService,
-		func(u model.UUID) commonmodel.BlockCommandService {
-			return c.blockCommandServiceGetter(u)
+		func(ctx context.Context, u model.UUID) (commonmodel.BlockCommandService, error) {
+			return c.blockCommandServiceGetter(ctx, u)
 		},
 		args.DestroyModels, args.DestroyStorage,
 		args.Force, args.MaxWait, args.ModelTimeout,
 	))
 }
 
-func ensureNotBlocked(ctx context.Context, st Backend, blockCommandServiceGetter func(model.UUID) BlockCommandService, logger corelogger.Logger) error {
+func ensureNotBlocked(
+	ctx context.Context,
+	st Backend,
+	blockCommandServiceGetter func(context.Context, model.UUID) (BlockCommandService, error),
+	logger corelogger.Logger,
+) error {
 	// If there are blocks let the user know.
 	uuids, err := st.AllModelUUIDs()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, uuid := range uuids {
-		blockService := blockCommandServiceGetter(model.UUID(uuid))
+		blockService, err := blockCommandServiceGetter(ctx, model.UUID(uuid))
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		blocks, err := blockService.GetBlocks(ctx)
 		if err != nil {
-			logger.Debugf(context.TODO(), "Unable to get blocks for controller: %s", err)
+			logger.Debugf(ctx, "unable to get blocks for controller: %s", err)
 			return errors.Trace(err)
 		}
 

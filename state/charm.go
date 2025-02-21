@@ -211,7 +211,10 @@ func (st *State) findCharm(curl *charm.URL) (CharmRefFull, error) {
 	} else if curl.Schema == "local" {
 		charmSource = applicationcharm.LocalSource
 	}
-	charmService := st.charmServiceGetter(coremodel.UUID(st.ModelUUID()))
+	charmService, err := st.charmServiceGetter(coremodel.UUID(st.ModelUUID()))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	ch, _, _, err := charmService.GetCharm(context.TODO(), applicationcharm.CharmLocator{
 		Name:     curl.Name,
 		Revision: curl.Revision,

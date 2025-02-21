@@ -48,15 +48,23 @@ type Config struct {
 	// LeaseManager is used to manage leases.
 	LeaseManager lease.Manager
 
+	// LoggerContextGetter is used to get the logger context per model.
+	LoggerContextGetter logger.LoggerContextGetter
+
 	// Logger is used to log messages.
 	Logger logger.Logger
 
 	// Clock is used to provides a main Clock
 	Clock clock.Clock
 
-	NewDomainServicesGetter     DomainServicesGetterFn
+	// NewDomainServicesGetter is used to get domain services for a model.
+	NewDomainServicesGetter DomainServicesGetterFn
+
+	// NewControllerDomainServices is used to get controller domain services.
 	NewControllerDomainServices ControllerDomainServicesFn
-	NewModelDomainServices      ModelDomainServicesFn
+
+	// NewModelDomainServices is used to get model domain services.
+	NewModelDomainServices ModelDomainServicesFn
 }
 
 // Validate validates the domain services configuration.
@@ -79,9 +87,11 @@ func (config Config) Validate() error {
 	if config.PublicKeyImporter == nil {
 		return errors.NotValidf("nil PublicKeyImporter")
 	}
-
 	if config.LeaseManager == nil {
 		return errors.NotValidf("nil LeaseManager")
+	}
+	if config.LoggerContextGetter == nil {
+		return errors.NotValidf("nil LoggerContextGetter")
 	}
 	if config.NewDomainServicesGetter == nil {
 		return errors.NotValidf("nil NewDomainServicesGetter")
@@ -120,7 +130,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.PublicKeyImporter,
 			config.LeaseManager,
 			config.Clock,
-			config.Logger,
+			config.LoggerContextGetter,
 		),
 	}
 	w.tomb.Go(func() error {
@@ -177,19 +187,24 @@ type domainServices struct {
 type domainServicesGetter struct {
 	ctrlFactory            services.ControllerDomainServices
 	dbGetter               changestream.WatchableDBGetter
-	logger                 logger.Logger
-	clock                  clock.Clock
 	newModelDomainServices ModelDomainServicesFn
 	providerFactory        providertracker.ProviderFactory
 	objectStoreGetter      objectstore.ObjectStoreGetter
 	storageRegistryGetter  storage.StorageRegistryGetter
 	publicKeyImporter      domainservices.PublicKeyImporter
 	leaseManager           lease.Manager
+	clock                  clock.Clock
+	loggerContextGetter    logger.LoggerContextGetter
 }
 
 // ServicesForModel returns the domain services for the given model uuid.
 // This will late bind the model domain services to the actual domain services.
-func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) services.DomainServices {
+func (s *domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID coremodel.UUID) (services.DomainServices, error) {
+	loggerContext, err := s.loggerContextGetter.GetLoggerContext(ctx, modelUUID)
+	if err != nil {
+		return nil, internalerrors.Errorf("getting logger context: %w", err)
+	}
+
 	return &domainServices{
 		ControllerDomainServices: s.ctrlFactory,
 		ModelDomainServices: s.newModelDomainServices(
@@ -209,9 +224,9 @@ func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) servic
 				manager:   s.leaseManager,
 			},
 			s.clock,
-			s.logger,
+			loggerContext.GetLogger("model"),
 		),
-	}
+	}, nil
 }
 
 // modelObjectStoreGetter is an object store getter that returns a singular

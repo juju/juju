@@ -72,7 +72,7 @@ type InitializeParams struct {
 
 	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
 	// and should disapear as soon as we migrate units and applications.
-	CharmServiceGetter func(modelUUID coremodel.UUID) CharmService
+	CharmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error)
 
 	// SSHServerHostKey holds the embedded SSH server host key.
 	SSHServerHostKey string

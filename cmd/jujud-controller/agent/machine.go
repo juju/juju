@@ -1106,14 +1106,26 @@ func openStatePool(
 		credService = domainServices.Credential()
 		cloudService = domainServices.Cloud()
 	}
-	storageServiceGetter := func(modelUUID coremodel.UUID) state.StoragePoolGetter {
-		return domainServicesGetter.ServicesForModel(modelUUID).Storage()
+	storageServiceGetter := func(modelUUID coremodel.UUID) (state.StoragePoolGetter, error) {
+		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
+		if err != nil {
+			return nil, err
+		}
+		return svc.Storage(), nil
 	}
-	modelConfigServiceGetter := func(modelUUID coremodel.UUID) stateenvirons.ModelConfigService {
-		return domainServicesGetter.ServicesForModel(modelUUID).Config()
+	modelConfigServiceGetter := func(modelUUID coremodel.UUID) (stateenvirons.ModelConfigService, error) {
+		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
+		if err != nil {
+			return nil, err
+		}
+		return svc.Config(), nil
 	}
-	charmServiceGetter := func(modelUUID coremodel.UUID) state.CharmService {
-		return domainServicesGetter.ServicesForModel(modelUUID).Application()
+	charmServiceGetter := func(modelUUID coremodel.UUID) (state.CharmService, error) {
+		svc, err := domainServicesGetter.ServicesForModel(context.Background(), modelUUID)
+		if err != nil {
+			return nil, err
+		}
+		return svc.Application(), nil
 	}
 
 	pool, err := state.OpenStatePool(state.OpenParams{

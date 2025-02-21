@@ -107,8 +107,8 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.crossModelState = mocks.NewMockCrossModelState(ctrl)
 	s.stateBackend = mocks.NewMockStateBackend(ctrl)
 
-	secretsServiceGetter := func(model.UUID) crossmodelsecrets.SecretService {
-		return s.secretService
+	secretsServiceGetter := func(context.Context, model.UUID) (crossmodelsecrets.SecretService, error) {
+		return s.secretService, nil
 	}
 
 	var err error

@@ -67,7 +67,7 @@ type State struct {
 	maxTxnAttempts         int
 	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
 	// and should disapear as soon as we migrate units and applications.
-	charmServiceGetter func(modelUUID coremodel.UUID) CharmService
+	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error)
 
 	// workers is responsible for keeping the various sub-workers
 	// available by starting new ones as they fail. It doesn't do

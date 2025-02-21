@@ -219,7 +219,7 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.domainServicesGetter.EXPECT().ServicesForModel(uuidMatcher{}).Return(s.domainServices).AnyTimes()
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuidMatcher{}).Return(s.domainServices, nil).AnyTimes()
 	s.domainServices.EXPECT().ControllerConfig().AnyTimes()
 
 	watcher := newMockModelWatcher()

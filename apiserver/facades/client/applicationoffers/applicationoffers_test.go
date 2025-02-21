@@ -105,7 +105,7 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 
 	if expectedErr == nil {
 		modelUUID := model.UUID(testing.ModelTag.Id())
-		s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
+		s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.mockModelDomainServices, nil)
 		s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
 		locator := applicationcharm.CharmLocator{
@@ -179,7 +179,7 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
 	}
 
 	modelUUID := model.UUID(testing.ModelTag.Id())
-	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
+	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.mockModelDomainServices, nil)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
 	locator := applicationcharm.CharmLocator{
@@ -259,7 +259,7 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	}
 
 	modelUUID := model.UUID(testing.ModelTag.Id())
-	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
+	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.mockModelDomainServices, nil)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
 	locator := applicationcharm.CharmLocator{
@@ -298,7 +298,7 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationError(c *gc.C) {
 	}
 
 	modelUUID := model.UUID(testing.ModelTag.Id())
-	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
+	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.mockModelDomainServices, nil)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
 	locator := applicationcharm.CharmLocator{
@@ -336,7 +336,7 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationCharmError(c *gc.C) {
 	}
 
 	modelUUID := model.UUID(testing.ModelTag.Id())
-	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(modelUUID).Return(s.mockModelDomainServices)
+	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.mockModelDomainServices, nil)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
 	locator := applicationcharm.CharmLocator{

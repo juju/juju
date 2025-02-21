@@ -204,7 +204,7 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 	api, ctrl := s.getAPIWithoutModelInfo(c)
 
 	mockModelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(mockModelDomainServices).AnyTimes()
+	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(mockModelDomainServices, nil).AnyTimes()
 
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
@@ -278,7 +278,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 	s.mockApplicationService = mocks.NewMockApplicationService(ctrl)
 	s.mockModelDomainServices = mocks.NewMockModelDomainServices(ctrl)
 	s.mockDomainServicesGetter = mocks.NewMockDomainServicesGetter(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(s.mockModelDomainServices).AnyTimes()
+	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(s.mockModelDomainServices, nil).AnyTimes()
 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	s.authorizer.Tag = user
 	cred := cloud.NewEmptyCredential()
@@ -655,7 +655,7 @@ func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	results, err := api.ModelInfo(context.Background(), params.Entities{
-		Entities: []params.Entity{{coretesting.ModelTag.String()}},
+		Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Result.Migration, gc.IsNil)
@@ -679,7 +679,7 @@ func (s *modelInfoSuite) TestAliveModelWithGetModelInfoFailure(c *gc.C) {
 	api, ctrl := s.getAPIWithoutModelInfo(c)
 	defer ctrl.Finish()
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
@@ -692,7 +692,7 @@ func (s *modelInfoSuite) TestAliveModelWithGetModelTargetAgentVersionFailure(c *
 	api, ctrl := s.getAPIWithoutModelInfo(c)
 	defer ctrl.Finish()
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
@@ -748,7 +748,7 @@ func (s *modelInfoSuite) TestDeadModelWithGetModelInfoFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
@@ -775,7 +775,7 @@ func (s *modelInfoSuite) TestDeadModelWithGetModelTargetAgentVersionFailure(c *g
 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
@@ -839,7 +839,7 @@ func (s *modelInfoSuite) TestDyingModelWithGetModelInfoFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
@@ -866,7 +866,7 @@ func (s *modelInfoSuite) TestDyingModelWithGetModelTargetAgentVersionFailure(c *
 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
@@ -946,7 +946,7 @@ func (s *modelInfoSuite) TestImportingModelWithGetModelInfoFailure(c *gc.C) {
 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, errors.NotFoundf("model info"))
@@ -974,7 +974,7 @@ func (s *modelInfoSuite) TestImportingModelWithGetModelTargetAgentVersionFailure
 	s.mockMachineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef1").Return(&instance.HardwareCharacteristics{}, nil)
 
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.mockDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
 	modelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)

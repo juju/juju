@@ -45,20 +45,40 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		return nil, errors.Trace(err)
 	}
 
-	modelAgentServiceGetter := func(modelID model.UUID) common.ModelAgentService {
-		return ctx.DomainServicesForModel(modelID).Agent()
+	modelAgentServiceGetter := func(c context.Context, modelID model.UUID) (common.ModelAgentService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Agent(), nil
 	}
-	modelConfigServiceGetter := func(modelID model.UUID) cloudspec.ModelConfigService {
-		return ctx.DomainServicesForModel(modelID).Config()
+	modelConfigServiceGetter := func(c context.Context, modelID model.UUID) (cloudspec.ModelConfigService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Config(), nil
 	}
-	applicationServiceGetter := func(modelID model.UUID) ApplicationService {
-		return ctx.DomainServicesForModel(modelID).Application()
+	applicationServiceGetter := func(c context.Context, modelID model.UUID) (ApplicationService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Application(), nil
 	}
-	blockCommandServiceGetter := func(modelID model.UUID) BlockCommandService {
-		return ctx.DomainServicesForModel(modelID).BlockCommand()
+	blockCommandServiceGetter := func(c context.Context, modelID model.UUID) (BlockCommandService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.BlockCommand(), nil
 	}
-	machineServiceGetter := func(modelID model.UUID) commonmodel.MachineService {
-		return ctx.DomainServicesForModel(modelID).Machine()
+	machineServiceGetter := func(c context.Context, modelID model.UUID) (commonmodel.MachineService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Machine(), nil
 	}
 
 	return NewControllerAPI(
@@ -85,8 +105,8 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		modelConfigServiceGetter,
 		blockCommandServiceGetter,
 		domainServices.Proxy(),
-		func(modelUUID model.UUID, legacyState facade.LegacyStateExporter) ModelExporter {
-			return ctx.ModelExporter(modelUUID, legacyState)
+		func(c context.Context, modelUUID model.UUID, legacyState facade.LegacyStateExporter) (ModelExporter, error) {
+			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		ctx.ObjectStore(),
 		leadership,

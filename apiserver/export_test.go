@@ -167,8 +167,8 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 
 type StubDomainServicesGetter struct{}
 
-func (s *StubDomainServicesGetter) ServicesForModel(model.UUID) services.DomainServices {
-	return nil
+func (s *StubDomainServicesGetter) ServicesForModel(context.Context, model.UUID) (services.DomainServices, error) {
+	return nil, nil
 }
 
 type StubTracerGetter struct {

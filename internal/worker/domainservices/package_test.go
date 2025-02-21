@@ -33,6 +33,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter,ModelStorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination http_mock_test.go github.com/juju/juju/core/http HTTPClientGetter,HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination lease_mock_test.go github.com/juju/juju/core/lease Checker,Manager,LeaseManagerGetter,ModelLeaseManagerGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination logger_mock_test.go github.com/juju/juju/core/logger LoggerContextGetter,LoggerContext
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -41,7 +42,10 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	domaintesting.ControllerSuite
 
-	logger    logger.Logger
+	logger              logger.Logger
+	loggerContext       *MockLoggerContext
+	loggerContextGetter *MockLoggerContextGetter
+
 	clock     clock.Clock
 	dbDeleter *MockDBDeleter
 	dbGetter  *MockWatchableDBGetter
@@ -74,6 +78,9 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.logger = loggertesting.WrapCheckLog(c)
+	s.loggerContext = NewMockLoggerContext(ctrl)
+	s.loggerContextGetter = NewMockLoggerContextGetter(ctrl)
+
 	s.clock = clock.WallClock
 	s.dbDeleter = NewMockDBDeleter(ctrl)
 	s.dbGetter = NewMockWatchableDBGetter(ctrl)

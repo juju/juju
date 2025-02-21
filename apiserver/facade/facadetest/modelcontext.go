@@ -22,11 +22,11 @@ type MultiModelContext struct {
 }
 
 // DomainServicesForModel returns the services factory for a given model uuid.
-func (c MultiModelContext) DomainServicesForModel(uuid model.UUID) services.DomainServices {
+func (c MultiModelContext) DomainServicesForModel(ctx context.Context, uuid model.UUID) (services.DomainServices, error) {
 	if c.DomainServicesForModelFunc_ != nil {
-		return c.DomainServicesForModelFunc_(uuid)
+		return c.DomainServicesForModelFunc_(uuid), nil
 	}
-	return c.DomainServicesForModel_
+	return c.DomainServicesForModel_, nil
 }
 
 // ObjectStoreForModel returns the object store for a given model uuid.

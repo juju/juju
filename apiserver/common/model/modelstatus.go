@@ -32,7 +32,7 @@ type ModelStatusAPI struct {
 	authorizer        facade.Authorizer
 	apiUser           names.UserTag
 	backend           ModelManagerBackend
-	getMachineService func(coremodel.UUID) MachineService
+	getMachineService func(context.Context, coremodel.UUID) (MachineService, error)
 }
 
 // ModelApplicationInfo returns information about applications.
@@ -44,7 +44,7 @@ func ModelApplicationInfo(applications []Application) ([]params.ModelApplication
 }
 
 // NewModelStatusAPI creates an implementation providing the ModelStatus() API.
-func NewModelStatusAPI(backend ModelManagerBackend, getMachineService func(coremodel.UUID) MachineService,
+func NewModelStatusAPI(backend ModelManagerBackend, getMachineService func(context.Context, coremodel.UUID) (MachineService, error),
 	authorizer facade.Authorizer, apiUser names.UserTag) *ModelStatusAPI {
 	return &ModelStatusAPI{
 		authorizer:        authorizer,
@@ -118,7 +118,11 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		unitCount += app.UnitCount()
 	}
 
-	modelMachines, err := ModelMachineInfo(ctx, st, c.getMachineService(coremodel.UUID(modelTag.Id())))
+	svc, err := c.getMachineService(ctx, coremodel.UUID(modelTag.Id()))
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	modelMachines, err := ModelMachineInfo(ctx, st, svc)
 	if err != nil {
 		return status, errors.Trace(err)
 	}

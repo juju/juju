@@ -2060,6 +2060,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"http-client",
 		"is-controller-flag",
 		"lease-manager",
+		"log-sink-services",
+		"log-sink",
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",

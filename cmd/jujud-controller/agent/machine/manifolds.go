@@ -719,6 +719,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StorageRegistryName:         storageRegistryName,
 			HTTPClientName:              httpClientName,
 			LeaseManagerName:            leaseManagerName,
+			LogSinkName:                 logSinkName,
 			Logger:                      internallogger.GetLogger("juju.worker.services"),
 			Clock:                       config.Clock,
 			NewWorker:                   workerdomainservices.NewWorker,

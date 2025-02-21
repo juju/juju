@@ -69,7 +69,7 @@ type MultiModelContext interface {
 
 	// DomainServicesForModel returns the services factory for a given model
 	// uuid.
-	DomainServicesForModel(model.UUID) services.DomainServices
+	DomainServicesForModel(context.Context, model.UUID) (services.DomainServices, error)
 
 	// ObjectStoreForModel returns the object store for a given model uuid.
 	ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error)
@@ -212,7 +212,7 @@ type ModelImporter interface {
 // ModelMigrationFactory defines an interface for getting a model migrator.
 type ModelMigrationFactory interface {
 	// ModelExporter returns a model exporter for the current model.
-	ModelExporter(model.UUID, LegacyStateExporter) ModelExporter
+	ModelExporter(context.Context, model.UUID, LegacyStateExporter) (ModelExporter, error)
 
 	// ModelImporter returns a model importer.
 	ModelImporter() ModelImporter

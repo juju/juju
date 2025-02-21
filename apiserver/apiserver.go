@@ -332,7 +332,10 @@ func NewServer(ctx context.Context, cfg ServerConfig) (*Server, error) {
 const readyTimeout = time.Second * 30
 
 func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
-	controllerDomainServices := cfg.DomainServicesGetter.ServicesForModel(cfg.ControllerModelUUID)
+	controllerDomainServices, err := cfg.DomainServicesGetter.ServicesForModel(ctx, cfg.ControllerModelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	controllerConfigService := controllerDomainServices.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
@@ -1161,7 +1164,10 @@ func (srv *Server) serveConn(
 		return errors.Annotatef(err, "getting controller object store")
 	}
 
-	domainServices := srv.shared.domainServicesGetter.ServicesForModel(modelUUID)
+	domainServices, err := srv.shared.domainServicesGetter.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return errors.Annotatef(err, "getting domain services for model %q", modelUUID)
+	}
 
 	var handler *apiHandler
 	var stateClosing <-chan struct{}

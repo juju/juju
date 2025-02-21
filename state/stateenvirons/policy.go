@@ -37,8 +37,8 @@ type deployChecker interface {
 	environs.ConstraintsChecker
 }
 
-type storageServiceGetter func(modelUUID coremodel.UUID) state.StoragePoolGetter
-type modelConfigServiceGetter func(modelUUID coremodel.UUID) ModelConfigService
+type storageServiceGetter func(modelUUID coremodel.UUID) (state.StoragePoolGetter, error)
+type modelConfigServiceGetter func(modelUUID coremodel.UUID) (ModelConfigService, error)
 
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
 // a state.Policy implemented in terms of either environs.Environ
@@ -83,7 +83,10 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	modelConfigService := p.modelConfigServiceGetter(coremodel.UUID(model.UUID()))
+	modelConfigService, err := p.modelConfigServiceGetter(coremodel.UUID(model.UUID()))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if model.Type() == state.ModelTypeIAAS {
 		p.checker, err = p.getEnviron(model, p.cloudService, p.credentialService, modelConfigService)
 	} else {
@@ -108,5 +111,5 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, error) 
 		return nil, errors.Trace(err)
 	}
 
-	return p.storageServiceGetter(coremodel.UUID(model.UUID())), nil
+	return p.storageServiceGetter(coremodel.UUID(model.UUID()))
 }

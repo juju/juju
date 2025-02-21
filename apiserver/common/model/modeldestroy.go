@@ -40,7 +40,7 @@ func DestroyController(
 	st ModelManagerBackend,
 	blockCommandService BlockCommandService,
 	modelInfoService ModelInfoService,
-	blockCommandServiceGetter func(model.UUID) BlockCommandService,
+	blockCommandServiceGetter func(context.Context, model.UUID) (BlockCommandService, error),
 	destroyHostedModels bool,
 	destroyStorage *bool,
 	force *bool,
@@ -62,9 +62,14 @@ func DestroyController(
 			return errors.Trace(err)
 		}
 		for _, uuid := range uuids {
-			check := common.NewBlockChecker(blockCommandServiceGetter(model.UUID(uuid)))
+			svc, err := blockCommandServiceGetter(ctx, model.UUID(uuid))
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			check := common.NewBlockChecker(svc)
 			if err = check.DestroyAllowed(ctx); errors.Is(err, modelerrors.NotFound) {
-				logger.Errorf(context.TODO(), "model %v not found, skipping", uuid)
+				logger.Errorf(ctx, "model %v not found, skipping", uuid)
 				continue
 			} else if err != nil {
 				return errors.Trace(err)

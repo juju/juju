@@ -73,6 +73,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.LogSinkName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -106,6 +110,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		"storageregistry": s.storageRegistryGetter,
 		"httpclient":      s.httpClientGetter,
 		"leasemanager":    s.leaseManager,
+		"logsink":         s.loggerContextGetter,
 	}
 
 	manifold := Manifold(ManifoldConfig{
@@ -116,6 +121,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		StorageRegistryName:         "storageregistry",
 		HTTPClientName:              "httpclient",
 		LeaseManagerName:            "leasemanager",
+		LogSinkName:                 "logsink",
 		Logger:                      s.logger,
 		NewWorker:                   NewWorker,
 		NewDomainServicesGetter:     NewDomainServicesGetter,
@@ -137,6 +143,7 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *gc.C) {
 		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
+		LoggerContextGetter:         s.loggerContextGetter,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
@@ -164,6 +171,7 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *gc.C) {
 		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
+		LoggerContextGetter:         s.loggerContextGetter,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
@@ -191,6 +199,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,
 		Logger:                      s.logger,
+		LoggerContextGetter:         s.loggerContextGetter,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
@@ -231,6 +240,11 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.loggerContextGetter.EXPECT().GetLoggerContext(gomock.Any(), coremodel.UUID("model")).Return(s.loggerContext, nil)
+	s.loggerContext.EXPECT().GetLogger("model").Return(s.logger)
+
 	ctrlFactory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.clock, s.logger)
 	factory := NewDomainServicesGetter(
 		ctrlFactory,
@@ -242,11 +256,12 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 		s.publicKeyImporter,
 		s.leaseManager,
 		s.clock,
-		s.logger,
+		s.loggerContextGetter,
 	)
 	c.Assert(factory, gc.NotNil)
 
-	modelFactory := factory.ServicesForModel("model")
+	modelFactory, err := factory.ServicesForModel(context.Background(), "model")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelFactory, gc.NotNil)
 }
 
@@ -259,6 +274,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		StorageRegistryName: "storageregistry",
 		HTTPClientName:      "httpclient",
 		LeaseManagerName:    "leasemanager",
+		LogSinkName:         "logsink",
 		Clock:               s.clock,
 		Logger:              s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {
@@ -280,7 +296,7 @@ func noopDomainServicesGetter(
 	domainservices.PublicKeyImporter,
 	lease.Manager,
 	clock.Clock,
-	logger.Logger,
+	logger.LoggerContextGetter,
 ) services.DomainServicesGetter {
 	return nil
 }

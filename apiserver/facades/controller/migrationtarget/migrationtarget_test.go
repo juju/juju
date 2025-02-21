@@ -574,12 +574,12 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *Suite) migrationServiceGetter(_ model.UUID) migrationtarget.ModelMigrationService {
-	return s.modelMigrationService
+func (s *Suite) migrationServiceGetter(context.Context, model.UUID) (migrationtarget.ModelMigrationService, error) {
+	return s.modelMigrationService, nil
 }
 
-func (s *Suite) agentServiceGetter(_ model.UUID) migrationtarget.ModelAgentService {
-	return s.agentService
+func (s *Suite) agentServiceGetter(context.Context, model.UUID) (migrationtarget.ModelAgentService, error) {
+	return s.agentService, nil
 }
 
 func (s *Suite) newAPI(versions facades.FacadeVersions, logDir string) (*migrationtarget.API, error) {
@@ -641,7 +641,7 @@ func (s *Suite) controllerVersion(c *gc.C) version.Number {
 }
 
 func (s *Suite) expectImportModel(c *gc.C) {
-	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any()).Return(s.domainServices)
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), gomock.Any()).Return(s.domainServices, nil)
 	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, bytes []byte) (*state.Model, *state.State, error) {
 		scope := func(model.UUID) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
 		controller := state.NewController(s.StatePool)

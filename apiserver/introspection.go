@@ -45,7 +45,11 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 	// or "read" access on the controller model, can
 	// access these endpoints.
 
-	accessService := h.ctx.srv.shared.domainServicesGetter.ServicesForModel(h.ctx.srv.shared.controllerModelUUID).Access()
+	svc, err := h.ctx.srv.shared.domainServicesGetter.ServicesForModel(r.Context(), h.ctx.srv.shared.controllerModelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	accessService := svc.Access()
 
 	userPermission := func(ctx context.Context, userName coreuser.Name, target permission.ID) (permission.Access, error) {
 		if objectType := target.ObjectType; !(objectType == permission.Controller || objectType == permission.Model) {

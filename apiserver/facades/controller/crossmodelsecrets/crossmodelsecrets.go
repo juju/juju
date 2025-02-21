@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type secretServiceGetter func(modelUUID model.UUID) SecretService
+type secretServiceGetter func(ctx context.Context, modelUUID model.UUID) (SecretService, error)
 
 // CrossModelSecretsAPIV1 provides access to the CrossModelSecrets API V1 facade.
 type CrossModelSecretsAPIV1 struct {
@@ -113,9 +113,12 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx context.Context, arg par
 	}
 	consumerUnit := names.NewUnitTag(fmt.Sprintf("%s/%d", consumerApp.Id(), arg.UnitId))
 
-	s.logger.Debugf(context.TODO(), "consumer unit for token %q: %v", arg.ApplicationToken, consumerUnit.Id())
+	s.logger.Debugf(ctx, "consumer unit for token %q: %v", arg.ApplicationToken, consumerUnit.Id())
 
-	secretService := s.secretServiceGetter(model.UUID(uri.SourceUUID))
+	secretService, err := s.secretServiceGetter(ctx, model.UUID(uri.SourceUUID))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	scopeTag, err := s.accessScope(ctx, secretService, uri, consumerUnit)
 	if errors.Is(err, secreterrors.SecretAccessScopeNotFound) {
 		return "", apiservererrors.ErrPerm
@@ -123,7 +126,7 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx context.Context, arg par
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	s.logger.Debugf(context.TODO(), "access scope for secret %v and consumer %v: %v", uri.String(), consumerUnit.Id(), scopeTag)
+	s.logger.Debugf(ctx, "access scope for secret %v and consumer %v: %v", uri.String(), consumerUnit.Id(), scopeTag)
 	return s.crossModelState.GetToken(scopeTag)
 }
 
@@ -251,7 +254,10 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx context.Context, arg params.
 		return nil, nil, 0, errors.Trace(err)
 	}
 
-	secretService := s.secretServiceGetter(model.UUID(uri.SourceUUID))
+	secretService, err := s.secretServiceGetter(ctx, model.UUID(uri.SourceUUID))
+	if err != nil {
+		return nil, nil, 0, errors.Trace(err)
+	}
 
 	var (
 		wantRevision   int

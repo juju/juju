@@ -41,11 +41,19 @@ func makeFacade(
 
 	domainServices := ctx.DomainServices()
 
-	modelMigrationServiceGetter := func(modelId model.UUID) ModelMigrationService {
-		return ctx.DomainServicesForModel(modelId).ModelMigration()
+	modelMigrationServiceGetter := func(c context.Context, modelId model.UUID) (ModelMigrationService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelId)
+		if err != nil {
+			return nil, errors.Errorf("retrieving domain services for model %q: %w", modelId, err)
+		}
+		return svc.ModelMigration(), nil
 	}
-	modelAgentServiceGetter := func(modelId model.UUID) ModelAgentService {
-		return ctx.DomainServicesForModel(modelId).Agent()
+	modelAgentServiceGetter := func(c context.Context, modelId model.UUID) (ModelAgentService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelId)
+		if err != nil {
+			return nil, errors.Errorf("retrieving domain services for model %q: %w", modelId, err)
+		}
+		return svc.Agent(), nil
 	}
 
 	return NewAPI(

@@ -402,17 +402,18 @@ func (m *MockModelDomainServicesGetter) EXPECT() *MockModelDomainServicesGetterM
 }
 
 // DomainServicesForModel mocks base method.
-func (m *MockModelDomainServicesGetter) DomainServicesForModel(arg0 model.UUID) applicationoffers.ModelDomainServices {
+func (m *MockModelDomainServicesGetter) DomainServicesForModel(arg0 context.Context, arg1 model.UUID) (applicationoffers.ModelDomainServices, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DomainServicesForModel", arg0)
+	ret := m.ctrl.Call(m, "DomainServicesForModel", arg0, arg1)
 	ret0, _ := ret[0].(applicationoffers.ModelDomainServices)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DomainServicesForModel indicates an expected call of DomainServicesForModel.
-func (mr *MockModelDomainServicesGetterMockRecorder) DomainServicesForModel(arg0 any) *MockModelDomainServicesGetterDomainServicesForModelCall {
+func (mr *MockModelDomainServicesGetterMockRecorder) DomainServicesForModel(arg0, arg1 any) *MockModelDomainServicesGetterDomainServicesForModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainServicesForModel", reflect.TypeOf((*MockModelDomainServicesGetter)(nil).DomainServicesForModel), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainServicesForModel", reflect.TypeOf((*MockModelDomainServicesGetter)(nil).DomainServicesForModel), arg0, arg1)
 	return &MockModelDomainServicesGetterDomainServicesForModelCall{Call: call}
 }
 
@@ -422,19 +423,19 @@ type MockModelDomainServicesGetterDomainServicesForModelCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDomainServicesGetterDomainServicesForModelCall) Return(arg0 applicationoffers.ModelDomainServices) *MockModelDomainServicesGetterDomainServicesForModelCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockModelDomainServicesGetterDomainServicesForModelCall) Return(arg0 applicationoffers.ModelDomainServices, arg1 error) *MockModelDomainServicesGetterDomainServicesForModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesGetterDomainServicesForModelCall) Do(f func(model.UUID) applicationoffers.ModelDomainServices) *MockModelDomainServicesGetterDomainServicesForModelCall {
+func (c *MockModelDomainServicesGetterDomainServicesForModelCall) Do(f func(context.Context, model.UUID) (applicationoffers.ModelDomainServices, error)) *MockModelDomainServicesGetterDomainServicesForModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesGetterDomainServicesForModelCall) DoAndReturn(f func(model.UUID) applicationoffers.ModelDomainServices) *MockModelDomainServicesGetterDomainServicesForModelCall {
+func (c *MockModelDomainServicesGetterDomainServicesForModelCall) DoAndReturn(f func(context.Context, model.UUID) (applicationoffers.ModelDomainServices, error)) *MockModelDomainServicesGetterDomainServicesForModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

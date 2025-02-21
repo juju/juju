@@ -237,7 +237,10 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	}
 
 	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
-	domainServices := h.ctxt.srv.shared.domainServicesGetter.ServicesForModel(coremodel.UUID(st.ModelUUID()))
+	domainServices, err := h.ctxt.srv.shared.domainServicesGetter.ServicesForModel(ctx, coremodel.UUID(st.ModelUUID()))
+	if err != nil {
+		return err
+	}
 	env, err := newEnviron(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 	if err != nil {
 		return err

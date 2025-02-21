@@ -326,8 +326,8 @@ func (s *DomainServicesSuite) SetUpTest(c *gc.C) {
 type DomainServicesGetterFunc func(model.UUID) services.DomainServices
 
 // ServicesForModel implements the DomainServicesGetter interface.
-func (s DomainServicesGetterFunc) ServicesForModel(modelUUID model.UUID) services.DomainServices {
-	return s(modelUUID)
+func (s DomainServicesGetterFunc) ServicesForModel(ctx context.Context, modelUUID model.UUID) (services.DomainServices, error) {
+	return s(modelUUID), nil
 }
 
 // ObjectStoreServicesGetterFunc is a convenience type for translating a getter

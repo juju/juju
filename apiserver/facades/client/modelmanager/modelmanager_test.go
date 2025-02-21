@@ -378,7 +378,7 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 ) {
 	// Expect call to get the model domain services.
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
 
 	// Expect calls to get various model services.
 	modelInfoService := mocks.NewMockModelInfoService(ctrl)
@@ -1137,7 +1137,7 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 
 	// Expect call to get the model domain services
 	modelDomainServices := mocks.NewMockModelDomainServices(ctrl)
-	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(modelDomainServices).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(modelDomainServices, nil).AnyTimes()
 
 	// Expect calls to get various model services.
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
@@ -1702,7 +1702,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any()).Return(s.domainServices).AnyTimes()
+	s.domainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), gomock.Any()).Return(s.domainServices, nil).AnyTimes()
 	s.domainServices.EXPECT().Machine().Return(s.machineService).AnyTimes()
 
 	// Check that we don't err out immediately if a model errs.
@@ -1835,9 +1835,9 @@ func (s *modelManagerSuite) TestChangeModelCredentialNotUpdated(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `model deadbeef-0bad-400d-8000-4b1d0d06f00d already uses credential foo/bob/bar`)
 }
 
-func modelExporter(exporter *mocks.MockModelExporter) func(coremodel.UUID, facade.LegacyStateExporter) modelmanager.ModelExporter {
-	return func(_ coremodel.UUID, _ facade.LegacyStateExporter) modelmanager.ModelExporter {
-		return exporter
+func modelExporter(exporter *mocks.MockModelExporter) func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (modelmanager.ModelExporter, error) {
+	return func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (modelmanager.ModelExporter, error) {
+		return exporter, nil
 	}
 }
 

@@ -86,7 +86,7 @@ func (s *ExportImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.domainServices.EXPECT().Machine().Return(nil)
 	s.domainServices.EXPECT().Application().Return(nil)
 	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
-	s.domainServicesGetter.EXPECT().ServicesForModel(model.UUID("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")).Return(s.domainServices)
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), model.UUID("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")).Return(s.domainServices, nil)
 	s.objectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
 
 	return ctrl

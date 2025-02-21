@@ -27,8 +27,11 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 
 	st := s.ControllerModel(c).State()
-	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage()
-	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
+	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
+	c.Assert(err, jc.ErrorIsNil)
+	storageService := svc.Storage()
+
+	err = storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("cores=123 mem=8G")
@@ -127,8 +130,12 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 
 	st := s.ControllerModel(c).State()
-	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage()
-	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
+
+	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
+	c.Assert(err, jc.ErrorIsNil)
+	storageService := svc.Storage()
+
+	err = storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),

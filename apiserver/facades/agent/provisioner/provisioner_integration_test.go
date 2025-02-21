@@ -534,7 +534,10 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
-	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
+
+	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
+	c.Assert(err, jc.ErrorIsNil)
+	machineService := svc.Machine()
 
 	now := time.Now()
 	sInfo := status.StatusInfo{
@@ -542,7 +545,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 		Message: "blah",
 		Since:   &now,
 	}
-	err := s.machines[0].SetInstanceStatus(sInfo)
+	err = s.machines[0].SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
@@ -1012,7 +1015,10 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
-	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
+
+	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
+	c.Assert(err, jc.ErrorIsNil)
+	machineService := svc.Machine()
 
 	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
 		app := f.MakeApplication(c, &factory.ApplicationParams{
@@ -1043,7 +1049,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 
 	// Unassign wordpress/1 from machine-1.
 	// The unit should not show up in the results.
-	err := wordpressUnits[1].UnassignFromMachine()
+	err = wordpressUnits[1].UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision machines 1, 2 and 3. Machine-0 remains
@@ -1327,15 +1333,19 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
 
 	st := s.ControllerModel(c).State()
-	storageService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Storage()
-	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
+
+	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
+	c.Assert(err, jc.ErrorIsNil)
+	machineService := svc.Machine()
+	storageService := svc.Storage()
+
+	err = storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), map[string]any{
 		"storage-default-block-source": "static-pool",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=arm64", "mem=4G")
 	machine0UUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(s.machines[0].Id()))
@@ -1456,7 +1466,11 @@ func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
 	st := s.ControllerModel(c).State()
 
 	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
-	machineService := domainServicesGetter.ServicesForModel(model.UUID(st.ModelUUID())).Machine()
+
+	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
+	c.Assert(err, jc.ErrorIsNil)
+	machineService := svc.Machine()
+
 	// Provision 2 machines first.
 	machine0UUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(s.machines[0].Id()))
 	c.Assert(err, jc.ErrorIsNil)
