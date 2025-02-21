@@ -312,6 +312,42 @@ func (s *State) GetModelType(ctx context.Context, uuid coremodel.UUID) (coremode
 	return modelType, nil
 }
 
+// GetControllerModelUUID returns the model uuid for the controller model.
+// If no controller model exists then an error satisfying [modelerrors.NotFound]
+// // is returned.
+func (s *State) GetControllerModelUUID(ctx context.Context) (coremodel.UUID, error) {
+	db, err := s.DB()
+	if err != nil {
+		return coremodel.UUID(""), errors.Capture(err)
+	}
+
+	controllerModelUUID := dbModelUUIDRef{}
+	stmt, err := s.Prepare(`
+SELECT &dbModelUUIDRef.model_uuid 
+FROM   controller
+`, controllerModelUUID)
+	if err != nil {
+		return coremodel.UUID(""), errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&controllerModelUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return modelerrors.NotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return coremodel.UUID(""), errors.Errorf(
+			"getting controller model uuid: %w", err,
+		)
+	}
+	return coremodel.UUID(controllerModelUUID.ModelUUID), nil
+}
+
 // GetControllerModel returns the model the controller is running in. If no
 // controller model exists then an error satisfying [modelerrors.NotFound] is
 // returned.
@@ -1179,29 +1215,26 @@ SELECT &controllerUUID.* FROM controller
 	return modelSummaries, nil
 }
 
-// ModelCloudNameAndCredential returns the cloud name and credential id for a
-// model identified by the model name and the owner. If no model exists for the
-// provided name and user a [modelerrors.NotFound] error is returned.
-func (s *State) ModelCloudNameAndCredential(
+// GetModelCloudNameAndCredential returns the cloud name and credential id for a
+// model identified by uuid. If no model exists for the provided uuid a
+// [modelerrors.NotFound] error is returned.
+func (s *State) GetModelCloudNameAndCredential(
 	ctx context.Context,
-	modelName string,
-	modelOwnerName user.Name,
+	uuid coremodel.UUID,
 ) (string, credential.Key, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", credential.Key{}, errors.Capture(err)
 	}
 
-	args := dbCloudOwner{
-		Name:      modelName,
-		OwnerName: modelOwnerName.Name(),
+	args := dbModelUUID{
+		UUID: uuid.String(),
 	}
 
 	stmt, err := s.Prepare(`
 SELECT &dbCloudCredential.*
 FROM v_model
-WHERE name = $dbCloudOwner.name
-AND owner_name = $dbCloudOwner.owner_name
+WHERE uuid = $dbModelUUID.uuid
 `, dbCloudCredential{}, args)
 	if err != nil {
 		return "", credential.Key{}, errors.Capture(err)
@@ -1214,10 +1247,9 @@ AND owner_name = $dbCloudOwner.owner_name
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var result dbCloudCredential
-		if err := tx.Query(ctx, stmt, args).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("%w for name %q and owner %q", modelerrors.NotFound, modelName, modelOwnerName)
-		} else if err != nil {
-			return errors.Errorf("getting cloud name and credential for model %q with owner %q: %w", modelName, modelOwnerName, err)
+		err := tx.Query(ctx, stmt, args).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return modelerrors.NotFound
 		}
 
 		cloudName = result.Name
@@ -1227,10 +1259,12 @@ AND owner_name = $dbCloudOwner.owner_name
 		}
 		credentialOwner = result.CredentialOwnerName
 
-		return nil
+		return err
 	})
 	if err != nil {
-		return "", credential.Key{}, errors.Capture(err)
+		return "", credential.Key{}, errors.Errorf(
+			"getting model %q cloud name and credential: %w", uuid, err,
+		)
 	}
 
 	if credentialOwner.Valid && credentialOwner.String != "" {
