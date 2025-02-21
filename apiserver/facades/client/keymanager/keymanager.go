@@ -294,7 +294,7 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 			sshKeys = append(sshKeys, keyInfo.key)
 		}
 		if compoundErr != "" {
-			return params.ErrorResult{Error: apiservererrors.ServerError(errors.Errorf(strings.TrimSuffix(compoundErr, "\n")))}
+			return params.ErrorResult{Error: apiservererrors.ServerError(errors.New(strings.TrimSuffix(compoundErr, "\n")))}
 		}
 		return params.ErrorResult{}
 	})

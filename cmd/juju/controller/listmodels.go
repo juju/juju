@@ -172,12 +172,12 @@ func (c *modelsCommand) getModelSummaries(ctx *cmd.Context, client ModelManagerA
 		// an issue with a model, we will display errors in Stderr
 		// and will continue processing the rest.
 		if result.Error != nil {
-			ctx.Infof(result.Error.Error())
+			ctx.Infof("%s", result.Error.Error())
 			continue
 		}
 		model, err := c.modelSummaryFromParams(result, now)
 		if err != nil {
-			ctx.Infof(err.Error())
+			ctx.Infof("%s", err.Error())
 			continue
 		}
 		model.ControllerName = c.runVars.controllerName
