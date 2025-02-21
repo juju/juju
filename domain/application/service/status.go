@@ -326,8 +326,8 @@ func unitDisplayStatus(
 // applicationDisplayStatusFromUnits returns the status to display for an application
 // based on both the workload and container statuses of its units.
 func applicationDisplayStatusFromUnits(
-	workloadStatus map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType],
-	containerStatus map[coreunit.UUID]application.StatusInfo[application.CloudContainerStatusType],
+	workloadStatus map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType],
+	containerStatus map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType],
 ) (*status.StatusInfo, error) {
 	results := make([]*status.StatusInfo, 0, len(workloadStatus))
 

@@ -1433,6 +1433,47 @@ func (s *applicationServiceSuite) TestSetWorkloadUnitStatusInvalidStatus(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "allocating"`)
 }
 
+func (s *applicationServiceSuite) TestGetUnitWorkloadStatusesForApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appUUID).Return(
+		map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
+			"unit-1": {
+				Status:  application.WorkloadStatusActive,
+				Message: "doink",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   &now,
+			},
+			"unit-2": {
+				Status:  application.WorkloadStatusMaintenance,
+				Message: "boink",
+				Data:    []byte(`{"foo":"baz"}`),
+				Since:   &now,
+			},
+		}, nil,
+	)
+
+	obtained, err := s.service.GetUnitWorkloadStatusesForApplication(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtained, jc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
+		"unit-1": {
+			Status:  corestatus.Active,
+			Message: "doink",
+			Data:    map[string]interface{}{"foo": "bar"},
+			Since:   &now,
+		},
+		"unit-2": {
+			Status:  corestatus.Maintenance,
+			Message: "boink",
+			Data:    map[string]interface{}{"foo": "baz"},
+			Since:   &now,
+		},
+	})
+}
+
 func (s *applicationServiceSuite) TestGetUnitDisplayStatusNoContainer(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1562,7 +1603,7 @@ func (s *applicationServiceSuite) TestGetApplicationStatusFallbacktoUnits(c *gc.
 		}, nil)
 
 	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), applicationUUID).Return(
-		map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType]{
+		map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
 			"unit-1": {
 				Status:  application.WorkloadStatusActive,
 				Message: "doink-1",
@@ -1604,7 +1645,7 @@ func (s *applicationServiceSuite) TestGetApplicationStatusFallbacktoUnitsNoUnits
 		}, nil)
 
 	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), applicationUUID).Return(
-		map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType]{}, nil,
+		map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{}, nil,
 	)
 
 	obtained, err := s.service.GetApplicationStatus(context.Background(), applicationUUID)
@@ -1795,14 +1836,14 @@ func (s *applicationServiceSuite) TestGetApplicationDisplayStatusFallbackToUnits
 		}, nil)
 
 	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), applicationUUID).Return(
-		map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType]{
-			coreunit.UUID("unit-1"): {
+		map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
+			"unit-1": {
 				Status:  application.WorkloadStatusActive,
 				Message: "doink",
 				Data:    []byte(`{"foo":"bar"}`),
 				Since:   &now,
 			},
-			coreunit.UUID("unit-2"): {
+			"unit-2": {
 				Status:  application.WorkloadStatusActive,
 				Message: "doink",
 				Data:    []byte(`{"foo":"bar"}`),
@@ -1811,7 +1852,7 @@ func (s *applicationServiceSuite) TestGetApplicationDisplayStatusFallbackToUnits
 		}, nil)
 
 	s.state.EXPECT().GetUnitCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(
-		map[coreunit.UUID]application.StatusInfo[application.CloudContainerStatusType]{}, nil)
+		map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]{}, nil)
 
 	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), applicationUUID)
 	c.Assert(err, jc.ErrorIsNil)

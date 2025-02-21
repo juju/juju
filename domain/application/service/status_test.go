@@ -365,15 +365,15 @@ func (s *statusSuite) TestUnitDisplayStatusDefaultsToWorkload(c *gc.C) {
 }
 
 const (
-	unitUUID1 = coreunit.UUID("unit-1")
-	unitUUID2 = coreunit.UUID("unit-2")
-	unitUUID3 = coreunit.UUID("unit-3")
+	unitName1 = coreunit.Name("unit-1")
+	unitName2 = coreunit.Name("unit-2")
+	unitName3 = coreunit.Name("unit-3")
 )
 
 func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *gc.C) {
-	workloadStatuses := map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType]{
-		unitUUID1: {Status: application.WorkloadStatusActive},
-		unitUUID2: {Status: application.WorkloadStatusActive},
+	workloadStatuses := map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
+		unitName1: {Status: application.WorkloadStatusActive},
+		unitName2: {Status: application.WorkloadStatusActive},
 	}
 
 	info, err := applicationDisplayStatusFromUnits(workloadStatuses, nil)
@@ -384,7 +384,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *gc.C)
 
 	info, err = applicationDisplayStatusFromUnits(
 		workloadStatuses,
-		make(map[coreunit.UUID]application.StatusInfo[application.CloudContainerStatusType]),
+		make(map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &status.StatusInfo{
@@ -400,8 +400,8 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *gc.C) {
 	})
 
 	info, err = applicationDisplayStatusFromUnits(
-		map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType]{},
-		map[coreunit.UUID]application.StatusInfo[application.CloudContainerStatusType]{},
+		map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{},
+		map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &status.StatusInfo{
@@ -410,14 +410,14 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *gc.C) {
 }
 
 func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceContainer(c *gc.C) {
-	workloadStatuses := map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType]{
-		unitUUID1: {Status: application.WorkloadStatusActive},
-		unitUUID2: {Status: application.WorkloadStatusActive},
+	workloadStatuses := map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
+		unitName1: {Status: application.WorkloadStatusActive},
+		unitName2: {Status: application.WorkloadStatusActive},
 	}
 
-	containerStatuses := map[coreunit.UUID]application.StatusInfo[application.CloudContainerStatusType]{
-		unitUUID1: {Status: application.CloudContainerStatusRunning},
-		unitUUID2: {Status: application.CloudContainerStatusBlocked},
+	containerStatuses := map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]{
+		unitName1: {Status: application.CloudContainerStatusRunning},
+		unitName2: {Status: application.CloudContainerStatusBlocked},
 	}
 
 	info, err := applicationDisplayStatusFromUnits(workloadStatuses, containerStatuses)
@@ -428,14 +428,14 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 }
 
 func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceWorkload(c *gc.C) {
-	workloadStatuses := map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType]{
-		unitUUID1: {Status: application.WorkloadStatusActive},
-		unitUUID2: {Status: application.WorkloadStatusMaintenance},
+	workloadStatuses := map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
+		unitName1: {Status: application.WorkloadStatusActive},
+		unitName2: {Status: application.WorkloadStatusMaintenance},
 	}
 
-	containerStatuses := map[coreunit.UUID]application.StatusInfo[application.CloudContainerStatusType]{
-		unitUUID1: {Status: application.CloudContainerStatusRunning},
-		unitUUID2: {Status: application.CloudContainerStatusBlocked},
+	containerStatuses := map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]{
+		unitName1: {Status: application.CloudContainerStatusRunning},
+		unitName2: {Status: application.CloudContainerStatusBlocked},
 	}
 
 	info, err := applicationDisplayStatusFromUnits(workloadStatuses, containerStatuses)
@@ -446,14 +446,14 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 }
 
 func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGreatestStatusPrecedence(c *gc.C) {
-	workloadStatuses := map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType]{
-		unitUUID1: {Status: application.WorkloadStatusActive},
-		unitUUID2: {Status: application.WorkloadStatusMaintenance},
+	workloadStatuses := map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
+		unitName1: {Status: application.WorkloadStatusActive},
+		unitName2: {Status: application.WorkloadStatusMaintenance},
 	}
 
-	containerStatuses := map[coreunit.UUID]application.StatusInfo[application.CloudContainerStatusType]{
-		unitUUID1: {Status: application.CloudContainerStatusBlocked},
-		unitUUID2: {Status: application.CloudContainerStatusRunning},
+	containerStatuses := map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]{
+		unitName1: {Status: application.CloudContainerStatusBlocked},
+		unitName2: {Status: application.CloudContainerStatusRunning},
 	}
 
 	info, err := applicationDisplayStatusFromUnits(workloadStatuses, containerStatuses)
