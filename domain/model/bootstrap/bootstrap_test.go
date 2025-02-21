@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/constraints"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
@@ -21,6 +21,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	accessstate "github.com/juju/juju/domain/access/state"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
+	"github.com/juju/juju/domain/constraints"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
@@ -214,7 +215,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraints(c *gc.C) {
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons := constraints.Value{
+	cons := coreconstraints.Value{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.LXD),
 		CpuCores:  ptr(uint64(4)),
@@ -229,7 +230,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraints(c *gc.C) {
 		return s.ModelTxnRunner(), nil
 	}, loggertesting.WrapCheckLog(c))
 
-	expected := model.Constraints{
+	expected := constraints.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.LXD),
 		CpuCores:  ptr(uint64(4)),
@@ -250,7 +251,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintFailedModelNotFound(c *gc.C)
 		return s.ModelTxnRunner(), nil
 	}, loggertesting.WrapCheckLog(c))
 
-	err := state.SetModelConstraints(context.Background(), model.Constraints{
+	err := state.SetModelConstraints(context.Background(), constraints.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 	})
@@ -289,7 +290,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *gc.
 		return s.ModelTxnRunner(), nil
 	}, loggertesting.WrapCheckLog(c))
 
-	cons := model.Constraints{
+	cons := constraints.Constraints{
 		Container: ptr(instance.ContainerType("noexist")),
 		ImageID:   ptr("image-id"),
 	}
@@ -332,8 +333,8 @@ func (s *modelBootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *g
 		return s.ModelTxnRunner(), nil
 	}, loggertesting.WrapCheckLog(c))
 
-	err = state.SetModelConstraints(context.Background(), model.Constraints{
-		Spaces: ptr([]model.SpaceConstraint{
+	err = state.SetModelConstraints(context.Background(), constraints.Constraints{
+		Spaces: ptr([]constraints.SpaceConstraint{
 			{
 				SpaceName: "space1",
 				Exclude:   false,

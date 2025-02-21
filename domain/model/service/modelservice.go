@@ -10,10 +10,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/constraints"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
@@ -44,7 +45,7 @@ type ModelState interface {
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
 	// - [modelerrors.ConstraintsNotFound]: when no model constraints have been
 	// set for the model.
-	GetModelConstraints(context.Context) (model.Constraints, error)
+	GetModelConstraints(context.Context) (constraints.Constraints, error)
 
 	// SetModelConstraints sets the model constraints to the new values removing
 	// any previously set values.
@@ -54,7 +55,7 @@ type ModelState interface {
 	// - [machineerrors.InvalidContainerType]: when the container type set on
 	// the constraints is invalid.
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
-	SetModelConstraints(context.Context, model.Constraints) error
+	SetModelConstraints(context.Context, constraints.Constraints) error
 }
 
 // ControllerState is the controller state required by this service. This is the
@@ -111,18 +112,18 @@ func NewModelService(
 // exist.
 // It returns an empty Value if the model does not have any constraints
 // configured.
-func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
+func (s *ModelService) GetModelConstraints(ctx context.Context) (coreconstraints.Value, error) {
 	cons, err := s.modelSt.GetModelConstraints(ctx)
 	// If no constraints have been set for the model we return a zero value of
 	// constraints. This is done so the state layer isn't making decisions on
 	// what the caller of this service requires.
 	if errors.Is(err, modelerrors.ConstraintsNotFound) {
-		return constraints.Value{}, nil
+		return coreconstraints.Value{}, nil
 	} else if err != nil {
-		return constraints.Value{}, err
+		return coreconstraints.Value{}, err
 	}
 
-	return model.ToCoreConstraints(cons), nil
+	return constraints.ToCoreConstraints(cons), nil
 }
 
 // SetModelConstraints sets the model constraints to the new values removing
@@ -134,8 +135,8 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (constraints.Val
 // being set in the model constraint doesn't exist.
 // - [github.com/juju/juju/domain/machine/errors.InvalidContainerType]: when
 // the container type being set in the model constraint isn't valid.
-func (s *ModelService) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
-	modelCons := model.FromCoreConstraints(cons)
+func (s *ModelService) SetModelConstraints(ctx context.Context, cons coreconstraints.Value) error {
+	modelCons := constraints.FromCoreConstraints(cons)
 
 	return s.modelSt.SetModelConstraints(ctx, modelCons)
 }

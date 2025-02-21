@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application
+package constraints
 
 import (
 	"github.com/juju/testing"
@@ -12,15 +12,17 @@ import (
 	"github.com/juju/juju/core/instance"
 )
 
-type typesSuite struct {
+type constraintsSuite struct {
 	testing.IsolationSuite
 }
+
+var _ = gc.Suite(&constraintsSuite{})
 
 // TestFromCoreConstraints is concerned with testing the mapping from a
 // [constraints.Value] to a [Constraints] object. Specifically the main thing we
 // care about in this test is that spaces are either included or excluded
 // correctly and that the rest of the values are set verbatim.
-func (*typesSuite) TestFromCoreConstraints(c *gc.C) {
+func (*constraintsSuite) TestFromCoreConstraints(c *gc.C) {
 	tests := []struct {
 		Comment string
 		In      constraints.Value
@@ -114,7 +116,7 @@ func (*typesSuite) TestFromCoreConstraints(c *gc.C) {
 // [Constraints] object to a [constraints.Value]. Specifically the main thing we
 // care about in this test is that spaces are either included or excluded
 // correctly and that the rest of the values are set verbatim.
-func (*typesSuite) TestToCoreConstraints(c *gc.C) {
+func (*constraintsSuite) TestToCoreConstraints(c *gc.C) {
 	tests := []struct {
 		Comment string
 		Out     constraints.Value

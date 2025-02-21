@@ -14,13 +14,14 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/constraints"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestatus "github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/constraints"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -65,7 +66,7 @@ func (s *modelServiceSuite) TestGetModelConstraints(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelConstraints := model.Constraints{
+	modelConstraints := constraints.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 		CpuCores:  ptr(uint64(4)),
@@ -84,7 +85,7 @@ func (s *modelServiceSuite) TestGetModelConstraints(c *gc.C) {
 	result, err := svc.GetModelConstraints(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 
-	cons := constraints.Value{
+	cons := coreconstraints.Value{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 		CpuCores:  ptr(uint64(4)),
@@ -103,7 +104,7 @@ func (s *modelServiceSuite) TestGetModelConstraintsNotFound(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(
-		model.Constraints{},
+		constraints.Constraints{},
 		modelerrors.ConstraintsNotFound,
 	)
 
@@ -116,7 +117,7 @@ func (s *modelServiceSuite) TestGetModelConstraintsNotFound(c *gc.C) {
 	)
 	result, err := svc.GetModelConstraints(context.Background())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result, gc.DeepEquals, constraints.Value{})
+	c.Check(result, gc.DeepEquals, coreconstraints.Value{})
 }
 
 // TestGetModelConstraintsFailedModelNotFound is asserting that if we ask for
@@ -126,7 +127,7 @@ func (s *modelServiceSuite) TestGetModelConstraintsFailedModelNotFound(c *gc.C) 
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(model.Constraints{}, modelerrors.NotFound)
+	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, modelerrors.NotFound)
 
 	svc := NewModelService(
 		modeltesting.GenModelUUID(c),
@@ -143,19 +144,19 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelCons := model.Constraints{
+	modelCons := constraints.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 		CpuCores:  ptr(uint64(4)),
 		Mem:       ptr(uint64(1024)),
 		RootDisk:  ptr(uint64(1024)),
-		Spaces: ptr([]model.SpaceConstraint{
+		Spaces: ptr([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 			{SpaceName: "space2", Exclude: true},
 		}),
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, m model.Constraints) error {
+		func(_ context.Context, m constraints.Constraints) error {
 			c.Check(m, jc.DeepEquals, modelCons)
 			return nil
 		})
@@ -168,7 +169,7 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 
-	cons := constraints.Value{
+	cons := coreconstraints.Value{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 		CpuCores:  ptr(uint64(4)),
@@ -187,15 +188,15 @@ func (s *modelServiceSuite) TestSetModelConstraintsInvalidContainerType(c *gc.C)
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	badConstraints := constraints.Value{
+	badConstraints := coreconstraints.Value{
 		Container: ptr(instance.ContainerType("bad")),
 	}
-	modelCons := model.Constraints{
+	modelCons := constraints.Constraints{
 		Container: ptr(instance.ContainerType("bad")),
 	}
 
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, m model.Constraints) error {
+		func(_ context.Context, m constraints.Constraints) error {
 			c.Check(m, jc.DeepEquals, modelCons)
 			return machineerrors.InvalidContainerType
 		})
@@ -215,7 +216,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *gc.C) 
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	cons := constraints.Value{
+	cons := coreconstraints.Value{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 		CpuCores:  ptr(uint64(4)),
@@ -223,18 +224,18 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *gc.C) 
 		RootDisk:  ptr(uint64(1024)),
 		Spaces:    ptr([]string{"space1"}),
 	}
-	modelCons := model.Constraints{
+	modelCons := constraints.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 		CpuCores:  ptr(uint64(4)),
 		Mem:       ptr(uint64(1024)),
 		RootDisk:  ptr(uint64(1024)),
-		Spaces: ptr([]model.SpaceConstraint{
+		Spaces: ptr([]constraints.SpaceConstraint{
 			{SpaceName: "space1", Exclude: false},
 		}),
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, m model.Constraints) error {
+		func(_ context.Context, m constraints.Constraints) error {
 			c.Check(m, jc.DeepEquals, modelCons)
 			return networkerrors.SpaceNotFound
 		})
@@ -254,14 +255,14 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *gc.C) 
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	cons := constraints.Value{
+	cons := coreconstraints.Value{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 		CpuCores:  ptr(uint64(4)),
 		Mem:       ptr(uint64(1024)),
 		RootDisk:  ptr(uint64(1024)),
 	}
-	modelCons := model.Constraints{
+	modelCons := constraints.Constraints{
 		Arch:      ptr("amd64"),
 		Container: ptr(instance.NONE),
 		CpuCores:  ptr(uint64(4)),
@@ -269,7 +270,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *gc.C) 
 		RootDisk:  ptr(uint64(1024)),
 	}
 	s.mockModelState.EXPECT().SetModelConstraints(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, m model.Constraints) error {
+		func(_ context.Context, m constraints.Constraints) error {
 			c.Check(m, jc.DeepEquals, modelCons)
 			return modelerrors.NotFound
 		})
@@ -584,11 +585,11 @@ type dummyModelState struct {
 	setID  coremodel.UUID
 }
 
-func (d *dummyModelState) GetModelConstraints(context.Context) (model.Constraints, error) {
-	return model.Constraints{}, nil
+func (d *dummyModelState) GetModelConstraints(context.Context) (constraints.Constraints, error) {
+	return constraints.Constraints{}, nil
 }
 
-func (d *dummyModelState) SetModelConstraints(_ context.Context, _ model.Constraints) error {
+func (d *dummyModelState) SetModelConstraints(_ context.Context, _ constraints.Constraints) error {
 	return nil
 }
 

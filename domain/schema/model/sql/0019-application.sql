@@ -209,7 +209,7 @@ SELECT
     c.image_id,
     ctag.tag,
     cspace.space AS space_name,
-    cspace.exclude AS space_exclude,
+    cspace."exclude" AS space_exclude,
     czone.zone
 FROM application_constraint AS ac
 JOIN "constraint" AS c ON ac.constraint_uuid = c.uuid

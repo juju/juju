@@ -25,6 +25,7 @@ import (
 	application0 "github.com/juju/juju/domain/application"
 	architecture "github.com/juju/juju/domain/application/architecture"
 	charm0 "github.com/juju/juju/domain/application/charm"
+	constraints0 "github.com/juju/juju/domain/constraints"
 	life "github.com/juju/juju/domain/life"
 	storage0 "github.com/juju/juju/domain/storage"
 	envcontext "github.com/juju/juju/environs/envcontext"
@@ -481,10 +482,10 @@ func (c *MockStateGetApplicationConfigHashCall) DoAndReturn(f func(context.Conte
 }
 
 // GetApplicationConstraints mocks base method.
-func (m *MockState) GetApplicationConstraints(ctx context.Context, appID application.ID) (application0.Constraints, error) {
+func (m *MockState) GetApplicationConstraints(ctx context.Context, appID application.ID) (constraints0.Constraints, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationConstraints", ctx, appID)
-	ret0, _ := ret[0].(application0.Constraints)
+	ret0, _ := ret[0].(constraints0.Constraints)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -502,19 +503,19 @@ type MockStateGetApplicationConstraintsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationConstraintsCall) Return(arg0 application0.Constraints, arg1 error) *MockStateGetApplicationConstraintsCall {
+func (c *MockStateGetApplicationConstraintsCall) Return(arg0 constraints0.Constraints, arg1 error) *MockStateGetApplicationConstraintsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationConstraintsCall) Do(f func(context.Context, application.ID) (application0.Constraints, error)) *MockStateGetApplicationConstraintsCall {
+func (c *MockStateGetApplicationConstraintsCall) Do(f func(context.Context, application.ID) (constraints0.Constraints, error)) *MockStateGetApplicationConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationConstraintsCall) DoAndReturn(f func(context.Context, application.ID) (application0.Constraints, error)) *MockStateGetApplicationConstraintsCall {
+func (c *MockStateGetApplicationConstraintsCall) DoAndReturn(f func(context.Context, application.ID) (constraints0.Constraints, error)) *MockStateGetApplicationConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2633,7 +2634,7 @@ func (c *MockStateSetApplicationConfigAndSettingsCall) DoAndReturn(f func(contex
 }
 
 // SetApplicationConstraints mocks base method.
-func (m *MockState) SetApplicationConstraints(ctx context.Context, appID application.ID, cons application0.Constraints) error {
+func (m *MockState) SetApplicationConstraints(ctx context.Context, appID application.ID, cons constraints0.Constraints) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetApplicationConstraints", ctx, appID, cons)
 	ret0, _ := ret[0].(error)
@@ -2659,13 +2660,13 @@ func (c *MockStateSetApplicationConstraintsCall) Return(arg0 error) *MockStateSe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetApplicationConstraintsCall) Do(f func(context.Context, application.ID, application0.Constraints) error) *MockStateSetApplicationConstraintsCall {
+func (c *MockStateSetApplicationConstraintsCall) Do(f func(context.Context, application.ID, constraints0.Constraints) error) *MockStateSetApplicationConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetApplicationConstraintsCall) DoAndReturn(f func(context.Context, application.ID, application0.Constraints) error) *MockStateSetApplicationConstraintsCall {
+func (c *MockStateSetApplicationConstraintsCall) DoAndReturn(f func(context.Context, application.ID, constraints0.Constraints) error) *MockStateSetApplicationConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

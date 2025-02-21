@@ -10,9 +10,10 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/constraints"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/model/state"
@@ -152,10 +153,10 @@ func CreateLocalModelRecord(
 // - [machineerrors.InvalidContainerType]: when the container type set on the
 // constraints is invalid.
 // - [modelerrors.NotFound]: when no model exists to set constraints for.
-func SetModelConstraints(constraints constraints.Value) internaldatabase.BootstrapOpt {
+func SetModelConstraints(cons coreconstraints.Value) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, modelDB database.TxnRunner) error {
 		return modelDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			modelCons := model.FromCoreConstraints(constraints)
+			modelCons := constraints.FromCoreConstraints(cons)
 			return state.SetModelConstraints(ctx, preparer{}, tx, modelCons)
 		})
 	}

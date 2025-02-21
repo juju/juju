@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
@@ -3618,7 +3619,7 @@ func (s *applicationStateSuite) TestConstraintFull(c *gc.C) {
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*cons.Tags, jc.SameContents, []string{"tag0", "tag1"})
-	c.Check(*cons.Spaces, jc.SameContents, []application.SpaceConstraint{
+	c.Check(*cons.Spaces, jc.SameContents, []constraints.SpaceConstraint{
 		{SpaceName: "space0", Exclude: false},
 		{SpaceName: "space1", Exclude: true},
 	})
@@ -3654,7 +3655,7 @@ func (s *applicationStateSuite) TestConstraintPartial(c *gc.C) {
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, jc.DeepEquals, application.Constraints{
+	c.Check(cons, jc.DeepEquals, constraints.Constraints{
 		Arch:             ptr("amd64"),
 		CpuCores:         ptr(uint64(2)),
 		AllocatePublicIP: ptr(true),
@@ -3679,7 +3680,7 @@ func (s *applicationStateSuite) TestConstraintSingleValue(c *gc.C) {
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, jc.DeepEquals, application.Constraints{
+	c.Check(cons, jc.DeepEquals, constraints.Constraints{
 		CpuCores: ptr(uint64(2)),
 	})
 }
@@ -3689,7 +3690,7 @@ func (s *applicationStateSuite) TestConstraintEmpty(c *gc.C) {
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, jc.DeepEquals, application.Constraints{})
+	c.Check(cons, jc.DeepEquals, constraints.Constraints{})
 }
 
 func (s *applicationStateSuite) TestConstraintsApplicationNotFound(c *gc.C) {
@@ -3700,7 +3701,7 @@ func (s *applicationStateSuite) TestConstraintsApplicationNotFound(c *gc.C) {
 func (s *applicationStateSuite) TestSetConstraintFull(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	cons := application.Constraints{
+	cons := constraints.Constraints{
 		Arch:             ptr("amd64"),
 		CpuCores:         ptr(uint64(2)),
 		CpuPower:         ptr(uint64(42)),
@@ -3713,7 +3714,7 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *gc.C) {
 		VirtType:         ptr("virt-type"),
 		AllocatePublicIP: ptr(true),
 		ImageID:          ptr("image-id"),
-		Spaces: ptr([]application.SpaceConstraint{
+		Spaces: ptr([]constraints.SpaceConstraint{
 			{SpaceName: "space0", Exclude: false},
 			{SpaceName: "space1", Exclude: true},
 		}),
@@ -3842,7 +3843,7 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *gc.C) {
 func (s *applicationStateSuite) TestSetConstraintInvalidContainerType(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	cons := application.Constraints{
+	cons := constraints.Constraints{
 		Container: ptr(instance.ContainerType("invalid-container-type")),
 	}
 	err := s.state.SetApplicationConstraints(context.Background(), id, cons)
@@ -3852,8 +3853,8 @@ func (s *applicationStateSuite) TestSetConstraintInvalidContainerType(c *gc.C) {
 func (s *applicationStateSuite) TestSetConstraintInvalidSpace(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	cons := application.Constraints{
-		Spaces: ptr([]application.SpaceConstraint{
+	cons := constraints.Constraints{
+		Spaces: ptr([]constraints.SpaceConstraint{
 			{SpaceName: "invalid-space", Exclude: false},
 		}),
 	}
@@ -3864,7 +3865,7 @@ func (s *applicationStateSuite) TestSetConstraintInvalidSpace(c *gc.C) {
 func (s *applicationStateSuite) TestSetConstraintsReplacesPrevious(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConstraints(context.Background(), id, application.Constraints{
+	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Mem:      ptr(uint64(8)),
 		CpuCores: ptr(uint64(2)),
 	})
@@ -3872,19 +3873,19 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPrevious(c *gc.C) {
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, gc.DeepEquals, application.Constraints{
+	c.Check(cons, gc.DeepEquals, constraints.Constraints{
 		Mem:      ptr(uint64(8)),
 		CpuCores: ptr(uint64(2)),
 	})
 
-	err = s.state.SetApplicationConstraints(context.Background(), id, application.Constraints{
+	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		CpuPower: ptr(uint64(42)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons, err = s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, gc.DeepEquals, application.Constraints{
+	c.Check(cons, gc.DeepEquals, constraints.Constraints{
 		CpuPower: ptr(uint64(42)),
 	})
 }
@@ -3892,7 +3893,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPrevious(c *gc.C) {
 func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousZones(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConstraints(context.Background(), id, application.Constraints{
+	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Zones: ptr([]string{"zone0", "zone1"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3901,7 +3902,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousZones(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*cons.Zones, jc.SameContents, []string{"zone0", "zone1"})
 
-	err = s.state.SetApplicationConstraints(context.Background(), id, application.Constraints{
+	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Tags: ptr([]string{"tag0", "tag1"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3914,7 +3915,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousZones(c *gc.C)
 func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConstraints(context.Background(), id, application.Constraints{
+	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Zones: ptr([]string{"zone0", "zone1"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3923,7 +3924,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*cons.Zones, jc.SameContents, []string{"zone0", "zone1"})
 
-	err = s.state.SetApplicationConstraints(context.Background(), id, application.Constraints{
+	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Zones: ptr([]string{"zone3"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3934,7 +3935,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *gc
 }
 
 func (s *applicationStateSuite) TestSetConstraintsApplicationNotFound(c *gc.C) {
-	err := s.state.SetApplicationConstraints(context.Background(), "foo", application.Constraints{Mem: ptr(uint64(8))})
+	err := s.state.SetApplicationConstraints(context.Background(), "foo", constraints.Constraints{Mem: ptr(uint64(8))})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

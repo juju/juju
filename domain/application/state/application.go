@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
@@ -3353,10 +3354,10 @@ WHERE application_uuid = $applicationID.uuid;
 // application ID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (application.Constraints, error) {
+func (st *State) GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Constraints, error) {
 	db, err := st.DB()
 	if err != nil {
-		return application.Constraints{}, errors.Capture(err)
+		return constraints.Constraints{}, errors.Capture(err)
 	}
 
 	ident := applicationID{ID: appID}
@@ -3369,7 +3370,7 @@ WHERE application_uuid = $applicationID.uuid;
 
 	stmt, err := st.Prepare(query, applicationConstraint{}, ident)
 	if err != nil {
-		return application.Constraints{}, errors.Errorf("preparing query for application constraints: %w", err)
+		return constraints.Constraints{}, errors.Errorf("preparing query for application constraints: %w", err)
 	}
 
 	var result applicationConstraints
@@ -3385,7 +3386,7 @@ WHERE application_uuid = $applicationID.uuid;
 
 		return nil
 	}); err != nil {
-		return application.Constraints{}, errors.Errorf("querying application constraints for application %q: %w", appID, err)
+		return constraints.Constraints{}, errors.Errorf("querying application constraints for application %q: %w", appID, err)
 	}
 
 	return decodeConstraints(result), nil
@@ -3399,7 +3400,7 @@ WHERE application_uuid = $applicationID.uuid;
 // error is returned.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons application.Constraints) error {
+func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Constraints) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -3594,12 +3595,12 @@ ON CONFLICT (application_uuid) DO NOTHING
 }
 
 // decodeConstraints flattens and maps the list of rows of applicatioConstraint
-// to get a single application.Constraints. The flattening is needed because of the
+// to get a single constraints.Constraints. The flattening is needed because of the
 // spaces, tags and zones constraints which are slices. We can safely assume
 // that the non-slice values are repeated on every row so we can safely
 // overwrite the previous value on each iteration.
-func decodeConstraints(cons applicationConstraints) application.Constraints {
-	res := application.Constraints{}
+func decodeConstraints(cons applicationConstraints) constraints.Constraints {
+	res := constraints.Constraints{}
 
 	// Empty constraints is not an error case, so return early the empty
 	// result.
@@ -3608,7 +3609,7 @@ func decodeConstraints(cons applicationConstraints) application.Constraints {
 	}
 
 	// Unique spaces, tags and zones:
-	spaces := make(map[string]application.SpaceConstraint)
+	spaces := make(map[string]constraints.SpaceConstraint)
 	tags := set.NewStrings()
 	zones := set.NewStrings()
 
@@ -3655,7 +3656,7 @@ func decodeConstraints(cons applicationConstraints) application.Constraints {
 			res.ImageID = &row.ImageID.String
 		}
 		if row.SpaceName.Valid && row.SpaceExclude.Valid {
-			spaces[row.SpaceName.String] = application.SpaceConstraint{
+			spaces[row.SpaceName.String] = constraints.SpaceConstraint{
 				SpaceName: row.SpaceName.String,
 				Exclude:   row.SpaceExclude.Bool,
 			}
@@ -3684,9 +3685,9 @@ func decodeConstraints(cons applicationConstraints) application.Constraints {
 	return res
 }
 
-// encodeConstraints maps the application.Constraints to a constraint struct, which
+// encodeConstraints maps the constraints.Constraints to a constraint struct, which
 // does not contain the spaces, tags and zones constraints.
-func encodeConstraints(constraintUUID string, cons application.Constraints, containerTypeID uint64) setConstraint {
+func encodeConstraints(constraintUUID string, cons constraints.Constraints, containerTypeID uint64) setConstraint {
 	res := setConstraint{
 		UUID:             constraintUUID,
 		Arch:             cons.Arch,
