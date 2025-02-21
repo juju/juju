@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -15,6 +16,7 @@ import (
 const (
 	// ErrNoMatch indicates that the hostname could not be parsed.
 	ErrNoMatch = errors.ConstError("could not parse hostname")
+	Domain     = "juju.local"
 )
 
 // HostnameTarget defines what kind of infrastructure the user is targeting.
@@ -32,6 +34,60 @@ const (
 	// unit as the target.
 	ContainerTarget
 )
+
+// NewInfoMachineTarget returns a new Info struct for a machine target.
+func NewInfoMachineTarget(modelUUID string, machine int) (Info, error) {
+	if !names.IsValidModel(modelUUID) {
+		return Info{}, errors.Errorf("invalid model UUID: %q", modelUUID)
+	}
+	if !names.IsValidMachine(fmt.Sprint(machine)) {
+		return Info{}, errors.Errorf("invalid machine number: %d", machine)
+	}
+	return newInfo(MachineTarget, modelUUID, machine, "", ""), nil
+}
+
+// NewInfoUnitTarget returns a new Info struct for a unit target.
+func NewInfoUnitTarget(modelUUID string, unit string) (Info, error) {
+	if !names.IsValidModel(modelUUID) {
+		return Info{}, errors.Errorf("invalid model UUID: %q", modelUUID)
+	}
+	if !names.IsValidUnit(unit) {
+		return Info{}, errors.Errorf("invalid unit name: %s", unit)
+	}
+	return newInfo(UnitTarget, modelUUID, 0, unit, ""), nil
+}
+
+// NewInfoContainerTarget returns a new Info struct for a container target.
+func NewInfoContainerTarget(modelUUID string, unit string, container string) (Info, error) {
+	if !names.IsValidModel(modelUUID) {
+		return Info{}, errors.Errorf("invalid model UUID: %q", modelUUID)
+	}
+	if !names.IsValidUnit(unit) {
+		return Info{}, errors.Errorf("invalid unit name: %s", unit)
+	}
+	return newInfo(ContainerTarget, modelUUID, 0, unit, container), nil
+}
+
+// newInfo returns a new Info struct for the given target.
+func newInfo(target HostnameTarget, modelUUID string, machine int, unit string, container string) Info {
+	info := Info{}
+	switch target {
+	case MachineTarget:
+		info.target = MachineTarget
+		info.modelUUID = modelUUID
+		info.machine = machine
+	case UnitTarget:
+		info.target = UnitTarget
+		info.modelUUID = modelUUID
+		info.unit = unit
+	case ContainerTarget:
+		info.target = ContainerTarget
+		info.modelUUID = modelUUID
+		info.unit = unit
+		info.container = container
+	}
+	return info
+}
 
 // Info returns a breakdown of a virtual
 // hostname into its constituent parts.
@@ -72,6 +128,28 @@ func (i Info) Machine() (int, bool) {
 // target of the hostname e.g. container, machine, etc.
 func (i Info) Target() HostnameTarget {
 	return i.target
+}
+
+// String returns the virtual hostname stringified.
+func (i Info) String() string {
+	switch i.target {
+	case MachineTarget:
+		return fmt.Sprintf("%d.%s.%s", i.machine, i.modelUUID, Domain)
+	case UnitTarget:
+		parts := strings.Split(i.unit, "/")
+		if len(parts) != 2 {
+			panic("invalid unit name") // this shouldn't happen because we have validated the unit in the constructor.
+		}
+		return fmt.Sprintf("%s.%s.%s.%s", parts[1], parts[0], i.modelUUID, Domain)
+	case ContainerTarget:
+		parts := strings.Split(i.unit, "/")
+		if len(parts) != 2 {
+			panic("invalid unit name") // this shouldn't happen because we have validated the unit in the constructor.
+		}
+		return fmt.Sprintf("%s.%s.%s.%s.%s", i.container, parts[1], parts[0], i.modelUUID, Domain)
+	default:
+		return "unknown"
+	}
 }
 
 var (
@@ -118,7 +196,6 @@ func Parse(hostname string) (Info, error) {
 	res.modelUUID = result["modeluuid"]
 	res.container = result["containername"]
 	res.unit = fmt.Sprintf("%s/%d", appName, unitNumber)
-
 	if res.container != "" {
 		res.target = ContainerTarget
 	} else if appName != "" {
