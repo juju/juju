@@ -58,13 +58,12 @@ func newServerWorkerConfig(
 
 func (s *sshServerSuite) TestValidate(c *gc.C) {
 	cfg := &sshserver.ServerWorkerConfig{}
+	l := loggo.GetLogger("test")
 
 	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*not valid.*")
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-
-	l := loggo.GetLogger("test")
 
 	// Test no Logger.
 	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *sshserver.ServerWorkerConfig) {
