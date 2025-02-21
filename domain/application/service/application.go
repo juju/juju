@@ -88,15 +88,15 @@ type ApplicationState interface {
 	GetUnitCloudContainerStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.CloudContainerStatusType], error)
 
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses for all units
-	// of the specified application, returning an error satisfying
+	// of the specified application, indexed by unit name, returning an error satisfying
 	// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
-	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType], error)
+	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error)
 
 	// GetUnitCloudContainerStatusesForApplication returns the cloud container
-	// statuses for all units of the specified application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFound] if the application
-	// doesn't exist.
-	GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.UUID]application.StatusInfo[application.CloudContainerStatusType], error)
+	// statuses for all units of the specified application, indexed by unit name,
+	// returning an error satisfying [applicationerrors.ApplicationNotFound] if
+	// the application doesn't exist.
+	GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error)
 
 	// DeleteUnit deletes the specified unit.
 	// If the unit's application is Dying and no
@@ -902,6 +902,30 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 		return errors.Trace(err)
 	}
 	return s.st.SetUnitWorkloadStatus(ctx, unitUUID, workloadStatus)
+}
+
+// GetUnitWorkloadStatusesForApplication returns the workload statuses of all
+// units in the specified application, indexed by unit name, returning an error satisfying
+// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
+func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error) {
+	if err := appID.Validate(); err != nil {
+		return nil, internalerrors.Errorf("application ID: %w", err)
+	}
+
+	statuses, err := s.st.GetUnitWorkloadStatusesForApplication(ctx, appID)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	ret := make(map[coreunit.Name]corestatus.StatusInfo, len(statuses))
+	for unitName, status := range statuses {
+		info, err := decodeWorkloadStatus(&status)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+		ret[unitName] = *info
+	}
+	return ret, nil
 }
 
 // GetUnitDisplayStatus returns the display status of the specified unit. The display

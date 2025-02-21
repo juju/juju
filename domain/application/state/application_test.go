@@ -1764,7 +1764,7 @@ func (s *applicationStateSuite) TestGetUnitWorkloadStatusesForApplication(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 1)
-	result, ok := results[unitUUID]
+	result, ok := results["foo/666"]
 	c.Assert(ok, jc.IsTrue)
 	assertStatusInfoEqual(c, &result, status)
 }
@@ -1805,11 +1805,11 @@ func (s *applicationStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipl
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 
-	result1, ok := results[unitUUID1]
+	result1, ok := results["foo/666"]
 	c.Assert(ok, jc.IsTrue)
 	assertStatusInfoEqual(c, &result1, status1)
 
-	result2, ok := results[unitUUID2]
+	result2, ok := results["foo/667"]
 	c.Assert(ok, jc.IsTrue)
 	assertStatusInfoEqual(c, &result2, status2)
 }

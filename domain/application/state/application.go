@@ -13,6 +13,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -621,9 +622,17 @@ func (st *State) GetUnitCloudContainerStatus(ctx context.Context, uuid coreunit.
 }
 
 // GetUnitWorkloadStatusesForApplication returns the workload statuses for all units
-// of the specified application, returning an error satisfying
+// of the specified application, indexed by unit name, returning an error satisfying
 // [applicationerrors.ApplicationNotFound] if the application doesn't exist.
-func (st *State) GetUnitWorkloadStatusesForApplication(ctx context.Context, appId coreapplication.ID) (map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType], error) {
+func (st *State) GetUnitWorkloadStatusesForApplication(ctx context.Context, appId coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error) {
+	type statusInfoAndUnitName struct {
+		UnitName  coreunit.Name `db:"name"`
+		StatusID  int           `db:"status_id"`
+		Message   string        `db:"message"`
+		Data      []byte        `db:"data"`
+		UpdatedAt *time.Time    `db:"updated_at"`
+	}
+
 	db, err := st.DB()
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
@@ -631,16 +640,16 @@ func (st *State) GetUnitWorkloadStatusesForApplication(ctx context.Context, appI
 
 	ident := applicationID{ID: appId}
 	getUnitStatusesStmt, err := st.Prepare(`
-SELECT &unitStatusInfo.*
+SELECT &statusInfoAndUnitName.*
 FROM unit_workload_status
 JOIN unit ON unit.uuid = unit_workload_status.unit_uuid
 WHERE unit.application_uuid = $applicationID.uuid
-`, unitStatusInfo{}, ident)
+`, statusInfoAndUnitName{}, ident)
 	if err != nil {
 		return nil, jujuerrors.Trace(err)
 	}
 
-	var unitStatuses []unitStatusInfo
+	var unitStatuses []statusInfoAndUnitName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.checkApplicationExists(ctx, tx, ident)
 		if err != nil && !errors.Is(err, applicationerrors.ApplicationIsDead) {
@@ -656,13 +665,13 @@ WHERE unit.application_uuid = $applicationID.uuid
 		return nil, errors.Errorf("getting workload statuses for application %q: %w", appId, err)
 	}
 
-	statuses := make(map[coreunit.UUID]application.StatusInfo[application.WorkloadStatusType], len(unitStatuses))
+	statuses := make(map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], len(unitStatuses))
 	for _, unitStatus := range unitStatuses {
 		statusID, err := decodeWorkloadStatus(unitStatus.StatusID)
 		if err != nil {
-			return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitStatus.UnitUUID, err)
+			return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitStatus.UnitName, err)
 		}
-		statuses[unitStatus.UnitUUID] = application.StatusInfo[application.WorkloadStatusType]{
+		statuses[unitStatus.UnitName] = application.StatusInfo[application.WorkloadStatusType]{
 			Status:  statusID,
 			Message: unitStatus.Message,
 			Data:    unitStatus.Data,
@@ -679,7 +688,7 @@ WHERE unit.application_uuid = $applicationID.uuid
 // doesn't exist.
 //
 // TODO(jack-w-shaw): Implement me!
-func (st *State) GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.UUID]application.StatusInfo[application.CloudContainerStatusType], error) {
+func (st *State) GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error) {
 	return nil, nil
 }
 
