@@ -46,8 +46,6 @@ import (
 type stateSuite struct {
 	schematesting.ControllerSuite
 
-	controllerUUID string
-
 	uuid     coremodel.UUID
 	userUUID user.UUID
 	userName user.Name
@@ -70,15 +68,26 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	// We need to generate a user in the database so that we can set the model
 	// owner.
 	m.uuid = modeltesting.GenModelUUID(c)
-	m.controllerUUID = m.SeedControllerTable(c, m.uuid)
+	//m.controllerUUID = m.SeedControllerTable(c, m.uuid)
 	m.userName = usertesting.GenNewName(c, "test-user")
 	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	m.userUUID = m.createSuperuser(c, accessState, m.userName)
+	//m.userUUID = m.createSuperuser(c, accessState, m.userName)
+
+	m.userUUID = usertesting.GenUserUUID(c)
+	err := accessState.AddUser(
+		context.Background(),
+		m.userUUID,
+		m.userName,
+		m.userName.Name(),
+		false,
+		m.userUUID,
+	)
+	c.Check(err, jc.ErrorIsNil)
 
 	// We need to generate a cloud in the database so that we can set the model
 	// cloud.
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
-	err := cloudSt.CreateCloud(context.Background(), m.userName, uuid.MustNewUUID().String(),
+	err = cloudSt.CreateCloud(context.Background(), m.userName, uuid.MustNewUUID().String(),
 		cloud.Cloud{
 			Name:      "my-cloud",
 			Type:      "ec2",
@@ -163,8 +172,8 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 
 // TestCloudType is testing the happy path of [CloudType] to make sure we get
 // back the correct type of a cloud.
-func (m *stateSuite) TestCloudType(c *gc.C) {
-	st := NewState(m.TxnRunnerFactory())
+func (s *stateSuite) TestCloudType(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
 	ctype, err := st.CloudType(context.Background(), "my-cloud")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ctype, gc.Equals, "ec2")
@@ -185,7 +194,10 @@ func (m *stateSuite) TestCloudTypeMissing(c *gc.C) {
 func (m *stateSuite) TestModelCloudNameAndCredential(c *gc.C) {
 	st := NewState(m.TxnRunnerFactory())
 	// We are relying on the model setup as part of this suite.
-	cloudName, credentialID, err := st.ModelCloudNameAndCredential(context.Background(), "my-test-model", usertesting.GenNewName(c, "test-user"))
+	cloudName, credentialID, err := st.GetModelCloudNameAndCredential(
+		context.Background(),
+		m.uuid,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cloudName, gc.Equals, "my-cloud")
 	c.Check(credentialID, gc.Equals, corecredential.Key{
@@ -200,11 +212,9 @@ func (m *stateSuite) TestModelCloudNameAndCredential(c *gc.C) {
 // common pattern that this state func will be used for so we have made a
 // special case to continuously test this.
 func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
-	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	userUUID := m.createSuperuser(c, accessState, coremodel.ControllerModelOwnerUsername)
-
 	st := NewState(m.TxnRunnerFactory())
 	modelUUID := modeltesting.GenModelUUID(c)
+
 	// We need to first inject a model that does not have a cloud credential set
 	err := st.Create(
 		context.Background(),
@@ -218,19 +228,22 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 				Name:  "foobar",
 			},
 			Name:          coremodel.ControllerModelName,
-			Owner:         userUUID,
+			Owner:         m.userUUID,
 			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// We need to establish the fact that the model created above is in fact the
+	// the controller model.
+	m.ControllerSuite.SeedControllerTable(c, modelUUID)
+
 	err = st.Activate(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloudName, credentialID, err := st.ModelCloudNameAndCredential(
+	cloudName, credentialID, err := st.GetModelCloudNameAndCredential(
 		context.Background(),
-		coremodel.ControllerModelName,
-		coremodel.ControllerModelOwnerUsername,
+		modelUUID,
 	)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -245,9 +258,9 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 // TestModelCloudNameAndCredentialNotFound is testing that if we pass a model
 // that doesn't exist we get back a [modelerrors.NotFound] error.
 func (m *stateSuite) TestModelCloudNameAndCredentialNotFound(c *gc.C) {
+	noExistModelUUID := modeltesting.GenModelUUID(c)
 	st := NewState(m.TxnRunnerFactory())
-	// We are relying on the model setup as part of this suite.
-	cloudName, credentialID, err := st.ModelCloudNameAndCredential(context.Background(), "does-not-exist", usertesting.GenNewName(c, "test-user"))
+	cloudName, credentialID, err := st.GetModelCloudNameAndCredential(context.Background(), noExistModelUUID)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 	c.Check(cloudName, gc.Equals, "")
 	c.Check(credentialID.IsZero(), jc.IsTrue)
@@ -1217,25 +1230,119 @@ func (m *stateSuite) TestCleanupBrokenModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestIsControllerModelDDL is asserting the DDL that we have inside of the
+// v_model view. v_model contains a column names "is_controller_model" that
+// reports if the given model is the controller model etc. This is important for
+// things like model summaries that need to know this information.
+//
+// For this test we want to assert that the value returns true and only true for
+// for the model that is the controller.
+func (m *stateSuite) TestIsControllerModelDDL(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	// We need to first inject a model that does not have a cloud credential set
+	err := modelSt.Create(
+		context.Background(),
+		modelUUID,
+		coremodel.IAAS,
+		model.GlobalModelCreationArgs{
+			Cloud: "my-cloud",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: m.userName,
+				Name:  "foobar",
+			},
+			Name:          coremodel.ControllerModelName,
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need to establish the fact that the model created above is in fact the
+	// the controller model.
+	m.ControllerSuite.SeedControllerTable(c, modelUUID)
+
+	err = modelSt.Activate(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var isControllerModel bool
+	err = m.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(
+			"SELECT is_controller_model FROM v_model WHERE uuid = ?",
+			modelUUID.String(),
+		).Scan(&isControllerModel)
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(isControllerModel, jc.IsTrue)
+
+	var count int
+	err = m.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(
+			"SELECT count(*) FROM v_model WHERE is_controller_model = false",
+		).Scan(&count)
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(count, gc.Equals, 1)
+
+	// reset count
+	count = 0
+	err = m.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(
+			"SELECT count(*) FROM v_model WHERE is_controller_model = true",
+		).Scan(&count)
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(count, gc.Equals, 1)
+}
+
 // TestGetControllerModel is asserting the happy path of
 // [State.GetControllerModel] and checking that we can retrieve the controller
-// model established in SetUpTest.
+// model established in this test.
 func (m *stateSuite) TestGetControllerModel(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	// We need to first inject a model that does not have a cloud credential set
+	err := modelSt.Create(
+		context.Background(),
+		modelUUID,
+		coremodel.IAAS,
+		model.GlobalModelCreationArgs{
+			Cloud: "my-cloud",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: m.userName,
+				Name:  "foobar",
+			},
+			Name:          coremodel.ControllerModelName,
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need to establish the fact that the model created above is in fact the
+	// the controller model.
+	m.ControllerSuite.SeedControllerTable(c, modelUUID)
+
+	err = modelSt.Activate(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// The controller model uuid was set in SetUpTest.
 	model, err := modelSt.GetControllerModel(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, gc.DeepEquals, coremodel.Model{
-		Name:        "my-test-model",
-		Life:        life.Alive,
-		UUID:        m.uuid,
-		ModelType:   coremodel.IAAS,
-		Cloud:       "my-cloud",
-		CloudType:   "ec2",
-		CloudRegion: "my-region",
+		Name:      coremodel.ControllerModelName,
+		Life:      life.Alive,
+		UUID:      modelUUID,
+		ModelType: coremodel.IAAS,
+		Cloud:     "my-cloud",
+		CloudType: "ec2",
 		Credential: corecredential.Key{
 			Cloud: "my-cloud",
-			Owner: usertesting.GenNewName(c, "test-user"),
+			Owner: m.userName,
 			Name:  "foobar",
 		},
 		Owner:     m.userUUID,
@@ -1243,10 +1350,19 @@ func (m *stateSuite) TestGetControllerModel(c *gc.C) {
 	})
 }
 
+// TestGetControllerModelNotFound is asserting that if we ask for the controller
+// model from state and no controller model exists we get back an error that
+// satisfies [modelerrors.NotFound].
+func (m *stateSuite) TestGetControllerModelNotFound(c *gc.C) {
+	_, err := NewState(m.TxnRunnerFactory()).GetControllerModel(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
 func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	// Add a second model (one was added in SetUpTest).
 	modelUUID := m.createTestModel(c, modelSt, "my-test-model-2", m.userUUID)
+	controllerUUID := m.ControllerSuite.SeedControllerTable(c, modelUUID)
 
 	accessState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	expectedLoginTime := time.Now().Truncate(time.Minute).UTC()
@@ -1256,57 +1372,66 @@ func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
 	models, err := modelSt.ListModelSummariesForUser(context.Background(), usertesting.GenNewName(c, "test-user"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(len(models), gc.Equals, 2)
-	slices.SortFunc(models, func(a, b coremodel.UserModelSummary) int {
-		return strings.Compare(a.Name, b.Name)
-	})
+	c.Check(len(models), gc.Equals, 2)
 
-	c.Check(models, jc.SameContents, []coremodel.UserModelSummary{{
-		UserLastConnection: &expectedLoginTime,
-		UserAccess:         permission.AdminAccess,
-		ModelSummary: coremodel.ModelSummary{
-			Name:        "my-test-model",
-			UUID:        m.uuid,
-			CloudName:   "my-cloud",
-			CloudRegion: "my-region",
-			CloudType:   "ec2",
-			CloudCredentialKey: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
-				Name:  "foobar",
+	expected := []coremodel.UserModelSummary{
+		{
+			UserLastConnection: &expectedLoginTime,
+			UserAccess:         permission.AdminAccess,
+			ModelSummary: coremodel.ModelSummary{
+				Name:        "my-test-model",
+				UUID:        m.uuid,
+				CloudName:   "my-cloud",
+				CloudRegion: "my-region",
+				CloudType:   "ec2",
+				CloudCredentialKey: corecredential.Key{
+					Cloud: "my-cloud",
+					Owner: usertesting.GenNewName(c, "test-user"),
+					Name:  "foobar",
+				},
+				ControllerUUID: controllerUUID,
+				IsController:   false,
+				// TODO (manadart 2024-01-29): We need to generate model summaries
+				// with an agent version, but we can't do that from the controller
+				// database.
+				ModelType: coremodel.IAAS,
+				OwnerName: usertesting.GenNewName(c, "test-user"),
+				Life:      life.Alive,
 			},
-			ControllerUUID: m.controllerUUID,
-			IsController:   true,
-			// TODO (manadart 2024-01-29): We need to generate model summaries
-			// with an agent version, but we can't do that from the controller
-			// database.
-			ModelType: coremodel.IAAS,
-			OwnerName: usertesting.GenNewName(c, "test-user"),
-			Life:      life.Alive,
-		}}, {
-		UserLastConnection: nil,
-		UserAccess:         permission.AdminAccess,
-		ModelSummary: coremodel.ModelSummary{
-			Name:        "my-test-model-2",
-			UUID:        modelUUID,
-			CloudName:   "my-cloud",
-			CloudRegion: "my-region",
-			CloudType:   "ec2",
-			CloudCredentialKey: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
-				Name:  "foobar",
+		},
+		{
+			UserLastConnection: nil,
+			UserAccess:         permission.AdminAccess,
+			ModelSummary: coremodel.ModelSummary{
+				Name:        "my-test-model-2",
+				UUID:        modelUUID,
+				CloudName:   "my-cloud",
+				CloudRegion: "my-region",
+				CloudType:   "ec2",
+				CloudCredentialKey: corecredential.Key{
+					Cloud: "my-cloud",
+					Owner: usertesting.GenNewName(c, "test-user"),
+					Name:  "foobar",
+				},
+				ControllerUUID: controllerUUID,
+				IsController:   true,
+				// TODO (manadart 2024-01-29): We need to generate model summaries
+				// with an agent version, but we can't do that from the controller
+				// database.
+				ModelType: coremodel.IAAS,
+				OwnerName: usertesting.GenNewName(c, "test-user"),
+				Life:      life.Alive,
 			},
-			ControllerUUID: m.controllerUUID,
-			IsController:   false,
-			// TODO (manadart 2024-01-29): We need to generate model summaries
-			// with an agent version, but we can't do that from the controller
-			// database.
-			ModelType: coremodel.IAAS,
-			OwnerName: usertesting.GenNewName(c, "test-user"),
-			Life:      life.Alive,
-		}},
-	})
+		},
+	}
+
+	sortFunc := func(a, b coremodel.UserModelSummary) int {
+		return strings.Compare(a.Name, b.Name)
+	}
+	slices.SortFunc(models, sortFunc)
+	slices.SortFunc(expected, sortFunc)
+
+	c.Check(models, jc.DeepEquals, expected)
 }
 
 func (m *stateSuite) TestListModelSummariesForUserModelNotFound(c *gc.C) {
@@ -1320,18 +1445,26 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	accessSt := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	userUUID := m.createSuperuser(c, accessSt, usertesting.GenNewName(c, "new-user"))
-	modelUUID := m.createTestModel(c, modelSt, "new-model", userUUID)
+	newUserUUID := usertesting.GenUserUUID(c)
+	newUserName := usertesting.GenNewName(c, "new-user")
+	err := accessSt.AddUser(
+		context.Background(),
+		newUserUUID,
+		newUserName,
+		newUserName.Name(),
+		false,
+		newUserUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
+	modelUUID := m.createTestModel(c, modelSt, "ctrl-model", newUserUUID)
+	controllerUUID := m.ControllerSuite.SeedControllerTable(c, modelUUID)
 	models, err := modelSt.ListAllModelSummaries(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(len(models), gc.Equals, 2)
-	slices.SortFunc(models, func(a, b coremodel.ModelSummary) int {
-		return strings.Compare(a.Name, b.Name)
-	})
+	c.Check(len(models), gc.Equals, 2)
 
-	c.Assert(models, gc.DeepEquals, []coremodel.ModelSummary{
+	expected := []coremodel.ModelSummary{
 		{
 			Name:        "my-test-model",
 			UUID:        m.uuid,
@@ -1343,8 +1476,8 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			ControllerUUID: m.controllerUUID,
-			IsController:   true,
+			ControllerUUID: controllerUUID,
+			IsController:   false,
 			// TODO (manadart 2024-01-29): We need to generate model summaries
 			// with an agent version, but we can't do that from the controller
 			// database.
@@ -1353,7 +1486,7 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 			Life:      life.Alive,
 		},
 		{
-			Name:        "new-model",
+			Name:        "ctrl-model",
 			UUID:        modelUUID,
 			CloudName:   "my-cloud",
 			CloudRegion: "my-region",
@@ -1363,8 +1496,8 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			ControllerUUID: m.controllerUUID,
-			IsController:   false,
+			ControllerUUID: controllerUUID,
+			IsController:   true,
 			// TODO (manadart 2024-01-29): We need to generate model summaries
 			// with an agent version, but we can't do that from the controller
 			// database.
@@ -1372,7 +1505,14 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 			OwnerName: usertesting.GenNewName(c, "new-user"),
 			Life:      life.Alive,
 		},
-	})
+	}
+
+	sortFunc := func(a, b coremodel.ModelSummary) int {
+		return strings.Compare(a.Name, b.Name)
+	}
+	slices.SortFunc(models, sortFunc)
+	slices.SortFunc(expected, sortFunc)
+	c.Check(models, gc.DeepEquals, expected)
 }
 
 func (s *stateSuite) TestGetModelUsers(c *gc.C) {
@@ -1559,31 +1699,8 @@ func (m *stateSuite) TestGetEmptyCredentialsModel(c *gc.C) {
 	}
 }
 
-// createSuperuser adds a new superuser created by themselves.
-func (m *stateSuite) createSuperuser(c *gc.C, accessState *accessstate.State, name user.Name) user.UUID {
-	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	err = accessState.AddUserWithPermission(
-		context.Background(),
-		userUUID,
-		name,
-		name.Name(),
-		false,
-		userUUID,
-		permission.AccessSpec{
-			Access: permission.SuperuserAccess,
-			Target: permission.ID{
-				ObjectType: permission.Controller,
-				Key:        m.controllerUUID,
-			},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	return userUUID
-}
-
 // createSuperuser adds a new user with permissions on a model.
-func (m *stateSuite) createModelUser(
+func (s *stateSuite) createModelUser(
 	c *gc.C,
 	accessState *accessstate.State,
 	name user.Name,
@@ -1723,4 +1840,49 @@ func (s *stateSuite) TestCloudSupportsAuthTypeCloudNotFound(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
 	c.Check(supports, jc.IsFalse)
+}
+
+// TestGetControllerModelUUID is asserting the happy path of
+// [State.GetControllerModelUUID] in that if a controller model exists we get
+// back the uuid of the controller model.
+func (s *stateSuite) TestGetControllerModelUUID(c *gc.C) {
+	modelSt := NewState(s.TxnRunnerFactory())
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	err := modelSt.Create(
+		context.Background(),
+		modelUUID,
+		coremodel.IAAS,
+		model.GlobalModelCreationArgs{
+			Cloud: "my-cloud",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: s.userName,
+				Name:  "foobar",
+			},
+			Name:          coremodel.ControllerModelName,
+			Owner:         s.userUUID,
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need to establish the fact that the model created above is in fact the
+	// the controller model.
+	s.ControllerSuite.SeedControllerTable(c, modelUUID)
+	err = modelSt.Activate(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid, err := modelSt.GetControllerModelUUID(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uuid, gc.DeepEquals, modelUUID)
+}
+
+// TestGetControllerModelUUIDNotFound is asserting that if we ask for the
+// controller model uuid and no controller model exists we get back an error
+// that satisfies [modelerrors.NotFound].
+func (s *stateSuite) TestGetControllerModelUUIDNotFound(c *gc.C) {
+	modelSt := NewState(s.TxnRunnerFactory())
+	_, err := modelSt.GetControllerModelUUID(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
