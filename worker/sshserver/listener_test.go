@@ -4,7 +4,7 @@
 package sshserver_test
 
 import (
-	"sync"
+	"time"
 
 	"github.com/juju/testing"
 	"google.golang.org/grpc/test/bufconn"
@@ -22,24 +22,26 @@ var _ = gc.Suite(&listenerSuite{})
 func (s *listenerSuite) TestAcceptOnceListener(c *gc.C) {
 	listener := bufconn.Listen(8 * 1024)
 
-	acceptOnceListener, closeAllowed := sshserver.NewAcceptOnceListener(listener)
+	acceptOnceListener, closeAllowed := sshserver.NewSSHServerListener(listener)
 	c.Assert(acceptOnceListener, gc.NotNil)
 
-	var wg sync.WaitGroup
-	wg.Add(2)
+	done := make(chan bool, 1)
 
 	go func() {
-		defer wg.Done()
-		<-closeAllowed
-		listener.Close()
-	}()
-
-	go func() {
-		defer wg.Done()
+		defer func() {
+			done <- true
+		}()
 		// Accept runs and sends down the channel, it is blocked then until
 		// Close continues.
 		acceptOnceListener.Accept()
 	}()
 
-	wg.Wait()
+	<-closeAllowed
+	listener.Close()
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fail()
+	}
 }

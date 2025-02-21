@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-// acceptOnceListener is required to prevent a race condition
+// sshServerListener is required to prevent a race condition
 // that can occur in tests.
 //
 // The SSH server tracks the listeners in use
@@ -24,7 +24,7 @@ import (
 // before allowing a close to take effect. The corresponding
 // piece to this is to receive from the closeAllowed channel
 // within your cleanup routine.
-type acceptOnceListener struct {
+type sshServerListener struct {
 	net.Listener
 	// closeAllowed indicates when the server has reached
 	// a safe point that it can be killed.
@@ -32,12 +32,12 @@ type acceptOnceListener struct {
 	once         *sync.Once
 }
 
-// newAcceptOnceListener returns a listener and a closedAllowed channel. You are
+// sshServerListener returns a listener and a closedAllowed channel. You are
 // expected to receive from the closeAlloed channel within your Close() function.
 // The channel is closed once an accept has occurred at least once.
-func newAcceptOnceListener(l net.Listener) (acceptOnceListener, chan struct{}) {
+func newSSHServerListener(l net.Listener) (sshServerListener, chan struct{}) {
 	c := make(chan struct{})
-	return acceptOnceListener{
+	return sshServerListener{
 		Listener:     l,
 		closeAllowed: c,
 		once:         &sync.Once{},
@@ -46,7 +46,7 @@ func newAcceptOnceListener(l net.Listener) (acceptOnceListener, chan struct{}) {
 
 // Accept runs the listeners accept, but firstly closes the closeAllowed channel,
 // signalling that any routines waiting to close the listener may proceed.
-func (l acceptOnceListener) Accept() (net.Conn, error) {
+func (l sshServerListener) Accept() (net.Conn, error) {
 	l.once.Do(func() {
 		close(l.closeAllowed)
 	})
