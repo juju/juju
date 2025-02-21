@@ -43,7 +43,7 @@ func (s *loginTokenSuite) TestAuthenticate(c *gc.C) {
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(&mockJWTParser{})
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	req, err := http.NewRequest("", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,7 +66,7 @@ func (s *loginTokenSuite) TestAuthenticate(c *gc.C) {
 }
 
 func (s *loginTokenSuite) TestAuthenticateInvalidHeader(c *gc.C) {
-	authenticator := jwt.NewAuthenticator(&mockJWTParser{})
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 	req, err := http.NewRequest("", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authenticator.Authenticate(req)
@@ -103,7 +103,7 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(&mockJWTParser{})
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -143,7 +143,7 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *gc.C) {
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(&mockJWTParser{})
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,7 +178,7 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *gc.C) {
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(&mockJWTParser{})
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
 	c.Assert(err, jc.ErrorIsNil)

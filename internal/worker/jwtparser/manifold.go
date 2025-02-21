@@ -8,6 +8,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -37,16 +38,22 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer func() {
-		_ = stTracker.Done()
-	}()
-
-	// The statePool is only needed for worker creation.
-	w, err := newWorker(statePool)
+	systemState, err := statePool.SystemState()
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
-	return w, nil
+
+	// The statePool is only needed for worker creation
+	// currently but should be improved to watch for changes.
+	w, err := newWorker(systemState)
+	if err != nil {
+		_ = stTracker.Done()
+		return nil, errors.Trace(err)
+	}
+	return common.NewCleanupWorker(w, func() {
+		_ = stTracker.Done()
+	}), nil
 }
 
 // outputFunc extracts a JWTParser from a jwtParserWorker.
@@ -60,7 +67,7 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	case *Getter:
 		*outPointer = inWorker
 	default:
-		return errors.Errorf("out should be *jwt.JWTParser; got %T", out)
+		return errors.Errorf("out should be jwt.Getter; got %T", out)
 	}
 	return nil
 }

@@ -22,12 +22,7 @@ type Getter interface {
 	Get() *JWTParser
 }
 
-func newWorker(statePool *state.StatePool) (worker.Worker, error) {
-	systemState, err := statePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func newWorker(systemState *state.State) (worker.Worker, error) {
 	controllerConfig, err := systemState.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot fetch the controller config")

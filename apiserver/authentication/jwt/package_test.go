@@ -19,9 +19,9 @@ func TestPackage(t *T) {
 	gc.TestingT(t)
 }
 
-type mockJWTParser struct{}
+type testJWTParser struct{}
 
-func (m *mockJWTParser) Parse(ctx context.Context, tok string) (jwt.Token, error) {
+func (m *testJWTParser) Parse(ctx context.Context, tok string) (jwt.Token, error) {
 	data, err := base64.StdEncoding.DecodeString(tok)
 	if err != nil {
 		return nil, err
