@@ -1742,6 +1742,49 @@ func (s *applicationStateSuite) TestSetUnitWorkloadStatusNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+func (s *applicationStateSuite) TestGetUnitCloudContainerStatusUnset(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitStatusNotFound)
+}
+
+func (s *applicationStateSuite) TestGetUnitCloudContainerStatus(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+
+	now := time.Now()
+
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, &application.StatusInfo[application.CloudContainerStatusType]{
+			Status:  application.CloudContainerStatusRunning,
+			Message: "it's running",
+			Data:    []byte(`{"foo": "bar"}`),
+			Since:   &now,
+		})
+	})
+
+	status, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatusInfoEqual(c, status, &application.StatusInfo[application.CloudContainerStatusType]{
+		Status:  application.CloudContainerStatusRunning,
+		Message: "it's running",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   &now,
+	})
+}
+
 func (s *applicationStateSuite) TestGetUnitWorkloadStatusesForApplication(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
@@ -1823,6 +1866,111 @@ func (s *applicationStateSuite) TestGetUnitWorkloadStatusesForApplicationNoUnits
 	appId := s.createApplication(c, "foo", life.Alive)
 
 	results, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 0)
+}
+
+func (s *applicationStateSuite) TestGetUnitCloudContainerStatusesForApplication(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	appId := s.createApplication(c, "foo", life.Alive, u1)
+
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status := &application.StatusInfo[application.CloudContainerStatusType]{
+		Status:  application.CloudContainerStatusRunning,
+		Message: "it's running",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, status)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.state.GetUnitCloudContainerStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, gc.HasLen, 1)
+	result, ok := results["foo/666"]
+	c.Assert(ok, jc.IsTrue)
+	assertStatusInfoEqual(c, &result, status)
+}
+
+func (s *applicationStateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.InsertUnitArg{
+		UnitName: "foo/667",
+	}
+	appId := s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	unitUUID1, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	unitUUID2, err := s.state.GetUnitUUIDByName(context.Background(), u2.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status1 := &application.StatusInfo[application.CloudContainerStatusType]{
+		Status:  application.CloudContainerStatusRunning,
+		Message: "it's running!",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID1, status1)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	status2 := &application.StatusInfo[application.CloudContainerStatusType]{
+		Status:  application.CloudContainerStatusBlocked,
+		Message: "it's blocked",
+		Data:    []byte(`{"bar": "foo"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID2, status2)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.state.GetUnitCloudContainerStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+
+	result1, ok := results["foo/666"]
+	c.Assert(ok, jc.IsTrue)
+	assertStatusInfoEqual(c, &result1, status1)
+
+	result2, ok := results["foo/667"]
+	c.Assert(ok, jc.IsTrue)
+	assertStatusInfoEqual(c, &result2, status2)
+}
+
+func (s *applicationStateSuite) TestGetUnitCloudContainerStatusesForApplicationNotFound(c *gc.C) {
+	_, err := s.state.GetUnitCloudContainerStatusesForApplication(context.Background(), "missing")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationStateSuite) TestGetUnitCloudContainerStatusesForApplicationNoUnits(c *gc.C) {
+	appId := s.createApplication(c, "foo", life.Alive)
+
+	results, err := s.state.GetUnitCloudContainerStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 0)
+}
+
+func (s *applicationStateSuite) TestGetUnitCloudContainerStatusesForApplicationUnitsWithoutStatuses(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.InsertUnitArg{
+		UnitName: "foo/667",
+	}
+	appId := s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	results, err := s.state.GetUnitCloudContainerStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 0)
 }
