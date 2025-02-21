@@ -205,9 +205,7 @@ func (s *pebbleNoticerSuite) TestIgnoreUnhandledType(c *gc.C) {
 	}
 }
 
-// TestChangeError verifies that if we can't find the change associated
-// with the notice, we assume the change was done and continue correctly.
-func (s *pebbleNoticerSuite) TestChangeError(c *gc.C) {
+func (s *pebbleNoticerSuite) TestFailedChangeError(c *gc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)
 
@@ -220,6 +218,24 @@ func (s *pebbleNoticerSuite) TestChangeError(c *gc.C) {
 	})
 	s.waitWorkloadEvent(c, container.WorkloadEvent{
 		Type:         container.CheckFailedEvent,
+		WorkloadName: "c1",
+		CheckName:    "http-check",
+	})
+}
+
+func (s *pebbleNoticerSuite) TestRecoveredChangeError(c *gc.C) {
+	s.setUpWorker(c, []string{"c1"})
+	defer workertest.CleanKill(c, s.worker)
+
+	s.clients["c1"].AddNotice(c, &client.Notice{
+		ID:           "1",
+		Type:         "change-update",
+		Key:          "42",
+		LastRepeated: time.Now(),
+		LastData:     map[string]string{"kind": "recover-check", "check-name": "http-check"},
+	})
+	s.waitWorkloadEvent(c, container.WorkloadEvent{
+		Type:         container.CheckRecoveredEvent,
 		WorkloadName: "c1",
 		CheckName:    "http-check",
 	})
