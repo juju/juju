@@ -6,6 +6,7 @@ package sshserver_test
 import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
@@ -45,7 +46,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	mockSystemState := mocks.NewMockSystemState(ctrl)
 
 	cfg := newServerWrapperWorkerConfig(l, mockSystemState, func(cfg *sshserver.ServerWrapperWorkerConfig) {})
-	c.Assert(cfg.Validate(), gc.IsNil)
+	c.Assert(cfg.Validate(), jc.ErrorIsNil)
 
 	// Test no Logger.
 	cfg = newServerWrapperWorkerConfig(
@@ -82,7 +83,6 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	l := loggo.GetLogger("test")
 	mockSystemState := mocks.NewMockSystemState(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
@@ -96,13 +96,13 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 
 	cfg := sshserver.ServerWrapperWorkerConfig{
 		SystemState: mockSystemState,
-		Logger:      l,
+		Logger:      loggo.GetLogger("test"),
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
 	}
 	w, err := sshserver.NewServerWrapperWorker(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Check all workers alive properly.
@@ -114,16 +114,15 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	// Check all workers killed.
-	c.Assert(workertest.CheckKilled(c, w), gc.IsNil)
-	c.Assert(workertest.CheckKilled(c, serverWorker), gc.IsNil)
-	c.Assert(workertest.CheckKilled(c, controllerConfigWatcher), gc.IsNil)
+	c.Assert(workertest.CheckKilled(c, w), jc.ErrorIsNil)
+	c.Assert(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
+	c.Assert(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	l := loggo.GetLogger("test")
 	mockSystemState := mocks.NewMockSystemState(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
@@ -138,14 +137,14 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	startCounter := 0
 	cfg := sshserver.ServerWrapperWorkerConfig{
 		SystemState: mockSystemState,
-		Logger:      l,
+		Logger:      loggo.GetLogger("test"),
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
 			startCounter++
 			return serverWorker, nil
 		},
 	}
 	w, err := sshserver.NewServerWrapperWorker(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Check all workers alive properly.
@@ -160,9 +159,9 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	// Check all workers killed.
-	c.Assert(workertest.CheckKilled(c, w), gc.IsNil)
-	c.Assert(workertest.CheckKilled(c, serverWorker), gc.IsNil)
-	c.Assert(workertest.CheckKilled(c, controllerConfigWatcher), gc.IsNil)
+	c.Assert(workertest.CheckKilled(c, w), jc.ErrorIsNil)
+	c.Assert(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
+	c.Assert(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
 
 	// Expect start counter.
 	// 1 for the initial start.
