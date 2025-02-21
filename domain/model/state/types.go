@@ -329,11 +329,6 @@ type dbCloudCredential struct {
 	CredentialCloudName string         `db:"cloud_credential_cloud_name"`
 }
 
-type dbCloudOwner struct {
-	Name      string `db:"name"`
-	OwnerName string `db:"owner_name"`
-}
-
 type dbCloudRegionUUID struct {
 	CloudRegionUUID string `db:"uuid"`
 }
