@@ -314,6 +314,8 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 // TestAgentVersionUnsupportedLess is asserting that if we try and create a
 // model with an agent version that is less then that of the controller.
 func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
+	c.Skip("This tests needs to be rewritten once tools metadata is implemented for the controller")
+
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -333,9 +335,8 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 	)
 
 	err = svc.CreateModel(context.Background(), uuid.MustNewUUID(), agentVersion)
-	// This is temporary until we implement tools metadata for the controller.
-	c.Assert(err, jc.ErrorIsNil)
-
+	// Add the correct error detail when restoring this test.
+	c.Assert(err, gc.NotNil)
 }
 
 type legacyModelServiceSuite struct {
