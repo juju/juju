@@ -164,7 +164,7 @@ func (c *updatePublicCloudsCommand) Run(ctxt *cmd.Context) error {
 		returnedErr = cmd.ErrSilent
 	}
 	if msg != "" {
-		ctxt.Infof(msg)
+		ctxt.Infof("%s", msg)
 	}
 	if c.ControllerName != "" {
 		if err := c.updateControllerCopy(ctxt, publishedClouds); err != nil {

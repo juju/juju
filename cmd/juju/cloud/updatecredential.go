@@ -438,11 +438,11 @@ func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.
 		if haveModelErrors || result.Error != nil {
 			if haveModelErrors {
 				ctx.Infof("Failed models may require a different credential.")
-				msg := "Use ‘juju set-credential’ to change credential for these models."
+				msg := "Use 'juju set-credential' to change credential for these models."
 				if !force {
-					msg = "Use ‘juju set-credential’ to change credential for these models before repeating this update."
+					msg = "Use 'juju set-credential' to change credential for these models before repeating this update."
 				}
-				ctx.Infof(msg)
+				ctx.Infof("%s", msg)
 			}
 			if result.Error != nil {
 				ctx.Warningf("Controller credential %q for user %q for cloud %q on controller %q not %v: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), controllerName, op, result.Error)
@@ -452,7 +452,7 @@ func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.
 		}
 		ctx.Infof(`
 Controller credential %q for user %q for cloud %q on controller %q %v.
-For more information, see ‘juju show-credential %v %v’.`[1:],
+For more information, see 'juju show-credential %v %v'.`[1:],
 			tag.Name(), accountDetails.User, tag.Cloud().Id(), controllerName,
 			op, tag.Cloud().Id(), tag.Name())
 	}

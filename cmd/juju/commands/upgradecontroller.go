@@ -319,7 +319,7 @@ func (c *upgradeControllerCommand) upgradeController(
 		}
 
 		if errors.Is(err, errUpToDate) {
-			ctx.Infof(err.Error())
+			ctx.Infof("%s", err.Error())
 			err = nil
 		}
 		if err != nil {

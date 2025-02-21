@@ -197,7 +197,7 @@ func (c *upgradeModelCommand) upgradeModel(ctx *cmd.Context, fetchTimeout time.D
 		}
 
 		if errors.Is(err, errUpToDate) {
-			ctx.Infof(err.Error())
+			ctx.Infof("%s", err.Error())
 			err = nil
 		}
 		if err != nil {

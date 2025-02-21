@@ -133,7 +133,7 @@ func unmarshalHTTPErrorResponse(resp *http.Response) error {
 		case 405:
 			return errors.MethodNotAllowedf(string(body))
 		default:
-			return errors.Errorf(string(body))
+			return errors.New(string(body))
 		}
 	}
 

@@ -14,7 +14,7 @@ import (
 func assertNoNotifyEvent(c *gc.C, ch <-chan struct{}, event string) {
 	select {
 	case <-ch:
-		c.Fatalf("unexpected " + event)
+		c.Fatalf("unexpected %s", event)
 	case <-time.After(testing.ShortWait):
 	}
 }
@@ -23,7 +23,7 @@ func assertNotifyEvent(c *gc.C, ch <-chan struct{}, activity string) {
 	select {
 	case <-ch:
 	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out " + activity)
+		c.Fatalf("timed out %s", activity)
 		panic("unreachable")
 	}
 }

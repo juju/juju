@@ -14,7 +14,7 @@ type notAvailable struct {
 // NotAvailable returns an error which satisfies IsNotAvailable.
 func NotAvailable(thing string) error {
 	return &notAvailable{
-		errors.NewErr(thing + " is not available"),
+		errors.NewErr("%s is not available", thing),
 	}
 }
 
