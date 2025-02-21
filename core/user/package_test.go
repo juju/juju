@@ -6,10 +6,9 @@ package user
 import (
 	"testing"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	coretesting "github.com/juju/juju/internal/testing"
 )
 
 func TestPackage(t *testing.T) {
@@ -21,7 +20,14 @@ type ImportTest struct{}
 var _ = gc.Suite(&ImportTest{})
 
 func (*ImportTest) TestImports(c *gc.C) {
-	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/user")
+	// TODO (stickupkid): There is a circular dependency between the user
+	// package and the testing package, caused by the model package.
+	//
+	// This breaks the link for now.
+	const jujuPkgPrefix = "github.com/juju/juju/"
+
+	found, err := jujutesting.FindImports("github.com/juju/juju/core/user", jujuPkgPrefix)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// This package should only depend on other core packages.
 	// If this test fails with a non-core package, please check the dependencies.

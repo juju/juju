@@ -32,11 +32,18 @@ func (t *ToolsImportSuite) TestPackageDependencies(c *gc.C) {
 	c.Assert(testing.FindJujuCoreImports(c, "github.com/juju/juju/agent/tools"),
 		jc.SameContents,
 		[]string{
+			"core/credential",
+			"core/life",
 			"core/logger",
+			"core/model",
+			"core/permission",
+			"core/status",
 			"core/trace",
+			"core/user",
 			"internal/errors",
 			"internal/logger",
 			"internal/tools",
+			"internal/uuid",
 			"juju/names",
 		})
 }

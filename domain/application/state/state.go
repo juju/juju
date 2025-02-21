@@ -197,9 +197,9 @@ func (s *State) setCharmState(
 		}
 	}
 
-	nullableOjectStoreUUID := sql.NullString{}
+	nullableObjectStoreUUID := sql.NullString{}
 	if !ch.ObjectStoreUUID.IsEmpty() {
-		nullableOjectStoreUUID = sql.NullString{
+		nullableObjectStoreUUID = sql.NullString{
 			String: ch.ObjectStoreUUID.String(),
 			Valid:  true,
 		}
@@ -210,7 +210,7 @@ func (s *State) setCharmState(
 		ReferenceName:   ch.ReferenceName,
 		Revision:        ch.Revision,
 		ArchivePath:     ch.ArchivePath,
-		ObjectStoreUUID: nullableOjectStoreUUID,
+		ObjectStoreUUID: nullableObjectStoreUUID,
 		Available:       ch.Available,
 		Version:         ch.Version,
 		SourceID:        sourceID,

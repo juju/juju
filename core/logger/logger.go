@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -216,17 +217,17 @@ type ModelLogger interface {
 
 	// GetLogWriter returns a log writer for the given model and keeps
 	// track of it, returning the same one if called again.
-	GetLogWriter(ctx context.Context, key LoggerKey) (LogWriterCloser, error)
+	GetLogWriter(ctx context.Context, modelUUID model.UUID) (LogWriterCloser, error)
 
 	// RemoveLogWriter stops tracking the given's model's log writer and
 	// calls Close() on the log writer.
-	RemoveLogWriter(key LoggerKey) error
+	RemoveLogWriter(modelUUID model.UUID) error
 }
 
 // LoggerContextGetter is an interface that is used to get a LoggerContext.
 type LoggerContextGetter interface {
 	// GetLoggerContext returns a LoggerContext for the given name.
-	GetLoggerContext(ctx context.Context, key LoggerKey) (LoggerContext, error)
+	GetLoggerContext(ctx context.Context, modelUUID model.UUID) (LoggerContext, error)
 }
 
 // ModelLogSinkGetter gets the ModelLogger or the LoggerContext for a given

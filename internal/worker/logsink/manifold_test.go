@@ -32,7 +32,8 @@ type ManifoldSuite struct {
 
 	manifold               dependency.Manifold
 	getter                 dependency.Getter
-	domainServices         services.DomainServices
+	logSinkServices        services.LogSinkServices
+	logSinkServicesGetter  services.LogSinkServicesGetter
 	controllerConfigGetter *controllerconfigservice.WatchableService
 
 	logger logger.Logger
@@ -50,8 +51,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.controllerConfigGetter = &controllerconfigservice.WatchableService{
 		Service: *service,
 	}
-	s.domainServices = stubDomainServices{
+	s.logSinkServices = stubLogSinkServices{
 		controllerConfigGetter: s.controllerConfigGetter,
+	}
+	s.logSinkServicesGetter = stubLogSinkServicesGetter{
+		logSinkServices: s.logSinkServices,
 	}
 	s.clock = clock.WallClock
 
@@ -61,13 +65,16 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.getter = s.newGetter(c, nil)
 	s.manifold = Manifold(ManifoldConfig{
-		ClockName:          "clock",
-		AgentName:          "agent",
-		DomainServicesName: "domain-services",
-		DebugLogger:        s.logger,
-		NewWorker:          s.newWorker,
+		ClockName:       "clock",
+		AgentName:       "agent",
+		LogSinkServices: "logsink",
+		DebugLogger:     s.logger,
+		NewWorker:       s.newWorker,
 		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
 			return nil, nil
+		},
+		ModelServiceGetter: func(s services.LogSinkServicesGetter) ModelService {
+			return nil
 		},
 	})
 }
@@ -93,11 +100,15 @@ func (s *ManifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.DomainServicesName = ""
+	cfg.LogSinkServices = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.AgentName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ModelServiceGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
@@ -108,9 +119,12 @@ func (s *ManifoldSuite) getConfig() ManifoldConfig {
 		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
 			return nil, nil
 		},
-		ClockName:          "clock",
-		DomainServicesName: "domain-services",
-		AgentName:          "agent",
+		ModelServiceGetter: func(s services.LogSinkServicesGetter) ModelService {
+			return nil
+		},
+		ClockName:       "clock",
+		LogSinkServices: "logsink",
+		AgentName:       "agent",
 	}
 }
 
@@ -119,8 +133,8 @@ func (s *ManifoldSuite) newGetter(c *gc.C, overlay map[string]any) dependency.Ge
 		"agent": &fakeAgent{
 			logDir: c.MkDir(),
 		},
-		"domain-services": s.domainServices,
-		"clock":           s.clock,
+		"logsink": s.logSinkServicesGetter,
+		"clock":   s.clock,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -136,7 +150,7 @@ func (s *ManifoldSuite) newWorker(config Config) (worker.Worker, error) {
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"domain-services", "agent", "clock"}
+var expectedInputs = []string{"logsink", "agent", "clock"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -211,12 +225,21 @@ func (f *fakeAgent) LogDir() string {
 	return f.logDir
 }
 
-type stubDomainServices struct {
-	services.DomainServices
+type stubLogSinkServicesGetter struct {
+	services.LogSinkServicesGetter
+	logSinkServices services.LogSinkServices
+}
+
+func (s stubLogSinkServicesGetter) ControllerConfig() *controllerconfigservice.WatchableService {
+	return s.logSinkServices.ControllerConfig()
+}
+
+type stubLogSinkServices struct {
+	services.LogSinkServices
 	controllerConfigGetter *controllerconfigservice.WatchableService
 }
 
-func (s stubDomainServices) ControllerConfig() *controllerconfigservice.WatchableService {
+func (s stubLogSinkServices) ControllerConfig() *controllerconfigservice.WatchableService {
 	return s.controllerConfigGetter
 }
 

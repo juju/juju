@@ -5,7 +5,6 @@ package logsink
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -13,6 +12,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -20,6 +20,12 @@ const (
 	// States which report the state of the worker.
 	stateStarted = "started"
 )
+
+// ModelService is an interface that provides model information.
+type ModelService interface {
+	// Model returns the model information.
+	Model(ctx context.Context, modelUUID model.UUID) (model.ModelInfo, error)
+}
 
 // LogSinkWriter is a writer that writes log records to a log sink.
 type LogSinkWriter interface {
@@ -35,13 +41,14 @@ type Config struct {
 	MachineID             string
 	NewModelLogger        NewModelLoggerFunc
 	LogWriterForModelFunc logger.LogWriterForModelFunc
+	ModelService          ModelService
 }
 
 // request is used to pass requests for ObjectStore
 // instances into the worker loop.
 type request struct {
-	key  logger.LoggerKey
-	done chan error
+	modelUUID model.UUID
+	done      chan error
 }
 
 // LogSink is a worker which provides access to a log sink
@@ -87,8 +94,8 @@ func newWorker(cfg Config, internalState chan string) (worker.Worker, error) {
 // GetLogWriter returns a log writer for the specified model UUID.
 // It is an error if the log writer is not running. Call InitializeLogger
 // to start the log writer.
-func (w *LogSink) GetLogWriter(ctx context.Context, key logger.LoggerKey) (logger.LogWriterCloser, error) {
-	sink, err := w.getLogSink(ctx, key)
+func (w *LogSink) GetLogWriter(ctx context.Context, modelUUID model.UUID) (logger.LogWriterCloser, error) {
+	sink, err := w.getLogSink(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -98,8 +105,8 @@ func (w *LogSink) GetLogWriter(ctx context.Context, key logger.LoggerKey) (logge
 // GetLoggerContext returns a logger context for the specified model UUID.
 // It is an error if the log writer is not running. Call InitializeLogger
 // to start the log writer.
-func (w *LogSink) GetLoggerContext(ctx context.Context, key logger.LoggerKey) (logger.LoggerContext, error) {
-	sink, err := w.getLogSink(ctx, key)
+func (w *LogSink) GetLoggerContext(ctx context.Context, modelUUID model.UUID) (logger.LoggerContext, error) {
+	sink, err := w.getLogSink(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -108,8 +115,8 @@ func (w *LogSink) GetLoggerContext(ctx context.Context, key logger.LoggerKey) (l
 
 // RemoveLogWriter closes then removes a log writer by model UUID.
 // Returns an error if there was a problem closing the logger.
-func (w *LogSink) RemoveLogWriter(key logger.LoggerKey) error {
-	return w.runner.StopAndRemoveWorker(namespaceFromKey(key), w.catacomb.Dying())
+func (w *LogSink) RemoveLogWriter(modelUUID model.UUID) error {
+	return w.runner.StopAndRemoveWorker(modelUUID.String(), w.catacomb.Dying())
 }
 
 // Close closes all the log writers.
@@ -138,7 +145,7 @@ func (w *LogSink) loop() error {
 			return w.catacomb.ErrDying()
 
 		case req := <-w.requests:
-			err := w.initLogger(req.key)
+			err := w.initLogger(req.modelUUID)
 
 			select {
 			case req.done <- err:
@@ -149,8 +156,8 @@ func (w *LogSink) loop() error {
 	}
 }
 
-func (w *LogSink) getLogSink(ctx context.Context, key logger.LoggerKey) (LogSinkWriter, error) {
-	if sink, err := w.workerFromCache(key); err != nil {
+func (w *LogSink) getLogSink(ctx context.Context, modelUUID model.UUID) (LogSinkWriter, error) {
+	if sink, err := w.workerFromCache(modelUUID); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
 			return nil, logger.ErrLoggerDying
 		}
@@ -162,8 +169,8 @@ func (w *LogSink) getLogSink(ctx context.Context, key logger.LoggerKey) (LogSink
 	// Enqueue the request as it's either starting up and we need to wait longer
 	// or it's not running and we need to start it.
 	req := request{
-		key:  key,
-		done: make(chan error),
+		modelUUID: modelUUID,
+		done:      make(chan error),
 	}
 	select {
 	case w.requests <- req:
@@ -189,7 +196,7 @@ func (w *LogSink) getLogSink(ctx context.Context, key logger.LoggerKey) (LogSink
 
 	// This will return a not found error if the request was not honoured.
 	// The error will be logged - we don't crash this worker for bad calls.
-	tracked, err := w.runner.Worker(namespaceFromKey(key), w.catacomb.Dying())
+	tracked, err := w.runner.Worker(modelUUID.String(), w.catacomb.Dying())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -199,9 +206,9 @@ func (w *LogSink) getLogSink(ctx context.Context, key logger.LoggerKey) (LogSink
 	return tracked.(LogSinkWriter), nil
 }
 
-func (w *LogSink) workerFromCache(key logger.LoggerKey) (LogSinkWriter, error) {
+func (w *LogSink) workerFromCache(modelUUID model.UUID) (LogSinkWriter, error) {
 	// If the worker already exists, return the existing worker early.
-	if logsink, err := w.runner.Worker(namespaceFromKey(key), w.catacomb.Dying()); err == nil {
+	if logsink, err := w.runner.Worker(modelUUID.String(), w.catacomb.Dying()); err == nil {
 		return logsink.(LogSinkWriter), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the runner is dead due to this worker dying.
@@ -220,14 +227,23 @@ func (w *LogSink) workerFromCache(key logger.LoggerKey) (LogSinkWriter, error) {
 	return nil, nil
 }
 
-func (w *LogSink) initLogger(key logger.LoggerKey) error {
-	err := w.runner.StartWorker(namespaceFromKey(key), func() (worker.Worker, error) {
+func (w *LogSink) initLogger(modelUUID model.UUID) error {
+	err := w.runner.StartWorker(modelUUID.String(), func() (worker.Worker, error) {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
 
+		model, err := w.cfg.ModelService.Model(ctx, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		return w.cfg.NewModelLogger(
 			ctx,
-			key,
+			logger.LoggerKey{
+				ModelUUID:  modelUUID.String(),
+				ModelName:  model.Name,
+				ModelOwner: model.CredentialOwner.Name(),
+			},
 			ModelLoggerConfig{
 				MachineID:     w.cfg.MachineID,
 				NewLogWriter:  w.cfg.LogWriterForModelFunc,
@@ -257,8 +273,4 @@ func (w *LogSink) reportInternalState(state string) {
 	case w.internalStates <- state:
 	default:
 	}
-}
-
-func namespaceFromKey(key logger.LoggerKey) string {
-	return fmt.Sprintf("%s-%s-%s", key.ModelUUID, key.ModelName, key.ModelOwner)
 }

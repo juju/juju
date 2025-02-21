@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	logger "github.com/juju/juju/core/logger"
+	model "github.com/juju/juju/core/model"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -569,7 +570,7 @@ func (m *MockLoggerContextGetter) EXPECT() *MockLoggerContextGetterMockRecorder 
 }
 
 // GetLoggerContext mocks base method.
-func (m *MockLoggerContextGetter) GetLoggerContext(arg0 context.Context, arg1 logger.LoggerKey) (logger.LoggerContext, error) {
+func (m *MockLoggerContextGetter) GetLoggerContext(arg0 context.Context, arg1 model.UUID) (logger.LoggerContext, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLoggerContext", arg0, arg1)
 	ret0, _ := ret[0].(logger.LoggerContext)
@@ -596,13 +597,13 @@ func (c *MockLoggerContextGetterGetLoggerContextCall) Return(arg0 logger.LoggerC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockLoggerContextGetterGetLoggerContextCall) Do(f func(context.Context, logger.LoggerKey) (logger.LoggerContext, error)) *MockLoggerContextGetterGetLoggerContextCall {
+func (c *MockLoggerContextGetterGetLoggerContextCall) Do(f func(context.Context, model.UUID) (logger.LoggerContext, error)) *MockLoggerContextGetterGetLoggerContextCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggerContextGetterGetLoggerContextCall) DoAndReturn(f func(context.Context, logger.LoggerKey) (logger.LoggerContext, error)) *MockLoggerContextGetterGetLoggerContextCall {
+func (c *MockLoggerContextGetterGetLoggerContextCall) DoAndReturn(f func(context.Context, model.UUID) (logger.LoggerContext, error)) *MockLoggerContextGetterGetLoggerContextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -669,7 +670,7 @@ func (c *MockModelLoggerCloseCall) DoAndReturn(f func() error) *MockModelLoggerC
 }
 
 // GetLogWriter mocks base method.
-func (m *MockModelLogger) GetLogWriter(arg0 context.Context, arg1 logger.LoggerKey) (logger.LogWriterCloser, error) {
+func (m *MockModelLogger) GetLogWriter(arg0 context.Context, arg1 model.UUID) (logger.LogWriterCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetLogWriter", arg0, arg1)
 	ret0, _ := ret[0].(logger.LogWriterCloser)
@@ -696,19 +697,19 @@ func (c *MockModelLoggerGetLogWriterCall) Return(arg0 logger.LogWriterCloser, ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelLoggerGetLogWriterCall) Do(f func(context.Context, logger.LoggerKey) (logger.LogWriterCloser, error)) *MockModelLoggerGetLogWriterCall {
+func (c *MockModelLoggerGetLogWriterCall) Do(f func(context.Context, model.UUID) (logger.LogWriterCloser, error)) *MockModelLoggerGetLogWriterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelLoggerGetLogWriterCall) DoAndReturn(f func(context.Context, logger.LoggerKey) (logger.LogWriterCloser, error)) *MockModelLoggerGetLogWriterCall {
+func (c *MockModelLoggerGetLogWriterCall) DoAndReturn(f func(context.Context, model.UUID) (logger.LogWriterCloser, error)) *MockModelLoggerGetLogWriterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RemoveLogWriter mocks base method.
-func (m *MockModelLogger) RemoveLogWriter(arg0 logger.LoggerKey) error {
+func (m *MockModelLogger) RemoveLogWriter(arg0 model.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveLogWriter", arg0)
 	ret0, _ := ret[0].(error)
@@ -734,13 +735,13 @@ func (c *MockModelLoggerRemoveLogWriterCall) Return(arg0 error) *MockModelLogger
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelLoggerRemoveLogWriterCall) Do(f func(logger.LoggerKey) error) *MockModelLoggerRemoveLogWriterCall {
+func (c *MockModelLoggerRemoveLogWriterCall) Do(f func(model.UUID) error) *MockModelLoggerRemoveLogWriterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelLoggerRemoveLogWriterCall) DoAndReturn(f func(logger.LoggerKey) error) *MockModelLoggerRemoveLogWriterCall {
+func (c *MockModelLoggerRemoveLogWriterCall) DoAndReturn(f func(model.UUID) error) *MockModelLoggerRemoveLogWriterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

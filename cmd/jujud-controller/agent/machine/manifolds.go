@@ -91,6 +91,7 @@ import (
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsink"
+	logsinkservices "github.com/juju/juju/internal/worker/logsinkservices"
 	"github.com/juju/juju/internal/worker/machineactions"
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationflag"
@@ -638,12 +639,21 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		logSinkName: ifDatabaseUpgradeComplete(logsink.Manifold(logsink.ManifoldConfig{
 			ClockName:          clockName,
-			DomainServicesName: domainServicesName,
+			LogSinkServices:    logSinkServicesName,
 			AgentName:          agentName,
 			DebugLogger:        internallogger.GetLogger("juju.worker.logsink"),
 			NewWorker:          logsink.NewWorker,
 			NewModelLogger:     logsink.NewModelLogger,
+			ModelServiceGetter: logsink.NewModelService,
 		})),
+
+		logSinkServicesName: logsinkservices.Manifold(logsinkservices.ManifoldConfig{
+			ChangeStreamName:         changeStreamName,
+			Logger:                   internallogger.GetLogger("juju.worker.logsinkservices"),
+			NewWorker:                logsinkservices.NewWorker,
+			NewLogSinkServicesGetter: logsinkservices.NewLogSinkServicesGetter,
+			NewLogSinkServices:       logsinkservices.NewLogSinkServices,
+		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:              agentName,
@@ -719,7 +729,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		providerDomainServicesName: providerservices.Manifold(providerservices.ManifoldConfig{
 			ChangeStreamName:          changeStreamName,
-			Logger:                    internallogger.GetLogger("juju.worker.providerservicefactory"),
+			Logger:                    internallogger.GetLogger("juju.worker.providerserivces"),
 			NewWorker:                 providerservices.NewWorker,
 			NewProviderServicesGetter: providerservices.NewProviderServicesGetter,
 			NewProviderServices:       providerservices.NewProviderServices,
@@ -1372,6 +1382,7 @@ const (
 	loggingConfigUpdaterName      = "logging-config-updater"
 	logSenderName                 = "log-sender"
 	logSinkName                   = "log-sink"
+	logSinkServicesName           = "log-sink-services"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	machineActionName             = "machine-action-runner"
 	machinerName                  = "machiner"

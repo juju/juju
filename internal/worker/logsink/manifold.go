@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
@@ -29,6 +30,9 @@ import (
 type NewModelLoggerFunc func(ctx context.Context,
 	key corelogger.LoggerKey,
 	cfg ModelLoggerConfig) (worker.Worker, error)
+
+// ModelServiceGetterFunc is a function that returns the model service.
+type ModelServiceGetterFunc func(services.LogSinkServicesGetter) ModelService
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
@@ -42,11 +46,14 @@ type ManifoldConfig struct {
 	// NewModelLogger creates a new model logger.
 	NewModelLogger NewModelLoggerFunc
 
+	// ModelServiceGetter returns the model service.
+	ModelServiceGetter ModelServiceGetterFunc
+
 	// These attributes are the named workers this worker depends on.
 
-	ClockName          string
-	DomainServicesName string
-	AgentName          string
+	ClockName       string
+	LogSinkServices string
+	AgentName       string
 }
 
 // Validate validates the manifold configuration.
@@ -60,16 +67,18 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewModelLogger == nil {
 		return errors.NotValidf("nil NewModelLogger")
 	}
+	if config.ModelServiceGetter == nil {
+		return errors.NotValidf("nil ModelServiceGetter")
+	}
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
 	}
-	if config.DomainServicesName == "" {
-		return errors.NotValidf("empty DomainServicesName")
+	if config.LogSinkServices == "" {
+		return errors.NotValidf("empty LogSinkServices")
 	}
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
-
 	return nil
 }
 
@@ -78,7 +87,7 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.DomainServicesName,
+			config.LogSinkServices,
 			config.AgentName,
 			config.ClockName,
 		},
@@ -88,11 +97,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var controllerDomainServices services.ControllerDomainServices
-			if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
+			var logSinkServicesGetter services.LogSinkServicesGetter
+			if err := getter.Get(config.LogSinkServices, &logSinkServicesGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
-			controllerCfg, err := controllerDomainServices.ControllerConfig().ControllerConfig(ctx)
+
+			var controllerService services.ControllerLogSinkServices
+			if err := getter.Get(config.LogSinkServices, &controllerService); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			controllerCfg, err := controllerService.ControllerConfig().ControllerConfig(ctx)
 			if err != nil {
 				return nil, errors.Annotate(err, "cannot read controller config")
 			}
@@ -135,6 +150,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					config.DebugLogger,
 					currentConfig.LogDir(),
 				),
+				ModelService: config.ModelServiceGetter(logSinkServicesGetter),
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -213,4 +229,21 @@ func (lw *logWriter) Log(records []corelogger.LogRecord) error {
 		}
 	}
 	return nil
+}
+
+// NewModelService returns a new model service.
+func NewModelService(servicesGetter services.LogSinkServicesGetter) ModelService {
+	return modelService{
+		servicesGetter: servicesGetter,
+	}
+}
+
+type modelService struct {
+	servicesGetter services.LogSinkServicesGetter
+}
+
+// Model returns the model information.
+func (s modelService) Model(ctx context.Context, modelUUID model.UUID) (model.ModelInfo, error) {
+	service := s.servicesGetter.ServicesForModel(modelUUID)
+	return service.Model().Model(ctx)
 }

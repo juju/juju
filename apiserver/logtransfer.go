@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/logsink"
 	corelogger "github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -54,24 +55,15 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		st.Release()
 		return errors.Trace(err)
 	}
-	m, err := st.Model()
-	if err != nil {
-		st.Release()
-		return errors.Trace(err)
-	}
 
-	key := corelogger.LoggerKey{
-		ModelUUID:  st.State.ModelUUID(),
-		ModelName:  m.Name(),
-		ModelOwner: m.Owner().Id(),
-	}
+	modelUUID := coremodel.UUID(st.State.ModelUUID())
 
-	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), key); err != nil {
+	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), modelUUID); err != nil {
 		return errors.Trace(err)
 	}
 	s.releaser = func() error {
 		if removed := st.Release(); removed {
-			return s.modelLogger.RemoveLogWriter(key)
+			return s.modelLogger.RemoveLogWriter(modelUUID)
 		}
 		return nil
 	}
