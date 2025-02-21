@@ -46,7 +46,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	// The statePool is only needed for worker creation
 	// currently but should be improved to watch for changes.
-	w, err := newWorker(systemState)
+	w, err := NewWorker(systemState, DefaultHTTPClient())
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)

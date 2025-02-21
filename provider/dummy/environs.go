@@ -1071,7 +1071,7 @@ func gatherJWTAuthenticator(controllerConfig jujucontroller.Config) (jwt.Authent
 	if jwtRefreshURL == "" {
 		return &jwt.NotImplementedAuthenticator{}, nil
 	}
-	parser := jwtparser.NewParser(jwtRefreshURL)
+	parser := jwtparser.NewParserWithHTTPClient(jwtparser.DefaultHTTPClient(), jwtRefreshURL)
 	if err := parser.RegisterJWKSCache(stdcontext.Background()); err != nil {
 		return nil, err
 	}

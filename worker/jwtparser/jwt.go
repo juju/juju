@@ -18,24 +18,22 @@ import (
 // JWTParser is a parser responsible for parsing JWT tokens.
 type JWTParser struct {
 	cache      *jwk.Cache
-	httpClient *http.Client
+	httpClient jwk.HTTPClient
 	refreshURL string
 }
 
-// NewParser creates a new JWT parser with a default http client.
-func NewParser(refreshURL string) *JWTParser {
-	httpClient := &http.Client{
+func DefaultHTTPClient() jwk.HTTPClient {
+	return &http.Client{
 		Timeout: 30 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
-	return NewParserWithHTTPClient(httpClient, refreshURL)
 }
 
 // NewParserWithHTTPClient creates a new JWT parser with a custom http client.
 func NewParserWithHTTPClient(
-	client *http.Client,
+	client jwk.HTTPClient,
 	refreshURL string,
 ) *JWTParser {
 	return &JWTParser{

@@ -8,9 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/controller"
 )
 
 type jwtParserWorker struct {
@@ -22,8 +23,17 @@ type Getter interface {
 	Get() *JWTParser
 }
 
-func newWorker(systemState *state.State) (worker.Worker, error) {
-	controllerConfig, err := systemState.ControllerConfig()
+type ControllerConfig interface {
+	ControllerConfig() (controller.Config, error)
+}
+
+type HTTPClient interface {
+	jwk.HTTPClient
+}
+
+// NewWorker returns a worker that provides a JWTParser.
+func NewWorker(configGetter ControllerConfig, httpClient jwk.HTTPClient) (worker.Worker, error) {
+	controllerConfig, err := configGetter.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
 	}
@@ -32,7 +42,7 @@ func newWorker(systemState *state.State) (worker.Worker, error) {
 	// If the login refresh URL is not set, we will return a nil parser.
 	var jwtParser *JWTParser
 	if jwtRefreshURL != "" {
-		jwtParser = NewParser(jwtRefreshURL)
+		jwtParser = NewParserWithHTTPClient(httpClient, jwtRefreshURL)
 		if err := jwtParser.RegisterJWKSCache(context.Background()); err != nil {
 			return nil, err
 		}
