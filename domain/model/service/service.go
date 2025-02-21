@@ -66,7 +66,19 @@ type State interface {
 	GetModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
 
 	// GetControllerModel returns the model the controller is running in.
+	// If no controller model exists then an error satisfying
+	// [modelerrors.NotFound] is returned.
 	GetControllerModel(ctx context.Context) (coremodel.Model, error)
+
+	// GetControllerModelUUID returns the model uuid for the controller model.
+	// If no controller model exists then an error satisfying
+	// [modelerrors.NotFound] is returned.
+	GetControllerModelUUID(context.Context) (coremodel.UUID, error)
+
+	// GetModelCloudNameAndCredential returns the cloud name and credential id
+	// for a model identified by the model uuid. If no model exists for the
+	// provided name and user a [modelerrors.NotFound] error is returned.
+	GetModelCloudNameAndCredential(context.Context, coremodel.UUID) (string, credential.Key, error)
 
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
@@ -95,11 +107,6 @@ type State interface {
 	// ListAllModelSummaries returns a slice of model summaries for all models
 	// known to the controller.
 	ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error)
-
-	// ModelCloudNameAndCredential returns the cloud name and credential id for a
-	// model identified by the model name and the owner. If no model exists for
-	// the provided name and user a [modelerrors.NotFound] error is returned.
-	ModelCloudNameAndCredential(context.Context, string, coreuser.Name) (string, credential.Key, error)
 
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
@@ -148,12 +155,19 @@ func NewService(
 func (s *Service) DefaultModelCloudNameAndCredential(
 	ctx context.Context,
 ) (string, credential.Key, error) {
-	cloudName, cred, err := s.st.ModelCloudNameAndCredential(
-		ctx, coremodel.ControllerModelName, coremodel.ControllerModelOwnerUsername,
-	)
+	ctrlUUID, err := s.st.GetControllerModelUUID(ctx)
+	if err != nil {
+		return "", credential.Key{}, errors.Errorf(
+			"getting controller model uuid: %w", err,
+		)
+	}
+	cloudName, cred, err := s.st.GetModelCloudNameAndCredential(ctx, ctrlUUID)
 
 	if err != nil {
-		return "", credential.Key{}, errors.Errorf("getting default model cloud name and credential: %w", err)
+		return "", credential.Key{}, errors.Errorf(
+			"getting controller model %q cloud name and credential: %w",
+			ctrlUUID, err,
+		)
 	}
 	return cloudName, cred, nil
 }
