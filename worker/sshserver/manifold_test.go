@@ -45,7 +45,7 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	// Check config as expected.
 
 	cfg := newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {})
-	c.Assert(cfg.Validate(), gc.IsNil)
+	c.Assert(cfg.Validate(), jc.ErrorIsNil)
 
 	// Entirely missing.
 	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
@@ -86,7 +86,6 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	l := loggo.GetLogger("test")
 	mockState := mocks.NewMockStateTracker(ctrl)
 	mockState.EXPECT().Use().Return(s.StatePool, nil).Times(1)
 
@@ -95,7 +94,7 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 		StateName:              "state",
 		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
 		NewServerWorker:        func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
-		Logger:                 l,
+		Logger:                 loggo.GetLogger("test"),
 	})
 
 	// Check the inputs are as expected
@@ -107,6 +106,6 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 			"state": mockState,
 		}),
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 }
