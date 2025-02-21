@@ -217,7 +217,6 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-
 	mockSystemState := mocks.NewMockSystemState(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
