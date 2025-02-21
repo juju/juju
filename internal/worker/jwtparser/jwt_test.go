@@ -58,20 +58,20 @@ func (s *jwtParserSuite) TearDownTest(_ *gc.C) {
 }
 
 func (s *jwtParserSuite) TestCacheRegistration(c *gc.C) {
-	authenticator := jwtparser.NewParser(s.url)
+	authenticator := jwtparser.NewParserWithHTTPClient(jwtparser.DefaultHTTPClient(), s.url)
 	err := authenticator.RegisterJWKSCache(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *jwtParserSuite) TestCacheRegistrationFailureWithBadURL(c *gc.C) {
-	authenticator := jwtparser.NewParser("noexisturl")
+	authenticator := jwtparser.NewParserWithHTTPClient(jwtparser.DefaultHTTPClient(), "noexisturl")
 	err := authenticator.RegisterJWKSCache(context.Background())
 	// We want to make sure that we get an error for a bad url.
 	c.Assert(err, gc.NotNil)
 }
 
 func (s *jwtParserSuite) TestParseJWT(c *gc.C) {
-	authenticator := jwtparser.NewParser(s.url)
+	authenticator := jwtparser.NewParserWithHTTPClient(jwtparser.DefaultHTTPClient(), s.url)
 	err := authenticator.RegisterJWKSCache(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
