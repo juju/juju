@@ -657,6 +657,11 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 			m := desired.members[id]
 			ms = append(ms, *m)
 		}
+		// In the case of a replica set change after a primary step
+		// down, the session needs to be refreshed on every other node
+		// in the replica set, so that the socket addresses are updated
+		// to the new primary.
+		w.config.MongoSession.Refresh()
 		if err := w.config.MongoSession.Set(ms); err != nil {
 			return nil, errors.WithType(err, replicaSetError)
 		}
