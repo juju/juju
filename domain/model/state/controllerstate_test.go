@@ -1780,12 +1780,8 @@ func (s *stateSuite) TestCloudSupportsAuthTypeTrue(c *gc.C) {
 	}
 	s.insertCloud(c, fakeCloud)
 
-	var supports bool
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		s, err := CloudSupportsAuthType(context.Background(), tx, fakeCloud.Name, cloud.UserPassAuthType)
-		supports = s
-		return err
-	})
+	st := NewState(s.TxnRunnerFactory())
+	supports, err := st.CloudSupportsAuthType(context.Background(), fakeCloud.Name, cloud.UserPassAuthType)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(supports, jc.IsTrue)
 }
@@ -1817,12 +1813,8 @@ func (s *stateSuite) TestCloudSupportsAuthTypeFalse(c *gc.C) {
 	}
 	s.insertCloud(c, fakeCloud)
 
-	var supports bool
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		s, err := CloudSupportsAuthType(context.Background(), tx, fakeCloud.Name, cloud.ClientCertificateAuthType)
-		supports = s
-		return err
-	})
+	st := NewState(s.TxnRunnerFactory())
+	supports, err := st.CloudSupportsAuthType(context.Background(), fakeCloud.Name, cloud.CertificateAuthType)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(supports, jc.IsFalse)
 }
@@ -1831,14 +1823,9 @@ func (s *stateSuite) TestCloudSupportsAuthTypeFalse(c *gc.C) {
 // cloud supports an auth type and the cloud doesn't exist we get back a
 // [clouderrors.NotFound] error.
 func (s *stateSuite) TestCloudSupportsAuthTypeCloudNotFound(c *gc.C) {
-	var supports bool
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		s, err := CloudSupportsAuthType(context.Background(), tx, "no-exist", cloud.AuthType("no-exist"))
-		supports = s
-		return err
-	})
-
-	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
+	st := NewState(s.TxnRunnerFactory())
+	supports, err := st.CloudSupportsAuthType(context.Background(), "no-exist", cloud.AuthType("no-exist"))
+	c.Check(err, jc.ErrorIs, clouderrors.NotFound)
 	c.Check(supports, jc.IsFalse)
 }
 

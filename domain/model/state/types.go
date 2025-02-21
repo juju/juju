@@ -19,14 +19,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// cloudID represents only the name and UUID of a cloud
-type cloudID struct {
-	// UUID holds the cloud's unique identifier.
-	UUID string `db:"uuid"`
-	// Name holds the cloud name.
-	Name string `db:"name"`
-}
-
 // dbModel represents the state of a model.
 type dbModel struct {
 	// Name is the human friendly name of the model.
