@@ -52,7 +52,14 @@ type State interface {
 	// If no model exists for the provided id then a [modelerrors.NotFound] will be
 	// returned. If the model has previously been activated a
 	// [modelerrors.AlreadyActivated] error will be returned.
-	Activate(ctx context.Context, uuid coremodel.UUID) error
+	Activate(context.Context, coremodel.UUID) error
+
+	// CloudSupportsAuthType is a check that allows the caller to find out if a
+	// cloud supports a specific auth type. If the cloud doesn't support the
+	// authtype then false is return with a nil error.
+	// If no cloud exists for the supplied name an error satisfying
+	// [github.com/juju/juju/domain/cloud/errors.NotFound] is returned.
+	CloudSupportsAuthType(context.Context, string, cloud.AuthType) (bool, error)
 
 	// GetModel returns the model associated with the provided uuid.
 	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
@@ -98,11 +105,11 @@ type State interface {
 	// GetModelUsers will retrieve basic information about all users with
 	// permissions on the given model UUID.
 	// If the model cannot be found it will return modelerrors.NotFound.
-	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
+	GetModelUsers(context.Context, coremodel.UUID) ([]coremodel.ModelUserInfo, error)
 
 	// ListModelSummariesForUser returns a slice of model summaries for a given
 	// user. If no models are found an empty slice is returned.
-	ListModelSummariesForUser(ctx context.Context, userName coreuser.Name) ([]coremodel.UserModelSummary, error)
+	ListModelSummariesForUser(context.Context, coreuser.Name) ([]coremodel.UserModelSummary, error)
 
 	// ListAllModelSummaries returns a slice of model summaries for all models
 	// known to the controller.
@@ -174,8 +181,8 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 
 // CreateModel is responsible for creating a new model from start to finish with
 // its associated metadata. The function will return the created model's id.
-// If the GlobalModelCreationArgs does not have a credential name set then no cloud
-// credential will be associated with model.
+// If the [GlobalModelCreationArgs] does not have a credential name set then a
+// default credential will be established.
 //
 // If the caller has not prescribed a specific agent version to use for the
 // model the current controllers supported agent version will be used.
@@ -220,8 +227,8 @@ func (s *Service) CreateModel(
 // createModel is responsible for creating a new model from start to finish with
 // its associated metadata. The function takes the model id to be used as part
 // of the creation. This helps serve both new model creation and model
-// importing. If the GlobalModelCreationArgs does not have a credential name set then
-// no cloud credential will be associated with model.
+// importing. If the [GlobalModelCreationArgs] does not have a credential name
+// set then a default credential will be established.
 //
 // If the caller has not prescribed a specific agent version to use for the
 // model the current controllers supported agent version will be used.
@@ -243,6 +250,9 @@ func (s *Service) CreateModel(
 // cannot be used with this controller.
 // - [secretbackenderrors.NotFound] When the secret backend for the model
 // cannot be found.
+// - [modelerrors.CredentialNotValid]: When the cloud credential for the model
+// is not valid. This means that either the credential is not supported with
+// the cloud or the cloud doesn't support having an empty credential.
 func (s *Service) createModel(
 	ctx context.Context,
 	id coremodel.UUID,
@@ -269,11 +279,87 @@ func (s *Service) createModel(
 		)
 	}
 
+	// First: Check to if a credential has been supplied and if not let's
+	// determine the most appropriate default credential to be used.
+	if args.Credential.IsZero() {
+		credKey, err := s.determineDefaultCloudCredential(ctx, args)
+		if err != nil {
+			return nil, errors.Errorf(
+				"determining a default cloud credential to use for new model %q: %w",
+				args.Name, err,
+			)
+		}
+
+		args.Credential = credKey
+	}
+
+	// Second: Now the default credential has potentially been applied we check
+	// to see if the credential is still zero. This indicates that an empty
+	// auth type is to be used for the cloud and this must be checked to see if
+	// it is supported by the cloud.
+	if args.Credential.IsZero() {
+		supports, err := s.st.CloudSupportsAuthType(ctx, args.Cloud, cloud.EmptyAuthType)
+		if err != nil {
+			return nil, errors.Errorf(
+				"checking if cloud %q support empty authentication for new model %q: %w",
+				args.Cloud, args.Name, err,
+			)
+		}
+
+		if !supports {
+			return nil, errors.Errorf(
+				"new model %q cloud %q does not support empty authentication, a credential needs to specified",
+				args.Name, args.Cloud,
+			).Add(modelerrors.CredentialNotValid)
+		}
+	}
+
 	activator := ModelActivator(func(ctx context.Context) error {
 		return s.st.Activate(ctx, id)
 	})
 
 	return activator, s.st.Create(ctx, id, modelType, args)
+}
+
+// determineDefaultCloudCredential is responsible for determining if there
+// exists a default cloud credential that can be used for the model that is
+// about to be created.
+//
+// The logic for this is looking to see if the model that is about to be created
+// has the same owner as that of the controller and also that the model is using
+// the same cloud as the controller. If both of these facts are true we are safe
+// to use the same cloud credential as the controller model. It is not an error
+// if there exists no controller model we simply just fall through to the next
+// determination.
+//
+// For all other cases this function will return the zero value of
+// [credential.Key] indicating an empty auth type is to be used. No checks are
+// performed by this function to see if empty auth type is valid for the cloud
+// the model is about to be created on.
+func (s *Service) determineDefaultCloudCredential(
+	ctx context.Context,
+	args model.GlobalModelCreationArgs,
+) (credential.Key, error) {
+	ctrlModel, err := s.st.GetControllerModel(ctx)
+
+	// If no controller model exists this is not an error. That is this should
+	// never happen but it also is not the opinion of this code about what this
+	// should mean as well.
+	if errors.Is(err, modelerrors.NotFound) {
+		return credential.Key{}, nil
+	} else if err != nil {
+		return credential.Key{}, errors.Errorf(
+			"getting controller model information: %w", err,
+		)
+	}
+
+	// If this is the same owner as the controller model and the same cloud we
+	// can re-use the same cloud credential as the controller model.
+	if args.Owner == ctrlModel.Owner && args.Cloud == ctrlModel.Cloud {
+		return ctrlModel.Credential, nil
+	}
+
+	return credential.Key{}, nil
 }
 
 // ImportModel is responsible for importing an existing model into this Juju

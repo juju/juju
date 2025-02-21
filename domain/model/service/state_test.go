@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -45,6 +46,14 @@ type dummyDeleter struct {
 func (d *dummyDeleter) DeleteDB(namespace string) error {
 	d.deleted[namespace] = struct{}{}
 	return nil
+}
+
+func (d *dummyState) CloudSupportsAuthType(
+	_ context.Context,
+	name string,
+	authType cloud.AuthType,
+) (bool, error) {
+	return true, nil
 }
 
 func (d *dummyState) CloudType(
@@ -234,24 +243,17 @@ func (d *dummyState) ListModelIDs(
 	return rval, nil
 }
 
-func (d *dummyState) ModelCloudNameAndCredential(
+func (d *dummyState) GetControllerModelUUID(
 	_ context.Context,
-	modelName string,
-	ownerName user.Name,
-) (string, credential.Key, error) {
-	var ownerUUID user.UUID
-	for k, v := range d.users {
-		if v == ownerName {
-			ownerUUID = k
-		}
-	}
+) (coremodel.UUID, error) {
+	return coremodel.UUID(""), nil
+}
 
-	for _, model := range d.models {
-		if model.Owner == ownerUUID && model.Name == modelName {
-			return model.Cloud, model.Credential, nil
-		}
-	}
-	return "", credential.Key{}, modelerrors.NotFound
+func (d *dummyState) GetModelCloudNameAndCredential(
+	_ context.Context,
+	_ coremodel.UUID,
+) (string, credential.Key, error) {
+	return "", credential.Key{}, errors.Errorf("not implemented")
 }
 
 func (d *dummyState) UpdateCredential(
