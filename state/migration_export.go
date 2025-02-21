@@ -3242,7 +3242,7 @@ func (e *exporter) charmContainers(containers map[string]charm.Container) map[st
 			}
 		}
 		result[name] = charmMetadataContainer{
-			resource: name,
+			resource: container.Resource,
 			mounts:   mounts,
 			uid:      container.Uid,
 			gid:      container.Gid,
