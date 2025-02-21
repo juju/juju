@@ -15,6 +15,7 @@ import (
 
 	charm "github.com/juju/juju/core/charm"
 	config "github.com/juju/juju/core/config"
+	constraints "github.com/juju/juju/core/constraints"
 	status "github.com/juju/juju/core/status"
 	application "github.com/juju/juju/domain/application"
 	charm0 "github.com/juju/juju/domain/application/charm"
@@ -181,6 +182,45 @@ func (c *MockExportServiceGetApplicationConfigAndSettingsCall) Do(f func(context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockExportServiceGetApplicationConfigAndSettingsCall) DoAndReturn(f func(context.Context, string) (config.ConfigAttributes, application.ApplicationSettings, error)) *MockExportServiceGetApplicationConfigAndSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationConstraints mocks base method.
+func (m *MockExportService) GetApplicationConstraints(arg0 context.Context, arg1 string) (constraints.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationConstraints", arg0, arg1)
+	ret0, _ := ret[0].(constraints.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationConstraints indicates an expected call of GetApplicationConstraints.
+func (mr *MockExportServiceMockRecorder) GetApplicationConstraints(arg0, arg1 any) *MockExportServiceGetApplicationConstraintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConstraints", reflect.TypeOf((*MockExportService)(nil).GetApplicationConstraints), arg0, arg1)
+	return &MockExportServiceGetApplicationConstraintsCall{Call: call}
+}
+
+// MockExportServiceGetApplicationConstraintsCall wrap *gomock.Call
+type MockExportServiceGetApplicationConstraintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockExportServiceGetApplicationConstraintsCall) Return(arg0 constraints.Value, arg1 error) *MockExportServiceGetApplicationConstraintsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockExportServiceGetApplicationConstraintsCall) Do(f func(context.Context, string) (constraints.Value, error)) *MockExportServiceGetApplicationConstraintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockExportServiceGetApplicationConstraintsCall) DoAndReturn(f func(context.Context, string) (constraints.Value, error)) *MockExportServiceGetApplicationConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

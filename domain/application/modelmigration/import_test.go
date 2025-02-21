@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
@@ -353,6 +354,84 @@ func (s *importSuite) TestApplicationImportWithApplicationStatusNotSet(c *gc.C) 
 	c.Check(importArgs.ApplicationStatus, jc.DeepEquals, &status.StatusInfo{
 		Status: status.Unset,
 	})
+}
+
+func (s *importSuite) TestApplicationImportWithConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	appArgs := description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("prometheus"),
+		CharmURL: "ch:prometheus-1",
+	}
+	app := model.AddApplication(appArgs)
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	app.SetConstraints(description.ConstraintsArgs{
+		AllocatePublicIP: true,
+		Architecture:     "amd64",
+		Container:        "lxd",
+		CpuCores:         uint64(2),
+		CpuPower:         uint64(1000),
+		ImageID:          "foo",
+		InstanceType:     "baz",
+		VirtType:         "vm",
+		Memory:           uint64(1024),
+		RootDisk:         uint64(1024),
+		RootDiskSource:   "qux",
+		Spaces:           []string{"space0", "space1"},
+		Tags:             []string{"tag0", "tag1"},
+		Zones:            []string{"zone0", "zone1"},
+	})
+
+	s.importService.EXPECT().ImportApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
+		c.Check(args.ApplicationConstraints.AllocatePublicIP, gc.DeepEquals, ptr(true))
+		c.Check(args.ApplicationConstraints.Arch, gc.DeepEquals, ptr("amd64"))
+		c.Check(args.ApplicationConstraints.Container, gc.DeepEquals, ptr(instance.ContainerType("lxd")))
+		c.Check(args.ApplicationConstraints.CpuCores, gc.DeepEquals, ptr(uint64(2)))
+		c.Check(args.ApplicationConstraints.CpuPower, gc.DeepEquals, ptr(uint64(1000)))
+		c.Check(args.ApplicationConstraints.ImageID, gc.DeepEquals, ptr("foo"))
+		c.Check(args.ApplicationConstraints.InstanceType, gc.DeepEquals, ptr("baz"))
+		c.Check(args.ApplicationConstraints.VirtType, gc.DeepEquals, ptr("vm"))
+		c.Check(args.ApplicationConstraints.Mem, gc.DeepEquals, ptr(uint64(1024)))
+		c.Check(args.ApplicationConstraints.RootDisk, gc.DeepEquals, ptr(uint64(1024)))
+		c.Check(args.ApplicationConstraints.RootDiskSource, gc.DeepEquals, ptr("qux"))
+		c.Check(args.ApplicationConstraints.Spaces, gc.DeepEquals, ptr([]string{"space0", "space1"}))
+		c.Check(args.ApplicationConstraints.Tags, gc.DeepEquals, ptr([]string{"tag0", "tag1"}))
+		c.Check(args.ApplicationConstraints.Zones, gc.DeepEquals, ptr([]string{"zone0", "zone1"}))
+		return nil
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *importSuite) TestImportCharmMetadataEmpty(c *gc.C) {
