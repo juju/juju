@@ -325,6 +325,7 @@ func (s *permBaseSuite) TestDestroyRelationBlocked(c *gc.C) {
 }
 
 func (s *permBaseSuite) TestSetRelationsSuspendedPermission(c *gc.C) {
+	c.Skip("cross model relations are disabled until backend functionality is moved to domain")
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)
@@ -337,6 +338,7 @@ func (s *permBaseSuite) TestSetRelationsSuspendedPermission(c *gc.C) {
 }
 
 func (s *permBaseSuite) TestSetRelationsSuspendedBlocked(c *gc.C) {
+	c.Skip("cross model relations are disabled until backend functionality is moved to domain")
 	defer s.setupMocks(c).Finish()
 
 	s.expectAuthClient(c)

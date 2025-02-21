@@ -42,9 +42,15 @@ func NewService(
 	}
 }
 
-// AddRelation adds a relation between the two provided endpoints.
-func (s *Service) AddRelation(ctx context.Context, eps []relation.Endpoint) error {
-	return errors.NotImplemented
+// AddRelation takes two endpoints identifiers of the form
+// <application>[:<endpoint>]. The identifiers will be used to infer two
+// endpoint between applications on the model. A new relation will be created
+// between these endpoints and the details of the endpoint returned.
+//
+// If the identifiers do not uniquely specify a relation, an error will be
+// returned.
+func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error) {
+	return relation.Endpoint{}, relation.Endpoint{}, errors.NotImplemented
 }
 
 // AllRelations

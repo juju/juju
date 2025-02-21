@@ -87,49 +87,6 @@ func (c *MockBackendAddApplicationCall) DoAndReturn(f func(state.AddApplicationA
 	return c
 }
 
-// AddRelation mocks base method.
-func (m *MockBackend) AddRelation(arg0 ...relation.Endpoint) (Relation, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "AddRelation", varargs...)
-	ret0, _ := ret[0].(Relation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddRelation indicates an expected call of AddRelation.
-func (mr *MockBackendMockRecorder) AddRelation(arg0 ...any) *MockBackendAddRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelation", reflect.TypeOf((*MockBackend)(nil).AddRelation), arg0...)
-	return &MockBackendAddRelationCall{Call: call}
-}
-
-// MockBackendAddRelationCall wrap *gomock.Call
-type MockBackendAddRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAddRelationCall) Return(arg0 Relation, arg1 error) *MockBackendAddRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAddRelationCall) Do(f func(...relation.Endpoint) (Relation, error)) *MockBackendAddRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAddRelationCall) DoAndReturn(f func(...relation.Endpoint) (Relation, error)) *MockBackendAddRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // AddRemoteApplication mocks base method.
 func (m *MockBackend) AddRemoteApplication(arg0 state.AddRemoteApplicationParams) (RemoteApplication, error) {
 	m.ctrl.T.Helper()
@@ -284,92 +241,6 @@ func (c *MockBackendControllerTagCall) DoAndReturn(f func() names.ControllerTag)
 	return c
 }
 
-// InferActiveRelation mocks base method.
-func (m *MockBackend) InferActiveRelation(arg0 ...string) (Relation, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "InferActiveRelation", varargs...)
-	ret0, _ := ret[0].(Relation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// InferActiveRelation indicates an expected call of InferActiveRelation.
-func (mr *MockBackendMockRecorder) InferActiveRelation(arg0 ...any) *MockBackendInferActiveRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InferActiveRelation", reflect.TypeOf((*MockBackend)(nil).InferActiveRelation), arg0...)
-	return &MockBackendInferActiveRelationCall{Call: call}
-}
-
-// MockBackendInferActiveRelationCall wrap *gomock.Call
-type MockBackendInferActiveRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendInferActiveRelationCall) Return(arg0 Relation, arg1 error) *MockBackendInferActiveRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendInferActiveRelationCall) Do(f func(...string) (Relation, error)) *MockBackendInferActiveRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendInferActiveRelationCall) DoAndReturn(f func(...string) (Relation, error)) *MockBackendInferActiveRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// InferEndpoints mocks base method.
-func (m *MockBackend) InferEndpoints(arg0 ...string) ([]relation.Endpoint, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "InferEndpoints", varargs...)
-	ret0, _ := ret[0].([]relation.Endpoint)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// InferEndpoints indicates an expected call of InferEndpoints.
-func (mr *MockBackendMockRecorder) InferEndpoints(arg0 ...any) *MockBackendInferEndpointsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InferEndpoints", reflect.TypeOf((*MockBackend)(nil).InferEndpoints), arg0...)
-	return &MockBackendInferEndpointsCall{Call: call}
-}
-
-// MockBackendInferEndpointsCall wrap *gomock.Call
-type MockBackendInferEndpointsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendInferEndpointsCall) Return(arg0 []relation.Endpoint, arg1 error) *MockBackendInferEndpointsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendInferEndpointsCall) Do(f func(...string) ([]relation.Endpoint, error)) *MockBackendInferEndpointsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendInferEndpointsCall) DoAndReturn(f func(...string) ([]relation.Endpoint, error)) *MockBackendInferEndpointsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Machine mocks base method.
 func (m *MockBackend) Machine(arg0 string) (Machine, error) {
 	m.ctrl.T.Helper()
@@ -405,45 +276,6 @@ func (c *MockBackendMachineCall) Do(f func(string) (Machine, error)) *MockBacken
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendMachineCall) DoAndReturn(f func(string) (Machine, error)) *MockBackendMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// OfferConnectionForRelation mocks base method.
-func (m *MockBackend) OfferConnectionForRelation(arg0 string) (OfferConnection, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OfferConnectionForRelation", arg0)
-	ret0, _ := ret[0].(OfferConnection)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// OfferConnectionForRelation indicates an expected call of OfferConnectionForRelation.
-func (mr *MockBackendMockRecorder) OfferConnectionForRelation(arg0 any) *MockBackendOfferConnectionForRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferConnectionForRelation", reflect.TypeOf((*MockBackend)(nil).OfferConnectionForRelation), arg0)
-	return &MockBackendOfferConnectionForRelationCall{Call: call}
-}
-
-// MockBackendOfferConnectionForRelationCall wrap *gomock.Call
-type MockBackendOfferConnectionForRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendOfferConnectionForRelationCall) Return(arg0 OfferConnection, arg1 error) *MockBackendOfferConnectionForRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendOfferConnectionForRelationCall) Do(f func(string) (OfferConnection, error)) *MockBackendOfferConnectionForRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendOfferConnectionForRelationCall) DoAndReturn(f func(string) (OfferConnection, error)) *MockBackendOfferConnectionForRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -487,45 +319,6 @@ func (c *MockBackendReadSequenceCall) DoAndReturn(f func(string) (int, error)) *
 	return c
 }
 
-// Relation mocks base method.
-func (m *MockBackend) Relation(arg0 int) (Relation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Relation", arg0)
-	ret0, _ := ret[0].(Relation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Relation indicates an expected call of Relation.
-func (mr *MockBackendMockRecorder) Relation(arg0 any) *MockBackendRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relation", reflect.TypeOf((*MockBackend)(nil).Relation), arg0)
-	return &MockBackendRelationCall{Call: call}
-}
-
-// MockBackendRelationCall wrap *gomock.Call
-type MockBackendRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendRelationCall) Return(arg0 Relation, arg1 error) *MockBackendRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendRelationCall) Do(f func(int) (Relation, error)) *MockBackendRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendRelationCall) DoAndReturn(f func(int) (Relation, error)) *MockBackendRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // RemoteApplication mocks base method.
 func (m *MockBackend) RemoteApplication(arg0 string) (RemoteApplication, error) {
 	m.ctrl.T.Helper()
@@ -561,45 +354,6 @@ func (c *MockBackendRemoteApplicationCall) Do(f func(string) (RemoteApplication,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendRemoteApplicationCall) DoAndReturn(f func(string) (RemoteApplication, error)) *MockBackendRemoteApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SaveEgressNetworks mocks base method.
-func (m *MockBackend) SaveEgressNetworks(arg0 string, arg1 []string) (state.RelationNetworks, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveEgressNetworks", arg0, arg1)
-	ret0, _ := ret[0].(state.RelationNetworks)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SaveEgressNetworks indicates an expected call of SaveEgressNetworks.
-func (mr *MockBackendMockRecorder) SaveEgressNetworks(arg0, arg1 any) *MockBackendSaveEgressNetworksCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveEgressNetworks", reflect.TypeOf((*MockBackend)(nil).SaveEgressNetworks), arg0, arg1)
-	return &MockBackendSaveEgressNetworksCall{Call: call}
-}
-
-// MockBackendSaveEgressNetworksCall wrap *gomock.Call
-type MockBackendSaveEgressNetworksCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendSaveEgressNetworksCall) Return(arg0 state.RelationNetworks, arg1 error) *MockBackendSaveEgressNetworksCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendSaveEgressNetworksCall) Do(f func(string, []string) (state.RelationNetworks, error)) *MockBackendSaveEgressNetworksCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendSaveEgressNetworksCall) DoAndReturn(f func(string, []string) (state.RelationNetworks, error)) *MockBackendSaveEgressNetworksCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1392,45 +1146,6 @@ func (c *MockApplicationNameCall) Do(f func() string) *MockApplicationNameCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationNameCall) DoAndReturn(f func() string) *MockApplicationNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Relations mocks base method.
-func (m *MockApplication) Relations() ([]Relation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Relations")
-	ret0, _ := ret[0].([]Relation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Relations indicates an expected call of Relations.
-func (mr *MockApplicationMockRecorder) Relations() *MockApplicationRelationsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relations", reflect.TypeOf((*MockApplication)(nil).Relations))
-	return &MockApplicationRelationsCall{Call: call}
-}
-
-// MockApplicationRelationsCall wrap *gomock.Call
-type MockApplicationRelationsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationRelationsCall) Return(arg0 []Relation, arg1 error) *MockApplicationRelationsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationRelationsCall) Do(f func() ([]Relation, error)) *MockApplicationRelationsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationRelationsCall) DoAndReturn(f func() ([]Relation, error)) *MockApplicationRelationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

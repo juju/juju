@@ -6,7 +6,6 @@ package application
 import (
 	"context"
 	"fmt"
-	"net"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -16,7 +15,6 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -85,6 +83,7 @@ type APIBase struct {
 	applicationService ApplicationService
 	networkService     NetworkService
 	portService        PortService
+	relationService    RelationService
 	resourceService    ResourceService
 	stubService        StubService
 	storageService     StorageService
@@ -189,6 +188,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			MachineService:            domainServices.Machine(),
 			ApplicationService:        applicationService,
 			PortService:               domainServices.Port(),
+			RelationService:           domainServices.Relation(),
 			ResourceService:           domainServices.Resource(),
 			StorageService:            storageService,
 			StubService:               domainServices.Stub(),
@@ -268,6 +268,7 @@ func NewAPIBase(
 		modelConfigService:        services.ModelConfigService,
 		networkService:            services.NetworkService,
 		portService:               services.PortService,
+		relationService:           services.RelationService,
 		resourceService:           services.ResourceService,
 		storageService:            services.StorageService,
 		stubService:               services.StubService,
@@ -1816,48 +1817,46 @@ func (api *APIBase) SetConstraints(ctx context.Context, args params.SetConstrain
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_ params.AddRelationResults, err error) {
 	if err := api.checkCanWrite(ctx); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
+		return params.AddRelationResults{}, internalerrors.Capture(err)
 	}
 	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
-	}
-
-	var rel Relation
-	defer func() {
-		if err != nil && rel != nil {
-			if err := rel.Destroy(api.store); err != nil {
-				api.logger.Errorf(context.TODO(), "cannot destroy aborted relation %q: %v", rel.Tag().Id(), err)
-			}
-		}
-	}()
-
-	inEps, err := api.backend.InferEndpoints(args.Endpoints...)
-	if err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
+		return params.AddRelationResults{}, internalerrors.Capture(err)
 	}
 
 	if len(args.ViaCIDRs) > 0 {
-		return params.AddRelationResults{},
-			errors.NotSupportedf("integration via subnets is only for cross model relations which are not yet" +
-				" implemented")
+		// Integration via subnets is only for cross model relations.
+		return params.AddRelationResults{}, internalerrors.Errorf("cross model relations are disabled until "+
+			"backend functionality is moved to domain: %w", errors.NotImplemented)
 	}
 
-	outEps := make(map[string]params.CharmRelation)
-	for _, inEp := range inEps {
-		outEp, err := rel.Endpoint(inEp.ApplicationName)
-		if err != nil {
-			return params.AddRelationResults{}, errors.Trace(err)
-		}
-		outEps[inEp.ApplicationName] = params.CharmRelation{
-			Name:      outEp.Relation.Name,
-			Role:      string(outEp.Relation.Role),
-			Interface: outEp.Relation.Interface,
-			Optional:  outEp.Relation.Optional,
-			Limit:     outEp.Relation.Limit,
-			Scope:     string(outEp.Relation.Scope),
-		}
+	if len(args.Endpoints) != 2 {
+		return params.AddRelationResults{}, errors.BadRequestf("a relation should have exactly two endpoints")
 	}
-	return params.AddRelationResults{Endpoints: outEps}, nil
+	ep1, ep2, err := api.relationService.AddRelation(
+		ctx, args.Endpoints[0], args.Endpoints[1],
+	)
+	if err != nil {
+		return params.AddRelationResults{}, internalerrors.Errorf(
+			"adding relation between endpoints %q and %q: %w",
+			args.Endpoints[0], args.Endpoints[1], err,
+		)
+	}
+	return params.AddRelationResults{Endpoints: map[string]params.CharmRelation{
+		ep1.ApplicationID.String(): encodeRelation(ep1.Relation),
+		ep2.ApplicationID.String(): encodeRelation(ep2.Relation),
+	}}, nil
+}
+
+// encodeRelation encodes a relation for sending over the wire.
+func encodeRelation(rel charm.Relation) params.CharmRelation {
+	return params.CharmRelation{
+		Name:      rel.Name,
+		Role:      string(rel.Role),
+		Interface: rel.Interface,
+		Optional:  rel.Optional,
+		Limit:     rel.Limit,
+		Scope:     string(rel.Scope),
+	}
 }
 
 // DestroyRelation removes the relation between the
@@ -1867,88 +1866,24 @@ func (api *APIBase) DestroyRelation(ctx context.Context, args params.DestroyRela
 		return err
 	}
 	if err := api.check.RemoveAllowed(ctx); err != nil {
-		return errors.Trace(err)
+		return internalerrors.Capture(err)
 	}
-	var rel Relation
-	if len(args.Endpoints) > 0 {
-		rel, err = api.backend.InferActiveRelation(args.Endpoints...)
-	} else {
-		rel, err = api.backend.Relation(args.RelationId)
-	}
-	if err != nil {
-		return err
-	}
-	force := args.Force != nil && *args.Force
-	errs, err := rel.DestroyWithForce(force, common.MaxWait(args.MaxWait))
-	if len(errs) != 0 {
-		api.logger.Warningf(context.TODO(), "operational errors destroying relation %v: %v", rel.Tag().Id(), errs)
-	}
-	return err
+
+	return internalerrors.Errorf("destroying relations is not yet supported%w", errors.NotImplemented)
 }
 
 // SetRelationsSuspended sets the suspended status of the specified relations.
 func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.RelationSuspendedArgs) (params.ErrorResults, error) {
-	var statusResults params.ErrorResults
-	if err := api.checkCanWrite(ctx); err != nil {
-		return statusResults, errors.Trace(err)
-	}
-	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return statusResults, errors.Trace(err)
-	}
-
-	changeOne := func(arg params.RelationSuspendedArg) error {
-		rel, err := api.backend.Relation(arg.RelationId)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if rel.Suspended() == arg.Suspended {
-			return nil
-		}
-		oc, err := api.backend.OfferConnectionForRelation(rel.Tag().Id())
-		if errors.Is(err, errors.NotFound) {
-			return errors.Errorf("cannot set suspend status for %q which is not associated with an offer", rel.Tag().Id())
-		}
-		if oc != nil && !arg.Suspended && rel.Suspended() {
-			ok, err := commoncrossmodel.CheckCanConsume(ctx, api.authorizer, api.backend.ControllerTag(), names.NewModelTag(api.modelInfo.UUID.String()), oc)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if !ok {
-				return apiservererrors.ErrPerm
-			}
-		}
-
-		message := arg.Message
-		if !arg.Suspended {
-			message = ""
-		}
-		err = rel.SetSuspended(arg.Suspended, message)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		statusValue := status.Joining
-		if arg.Suspended {
-			statusValue = status.Suspending
-		}
-		return rel.SetStatus(status.StatusInfo{
-			Status:  statusValue,
-			Message: arg.Message,
-		})
-	}
-	results := make([]params.ErrorResult, len(args.Args))
-	for i, arg := range args.Args {
-		err := changeOne(arg)
-		results[i].Error = apiservererrors.ServerError(err)
-	}
-	statusResults.Results = results
-	return statusResults, nil
+	// Suspending relation is only available for Cross Model Relations
+	return params.ErrorResults{}, internalerrors.Errorf("cross model relations are disabled until "+
+		"backend functionality is moved to domain: %w", errors.NotImplemented)
 }
 
 // Consume adds remote applications to the model without creating any
 // relations.
 func (api *APIBase) Consume(ctx context.Context, args params.ConsumeApplicationArgsV5) (params.ErrorResults, error) {
-	return params.ErrorResults{}, internalerrors.Errorf("cross model relations are disabled until backend functionality is moved to domain: %w", errors.NotImplemented)
+	return params.ErrorResults{}, internalerrors.Errorf("cross model relations are disabled until "+
+		"backend functionality is moved to domain: %w", errors.NotImplemented)
 }
 
 // Get returns the charm configuration for an application.
@@ -2459,7 +2394,7 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 			result.OpenedPorts = container.Ports()
 		}
 	}
-	result.RelationData, err = api.relationData(app, unit)
+	result.RelationData, err = api.relationData(ctx, app)
 	if err != nil {
 		return nil, err
 	}
@@ -2483,116 +2418,34 @@ func (api *APIBase) openPortsOnUnit(ctx context.Context, unitUUID coreunit.UUID)
 	return result, nil
 }
 
-func (api *APIBase) relationData(app Application, myUnit Unit) ([]params.EndpointRelationData, error) {
-	rels, err := app.Relations()
+func (api *APIBase) relationData(ctx context.Context, app Application) ([]params.EndpointRelationData, error) {
+	appID, err := api.applicationService.GetApplicationIDByName(ctx, app.Name())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Errorf("getting application id for %q: %v", app.Name(), err)
 	}
-	result := make([]params.EndpointRelationData, len(rels))
-	for i, rel := range rels {
-		ep, err := rel.Endpoint(app.Name())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		erd := params.EndpointRelationData{
-			RelationId:       rel.Id(),
-			Endpoint:         ep.Name,
-			ApplicationData:  make(map[string]interface{}),
-			UnitRelationData: make(map[string]params.RelationData),
-		}
-		relatedEps, err := rel.RelatedEndpoints(app.Name())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		// There is only one related endpoint.
-		related := relatedEps[0]
-		erd.RelatedEndpoint = related.Name
-
-		appSettings, err := rel.ApplicationSettings(related.ApplicationName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for k, v := range appSettings {
-			erd.ApplicationData[k] = v
-		}
-
-		otherApp, err := api.backend.Application(related.ApplicationName)
-		if errors.Is(err, errors.NotFound) {
-			erd.CrossModel = true
-			if err := api.crossModelRelationData(rel, related.ApplicationName, &erd); err != nil {
-				return nil, errors.Trace(err)
+	endpointsData, err := api.relationService.ApplicationRelationsInfo(ctx, appID)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	var result []params.EndpointRelationData
+	for _, endpointData := range endpointsData {
+		unitRelationData := make(map[string]params.RelationData)
+		for k, v := range endpointData.UnitRelationData {
+			unitRelationData[k] = params.RelationData{
+				InScope:  v.InScope,
+				UnitData: v.UnitData,
 			}
-			result[i] = erd
-			continue
 		}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		otherUnits, err := otherApp.AllUnits()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, u := range otherUnits {
-			ru, err := rel.Unit(u.Name())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			inScope, err := ru.InScope()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			urd := params.RelationData{
-				InScope: inScope,
-			}
-			if inScope {
-				settings, err := ru.Settings()
-				if err != nil && !errors.Is(err, errors.NotFound) {
-					return nil, errors.Trace(err)
-				}
-				if err == nil {
-					urd.UnitData = make(map[string]interface{})
-					for k, v := range settings {
-						urd.UnitData[k] = v
-					}
-				}
-			}
-			erd.UnitRelationData[u.Name()] = urd
-		}
-
-		result[i] = erd
+		result = append(result, params.EndpointRelationData{
+			RelationId:       endpointData.RelationID,
+			Endpoint:         endpointData.Endpoint,
+			CrossModel:       false,
+			RelatedEndpoint:  endpointData.RelatedEndpoint,
+			ApplicationData:  endpointData.ApplicationData,
+			UnitRelationData: unitRelationData,
+		})
 	}
 	return result, nil
-}
-
-func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *params.EndpointRelationData) error {
-	rus, err := rel.AllRemoteUnits(appName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, ru := range rus {
-		inScope, err := ru.InScope()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		urd := params.RelationData{
-			InScope: inScope,
-		}
-		if inScope {
-			settings, err := ru.Settings()
-			if err != nil && !errors.Is(err, errors.NotFound) {
-				return errors.Trace(err)
-			}
-			if err == nil {
-				urd.UnitData = make(map[string]interface{})
-				for k, v := range settings {
-					urd.UnitData[k] = v
-				}
-			}
-		}
-		erd.UnitRelationData[ru.UnitName()] = urd
-	}
-	return nil
 }
 
 // Leader returns the unit name of the leader for the given application.
