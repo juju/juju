@@ -5,9 +5,6 @@ package state
 
 import (
 	"context"
-	"maps"
-	"slices"
-	"strings"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -418,11 +415,31 @@ func (st *State) ListResources(
 	ctx context.Context,
 	applicationID application.ID,
 ) (coreresource.ApplicationResources, error) {
-	db, err := st.DB()
+	potential, available, err := st.listApplicationResources(ctx, applicationID)
 	if err != nil {
 		return coreresource.ApplicationResources{}, errors.Capture(err)
 	}
 
+	unitResources, err := st.listUnitResources(ctx, applicationID)
+	if err != nil {
+		return coreresource.ApplicationResources{}, errors.Capture(err)
+	}
+
+	return coreresource.ApplicationResources{
+		Resources:           available,
+		RepositoryResources: potential,
+		UnitResources:       unitResources,
+	}, nil
+}
+
+func (st *State) listApplicationResources(
+	ctx context.Context,
+	applicationID application.ID,
+) ([]charmresource.Resource, []coreresource.Resource, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
 	// Prepare the application ID to query resources by application.
 	appID := resourceIdentity{
 		ApplicationUUID: applicationID.String(),
@@ -431,53 +448,19 @@ func (st *State) ListResources(
 	// Prepare the statement to get resources for the given application.
 	getResourcesQuery := `
 SELECT &resourceView.* 
-FROM v_resource
+FROM v_application_resource
 WHERE application_uuid = $resourceIdentity.application_uuid`
 	getResourcesStmt, err := st.Prepare(getResourcesQuery, appID, resourceView{})
 	if err != nil {
-		return coreresource.ApplicationResources{}, errors.Capture(err)
+		return nil, nil, errors.Capture(err)
 	}
 
-	// Prepare the statement to get units related to a resource.
-	getResourceUnitsQuery := `
-SELECT &unitResource.*	
-FROM unit_resource
-WHERE resource_uuid = $resourceIdentity.uuid`
-	getUnitStmt, err := st.Prepare(getResourceUnitsQuery, appID, unitResource{})
-	if err != nil {
-		return coreresource.ApplicationResources{}, errors.Capture(err)
-	}
-
-	getApplicationUnitsStmt, err := st.Prepare(`
-SELECT &unitUUIDAndName.*
-FROM unit 
-WHERE application_uuid = $resourceIdentity.application_uuid
-	`, appID, unitUUIDAndName{})
-	if err != nil {
-		return coreresource.ApplicationResources{}, errors.Capture(err)
-	}
-
-	var result coreresource.ApplicationResources
+	var (
+		potential []charmresource.Resource
+		available []coreresource.Resource
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
-
-		// Map to hold unit-specific resources
-		resByUnit := map[coreunit.UUID]coreresource.UnitResources{}
-		// Query all units for the given application
-		var applicationUnits []unitUUIDAndName
-		err = tx.Query(ctx, getApplicationUnitsStmt, appID).GetAll(&applicationUnits)
-		// it is ok to not have any units.
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		}
-
-		for _, unit := range applicationUnits {
-			resByUnit[coreunit.UUID(unit.UUID)] = coreresource.UnitResources{
-				Name:      coreunit.Name(unit.Name),
-				Resources: nil,
-			}
-		}
-
-		// resource found for the application
+		// Resources found linked to the application.
 		var resources []resourceView
 
 		// Query to get all resources for the given application.
@@ -489,60 +472,107 @@ WHERE application_uuid = $resourceIdentity.application_uuid
 			return errors.Capture(err)
 		}
 
-		// Process each resource from the application to check polled state
-		// and if they are associated with a unit.
+		// Process each resource linked to the application and verify state.
 		for _, res := range resources {
 
 			if res.State == resource.StatePotential.String() {
-				// Add the charm resource
+				if res.Revision == nil {
+					// Discard nil revision, those are placeholders
+					continue
+				}
+				// Convert to charm resource.
 				charmRes, err := res.toCharmResource()
 				if err != nil {
 					return errors.Capture(err)
 				}
-				result.RepositoryResources = append(result.RepositoryResources, charmRes)
+				// Add potential resource.
+				potential = append(potential, charmRes)
 				continue
-			}
-
-			resId := resourceIdentity{UUID: res.UUID, ApplicationUUID: res.ApplicationUUID}
-
-			// Fetch units related to the resource.
-			var units []unitResource
-			err = tx.Query(ctx, getUnitStmt, resId).GetAll(&units)
-			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Capture(err)
 			}
 
 			r, err := res.toResource()
 			if err != nil {
 				return errors.Capture(err)
 			}
-			// Add each resource.
-			result.Resources = append(result.Resources, r)
-
-			// Sort by unit to generate unit resources.
-			for _, unit := range units {
-				unitRes, ok := resByUnit[coreunit.UUID(unit.UnitUUID)]
-				if !ok {
-					return errors.Errorf("unexpected unit %q linked to resource %q.", unit.UnitUUID, unitRes.Name)
-				}
-				ur, err := res.toResource()
-				if err != nil {
-					return errors.Capture(err)
-				}
-				unitRes.Resources = append(unitRes.Resources, ur)
-				resByUnit[coreunit.UUID(unit.UnitUUID)] = unitRes
-			}
+			// Add available resource.
+			available = append(available, r)
 		}
-		// Collect and sort unit resources.
-		units := slices.SortedFunc(maps.Values(resByUnit), func(r1, r2 coreresource.UnitResources) int {
-			return strings.Compare(r1.Name.String(), r2.Name.String())
-		})
-		result.UnitResources = append(result.UnitResources, units...)
+		return nil
+	})
+	return potential, available, errors.Capture(err)
+}
+
+func (st *State) listUnitResources(
+	ctx context.Context,
+	applicationID application.ID,
+) ([]coreresource.UnitResources, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	// Prepare the application ID to query resources by application.
+	appID := resourceIdentity{
+		ApplicationUUID: applicationID.String(),
+	}
+
+	// Prepare the statement to get units related to a resource.
+	getApplicationUnitsStmt, err := st.Prepare(`
+		SELECT &unitUUIDAndName.*
+		FROM unit
+		WHERE application_uuid = $resourceIdentity.application_uuid
+			`, appID, unitUUIDAndName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Prepare the statement to get resources linked to a unit
+	getResourcesStmt, err := st.Prepare(`
+		SELECT &resourceView.*
+		FROM v_unit_resource
+		WHERE unit_uuid = $unitUUIDAndName.uuid`, resourceView{}, unitUUIDAndName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var unitResources []coreresource.UnitResources
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) (err error) {
+		// Units linked to the application.
+		var units []unitUUIDAndName
+
+		// Query to get all units for the given application.
+		err = tx.Query(ctx, getApplicationUnitsStmt, appID).GetAll(&units)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil // nothing found
+		}
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		// Process each unit linked to the application and get its resources.
+		for _, unit := range units {
+			var resourceViews []resourceView
+
+			err = tx.Query(ctx, getResourcesStmt, unit).GetAll(&resourceViews)
+			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("get resources for unit %q: %w", unit.Name, err)
+			}
+			var resources []coreresource.Resource
+			for _, res := range resourceViews {
+				r, err := res.toResource()
+				if err != nil {
+					return errors.Errorf("transform resource %q for unit %q: %w", res.Name, unit.Name, err)
+				}
+				resources = append(resources, r)
+			}
+			unitResources = append(unitResources, coreresource.UnitResources{
+				Name:      coreunit.Name(unit.Name),
+				Resources: resources,
+			})
+		}
 		return nil
 	})
 
-	// Return the list of application resources along with unit resources.
-	return result, errors.Capture(err)
+	return unitResources, errors.Capture(err)
 }
 
 // GetResourcesByApplicationID returns the list of resource for the given application.
@@ -571,7 +601,7 @@ func (st *State) GetResourcesByApplicationID(
 	// Prepare the statement to get resources for the given application.
 	getResourcesQuery := `
 SELECT &resourceView.* 
-FROM v_resource
+FROM v_application_resource
 WHERE application_uuid = $resourceIdentity.application_uuid
 AND state = 'available'`
 	getResourcesStmt, err := st.Prepare(getResourcesQuery, appID, resourceView{})
@@ -627,7 +657,7 @@ func (st *State) GetResource(ctx context.Context,
 
 	stmt, err := st.Prepare(`
 SELECT &resourceView.*
-FROM v_resource
+FROM v_application_resource
 WHERE uuid = $resourceIdentity.uuid`,
 		resourceParam, resourceOutput)
 	if err != nil {
@@ -742,7 +772,7 @@ func (st *State) getResourceType(
 	}
 	getResourceType, err := st.Prepare(`
 SELECT &resourceKind.kind_name 
-FROM   v_resource
+FROM   v_application_resource
 WHERE  uuid = $resourceKind.uuid
 `, resKind)
 	if err != nil {

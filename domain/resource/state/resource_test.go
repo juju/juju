@@ -222,7 +222,7 @@ func (s *resourceSuite) TestDeleteApplicationResourcesErrorRemainingUnits(c *gc.
 		// fetch resources
 		var discard string
 		return tx.QueryRow(`
-SELECT uuid FROM v_resource
+SELECT uuid FROM v_application_resource
 WHERE uuid = ? AND application_uuid = ? AND name = ?`,
 			input.UUID, input.ApplicationUUID, input.Name,
 		).Scan(&discard)
@@ -271,7 +271,7 @@ VALUES (?,'store-uuid')`, input.UUID); err != nil {
 		// fetch resources
 		var discard string
 		return tx.QueryRow(`
-SELECT uuid FROM v_resource
+SELECT uuid FROM v_application_resource
 WHERE uuid = ? AND application_uuid = ? AND name = ?`,
 			input.UUID, input.ApplicationUUID, input.Name,
 		).Scan(&discard)
@@ -320,7 +320,7 @@ VALUES (?,'store-uuid')`, input.UUID); err != nil {
 		// fetch resources
 		var discard string
 		return tx.QueryRow(`
-SELECT uuid FROM v_resource
+SELECT uuid FROM v_application_resource
 WHERE uuid = ? AND application_uuid = ? AND name = ?`,
 			input.UUID, input.ApplicationUUID, input.Name,
 		).Scan(&discard)
@@ -369,7 +369,7 @@ func (s *resourceSuite) TestDeleteUnitResources(c *gc.C) {
 		// fetch resources
 		rows, err := tx.Query(`
 SELECT uuid, name, application_uuid, unit_uuid
-FROM v_resource AS rv
+FROM v_application_resource AS rv
 LEFT JOIN unit_resource AS ur ON rv.uuid = ur.resource_uuid`)
 		if err != nil {
 			return err
@@ -1730,9 +1730,22 @@ func (s *resourceSuite) TestListResourcesNoResources(c *gc.C) {
 	results, err := s.state.ListResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 	// Assert
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Assert(results.UnitResources, gc.HasLen, 0)
-	c.Assert(results.Resources, gc.HasLen, 0)
-	c.Assert(results.RepositoryResources, gc.HasLen, 0)
+	c.Check(results.UnitResources, gc.DeepEquals, []coreresource.UnitResources{
+		{
+			Name: unit.Name(s.constants.fakeUnitName1),
+			// No resources
+		},
+		{
+			Name: unit.Name(s.constants.fakeUnitName2),
+			// No resources
+		},
+		{
+			Name: unit.Name(s.constants.fakeUnitName3),
+			// No resources
+		},
+	})
+	c.Check(results.Resources, gc.HasLen, 0)
+	c.Check(results.RepositoryResources, gc.HasLen, 0)
 }
 
 // TestListResources tests the retrieval and organization of resources from the
@@ -1743,6 +1756,7 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 	// Arrange : Insert several resources
 	// - 1 with no unit (state available)
 	// - 1 with no unit (state potential)
+	// - 1 with no unit (state potential, but without revision)
 	// - 1 associated with two units (state available)
 	// - 1 with the same name as above, no unit (state potential)
 	// - 1 associated with one unit (state available)
@@ -1760,6 +1774,16 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 		CreatedAt:       now,
 		Type:            charmresource.TypeFile,
 		State:           resource.StatePotential.String(),
+		Revision:        2,
+	}
+	noUnitPotentialNoRevRes := resourceData{
+		UUID:            "no-unit-potential-placedholder-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "no-unit-placeholder",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		State:           resource.StatePotential.String(),
+		// No revision
 	}
 	withUnit1AvailableRes := resourceData{
 		UUID:            "with-unit-available-uuid",
@@ -1770,12 +1794,12 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 		UnitUUID:        s.constants.fakeUnitUUID1,
 	}
 	withUnit2AvailableRes := resourceData{
-		UUID:            "with-unit-available-uuid",
-		ApplicationUUID: s.constants.fakeApplicationUUID1,
-		Name:            "with-unit",
-		CreatedAt:       now,
-		Type:            charmresource.TypeFile,
-		UnitUUID:        s.constants.fakeUnitUUID2,
+		UUID: "with-unit-available-no-app-uuid",
+		// this one is not linked to the application (maybe it has been updated)
+		Name:      "with-unit",
+		CreatedAt: now,
+		Type:      charmresource.TypeFile,
+		UnitUUID:  s.constants.fakeUnitUUID2,
 	}
 	withUnitPotentialRes := resourceData{
 		UUID:            "with-unit-potential-uuid",
@@ -1784,6 +1808,7 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 		CreatedAt:       now,
 		Type:            charmresource.TypeFile,
 		State:           resource.StatePotential.String(),
+		Revision:        2,
 	}
 	withUnitBisAvailableRes := resourceData{
 		UUID:            "with-unit-bis-available-uuid",
@@ -1796,6 +1821,7 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		for _, input := range []resourceData{
+			noUnitPotentialNoRevRes,
 			noUnitAvailableRes,
 			noUnitPotentialRes,
 			withUnit1AvailableRes,
@@ -1814,8 +1840,10 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 	results, err := s.state.ListResources(context.Background(), application.ID(s.constants.fakeApplicationUUID1))
 
 	// Assert
+	// the application, even if not directly linked to this unit resource, should be properly retrieved
+	withUnit2AvailableRes.ApplicationUUID = s.constants.fakeApplicationUUID1
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Assert(results.UnitResources, gc.DeepEquals, []coreresource.UnitResources{
+	c.Check(results.UnitResources, gc.DeepEquals, []coreresource.UnitResources{
 		{
 			Name: unit.Name(s.constants.fakeUnitName1),
 			Resources: []coreresource.Resource{
@@ -1834,13 +1862,13 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 			// No resources
 		},
 	})
-	c.Assert(results.Resources, gc.DeepEquals, []coreresource.Resource{
+	c.Check(results.Resources, gc.DeepEquals, []coreresource.Resource{
 		noUnitAvailableRes.toResource(s),
 		withUnit1AvailableRes.toResource(s),
 		// withUnit2AvailableRes is the same resource as above on another unit
 		withUnitBisAvailableRes.toResource(s),
 	})
-	c.Assert(results.RepositoryResources, gc.DeepEquals, []charmresource.Resource{
+	c.Check(results.RepositoryResources, gc.DeepEquals, []charmresource.Resource{
 		noUnitPotentialRes.toCharmResource(),
 		withUnitPotentialRes.toCharmResource(),
 	})
@@ -2398,7 +2426,7 @@ func (s *resourceSuite) checkApplicationResourceUpdated(c *gc.C, appID, expected
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
 SELECT uuid, origin_type
-FROM   v_resource
+FROM   v_application_resource
 WHERE  application_uuid = ?
 `, appID).Scan(&foundUUID, &foundOrigin)
 	})
@@ -3421,11 +3449,13 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`, d.UUID, fakeCharmUUID, 
 
 	// Populate application_resource table. Don't recreate the link if it already
 	// exists.
-	_, err = tx.Exec(`
+	if d.ApplicationUUID != "" {
+		_, err = tx.Exec(`
 INSERT INTO application_resource (resource_uuid, application_uuid) 
 VALUES (?, ?) ON CONFLICT DO NOTHING`, d.UUID, d.ApplicationUUID)
-	if err != nil {
-		return errors.Capture(err)
+		if err != nil {
+			return errors.Capture(err)
+		}
 	}
 
 	// Populate resource_retrieved_by table of necessary.

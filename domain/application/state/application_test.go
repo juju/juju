@@ -488,7 +488,7 @@ WHERE charm_uuid=?`, charmUUID)
 	assertTxn("Fetch application available resources", func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT vr.name, revision, origin_type
-FROM v_resource vr
+FROM v_application_resource vr
 WHERE application_uuid = ?
 AND state = 'available'`, appUUID)
 		if err != nil {
@@ -512,7 +512,7 @@ AND state = 'available'`, appUUID)
 	assertTxn("Fetch application potential resources", func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT vr.name, revision, origin_type
-FROM v_resource vr
+FROM v_application_resource vr
 WHERE application_uuid = ?
 AND state = 'potential'`, appUUID)
 		if err != nil {
@@ -634,7 +634,7 @@ WHERE charm_uuid=?`, charmUUID)
 	assertTxn("Fetch application available resources", func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT vr.name, revision
-FROM v_resource vr
+FROM v_application_resource vr
 WHERE application_uuid = ?
 AND state = 'available'`, appUUID)
 		if err != nil {
@@ -655,7 +655,7 @@ AND state = 'available'`, appUUID)
 	assertTxn("Fetch application potential resources", func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT vr.name, revision
-FROM v_resource vr
+FROM v_application_resource vr
 WHERE application_uuid = ?
 AND state = 'potential'`, appUUID)
 		if err != nil {
