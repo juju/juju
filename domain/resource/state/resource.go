@@ -1042,49 +1042,6 @@ ON CONFLICT(resource_uuid) DO UPDATE SET retrieved_by_type_id=excluded.retrieved
 	return nil
 }
 
-// updateOriginAndRevision sets the resource origin and revision.
-func (st *State) updateOriginAndRevision(
-	ctx context.Context,
-	tx *sqlair.TX,
-	resourceUUID coreresource.UUID,
-	origin charmresource.Origin,
-	revision int,
-) error {
-	originAndRevision := resourceOriginAndRevision{
-		UUID:     resourceUUID.String(),
-		Origin:   origin.String(),
-		Revision: revision,
-	}
-	updateOriginAndRevisionStmt, err := st.Prepare(`
-UPDATE resource
-SET    revision = $resourceOriginAndRevision.revision,
-       origin_type_id = (
-    SELECT id
-    FROM resource_origin_type
-    WHERE name = $resourceOriginAndRevision.origin_name
-)
-WHERE  uuid = $resourceOriginAndRevision.uuid
-`, originAndRevision)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var outcome sqlair.Outcome
-	err = tx.Query(ctx, updateOriginAndRevisionStmt, originAndRevision).Get(&outcome)
-	if err != nil {
-		return errors.Errorf("updating resource origin and revision: %w", err)
-	}
-
-	rows, err := outcome.Result().RowsAffected()
-	if err != nil {
-		return errors.Capture(err)
-	} else if rows != 1 {
-		return errors.Errorf("updating resource origin and revision: expected 1 row affected, got %d", rows)
-	}
-
-	return nil
-}
-
 // incrementCharmModifiedVersion increments the charm modified version on the
 // application associated with a resource.
 func (st *State) incrementCharmModifiedVersion(ctx context.Context, tx *sqlair.TX, resourceUUID coreresource.UUID) error {
