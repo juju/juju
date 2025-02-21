@@ -2572,8 +2572,9 @@ func (s *resourceSuite) TestImportResources(c *gc.C) {
 		Resources:       []resource.ImportResourceInfo{app1Res1, app1Res2},
 		UnitResources:   []resource.ImportUnitResourceInfo{app1Res1Unit, app1Res2Unit},
 	}, {
-		ApplicationName: s.constants.fakeApplicationName2,
-		Resources:       []resource.ImportResourceInfo{app2Res},
+		ApplicationName:                s.constants.fakeApplicationName2,
+		Resources:                      []resource.ImportResourceInfo{app2Res},
+		KubernetesApplicationResources: []resource.ImportResourceInfo{app2Res},
 	}}
 
 	// Act: Set the resources.
@@ -2941,6 +2942,7 @@ func (s *resourceSuite) TestExportResourcesNoResources(c *gc.C) {
 	// Assert
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
 	c.Assert(exportedResources.Resources, gc.IsNil)
+	c.Assert(exportedResources.KubernetesApplicationResources, gc.IsNil)
 	c.Check(exportedResources.UnitResources, gc.DeepEquals, []coreresource.UnitResources{
 		{
 			Name: unit.Name(s.constants.fakeUnitName1),

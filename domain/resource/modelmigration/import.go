@@ -101,6 +101,14 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				}
 				appArgs.Resources = append(appArgs.Resources, arg)
 			}
+
+			if k8sRevision := res.KubernetesApplicationRevision(); k8sRevision != nil {
+				arg, err := importResourceRevision(res.Name(), k8sRevision)
+				if err != nil {
+					return errors.Errorf("importing resource %q: %w", res.Name(), err)
+				}
+				appArgs.KubernetesApplicationResources = append(appArgs.KubernetesApplicationResources, arg)
+			}
 		}
 
 		for _, unit := range app.Units() {

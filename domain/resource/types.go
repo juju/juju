@@ -152,11 +152,17 @@ type ImportResourcesArg struct {
 	// ApplicationName is the name of the application these resources are
 	// associated with.
 	ApplicationName string
-	// ApplicationResources are the available resources on the application.
+
+	// Resources are the available resources on the application.
 	Resources []ImportResourceInfo
+
 	// UnitResources contains information about the units using the resources in
 	// ApplicationResources.
 	UnitResources []ImportUnitResourceInfo
+
+	// KubernetesApplicationResources are the resources in use by a kubernetes
+	// application.
+	KubernetesApplicationResources []ImportResourceInfo
 }
 
 // ImportResourceInfo contains information about a single resource for the

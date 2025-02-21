@@ -762,23 +762,43 @@ func (s *Service) ImportResources(ctx context.Context, args resource.ImportResou
 	for _, appArg := range args {
 		resourceNames := make(map[string]bool)
 		for _, res := range appArg.Resources {
-			if res.Name == "" {
-				return errors.Errorf("resource on application %s: %w",
-					appArg.ApplicationName, resourceerrors.ResourceNameNotValid)
+			err := validateImportedResource(res)
+			if err != nil {
+				return errors.Errorf("resource %s on application %s: %w", res.Name, appArg.ApplicationName, err)
 			}
 			if _, ok := resourceNames[res.Name]; ok {
 				return errors.Errorf("found multiple resources with the name %s: %w", res.Name, resourceerrors.ResourceNameNotValid)
 			}
 			resourceNames[res.Name] = true
-
-			err := res.Origin.Validate()
+		}
+		for _, res := range appArg.UnitResources {
+			err := validateImportedResource(res.ImportResourceInfo)
 			if err != nil {
-				return errors.Errorf("origin %s of resource %s on application %s: %w",
-					res.Origin, res.Name, appArg.ApplicationName, resourceerrors.OriginNotValid)
+				return errors.Errorf("unit resource %s on application %s: %w", res.Name, appArg.ApplicationName, err)
+			}
+		}
+		for _, res := range appArg.KubernetesApplicationResources {
+			err := validateImportedResource(res)
+			if err != nil {
+				return errors.Errorf("kubernetes resource %s on application %s: %w", res.Name, appArg.ApplicationName, err)
 			}
 		}
 	}
 	return s.st.ImportResources(ctx, args)
+}
+
+func validateImportedResource(res resource.ImportResourceInfo) error {
+	if res.Name == "" {
+		return resourceerrors.ResourceNameNotValid
+	}
+
+	err := res.Origin.Validate()
+	if err != nil {
+		return errors.Errorf("origin %s of resource %s: %w",
+			res.Origin, res.Name, resourceerrors.OriginNotValid)
+	}
+
+	return nil
 }
 
 // DeleteImportedResources deletes all imported resource associated with the

@@ -2222,7 +2222,7 @@ func (st *State) getResourcesToSetForApplication(
 
 	// Get resources to set.
 	toSet, resourceNameToUUID, err := st.getResourcesToSet(
-		ctx, tx, typeIDs, charmID, appID, args.Resources,
+		ctx, tx, typeIDs, charmID, appID, args,
 	)
 	if err != nil {
 		return toSet, errors.Capture(err)
@@ -2266,11 +2266,11 @@ func (st *State) getResourcesToSet(
 	typeIDs typeIDs,
 	charmID corecharm.ID,
 	appID application.ID,
-	resources []resource.ImportResourceInfo,
+	arg resource.ImportResourcesArg,
 ) (resourcesToSet, map[string]uuidOriginAndRevision, error) {
 	var toSet resourcesToSet
 	resourceNameToInfo := make(map[string]uuidOriginAndRevision)
-	for _, res := range resources {
+	for _, res := range arg.Resources {
 		// Check that the charm resource exists and get its kind before we
 		// attempt to set it.
 		kind, err := st.getCharmResourceKind(ctx, tx, charmID, res.Name)
@@ -2299,12 +2299,16 @@ func (st *State) getResourcesToSet(
 		if kind != charmresource.TypeContainerImage {
 			continue
 		}
-		// Add kubernetes application resource for container image resources.
-		// Assume that the application is already using the container image.
-		toSet.kubernetesApplicationResources = append(toSet.kubernetesApplicationResources, kubernetesApplicationResource{
-			ResourceUUID: resourceUUID.String(),
-			AddedAt:      res.Timestamp,
-		})
+		// Add kubernetes application resource if the resource is imported as
+		// one.
+		for _, k8sResource := range arg.KubernetesApplicationResources {
+			if k8sResource == res {
+				toSet.kubernetesApplicationResources = append(toSet.kubernetesApplicationResources, kubernetesApplicationResource{
+					ResourceUUID: resourceUUID.String(),
+					AddedAt:      res.Timestamp,
+				})
+			}
+		}
 	}
 	return toSet, resourceNameToInfo, nil
 }

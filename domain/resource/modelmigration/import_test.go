@@ -95,6 +95,11 @@ func (s *importSuite) TestImport(c *gc.C) {
 		Origin:    res2Origin.String(),
 		Timestamp: res2Time,
 	})
+	res2.SetKubernetesApplicationRevision(description.ResourceRevisionArgs{
+		Revision:  res2Revision,
+		Origin:    res2Origin.String(),
+		Timestamp: res2Time,
+	})
 	unitName := "app-name/0"
 	unitRes1Time := time.Now().Truncate(time.Second).Add(-time.Hour * 2).UTC()
 	unit := app.AddUnit(description.UnitArgs{
@@ -151,6 +156,12 @@ func (s *importSuite) TestImport(c *gc.C) {
 				Revision:  unitRes2Revision,
 				Timestamp: unitRes2Time,
 			},
+		}},
+		KubernetesApplicationResources: []domainresource.ImportResourceInfo{{
+			Name:      res2Name,
+			Origin:    res2Origin,
+			Revision:  res2Revision,
+			Timestamp: res2Time,
 		}},
 	}})
 
