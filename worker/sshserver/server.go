@@ -91,7 +91,7 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 		s.config.Listener = listener
 	}
 
-	listener, closeAllowed := newAcceptOnceListener(s.config.Listener)
+	listener, closeAllowed := newSSHServerListener(s.config.Listener)
 
 	// Start server.
 	s.tomb.Go(func() error {

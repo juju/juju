@@ -4,5 +4,5 @@
 package sshserver
 
 var (
-	NewAcceptOnceListener = newAcceptOnceListener
+	NewSSHServerListener = newSSHServerListener
 )
