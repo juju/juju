@@ -257,8 +257,6 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
 		RetrievedByType: coreresource.User,
 		Size:            s.resource.Size,
 		Fingerprint:     s.resource.Fingerprint,
-		Origin:          charmresource.OriginUpload,
-		Revision:        -1,
 	})
 
 	// Second call to GetResource gets resource details after upload.
@@ -347,8 +345,6 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
 		RetrievedByType: coreresource.User,
 		Size:            s.resource.Size,
 		Fingerprint:     s.resource.Fingerprint,
-		Origin:          charmresource.OriginUpload,
-		Revision:        -1,
 	})
 
 	// Second call to GetResource gets resource details after upload.
@@ -446,8 +442,6 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
 		RetrievedByType: coreresource.User,
 		Size:            s.resource.Size,
 		Fingerprint:     s.resource.Fingerprint,
-		Origin:          charmresource.OriginUpload,
-		Revision:        -1,
 	})
 
 	// Second call to GetResource gets resource details after upload.

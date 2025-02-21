@@ -397,22 +397,6 @@ func (s *Service) storeResource(
 		return resourceerrors.RetrievedByTypeNotValid
 	}
 
-	if err := args.Origin.Validate(); err != nil {
-		return errors.Errorf("resource origin: %w", err)
-	}
-	if args.Origin == charmresource.OriginUpload && args.Revision != -1 {
-		return errors.Errorf(
-			"resource with origin upload must have positive -1, found %d: %w",
-			args.Revision, resourceerrors.ResourceRevisionNotValid,
-		)
-	}
-	if args.Origin == charmresource.OriginStore && args.Revision < 0 {
-		return errors.Errorf(
-			"resource with origin store must have positive revision, found %d, %w",
-			args.Revision, resourceerrors.ResourceRevisionNotValid,
-		)
-	}
-
 	res, err := s.st.GetResource(ctx, args.ResourceUUID)
 	if err != nil {
 		return errors.Errorf("getting resource: %w", err)
@@ -458,8 +442,6 @@ func (s *Service) storeResource(
 			IncrementCharmModifiedVersion: incrementCharmModifiedVersion,
 			Size:                          args.Size,
 			SHA384:                        args.Fingerprint.String(),
-			Origin:                        args.Origin,
-			Revision:                      args.Revision,
 		},
 	)
 	if err != nil {

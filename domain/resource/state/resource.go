@@ -683,11 +683,6 @@ func (st *State) RecordStoredResource(
 			return errors.Errorf("unknown resource type: %q", args.ResourceType.String())
 		}
 
-		err := st.updateOriginAndRevision(ctx, tx, args.ResourceUUID, args.Origin, args.Revision)
-		if err != nil {
-			return errors.Errorf("updating resource revision and origin: %w", err)
-		}
-
 		if args.RetrievedBy != "" {
 			err := st.upsertRetrievedBy(ctx, tx, args.ResourceUUID, args.RetrievedBy, args.RetrievedByType)
 			if err != nil {
