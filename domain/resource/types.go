@@ -187,4 +187,7 @@ type ExportedResources struct {
 	Resources []coreresource.Resource
 	// UnitResources are the unit resources to be exported.
 	UnitResources []coreresource.UnitResources
+	// KubernetesApplicationResources are the resources used by kubernetes
+	// applications to be exported.
+	KubernetesApplicationResources []coreresource.Resource
 }

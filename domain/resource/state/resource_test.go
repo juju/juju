@@ -2881,6 +2881,7 @@ func (s *resourceSuite) TestExportResources(c *gc.C) {
 		ContainerImageStorageKey: "container-image-store-uuid",
 		Size:                     200,
 		SHA384:                   fp.String(),
+		KubernetesApplication:    true,
 	}
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -2924,6 +2925,9 @@ func (s *resourceSuite) TestExportResources(c *gc.C) {
 			Name: unit.Name(s.constants.fakeUnitName3),
 			// No resources.
 		},
+	})
+	c.Assert(exportedResources.KubernetesApplicationResources, gc.DeepEquals, []coreresource.Resource{
+		resource2.toResource(s, c),
 	})
 }
 

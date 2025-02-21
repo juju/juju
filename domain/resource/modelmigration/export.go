@@ -80,6 +80,9 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("getting resource of application %q: %w", app.Name(), err)
 		}
 
+		// Export application resources.
+
+		nameToResource := make(map[string]description.Resource)
 		for _, res := range exported.Resources {
 			r := app.AddResource(description.ResourceArgs{
 				Name: res.Name,
@@ -93,7 +96,30 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 				Size:        res.Size,
 				RetrievedBy: res.RetrievedBy,
 			})
+			nameToResource[r.Name()] = r
 		}
+
+		// Export kubernetes application resources.
+
+		for _, res := range exported.KubernetesApplicationResources {
+			r, ok := nameToResource[res.Name]
+			if !ok {
+				r = app.AddResource(description.ResourceArgs{
+					Name: res.Name,
+				})
+			}
+			r.SetKubernetesApplicationRevision(description.ResourceRevisionArgs{
+				Type:        res.Type.String(),
+				Origin:      res.Origin.String(),
+				Timestamp:   res.Timestamp,
+				Revision:    res.Revision,
+				SHA384:      res.Fingerprint.String(),
+				Size:        res.Size,
+				RetrievedBy: res.RetrievedBy,
+			})
+		}
+
+		// Export unit resources.
 
 		if len(exported.UnitResources) == 0 {
 			continue

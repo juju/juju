@@ -585,6 +585,59 @@ func (st *State) listUnitResources(
 	return unitResources, errors.Capture(err)
 }
 
+// listKubernetesApplicationResource fetches any kubernetes application resource
+// linked to the application.
+func (st *State) listKubernetesApplicationResource(
+	ctx context.Context,
+	applicationID application.ID,
+) ([]coreresource.Resource, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	// Prepare the application ID to query resources by application.
+	appID := resourceIdentity{
+		ApplicationUUID: applicationID.String(),
+	}
+
+	// Prepare the statement to get units related to a resource.
+	getKubernetesResourceStmt, err := st.Prepare(`
+		SELECT (var.*) AS (&resourceView.*)
+		FROM   v_application_resource var
+		JOIN   kubernetes_application_resource kar ON var.uuid = kar.resource_uuid
+		WHERE  var.application_uuid = $resourceIdentity.application_uuid
+`, appID, resourceView{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rvs []resourceView
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, getKubernetesResourceStmt, appID).GetAll(&rvs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// If there is no k8s resource used by the application, return.
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var resources []coreresource.Resource
+	for _, rv := range rvs {
+		r, err := rv.toResource()
+		if err != nil {
+			return nil, errors.Errorf("transform resource %q: %w", rv.Name, err)
+		}
+		resources = append(resources, r)
+	}
+
+	return resources, nil
+}
+
 // GetResourcesByApplicationID returns the list of resource for the given application.
 // Returns an error if the operation fails at any point in the process.
 //
@@ -2557,10 +2610,16 @@ func (st *State) ExportResources(ctx context.Context, appName string) (resource.
 	}
 	exportedResources.UnitResources = unitResources
 
+	kubernetesResources, err := st.listKubernetesApplicationResource(ctx, appID)
+	if err != nil {
+		return resource.ExportedResources{}, errors.Capture(err)
+	}
+	exportedResources.KubernetesApplicationResources = kubernetesResources
+
 	return exportedResources, nil
 }
 
-// getAppplicationAndCharmUUID returns gets the application ID and charm UUID
+// getApplicationAndCharmUUID returns gets the application ID and charm UUID
 // for the given application name, returning [resourcerrors.ApplicationNotFound]
 // if it cannot be found.
 func (st *State) getApplicationAndCharmUUID(

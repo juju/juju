@@ -127,7 +127,21 @@ func (s *exportSuite) TestResourceExport(c *gc.C) {
 				Timestamp:   unitResTime,
 				RetrievedBy: unitResRetrievedBy,
 			}},
-		}}},
+		}},
+		KubernetesApplicationResources: []coreresouces.Resource{{
+			Resource: resource.Resource{
+				Meta: resource.Meta{
+					Name: res2Name,
+				},
+				Origin:      res2Origin,
+				Revision:    res2Revision,
+				Fingerprint: fp,
+				Size:        res2Size,
+			},
+			Timestamp:   res2Time,
+			RetrievedBy: res2RetrievedBy,
+		}},
+	},
 		nil,
 	)
 
@@ -164,6 +178,19 @@ func (s *exportSuite) TestResourceExport(c *gc.C) {
 	c.Assert(res2AppRevision.SHA384(), gc.Equals, fp.String())
 	c.Assert(res2AppRevision.Size(), gc.Equals, res2Size)
 	c.Assert(res2AppRevision.Timestamp(), gc.Equals, res2Time)
+
+	// Assert resource 1 was exported correctly.
+	res1K8sAppRevision := resources[0].KubernetesApplicationRevision()
+	c.Assert(res1K8sAppRevision, gc.IsNil)
+
+	// Assert resource 2 was exported correctly.
+	res2K8sAppRevision := resources[1].KubernetesApplicationRevision()
+	c.Assert(res2K8sAppRevision.Revision(), gc.Equals, res2Revision)
+	c.Assert(res2K8sAppRevision.Origin(), gc.Equals, res2Origin.String())
+	c.Assert(res2K8sAppRevision.RetrievedBy(), gc.Equals, res2RetrievedBy)
+	c.Assert(res2K8sAppRevision.SHA384(), gc.Equals, fp.String())
+	c.Assert(res2K8sAppRevision.Size(), gc.Equals, res2Size)
+	c.Assert(res2K8sAppRevision.Timestamp(), gc.Equals, res2Time)
 
 	// Assert the unit resource was exported correctly.
 	units := app.Units()
