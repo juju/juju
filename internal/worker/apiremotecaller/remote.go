@@ -328,7 +328,7 @@ func (w *remoteServer) closeCurrentConnection(ctx context.Context) {
 
 	err := w.currentConnection.Close()
 	if err != nil {
-		w.logger.Errorf(context.Background(), "failed to close connection %q: %v", w.controllerID, err)
+		w.logger.Errorf(ctx, "failed to close connection %q: %v", w.controllerID, err)
 	}
 
 	w.currentConnection = nil
