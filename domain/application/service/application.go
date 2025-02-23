@@ -74,8 +74,9 @@ type ApplicationState interface {
 	// SetUnitPassword updates the password for the specified unit UUID.
 	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
 
-	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning:
+	// - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
+	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
 	GetUnitWorkloadStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.WorkloadStatusType], error)
 
 	// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
@@ -83,19 +84,25 @@ type ApplicationState interface {
 	SetUnitWorkloadStatus(context.Context, coreunit.UUID, *application.StatusInfo[application.WorkloadStatusType]) error
 
 	// GetUnitCloudContainerStatus returns the cloud container status of the specified
-	// unit, returning an error satisfying [applicationerrors.UnitNotFound] if the unit
-	// doesn't exist.
+	// unit. It returns;
+	// - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
+	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
 	GetUnitCloudContainerStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.CloudContainerStatusType], error)
 
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses for all units
-	// of the specified application, indexed by unit name, returning an error satisfying
-	// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
+	// of the specified application, returning:
+	//   - an error satisfying [applicationerrors.ApplicationNotFound] if the application
+	//     doesn't exist or;
+	//   - error satisfying [applicationerrors.ApplicationIsDead] if the application
+	//     is dead.
 	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error)
 
 	// GetUnitCloudContainerStatusesForApplication returns the cloud container
-	// statuses for all units of the specified application, indexed by unit name,
-	// returning an error satisfying [applicationerrors.ApplicationNotFound] if
-	// the application doesn't exist.
+	// statuses for all units of the specified application, returning:
+	//   - an error satisfying [applicationerrors.ApplicationNotFound] if the application
+	//     doesn't exist or;
+	//   - an error satisfying [applicationerrors.ApplicationIsDead] if the application
+	//     is dead.
 	GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error)
 
 	// DeleteUnit deletes the specified unit.
@@ -945,7 +952,9 @@ func (s *Service) GetUnitDisplayStatus(ctx context.Context, unitName coreunit.Na
 		return nil, errors.Trace(err)
 	}
 	containerStatus, err := s.st.GetUnitCloudContainerStatus(ctx, unitUUID)
-	if err != nil {
+	if errors.Is(err, applicationerrors.UnitStatusNotFound) {
+		return unitDisplayStatus(workloadStatus, nil)
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return unitDisplayStatus(workloadStatus, containerStatus)

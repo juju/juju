@@ -554,8 +554,9 @@ WHERE uuid = $unitPassword.uuid
 	return nil
 }
 
-// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an error
-// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// GetUnitWorkloadStatus returns the workload status of the specified unit, returning:
+// - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
+// - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
 func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.WorkloadStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
@@ -572,6 +573,7 @@ SELECT &statusInfo.* FROM unit_workload_status WHERE unit_uuid = $unitUUID.uuid
 
 	var unitStatusInfo statusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// TODO(jack-w-shaw): Check unit exists
 		err := tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&unitStatusInfo)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Errorf("workload status for unit %q not found%w", unitUUID, jujuerrors.Hide(applicationerrors.UnitStatusNotFound))
@@ -613,18 +615,57 @@ func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UU
 }
 
 // GetUnitCloudContainerStatus returns the cloud container status of the specified
-// unit, returning an error satisfying [applicationerrors.UnitNotFound] if the unit
-// doesn't exist.
-//
-// TODO(jack-w-shaw): Implement me!
+// unit. It returns;
+// - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
+// - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
 func (st *State) GetUnitCloudContainerStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.CloudContainerStatusType], error) {
-	return nil, nil
+	db, err := st.DB()
+	if err != nil {
+		return nil, jujuerrors.Trace(err)
+	}
+
+	unitUUID := unitUUID{UnitUUID: uuid}
+	getUnitStatusStmt, err := st.Prepare(`
+SELECT &statusInfo.*
+FROM   k8s_pod_status
+WHERE  unit_uuid = $unitUUID.uuid
+	`, statusInfo{}, unitUUID)
+	if err != nil {
+		return nil, jujuerrors.Trace(err)
+	}
+
+	var containerStatusInfo statusInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// TODO(jack-w-shaw): Check unit exists
+		err = tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&containerStatusInfo)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("workload status for unit %q not found%w", unitUUID, jujuerrors.Hide(applicationerrors.UnitStatusNotFound))
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting cloud container status for unit %q: %w", unitUUID, err)
+	}
+
+	statusID, err := decodeCloudContainerStatus(containerStatusInfo.StatusID)
+	if err != nil {
+		return nil, errors.Errorf("decoding cloud container status ID for unit %q: %w", uuid, err)
+	}
+	return &application.StatusInfo[application.CloudContainerStatusType]{
+		Status:  statusID,
+		Message: containerStatusInfo.Message,
+		Data:    containerStatusInfo.Data,
+		Since:   containerStatusInfo.UpdatedAt,
+	}, nil
 }
 
 // GetUnitWorkloadStatusesForApplication returns the workload statuses for all units
-// of the specified application, indexed by unit name, returning an error satisfying
-// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
-func (st *State) GetUnitWorkloadStatusesForApplication(ctx context.Context, appId coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error) {
+// of the specified application, returning:
+//   - an error satisfying [applicationerrors.ApplicationNotFound] if the application
+//     doesn't exist or;
+//   - error satisfying [applicationerrors.ApplicationIsDead] if the application
+//     is dead.
+func (st *State) GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error) {
 	type statusInfoAndUnitName struct {
 		UnitName  coreunit.Name `db:"name"`
 		StatusID  int           `db:"status_id"`
@@ -638,7 +679,7 @@ func (st *State) GetUnitWorkloadStatusesForApplication(ctx context.Context, appI
 		return nil, jujuerrors.Trace(err)
 	}
 
-	ident := applicationID{ID: appId}
+	ident := applicationID{ID: appID}
 	getUnitStatusesStmt, err := st.Prepare(`
 SELECT &statusInfoAndUnitName.*
 FROM unit_workload_status
@@ -652,17 +693,17 @@ WHERE unit.application_uuid = $applicationID.uuid
 	var unitStatuses []statusInfoAndUnitName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.checkApplicationExists(ctx, tx, ident)
-		if err != nil && !errors.Is(err, applicationerrors.ApplicationIsDead) {
-			return err
+		if err != nil {
+			return errors.Capture(err)
 		}
 		err = tx.Query(ctx, getUnitStatusesStmt, ident).GetAll(&unitStatuses)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
-		return err
+		return errors.Capture(err)
 	})
 	if err != nil {
-		return nil, errors.Errorf("getting workload statuses for application %q: %w", appId, err)
+		return nil, errors.Errorf("getting workload statuses for application %q: %w", appID, err)
 	}
 
 	statuses := make(map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], len(unitStatuses))
@@ -683,13 +724,67 @@ WHERE unit.application_uuid = $applicationID.uuid
 }
 
 // GetUnitCloudContainerStatusesForApplication returns the cloud container
-// statuses for all units of the specified application, returning an error
-// satisfying [applicationerrors.ApplicationNotFound] if the application
-// doesn't exist.
-//
-// TODO(jack-w-shaw): Implement me!
-func (st *State) GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error) {
-	return nil, nil
+// statuses for all units of the specified application, returning:
+//   - an error satisfying [applicationerrors.ApplicationNotFound] if the application
+//     doesn't exist or;
+//   - an error satisfying [applicationerrors.ApplicationIsDead] if the application
+//     is dead.
+func (st *State) GetUnitCloudContainerStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error) {
+	type statusInfoAndUnitName struct {
+		UnitName  coreunit.Name `db:"name"`
+		StatusID  int           `db:"status_id"`
+		Message   string        `db:"message"`
+		Data      []byte        `db:"data"`
+		UpdatedAt *time.Time    `db:"updated_at"`
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return nil, jujuerrors.Trace(err)
+	}
+
+	ident := applicationID{ID: appID}
+	getContainerStatusesStmt, err := st.Prepare(`
+SELECT &statusInfoAndUnitName.*
+FROM   k8s_pod_status
+JOIN   unit ON unit.uuid = k8s_pod_status.unit_uuid
+WHERE  unit.application_uuid = $applicationID.uuid
+	`, statusInfoAndUnitName{}, ident)
+	if err != nil {
+		return nil, jujuerrors.Trace(err)
+	}
+
+	var containerStatuses []statusInfoAndUnitName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkApplicationExists(ctx, tx, ident)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, getContainerStatusesStmt, ident).GetAll(&containerStatuses)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting cloud container statuses for application %q: %w", appID, err)
+	}
+
+	statuses := make(map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], len(containerStatuses))
+	for _, containerStatus := range containerStatuses {
+		statusID, err := decodeCloudContainerStatus(containerStatus.StatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding cloud container status ID for unit %q: %w", containerStatus.UnitName, err)
+		}
+		statuses[containerStatus.UnitName] = application.StatusInfo[application.CloudContainerStatusType]{
+			Status:  statusID,
+			Message: containerStatus.Message,
+			Data:    containerStatus.Data,
+			Since:   containerStatus.UpdatedAt,
+		}
+	}
+
+	return statuses, nil
 }
 
 func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
@@ -1490,7 +1585,7 @@ func (st *State) GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		life, err = st.getUnitLife(ctx, tx, unitName)
-		return err
+		return errors.Capture(err)
 	})
 	if err != nil {
 		return 0, errors.Errorf("querying unit %q life: %w", unitName, err)

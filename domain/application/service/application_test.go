@@ -1489,7 +1489,7 @@ func (s *applicationServiceSuite) TestGetUnitDisplayStatusNoContainer(c *gc.C) {
 			Since:   &now,
 		}, nil)
 
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(nil, nil)
+	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(nil, applicationerrors.UnitStatusNotFound)
 
 	obtained, err := s.service.GetUnitDisplayStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)

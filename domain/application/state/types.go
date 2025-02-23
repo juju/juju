@@ -823,6 +823,19 @@ func encodeCloudContainerStatus(s application.CloudContainerStatusType) (int, er
 	}
 }
 
+func decodeCloudContainerStatus(s int) (application.CloudContainerStatusType, error) {
+	switch s {
+	case 0:
+		return application.CloudContainerStatusWaiting, nil
+	case 1:
+		return application.CloudContainerStatusBlocked, nil
+	case 2:
+		return application.CloudContainerStatusRunning, nil
+	default:
+		return -1, errors.Errorf("unknown status %d", s)
+	}
+}
+
 func encodeAgentStatus(s application.UnitAgentStatusType) (int, error) {
 	switch s {
 	case application.UnitAgentStatusAllocating:
