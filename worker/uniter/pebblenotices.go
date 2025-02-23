@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/canonical/pebble/client"
@@ -163,7 +164,11 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 		// anything else, so cannot miss the change entirely.
 		chg, err := pebbleClient.Change(notice.Key)
 		if err != nil {
-			// Couldn't fetch change associated with notice, likely because it's
+			var clientErr *client.Error
+			if !errors.As(err, &clientErr) || clientErr.StatusCode != http.StatusNotFound {
+				return errors.Annotatef(err, "failed to get change %q", notice.Key)
+			}
+			// Couldn't find change associated with notice, likely because it's
 			// been pruned. Pebble prunes changes when they're 7 days old or
 			// there's more than 500 total changes, so this may happen if the
 			// check has been in the same state (perform or recover) for a long

@@ -205,7 +205,7 @@ func (s *pebbleNoticerSuite) TestIgnoreUnhandledType(c *gc.C) {
 	}
 }
 
-func (s *pebbleNoticerSuite) TestFailedChangeError(c *gc.C) {
+func (s *pebbleNoticerSuite) TestFailedChangeNotFound(c *gc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)
 
@@ -223,7 +223,7 @@ func (s *pebbleNoticerSuite) TestFailedChangeError(c *gc.C) {
 	})
 }
 
-func (s *pebbleNoticerSuite) TestRecoveredChangeError(c *gc.C) {
+func (s *pebbleNoticerSuite) TestRecoveredChangeNotFound(c *gc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)
 
@@ -239,6 +239,29 @@ func (s *pebbleNoticerSuite) TestRecoveredChangeError(c *gc.C) {
 		WorkloadName: "c1",
 		CheckName:    "http-check",
 	})
+}
+
+func (s *pebbleNoticerSuite) TestOtherChangeError(c *gc.C) {
+	s.setUpWorker(c, []string{"c1"})
+	defer func() {
+		err := workertest.CheckKilled(c, s.worker)
+		c.Assert(err, gc.ErrorMatches, ".*some other error")
+	}()
+
+	s.clients["c1"].changeErr = fmt.Errorf("some other error")
+	s.clients["c1"].AddNotice(c, &client.Notice{
+		ID:           "1",
+		Type:         "change-update",
+		Key:          "42",
+		LastRepeated: time.Now(),
+		LastData:     map[string]string{"kind": "perform-check", "check-name": "http-check"},
+	})
+
+	select {
+	case <-s.workloadEventChan:
+		c.Fatalf("should ignore this notice")
+	case <-time.After(testing.ShortWait):
+	}
 }
 
 func (s *pebbleNoticerSuite) TestMultipleContainers(c *gc.C) {
