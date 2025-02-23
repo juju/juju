@@ -63,7 +63,7 @@ func (EnvironProvider) Open(ctx context.Context, args environs.OpenParams, inval
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	env, err := NewEnviron(ctx, args.Cloud, args.Config, nil)
+	env, err := NewEnviron(ctx, args.Cloud, args.Config, invalidator)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating MAAS environ")
 	}

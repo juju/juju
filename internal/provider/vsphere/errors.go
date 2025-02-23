@@ -59,6 +59,6 @@ func HandleCredentialError(err error, env *sessionEnviron, ctx envcontext.Provid
 	_, errfind := env.client.FindFolder(env.ctx, env.getVMFolder())
 	if errfind != nil {
 		// This is a credential issue. Now, move to mark credentials as invalid
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 	}
 }

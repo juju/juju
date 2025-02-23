@@ -10,6 +10,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
@@ -28,6 +29,8 @@ type environInstSuite struct {
 var _ = gc.Suite(&environInstSuite{})
 
 func (s *environInstSuite) TestInstancesOkay(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	ids := []instance.Id{"spam", "eggs", "ham"}
 	var containers []containerlxd.Container
 	var expected []instances.Instance
@@ -44,6 +47,8 @@ func (s *environInstSuite) TestInstancesOkay(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesAPI(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	ids := []instance.Id{"spam", "eggs", "ham"}
 	s.Env.Instances(envcontext.WithoutCredentialInvalidator(context.Background()), ids)
 
@@ -56,6 +61,8 @@ func (s *environInstSuite) TestInstancesAPI(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesEmptyArg(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	insts, err := s.Env.Instances(envcontext.WithoutCredentialInvalidator(context.Background()), nil)
 
 	c.Check(insts, gc.HasLen, 0)
@@ -63,6 +70,8 @@ func (s *environInstSuite) TestInstancesEmptyArg(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	failure := errors.New("<unknown>")
 	s.Stub.SetErrors(failure)
 
@@ -74,6 +83,8 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	container := s.NewContainer(c, "spam")
 	expected := s.NewInstance(c, "spam")
 	s.Client.Containers = []containerlxd.Container{*container}
@@ -86,6 +97,8 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	container := s.NewContainer(c, "spam")
 	s.Client.Containers = []containerlxd.Container{*container}
 
@@ -97,21 +110,23 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesInvalidCredentials(c *gc.C) {
-	var invalidCred = false
+	defer s.SetupMocks(c).Finish()
+
+	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
 	// allInstances will ultimately return the error.
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
 	ids := []instance.Id{"eggs"}
 	_, err := s.Env.Instances(envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
-		invalidCred = true
 		return nil
 	}), ids)
 
 	c.Check(err, gc.ErrorMatches, "not authorized")
-	c.Assert(invalidCred, jc.IsTrue)
 }
 
 func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	s.Client.Containers = []containerlxd.Container{*s.Container}
 
 	ids, err := s.Env.ControllerInstances(envcontext.WithoutCredentialInvalidator(context.Background()), coretesting.ControllerTag.Id())
@@ -125,12 +140,16 @@ func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 }
 
 func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	_, err := s.Env.ControllerInstances(envcontext.WithoutCredentialInvalidator(context.Background()), "not-used")
 
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	other := containerlxd.Container{}
 	s.Client.Containers = []containerlxd.Container{*s.Container}
 	s.Client.Containers = []containerlxd.Container{*s.Container, other}
@@ -142,20 +161,23 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 }
 
 func (s *environInstSuite) TestControllerInvalidCredentials(c *gc.C) {
-	var invalidCred = false
+	defer s.SetupMocks(c).Finish()
+
+	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
+
 	// AliveContainers will return an error.
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
 	_, err := s.Env.ControllerInstances(
 		envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
-			invalidCred = true
 			return nil
 		}), coretesting.ControllerTag.Id())
 	c.Check(err, gc.ErrorMatches, "not authorized")
-	c.Assert(invalidCred, jc.IsTrue)
 }
 
 func (s *environInstSuite) TestAdoptResources(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	one := s.NewContainer(c, "smoosh")
 	two := s.NewContainer(c, "guild-league")
 	three := s.NewContainer(c, "tall-dwarfs")
@@ -174,6 +196,8 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 }
 
 func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	one := s.NewContainer(c, "smoosh")
 	two := s.NewContainer(c, "guild-league")
 	three := s.NewContainer(c, "tall-dwarfs")
@@ -193,16 +217,17 @@ func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
 }
 
 func (s *environInstSuite) TestAdoptResourcesInvalidResources(c *gc.C) {
-	var invalidCred = false
+	defer s.SetupMocks(c).Finish()
+
+	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
+
 	// allInstances will ultimately return the error.
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
 	err := s.Env.AdoptResources(envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
-		invalidCred = true
 		return nil
 	}), "target-uuid", version.MustParse("3.4.5"))
 
 	c.Check(err, gc.ErrorMatches, ".*not authorized")
-	c.Assert(invalidCred, jc.IsTrue)
 	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
 }

@@ -4,7 +4,6 @@
 package maas
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -12,80 +11,33 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/testing"
 )
 
 type ErrorSuite struct {
 	testing.BaseSuite
-
-	maasError error
 }
 
 var _ = gc.Suite(&ErrorSuite{})
 
-func (s *ErrorSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.maasError = gomaasapi.NewPermissionError("denial")
+func (s *ErrorSuite) TestIsAuthorisationFailurePermissionStatus(c *gc.C) {
+	ok := IsAuthorisationFailure(gomaasapi.NewPermissionError("denial"))
+	c.Assert(ok, jc.IsTrue)
 }
 
-func (s *ErrorSuite) TestNoValidation(c *gc.C) {
-	denied := common.MaybeHandleCredentialError(
-		IsAuthorisationFailure, s.maasError, envcontext.WithoutCredentialInvalidator(context.Background()))
-	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
-	c.Assert(denied, jc.IsTrue)
-}
-
-func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		return errors.New("kaboom")
+func (s *ErrorSuite) TestIsAuthorisationFailureServerError(c *gc.C) {
+	ok := IsAuthorisationFailure(gomaasapi.ServerError{
+		StatusCode: http.StatusUnauthorized,
 	})
-	denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, s.maasError, ctx)
-	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored cloud credential on the controller")
-	c.Assert(denied, jc.IsTrue)
+	c.Assert(ok, jc.IsTrue)
 }
 
-func (s *ErrorSuite) TestHandleCredentialErrorPermissionError(c *gc.C) {
-	s.checkMaasPermissionHandling(c, true)
-
-	s.maasError = errors.Trace(s.maasError)
-	s.checkMaasPermissionHandling(c, true)
-
-	s.maasError = errors.Annotatef(s.maasError, "more and more")
-	s.checkMaasPermissionHandling(c, true)
+func (s *ErrorSuite) TestIsAuthorisationFailureNil(c *gc.C) {
+	ok := IsAuthorisationFailure(nil)
+	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *ErrorSuite) TestHandleCredentialErrorAnotherError(c *gc.C) {
-	s.maasError = errors.New("fluffy")
-	s.checkMaasPermissionHandling(c, false)
-}
-
-func (s *ErrorSuite) TestNilError(c *gc.C) {
-	s.maasError = nil
-	s.checkMaasPermissionHandling(c, false)
-}
-
-func (s *ErrorSuite) TestGomaasError(c *gc.C) {
-	// check accepted status codes
-	s.maasError = gomaasapi.ServerError{StatusCode: http.StatusAccepted}
-	s.checkMaasPermissionHandling(c, false)
-
-	for t := range common.AuthorisationFailureStatusCodes {
-		s.maasError = gomaasapi.ServerError{StatusCode: t}
-		s.checkMaasPermissionHandling(c, true)
-	}
-}
-
-func (s *ErrorSuite) checkMaasPermissionHandling(c *gc.C, handled bool) {
-	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		c.Assert(msg, gc.Matches, "cloud denied access:.*")
-		called = true
-		return nil
-	})
-
-	denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, s.maasError, ctx)
-	c.Assert(called, gc.Equals, handled)
-	c.Assert(denied, gc.Equals, handled)
+func (s *ErrorSuite) TestIsAuthorisationFailureGeneric(c *gc.C) {
+	ok := IsAuthorisationFailure(errors.New("foo"))
+	c.Assert(ok, jc.IsTrue)
 }

@@ -32,6 +32,8 @@ type environ struct {
 
 	lock sync.Mutex // lock protects access the following fields.
 	ecfg *environConfig
+
+	credentialInvalidator environs.CredentialInvalidator
 }
 
 func newEnviron(
@@ -39,6 +41,7 @@ func newEnviron(
 	provider *environProvider,
 	cloud environscloudspec.CloudSpec,
 	cfg *config.Config,
+	invalidator environs.CredentialInvalidator,
 ) (*environ, error) {
 	ecfg, err := newValidConfig(ctx, cfg)
 	if err != nil {
@@ -51,11 +54,12 @@ func newEnviron(
 	}
 
 	env := &environ{
-		name:      ecfg.Name(),
-		cloud:     cloud,
-		provider:  provider,
-		ecfg:      ecfg,
-		namespace: namespace,
+		name:                  ecfg.Name(),
+		cloud:                 cloud,
+		provider:              provider,
+		ecfg:                  ecfg,
+		namespace:             namespace,
+		credentialInvalidator: invalidator,
 	}
 	return env, nil
 }
@@ -66,7 +70,7 @@ func (env *environ) withClient(ctx context.Context, callCtx callcontext.Provider
 		// LP #1849194: this is a case at bootstrap time, where a connection
 		// to vsphere failed. It can be wrong Credentials only, differently
 		// from all the other HandleCredentialError cases
-		common.HandleCredentialError(IsAuthorisationFailure, err, callCtx)
+		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		return errors.Annotate(err, "dialing client")
 	}
 	defer client.Close(ctx)

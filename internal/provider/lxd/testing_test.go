@@ -17,6 +17,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -81,6 +82,8 @@ type BaseSuiteUnpatched struct {
 	EndpointAddrs  []string
 	InterfaceAddr  string
 	InterfaceAddrs []net.Addr
+
+	Invalidator *MockCredentialInvalidator
 }
 
 func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
@@ -96,16 +99,20 @@ func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+func (s *BaseSuiteUnpatched) SetupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
-	s.initProvider(c)
+	s.Invalidator = NewMockCredentialInvalidator(ctrl)
+
+	s.initProvider()
 	s.initEnv(c)
 	s.initInst(c)
 	s.initNet(c)
+
+	return ctrl
 }
 
-func (s *BaseSuiteUnpatched) initProvider(c *gc.C) {
+func (s *BaseSuiteUnpatched) initProvider() {
 	s.Provider = &environProvider{}
 	s.EndpointAddrs = []string{"1.2.3.4"}
 	s.InterfaceAddr = "1.2.3.4"
@@ -127,8 +134,9 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 			Type:       "lxd",
 			Credential: &certCred,
 		},
-		provider: s.Provider,
-		name:     "lxd",
+		provider:              s.Provider,
+		name:                  "lxd",
+		credentialInvalidator: s.Invalidator,
 	}
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(c, cfg)
@@ -277,7 +285,10 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	testing.SkipLXDNotSupported(c)
-	s.BaseSuiteUnpatched.SetUpTest(c)
+}
+
+func (s *BaseSuite) SetupMocks(c *gc.C) *gomock.Controller {
+	ctrl := s.BaseSuiteUnpatched.SetupMocks(c)
 
 	s.Stub = &jujutesting.Stub{}
 	s.Client = &StubClient{
@@ -298,6 +309,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// Patch out all expensive external deps.
 	s.Env.serverUnlocked = s.Client
 	s.Env.base = s.Common
+
+	return ctrl
 }
 
 func (s *BaseSuite) TestingCert(c *gc.C) (lxd.Certificate, string) {
@@ -737,7 +750,12 @@ type EnvironSuite struct {
 	testing.BaseSuite
 }
 
-func (s *EnvironSuite) NewEnviron(c *gc.C, srv Server, cfgEdit map[string]interface{}, cloudSpec environscloudspec.CloudSpec) environs.Environ {
+func (s *EnvironSuite) NewEnviron(c *gc.C,
+	srv Server,
+	cfgEdit map[string]interface{},
+	cloudSpec environscloudspec.CloudSpec,
+	invalidator environs.CredentialInvalidator,
+) environs.Environ {
 	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -754,14 +772,19 @@ func (s *EnvironSuite) NewEnviron(c *gc.C, srv Server, cfgEdit map[string]interf
 	c.Assert(err, jc.ErrorIsNil)
 
 	return &environ{
-		serverUnlocked: srv,
-		ecfgUnlocked:   eCfg,
-		namespace:      namespace,
-		cloud:          cloudSpec,
+		serverUnlocked:        srv,
+		ecfgUnlocked:          eCfg,
+		namespace:             namespace,
+		cloud:                 cloudSpec,
+		credentialInvalidator: invalidator,
 	}
 }
 
-func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, srv ServerFactory, cfgEdit map[string]interface{}) environs.Environ {
+func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C,
+	srv ServerFactory,
+	cfgEdit map[string]interface{},
+	invalidator environs.CredentialInvalidator,
+) environs.Environ {
 	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -782,10 +805,11 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, srv ServerFactory, c
 	}
 
 	return &environ{
-		name:         "controller",
-		provider:     &provid,
-		ecfgUnlocked: eCfg,
-		namespace:    namespace,
+		name:                  "controller",
+		provider:              &provid,
+		ecfgUnlocked:          eCfg,
+		namespace:             namespace,
+		credentialInvalidator: invalidator,
 	}
 }
 

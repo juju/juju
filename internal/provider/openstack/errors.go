@@ -4,17 +4,19 @@
 package openstack
 
 import (
+	"context"
+
 	gooseerrors "github.com/go-goose/goose/v5/errors"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/common"
 )
 
 // handleCredentialError wraps the common handler,
 // passing the Openstack-specific auth failure detection.
-func handleCredentialError(err error, ctx envcontext.ProviderCallContext) {
-	common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+func handleCredentialError(ctx context.Context, invalidator environs.CredentialInvalidator, err error) bool {
+	return common.HandleCredentialError(ctx, invalidator, IsAuthorisationFailure, err)
 }
 
 // IsAuthorisationFailure determines if the given error has an

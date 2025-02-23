@@ -34,7 +34,9 @@ func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
 	srv := lxd.NewMockServer(ctrl)
 	srv.EXPECT().FilterContainers("bogus").Return(nil, nil)
 
-	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
 	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	_, err := env.Subnets(ctx, "bogus", nil)
@@ -46,8 +48,9 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
 
-	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	// Space support and by extension, subnet detection is not available.
@@ -118,7 +121,9 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 		},
 	}, nil)
 
-	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
 	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	subnets, err := env.Subnets(ctx, "woot", nil)
@@ -207,7 +212,9 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndClustered(c *gc.C) {
 		},
 	}, nil)
 
-	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
 	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	subnets, err := env.Subnets(ctx, "woot", nil)
@@ -268,7 +275,9 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 	srv.EXPECT().IsClustered().Return(false)
 	srv.EXPECT().Name().Return("locutus")
 
-	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
 	// Filter list so we only get a single subnet
 	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
@@ -360,7 +369,9 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 		},
 	}, "etag", nil)
 
-	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
 	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 
@@ -456,7 +467,9 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 		},
 	}, "etag", nil)
 
-	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
 	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot"})
@@ -532,7 +545,9 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 		},
 	}, "etag", nil)
 
-	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
 	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot", "unknown"})
@@ -568,7 +583,9 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
 	srv.EXPECT().GetInstance("unknown1").Return(nil, "", errors.New("not found"))
 	srv.EXPECT().GetInstance("unknown2").Return(nil, "", errors.New("not found"))
 
-	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
 	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	_, err := env.NetworkInterfaces(ctx, []instance.Id{"unknown1", "unknown2"})

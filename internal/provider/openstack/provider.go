@@ -167,12 +167,13 @@ func (p EnvironProvider) Open(ctx context.Context, args environs.OpenParams, inv
 	}
 
 	e := &Environ{
-		name:         args.Config.Name(),
-		uuid:         uuid,
-		namespace:    namespace,
-		clock:        clock.WallClock,
-		configurator: p.Configurator,
-		flavorFilter: p.FlavorFilter,
+		name:                  args.Config.Name(),
+		uuid:                  uuid,
+		namespace:             namespace,
+		clock:                 clock.WallClock,
+		configurator:          p.Configurator,
+		flavorFilter:          p.FlavorFilter,
+		credentialInvalidator: invalidator,
 	}
 
 	if err := e.SetConfig(ctx, args.Config); err != nil {
@@ -245,7 +246,7 @@ func (p EnvironProvider) CloudSchema() *jsonschema.Schema {
 func (p EnvironProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
 	c := p.ClientFromEndpoint(endpoint)
 	if _, err := c.IdentityAuthOptions(); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, environs.NoopCredentialInvalidator(), err)
 		return errors.Annotatef(err, "No Openstack server running at %s", endpoint)
 	}
 	return nil
@@ -306,6 +307,8 @@ type Environ struct {
 	novaUnlocked    *nova.Client
 	neutronUnlocked *neutron.Client
 	volumeURL       *url.URL
+
+	credentialInvalidator environs.CredentialInvalidator
 
 	// keystoneImageDataSource caches the result of getKeystoneImageSource.
 	keystoneImageDataSourceMutex sync.Mutex
@@ -369,7 +372,7 @@ func (inst *openstackInstance) Refresh(ctx envcontext.ProviderCallContext) error
 	defer inst.mu.Unlock()
 	server, err := inst.e.nova().GetServer(inst.serverDetail.Id)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, inst.e.credentialInvalidator, err)
 		return err
 	}
 	inst.serverDetail = server
@@ -455,7 +458,7 @@ func (inst *openstackInstance) getAddresses(ctx envcontext.ProviderCallContext) 
 	if len(addrs) == 0 {
 		server, err := inst.e.nova().GetServer(string(inst.Id()))
 		if err != nil {
-			handleCredentialError(err, ctx)
+			handleCredentialError(ctx, inst.e.credentialInvalidator, err)
 			return nil, err
 		}
 		addrs = server.Addresses
@@ -577,7 +580,7 @@ func (e *Environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (cons
 	novaClient := e.nova()
 	flavors, err := novaClient.ListFlavorsDetail()
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, err
 	}
 	instTypeNames := make([]string, len(flavors))
@@ -612,7 +615,7 @@ func (e *Environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (network
 		return nil, errors.NotImplementedf("availability zones")
 	}
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, err
 	}
 
@@ -628,7 +631,7 @@ func (e *Environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (network
 func (e *Environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 	zones := make(map[instance.Id]string)
@@ -653,7 +656,7 @@ type openstackPlacement struct {
 func (e *Environ) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	availabilityZone, err := e.deriveAvailabilityZone(ctx, args.Placement, args.VolumeAttachments)
 	if err != nil && !errors.Is(err, errors.NotImplemented) {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 	if availabilityZone != "" {
@@ -671,7 +674,7 @@ func (e *Environ) parsePlacement(ctx envcontext.ProviderCallContext, placement s
 	case "zone":
 		zones, err := e.AvailabilityZones(ctx)
 		if err != nil {
-			handleCredentialError(err, ctx)
+			handleCredentialError(ctx, e.credentialInvalidator, err)
 			return nil, errors.Trace(err)
 		}
 		if err := zones.Validate(value); err != nil {
@@ -703,7 +706,7 @@ func (e *Environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args envi
 		novaClient := e.nova()
 		flavors, err := novaClient.ListFlavorsDetail()
 		if err != nil {
-			handleCredentialError(err, ctx)
+			handleCredentialError(ctx, e.credentialInvalidator, err)
 			return err
 		}
 		flavorFound := false
@@ -745,7 +748,7 @@ func (e *Environ) PrepareForBootstrap(_ environs.BootstrapContext, _ string) err
 func (e *Environ) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
 	// Verify credentials.
 	if err := authenticateClient(e.client()); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return err
 	}
 	// TODO(axw) 2016-08-04 #1609643
@@ -758,12 +761,12 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.Pr
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
 	if err := authenticateClient(e.client()); err != nil {
-		handleCredentialError(err, callCtx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, err
 	}
 	result, err := common.Bootstrap(ctx, e, callCtx, args)
 	if err != nil {
-		handleCredentialError(err, callCtx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, err
 	}
 	return result, nil
@@ -1041,7 +1044,7 @@ func (e *Environ) StartInstance(
 	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
 	res, err := e.startInstance(ctx, args)
-	handleCredentialError(err, ctx)
+	handleCredentialError(ctx, e.credentialInvalidator, err)
 	return res, errors.Trace(err)
 }
 
@@ -1614,7 +1617,7 @@ func (e *Environ) deriveAvailabilityZone(
 ) (string, error) {
 	volumeAttachmentsZone, err := e.volumeAttachmentsZone(volumeAttachments)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return "", errors.Trace(err)
 	}
 	if placement == "" {
@@ -1696,7 +1699,7 @@ func isInvalidNetworkError(err error) bool {
 func (e *Environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	logger.Debugf(context.TODO(), "terminating instances %v", ids)
 	if err := e.terminateInstances(ctx, ids); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return err
 	}
 	return nil
@@ -1717,7 +1720,7 @@ func (e *Environ) listServers(ctx envcontext.ProviderCallContext, ids []instance
 		var maybeServer *nova.ServerDetail
 		maybeServer, err := e.nova().GetServer(string(ids[0]))
 		if err != nil {
-			handleCredentialError(err, ctx)
+			handleCredentialError(ctx, e.credentialInvalidator, err)
 			return nil, err
 		}
 		// Only return server details if it is currently alive
@@ -1729,7 +1732,7 @@ func (e *Environ) listServers(ctx envcontext.ProviderCallContext, ids []instance
 	// List all instances in the environment.
 	instances, err := e.AllRunningInstances(ctx)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, err
 	}
 	// Return only servers with the wanted ids that are currently alive
@@ -1755,7 +1758,7 @@ func (e *Environ) listServers(ctx envcontext.ProviderCallContext, ids []instance
 func (e *Environ) updateFloatingIPAddresses(ctx envcontext.ProviderCallContext, instances map[string]instances.Instance) error {
 	servers, err := e.nova().ListServersDetail(jujuMachineFilter())
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return err
 	}
 	for _, server := range servers {
@@ -1784,7 +1787,7 @@ func (e *Environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.I
 	if err != nil {
 		logger.Debugf(context.TODO(), "error listing servers: %v", err)
 		if !IsNotFoundError(err) {
-			handleCredentialError(err, ctx)
+			handleCredentialError(ctx, e.credentialInvalidator, err)
 			return nil, err
 		}
 	}
@@ -1826,7 +1829,7 @@ func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerU
 
 	instances, err := e.AllInstances(ctx)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	for _, instance := range instances {
@@ -1834,7 +1837,7 @@ func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerU
 		if err != nil {
 			logger.Errorf(context.TODO(), "error updating controller tag for instance %s: %v", instance.Id(), err)
 			failed = append(failed, instance.Id().String())
-			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			if denied := common.HandleCredentialError(ctx, e.credentialInvalidator, IsAuthorisationFailure, err); denied {
 				// If we have an invvalid credential, there is no need to proceed: we'll fail 100%.
 				break
 			}
@@ -1843,14 +1846,14 @@ func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerU
 
 	failedVolumes, err := e.adoptVolumes(controllerTag, ctx)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	failed = append(failed, failedVolumes...)
 
 	err = e.firewaller.UpdateGroupController(ctx, controllerUUID)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	if len(failed) != 0 {
@@ -1866,7 +1869,7 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx envcontext.P
 		return nil, nil
 	}
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 	// TODO(axw): fix the storage API.
@@ -1876,12 +1879,12 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx envcontext.P
 	}
 	volumeSource, err := cinder.VolumeSource(storageConfig)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 	volumeIds, err := volumeSource.ListVolumes(ctx)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, errors.Trace(err)
 	}
 
@@ -1891,7 +1894,7 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx envcontext.P
 		if err != nil {
 			logger.Errorf(context.TODO(), "error updating controller tag for volume %s: %v", volumeId, err)
 			failed = append(failed, volumeId)
-			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			if denied := common.HandleCredentialError(ctx, e.credentialInvalidator, IsAuthorisationFailure, err); denied {
 				// If we have an invvalid credential, there is no need to proceed: we'll fail 100%.
 				break
 			}
@@ -1905,7 +1908,7 @@ func (e *Environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.
 	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}
 	instances, err := e.allInstances(ctx, tagFilter)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return instances, err
 	}
 	return instances, nil
@@ -1924,7 +1927,7 @@ func (e *Environ) allControllerManagedInstances(ctx envcontext.ProviderCallConte
 	tagFilter := tagValue{tags.JujuController, controllerUUID}
 	instances, err := e.allInstances(ctx, tagFilter)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return instances, err
 	}
 	return instances, nil
@@ -1939,7 +1942,7 @@ type tagValue struct {
 func (e *Environ) allInstances(ctx envcontext.ProviderCallContext, tagFilter tagValue) ([]instances.Instance, error) {
 	servers, err := e.nova().ListServersDetail(jujuMachineFilter())
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, err
 	}
 	instsById := make(map[string]instances.Instance)
@@ -1954,7 +1957,7 @@ func (e *Environ) allInstances(ctx envcontext.ProviderCallContext, tagFilter tag
 		}
 	}
 	if err := e.updateFloatingIPAddresses(ctx, instsById); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, err
 	}
 	insts := make([]instances.Instance, 0, len(instsById))
@@ -1967,12 +1970,12 @@ func (e *Environ) allInstances(ctx envcontext.ProviderCallContext, tagFilter tag
 func (e *Environ) Destroy(ctx envcontext.ProviderCallContext) error {
 	err := common.Destroy(e, ctx)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	// Delete all security groups remaining in the model.
 	if err := e.firewaller.DeleteAllModelGroups(ctx); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	return nil
@@ -1981,18 +1984,18 @@ func (e *Environ) Destroy(ctx envcontext.ProviderCallContext) error {
 // DestroyController implements the Environ interface.
 func (e *Environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	if err := e.Destroy(ctx); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Annotate(err, "destroying controller model")
 	}
 	// In case any hosted environment hasn't been cleaned up yet,
 	// we also attempt to delete their resources when the controller
 	// environment is destroyed.
 	if err := e.destroyControllerManagedEnvirons(ctx, controllerUUID); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Annotate(err, "destroying managed models")
 	}
 	if err := e.firewaller.DeleteAllControllerGroups(ctx, controllerUUID); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	return nil
@@ -2011,7 +2014,7 @@ func (e *Environ) destroyControllerManagedEnvirons(ctx envcontext.ProviderCallCo
 		instIds[i] = inst.Id()
 	}
 	if err := e.terminateInstances(ctx, instIds); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Annotate(err, "terminating instances")
 	}
 
@@ -2020,20 +2023,20 @@ func (e *Environ) destroyControllerManagedEnvirons(ctx envcontext.ProviderCallCo
 	if err == nil {
 		volumes, err := controllerCinderVolumes(cinder.storageAdaptor, controllerUUID)
 		if err != nil {
-			handleCredentialError(err, ctx)
+			handleCredentialError(ctx, e.credentialInvalidator, err)
 			return errors.Annotate(err, "listing volumes")
 		}
 		volIds := volumeInfoToVolumeIds(cinderToJujuVolumeInfos(volumes))
-		errs := foreachVolume(ctx, cinder.storageAdaptor, volIds, destroyVolume)
+		errs := foreachVolume(ctx, e.credentialInvalidator, cinder.storageAdaptor, volIds, destroyVolume)
 		for i, err := range errs {
 			if err == nil {
 				continue
 			}
-			handleCredentialError(err, ctx)
+			handleCredentialError(ctx, e.credentialInvalidator, err)
 			return errors.Annotatef(err, "destroying volume %q", volIds[i])
 		}
 	} else if !errors.Is(err, errors.NotSupported) {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 
@@ -2091,7 +2094,7 @@ func rulesToRuleInfo(groupId string, rules firewall.IngressRules) []neutron.Rule
 
 func (e *Environ) OpenPorts(ctx envcontext.ProviderCallContext, rules firewall.IngressRules) error {
 	if err := e.firewaller.OpenPorts(ctx, rules); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	return nil
@@ -2099,7 +2102,7 @@ func (e *Environ) OpenPorts(ctx envcontext.ProviderCallContext, rules firewall.I
 
 func (e *Environ) ClosePorts(ctx envcontext.ProviderCallContext, rules firewall.IngressRules) error {
 	if err := e.firewaller.ClosePorts(ctx, rules); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	return nil
@@ -2108,7 +2111,7 @@ func (e *Environ) ClosePorts(ctx envcontext.ProviderCallContext, rules firewall.
 func (e *Environ) IngressRules(ctx envcontext.ProviderCallContext) (firewall.IngressRules, error) {
 	rules, err := e.firewaller.IngressRules(ctx)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return rules, errors.Trace(err)
 	}
 	return rules, nil
@@ -2116,7 +2119,7 @@ func (e *Environ) IngressRules(ctx envcontext.ProviderCallContext) (firewall.Ing
 
 func (e *Environ) OpenModelPorts(ctx envcontext.ProviderCallContext, rules firewall.IngressRules) error {
 	if err := e.firewaller.OpenModelPorts(ctx, rules); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	return nil
@@ -2124,7 +2127,7 @@ func (e *Environ) OpenModelPorts(ctx envcontext.ProviderCallContext, rules firew
 
 func (e *Environ) CloseModelPorts(ctx envcontext.ProviderCallContext, rules firewall.IngressRules) error {
 	if err := e.firewaller.CloseModelPorts(ctx, rules); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Trace(err)
 	}
 	return nil
@@ -2133,7 +2136,7 @@ func (e *Environ) CloseModelPorts(ctx envcontext.ProviderCallContext, rules fire
 func (e *Environ) ModelIngressRules(ctx envcontext.ProviderCallContext) (firewall.IngressRules, error) {
 	rules, err := e.firewaller.ModelIngressRules(ctx)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return rules, errors.Trace(err)
 	}
 	return rules, nil
@@ -2157,7 +2160,7 @@ func (e *Environ) terminateInstances(ctx envcontext.ProviderCallContext, ids []i
 	}
 	if err != nil {
 		logger.Debugf(context.TODO(), "error retrieving security groups for %v: %v", ids, err)
-		if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+		if denied := common.HandleCredentialError(ctx, e.credentialInvalidator, IsAuthorisationFailure, err); denied {
 			// We'll likely fail all subsequent calls if we have an invalid credential.
 			return errors.Trace(err)
 		}
@@ -2185,7 +2188,7 @@ func (e *Environ) terminateInstances(ctx envcontext.ProviderCallContext, ids []i
 			if firstErr == nil {
 				firstErr = err
 			}
-			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			if denied := common.HandleCredentialError(ctx, e.credentialInvalidator, IsAuthorisationFailure, err); denied {
 				// We'll likely fail all subsequent calls if we have an invalid credential.
 				return errors.Trace(err)
 			}
@@ -2299,7 +2302,7 @@ func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 // TagInstance implements environs.InstanceTagger.
 func (e *Environ) TagInstance(ctx envcontext.ProviderCallContext, id instance.Id, tags map[string]string) error {
 	if err := e.nova().SetServerMetadata(string(id), tags); err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return errors.Annotate(err, "setting server metadata")
 	}
 	return nil
@@ -2342,7 +2345,7 @@ func (e *Environ) Subnets(
 ) ([]network.SubnetInfo, error) {
 	subnets, err := e.networking.Subnets(instId, subnetIds)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return subnets, errors.Trace(err)
 	}
 	return subnets, nil
@@ -2352,7 +2355,7 @@ func (e *Environ) Subnets(
 func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	infos, err := e.networking.NetworkInterfaces(ids)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return infos, errors.Trace(err)
 	}
 
@@ -2368,7 +2371,7 @@ func (e *Environ) SupportsSpaces() (bool, error) {
 func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
 	subnets, err := e.networking.Subnets("", nil)
 	if err != nil {
-		handleCredentialError(err, ctx)
+		handleCredentialError(ctx, e.credentialInvalidator, err)
 		return nil, err
 	}
 	cidrs := make([]string, len(subnets))
@@ -2394,6 +2397,23 @@ func (e *Environ) SupportsRulesWithIPV6CIDRs(ctx envcontext.ProviderCallContext)
 // endpoint. Used as validation during model upgrades.
 // Implements environs.CloudEndpointChecker
 func (env *Environ) ValidateCloudEndpoint(ctx envcontext.ProviderCallContext) error {
-	err := env.Provider().Ping(ctx, env.cloud().Endpoint)
-	return errors.Trace(err)
+	provider := env.Provider()
+
+	// Allow the test suite to provide a custom client function.
+	// This is not ideal, and a client should be passed in to the Environ.
+	var clientFn func(string) client.AuthenticatingClient
+	if p, ok := provider.(EnvironProvider); ok {
+		clientFn = p.ClientFromEndpoint
+	} else {
+		clientFn = newGooseClient
+	}
+
+	endpoint := env.cloud().Endpoint
+	c := clientFn(endpoint)
+	if _, err := c.IdentityAuthOptions(); err != nil {
+		handleCredentialError(ctx, env.credentialInvalidator, err)
+		return errors.Annotatef(err, "No Openstack server running at %s", endpoint)
+	}
+
+	return nil
 }

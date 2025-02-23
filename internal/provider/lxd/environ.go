@@ -61,6 +61,10 @@ type environ struct {
 
 	// profileMutex is used when writing profiles via the server.
 	profileMutex sync.Mutex
+
+	// credentialInvalidator is used to invalidate the model's credential
+	// if there is an authorisation failure.
+	credentialInvalidator environs.CredentialInvalidator
 }
 
 func newEnviron(
@@ -68,6 +72,7 @@ func newEnviron(
 	p *environProvider,
 	spec environscloudspec.CloudSpec,
 	cfg *config.Config,
+	invalidator environs.CredentialInvalidator,
 ) (*environ, error) {
 	ecfg, err := newValidConfig(ctx, cfg)
 	if err != nil {
@@ -80,12 +85,13 @@ func newEnviron(
 	}
 
 	env := &environ{
-		provider:     p,
-		cloud:        spec,
-		name:         ecfg.Name(),
-		uuid:         ecfg.UUID(),
-		namespace:    namespace,
-		ecfgUnlocked: ecfg,
+		provider:              p,
+		cloud:                 spec,
+		name:                  ecfg.Name(),
+		uuid:                  ecfg.UUID(),
+		namespace:             namespace,
+		ecfgUnlocked:          ecfg,
+		credentialInvalidator: invalidator,
 	}
 	env.base = common.DefaultProvider{Env: env}
 
@@ -223,12 +229,12 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.
 // known environment.
 func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
 	if err := env.base.DestroyEnv(ctx); err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		return errors.Trace(err)
 	}
 	if env.storageSupported() {
 		if err := destroyModelFilesystems(env); err != nil {
-			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 			return errors.Annotate(err, "destroying LXD filesystems for model")
 		}
 	}
@@ -241,12 +247,12 @@ func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, contro
 		return errors.Trace(err)
 	}
 	if err := env.destroyHostedModelResources(controllerUUID); err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		return errors.Trace(err)
 	}
 	if env.storageSupported() {
 		if err := destroyControllerFilesystems(env, controllerUUID); err != nil {
-			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 			return errors.Annotate(err, "destroying LXD filesystems for controller")
 		}
 	}
@@ -312,7 +318,7 @@ func (env *environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (netwo
 
 	nodes, err := server.GetClusterMembers()
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		return nil, errors.Annotate(err, "listing cluster members")
 	}
 	aZones := make(network.AvailabilityZones, len(nodes))

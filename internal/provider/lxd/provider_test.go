@@ -39,10 +39,6 @@ type providerSuite struct {
 	lxd.BaseSuite
 }
 
-func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
 type providerSuiteDeps struct {
 	provider      environs.EnvironProvider
 	creds         *testing.MockProviderCredentials
@@ -68,7 +64,7 @@ func (s *providerSuite) createProvider(ctrl *gomock.Controller) providerSuiteDep
 }
 
 func (s *providerSuite) TestDetectClouds(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -86,7 +82,7 @@ func (s *providerSuite) TestDetectClouds(c *gc.C) {
 }
 
 func (s *providerSuite) TestRemoteDetectClouds(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -140,7 +136,7 @@ func (s *providerSuite) TestRemoteDetectClouds(c *gc.C) {
 }
 
 func (s *providerSuite) TestRemoteDetectCloudsWithConfigError(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -158,7 +154,7 @@ func (s *providerSuite) TestRemoteDetectCloudsWithConfigError(c *gc.C) {
 }
 
 func (s *providerSuite) TestDetectCloud(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -181,7 +177,7 @@ func (s *providerSuite) TestDetectCloud(c *gc.C) {
 }
 
 func (s *providerSuite) TestRemoteDetectCloud(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -220,7 +216,7 @@ func (s *providerSuite) TestRemoteDetectCloud(c *gc.C) {
 }
 
 func (s *providerSuite) TestRemoteDetectCloudWithConfigError(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -236,7 +232,7 @@ func (s *providerSuite) TestRemoteDetectCloudWithConfigError(c *gc.C) {
 }
 
 func (s *providerSuite) TestDetectCloudError(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -266,7 +262,7 @@ func (s *providerSuite) assertLocalhostCloud(c *gc.C, found cloud.Cloud) {
 }
 
 func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -305,7 +301,7 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 }
 
 func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -333,7 +329,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *gc.C) {
 }
 
 func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithOnlyRegionEndpoint(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -356,7 +352,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithOnlyRegionEndpoin
 }
 
 func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -396,7 +392,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *g
 }
 
 func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithNoRegion(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -427,7 +423,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithNoRegion(c *gc.C)
 }
 
 func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -449,7 +445,7 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 }
 
 func (s *providerSuite) TestDetectRegions(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -461,7 +457,7 @@ func (s *providerSuite) TestDetectRegions(c *gc.C) {
 }
 
 func (s *providerSuite) TestValidate(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -474,7 +470,7 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 }
 
 func (s *providerSuite) TestValidateWithInvalidConfig(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -489,7 +485,7 @@ func (s *providerSuite) TestValidateWithInvalidConfig(c *gc.C) {
 }
 
 func (s *providerSuite) TestCloudSchema(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
@@ -549,6 +545,9 @@ func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
 	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  lxdCloudSpec(),
 		Config: s.Config,
@@ -560,11 +559,17 @@ func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
 }
 
 func (s *ProviderFunctionalSuite) TestValidateCloud(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
 	err := s.provider.ValidateCloud(context.Background(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedEndpointScheme(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
 	cloudSpec := lxdCloudSpec()
 	cloudSpec.Endpoint = "unix://foo"
 	err := s.provider.ValidateCloud(context.Background(), cloudSpec)
@@ -572,6 +577,9 @@ func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedEndpointScheme(c *
 }
 
 func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedAuthType(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
 	cred := cloud.NewCredential("foo", nil)
 	err := s.provider.ValidateCloud(context.Background(), environscloudspec.CloudSpec{
 		Type:       "lxd",
@@ -582,6 +590,9 @@ func (s *ProviderFunctionalSuite) TestValidateCloudUnsupportedAuthType(c *gc.C) 
 }
 
 func (s *ProviderFunctionalSuite) TestValidateCloudInvalidCertificateAttrs(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
 	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{})
 	err := s.provider.ValidateCloud(context.Background(), environscloudspec.CloudSpec{
 		Type:       "lxd",
@@ -592,6 +603,9 @@ func (s *ProviderFunctionalSuite) TestValidateCloudInvalidCertificateAttrs(c *gc
 }
 
 func (s *ProviderFunctionalSuite) TestValidateCloudEmptyAuthNonLocal(c *gc.C) {
+	ctrl := s.SetupMocks(c)
+	defer ctrl.Finish()
+
 	cred := cloud.NewEmptyCredential()
 	err := s.provider.ValidateCloud(context.Background(), environscloudspec.CloudSpec{
 		Type:       "lxd",
