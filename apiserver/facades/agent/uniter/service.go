@@ -83,15 +83,20 @@ type ApplicationService interface {
 
 	// GetApplicationIDByUnitName returns the application ID for the named unit.
 	//
-	// Returns [github.com/juju/juju/domain/application.UnitNotFound] if the
-	// unit is not found.
+	// Returns [applicationerrors.UnitNotFound] if the unit is not found.
 	GetApplicationIDByUnitName(ctx context.Context, unitName coreunit.Name) (coreapplication.ID, error)
 
 	// GetApplicationIDByName returns an application ID by application name.
 	//
-	// Returns [github.com/juju/juju/domain/application.ApplicationNotFound] if
-	// the application is not found.
+	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+
+	// GetApplicationDisplayStatus returns the display status of the specified application.
+	// The display status is equal to the application status if it is set, otherwise it is
+	// derived from the unit display statuses.
+	// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
+	// is returned.
+	GetApplicationDisplayStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error)
 
 	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
@@ -104,6 +109,12 @@ type ApplicationService interface {
 	// GetCharmModifiedVersion looks up the charm modified version of the given
 	// application.
 	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
+
+	// GetUnitWorkloadStatusesForApplication returns the workload statuses of all
+	// units in the specified application, indexed by unit name, returning an error
+	// satisfying [applicationerrors.ApplicationNotFound] if the application doesn't
+	// exist.
+	GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error)
 
 	// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm archive
 	// for the given charm name, source and revision. If the charm is not available,

@@ -2904,54 +2904,6 @@ func (a *Application) OperatorStatus() (status.StatusInfo, error) {
 	return getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "application operator")
 }
 
-// UnitStatuses returns a map of unit names to their Status results (workload
-// status).
-func (a *Application) UnitStatuses() (map[string]status.StatusInfo, error) {
-	col, closer := a.st.db().GetRawCollection(statusesC)
-	defer closer()
-	// Agent status is u#unit-name
-	// Workload status is u#unit-name#charm
-	selector := fmt.Sprintf("^%s:u#%s/\\d+(#charm)?$", a.st.ModelUUID(), a.doc.Name)
-	var docs []statusDocWithID
-	err := col.Find(bson.M{"_id": bson.M{"$regex": selector}}).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make(map[string]status.StatusInfo)
-	workload := make(map[string]status.StatusInfo)
-	agent := make(map[string]status.StatusInfo)
-	for _, doc := range docs {
-		key := a.st.localID(doc.ID)
-		parts := strings.Split(key, "#")
-		// We know there will be at least two parts because the regex
-		// specifies a #.
-		unitName := parts[1]
-		if strings.HasSuffix(key, "#charm") {
-			workload[unitName] = doc.asStatusInfo()
-		} else {
-			agent[unitName] = doc.asStatusInfo()
-		}
-	}
-
-	// The reason for this dance is due to the way that hook errors
-	// show up in status. See Unit.Status() for more details.
-	for name, value := range agent {
-		if value.Status == status.Error {
-			result[name] = value
-		} else {
-			if workloadStatus, found := workload[name]; found {
-				result[name] = workloadStatus
-			}
-			// If there is a missing workload status for the unit
-			// it is possible that we are in the process of deleting the
-			// unit. While dirty reads like this should be unusual, it
-			// is possible. In these situations, we just don't return
-			// a status for that unit.
-		}
-	}
-	return result, nil
-}
-
 type addApplicationOpsArgs struct {
 	applicationDoc    *applicationDoc
 	statusDoc         statusDoc

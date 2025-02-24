@@ -1704,6 +1704,8 @@ func (s *Service) SetApplicationStatusForUnitLeader(
 // GetApplicationDisplayStatus returns the display status of the specified application.
 // The display status is equal to the application status if it is set, otherwise it is
 // derived from the unit display statuses.
+// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
+// is returned.
 func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error) {
 	if err := appID.Validate(); err != nil {
 		return nil, internalerrors.Errorf("application ID: %w", err)

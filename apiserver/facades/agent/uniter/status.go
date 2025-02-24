@@ -7,12 +7,15 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -21,8 +24,9 @@ import (
 // status from different entities, this particular separation from
 // base is because we have a shim to support unit/agent split.
 type StatusAPI struct {
-	model             *state.Model
 	leadershipChecker leadership.Checker
+
+	applicationService ApplicationService
 
 	agentSetter       *common.StatusSetter
 	unitSetter        *common.UnitStatusSetter
@@ -32,22 +36,21 @@ type StatusAPI struct {
 }
 
 // NewStatusAPI creates a new server-side Status setter API facade.
-func NewStatusAPI(model *state.Model, applicationService ApplicationService, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker, clock clock.Clock) *StatusAPI {
+func NewStatusAPI(st *state.State, applicationService ApplicationService, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker, clock clock.Clock) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
-	st := model.State()
 	unitSetter := common.NewUnitStatusSetter(st, applicationService, clock, getCanModify)
 	unitGetter := common.NewUnitStatusGetter(applicationService, clock, getCanModify)
 	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
 	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, getCanModify, clock)
 	return &StatusAPI{
-		model:             model,
-		leadershipChecker: leadershipChecker,
-		agentSetter:       agentSetter,
-		unitSetter:        unitSetter,
-		unitGetter:        unitGetter,
-		applicationSetter: applicationSetter,
-		getCanModify:      getCanModify,
+		leadershipChecker:  leadershipChecker,
+		applicationService: applicationService,
+		agentSetter:        agentSetter,
+		unitSetter:         unitSetter,
+		unitGetter:         unitGetter,
+		applicationSetter:  applicationSetter,
+		getCanModify:       getCanModify,
 	}
 }
 
@@ -119,23 +122,18 @@ func (s *StatusAPI) ApplicationStatus(ctx context.Context, args params.Entities)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unitId := unitTag.Id()
+		unitName := unitTag.Id()
 
 		// Now we have the unit, we can get the application that should have been
 		// specified in the first place...
-		applicationId, err := names.UnitApplication(unitId)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		application, err := s.model.State().Application(applicationId)
+		applicationName, err := names.UnitApplication(unitName)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		// ...so we can check the unit's application leadership...
-		token := s.leadershipChecker.LeadershipCheck(applicationId, unitId)
+		token := s.leadershipChecker.LeadershipCheck(applicationName, unitName)
 		if err := token.Check(); err != nil {
 			// TODO(fwereade) this should probably be ErrPerm in certain cases,
 			// but I don't think I implemented an exported ErrNotLeader.
@@ -144,7 +142,16 @@ func (s *StatusAPI) ApplicationStatus(ctx context.Context, args params.Entities)
 			continue
 		}
 
-		result.Results[i] = s.getAppAndUnitStatus(application)
+		applicationID, err := s.applicationService.GetApplicationIDByName(ctx, applicationName)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", applicationName))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i] = s.getAppAndUnitStatus(ctx, applicationID)
 	}
 	return result, nil
 }
@@ -158,23 +165,25 @@ func (s *StatusAPI) toStatusResult(i status.StatusInfo) params.StatusResult {
 	}
 }
 
-func (s *StatusAPI) getAppAndUnitStatus(application *state.Application) params.ApplicationStatusResult {
+func (s *StatusAPI) getAppAndUnitStatus(ctx context.Context, applicationId coreapplication.ID) params.ApplicationStatusResult {
 	result := params.ApplicationStatusResult{
 		Units: make(map[string]params.StatusResult),
 	}
 	appStatus := status.StatusInfo{Status: status.Unknown}
-	aStatus, err := common.ApplicationDisplayStatus(s.model, application, nil)
-	if err == nil {
-		appStatus = aStatus
+	aStatus, err := s.applicationService.GetApplicationDisplayStatus(ctx, applicationId)
+	if err == nil && aStatus != nil {
+		appStatus = *aStatus
 	}
 	result.Application = s.toStatusResult(appStatus)
 
-	unitStatuses, err := application.UnitStatuses()
-	if err != nil {
+	unitStatuses, err := s.applicationService.GetUnitWorkloadStatusesForApplication(ctx, applicationId)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		result.Error = apiservererrors.ServerError(errors.NotFoundf("application %q", applicationId))
+	} else if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 	} else {
 		for name, status := range unitStatuses {
-			result.Units[name] = s.toStatusResult(status)
+			result.Units[name.String()] = s.toStatusResult(status)
 		}
 	}
 	return result

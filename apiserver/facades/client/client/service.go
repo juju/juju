@@ -6,12 +6,14 @@ package client
 import (
 	"context"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	domainmodel "github.com/juju/juju/domain/model"
@@ -70,6 +72,18 @@ type ApplicationService interface {
 	// [applicationerrors.CharmNotFound]. If there are multiple charms, then the
 	// latest created at date is returned first.
 	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (charm.CharmLocator, error)
+
+	// GetApplicationIDByName returns an application ID by application name. It
+	// returns an error if the application can not be found by the name.
+	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationIDByName(ctx context.Context, name string) (application.ID, error)
+
+	// GetApplicationDisplayStatus returns the display status of the specified application.
+	// The display status is equal to the application status if it is set, otherwise it is
+	// derived from the unit display statuses.
+	// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
+	// is returned.
+	GetApplicationDisplayStatus(context.Context, application.ID) (*status.StatusInfo, error)
 }
 
 // PortService defines the methods that the facade assumes from the Port
