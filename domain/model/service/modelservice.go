@@ -12,11 +12,14 @@ import (
 
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/providertracker"
 	corestatus "github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/environs"
+	environsContext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -78,15 +81,28 @@ type AgentBinaryFinder interface {
 	HasBinariesForVersion(version.Number) (bool, error)
 }
 
+// Provider is an subset of the [environs.Environ] interface that is used for the model service.
+type Provider interface {
+	// Create creates the environment for a new hosted model.
+	//
+	// This will be called before any workers begin operating on the
+	// Environ, to give an Environ a chance to perform operations that
+	// are required for further use.
+	//
+	// Create is not called for the initial controller model; it is
+	// the Bootstrap method's job to create the controller model.
+	Create(environsContext.ProviderCallContext, environs.CreateParams) error
+}
+
 // ModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state.
 type ModelService struct {
-	clock                 clock.Clock
-	modelID               coremodel.UUID
-	controllerSt          ControllerState
-	modelSt               ModelState
-	environProviderGetter EnvironVersionProviderFunc
-	agentBinaryFinder     AgentBinaryFinder
+	clock             clock.Clock
+	modelID           coremodel.UUID
+	controllerSt      ControllerState
+	modelSt           ModelState
+	providerGetter    providertracker.ProviderGetter[Provider]
+	agentBinaryFinder AgentBinaryFinder
 }
 
 // NewModelService returns a new Service for interacting with a models state.
@@ -94,16 +110,16 @@ func NewModelService(
 	modelID coremodel.UUID,
 	controllerSt ControllerState,
 	modelSt ModelState,
-	environProviderGetter EnvironVersionProviderFunc,
+	providerGetter providertracker.ProviderGetter[Provider],
 	agentBinaryFinder AgentBinaryFinder,
 ) *ModelService {
 	return &ModelService{
-		modelID:               modelID,
-		controllerSt:          controllerSt,
-		modelSt:               modelSt,
-		clock:                 clock.WallClock,
-		environProviderGetter: environProviderGetter,
-		agentBinaryFinder:     agentBinaryFinder,
+		modelID:           modelID,
+		controllerSt:      controllerSt,
+		modelSt:           modelSt,
+		clock:             clock.WallClock,
+		providerGetter:    providerGetter,
+		agentBinaryFinder: agentBinaryFinder,
 	}
 }
 
@@ -201,7 +217,20 @@ func (s *ModelService) CreateModelForVersion(
 		AgentVersion: agentVersion,
 	}
 
-	return s.modelSt.Create(ctx, args)
+	if err := s.modelSt.Create(ctx, args); err != nil {
+		return err
+	}
+
+	env, err := s.providerGetter(ctx)
+	if err != nil {
+		return errors.Errorf("opening environ: %w", err)
+	}
+
+	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
+	if err := env.Create(callCtx, environs.CreateParams{ControllerUUID: controllerUUID.String()}); err != nil {
+		return errors.Errorf("creating model resources for %q: %w", args.UUID, err)
+	}
+	return nil
 }
 
 // DeleteModel is responsible for removing a model from the system.
