@@ -114,9 +114,9 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	// Check all workers killed.
-	c.Assert(workertest.CheckKilled(c, w), jc.ErrorIsNil)
-	c.Assert(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
-	c.Assert(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, w), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
@@ -159,9 +159,9 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	// Check all workers killed.
-	c.Assert(workertest.CheckKilled(c, w), jc.ErrorIsNil)
-	c.Assert(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
-	c.Assert(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, w), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
 
 	// Expect start counter.
 	// 1 for the initial start.
