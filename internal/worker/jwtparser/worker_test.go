@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package jwtparser_test
+package jwtparser
 
 import (
 	"io"
@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/worker/jwtparser"
 	"github.com/juju/juju/worker/jwtparser/mocks"
 )
 
@@ -34,33 +33,37 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.controllerConfig = mocks.NewMockControllerConfig(ctrl)
 }
 
+// TestJWTParserWorkerWithNoConfig tests that NewWorker function
+// creates a JWTParserWorker when the login-refresh-url config
+// option is not set.
 func (s *workerSuite) TestJWTParserWorkerWithNoConfig(c *gc.C) {
-	s.client.EXPECT().Get(gomock.Any()).Return(nil, nil).Times(0)
-	s.controllerConfig.EXPECT().ControllerConfig().Return(controller.Config{}, nil).Times(1)
+	s.controllerConfig.EXPECT().ControllerConfig().Return(controller.Config{}, nil)
 
-	w, err := jwtparser.NewWorker(s.controllerConfig, s.client)
+	w, err := NewWorker(s.controllerConfig, s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(workertest.CheckKill(c, w), jc.ErrorIsNil)
 
-	parserWorker, ok := w.(*jwtparser.JWTParserWorker)
+	parserWorker, ok := w.(*jwtParserWorker)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(parserWorker.Get(), gc.IsNil)
 }
 
+// TestJWTParserWorkerWithLoginRefreshURL tests that NewWorker function
+// creates a JWTParserWorker when the login-refresh-url config option is set.
 func (s *workerSuite) TestJWTParserWorkerWithLoginRefreshURL(c *gc.C) {
 	s.client.EXPECT().Get(gomock.Any()).Return(&http.Response{
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(strings.NewReader(`{"keys":[]}`)),
-	}, nil).Times(1)
+	}, nil)
 	s.controllerConfig.EXPECT().ControllerConfig().Return(controller.Config{
 		"login-token-refresh-url": "https://example.com",
-	}, nil).Times(1)
+	}, nil)
 
-	w, err := jwtparser.NewWorker(s.controllerConfig, s.client)
+	w, err := NewWorker(s.controllerConfig, s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(workertest.CheckKill(c, w), jc.ErrorIsNil)
 
-	parserWorker, ok := w.(*jwtparser.JWTParserWorker)
+	parserWorker, ok := w.(*jwtParserWorker)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(parserWorker.Get(), gc.Not(gc.IsNil))
 }
