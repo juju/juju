@@ -16,6 +16,8 @@ import (
 	model "github.com/juju/juju/core/model"
 	constraints "github.com/juju/juju/domain/constraints"
 	model0 "github.com/juju/juju/domain/model"
+	environs "github.com/juju/juju/environs"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	gomock "go.uber.org/mock/gomock"
 )
 
