@@ -47,8 +47,7 @@ func (s *Service) AddRelation(ctx context.Context, eps []relation.Endpoint) erro
 	return errors.NotImplemented
 }
 
-// AllRelations
-// Note: AllRelations replaces client.AllRelations for status. This needs to be investigated further.
+// AllRelations return all uuid of all relation for the current model.
 func (s *Service) AllRelations(ctx context.Context) ([]corerelation.UUID, error) {
 	return nil, errors.NotImplemented
 }
@@ -82,6 +81,11 @@ func (s *Service) EnterScope(ctx context.Context, relationID corerelation.UnitUU
 	return errors.NotImplemented
 }
 
+// GetApplicationEndpoints returns all endpoints for the given application identifier.
+func (s *Service) GetApplicationEndpoints(ctx context.Context, id application.ID) ([]internalrelation.Endpoint, error) {
+	return nil, errors.NotImplemented
+}
+
 // GetRelatedEndpoints returns the endpoints of the relation with which
 // units of the named application will establish relations.
 func (s *Service) GetRelatedEndpoints(
@@ -112,20 +116,20 @@ func (s *Service) GetRelationEndpoint(
 	return internalrelation.Endpoint{}, errors.NotImplemented
 }
 
-// GetRelationEndpoints returns all endpoints for the given application identifier.
-func (s *Service) GetRelationEndpoints(ctx context.Context, id application.ID) ([]internalrelation.Endpoint, error) {
+// GetRelationEndpoints returns all endpoints for the given relation UUID
+func (s *Service) GetRelationEndpoints(ctx context.Context, id corerelation.UUID) ([]internalrelation.Endpoint, error) {
 	return nil, errors.NotImplemented
 }
 
 // GetRelationID returns the relation ID for the given relation UUID.
-func (s *Service) GetRelationID(ctx context.Context, relationUUID corerelation.UUID) int {
-	return -1
+func (s *Service) GetRelationID(ctx context.Context, relationUUID corerelation.UUID) (int, error) {
+	return -1, errors.NotImplemented
 }
 
 // GetRelationStatus returns the status of the given relation.
 func (s *Service) GetRelationStatus(
 	ctx context.Context,
-	relationID corerelation.UUID,
+	relationUUID corerelation.UUID,
 ) (corestatus.StatusInfo, error) {
 	return corestatus.StatusInfo{}, errors.NotImplemented
 }

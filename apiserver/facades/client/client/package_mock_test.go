@@ -15,7 +15,6 @@ import (
 
 	client "github.com/juju/juju/apiserver/facades/client/client"
 	crossmodel "github.com/juju/juju/core/crossmodel"
-	relation "github.com/juju/juju/internal/relation"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
@@ -42,49 +41,6 @@ func NewMockBackend(ctrl *gomock.Controller) *MockBackend {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
-}
-
-// AddRelation mocks base method.
-func (m *MockBackend) AddRelation(arg0 ...relation.Endpoint) (*state.Relation, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "AddRelation", varargs...)
-	ret0, _ := ret[0].(*state.Relation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddRelation indicates an expected call of AddRelation.
-func (mr *MockBackendMockRecorder) AddRelation(arg0 ...any) *MockBackendAddRelationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelation", reflect.TypeOf((*MockBackend)(nil).AddRelation), arg0...)
-	return &MockBackendAddRelationCall{Call: call}
-}
-
-// MockBackendAddRelationCall wrap *gomock.Call
-type MockBackendAddRelationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAddRelationCall) Return(arg0 *state.Relation, arg1 error) *MockBackendAddRelationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAddRelationCall) Do(f func(...relation.Endpoint) (*state.Relation, error)) *MockBackendAddRelationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAddRelationCall) DoAndReturn(f func(...relation.Endpoint) (*state.Relation, error)) *MockBackendAddRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // AllApplicationOffers mocks base method.
@@ -278,45 +234,6 @@ func (c *MockBackendAllMachinesCall) Do(f func() ([]*state.Machine, error)) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendAllMachinesCall) DoAndReturn(f func() ([]*state.Machine, error)) *MockBackendAllMachinesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// AllRelations mocks base method.
-func (m *MockBackend) AllRelations() ([]*state.Relation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllRelations")
-	ret0, _ := ret[0].([]*state.Relation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllRelations indicates an expected call of AllRelations.
-func (mr *MockBackendMockRecorder) AllRelations() *MockBackendAllRelationsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRelations", reflect.TypeOf((*MockBackend)(nil).AllRelations))
-	return &MockBackendAllRelationsCall{Call: call}
-}
-
-// MockBackendAllRelationsCall wrap *gomock.Call
-type MockBackendAllRelationsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAllRelationsCall) Return(arg0 []*state.Relation, arg1 error) *MockBackendAllRelationsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAllRelationsCall) Do(f func() ([]*state.Relation, error)) *MockBackendAllRelationsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllRelationsCall) DoAndReturn(f func() ([]*state.Relation, error)) *MockBackendAllRelationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
