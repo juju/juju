@@ -4,7 +4,9 @@
 package sshserver_test
 
 import (
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
@@ -21,7 +23,7 @@ type workerSuite struct {
 var _ = gc.Suite(&workerSuite{})
 
 func newServerWrapperWorkerConfig(
-	l *mocks.MockLogger,
+	l loggo.Logger,
 	s *mocks.MockSystemState,
 	modifier func(*sshserver.ServerWrapperWorkerConfig),
 ) *sshserver.ServerWrapperWorkerConfig {
@@ -40,15 +42,15 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	mockLogger := mocks.NewMockLogger(ctrl)
+	l := loggo.GetLogger("test")
 	mockSystemState := mocks.NewMockSystemState(ctrl)
 
-	cfg := newServerWrapperWorkerConfig(mockLogger, mockSystemState, func(cfg *sshserver.ServerWrapperWorkerConfig) {})
-	c.Assert(cfg.Validate(), gc.IsNil)
+	cfg := newServerWrapperWorkerConfig(l, mockSystemState, func(cfg *sshserver.ServerWrapperWorkerConfig) {})
+	c.Assert(cfg.Validate(), jc.ErrorIsNil)
 
 	// Test no Logger.
 	cfg = newServerWrapperWorkerConfig(
-		mockLogger,
+		l,
 		mockSystemState,
 		func(cfg *sshserver.ServerWrapperWorkerConfig) {
 			cfg.Logger = nil
@@ -58,7 +60,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 
 	// Test no SystemState.
 	cfg = newServerWrapperWorkerConfig(
-		mockLogger,
+		l,
 		mockSystemState,
 		func(cfg *sshserver.ServerWrapperWorkerConfig) {
 			cfg.SystemState = nil
@@ -68,7 +70,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 
 	// Test no NewServerWorker.
 	cfg = newServerWrapperWorkerConfig(
-		mockLogger,
+		l,
 		mockSystemState,
 		func(cfg *sshserver.ServerWrapperWorkerConfig) {
 			cfg.NewServerWorker = nil
@@ -81,7 +83,6 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	mockLogger := mocks.NewMockLogger(ctrl)
 	mockSystemState := mocks.NewMockSystemState(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
@@ -95,13 +96,13 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 
 	cfg := sshserver.ServerWrapperWorkerConfig{
 		SystemState: mockSystemState,
-		Logger:      mockLogger,
+		Logger:      loggo.GetLogger("test"),
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
 	}
 	w, err := sshserver.NewServerWrapperWorker(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Check all workers alive properly.
@@ -113,16 +114,15 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	// Check all workers killed.
-	workertest.CheckKilled(c, w)
-	workertest.CheckKilled(c, serverWorker)
-	workertest.CheckKilled(c, controllerConfigWatcher)
+	c.Check(workertest.CheckKilled(c, w), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	mockLogger := mocks.NewMockLogger(ctrl)
 	mockSystemState := mocks.NewMockSystemState(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
@@ -137,14 +137,14 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	startCounter := 0
 	cfg := sshserver.ServerWrapperWorkerConfig{
 		SystemState: mockSystemState,
-		Logger:      mockLogger,
+		Logger:      loggo.GetLogger("test"),
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
 			startCounter++
 			return serverWorker, nil
 		},
 	}
 	w, err := sshserver.NewServerWrapperWorker(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	// Check all workers alive properly.
@@ -159,9 +159,9 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	// Check all workers killed.
-	workertest.CheckKilled(c, w)
-	workertest.CheckKilled(c, serverWorker)
-	workertest.CheckKilled(c, controllerConfigWatcher)
+	c.Check(workertest.CheckKilled(c, w), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
 
 	// Expect start counter.
 	// 1 for the initial start.
