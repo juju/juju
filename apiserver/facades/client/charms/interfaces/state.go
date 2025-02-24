@@ -15,7 +15,6 @@ type BackendState interface {
 	Charm(curl string) (state.CharmRefFull, error)
 	ControllerTag() names.ControllerTag
 	Machine(string) (Machine, error)
-	ModelConstraints() (constraints.Value, error)
 }
 
 // Application defines a subset of the functionality provided by the

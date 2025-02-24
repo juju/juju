@@ -23,7 +23,6 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/constraints"
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/permission"
@@ -178,11 +177,9 @@ func (a *API) getDownloadInfo(ctx context.Context, arg params.CharmURLAndOrigin)
 }
 
 func (a *API) getDefaultArch() (string, error) {
-	cons, err := a.backendState.ModelConstraints()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return constraints.ArchOrDefault(cons, nil), nil
+	// TODO(CodingCookieRookie): Retrieve the model constraint architecture from dqlite and use it
+	// as the first arg in constraints.ArchOrDefault instead of DefaultArchitecture
+	return arch.DefaultArchitecture, nil
 }
 
 // AddCharm adds the given charm URL (which must include revision) to the
@@ -355,12 +352,9 @@ func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithCh
 	// do get "all" we should see if there is a clean way to resolve it.
 	archOrigin := apiOrigin
 	if apiOrigin.Architecture == "all" {
-		cons, err := a.backendState.ModelConstraints()
-		if err != nil {
-			result.Error = apiservererrors.ServerError(err)
-			return result
-		}
-		archOrigin.Architecture = constraints.ArchOrDefault(cons, nil)
+		// TODO(CodingCookieRookie): Retrieve the model constraint architecture from dqlite and use it
+		// as the first arg in constraints.ArchOrDefault instead of DefaultArchitecture
+		archOrigin.Architecture = arch.DefaultArchitecture
 	}
 
 	result.Origin = archOrigin

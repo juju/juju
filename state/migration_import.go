@@ -121,9 +121,6 @@ func (ctrl *Controller) Import(
 	if err := restore.modelExtras(); err != nil {
 		return nil, nil, errors.Annotate(err, "base model aspects")
 	}
-	if err := newSt.SetModelConstraints(restore.constraints(model.Constraints())); err != nil {
-		return nil, nil, errors.Annotate(err, "model constraints")
-	}
 	if err := restore.sshHostKeys(); err != nil {
 		return nil, nil, errors.Annotate(err, "sshHostKeys")
 	}

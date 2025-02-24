@@ -484,19 +484,6 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string,
 	return nil
 }
 
-// ModelConstraints returns the current model constraints.
-func (st *State) ModelConstraints() (constraints.Value, error) {
-	cons, err := readConstraints(st, modelGlobalKey)
-	return cons, errors.Trace(err)
-}
-
-// SetModelConstraints replaces the current model constraints.
-func (st *State) SetModelConstraints(cons constraints.Value) error {
-	// TODO: validateConstraints when implementing SetModelConstraints
-	// in the model domain.
-	return writeConstraints(st, modelGlobalKey, cons)
-}
-
 func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, error) {
 	mdocs := machineDocSlice{}
 	err := machinesCollection.Find(nil).All(&mdocs)
@@ -1036,11 +1023,8 @@ func (st *State) AddApplication(
 		subordinate = args.Charm.Meta().Subordinate
 	)
 	if !subordinate && !cons.HasArch() {
-		modelConstraints, err := st.ModelConstraints()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		a := constraints.ArchOrDefault(cons, &modelConstraints)
+		// TODO(CodingCookieRookie): Retrieve model constraints to be used as second arg in ArchOrDefault below
+		a := constraints.ArchOrDefault(cons, nil)
 		cons.Arch = &a
 		args.Constraints = cons
 	}
