@@ -1121,11 +1121,17 @@ func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		ops, err := insertCharmOps(st, info)
+		if err == nil {
+			return ops, nil
+		}
+		if err != nil && !errors.Is(err, errors.AlreadyExists) {
+			return nil, errors.Trace(err)
+		}
+
 		// Check if the charm doc already exists.
 		ch, err := st.findCharm(curl)
-		if errors.Is(err, errors.NotFound) {
-			return insertCharmOps(st, info)
-		} else if err != nil {
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if !ch.IsPlaceholder() {
