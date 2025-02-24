@@ -19,14 +19,19 @@ type jwtParserWorker struct {
 	jwtParser *JWTParser
 }
 
+// Getter defines an interface to retrieve a JWTParser.
+// If a JWTParser is not available, it will return nil.
 type Getter interface {
 	Get() *JWTParser
 }
 
+// ControllerConfig defines an interface to retrieve controller config.
 type ControllerConfig interface {
 	ControllerConfig() (controller.Config, error)
 }
 
+// HTTPClient defines an interface for an HTTP client
+// with a single GET method.
 type HTTPClient interface {
 	jwk.HTTPClient
 }
@@ -53,6 +58,7 @@ func NewWorker(configGetter ControllerConfig, httpClient jwk.HTTPClient) (worker
 	return w, nil
 }
 
+// Get implements Getter.
 func (w *jwtParserWorker) Get() *JWTParser {
 	return w.jwtParser
 }
