@@ -43,7 +43,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
-
 	// The statePool is only needed for worker creation
 	// currently but should be improved to watch for changes.
 	w, err := NewWorker(systemState, DefaultHTTPClient())
@@ -56,8 +55,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}), nil
 }
 
-// outputFunc extracts a JWTParser from a jwtParserWorker.
+// outputFunc extracts a jwt.Getter from a jwtParserWorker
+// contained within a CleanupWorker.
 func outputFunc(in worker.Worker, out interface{}) error {
+	if w, ok := in.(*common.CleanupWorker); ok {
+		in = w.Worker
+	}
 	inWorker, _ := in.(*jwtParserWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got %T", inWorker, in)
