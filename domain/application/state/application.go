@@ -556,6 +556,7 @@ WHERE uuid = $unitPassword.uuid
 
 // GetUnitWorkloadStatus returns the workload status of the specified unit, returning:
 // - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
+// - an error satisfying [applicationerrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
 func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.WorkloadStatusType], error) {
 	db, err := st.DB()
@@ -573,8 +574,12 @@ SELECT &statusInfo.* FROM unit_workload_status WHERE unit_uuid = $unitUUID.uuid
 
 	var unitStatusInfo statusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// TODO(jack-w-shaw): Check unit exists
-		err := tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&unitStatusInfo)
+		err := st.checkUnitNotDead(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf("checking unit %q exists: %w", uuid, err)
+		}
+
+		err = tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&unitStatusInfo)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Errorf("workload status for unit %q not found%w", unitUUID, jujuerrors.Hide(applicationerrors.UnitStatusNotFound))
 		}
@@ -617,6 +622,7 @@ func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UU
 // GetUnitCloudContainerStatus returns the cloud container status of the specified
 // unit. It returns;
 // - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
+// - an error satisfying [applicationerrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
 func (st *State) GetUnitCloudContainerStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.CloudContainerStatusType], error) {
 	db, err := st.DB()
@@ -636,7 +642,11 @@ WHERE  unit_uuid = $unitUUID.uuid
 
 	var containerStatusInfo statusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// TODO(jack-w-shaw): Check unit exists
+		err := st.checkUnitNotDead(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf("checking unit %q exists: %w", uuid, err)
+		}
+
 		err = tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&containerStatusInfo)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Errorf("workload status for unit %q not found%w", unitUUID, jujuerrors.Hide(applicationerrors.UnitStatusNotFound))
@@ -692,7 +702,7 @@ WHERE unit.application_uuid = $applicationID.uuid
 
 	var unitStatuses []statusInfoAndUnitName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkApplicationExists(ctx, tx, ident)
+		err := st.checkApplicationNotDead(ctx, tx, ident)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -756,7 +766,7 @@ WHERE  unit.application_uuid = $applicationID.uuid
 
 	var containerStatuses []statusInfoAndUnitName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkApplicationExists(ctx, tx, ident)
+		err := st.checkApplicationNotDead(ctx, tx, ident)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1936,7 +1946,7 @@ WHERE application_uuid = $applicationID.uuid;
 	}
 	var status applicationStatusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationExists(ctx, tx, identID); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, identID); err != nil {
 			return jujuerrors.Trace(err)
 		}
 		if err := tx.Query(ctx, query, identID).Get(&status); errors.Is(err, sqlair.ErrNoRows) {
@@ -2868,7 +2878,7 @@ WHERE application_uuid = $applicationID.uuid;`
 	var configs []applicationConfig
 	var settings applicationSettings
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -2928,7 +2938,7 @@ WHERE application_uuid = $applicationID.uuid;`
 
 	var settings applicationSettings
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -3020,7 +3030,7 @@ WHERE application_uuid = $applicationConfigHash.application_uuid;
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
 			return errors.Capture(err)
 		}
 		if err := st.checkApplicationCharm(ctx, tx, ident, charmIdent); err != nil {
@@ -3320,7 +3330,7 @@ WHERE application_uuid = $applicationID.uuid;
 
 	var hash applicationConfigHash
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -3365,7 +3375,7 @@ WHERE application_uuid = $applicationID.uuid;
 
 	var result applicationConstraints
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationExists(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -3493,7 +3503,7 @@ ON CONFLICT (application_uuid) DO NOTHING
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationExists(ctx, tx, applicationID{ID: appID}); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, applicationID{ID: appID}); err != nil {
 			return errors.Capture(err)
 		}
 

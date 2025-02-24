@@ -212,6 +212,11 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE application_uuid = ?", l, appID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
