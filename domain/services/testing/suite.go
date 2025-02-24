@@ -193,7 +193,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelbootstrap.CreateModelDBModelRecord(s.ControllerModelUUID, controllerUUID, jujuversion.Current)(
+	err = modelbootstrap.CreateLocalModelRecord(s.ControllerModelUUID, controllerUUID, jujuversion.Current)(
 		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -216,7 +216,7 @@ func (s *DomainServicesSuite) SeedModelDatabases(c *gc.C) {
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelbootstrap.CreateModelDBModelRecord(s.DefaultModelUUID, controllerUUID, jujuversion.Current)(
+	err = modelbootstrap.CreateLocalModelRecord(s.DefaultModelUUID, controllerUUID, jujuversion.Current)(
 		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.DefaultModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
 

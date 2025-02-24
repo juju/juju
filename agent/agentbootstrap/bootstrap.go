@@ -269,7 +269,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		modeldefaultsbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 		secretbackendbootstrap.CreateDefaultBackends(model.ModelType(modelType)),
 		controllerModelCreateFunc,
-		modelbootstrap.CreateModelDBModelRecord(controllerModelUUID, controllerUUID, agentVersion),
+		modelbootstrap.CreateLocalModelRecord(controllerModelUUID, controllerUUID, agentVersion),
 		modelbootstrap.SetModelConstraints(stateParams.ModelConstraints),
 		modelconfigbootstrap.SetModelConfig(
 			controllerModelUUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),

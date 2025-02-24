@@ -100,9 +100,9 @@ func CreateGlobalModelRecord(
 	}
 }
 
-// CreateModelDBModelRecord creates a new model within the model database with
+// CreateLocalModelRecord creates a new model within the model database with
 // all of its associated metadata.
-func CreateModelDBModelRecord(
+func CreateLocalModelRecord(
 	id coremodel.UUID,
 	controllerUUID uuid.UUID,
 	agentVersion version.Number,

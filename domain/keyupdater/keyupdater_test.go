@@ -104,7 +104,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
 	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelbootstrap.CreateModelDBModelRecord(modelUUID, uuid.MustNewUUID(), jujuversion.Current)(
+	err = modelbootstrap.CreateLocalModelRecord(modelUUID, uuid.MustNewUUID(), jujuversion.Current)(
 		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 

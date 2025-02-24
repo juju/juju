@@ -147,7 +147,7 @@ func (s *modelBootstrapSuite) TestCreateModelDetails(c *gc.C) {
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateModelDBModelRecord(modelUUID, controllerUUID, jujuversion.Current)
+	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -210,7 +210,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraints(c *gc.C) {
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateModelDBModelRecord(modelUUID, controllerUUID, jujuversion.Current)
+	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -281,7 +281,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *gc.
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateModelDBModelRecord(modelUUID, controllerUUID, jujuversion.Current)
+	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -324,7 +324,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *g
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateModelDBModelRecord(modelUUID, controllerUUID, jujuversion.Current)
+	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
