@@ -678,7 +678,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 			)
 		}
 	} else {
-		s.logger.Infof(context.TODO(), "model %s: cloud credential owner name is empty", m.Name)
+		s.logger.Infof(ctx, "model %s: cloud credential owner name is empty", m.Name)
 	}
 
 	info.ControllerUUID, err = uuid.UUIDFromString(m.ControllerUUID)
