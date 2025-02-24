@@ -1271,37 +1271,12 @@ func (context *statusContext) mapExposedEndpointsFromState(exposedEndpoints map[
 func (context *statusContext) processRemoteApplications() map[string]params.RemoteApplicationStatus {
 	applicationsMap := make(map[string]params.RemoteApplicationStatus)
 	for _, app := range context.consumerRemoteApplications {
-		applicationsMap[app.Name()] = context.processRemoteApplication(app)
-	}
-	return applicationsMap
-}
-
-func (context *statusContext) processRemoteApplication(application *state.RemoteApplication) (status params.RemoteApplicationStatus) {
-	status.OfferURL, _ = application.URL()
-	status.OfferName = application.Name()
-	eps, err := application.Endpoints()
-	if err != nil {
-		status.Err = apiservererrors.ServerError(err)
-		return
-	}
-	status.Endpoints = make([]params.RemoteEndpoint, len(eps))
-	for i, ep := range eps {
-		status.Endpoints[i] = params.RemoteEndpoint{
-			Name:      ep.Name,
-			Interface: ep.Interface,
-			Role:      ep.Role,
+		applicationsMap[app.Name()] = params.RemoteApplicationStatus{
+			Err: apiservererrors.ServerError(internalerrors.Errorf("cross model relations are disabled until "+
+				"backend functionality is moved to domain: %w", errors.NotImplemented)),
 		}
 	}
-	status.Life = processLife(application)
-
-	status.Relations, err = context.processRemoteApplicationRelations(application)
-	if err != nil {
-		status.Err = apiservererrors.ServerError(err)
-		return
-	}
-	applicationStatus, err := application.Status()
-	populateStatusFromStatusInfoAndErr(&status.Status, applicationStatus, err)
-	return status
+	return applicationsMap
 }
 
 type offerStatus struct {
@@ -1469,31 +1444,6 @@ func (context *statusContext) processApplicationRelations(application *state.App
 		related[relationName] = sn.SortedValues()
 	}
 	return related, subordSet.SortedValues(), nil
-}
-
-func (context *statusContext) processRemoteApplicationRelations(application *state.RemoteApplication) (related map[string][]string,
-	err error) {
-	related = make(map[string][]string)
-	relations := context.relations[application.Name()]
-	for _, relation := range relations {
-		ep, err := relation.Endpoint(application.Name())
-		if err != nil {
-			return nil, err
-		}
-		relationName := ep.Relation.Name
-		eps, err := relation.RelatedEndpoints(application.Name())
-		if err != nil {
-			return nil, err
-		}
-		for _, ep := range eps {
-			related[relationName] = append(related[relationName], ep.ApplicationName)
-		}
-	}
-	for relationName, applicationNames := range related {
-		sn := set.NewStrings(applicationNames...)
-		related[relationName] = sn.SortedValues()
-	}
-	return related, nil
 }
 
 func (c *statusContext) unitToMachine(unitTag names.UnitTag) (names.MachineTag, error) {
