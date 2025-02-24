@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
@@ -307,7 +306,7 @@ func (m *ModelManagerAPI) createModelNew(
 	}
 
 	// Create the model information in the model database.
-	if err := modelInfoService.CreateModel(ctx, m.controllerUUID, version.Current); err != nil {
+	if err := modelInfoService.CreateModel(ctx, m.controllerUUID); err != nil {
 		return modelID, errors.Annotatef(err, "failed to create model info for model %q", modelID)
 	}
 

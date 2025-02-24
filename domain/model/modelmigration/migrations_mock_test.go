@@ -314,40 +314,40 @@ func (m *MockModelDetailService) EXPECT() *MockModelDetailServiceMockRecorder {
 	return m.recorder
 }
 
-// CreateModel mocks base method.
-func (m *MockModelDetailService) CreateModel(arg0 context.Context, arg1 uuid.UUID, arg2 version.Number) error {
+// CreateModelForVersion mocks base method.
+func (m *MockModelDetailService) CreateModelForVersion(arg0 context.Context, arg1 uuid.UUID, arg2 version.Number) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateModelForVersion", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// CreateModel indicates an expected call of CreateModel.
-func (mr *MockModelDetailServiceMockRecorder) CreateModel(arg0, arg1, arg2 any) *MockModelDetailServiceCreateModelCall {
+// CreateModelForVersion indicates an expected call of CreateModelForVersion.
+func (mr *MockModelDetailServiceMockRecorder) CreateModelForVersion(arg0, arg1, arg2 any) *MockModelDetailServiceCreateModelForVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModel", reflect.TypeOf((*MockModelDetailService)(nil).CreateModel), arg0, arg1, arg2)
-	return &MockModelDetailServiceCreateModelCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModelForVersion", reflect.TypeOf((*MockModelDetailService)(nil).CreateModelForVersion), arg0, arg1, arg2)
+	return &MockModelDetailServiceCreateModelForVersionCall{Call: call}
 }
 
-// MockModelDetailServiceCreateModelCall wrap *gomock.Call
-type MockModelDetailServiceCreateModelCall struct {
+// MockModelDetailServiceCreateModelForVersionCall wrap *gomock.Call
+type MockModelDetailServiceCreateModelForVersionCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDetailServiceCreateModelCall) Return(arg0 error) *MockModelDetailServiceCreateModelCall {
+func (c *MockModelDetailServiceCreateModelForVersionCall) Return(arg0 error) *MockModelDetailServiceCreateModelForVersionCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDetailServiceCreateModelCall) Do(f func(context.Context, uuid.UUID, version.Number) error) *MockModelDetailServiceCreateModelCall {
+func (c *MockModelDetailServiceCreateModelForVersionCall) Do(f func(context.Context, uuid.UUID, version.Number) error) *MockModelDetailServiceCreateModelForVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDetailServiceCreateModelCall) DoAndReturn(f func(context.Context, uuid.UUID, version.Number) error) *MockModelDetailServiceCreateModelCall {
+func (c *MockModelDetailServiceCreateModelForVersionCall) DoAndReturn(f func(context.Context, uuid.UUID, version.Number) error) *MockModelDetailServiceCreateModelForVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

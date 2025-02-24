@@ -156,7 +156,7 @@ type ModelDefaultsService interface {
 type ModelInfoService interface {
 	// CreateModel is responsible for adding the details of the model
 	// that is being created.
-	CreateModel(context.Context, uuid.UUID, version.Number) error
+	CreateModel(context.Context, uuid.UUID) error
 
 	// DeleteModel is responsible for deleting a model.
 	DeleteModel(context.Context) error

@@ -153,19 +153,27 @@ func (s *ModelService) GetModelMetrics(ctx context.Context) (coremodel.ModelMetr
 }
 
 // CreateModel is responsible for creating a new model within the model
-// database.
+// database, using the default agent version.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use.
 func (s *ModelService) CreateModel(
 	ctx context.Context,
 	controllerUUID uuid.UUID,
+) error {
+	return errors.Capture(s.CreateModelForVersion(ctx, controllerUUID, agentVersionSelector()))
+}
+
+// CreateModelForVersion is responsible for creating a new model within the
+// model database, using the input agent version.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.AlreadyExists]: When the model uuid is already in use.
+func (s *ModelService) CreateModelForVersion(
+	ctx context.Context,
+	controllerUUID uuid.UUID,
 	agentVersion version.Number,
 ) error {
-	if agentVersion == version.Zero {
-		agentVersion = agentVersionSelector()
-	}
-
 	m, err := s.controllerSt.GetModel(ctx, s.modelID)
 	if err != nil {
 		return err

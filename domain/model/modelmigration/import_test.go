@@ -160,7 +160,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.modelDetailService.EXPECT().CreateModel(gomock.Any(), controllerUUID, jujuversion.Current).Return(nil)
+	i.modelDetailService.EXPECT().CreateModelForVersion(gomock.Any(), controllerUUID, jujuversion.Current).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -235,7 +235,8 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.modelDetailService.EXPECT().CreateModel(gomock.Any(), controllerUUID, jujuversion.Current).Return(errors.New("boom"))
+	i.modelDetailService.EXPECT().CreateModelForVersion(
+		gomock.Any(), controllerUUID, jujuversion.Current).Return(errors.New("boom"))
 	i.modelImportService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coremodel.UUID, options ...model.DeleteModelOption) error {
 		opts := model.DefaultDeleteModelOptions()
 		for _, fn := range options {
@@ -322,7 +323,8 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.modelDetailService.EXPECT().CreateModel(gomock.Any(), controllerUUID, jujuversion.Current).Return(errors.New("boom"))
+	i.modelDetailService.EXPECT().CreateModelForVersion(
+		gomock.Any(), controllerUUID, jujuversion.Current).Return(errors.New("boom"))
 	i.modelImportService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).Return(modelerrors.NotFound)
 	i.modelDetailService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
 
@@ -402,7 +404,8 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelImportService.EXPECT().ImportModel(gomock.Any(), args).Return(activator, nil)
-	i.modelDetailService.EXPECT().CreateModel(gomock.Any(), controllerUUID, jujuversion.Current).Return(errors.New("boom"))
+	i.modelDetailService.EXPECT().CreateModelForVersion(
+		gomock.Any(), controllerUUID, jujuversion.Current).Return(errors.New("boom"))
 	i.modelImportService.EXPECT().DeleteModel(gomock.Any(), modelUUID, gomock.Any()).Return(nil)
 	i.modelDetailService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
 

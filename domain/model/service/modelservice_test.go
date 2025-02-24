@@ -307,7 +307,7 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 
-	err = svc.CreateModel(context.Background(), uuid.MustNewUUID(), agentVersion)
+	err = svc.CreateModelForVersion(context.Background(), uuid.MustNewUUID(), agentVersion)
 	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
 }
 
@@ -334,7 +334,7 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 
-	err = svc.CreateModel(context.Background(), uuid.MustNewUUID(), agentVersion)
+	err = svc.CreateModelForVersion(context.Background(), uuid.MustNewUUID(), agentVersion)
 	// Add the correct error detail when restoring this test.
 	c.Assert(err, gc.NotNil)
 }
@@ -377,12 +377,12 @@ func (s *legacyModelServiceSuite) TestModelCreation(c *gc.C) {
 	s.controllerState.models[id] = m
 	s.modelState.models[id] = m
 
-	err := svc.CreateModel(context.Background(), s.controllerUUID, jujuversion.Current)
+	err := svc.CreateModel(context.Background(), s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	readonlyVal, err := svc.GetModelInfo(context.Background())
+	mInfo, err := svc.GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(readonlyVal, gc.Equals, coremodel.ModelInfo{
+	c.Check(mInfo, gc.Equals, coremodel.ModelInfo{
 		UUID:           id,
 		ControllerUUID: s.controllerUUID,
 		Name:           "my-awesome-model",
@@ -390,6 +390,7 @@ func (s *legacyModelServiceSuite) TestModelCreation(c *gc.C) {
 		CloudType:      "ec2",
 		CloudRegion:    "myregion",
 		Type:           coremodel.IAAS,
+		AgentVersion:   jujuversion.Current,
 	})
 }
 
@@ -409,7 +410,7 @@ func (s *legacyModelServiceSuite) TestGetModelMetrics(c *gc.C) {
 	s.controllerState.models[id] = m
 	s.modelState.models[id] = m
 
-	err := svc.CreateModel(context.Background(), s.controllerUUID, jujuversion.Current)
+	err := svc.CreateModel(context.Background(), s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	readonlyVal, err := svc.GetModelMetrics(context.Background())
@@ -442,7 +443,7 @@ func (s *legacyModelServiceSuite) TestModelDeletion(c *gc.C) {
 	s.controllerState.models[id] = m
 	s.modelState.models[id] = m
 
-	err := svc.CreateModel(context.Background(), s.controllerUUID, jujuversion.Current)
+	err := svc.CreateModel(context.Background(), s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = svc.DeleteModel(context.Background())
@@ -616,6 +617,7 @@ func (d *dummyModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, er
 		CloudRegion:     args.CloudRegion,
 		CredentialOwner: args.CredentialOwner,
 		CredentialName:  args.CredentialName,
+		AgentVersion:    args.AgentVersion,
 	}, nil
 }
 

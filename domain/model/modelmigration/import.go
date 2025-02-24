@@ -66,9 +66,9 @@ type ModelImportService interface {
 // ModelDetailService defines a service for interacting with the
 // model information found in a model database.
 type ModelDetailService interface {
-	// CreateModel is responsible for adding the details of the model
+	// CreateModelForVersion is responsible for adding the details of the model
 	// that is being imported.
-	CreateModel(context.Context, uuid.UUID, version.Number) error
+	CreateModelForVersion(context.Context, uuid.UUID, version.Number) error
 
 	// DeleteModel is responsible for removing a read only model from the system.
 	DeleteModel(context.Context) error
@@ -282,7 +282,7 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 	}
 
 	// We need to establish the read only model information in the model database.
-	err = i.modelDetailServiceFunc(modelID).CreateModel(ctx, controllerUUID, args.AgentVersion)
+	err = i.modelDetailServiceFunc(modelID).CreateModelForVersion(ctx, controllerUUID, args.AgentVersion)
 	if err != nil {
 		return errors.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",
