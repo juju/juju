@@ -292,7 +292,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 				return model, nil
 			}, loggertesting.WrapCheckLog(c))
 
-			expectedModelCons := domainconstraints.FromCoreConstraints(s.bootstrapParams.ModelConstraints)
+			expectedModelCons := domainconstraints.DecodeConstraints(s.bootstrapParams.ModelConstraints)
 			data, err := modelState.GetModelConstraints(context.Background())
 			c.Check(err, jc.ErrorIsNil)
 			c.Assert(data, jc.DeepEquals, expectedModelCons)

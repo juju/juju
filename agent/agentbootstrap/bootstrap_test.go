@@ -72,7 +72,7 @@ func getModelConstraintAssertion(c *gc.C, cons constraints.Value) database.Boots
 			return model, nil
 		}, loggertesting.WrapCheckLog(c))
 
-		expectedConsVal := domainconstraints.FromCoreConstraints(cons)
+		expectedConsVal := domainconstraints.DecodeConstraints(cons)
 		data, err := modelState.GetModelConstraints(context.Background())
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(data, jc.DeepEquals, expectedConsVal)

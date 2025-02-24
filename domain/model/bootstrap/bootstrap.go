@@ -156,7 +156,7 @@ func CreateLocalModelRecord(
 func SetModelConstraints(cons coreconstraints.Value) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, modelDB database.TxnRunner) error {
 		return modelDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			modelCons := constraints.FromCoreConstraints(cons)
+			modelCons := constraints.DecodeConstraints(cons)
 			return state.SetModelConstraints(ctx, preparer{}, tx, modelCons)
 		})
 	}

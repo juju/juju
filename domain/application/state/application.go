@@ -3600,7 +3600,7 @@ ON CONFLICT (application_uuid) DO NOTHING
 // that the non-slice values are repeated on every row so we can safely
 // overwrite the previous value on each iteration.
 func decodeConstraints(cons applicationConstraints) constraints.Constraints {
-	res := constraints.Constraints{}
+	var res constraints.Constraints
 
 	// Empty constraints is not an error case, so return early the empty
 	// result.
@@ -3655,10 +3655,14 @@ func decodeConstraints(cons applicationConstraints) constraints.Constraints {
 		if row.ImageID.Valid {
 			res.ImageID = &row.ImageID.String
 		}
-		if row.SpaceName.Valid && row.SpaceExclude.Valid {
+		if row.SpaceName.Valid {
+			var exclude bool
+			if row.SpaceExclude.Valid {
+				exclude = row.SpaceExclude.Bool
+			}
 			spaces[row.SpaceName.String] = constraints.SpaceConstraint{
 				SpaceName: row.SpaceName.String,
-				Exclude:   row.SpaceExclude.Bool,
+				Exclude:   exclude,
 			}
 		}
 		if row.Tag.Valid {

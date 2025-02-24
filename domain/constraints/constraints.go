@@ -94,9 +94,9 @@ type SpaceConstraint struct {
 	SpaceName string
 }
 
-// FromCoreConstraints is responsible for converting a [constraints.Value] to a
+// DecodeConstraints is responsible for converting a [constraints.Value] to a
 // [Constraints] object.
-func FromCoreConstraints(coreCons constraints.Value) Constraints {
+func DecodeConstraints(coreCons constraints.Value) Constraints {
 	rval := Constraints{
 		Arch:             coreCons.Arch,
 		Container:        coreCons.Container,
@@ -139,9 +139,9 @@ func FromCoreConstraints(coreCons constraints.Value) Constraints {
 	return rval
 }
 
-// ToCoreConstraints is responsible for converting a [Constraints] value to a
+// EncodeConstraints is responsible for converting a [Constraints] value to a
 // [constraints.Value].
-func ToCoreConstraints(cons Constraints) constraints.Value {
+func EncodeConstraints(cons Constraints) constraints.Value {
 	rval := constraints.Value{
 		Arch:             cons.Arch,
 		Container:        cons.Container,

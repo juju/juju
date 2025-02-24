@@ -123,7 +123,7 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (coreconstraints
 		return coreconstraints.Value{}, err
 	}
 
-	return constraints.ToCoreConstraints(cons), nil
+	return constraints.EncodeConstraints(cons), nil
 }
 
 // SetModelConstraints sets the model constraints to the new values removing
@@ -136,7 +136,7 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (coreconstraints
 // - [github.com/juju/juju/domain/machine/errors.InvalidContainerType]: when
 // the container type being set in the model constraint isn't valid.
 func (s *ModelService) SetModelConstraints(ctx context.Context, cons coreconstraints.Value) error {
-	modelCons := constraints.FromCoreConstraints(cons)
+	modelCons := constraints.DecodeConstraints(cons)
 
 	return s.modelSt.SetModelConstraints(ctx, modelCons)
 }

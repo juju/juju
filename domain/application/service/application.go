@@ -1607,7 +1607,7 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 	}
 
 	cons, err := s.st.GetApplicationConstraints(ctx, appID)
-	return constraints.ToCoreConstraints(cons), internalerrors.Capture(err)
+	return constraints.EncodeConstraints(cons), internalerrors.Capture(err)
 }
 
 // GetApplicationStatus looks up the status of the specified application,

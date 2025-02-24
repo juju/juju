@@ -107,7 +107,7 @@ func (*constraintsSuite) TestFromCoreConstraints(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		rval := FromCoreConstraints(test.In)
+		rval := DecodeConstraints(test.In)
 		c.Check(rval, jc.DeepEquals, test.Out, gc.Commentf(test.Comment))
 	}
 }
@@ -201,7 +201,7 @@ func (*constraintsSuite) TestToCoreConstraints(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		rval := ToCoreConstraints(test.In)
+		rval := EncodeConstraints(test.In)
 		c.Check(rval, jc.DeepEquals, test.Out, gc.Commentf(test.Comment))
 	}
 }

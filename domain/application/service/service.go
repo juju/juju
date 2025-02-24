@@ -194,7 +194,7 @@ func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID c
 		return err
 	}
 
-	return s.st.SetApplicationConstraints(ctx, appID, constraints.FromCoreConstraints(cons))
+	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
 }
 
 func (s *ProviderService) validateConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) error {
@@ -208,7 +208,7 @@ func (s *ProviderService) validateConstraints(ctx context.Context, appID coreapp
 
 	validator, err := provider.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(ctx))
 	if errors.Is(err, errors.NotImplemented) {
-		validator = coreconstraints.NewValidator()
+		return nil
 	} else if err != nil {
 		return internalerrors.Capture(err)
 	}
