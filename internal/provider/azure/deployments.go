@@ -50,7 +50,10 @@ func (env *azureEnviron) createDeployment(
 			err = errors.New(toValue(result.Properties.Error.Message))
 		}
 	}
-	return errorutils.HandleCredentialError(errors.Annotatef(err, "creating Azure deployment %q", deploymentName), ctx)
+	_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator,
+		errors.Annotatef(err, "creating Azure deployment %q", deploymentName),
+	)
+	return invalidationErr
 }
 
 func (env *azureEnviron) createSubscriptionDeployment(
@@ -90,5 +93,8 @@ func (env *azureEnviron) createSubscriptionDeployment(
 			err = errors.New(toValue(result.Properties.Error.Message))
 		}
 	}
-	return errorutils.HandleCredentialError(errors.Annotatef(err, "creating Azure subscription deployment %q", deploymentName), ctx)
+	_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator,
+		errors.Annotatef(err, "creating Azure subscription deployment %q", deploymentName),
+	)
+	return invalidationErr
 }

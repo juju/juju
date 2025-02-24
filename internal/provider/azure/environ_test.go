@@ -116,7 +116,9 @@ type environSuite struct {
 	sshPublicKeys    []*armcompute.SSHPublicKey
 	linuxOsProfile   armcompute.OSProfile
 
-	callCtx               envcontext.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
+
+	credentialInvalidator environs.CredentialInvalidator
 	invalidatedCredential bool
 }
 
@@ -132,7 +134,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Sender:           azuretesting.NewSerialSender(&s.sender),
 		RequestInspector: &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
 		RetryClock: &testclock.AutoAdvancingClock{
-			&s.retryClock, s.retryClock.Advance,
+			Clock: &s.retryClock, Advance: s.retryClock.Advance,
 		},
 		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
 			return &azuretesting.FakeCredential{}, nil
@@ -276,7 +278,10 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
+
+	s.invalidatedCredential = false
+	s.credentialInvalidator = azure.CredentialInvalidator(func(context.Context, environs.CredentialInvalidReason) error {
 		s.invalidatedCredential = true
 		return nil
 	})
@@ -290,13 +295,8 @@ func (s *environSuite) authorizedKeyString(c *gc.C) string {
 	return ssh.MakeAuthorizedKeysString(authKeys)
 }
 
-func (s *environSuite) TearDownTest(c *gc.C) {
-	s.invalidatedCredential = false
-	s.BaseSuite.TearDownTest(c)
-}
-
 func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Environ {
-	env := openEnviron(c, s.provider, &s.sender, attrs...)
+	env := openEnviron(c, s.provider, s.credentialInvalidator, &s.sender, attrs...)
 	s.requests = nil
 	return env
 }
@@ -304,6 +304,7 @@ func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Env
 func openEnviron(
 	c *gc.C,
 	provider environs.EnvironProvider,
+	invalidator environs.CredentialInvalidator,
 	sender *azuretesting.Senders,
 	attrs ...testing.Attrs,
 ) environs.Environ {
@@ -317,7 +318,7 @@ func openEnviron(
 	env, err := environs.Open(context.Background(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
-	}, environs.NoopCredentialInvalidator())
+	}, invalidator)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
@@ -326,6 +327,7 @@ func prepareForBootstrap(
 	c *gc.C,
 	ctx environs.BootstrapContext,
 	provider environs.EnvironProvider,
+	invalidator environs.CredentialInvalidator,
 	sender *azuretesting.Senders,
 	attrs ...testing.Attrs,
 ) environs.Environ {
@@ -344,7 +346,7 @@ func prepareForBootstrap(
 	env, err := environs.Open(context.Background(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
-	}, environs.NoopCredentialInvalidator())
+	}, invalidator)
 	c.Assert(err, jc.ErrorIsNil)
 
 	*sender = azuretesting.Senders{}
@@ -894,7 +896,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	var expectedCalls []jtesting.StubCall
 	for i := 0; i < failures; i++ {
 		expectedCalls = append(expectedCalls, jtesting.StubCall{
-			"After", []interface{}{5 * time.Second},
+			FuncName: "After", Args: []interface{}{5 * time.Second},
 		})
 	}
 	s.retryClock.CheckCalls(c, expectedCalls)
@@ -1537,7 +1539,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTestContext(c)
-	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender)
 
 	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
 	for _, key := range s.sshPublicKeys {
@@ -1577,7 +1579,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTestContext(c)
-	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender)
 
 	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
 	for _, key := range s.sshPublicKeys {
@@ -1616,7 +1618,7 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTestContext(c)
-	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"network": "mynetwork"})
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender, testing.Attrs{"network": "mynetwork"})
 
 	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
 	for _, key := range s.sshPublicKeys {
@@ -1658,7 +1660,7 @@ func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTestContext(c)
-	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender)
 
 	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
 	for _, key := range s.sshPublicKeys {
@@ -1699,7 +1701,7 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTestContext(c)
-	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender)
 
 	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
 	for _, key := range s.sshPublicKeys {
@@ -1732,7 +1734,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTestContext(c)
-	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender)
 
 	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
 	for _, key := range s.sshPublicKeys {
@@ -1799,7 +1801,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTestContext(c)
-	env := prepareForBootstrap(c, ctx, s.provider, &s.sender, testing.Attrs{"resource-group-name": "foo"})
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender, testing.Attrs{"resource-group-name": "foo"})
 
 	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
 	for _, key := range s.sshPublicKeys {
@@ -1866,7 +1868,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTestContext(c)
-	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender)
 
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)

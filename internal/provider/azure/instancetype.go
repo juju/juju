@@ -535,7 +535,7 @@ func (env *azureEnviron) findInstanceSpec(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	image, err := imageutils.BaseImage(ctx, constraint.Base, imageStream, constraint.Region, constraint.Arch, client, preferGen1Image)
+	image, err := imageutils.BaseImage(ctx, env.credentialInvalidator, constraint.Base, imageStream, constraint.Region, constraint.Arch, client, preferGen1Image)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

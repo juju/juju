@@ -108,7 +108,8 @@ func isControllerEnviron(env *azureEnviron, ctx envcontext.ProviderCallContext) 
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return false, errorutils.HandleCredentialError(errors.Annotate(err, "listing virtual machines"), ctx)
+			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, err)
+			return false, invalidationErr
 		}
 		for _, vm := range next.Value {
 			if toValue(vm.Tags[tags.JujuIsController]) == "true" {

@@ -40,8 +40,10 @@ type instanceSuite struct {
 	networkInterfaces []*armnetwork.Interface
 	publicIPAddresses []*armnetwork.PublicIPAddress
 
-	callCtx             envcontext.ProviderCallContext
-	invalidteCredential bool
+	callCtx envcontext.ProviderCallContext
+
+	credentialInvalidator environs.CredentialInvalidator
+	invalidatedCredential bool
 }
 
 var _ = gc.Suite(&instanceSuite{})
@@ -55,7 +57,7 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 			return &azuretesting.FakeCredential{}, nil
 		},
 	})
-	s.env = openEnviron(c, s.provider, &s.sender)
+	s.env = openEnviron(c, s.provider, s.credentialInvalidator, &s.sender)
 	s.sender = nil
 	s.requests = nil
 	s.networkInterfaces = []*armnetwork.Interface{
@@ -76,8 +78,9 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		Properties: &armcompute.VirtualMachineProperties{
 			ProvisioningState: to.Ptr("Succeeded")},
 	}}
-	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
-		s.invalidteCredential = true
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
+	s.credentialInvalidator = azure.CredentialInvalidator(func(context.Context, environs.CredentialInvalidReason) error {
+		s.invalidatedCredential = true
 		return nil
 	})
 }

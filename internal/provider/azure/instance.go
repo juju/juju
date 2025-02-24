@@ -19,6 +19,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 )
@@ -108,7 +109,8 @@ func (env *azureEnviron) instanceNetworkInterfaces(
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing network interfaces"), ctx)
+			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Annotate(err, "listing network interfaces"))
+			return nil, invalidationErr
 		}
 		for _, nic := range next.Value {
 			instanceId := instance.Id(toValue(nic.Tags[jujuMachineNameTag]))
@@ -134,7 +136,8 @@ func (env *azureEnviron) instancePublicIPAddresses(
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing public IP addresses"), ctx)
+			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Annotate(err, "listing public IP addresses"))
+			return nil, invalidationErr
 		}
 		for _, pip := range next.Value {
 			instanceId := instance.Id(toValue(pip.Tags[jujuMachineNameTag]))
@@ -361,7 +364,8 @@ func (inst *azureInstance) openPortsOnGroup(
 			_, err = poller.PollUntilDone(ctx, nil)
 		}
 		if err != nil {
-			return errorutils.HandleCredentialError(errors.Annotatef(err, "creating security rule for %q", ruleName), ctx)
+			_, invalidationErr := errorutils.HandleCredentialError(ctx, inst.env.credentialInvalidator, errors.Annotatef(err, "creating security rule for %q", ruleName))
+			return invalidationErr
 		}
 		nsg.Properties.SecurityRules = append(nsg.Properties.SecurityRules, to.Ptr(securityRule))
 	}
@@ -409,7 +413,8 @@ func (inst *azureInstance) closePortsOnGroup(
 			_, err = poller.PollUntilDone(ctx, nil)
 		}
 		if err != nil && !errorutils.IsNotFoundError(err) {
-			return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting security rule %q", ruleName), ctx)
+			_, invalidationErr := errorutils.HandleCredentialError(ctx, inst.env.credentialInvalidator, errors.Annotatef(err, "deleting security rule %q", ruleName))
+			return invalidationErr
 		}
 	}
 	return nil
@@ -451,7 +456,8 @@ func (inst *azureInstance) ingressRulesForGroup(ctx envcontext.ProviderCallConte
 	}
 	nsg, err := securityGroups.Get(ctx, nsgInfo.resourceGroup, toValue(nsgInfo.securityGroup.Name), nil)
 	if err != nil {
-		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
+		_, invalidationErr := errorutils.HandleCredentialError(ctx, inst.env.credentialInvalidator, errors.Annotate(err, "querying network security group"))
+		return nil, invalidationErr
 	}
 	if nsg.Properties == nil || len(nsg.Properties.SecurityRules) == 0 {
 		return nil, nil
@@ -552,7 +558,8 @@ func deleteInstanceNetworkSecurityRules(
 
 	for _, info := range securityGroupInfos {
 		if err := deleteSecurityRules(
-			ctx, id, info,
+			ctx, env.credentialInvalidator,
+			id, info,
 			securityRules,
 		); err != nil {
 			return errors.Trace(err)
@@ -562,7 +569,8 @@ func deleteInstanceNetworkSecurityRules(
 }
 
 func deleteSecurityRules(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
+	invalidator environs.CredentialInvalidator,
 	id instance.Id,
 	nsgInfo securityGroupInfo,
 	securityRuleClient *armnetwork.SecurityRulesClient,
@@ -589,7 +597,8 @@ func deleteSecurityRules(
 		}
 		_, err = poller.PollUntilDone(ctx, nil)
 		if err != nil && !errorutils.IsNotFoundError(err) {
-			return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting security rule %q", ruleName), ctx)
+			_, invalidationErr := errorutils.HandleCredentialError(ctx, invalidator, errors.Annotatef(err, "deleting security rule %q", ruleName))
+			return invalidationErr
 		}
 	}
 	return nil

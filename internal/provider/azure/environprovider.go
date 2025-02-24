@@ -119,15 +119,16 @@ func (prov *azureEnvironProvider) Version() int {
 
 // Open is part of the EnvironProvider interface.
 func (prov *azureEnvironProvider) Open(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
-	logger.Debugf(context.TODO(), "opening model %q", args.Config.Name())
+	logger.Debugf(ctx, "opening model %q", args.Config.Name())
 
 	namespace, err := instance.NewNamespace(args.Config.UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	environ := &azureEnviron{
-		provider:  prov,
-		namespace: namespace,
+		provider:              prov,
+		namespace:             namespace,
+		credentialInvalidator: invalidator,
 	}
 
 	// Config is needed before cloud spec.
@@ -180,5 +181,6 @@ var verifyCredentials = func(e *azureEnviron, ctx envcontext.ProviderCallContext
 	_, err := e.credential.GetToken(ctx, policy.TokenRequestOptions{
 		Scopes: []string{e.clientOptions.Cloud.Services[azurecloud.ResourceManager].Audience + "/.default"},
 	})
-	return errorutils.HandleCredentialError(err, ctx)
+	_, invalidationErr := errorutils.HandleCredentialError(ctx, e.credentialInvalidator, err)
+	return invalidationErr
 }

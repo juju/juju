@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/azure"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
@@ -32,8 +33,10 @@ type storageSuite struct {
 	requests []*http.Request
 	sender   azuretesting.Senders
 
-	cloudCallCtx      envcontext.ProviderCallContext
-	invalidCredential bool
+	cloudCallCtx envcontext.ProviderCallContext
+
+	credentialInvalidator environs.CredentialInvalidator
+	invalidatedCredential bool
 }
 
 var _ = gc.Suite(&storageSuite{})
@@ -51,18 +54,16 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.sender = nil
 
 	var err error
-	env := openEnviron(c, envProvider, &s.sender)
+	env := openEnviron(c, envProvider, s.credentialInvalidator, &s.sender)
 	s.provider, err = env.StorageProvider("azure")
 	c.Assert(err, jc.ErrorIsNil)
-	s.cloudCallCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
-		s.invalidCredential = true
+	s.cloudCallCtx = envcontext.WithoutCredentialInvalidator(context.Background())
+
+	s.invalidatedCredential = false
+	s.credentialInvalidator = azure.CredentialInvalidator(func(context.Context, environs.CredentialInvalidReason) error {
+		s.invalidatedCredential = true
 		return nil
 	})
-}
-
-func (s *storageSuite) TearDownTest(c *gc.C) {
-	s.invalidCredential = false
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.VolumeSource {
@@ -234,7 +235,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 	s.requests = nil
 	s.createSenderWithUnauthorisedStatusCode()
 
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	results, err := volumeSource.CreateVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
@@ -246,7 +247,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 	c.Check(results[0].VolumeAttachment, gc.IsNil)
 	c.Check(results[1].VolumeAttachment, gc.IsNil)
 	c.Check(results[2].VolumeAttachment, gc.IsNil)
-	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
 
 	// Validate HTTP request bodies.
 	// The authorised workflow attempts to refresh to token so
@@ -304,10 +305,10 @@ func (s *storageSuite) TestListVolumesWithInvalidCredential(c *gc.C) {
 	volumeSource := s.volumeSource(c)
 	s.createSenderWithUnauthorisedStatusCode()
 
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
 	c.Assert(err, gc.NotNil)
-	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
 
 func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
@@ -319,7 +320,7 @@ func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
 		sender, // for the retry attempt
 	}
 	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
-	c.Assert(err, gc.ErrorMatches, "listing disks: no disks for you")
+	c.Assert(err, gc.ErrorMatches, ".*listing disks: no disks for you")
 }
 
 func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
@@ -347,13 +348,13 @@ func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *gc.C) {
 	volumeSource := s.volumeSource(c)
 	s.createSenderWithUnauthorisedStatusCode()
 
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	_, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results[0].Error, gc.NotNil)
-	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
 
 func (s *storageSuite) TestDescribeVolumesNotFound(c *gc.C) {
@@ -370,7 +371,7 @@ func (s *storageSuite) TestDescribeVolumesNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0].Error, jc.ErrorIs, errors.NotFound)
-	c.Assert(results[0].Error, gc.ErrorMatches, `disk volume-42 not found`)
+	c.Assert(results[0].Error, gc.ErrorMatches, `.*disk volume-42 not found`)
 }
 
 func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
@@ -390,12 +391,12 @@ func (s *storageSuite) TestDestroyVolumesWithInvalidCredential(c *gc.C) {
 	volumeSource := s.volumeSource(c)
 
 	s.createSenderWithUnauthorisedStatusCode()
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0], gc.NotNil)
-	c.Assert(s.invalidCredential, jc.IsTrue)
+	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
 
 func (s *storageSuite) TestDestroyVolumesNotFound(c *gc.C) {
