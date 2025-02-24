@@ -15,33 +15,32 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreconstraints "github.com/juju/juju/core/constraints"
-	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	corestatus "github.com/juju/juju/core/status"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/constraints"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type modelServiceSuite struct {
 	testing.IsolationSuite
 
-	mockControllerState        *MockControllerState
-	mockEnvironVersionProvider *MockEnvironVersionProvider
-	mockModelState             *MockModelState
+	mockControllerState *MockControllerState
+	mockModelState      *MockModelState
+	mockProvider        *MockProvider
 }
 
 func (s *modelServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockControllerState = NewMockControllerState(ctrl)
-	s.mockEnvironVersionProvider = NewMockEnvironVersionProvider(ctrl)
 	s.mockModelState = NewMockModelState(ctrl)
+	s.mockProvider = NewMockProvider(ctrl)
 	return ctrl
 }
 
@@ -49,15 +48,6 @@ var _ = gc.Suite(&modelServiceSuite{})
 
 func ptr[T any](v T) *T {
 	return &v
-}
-
-// environVersionProviderGetter provides a test implementation of
-// [EnvironVersionProviderFunc] that uses the mocked [EnvironVersionProvider] on
-// this suite.
-func (s *modelServiceSuite) environVersionProviderGetter() EnvironVersionProviderFunc {
-	return func(_ string) (EnvironVersionProvider, error) {
-		return s.mockEnvironVersionProvider, nil
-	}
 }
 
 // TestGetModelConstraints is asserting the happy path of retrieving the set
@@ -79,7 +69,7 @@ func (s *modelServiceSuite) TestGetModelConstraints(c *gc.C) {
 		modeltesting.GenModelUUID(c),
 		s.mockControllerState,
 		s.mockModelState,
-		s.environVersionProviderGetter(),
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 	result, err := svc.GetModelConstraints(context.Background())
@@ -112,7 +102,7 @@ func (s *modelServiceSuite) TestGetModelConstraintsNotFound(c *gc.C) {
 		modeltesting.GenModelUUID(c),
 		s.mockControllerState,
 		s.mockModelState,
-		s.environVersionProviderGetter(),
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 	result, err := svc.GetModelConstraints(context.Background())
@@ -133,7 +123,7 @@ func (s *modelServiceSuite) TestGetModelConstraintsFailedModelNotFound(c *gc.C) 
 		modeltesting.GenModelUUID(c),
 		s.mockControllerState,
 		s.mockModelState,
-		s.environVersionProviderGetter(),
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 	_, err := svc.GetModelConstraints(context.Background())
@@ -165,7 +155,7 @@ func (s *modelServiceSuite) TestSetModelConstraints(c *gc.C) {
 		modeltesting.GenModelUUID(c),
 		s.mockControllerState,
 		s.mockModelState,
-		s.environVersionProviderGetter(),
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 
@@ -205,7 +195,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsInvalidContainerType(c *gc.C)
 		modeltesting.GenModelUUID(c),
 		s.mockControllerState,
 		s.mockModelState,
-		s.environVersionProviderGetter(),
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.SetModelConstraints(context.Background(), badConstraints)
@@ -244,7 +234,7 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedSpaceNotFound(c *gc.C) 
 		modeltesting.GenModelUUID(c),
 		s.mockControllerState,
 		s.mockModelState,
-		s.environVersionProviderGetter(),
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.SetModelConstraints(context.Background(), cons)
@@ -279,11 +269,82 @@ func (s *modelServiceSuite) TestSetModelConstraintsFailedModelNotFound(c *gc.C) 
 		modeltesting.GenModelUUID(c),
 		s.mockControllerState,
 		s.mockModelState,
-		s.environVersionProviderGetter(),
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.SetModelConstraints(context.Background(), cons)
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+func (s *modelServiceSuite) TestCreateModel(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	controllerUUID := uuid.MustNewUUID()
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockControllerState.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(coremodel.Model{
+		UUID:        modelUUID,
+		Name:        "my-awesome-model",
+		Cloud:       "aws",
+		CloudType:   "ec2",
+		CloudRegion: "myregion",
+		ModelType:   coremodel.IAAS,
+	}, nil)
+	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
+		UUID:           modelUUID,
+		ControllerUUID: controllerUUID,
+		Name:           "my-awesome-model",
+		Type:           coremodel.IAAS,
+		Cloud:          "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+	}).Return(nil)
+
+	s.mockProvider.EXPECT().Create(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
+
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+	err := svc.CreateModel(context.Background(), controllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *modelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	controllerUUID := uuid.MustNewUUID()
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockControllerState.EXPECT().GetModel(gomock.Any(), gomock.Any()).Return(coremodel.Model{
+		UUID:        modelUUID,
+		Name:        "my-awesome-model",
+		Cloud:       "aws",
+		CloudType:   "ec2",
+		CloudRegion: "myregion",
+		ModelType:   coremodel.IAAS,
+	}, nil)
+	s.mockModelState.EXPECT().Create(gomock.Any(), model.ModelDetailArgs{
+		UUID:           modelUUID,
+		ControllerUUID: controllerUUID,
+		Name:           "my-awesome-model",
+		Type:           coremodel.IAAS,
+		Cloud:          "aws",
+		CloudType:      "ec2",
+		CloudRegion:    "myregion",
+	}).Return(modelerrors.AlreadyExists)
+
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+	err := svc.CreateModel(context.Background(), controllerUUID)
+	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
 // TestAgentVersionUnsupportedGreater is asserting that if we try and create a
@@ -304,7 +365,7 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 		mUUID,
 		s.mockControllerState,
 		s.mockModelState,
-		s.environVersionProviderGetter(),
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 
@@ -331,7 +392,7 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 		mUUID,
 		s.mockControllerState,
 		s.mockModelState,
-		s.environVersionProviderGetter(),
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 
@@ -340,132 +401,64 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-type legacyModelServiceSuite struct {
-	testing.IsolationSuite
+func (s *modelServiceSuite) TestDeleteModel(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	controllerState *dummyControllerModelState
-	modelState      *dummyModelState
-	controllerUUID  uuid.UUID
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+
+	s.mockModelState.EXPECT().Delete(gomock.Any(), modelUUID).Return(nil)
+
+	err := svc.DeleteModel(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-var _ = gc.Suite(&legacyModelServiceSuite{})
+func (s *modelServiceSuite) TestDeleteModelFailedNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-func (s *legacyModelServiceSuite) SetUpTest(c *gc.C) {
-	s.controllerState = &dummyControllerModelState{
-		models:     map[coremodel.UUID]model.ModelDetailArgs{},
-		modelState: map[coremodel.UUID]model.ModelState{},
-	}
-	s.modelState = &dummyModelState{
-		models: map[coremodel.UUID]model.ModelDetailArgs{},
-	}
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
 
-	s.controllerUUID = uuid.MustNewUUID()
+	s.mockModelState.EXPECT().Delete(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
+
+	err := svc.DeleteModel(context.Background())
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *legacyModelServiceSuite) TestModelCreation(c *gc.C) {
-	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.controllerState, s.modelState, nil, DefaultAgentBinaryFinder())
+func (s *modelServiceSuite) TestStatusSuspended(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	m := model.ModelDetailArgs{
-		UUID:        id,
-		Name:        "my-awesome-model",
-		Cloud:       "aws",
-		CloudType:   "ec2",
-		CloudRegion: "myregion",
-		Type:        coremodel.IAAS,
-	}
-
-	s.controllerState.models[id] = m
-	s.modelState.models[id] = m
-
-	err := svc.CreateModel(context.Background(), s.controllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
-
-	mInfo, err := svc.GetModelInfo(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(mInfo, gc.Equals, coremodel.ModelInfo{
-		UUID:           id,
-		ControllerUUID: s.controllerUUID,
-		Name:           "my-awesome-model",
-		Cloud:          "aws",
-		CloudType:      "ec2",
-		CloudRegion:    "myregion",
-		Type:           coremodel.IAAS,
-		AgentVersion:   jujuversion.Current,
-	})
-}
-
-func (s *legacyModelServiceSuite) TestGetModelMetrics(c *gc.C) {
-	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.controllerState, s.modelState, nil, DefaultAgentBinaryFinder())
-
-	m := model.ModelDetailArgs{
-		UUID:        id,
-		Name:        "my-awesome-model",
-		Cloud:       "aws",
-		CloudType:   "ec2",
-		CloudRegion: "myregion",
-		Type:        coremodel.IAAS,
-	}
-
-	s.controllerState.models[id] = m
-	s.modelState.models[id] = m
-
-	err := svc.CreateModel(context.Background(), s.controllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
-
-	readonlyVal, err := svc.GetModelMetrics(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(readonlyVal, gc.Equals, coremodel.ModelMetrics{
-		Model: coremodel.ModelInfo{
-			UUID:           id,
-			ControllerUUID: s.controllerUUID,
-			Name:           "my-awesome-model",
-			Cloud:          "aws",
-			CloudType:      "ec2",
-			CloudRegion:    "myregion",
-			Type:           coremodel.IAAS,
-		}})
-}
-
-func (s *legacyModelServiceSuite) TestModelDeletion(c *gc.C) {
-	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.controllerState, s.modelState, nil, DefaultAgentBinaryFinder())
-
-	m := model.ModelDetailArgs{
-		UUID:        id,
-		Name:        "my-awesome-model",
-		Cloud:       "aws",
-		CloudType:   "ec2",
-		CloudRegion: "myregion",
-		Type:        coremodel.IAAS,
-	}
-
-	s.controllerState.models[id] = m
-	s.modelState.models[id] = m
-
-	err := svc.CreateModel(context.Background(), s.controllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = svc.DeleteModel(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, exists := s.modelState.models[id]
-	c.Assert(exists, jc.IsFalse)
-}
-
-func (s *legacyModelServiceSuite) TestStatusSuspended(c *gc.C) {
-	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.controllerState, s.modelState, nil, DefaultAgentBinaryFinder())
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
 	svc.clock = testclock.NewClock(time.Time{})
+	now := svc.clock.Now()
 
-	s.modelState.setID = id
-	s.controllerState.modelState[id] = model.ModelState{
+	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{
 		HasInvalidCloudCredential:    true,
 		InvalidCloudCredentialReason: "invalid credential",
-	}
+	}, nil)
 
-	now := svc.clock.Now()
 	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Status, gc.Equals, corestatus.Suspended)
@@ -474,21 +467,25 @@ func (s *legacyModelServiceSuite) TestStatusSuspended(c *gc.C) {
 	c.Check(status.Since, jc.Almost, now)
 }
 
-func (s *legacyModelServiceSuite) TestStatusDestroying(c *gc.C) {
-	id := modeltesting.GenModelUUID(c)
-	svc := &ModelService{
-		clock:        testclock.NewClock(time.Time{}),
-		modelID:      id,
-		controllerSt: s.controllerState,
-		modelSt:      s.modelState,
-	}
+func (s *modelServiceSuite) TestStatusDestroying(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	s.modelState.setID = id
-	s.controllerState.modelState[id] = model.ModelState{
-		Destroying: true,
-	}
-
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+	svc.clock = testclock.NewClock(time.Time{})
 	now := svc.clock.Now()
+
+	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{
+		Destroying: true,
+	}, nil)
+
 	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Status, gc.Equals, corestatus.Destroying)
@@ -496,21 +493,25 @@ func (s *legacyModelServiceSuite) TestStatusDestroying(c *gc.C) {
 	c.Check(status.Since, jc.Almost, now)
 }
 
-func (s *legacyModelServiceSuite) TestStatusBusy(c *gc.C) {
-	id := modeltesting.GenModelUUID(c)
-	svc := &ModelService{
-		clock:        testclock.NewClock(time.Time{}),
-		modelID:      id,
-		controllerSt: s.controllerState,
-		modelSt:      s.modelState,
-	}
+func (s *modelServiceSuite) TestStatusBusy(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	s.modelState.setID = id
-	s.controllerState.modelState[id] = model.ModelState{
-		Migrating: true,
-	}
-
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+	svc.clock = testclock.NewClock(time.Time{})
 	now := svc.clock.Now()
+
+	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{
+		Migrating: true,
+	}, nil)
+
 	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Status, gc.Equals, corestatus.Busy)
@@ -518,142 +519,45 @@ func (s *legacyModelServiceSuite) TestStatusBusy(c *gc.C) {
 	c.Check(status.Since, jc.Almost, now)
 }
 
-func (s *legacyModelServiceSuite) TestStatus(c *gc.C) {
-	id := modeltesting.GenModelUUID(c)
-	svc := &ModelService{
-		clock:        testclock.NewClock(time.Time{}),
-		modelID:      id,
-		controllerSt: s.controllerState,
-		modelSt:      s.modelState,
-	}
+func (s *modelServiceSuite) TestStatus(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	s.modelState.setID = id
-	s.controllerState.modelState[id] = model.ModelState{}
-
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+	svc.clock = testclock.NewClock(time.Time{})
 	now := svc.clock.Now()
+
+	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{}, nil)
+
 	status, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Status, gc.Equals, corestatus.Available)
 	c.Check(status.Since, jc.Almost, now)
 }
 
-func (s *legacyModelServiceSuite) TestStatusFailedModelNotFound(c *gc.C) {
-	id := modeltesting.GenModelUUID(c)
-	svc := NewModelService(id, s.controllerState, s.modelState, nil, DefaultAgentBinaryFinder())
+func (s *modelServiceSuite) TestStatusFailedModelNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		func(context.Context) (Provider, error) { return s.mockProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+	svc.clock = testclock.NewClock(time.Time{})
+
+	s.mockControllerState.EXPECT().GetModelState(gomock.Any(), modelUUID).Return(model.ModelState{}, modelerrors.NotFound)
 
 	_, err := svc.GetStatus(context.Background())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-}
-
-type dummyControllerModelState struct {
-	models     map[coremodel.UUID]model.ModelDetailArgs
-	modelState map[coremodel.UUID]model.ModelState
-}
-
-func (d *dummyControllerModelState) GetModel(ctx context.Context, id coremodel.UUID) (coremodel.Model, error) {
-	args, exists := d.models[id]
-	if !exists {
-		return coremodel.Model{}, modelerrors.NotFound
-	}
-
-	return coremodel.Model{
-		UUID:        args.UUID,
-		Name:        args.Name,
-		ModelType:   args.Type,
-		Cloud:       args.Cloud,
-		CloudType:   args.CloudType,
-		CloudRegion: args.CloudRegion,
-		Credential: corecredential.Key{
-			Name:  args.CredentialName,
-			Owner: args.CredentialOwner,
-			Cloud: args.Cloud,
-		},
-		OwnerName: args.CredentialOwner,
-	}, nil
-}
-
-func (d *dummyControllerModelState) GetModelState(_ context.Context, modelUUID coremodel.UUID) (model.ModelState, error) {
-	mState, ok := d.modelState[modelUUID]
-	if !ok {
-		return model.ModelState{}, modelerrors.NotFound
-	}
-	return mState, nil
-}
-
-type dummyModelState struct {
-	models map[coremodel.UUID]model.ModelDetailArgs
-	setID  coremodel.UUID
-}
-
-func (d *dummyModelState) GetModelConstraints(context.Context) (constraints.Constraints, error) {
-	return constraints.Constraints{}, nil
-}
-
-func (d *dummyModelState) SetModelConstraints(_ context.Context, _ constraints.Constraints) error {
-	return nil
-}
-
-func (d *dummyModelState) Create(ctx context.Context, args model.ModelDetailArgs) error {
-	if d.setID != coremodel.UUID("") {
-		return modelerrors.AlreadyExists
-	}
-	d.models[args.UUID] = args
-	d.setID = args.UUID
-	return nil
-}
-
-func (d *dummyModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) {
-	if d.setID == coremodel.UUID("") {
-		return coremodel.ModelInfo{}, modelerrors.NotFound
-	}
-
-	args := d.models[d.setID]
-	return coremodel.ModelInfo{
-		UUID:            args.UUID,
-		ControllerUUID:  args.ControllerUUID,
-		Name:            args.Name,
-		Type:            args.Type,
-		Cloud:           args.Cloud,
-		CloudType:       args.CloudType,
-		CloudRegion:     args.CloudRegion,
-		CredentialOwner: args.CredentialOwner,
-		CredentialName:  args.CredentialName,
-		AgentVersion:    args.AgentVersion,
-	}, nil
-}
-
-func (d *dummyModelState) GetModelMetrics(ctx context.Context) (coremodel.ModelMetrics, error) {
-	if d.setID == coremodel.UUID("") {
-		return coremodel.ModelMetrics{}, modelerrors.NotFound
-	}
-
-	args := d.models[d.setID]
-	return coremodel.ModelMetrics{
-		Model: coremodel.ModelInfo{
-			UUID:            args.UUID,
-			ControllerUUID:  args.ControllerUUID,
-			Name:            args.Name,
-			Type:            args.Type,
-			Cloud:           args.Cloud,
-			CloudType:       args.CloudType,
-			CloudRegion:     args.CloudRegion,
-			CredentialOwner: args.CredentialOwner,
-			CredentialName:  args.CredentialName,
-		},
-	}, nil
-}
-
-func (d *dummyModelState) GetModelCloudType(ctx context.Context) (string, error) {
-	if d.setID == coremodel.UUID("") {
-		return "", modelerrors.NotFound
-	}
-
-	args := d.models[d.setID]
-
-	return args.CloudType, nil
-}
-
-func (d *dummyModelState) Delete(ctx context.Context, modelUUID coremodel.UUID) error {
-	delete(d.models, modelUUID)
-	return nil
 }
