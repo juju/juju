@@ -9,18 +9,19 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/testing/factory"
+	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/testing"
 )
 
 type statusBaseSuite struct {
-	testing.StateSuite
 	applicationService *MockApplicationService
 	leadershipChecker  *fakeLeadershipChecker
 	badTag             names.Tag
@@ -28,11 +29,15 @@ type statusBaseSuite struct {
 }
 
 func (s *statusBaseSuite) SetUpTest(c *gc.C) {
-	c.Skip("skipping factory based tests. TODO: Re-write without factories")
-	s.StateSuite.SetUpTest(c)
 	s.badTag = nil
 	s.leadershipChecker = &fakeLeadershipChecker{true}
+}
+
+func (s *statusBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.applicationService = NewMockApplicationService(ctrl)
 	s.api = s.newStatusAPI()
+	return ctrl
 }
 
 func (s *statusBaseSuite) authFunc(tag names.Tag) bool {
@@ -43,7 +48,7 @@ func (s *statusBaseSuite) newStatusAPI() *uniter.StatusAPI {
 	auth := func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	}
-	return uniter.NewStatusAPI(s.StateSuite.Model, s.applicationService, auth, s.leadershipChecker, clock.WallClock)
+	return uniter.NewStatusAPI(nil, s.applicationService, auth, s.leadershipChecker, clock.WallClock)
 }
 
 type ApplicationStatusAPISuite struct {
@@ -53,6 +58,8 @@ type ApplicationStatusAPISuite struct {
 var _ = gc.Suite(&ApplicationStatusAPISuite{})
 
 func (s *ApplicationStatusAPISuite) TestUnauthorized(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	tag := names.NewUnitTag("foo/0")
 	s.badTag = tag
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
@@ -64,6 +71,8 @@ func (s *ApplicationStatusAPISuite) TestUnauthorized(c *gc.C) {
 }
 
 func (s *ApplicationStatusAPISuite) TestNotATag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "not a tag",
 	}}})
@@ -73,6 +82,10 @@ func (s *ApplicationStatusAPISuite) TestNotATag(c *gc.C) {
 }
 
 func (s *ApplicationStatusAPISuite) TestNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: names.NewUnitTag("foo/0").String(),
 	}}})
@@ -82,9 +95,12 @@ func (s *ApplicationStatusAPISuite) TestNotFound(c *gc.C) {
 }
 
 func (s *ApplicationStatusAPISuite) TestGetMachineStatus(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, nil)
+	defer s.setupMocks(c).Finish()
+
+	machineTag := names.NewMachineTag("42")
+
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
-		Tag: machine.Tag().String(),
+		Tag: machineTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -93,11 +109,12 @@ func (s *ApplicationStatusAPISuite) TestGetMachineStatus(c *gc.C) {
 }
 
 func (s *ApplicationStatusAPISuite) TestGetApplicationStatus(c *gc.C) {
-	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
-		Status: status.Maintenance,
-	}})
+	defer s.setupMocks(c).Finish()
+
+	appTag := names.NewApplicationTag("foo")
+
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
-		Tag: app.Tag().String(),
+		Tag: appTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -106,11 +123,13 @@ func (s *ApplicationStatusAPISuite) TestGetApplicationStatus(c *gc.C) {
 }
 
 func (s *ApplicationStatusAPISuite) TestGetUnitStatusNotLeader(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// If the unit isn't the leader, it can't get it.
 	s.leadershipChecker.isLeader = false
-	unit := s.Factory.MakeUnit(c, nil)
+	unitTag := names.NewUnitTag("foo/0")
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
-		Tag: unit.Tag().String(),
+		Tag: unitTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -119,13 +138,24 @@ func (s *ApplicationStatusAPISuite) TestGetUnitStatusNotLeader(c *gc.C) {
 }
 
 func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
+	s.applicationService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), appID).Return(&status.StatusInfo{
 		Status: status.Maintenance,
-	}})
+	}, nil)
+	s.applicationService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appID).Return(map[coreunit.Name]status.StatusInfo{
+		"foo/0": {
+			Status: status.Maintenance,
+		},
+	}, nil)
+
+	unitTag := names.NewUnitTag("foo/3")
 	// No need to claim leadership - the checker passed in in setup
 	// always returns true.
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
-		Tag: unit.Tag().String(),
+		Tag: unitTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -135,19 +165,21 @@ func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
 	c.Assert(r.Application.Status, gc.Equals, status.Maintenance.String())
 	units := r.Units
 	c.Assert(units, gc.HasLen, 1)
-	unitStatus, ok := units[unit.Name()]
+	unitStatus, ok := units["foo/0"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(unitStatus.Error, gc.IsNil)
 	c.Assert(unitStatus.Status, gc.Equals, status.Maintenance.String())
 }
 
 func (s *ApplicationStatusAPISuite) TestBulk(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.badTag = names.NewMachineTag("42")
-	machine := s.Factory.MakeMachine(c, nil)
+	machineTag := names.NewMachineTag("42")
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: s.badTag.String(),
 	}, {
-		Tag: machine.Tag().String(),
+		Tag: machineTag.String(),
 	}, {
 		Tag: "bad-tag",
 	}}})
