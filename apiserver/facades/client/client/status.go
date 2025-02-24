@@ -27,6 +27,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -84,10 +85,10 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	}
 	// Only admins can see offer details.
 	if err := c.checkIsAdmin(ctx); err == nil {
-		if context.offers, err =
-			fetchOffers(c.stateAccessor, context.allAppsUnitsCharmBindings.applications); err != nil {
-			return noStatus, internalerrors.Errorf("could not fetch application offers: %w", err)
-		}
+		// TODO(gfouillet): Re-enable fetching for offer details once
+		//   CMR will be moved in their own domain.
+		logger.Warningf(ctx, "cross model relations are disabled until "+
+			"backend functionality is moved to domain")
 	}
 	if err = context.fetchMachines(c.stateAccessor); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch machines: %w", err)
@@ -119,7 +120,10 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		fetchNetworkInterfaces(c.stateAccessor, subnetInfos, context.spaceInfos); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch IP addresses and link layer devices: %w", err)
 	}
-	if context.relations, context.relationsById, err = fetchRelations(c.stateAccessor); err != nil {
+	if context.relations, context.relationsByID, err = fetchRelations(ctx, c.relationService); err != nil &&
+		// todo(gfouillet): remove this exception whenever
+		//   relation domain will be fully implemented
+		!internalerrors.Is(err, errors.NotImplemented) {
 		return noStatus, internalerrors.Errorf("could not fetch relations: %w", err)
 	}
 	if len(context.allAppsUnitsCharmBindings.applications) > 0 {
@@ -259,7 +263,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 				// delete relations for this app
 				if relations, ok := context.relations[appName]; ok {
 					for _, r := range relations {
-						delete(context.relationsById, r.Id())
+						delete(context.relationsByID, r.ID)
 					}
 					delete(context.relations, appName)
 				}
@@ -369,7 +373,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		Applications:        context.processApplications(ctx),
 		RemoteApplications:  context.processRemoteApplications(),
 		Offers:              context.processOffers(),
-		Relations:           context.processRelations(),
+		Relations:           context.processRelations(ctx),
 		ControllerTimestamp: context.controllerTimestamp,
 		Storage:             storageDetails,
 		Filesystems:         filesystemDetails,
@@ -458,6 +462,55 @@ type applicationStatusInfo struct {
 	lxdProfiles map[string]*charm.LXDProfile
 }
 
+type relationStatus struct {
+	UUID      corerelation.UUID
+	ID        int
+	Endpoints []relation.Endpoint
+	Status    status.StatusInfo
+}
+
+// Endpoint retrieves the relation endpoint associated with the specified application name from the relation status.
+// Returns an error if the endpoint is not found.
+func (s relationStatus) Endpoint(applicationName string) (relation.Endpoint, error) {
+	for _, ep := range s.Endpoints {
+		if ep.ApplicationName == applicationName {
+			return ep, nil
+		}
+	}
+	return relation.Endpoint{}, internalerrors.Errorf("endpoint for application %q: %w", applicationName, errors.NotFound)
+}
+
+// RelatedEndpoints returns the endpoints in the relation status that are related
+// to the specified application.
+// It filters endpoints based on the counterpart role of the specified
+// application's endpoint role.
+//
+// We can have several relations by endpoint, either as providers or as
+// requirers for different use case. An obvious one is a provider endpoint for
+// a database. We can have several services using this database through this
+// endpoint. Requirer endpoint with several provider are less obvious, but not
+// prevented.
+//
+// Returns an error if the specified application's endpoint is not found or no related endpoints exist.
+func (s relationStatus) RelatedEndpoints(applicationName string) ([]relation.Endpoint, error) {
+	local, err := s.Endpoint(applicationName)
+	if err != nil {
+		return nil, err
+	}
+	role := relation.CounterpartRole(local.Role)
+	var eps []relation.Endpoint
+	for _, ep := range s.Endpoints {
+		if ep.Role == role {
+			eps = append(eps, ep)
+		}
+	}
+	if eps == nil {
+		return nil, internalerrors.Errorf("fetching endpoints of %q related to application %q: %w", s,
+			applicationName, errors.NotFound)
+	}
+	return eps, nil
+}
+
 type statusContext struct {
 	applicationService ApplicationService
 
@@ -498,8 +551,8 @@ type statusContext struct {
 	controllerTimestamp *time.Time
 
 	allAppsUnitsCharmBindings applicationStatusInfo
-	relations                 map[string][]*state.Relation
-	relationsById             map[int]*state.Relation
+	relations                 map[string][]relationStatus
+	relationsByID             map[int]relationStatus
 	leaders                   map[string]string
 
 	// Information about all spaces.
@@ -767,79 +820,45 @@ func fetchConsumerRemoteApplications(st Backend) (map[string]*state.RemoteApplic
 	return appMap, nil
 }
 
-// fetchOfferConnections returns a map from relation id to offer connection.
-func fetchOffers(st Backend, applications map[string]*state.Application) (map[string]offerStatus, error) {
-	offersMap := make(map[string]offerStatus)
-	offers, err := st.AllApplicationOffers()
-	if err != nil {
-		return nil, err
-	}
-	for _, offer := range offers {
-		offerInfo := offerStatus{
-			ApplicationOffer: crossmodel.ApplicationOffer{
-				OfferName:       offer.OfferName,
-				OfferUUID:       offer.OfferUUID,
-				ApplicationName: offer.ApplicationName,
-				Endpoints:       offer.Endpoints,
-			},
-		}
-		app, ok := applications[offer.ApplicationName]
-		if !ok {
-			continue
-		}
-		curl, _ := app.CharmURL()
-		if curl == nil {
-			offerInfo.err = internalerrors.Errorf("application charm url nil: %w", errors.NotValid)
-			continue
-		}
-		offerInfo.charmURL = *curl
-		rc, err := st.RemoteConnectionStatus(offer.OfferUUID)
-		if err != nil && !internalerrors.Is(err, errors.NotFound) {
-			offerInfo.err = err
-			continue
-		} else if err == nil {
-			offerInfo.totalConnectedCount = rc.TotalConnectionCount()
-			offerInfo.activeConnectedCount = rc.ActiveConnectionCount()
-		}
-		offersMap[offer.OfferName] = offerInfo
-	}
-	return offersMap, nil
-}
-
 // fetchRelations returns a map of all relations keyed by application name,
-// and another map keyed by id..
+// and another map keyed by id.
 //
 // This structure is useful for processApplicationRelations() which needs
 // to have the relations for each application. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
 // application that used to happen in processApplicationRelations().
-func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Relation, error) {
-	relations, err := st.AllRelations()
+func fetchRelations(ctx context.Context, relationService RelationService) (map[string][]relationStatus, map[int]relationStatus, error) {
+	uuids, err := relationService.AllRelations(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, internalerrors.Errorf("fetching relations: %w", err)
 	}
-	out := make(map[string][]*state.Relation)
-	outById := make(map[int]*state.Relation)
-	for _, relation := range relations {
-		outById[relation.Id()] = relation
-		// If either end of the relation is a remote application
-		// on the offering side, exclude it here.
-		isRemote := false
-		for _, ep := range relation.Endpoints() {
-			if app, err := st.RemoteApplication(ep.ApplicationName); err == nil {
-				if app.IsConsumerProxy() {
-					isRemote = true
-					break
-				}
-			} else if !internalerrors.Is(err, errors.NotFound) {
-				return nil, nil, err
-			}
-		}
-		if isRemote {
+	out := make(map[string][]relationStatus)
+	outById := make(map[int]relationStatus)
+	for _, uuid := range uuids {
+		id, err := relationService.GetRelationID(ctx, uuid)
+		if err != nil {
+			logger.Warningf(ctx, "failed to get relation id for %q: %v", uuid, err)
 			continue
 		}
-		for _, ep := range relation.Endpoints() {
-			out[ep.ApplicationName] = append(out[ep.ApplicationName], relation)
+		eps, err := relationService.GetRelationEndpoints(ctx, uuid)
+		if err != nil {
+			logger.Warningf(ctx, "failed to get relation endpoints for %q: %v", uuid, err)
+			continue
+		}
+		relStatus, err := relationService.GetRelationStatus(ctx, uuid)
+		if err != nil {
+			logger.Warningf(ctx, "failed to get relation status for %q: %v", uuid, err)
+			continue
+		}
+		r := relationStatus{
+			UUID:      uuid,
+			ID:        id,
+			Endpoints: eps,
+			Status:    relStatus,
+		}
+		outById[r.ID] = r
+		for _, ep := range r.Endpoints {
+			out[ep.ApplicationName] = append(out[ep.ApplicationName], r)
 		}
 	}
 	return out, outById, nil
@@ -1038,14 +1057,13 @@ func (c *statusContext) makeMachineStatus(
 	return
 }
 
-func (context *statusContext) processRelations() []params.RelationStatus {
+func (context *statusContext) processRelations(ctx context.Context) []params.RelationStatus {
 	var out []params.RelationStatus
-	relations := context.getAllRelations()
-	for _, relation := range relations {
+	for _, current := range context.relationsByID {
 		var eps []params.EndpointStatus
 		var scope charm.RelationScope
 		var relationInterface string
-		for _, ep := range relation.Endpoints() {
+		for _, ep := range current.Endpoints {
 			eps = append(eps, params.EndpointStatus{
 				ApplicationName: ep.ApplicationName,
 				Name:            ep.Name,
@@ -1057,31 +1075,14 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 			scope = ep.Scope
 		}
 		relStatus := params.RelationStatus{
-			Id:        relation.Id(),
-			Key:       relation.String(),
+			Id:        current.ID,
+			Key:       relation.NaturalKey(current.Endpoints),
 			Interface: relationInterface,
 			Scope:     string(scope),
 			Endpoints: eps,
 		}
-		rStatus, err := relation.Status()
-		populateStatusFromStatusInfoAndErr(&relStatus.Status, rStatus, err)
+		populateStatusFromStatusInfoAndErr(&relStatus.Status, current.Status, nil)
 		out = append(out, relStatus)
-	}
-	return out
-}
-
-// This method exists only to dedup the loaded relations as they will
-// appear multiple times in context.relations.
-func (context *statusContext) getAllRelations() []*state.Relation {
-	var out []*state.Relation
-	seenRelations := make(map[int]bool)
-	for _, relations := range context.relations {
-		for _, relation := range relations {
-			if _, found := seenRelations[relation.Id()]; !found {
-				out = append(out, relation)
-				seenRelations[relation.Id()] = true
-			}
-		}
 	}
 	return out
 }

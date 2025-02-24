@@ -5,9 +5,20 @@ package relation
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/juju/juju/internal/charm"
 )
+
+// roleOrder maps RelationRole values to integers to define their order
+// of precedence in relation endpoints. This is used to compute the relation's
+// natural key.
+var roleOrder = map[charm.RelationRole]int{
+	charm.RoleRequirer: 0,
+	charm.RoleProvider: 1,
+	charm.RolePeer:     2,
+}
 
 // CounterpartRole returns the RelationRole that this RelationRole
 // can relate to.
@@ -44,4 +55,21 @@ func (ep Endpoint) CanRelateTo(other Endpoint) bool {
 		ep.Interface == other.Interface &&
 		ep.Role != charm.RolePeer &&
 		CounterpartRole(ep.Role) == other.Role
+}
+
+// NaturalKey generates a unique sorted string representation of relation
+// endpoints based on their roles and identifiers. It can be used as a natural key
+// for relations.
+func NaturalKey(endpoints []Endpoint) string {
+	eps := slices.SortedFunc(slices.Values(endpoints), func(ep1 Endpoint, ep2 Endpoint) int {
+		if ep1.Role != ep2.Role {
+			return roleOrder[ep1.Role] - roleOrder[ep2.Role]
+		}
+		return strings.Compare(ep1.String(), ep2.String())
+	})
+	endpointNames := make([]string, 0, len(eps))
+	for _, ep := range eps {
+		endpointNames = append(endpointNames, ep.String())
+	}
+	return strings.Join(endpointNames, " ")
 }
