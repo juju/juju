@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -21,6 +20,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
@@ -66,37 +66,37 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	context.providerType = modelInfo.CloudType
 
 	if context.spaceInfos, err = c.networkService.GetAllSpaces(ctx); err != nil {
-		return noStatus, errors.Annotate(err, "cannot obtain space information")
+		return noStatus, internalerrors.Errorf("cannot obtain space information: %w", err)
 	}
 	if context.model, err = c.state().Model(); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch model")
+		return noStatus, internalerrors.Errorf("could not fetch model: %w", err)
 	}
 	if context.status, err = context.model.LoadModelStatus(); err != nil {
-		return noStatus, errors.Annotate(err, "could not load model status values")
+		return noStatus, internalerrors.Errorf("could not load model status values: %w", err)
 	}
 	if context.allAppsUnitsCharmBindings, err =
 		fetchAllApplicationsAndUnits(ctx, c.applicationService, c.stateAccessor, context.model, context.spaceInfos); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch applications and units")
+		return noStatus, internalerrors.Errorf("could not fetch applications and units: %w", err)
 	}
 	if context.consumerRemoteApplications, err =
 		fetchConsumerRemoteApplications(c.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch remote applications")
+		return noStatus, internalerrors.Errorf("could not fetch remote applications: %w", err)
 	}
 	// Only admins can see offer details.
 	if err := c.checkIsAdmin(ctx); err == nil {
 		if context.offers, err =
 			fetchOffers(c.stateAccessor, context.allAppsUnitsCharmBindings.applications); err != nil {
-			return noStatus, errors.Annotate(err, "could not fetch application offers")
+			return noStatus, internalerrors.Errorf("could not fetch application offers: %w", err)
 		}
 	}
 	if err = context.fetchMachines(c.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch machines")
+		return noStatus, internalerrors.Errorf("could not fetch machines: %w", err)
 	}
 	if err = context.fetchAllOpenPortRanges(ctx, c.portService); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch open port ranges")
+		return noStatus, internalerrors.Errorf("could not fetch open port ranges: %w", err)
 	}
 	if context.controllerNodes, err = fetchControllerNodes(c.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch controller nodes")
+		return noStatus, internalerrors.Errorf("could not fetch controller nodes: %w", err)
 	}
 	if len(context.controllerNodes) > 1 {
 		if primaryHAMachine, err := c.stateAccessor.HAPrimaryMachine(); err != nil {
@@ -113,14 +113,14 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	// These may be empty when machines have not finished deployment.
 	subnetInfos, err := c.networkService.GetAllSubnets(ctx)
 	if err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch subnets")
+		return noStatus, internalerrors.Errorf("could not fetch subnets: %w", err)
 	}
 	if context.ipAddresses, context.spaces, context.linkLayerDevices, err =
 		fetchNetworkInterfaces(c.stateAccessor, subnetInfos, context.spaceInfos); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch IP addresses and link layer devices")
+		return noStatus, internalerrors.Errorf("could not fetch IP addresses and link layer devices: %w", err)
 	}
 	if context.relations, context.relationsById, err = fetchRelations(c.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch relations")
+		return noStatus, internalerrors.Errorf("could not fetch relations: %w", err)
 	}
 	if len(context.allAppsUnitsCharmBindings.applications) > 0 {
 		if context.leaders, err = c.leadershipReader.Leaders(); err != nil {
@@ -133,21 +133,21 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		}
 	}
 	if context.controllerTimestamp, err = c.stateAccessor.ControllerTimestamp(); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch controller timestamp")
+		return noStatus, internalerrors.Errorf("could not fetch controller timestamp: %w", err)
 	}
 
 	if args.IncludeStorage {
 		context.storageInstances, err = c.storageAccessor.AllStorageInstances()
 		if err != nil {
-			return noStatus, errors.Annotate(err, "cannot list all storage instances")
+			return noStatus, internalerrors.Errorf("cannot list all storage instances: %w", err)
 		}
 		context.filesystems, err = c.storageAccessor.AllFilesystems()
 		if err != nil {
-			return noStatus, errors.Annotate(err, "cannot list all filesystems")
+			return noStatus, internalerrors.Errorf("cannot list all filesystems: %w", err)
 		}
 		context.volumes, err = c.storageAccessor.AllVolumes()
 		if err != nil {
-			return noStatus, errors.Annotate(err, "cannot list all volumes")
+			return noStatus, internalerrors.Errorf("cannot list all volumes: %w", err)
 		}
 	}
 
@@ -172,9 +172,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 			for _, m := range machineList {
 				matches, err := predicate(ctx, m)
 				if err != nil {
-					return noStatus, errors.Annotate(
-						err, "could not filter machines",
-					)
+					return noStatus, internalerrors.Errorf("could not filter machines: %w", err)
 				}
 				if matches {
 					matchedMachines.Add(m.Id())
@@ -217,7 +215,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 				if !unit.IsPrincipal() {
 					continue
 				} else if matches, err := unitChainPredicate(unit); err != nil {
-					return noStatus, errors.Annotate(err, "could not filter units")
+					return noStatus, internalerrors.Errorf("could not filter units: %w", err)
 				} else if !matches {
 					delete(unitMap, name)
 					continue
@@ -242,7 +240,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		for appName, app := range context.allAppsUnitsCharmBindings.applications {
 			matches, err := predicate(ctx, app)
 			if err != nil {
-				return noStatus, errors.Annotate(err, "could not filter applications")
+				return noStatus, internalerrors.Errorf("could not filter applications: %w", err)
 			}
 
 			// There are matched units for this application
@@ -316,10 +314,10 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		matchedFilesystems := []state.Filesystem{}
 		for _, filesystem := range context.filesystems {
 			storageTag, err := filesystem.Storage()
-			if errors.Is(err, errors.NotAssigned) {
+			if internalerrors.Is(err, errors.NotAssigned) {
 				continue
 			} else if err != nil {
-				return noStatus, errors.Trace(err)
+				return noStatus, internalerrors.Capture(err)
 			}
 			if matchedStorageTags.Contains(storageTag.Id()) {
 				matchedFilesystems = append(matchedFilesystems, filesystem)
@@ -330,10 +328,10 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		matchedVolumes := []state.Volume{}
 		for _, volume := range context.volumes {
 			storageTag, err := volume.StorageInstance()
-			if errors.Is(err, errors.NotAssigned) {
+			if internalerrors.Is(err, errors.NotAssigned) {
 				continue
 			} else if err != nil {
-				return noStatus, errors.Trace(err)
+				return noStatus, internalerrors.Capture(err)
 			}
 			if matchedStorageTags.Contains(storageTag.Id()) {
 				matchedVolumes = append(matchedVolumes, volume)
@@ -344,7 +342,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 
 	modelStatus, err := c.modelStatus(ctx)
 	if err != nil {
-		return noStatus, errors.Annotate(err, "cannot determine model status")
+		return noStatus, internalerrors.Errorf("cannot determine model status: %w", err)
 	}
 
 	var storageDetails []params.StorageDetails
@@ -353,15 +351,15 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	if args.IncludeStorage {
 		storageDetails, err = context.processStorage(ctx, c.storageAccessor, c.blockDeviceService)
 		if err != nil {
-			return noStatus, errors.Annotate(err, "cannot process storage instances")
+			return noStatus, internalerrors.Errorf("cannot process storage instances: %w", err)
 		}
 		filesystemDetails, err = context.processFilesystems(ctx, c.storageAccessor, c.blockDeviceService)
 		if err != nil {
-			return noStatus, errors.Annotate(err, "cannot process filesystems")
+			return noStatus, internalerrors.Errorf("cannot process filesystems: %w", err)
 		}
 		volumeDetails, err = context.processVolumes(ctx, c.storageAccessor, c.blockDeviceService)
 		if err != nil {
-			return noStatus, errors.Annotate(err, "cannot process volumes")
+			return noStatus, internalerrors.Errorf("cannot process volumes: %w", err)
 		}
 	}
 
@@ -414,7 +412,7 @@ func (c *Client) modelStatus(ctx context.Context) (params.ModelStatusInfo, error
 	// // TODO: replace here once we implement the latest agent version in Dqlite.
 	// m, err := c.stateAccessor.Model()
 	// if err != nil {
-	// 	return info, errors.Annotate(err, "cannot get model")
+	// 	return info, internalerrors.Errorf("cannot get model: %w", err)
 	// }
 
 	// latestVersion := m.LatestToolsVersion()
@@ -425,10 +423,10 @@ func (c *Client) modelStatus(ctx context.Context) (params.ModelStatusInfo, error
 	aStatus, err := c.modelInfoService.GetStatus(ctx)
 	if internalerrors.Is(err, domainmodelerrors.NotFound) {
 		// This should never happen but just in case.
-		return params.ModelStatusInfo{}, errors.NotFoundf("model status for %q", modelInfo.Name)
+		return params.ModelStatusInfo{}, internalerrors.Errorf("model status for %q: %w", modelInfo.Name, errors.NotFound)
 	}
 	if err != nil {
-		return params.ModelStatusInfo{}, errors.Annotate(err, "cannot obtain model status info")
+		return params.ModelStatusInfo{}, internalerrors.Errorf("cannot obtain model status info: %w", err)
 	}
 
 	info.ModelStatus = params.DetailedStatus{
@@ -734,7 +732,7 @@ func fetchAllApplicationsAndUnits(ctx context.Context, applicationService Applic
 	// Latest charm lookup for all base URLs.
 	for baseURL := range latestCharms {
 		locator, err := applicationService.GetLatestPendingCharmhubCharm(ctx, baseURL.Name, baseURL.Architecture)
-		if errors.Is(err, applicationerrors.CharmNotFound) {
+		if internalerrors.Is(err, applicationerrors.CharmNotFound) {
 			continue
 		} else if err != nil {
 			return applicationStatusInfo{}, err
@@ -791,12 +789,12 @@ func fetchOffers(st Backend, applications map[string]*state.Application) (map[st
 		}
 		curl, _ := app.CharmURL()
 		if curl == nil {
-			offerInfo.err = errors.NotValidf("application charm url nil")
+			offerInfo.err = internalerrors.Errorf("application charm url nil: %w", errors.NotValid)
 			continue
 		}
 		offerInfo.charmURL = *curl
 		rc, err := st.RemoteConnectionStatus(offer.OfferUUID)
-		if err != nil && !errors.Is(err, errors.NotFound) {
+		if err != nil && !internalerrors.Is(err, errors.NotFound) {
 			offerInfo.err = err
 			continue
 		} else if err == nil {
@@ -833,7 +831,7 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Re
 					isRemote = true
 					break
 				}
-			} else if !errors.Is(err, errors.NotFound) {
+			} else if !internalerrors.Is(err, errors.NotFound) {
 				return nil, nil, err
 			}
 		}
@@ -925,7 +923,7 @@ func (c *statusContext) makeMachineStatus(
 		logger.Debugf(context.TODO(), "error retrieving uuid for machine: %q, %w", machineID, err)
 	} else {
 		instid, displayName, err = machineService.InstanceIDAndName(ctx, machineUUID)
-		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {
+		if err != nil && !internalerrors.Is(err, machineerrors.NotProvisioned) {
 			logger.Debugf(context.TODO(), "error retrieving instance ID and display name for machine: %q, %w", machineID, err)
 		}
 	}
@@ -1006,7 +1004,7 @@ func (c *statusContext) makeMachineStatus(
 	status.Constraints = constraints.String()
 
 	hc, err := machineService.HardwareCharacteristics(ctx, machineUUID)
-	if errors.Is(err, machineerrors.NotProvisioned) {
+	if internalerrors.Is(err, machineerrors.NotProvisioned) {
 		logger.Debugf(context.TODO(), "can't retrieve hardware characteristics of machine %q: not provisioned", machineUUID)
 	}
 	if err != nil {
@@ -1018,7 +1016,7 @@ func (c *statusContext) makeMachineStatus(
 
 	lxdProfiles := make(map[string]params.LXDProfile)
 	charmProfiles, err := machineService.AppliedLXDProfileNames(ctx, machineUUID)
-	if errors.Is(err, machineerrors.NotProvisioned) {
+	if internalerrors.Is(err, machineerrors.NotProvisioned) {
 		logger.Debugf(context.TODO(), "can't retrieve lxd profiles for machine %q: not provisioned", machineUUID)
 	}
 	if err != nil {
@@ -1191,8 +1189,9 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 	// will surely take the application ID as a parameter, so we do not need to
 	// worry about this case.
 	applicationId, err := context.applicationService.GetApplicationIDByName(ctx, application.Name())
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return params.ApplicationStatus{Err: apiservererrors.ServerError(errors.NotFoundf("application %q", application.Name()))}
+	if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ApplicationStatus{Err: apiservererrors.ServerError(internalerrors.Errorf("application %q: %w",
+			application.Name(), errors.NotFound))}
 	} else if err != nil {
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
@@ -1254,7 +1253,7 @@ func (context *statusContext) mapExposedEndpointsFromState(exposedEndpoints map[
 			for i, spaceID := range exposeDetails.ExposeToSpaceIDs {
 				sp := context.spaceInfos.GetByID(spaceID)
 				if sp == nil {
-					return nil, errors.NotFoundf("space with ID %q", spaceID)
+					return nil, internalerrors.Errorf("space with ID %q: %w", spaceID, errors.NotFound)
 				}
 
 				spaceNames[i] = string(sp.Name)
@@ -1449,11 +1448,11 @@ func (context *statusContext) processApplicationRelations(application *state.App
 func (c *statusContext) unitToMachine(unitTag names.UnitTag) (names.MachineTag, error) {
 	unit, ok := c.allAppsUnitsCharmBindings.allUnits[unitTag.Id()]
 	if !ok {
-		return names.MachineTag{}, errors.NotFoundf("unit %v", unitTag)
+		return names.MachineTag{}, internalerrors.Errorf("unit %v: %w", unitTag, errors.NotFound)
 	}
 	machine, err := unit.AssignedMachineId()
 	if err != nil {
-		return names.MachineTag{}, errors.Trace(err)
+		return names.MachineTag{}, internalerrors.Capture(err)
 	}
 	return names.NewMachineTag(machine), nil
 }
@@ -1463,7 +1462,7 @@ func (c *statusContext) processStorage(ctx context.Context, storageAccessor Stor
 	for _, storageInstance := range c.storageInstances {
 		storageDetail, err := storagecommon.StorageDetails(ctx, storageAccessor, blockDeviceService, c.unitToMachine, storageInstance)
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot convert storage details for %v", storageInstance.Tag())
+			return nil, internalerrors.Errorf("cannot convert storage details for %v: %w", storageInstance.Tag(), err)
 		}
 		storageDetails = append(storageDetails, *storageDetail)
 	}
@@ -1475,11 +1474,11 @@ func (c *statusContext) processFilesystems(ctx context.Context, storageAccessor 
 	for _, filesystem := range c.filesystems {
 		attachments, err := storageAccessor.FilesystemAttachments(filesystem.FilesystemTag())
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, internalerrors.Capture(err)
 		}
 		filesystemDetail, err := storagecommon.FilesystemDetails(ctx, storageAccessor, blockDeviceService, c.unitToMachine, filesystem, attachments)
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot convert filesystem details for %v", filesystem.Tag())
+			return nil, internalerrors.Errorf("cannot convert filesystem details for %v: %w", filesystem.Tag(), err)
 		}
 		filesystemDetails = append(filesystemDetails, *filesystemDetail)
 	}
@@ -1491,11 +1490,11 @@ func (c *statusContext) processVolumes(ctx context.Context, storageAccessor Stor
 	for _, volume := range c.volumes {
 		attachments, err := storageAccessor.VolumeAttachments(volume.VolumeTag())
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, internalerrors.Capture(err)
 		}
 		volumeDetail, err := storagecommon.VolumeDetails(ctx, storageAccessor, blockDeviceService, c.unitToMachine, volume, attachments)
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot convert volume details for %v", volume.Tag())
+			return nil, internalerrors.Errorf("cannot convert volume details for %v: %w", volume.Tag(), err)
 		}
 		volumeDetails = append(volumeDetails, *volumeDetail)
 	}
@@ -1517,8 +1516,9 @@ func (c *statusContext) processUnitAndAgentStatus(ctx context.Context, unit *sta
 	}
 
 	workloadStatus, err := c.applicationService.GetUnitDisplayStatus(ctx, unitName)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return params.DetailedStatus{}, params.DetailedStatus{Err: apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))}
+	if internalerrors.Is(err, applicationerrors.UnitNotFound) {
+		return params.DetailedStatus{}, params.DetailedStatus{Err: apiservererrors.ServerError(internalerrors.Errorf(
+			"unit %q: %w", unitName, errors.NotFound))}
 	} else if err != nil {
 		return params.DetailedStatus{}, params.DetailedStatus{Err: apiservererrors.ServerError(err)}
 	}
@@ -1604,12 +1604,12 @@ func (s bySinceDescending) Less(a, b int) bool { return s[a].Since.After(*s[b].S
 func charmURLFromLocator(locator applicationcharm.CharmLocator) (string, error) {
 	schema, err := convertSource(locator.Source)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", internalerrors.Capture(err)
 	}
 
 	architecture, err := convertApplication(locator.Architecture)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", internalerrors.Capture(err)
 	}
 
 	url := charm.URL{
@@ -1628,7 +1628,7 @@ func convertSource(source applicationcharm.CharmSource) (string, error) {
 	case applicationcharm.LocalSource:
 		return charm.Local.String(), nil
 	default:
-		return "", errors.Errorf("unsupported source %q", source)
+		return "", internalerrors.Errorf("unsupported source %q", source)
 	}
 }
 
@@ -1650,6 +1650,6 @@ func convertApplication(a application.Architecture) (string, error) {
 	case architecture.Unknown:
 		return "", nil
 	default:
-		return "", errors.Errorf("unsupported architecture %q", a)
+		return "", internalerrors.Errorf("unsupported architecture %q", a)
 	}
 }
