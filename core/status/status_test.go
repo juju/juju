@@ -4,8 +4,6 @@
 package status_test
 
 import (
-	"time"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -99,44 +97,6 @@ func (s *StatusSuite) TestInvalidModelStatus(c *gc.C) {
 		status.Waiting,
 	} {
 		c.Assert(status.ValidModelStatus(v), jc.IsFalse, gc.Commentf("status %q is valid for a model", v))
-	}
-}
-
-func (s *StatusSuite) TestDerivedStatusEmpty(c *gc.C) {
-	info := status.DeriveStatus(nil)
-	c.Assert(info, jc.DeepEquals, status.StatusInfo{
-		Status: status.Unknown,
-	})
-}
-
-func (s *StatusSuite) TestDerivedStatusBringsAllDetails(c *gc.C) {
-	now := time.Now()
-	value := status.StatusInfo{
-		Status:  status.Active,
-		Message: "I'm active",
-		Data:    map[string]interface{}{"key": "value"},
-		Since:   &now,
-	}
-	info := status.DeriveStatus([]status.StatusInfo{value})
-	c.Assert(info, jc.DeepEquals, value)
-}
-
-func (s *StatusSuite) TestDerivedStatusPriority(c *gc.C) {
-	for _, t := range []struct{ status1, status2, expected status.Status }{
-		{status.Active, status.Waiting, status.Waiting},
-		{status.Maintenance, status.Waiting, status.Maintenance},
-		{status.Active, status.Blocked, status.Blocked},
-		{status.Waiting, status.Blocked, status.Blocked},
-		{status.Maintenance, status.Blocked, status.Blocked},
-		{status.Maintenance, status.Error, status.Error},
-		{status.Blocked, status.Error, status.Error},
-		{status.Waiting, status.Error, status.Error},
-		{status.Active, status.Error, status.Error},
-	} {
-		value := status.DeriveStatus([]status.StatusInfo{
-			{Status: t.status1}, {Status: t.status2},
-		})
-		c.Check(value.Status, gc.Equals, t.expected)
 	}
 }
 

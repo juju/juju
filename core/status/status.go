@@ -362,36 +362,3 @@ func ValidModelStatus(status Status) bool {
 func (s Status) Matches(candidate Status) bool {
 	return s == candidate
 }
-
-// DeriveStatus is used to determine the application
-// status from a set of unit status values.
-func DeriveStatus(statuses []StatusInfo) StatusInfo {
-	// By providing an unknown default, we get a reasonable answer
-	// even if there are no units.
-	result := StatusInfo{
-		Status: Unknown,
-	}
-	for _, unitStatus := range statuses {
-		currentSeverity := statusSeverities[result.Status]
-		unitSeverity := statusSeverities[unitStatus.Status]
-		if unitSeverity > currentSeverity {
-			result.Status = unitStatus.Status
-			result.Message = unitStatus.Message
-			result.Data = unitStatus.Data
-			result.Since = unitStatus.Since
-		}
-	}
-	return result
-}
-
-// statusSeverities holds status values with a severity measure.
-// Status values with higher severity are used in preference to others.
-var statusSeverities = map[Status]int{
-	Error:       100,
-	Blocked:     90,
-	Maintenance: 80, // Maintenance (us busy) is higher than Waiting (someone else busy)
-	Waiting:     70,
-	Active:      60,
-	Terminated:  50,
-	Unknown:     40,
-}

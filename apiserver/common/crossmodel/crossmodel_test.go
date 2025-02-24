@@ -4,26 +4,42 @@
 package crossmodel_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
+	mocks "github.com/juju/juju/apiserver/common/crossmodel/mocks"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	corecrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
 type crossmodelSuite struct {
 	coretesting.BaseSuite
+
+	appService *mocks.MockApplicationService
 }
 
 var _ = gc.Suite(&crossmodelSuite{})
 
+func (s *crossmodelSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.appService = mocks.NewMockApplicationService(ctrl)
+	return ctrl
+}
+
 func (s *crossmodelSuite) TestExpandChangeWhenRelationHasGone(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Other aspects of ExpandChange are tested in the
 	// crossmodelrelations and remoterelations facade tests.
 	change := params.RelationUnitsChange{
@@ -46,8 +62,10 @@ func (s *crossmodelSuite) TestExpandChangeWhenRelationHasGone(c *gc.C) {
 }
 
 func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneNotMigrating(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := &mockBackend{}
-	ch, err := crossmodel.GetOfferStatusChange(st, "uuid", "mysql")
+	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, "uuid", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
@@ -56,17 +74,25 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneNotMigrating(c *gc.C)
 }
 
 func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneMigrating(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := &mockBackend{
 		migrating: true,
 	}
 
-	_, err := crossmodel.GetOfferStatusChange(st, "uuid", "mysql")
+	_, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, "uuid", "mysql")
 	c.Assert(err, gc.ErrorMatches, "model is being migrated")
 }
 
 func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneNotMigrating(c *gc.C) {
-	st := &mockBackend{}
-	ch, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
+	defer s.setupMocks(c).Finish()
+
+	st := &mockBackend{
+		appName: "mysql-app",
+	}
+	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql-app").Return("", applicationerrors.ApplicationNotFound)
+
+	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, "deadbeef", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
@@ -75,17 +101,27 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneNotMigrating(c 
 }
 
 func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneMigrating(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := &mockBackend{
 		migrating: true,
+		appName:   "mysql-app",
 	}
+	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql-app").Return("", applicationerrors.ApplicationNotFound)
 
-	_, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
+	_, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, "deadbeef", "mysql")
 	c.Assert(err, gc.ErrorMatches, "model is being migrated")
 }
 
 func (s *crossmodelSuite) TestGetOfferStatusChange(c *gc.C) {
-	st := &mockBackend{appName: "mysql", appStatus: status.StatusInfo{Status: status.Active}}
-	ch, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql-app").Return(appID, nil)
+	s.appService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), appID).Return(&status.StatusInfo{Status: status.Active}, nil)
+
+	st := &mockBackend{appName: "mysql-app"}
+	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, "deadbeef", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
@@ -98,7 +134,6 @@ type mockBackend struct {
 	crossmodel.Backend
 
 	appName        string
-	appStatus      status.StatusInfo
 	remoteEntities map[names.Tag]string
 	migrating      bool
 }
@@ -125,30 +160,6 @@ func (st *mockBackend) ApplicationOfferForUUID(uuid string) (*corecrossmodel.App
 	}, nil
 }
 
-func (st *mockBackend) Application(name string) (crossmodel.Application, error) {
-	if name != "mysql" {
-		return nil, errors.NotFoundf(name)
-	}
-	return &mockApplication{
-		name:   "mysql",
-		status: st.appStatus,
-	}, nil
-}
-
 func (st *mockBackend) IsMigrationActive() (bool, error) {
 	return st.migrating, nil
-}
-
-type mockApplication struct {
-	crossmodel.Application
-	name   string
-	status status.StatusInfo
-}
-
-func (a *mockApplication) Name() string {
-	return a.name
-}
-
-func (a *mockApplication) Status() (status.StatusInfo, error) {
-	return a.status, nil
 }
