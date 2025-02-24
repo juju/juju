@@ -4,7 +4,7 @@
 package migrations
 
 import (
-	"github.com/juju/description/v7"
+	"github.com/juju/description/v8"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
