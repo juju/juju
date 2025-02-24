@@ -32,8 +32,7 @@ var errTestUnAuth = errors.New("not authorized")
 type environSuite struct {
 	lxd.BaseSuite
 
-	callCtx           envcontext.ProviderCallContext
-	invalidCredential bool
+	callCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -41,25 +40,29 @@ var _ = gc.Suite(&environSuite{})
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
-		s.invalidCredential = true
 		return nil
 	})
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {
-	s.invalidCredential = false
 	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *environSuite) TestName(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	c.Check(s.Env.Name(), gc.Equals, "lxd")
 }
 
 func (s *environSuite) TestProvider(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	c.Assert(s.Env.Provider(), gc.Equals, s.Provider)
 }
 
 func (s *environSuite) TestSetConfigOkay(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	err := s.Env.SetConfig(context.Background(), s.Config)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -69,18 +72,24 @@ func (s *environSuite) TestSetConfigOkay(c *gc.C) {
 }
 
 func (s *environSuite) TestSetConfigNoAPI(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	err := s.Env.SetConfig(context.Background(), s.Config)
 
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestConfig(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	cfg := s.Env.Config()
 
 	c.Check(cfg, jc.DeepEquals, s.Config)
 }
 
 func (s *environSuite) TestBootstrapOkay(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	s.Common.BootstrapResult = &environs.BootstrapResult{
 		Arch: "amd64",
 		Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
@@ -107,6 +116,8 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	ctx := envtesting.BootstrapContext(context.Background(), c)
 	params := environs.BootstrapParams{
 		ControllerConfig:        coretesting.FakeControllerConfig(),
@@ -127,6 +138,8 @@ func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 }
 
 func (s *environSuite) TestDestroy(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"juju": {{
 			Name: "not-ours",
@@ -146,25 +159,30 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
-		{"Destroy", []interface{}{callCtx}},
-		{"StorageSupported", nil},
-		{"GetStoragePools", nil},
-		{"GetStoragePoolVolumes", []interface{}{"juju"}},
-		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
-		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{FuncName: "Destroy", Args: []interface{}{callCtx}},
+		{FuncName: "StorageSupported", Args: nil},
+		{FuncName: "GetStoragePools", Args: nil},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
+		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"juju", "custom", "ours"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
 	})
 }
 
 func (s *environSuite) TestDestroyInvalidCredentials(c *gc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	defer s.SetupMocks(c).Finish()
+
+	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
+
 	s.Client.Stub.SetErrors(errTestUnAuth)
 	err := s.Env.Destroy(s.callCtx)
 	c.Assert(err, gc.ErrorMatches, "not authorized")
-	c.Assert(s.invalidCredential, jc.IsTrue)
 }
 
 func (s *environSuite) TestDestroyInvalidCredentialsDestroyingFileSystems(c *gc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	defer s.SetupMocks(c).Finish()
+
+	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
+
 	// DeleteStoragePoolVolume will error w/ un-auth.
 	s.Client.Stub.SetErrors(nil, nil, nil, errTestUnAuth)
 
@@ -178,21 +196,22 @@ func (s *environSuite) TestDestroyInvalidCredentialsDestroyingFileSystems(c *gc.
 	}
 	err := s.Env.Destroy(s.callCtx)
 	c.Assert(err, gc.ErrorMatches, ".* not authorized")
-	c.Assert(s.invalidCredential, jc.IsTrue)
 	// Nil the call context as if fails DeepEquals.
 	calls := s.Stub.Calls()
 	c.Assert(calls, gc.Not(gc.HasLen), 0)
 	calls[0].Args = nil
 	c.Assert(calls, jc.DeepEquals, []jujutesting.StubCall{
-		{"Destroy", nil},
-		{"StorageSupported", nil},
-		{"GetStoragePools", nil},
-		{"GetStoragePoolVolumes", []interface{}{"juju"}},
-		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
+		{FuncName: "Destroy", Args: nil},
+		{FuncName: "StorageSupported", Args: nil},
+		{FuncName: "GetStoragePools", Args: nil},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
+		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"juju", "custom", "ours"}},
 	})
 }
 
 func (s *environSuite) TestDestroyController(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	s.UpdateConfig(c, map[string]interface{}{
 		"controller-uuid": s.Config.UUID(),
 	})
@@ -235,23 +254,26 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
-		{"Destroy", []interface{}{callCtx}},
-		{"StorageSupported", nil},
-		{"GetStoragePools", nil},
-		{"GetStoragePoolVolumes", []interface{}{"juju"}},
-		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
-		{"AliveContainers", []interface{}{"juju-"}},
-		{"RemoveContainers", []interface{}{[]string{machine1.Name}}},
-		{"StorageSupported", nil},
-		{"GetStoragePools", nil},
-		{"GetStoragePoolVolumes", []interface{}{"juju"}},
-		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
-		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+		{FuncName: "Destroy", Args: []interface{}{callCtx}},
+		{FuncName: "StorageSupported", Args: nil},
+		{FuncName: "GetStoragePools", Args: nil},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
+		{FuncName: "AliveContainers", Args: []interface{}{"juju-"}},
+		{FuncName: "RemoveContainers", Args: []interface{}{[]string{machine1.Name}}},
+		{FuncName: "StorageSupported", Args: nil},
+		{FuncName: "GetStoragePools", Args: nil},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
+		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"juju", "custom", "ours"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
 	})
 }
 
 func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	defer s.SetupMocks(c).Finish()
+
+	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
+
 	s.UpdateConfig(c, map[string]interface{}{
 		"controller-uuid": s.Config.UUID(),
 	})
@@ -278,19 +300,19 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 
 	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, gc.ErrorMatches, "not authorized")
-	c.Assert(s.invalidCredential, jc.IsTrue)
+
 	// Nil the call context as if fails DeepEquals.
 	calls := s.Stub.Calls()
 	c.Assert(calls, gc.Not(gc.HasLen), 0)
 	calls[0].Args = nil
 	c.Assert(calls, jc.DeepEquals, []jujutesting.StubCall{
-		{"Destroy", nil},
-		{"StorageSupported", nil},
-		{"GetStoragePools", nil},
-		{"GetStoragePoolVolumes", []interface{}{"juju"}},
-		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
-		{"AliveContainers", []interface{}{"juju-"}},
-		{"RemoveContainers", []interface{}{[]string{}}},
+		{FuncName: "Destroy", Args: nil},
+		{FuncName: "StorageSupported", Args: nil},
+		{FuncName: "GetStoragePools", Args: nil},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
+		{FuncName: "AliveContainers", Args: []interface{}{"juju-"}},
+		{FuncName: "RemoveContainers", Args: []interface{}{[]string{}}},
 	})
 	s.Stub.CheckCallNames(c,
 		"Destroy",
@@ -303,7 +325,10 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsHostedModels(c *gc
 }
 
 func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(c *gc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	defer s.SetupMocks(c).Finish()
+
+	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
+
 	s.UpdateConfig(c, map[string]interface{}{
 		"controller-uuid": s.Config.UUID(),
 	})
@@ -330,50 +355,56 @@ func (s *environSuite) TestDestroyControllerInvalidCredentialsDestroyFilesystem(
 
 	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
-	c.Assert(s.invalidCredential, jc.IsTrue)
+
 	// Nil the call context as if fails DeepEquals.
 	calls := s.Stub.Calls()
 	c.Assert(calls, gc.Not(gc.HasLen), 0)
 	calls[0].Args = nil
 	c.Assert(calls, jc.DeepEquals, []jujutesting.StubCall{
-		{"Destroy", nil},
-		{"StorageSupported", nil},
-		{"GetStoragePools", nil},
-		{"GetStoragePoolVolumes", []interface{}{"juju"}},
-		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
-		{"AliveContainers", []interface{}{"juju-"}},
-		{"RemoveContainers", []interface{}{[]string{}}},
-		{"StorageSupported", nil},
-		{"GetStoragePools", nil},
-		{"GetStoragePoolVolumes", []interface{}{"juju"}},
-		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
+		{FuncName: "Destroy", Args: nil},
+		{FuncName: "StorageSupported", Args: nil},
+		{FuncName: "GetStoragePools", Args: nil},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju-zfs"}},
+		{FuncName: "AliveContainers", Args: []interface{}{"juju-"}},
+		{FuncName: "RemoveContainers", Args: []interface{}{[]string{}}},
+		{FuncName: "StorageSupported", Args: nil},
+		{FuncName: "GetStoragePools", Args: nil},
+		{FuncName: "GetStoragePoolVolumes", Args: []interface{}{"juju"}},
+		{FuncName: "DeleteStoragePoolVolume", Args: []interface{}{"juju", "custom", "ours"}},
 	})
 }
 
 func (s *environSuite) TestAvailabilityZonesInvalidCredentials(c *gc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	defer s.SetupMocks(c).Finish()
+
+	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
+
 	// GetClusterMembers will return un-auth error
 	s.Client.Stub.SetErrors(errTestUnAuth)
 	_, err := s.Env.AvailabilityZones(s.callCtx)
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
-	c.Assert(s.invalidCredential, jc.IsTrue)
+
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
-		{"IsClustered", nil},
-		{"GetClusterMembers", nil},
+		{FuncName: "IsClustered", Args: nil},
+		{FuncName: "GetClusterMembers", Args: nil},
 	})
 }
 
 func (s *environSuite) TestInstanceAvailabilityZoneNamesInvalidCredentials(c *gc.C) {
-	c.Assert(s.invalidCredential, jc.IsFalse)
+	defer s.SetupMocks(c).Finish()
+
+	s.Invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(nil)
+
 	// AliveContainers will return un-auth error
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
 	// the call to Instances takes care of updating invalid credential details
 	_, err := s.Env.InstanceAvailabilityZoneNames(s.callCtx, []instance.Id{"not-valid"})
 	c.Assert(err, gc.ErrorMatches, ".*not authorized")
-	c.Assert(s.invalidCredential, jc.IsTrue)
+
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
-		{"AliveContainers", []interface{}{s.Prefix()}},
+		{FuncName: "AliveContainers", Args: []interface{}{s.Prefix()}},
 	})
 }
 
@@ -426,7 +457,9 @@ func (s *environCloudProfileSuite) setup(c *gc.C, cfgEdit map[string]interface{}
 	svrFactory := lxd.NewMockServerFactory(ctrl)
 	svrFactory.EXPECT().RemoteServer(cloudSpec).Return(s.svr, nil)
 
-	env, ok := s.NewEnvironWithServerFactory(c, svrFactory, cfgEdit).(environs.CloudSpecSetter)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	env, ok := s.NewEnvironWithServerFactory(c, svrFactory, cfgEdit, invalidator).(environs.CloudSpecSetter)
 	c.Assert(ok, jc.IsTrue)
 	s.cloudSpecEnv = env
 
@@ -674,8 +707,11 @@ func (s *environProfileSuite) TestDetectCorrectHardwareEmptyEndpoint(c *gc.C) {
 
 func (s *environProfileSuite) setup(c *gc.C, cloudSpec environscloudspec.CloudSpec) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
 	s.svr = lxd.NewMockServer(ctrl)
-	lxdEnv, ok := s.NewEnviron(c, s.svr, nil, cloudSpec).(environs.LXDProfiler)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	lxdEnv, ok := s.NewEnviron(c, s.svr, nil, cloudSpec, invalidator).(environs.LXDProfiler)
 	c.Assert(ok, jc.IsTrue)
 	s.lxdEnv = lxdEnv
 

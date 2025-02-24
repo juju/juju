@@ -28,7 +28,7 @@ func mibToGib(m uint64) uint64 {
 // isAuthFailure is a helper function that's used to reduce line noise.
 // It's typically called within err != nil blocks.
 var isAuthFailure = func(err error, ctx envcontext.ProviderCallContext) bool {
-	return allProvidersCommon.MaybeHandleCredentialError(common.IsAuthorisationFailure, err, ctx)
+	return allProvidersCommon.LegacyHandleCredentialError(common.IsAuthorisationFailure, err, ctx)
 }
 
 type volumeSource struct {

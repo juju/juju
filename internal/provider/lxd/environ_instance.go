@@ -4,8 +4,6 @@
 package lxd
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -34,8 +32,8 @@ func (env *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance
 		// for each ID into the result. If there is a problem then we
 		// will return either ErrPartialInstances or ErrNoInstances.
 		// TODO(ericsnow) Skip returning here only for certain errors?
-		logger.Errorf(context.TODO(), "failed to get instances from LXD: %v", err)
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		logger.Errorf(ctx, "failed to get instances from LXD: %v", err)
+		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		err = errors.Trace(err)
 	}
 
@@ -100,7 +98,7 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	containers, err := env.server().AliveContainers("juju-")
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		return nil, errors.Trace(err)
 	}
 
@@ -124,7 +122,7 @@ func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, cont
 func (env *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	instances, err := env.AllInstances(ctx)
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		return errors.Annotate(err, "all instances")
 	}
 
@@ -139,7 +137,7 @@ func (env *environ) AdoptResources(ctx envcontext.ProviderCallContext, controlle
 		// holding would be consistent with that on the server.
 		err := env.server().UpdateContainerConfig(string(id), map[string]string{qualifiedKey: controllerUUID})
 		if err != nil {
-			logger.Errorf(context.TODO(), "error setting controller uuid tag for %q: %v", id, err)
+			logger.Errorf(ctx, "error setting controller uuid tag for %q: %v", id, err)
 			failed = append(failed, id)
 		}
 	}
