@@ -5,33 +5,36 @@ package state
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
-type ModelState struct {
+type State struct {
 	*domain.StateBase
 }
 
-// NewModelState returns a new [ModelState] object.
-func NewModelState(factory database.TxnRunnerFactory) *ModelState {
-	return &ModelState{
+// NewState returns a new [State] object.
+func NewState(factory database.TxnRunnerFactory) *State {
+	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}
 }
 
-// CheckMachineExists check to see if the given machine exists in the model. If
-// the machine does not exist an error satisfying
+// CheckMachineExists check to see if the given machine exists in the model.
+// If the machine does not exist an error satisfying
 // [machineerrors.MachineNotFound] is returned.
-func (m *ModelState) CheckMachineExists(
+func (m *State) CheckMachineExists(
 	ctx context.Context,
 	name machine.Name,
 ) error {
@@ -74,52 +77,10 @@ WHERE name = $machineName.name
 	return err
 }
 
-// GetModelUUID returns the uuid for the model represented by this state.
-func (m *ModelState) GetModelUUID(ctx context.Context) (model.UUID, error) {
-	db, err := m.DB()
-	if err != nil {
-		return model.UUID(""), errors.Errorf(
-			"getting database to get the model uuid: %w", err,
-		)
-	}
-
-	modelUUIDVal := modelUUIDValue{}
-
-	stmt, err := m.Prepare(`
-SELECT (uuid) AS (&modelUUIDValue.model_uuid)
-FROM model
-`, modelUUIDVal)
-	if err != nil {
-		return model.UUID(""), errors.Errorf(
-			"preparing model uuid selection statement: %w", err,
-		)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).Get(&modelUUIDVal)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.New(
-				"getting model uuid from database, read only model records don't exist",
-			)
-		} else if err != nil {
-			return errors.Errorf(
-				"getting model uuid from database: %w", err,
-			)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return model.UUID(""), err
-	}
-
-	return model.UUID(modelUUIDVal.UUID), nil
-}
-
 // CheckUnitExists checks to see if the given unit exists in the model. If
 // the unit does not exist an error satisfying
 // [applicationerrors.UnitNotFound] is returned.
-func (m *ModelState) CheckUnitExists(
+func (m *State) CheckUnitExists(
 	ctx context.Context,
 	name string,
 ) error {
@@ -160,4 +121,40 @@ WHERE name = $unitName.name
 	})
 
 	return err
+}
+
+// GetTargetAgentVersion returns the agent version for the model.
+// If the agent_version table has no data,
+// [modelerrors.AgentVersionNotFound] is returned.
+func (st *State) GetTargetAgentVersion(ctx context.Context) (version.Number, error) {
+	db, err := st.DB()
+	if err != nil {
+		return version.Zero, errors.Capture(err)
+	}
+
+	res := dbAgentVersion{}
+
+	stmt, err := st.Prepare("SELECT &dbAgentVersion.target_version FROM agent_version", res)
+	if err != nil {
+		return version.Zero, fmt.Errorf("preparing agent version query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&res)
+		if errors.Is(err, sql.ErrNoRows) {
+			return modelerrors.AgentVersionNotFound
+		} else if err != nil {
+			return fmt.Errorf("getting agent version: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return version.Zero, errors.Capture(err)
+	}
+
+	vers, err := version.Parse(res.TargetAgentVersion)
+	if err != nil {
+		return version.Zero, fmt.Errorf("parsing agent version: %w", err)
+	}
+	return vers, nil
 }

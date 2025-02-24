@@ -85,19 +85,17 @@ SELECT
     m.name,
     m.owner_uuid,
     o.name AS owner_name,
-    l.value AS life,
-    ma.target_version AS target_agent_version
+    l.value AS life
 FROM model AS m
 JOIN cloud AS c ON m.cloud_uuid = c.uuid
 JOIN cloud_type AS ct ON c.cloud_type_id = ct.id
+JOIN model_type AS mt ON m.model_type_id = mt.id
+JOIN user AS o ON m.owner_uuid = o.uuid
+JOIN life AS l ON m.life_id = l.id
 LEFT JOIN cloud_region AS cr ON m.cloud_region_uuid = cr.uuid
 LEFT JOIN cloud_credential AS cc ON m.cloud_credential_uuid = cc.uuid
 LEFT JOIN cloud AS ccc ON cc.cloud_uuid = ccc.uuid
 LEFT JOIN user AS cco ON cc.owner_uuid = cco.uuid
-JOIN model_type AS mt ON m.model_type_id = mt.id
-JOIN user AS o ON m.owner_uuid = o.uuid
-JOIN life AS l ON m.life_id = l.id
-JOIN model_agent AS ma ON m.uuid = ma.model_uuid
 WHERE m.activated = TRUE;
 
 -- v_model_state exists to provide a simple view over the states that are

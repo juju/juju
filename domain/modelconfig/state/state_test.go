@@ -141,9 +141,9 @@ func (s *stateSuite) TestSetModelConfig(c *gc.C) {
 	}
 }
 
-// TestAgentVersionNotFound is testing that when we ask for the agent version of
-// of the current model and that data has not been set in the read only model
-// table that a [errors.NotFound] error is returned.
+// TestAgentVersionNotFound is testing that when we ask for the agent
+// version of the current model and that data has not been set that a
+// [errors.NotFound] error is returned.
 func (s *stateSuite) TestAgentVersionNotFound(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	version, err := st.AgentVersion(context.Background())
@@ -155,10 +155,7 @@ func (s *stateSuite) TestAgentVersionNotFound(c *gc.C) {
 // is reported back correctly with no errors.
 func (s *stateSuite) TestAgentVersion(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-            INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, cloud, cloud_type)
-            VALUES ("123", "123", "test", "caas", "1.2.3", "kubernetes", "kubernetes")
-        `)
+		_, err := tx.ExecContext(ctx, "INSERT INTO agent_version VALUES ('1.2.3')")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

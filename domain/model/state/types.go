@@ -5,11 +5,9 @@ package state
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
@@ -38,9 +36,6 @@ type dbModel struct {
 	// ModelType is the type of model.
 	ModelType string `db:"model_type"`
 
-	// AgentVersion is the target version for agents running under this model.
-	AgentVersion string `db:"target_agent_version"`
-
 	// CloudName is the name of the cloud to associate with the model.
 	CloudName string `db:"cloud_name"`
 
@@ -67,10 +62,6 @@ type dbModel struct {
 }
 
 func (m *dbModel) toCoreModel() (coremodel.Model, error) {
-	agentVersion, err := version.Parse(m.AgentVersion)
-	if err != nil {
-		return coremodel.Model{}, fmt.Errorf("parsing model %q agent version %q: %w", m.UUID, agentVersion, err)
-	}
 	ownerName, err := user.NewName(m.OwnerName)
 	if err != nil {
 		return coremodel.Model{}, errors.Trace(err)
@@ -99,14 +90,13 @@ func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 	}
 
 	return coremodel.Model{
-		Name:         m.Name,
-		Life:         corelife.Value(m.Life),
-		UUID:         coremodel.UUID(m.UUID),
-		ModelType:    coremodel.ModelType(m.ModelType),
-		AgentVersion: agentVersion,
-		Cloud:        m.CloudName,
-		CloudType:    m.CloudType,
-		CloudRegion:  cloudRegion,
+		Name:        m.Name,
+		Life:        corelife.Value(m.Life),
+		UUID:        coremodel.UUID(m.UUID),
+		ModelType:   coremodel.ModelType(m.ModelType),
+		Cloud:       m.CloudName,
+		CloudType:   m.CloudType,
+		CloudRegion: cloudRegion,
 		Credential: credential.Key{
 			Name:  credentialName,
 			Cloud: credentialCloudName,
@@ -203,9 +193,6 @@ type dbModelSummary struct {
 	Access permission.Access `db:"access_type"`
 	// UserLastConnection is the last time this user has accessed this model
 	UserLastConnection *time.Time `db:"time"`
-
-	// AgentVersion is the agent version for this model.
-	AgentVersion string `db:"target_agent_version"`
 }
 
 // decodeModelSummary transforms a dbModelSummary into a coremodel.ModelSummary.
@@ -223,16 +210,6 @@ func (m dbModelSummary) decodeUserModelSummary(controllerInfo dbController) (cor
 
 // decodeModelSummary transforms a dbModelSummary into a coremodel.ModelSummary.
 func (m dbModelSummary) decodeModelSummary(controllerInfo dbController) (coremodel.ModelSummary, error) {
-	var agentVersion version.Number
-	if m.AgentVersion != "" {
-		var err error
-		agentVersion, err = version.Parse(m.AgentVersion)
-		if err != nil {
-			return coremodel.ModelSummary{}, errors.Annotatef(
-				err, "parsing model %q agent version %q", m.Name, agentVersion,
-			)
-		}
-	}
 	ownerName, err := user.NewName(m.OwnerName)
 	if err != nil {
 		return coremodel.ModelSummary{}, errors.Trace(err)
@@ -260,7 +237,6 @@ func (m dbModelSummary) decodeModelSummary(controllerInfo dbController) (coremod
 		IsController:   m.UUID == controllerInfo.ModelUUID,
 		OwnerName:      ownerName,
 		Life:           corelife.Value(m.Life),
-		AgentVersion:   agentVersion,
 	}, nil
 }
 
@@ -312,17 +288,16 @@ func (info *dbModelUserInfo) toModelUserInfo() (coremodel.ModelUserInfo, error) 
 }
 
 type dbReadOnlyModel struct {
-	UUID               string         `db:"uuid"`
-	ControllerUUID     string         `db:"controller_uuid"`
-	Name               string         `db:"name"`
-	Type               string         `db:"type"`
-	TargetAgentVersion sql.NullString `db:"target_agent_version"`
-	Cloud              string         `db:"cloud"`
-	CloudType          string         `db:"cloud_type"`
-	CloudRegion        string         `db:"cloud_region"`
-	CredentialOwner    string         `db:"credential_owner"`
-	CredentialName     string         `db:"credential_name"`
-	IsControllerModel  bool           `db:"is_controller_model"`
+	UUID              string `db:"uuid"`
+	ControllerUUID    string `db:"controller_uuid"`
+	Name              string `db:"name"`
+	Type              string `db:"type"`
+	Cloud             string `db:"cloud"`
+	CloudType         string `db:"cloud_type"`
+	CloudRegion       string `db:"cloud_region"`
+	CredentialOwner   string `db:"credential_owner"`
+	CredentialName    string `db:"credential_name"`
+	IsControllerModel bool   `db:"is_controller_model"`
 }
 
 type dbModelMetrics struct {
@@ -406,11 +381,6 @@ type dbPermission struct {
 
 // dbModelAgent represents a row from the controller model_agent table.
 type dbModelAgent struct {
-	// UUID is the models unique identifier.
-	UUID string `db:"model_uuid"`
-	// PreviousVersion describes the agent version that was in use before the
-	// current TargetVersion.
-	PreviousVersion string `db:"previous_version"`
 	// TargetVersion describes the desired agent version that should be
 	// being run in this model. It should not be considered "the" version that
 	// is being run for every agent as each agent needs to upgrade to this

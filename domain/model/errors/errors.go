@@ -44,4 +44,8 @@ const (
 	// a user on a particular model cannot be found. This does not mean the user
 	// does not exist.
 	UserNotFoundOnModel = errors.ConstError("user not found on model")
+
+	// AgentVersionNotFound describes an error that occurs when the model
+	// agent version record is not present.
+	AgentVersionNotFound = errors.ConstError("agent version not found")
 )

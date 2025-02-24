@@ -15,9 +15,6 @@ type ModelInfo struct {
 	// UUID represents the model UUID.
 	UUID UUID
 
-	// AgentVersion reports the current target agent version for the model.
-	AgentVersion version.Number
-
 	// ControllerUUID represents the controller UUID.
 	ControllerUUID uuid.UUID
 
@@ -45,6 +42,9 @@ type ModelInfo struct {
 	// IsControllerModel is a boolean value that indicates if the model is the
 	// controller model.
 	IsControllerModel bool
+
+	// AgentVersion is the Juju version for agent binaries in this model.
+	AgentVersion version.Number
 }
 
 // ModelMetrics represents the metrics information set in the database.

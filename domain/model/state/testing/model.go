@@ -17,7 +17,6 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
-	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -153,9 +152,8 @@ func CreateTestModel(
 		modelUUID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        name,
-			CloudRegion:  regionName,
+			Cloud:       name,
+			CloudRegion: regionName,
 			Credential: corecredential.Key{
 				Cloud: name,
 				Owner: userName,

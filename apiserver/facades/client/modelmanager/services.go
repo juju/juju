@@ -76,7 +76,7 @@ type ModelConfigService interface {
 
 // ModelService defines an interface for interacting with the model service.
 type ModelService interface {
-	// CreateModel creates a model returning the resultant model's new id.
+	// CreateModel creates a model returning the resultant model's new ID.
 	CreateModel(context.Context, model.GlobalModelCreationArgs) (coremodel.UUID, func(context.Context) error, error)
 
 	// DefaultModelCloudNameAndCredential returns the default cloud name and
@@ -154,11 +154,11 @@ type ModelDefaultsService interface {
 // ModelInfoService defines a interface for interacting with the underlying
 // state.
 type ModelInfoService interface {
-	// CreateModel is responsible for creating a new read only model
-	// that is being imported.
+	// CreateModel is responsible for adding the details of the model
+	// that is being created.
 	CreateModel(context.Context, uuid.UUID) error
 
-	// DeleteModel is responsible for deleting a model during model migration.
+	// DeleteModel is responsible for deleting a model.
 	DeleteModel(context.Context) error
 
 	// GetModelInfo returns the readonly model information for the model in
@@ -190,7 +190,7 @@ type CloudService interface {
 type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given key.
 	CloudCredential(ctx context.Context, id credential.Key) (jujucloud.Credential, error)
-	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
+	// InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
 	InvalidateCredential(ctx context.Context, id credential.Key, reason string) error
 }
 

@@ -104,9 +104,6 @@ type SpaceConstraint struct {
 // GlobalModelCreationArgs supplies the information required for
 // recording details of a new model in the controller database.
 type GlobalModelCreationArgs struct {
-	// AgentVersion is the target version for agents running under this model.
-	AgentVersion version.Number
-
 	// Cloud is the name of the cloud to associate with the model.
 	// Must not be empty for a valid struct.
 	Cloud string
@@ -133,9 +130,10 @@ type GlobalModelCreationArgs struct {
 	SecretBackend string
 }
 
-// Validate is responsible for checking all of the fields of GlobalModelCreationArgs
-// are in a set state that is valid for use. If a validation failure happens an
-// error satisfying [errors.NotValid] is returned.
+// Validate is responsible for checking all of the fields of
+// GlobalModelCreationArgs are in a set state that is valid for use.
+// If a validation failure happens an error satisfying [errors.NotValid]
+// is returned.
 func (m GlobalModelCreationArgs) Validate() error {
 	if m.Cloud == "" {
 		return fmt.Errorf("%w cloud cannot be empty", errors.NotValid)
@@ -154,43 +152,13 @@ func (m GlobalModelCreationArgs) Validate() error {
 	return nil
 }
 
-// ModelImportArgs supplies the information needed for importing a model into a
-// Juju controller.
-type ModelImportArgs struct {
-	// ID represents the unique id of the model to import.
-	ID coremodel.UUID
-
-	// GlobalModelCreationArgs supplies the information needed for importing the new
-	// model into Juju.
-	GlobalModelCreationArgs
-}
-
-// Validate is responsible for checking all of the fields of [ModelImportArgs]
-// are in a set state valid for use. If a validation failure happens an error
-// satisfying [errors.NotValid] is returned.
-func (m ModelImportArgs) Validate() error {
-	if err := m.GlobalModelCreationArgs.Validate(); err != nil {
-		return fmt.Errorf("GlobalModelCreationArgs %w", err)
-	}
-
-	if err := m.ID.Validate(); err != nil {
-		return fmt.Errorf("validating model import args id: %w", err)
-	}
-
-	return nil
-}
-
-// ModelDetailArgs is a struct that is used to create a model
-// within the model database. This struct is used to create a model with all of
-// its associated metadata.
+// ModelDetailArgs supplies the information required for
+// recording details of a new model in the model database.
 type ModelDetailArgs struct {
 	// UUID represents the unique id for the model when being created. This
 	// value is optional and if omitted will be generated for the caller. Use
 	// this value when you are trying to import a model during model migration.
 	UUID coremodel.UUID
-
-	// AgentVersion represents the current target agent version for the model.
-	AgentVersion version.Number
 
 	// ControllerUUID represents the unique id for the controller that the model
 	// is associated with.
@@ -228,6 +196,38 @@ type ModelDetailArgs struct {
 	// IsControllerModel is a boolean value that indicates if the model is the
 	// controller model.
 	IsControllerModel bool
+
+	// AgentVersion is the target version for agents running in this model.
+	AgentVersion version.Number
+}
+
+// ModelImportArgs supplies the information needed for importing a model into a
+// Juju controller.
+type ModelImportArgs struct {
+	// GlobalModelCreationArgs supplies the information needed for
+	// importing the new model into Juju.
+	GlobalModelCreationArgs
+
+	// ID represents the unique id of the model to import.
+	ID coremodel.UUID
+
+	// AgentVersion is the target version for agents running in this model.
+	AgentVersion version.Number
+}
+
+// Validate is responsible for checking all of the fields of [ModelImportArgs]
+// are in a set state valid for use. If a validation failure happens an error
+// satisfying [errors.NotValid] is returned.
+func (m ModelImportArgs) Validate() error {
+	if err := m.GlobalModelCreationArgs.Validate(); err != nil {
+		return fmt.Errorf("GlobalModelCreationArgs %w", err)
+	}
+
+	if err := m.ID.Validate(); err != nil {
+		return fmt.Errorf("validating model import args id: %w", err)
+	}
+
+	return nil
 }
 
 // DeleteModelOptions is a struct that is used to modify the behavior of the

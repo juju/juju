@@ -186,7 +186,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		s.storageRegistry,
 		s.modelUUID,
 		s.modelWatcherFactory("application"),
-		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		charmstore.NewCharmStore(s.objectstore, log.Child("charmstore")),
 		s.clock,
@@ -288,10 +288,9 @@ func (s *ModelServices) ModelSecretBackend() *secretbackendservice.ModelSecretBa
 }
 
 // Agent returns the model's agent service.
-func (s *ModelServices) Agent() *modelagentservice.ModelService {
-	return modelagentservice.NewModelService(
-		modelagentstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+func (s *ModelServices) Agent() *modelagentservice.Service {
+	return modelagentservice.NewService(
+		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory("modelagent"),
 	)
 }
@@ -303,6 +302,7 @@ func (s *ModelServices) ModelInfo() *modelservice.ModelService {
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("modelinfo")),
 		modelservice.EnvironVersionProviderGetter(),
+		modelservice.DefaultAgentBinaryFinder(),
 	)
 }
 

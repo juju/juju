@@ -76,7 +76,6 @@ func (s *controllerSchemaSuite) TestControllerTables(c *gc.C) {
 
 		// Model migration
 		"model_migration",
-		"model_agent",
 		"model_migration_status",
 		"model_migration_user",
 		"model_migration_minion_sync",
@@ -244,10 +243,6 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *gc.C) {
 		"trg_log_user_authentication_insert",
 		"trg_log_user_authentication_update",
 		"trg_log_user_authentication_delete",
-
-		"trg_log_model_agent_insert",
-		"trg_log_model_agent_update",
-		"trg_log_model_agent_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but

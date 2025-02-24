@@ -80,7 +80,7 @@ type ControllerDomainServices interface {
 // apiserver for a given model.
 type ModelDomainServices interface {
 	// Agent returns the model's agent service.
-	Agent() *modelagentservice.ModelService
+	Agent() *modelagentservice.Service
 	// AgentProvisioner returns the agent provisioner service.
 	AgentProvisioner() *agentprovisionerservice.Service
 	// Annotation returns the annotation service.

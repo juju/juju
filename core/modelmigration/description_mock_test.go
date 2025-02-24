@@ -1027,6 +1027,44 @@ func (c *MockModelAddUserCall) DoAndReturn(f func(description.UserArgs)) *MockMo
 	return c
 }
 
+// AddVirtualHostKey mocks base method.
+func (m *MockModel) AddVirtualHostKey(arg0 description.VirtualHostKeyArgs) description.VirtualHostKey {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddVirtualHostKey", arg0)
+	ret0, _ := ret[0].(description.VirtualHostKey)
+	return ret0
+}
+
+// AddVirtualHostKey indicates an expected call of AddVirtualHostKey.
+func (mr *MockModelMockRecorder) AddVirtualHostKey(arg0 any) *MockModelAddVirtualHostKeyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddVirtualHostKey", reflect.TypeOf((*MockModel)(nil).AddVirtualHostKey), arg0)
+	return &MockModelAddVirtualHostKeyCall{Call: call}
+}
+
+// MockModelAddVirtualHostKeyCall wrap *gomock.Call
+type MockModelAddVirtualHostKeyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelAddVirtualHostKeyCall) Return(arg0 description.VirtualHostKey) *MockModelAddVirtualHostKeyCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelAddVirtualHostKeyCall) Do(f func(description.VirtualHostKeyArgs) description.VirtualHostKey) *MockModelAddVirtualHostKeyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelAddVirtualHostKeyCall) DoAndReturn(f func(description.VirtualHostKeyArgs) description.VirtualHostKey) *MockModelAddVirtualHostKeyCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddVolume mocks base method.
 func (m *MockModel) AddVolume(arg0 description.VolumeArgs) description.Volume {
 	m.ctrl.T.Helper()
@@ -2985,6 +3023,44 @@ func (c *MockModelValidateCall) Do(f func() error) *MockModelValidateCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelValidateCall) DoAndReturn(f func() error) *MockModelValidateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// VirtualHostKeys mocks base method.
+func (m *MockModel) VirtualHostKeys() []description.VirtualHostKey {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VirtualHostKeys")
+	ret0, _ := ret[0].([]description.VirtualHostKey)
+	return ret0
+}
+
+// VirtualHostKeys indicates an expected call of VirtualHostKeys.
+func (mr *MockModelMockRecorder) VirtualHostKeys() *MockModelVirtualHostKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualHostKeys", reflect.TypeOf((*MockModel)(nil).VirtualHostKeys))
+	return &MockModelVirtualHostKeysCall{Call: call}
+}
+
+// MockModelVirtualHostKeysCall wrap *gomock.Call
+type MockModelVirtualHostKeysCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelVirtualHostKeysCall) Return(arg0 []description.VirtualHostKey) *MockModelVirtualHostKeysCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelVirtualHostKeysCall) Do(f func() []description.VirtualHostKey) *MockModelVirtualHostKeysCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelVirtualHostKeysCall) DoAndReturn(f func() []description.VirtualHostKey) *MockModelVirtualHostKeysCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
-	"github.com/juju/juju/core/version"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	accessstate "github.com/juju/juju/domain/access/state"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
@@ -135,9 +134,8 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 		m.uuid,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -204,8 +202,7 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 		modelUUID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
+			Cloud: "my-cloud",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: m.userName,
@@ -254,11 +251,10 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 	modelInfo, err := modelSt.GetModel(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelInfo, gc.Equals, coremodel.Model{
-		AgentVersion: version.Current,
-		UUID:         m.uuid,
-		Cloud:        "my-cloud",
-		CloudType:    "ec2",
-		CloudRegion:  "my-region",
+		UUID:        m.uuid,
+		Cloud:       "my-cloud",
+		CloudType:   "ec2",
+		CloudRegion: "my-region",
 		Credential: corecredential.Key{
 			Cloud: "my-cloud",
 			Owner: usertesting.GenNewName(c, "test-user"),
@@ -286,35 +282,6 @@ func (m *stateSuite) TestGetModelNotFound(c *gc.C) {
 	modelSt := NewState(runner)
 	_, err := modelSt.GetModel(context.Background(), modeltesting.GenModelUUID(c))
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-}
-
-// TestCreateModelAgentWithNoModel is asserting that if we attempt to make a
-// model agent record where no model already exists that we get back a
-// [modelerrors.NotFound] error.
-func (m *stateSuite) TestCreateModelAgentWithNoModel(c *gc.C) {
-	runner, err := m.TxnRunnerFactory()()
-	c.Assert(err, jc.ErrorIsNil)
-
-	testUUID := modeltesting.GenModelUUID(c)
-	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return createModelAgent(context.Background(), preparer{}, tx, testUUID, version.Current)
-	})
-
-	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-}
-
-// TestCreateModelAgentAlreadyExists is asserting that if we attempt to make a
-// model agent record when one already exists we get a
-// [modelerrors.AlreadyExists] back.
-func (m *stateSuite) TestCreateModelAgentAlreadyExists(c *gc.C) {
-	runner, err := m.TxnRunnerFactory()()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return createModelAgent(context.Background(), preparer{}, tx, m.uuid, version.Current)
-	})
-
-	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
 // TestCreateModelWithExisting is testing that if we attempt to make a new model
@@ -579,9 +546,8 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *gc.C) {
 		testUUID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -800,9 +766,8 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 		uuid1,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -823,9 +788,8 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 		uuid2,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -913,9 +877,8 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 		uuid1,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -935,9 +898,8 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 		uuid2,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -974,8 +936,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life:         life.Alive,
-			AgentVersion: version.Current,
+			Life: life.Alive,
 		},
 		{
 			Name:        "owned1",
@@ -991,8 +952,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life:         life.Alive,
-			AgentVersion: version.Current,
+			Life: life.Alive,
 		},
 		{
 			Name:        "owned2",
@@ -1008,8 +968,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life:         life.Alive,
-			AgentVersion: version.Current,
+			Life: life.Alive,
 		},
 	})
 }
@@ -1045,8 +1004,7 @@ func (m *stateSuite) TestAllModels(c *gc.C) {
 				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
-			Life:         life.Alive,
-			AgentVersion: version.Current,
+			Life: life.Alive,
 		},
 	})
 }
@@ -1062,9 +1020,8 @@ func (m *stateSuite) TestSecretBackendNotFoundForModelCreate(c *gc.C) {
 		uuid,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -1101,14 +1058,13 @@ func (m *stateSuite) TestGetModelByName(c *gc.C) {
 	model, err := modelSt.GetModelByName(context.Background(), m.userName, "my-test-model")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, gc.DeepEquals, coremodel.Model{
-		Name:         "my-test-model",
-		Life:         life.Alive,
-		UUID:         m.uuid,
-		ModelType:    coremodel.IAAS,
-		AgentVersion: version.Current,
-		Cloud:        "my-cloud",
-		CloudType:    "ec2",
-		CloudRegion:  "my-region",
+		Name:        "my-test-model",
+		Life:        life.Alive,
+		UUID:        m.uuid,
+		ModelType:   coremodel.IAAS,
+		Cloud:       "my-cloud",
+		CloudType:   "ec2",
+		CloudRegion: "my-region",
 		Credential: corecredential.Key{
 			Cloud: "my-cloud",
 			Owner: usertesting.GenNewName(c, "test-user"),
@@ -1126,18 +1082,17 @@ func (m *stateSuite) TestGetModelByName(c *gc.C) {
 // was unable to clean up all the references to the original model.
 // Bug report: https://bugs.launchpad.net/juju/+bug/2072601
 func (m *stateSuite) TestCleanupBrokenModel(c *gc.C) {
-	modelSt := NewState(m.TxnRunnerFactory())
+	st := NewState(m.TxnRunnerFactory())
 
 	// Create a "broken" model
 	modelID := modeltesting.GenModelUUID(c)
-	err := modelSt.Create(
+	err := st.Create(
 		context.Background(),
 		modelID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -1154,14 +1109,13 @@ func (m *stateSuite) TestCleanupBrokenModel(c *gc.C) {
 	// and so the model was never activated. Now, the user tries to create a
 	// new model with exactly the same name and owner.
 	newModelID := modeltesting.GenModelUUID(c)
-	err = modelSt.Create(
+	err = st.Create(
 		context.Background(),
 		newModelID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),
@@ -1184,14 +1138,13 @@ func (m *stateSuite) TestGetControllerModel(c *gc.C) {
 	model, err := modelSt.GetControllerModel(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, gc.DeepEquals, coremodel.Model{
-		Name:         "my-test-model",
-		Life:         life.Alive,
-		UUID:         m.uuid,
-		ModelType:    coremodel.IAAS,
-		AgentVersion: version.Current,
-		Cloud:        "my-cloud",
-		CloudType:    "ec2",
-		CloudRegion:  "my-region",
+		Name:        "my-test-model",
+		Life:        life.Alive,
+		UUID:        m.uuid,
+		ModelType:   coremodel.IAAS,
+		Cloud:       "my-cloud",
+		CloudType:   "ec2",
+		CloudRegion: "my-region",
 		Credential: corecredential.Key{
 			Cloud: "my-cloud",
 			Owner: usertesting.GenNewName(c, "test-user"),
@@ -1236,10 +1189,12 @@ func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
 			},
 			ControllerUUID: m.controllerUUID,
 			IsController:   true,
-			AgentVersion:   version.Current,
-			ModelType:      coremodel.IAAS,
-			OwnerName:      usertesting.GenNewName(c, "test-user"),
-			Life:           life.Alive,
+			// TODO (manadart 2024-01-29): We need to generate model summaries
+			// with an agent version, but we can't do that from the controller
+			// database.
+			ModelType: coremodel.IAAS,
+			OwnerName: usertesting.GenNewName(c, "test-user"),
+			Life:      life.Alive,
 		}}, {
 		UserLastConnection: nil,
 		UserAccess:         permission.AdminAccess,
@@ -1256,10 +1211,12 @@ func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
 			},
 			ControllerUUID: m.controllerUUID,
 			IsController:   false,
-			AgentVersion:   version.Current,
-			ModelType:      coremodel.IAAS,
-			OwnerName:      usertesting.GenNewName(c, "test-user"),
-			Life:           life.Alive,
+			// TODO (manadart 2024-01-29): We need to generate model summaries
+			// with an agent version, but we can't do that from the controller
+			// database.
+			ModelType: coremodel.IAAS,
+			OwnerName: usertesting.GenNewName(c, "test-user"),
+			Life:      life.Alive,
 		}},
 	})
 }
@@ -1300,10 +1257,12 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 			},
 			ControllerUUID: m.controllerUUID,
 			IsController:   true,
-			AgentVersion:   version.Current,
-			ModelType:      coremodel.IAAS,
-			OwnerName:      usertesting.GenNewName(c, "test-user"),
-			Life:           life.Alive,
+			// TODO (manadart 2024-01-29): We need to generate model summaries
+			// with an agent version, but we can't do that from the controller
+			// database.
+			ModelType: coremodel.IAAS,
+			OwnerName: usertesting.GenNewName(c, "test-user"),
+			Life:      life.Alive,
 		},
 		{
 			Name:        "new-model",
@@ -1318,10 +1277,12 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 			},
 			ControllerUUID: m.controllerUUID,
 			IsController:   false,
-			AgentVersion:   version.Current,
-			ModelType:      coremodel.IAAS,
-			OwnerName:      usertesting.GenNewName(c, "new-user"),
-			Life:           life.Alive,
+			// TODO (manadart 2024-01-29): We need to generate model summaries
+			// with an agent version, but we can't do that from the controller
+			// database.
+			ModelType: coremodel.IAAS,
+			OwnerName: usertesting.GenNewName(c, "new-user"),
+			Life:      life.Alive,
 		},
 	})
 }
@@ -1502,7 +1463,6 @@ func (m *stateSuite) TestGetEmptyCredentialsModel(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(retrievedModel, gc.NotNil)
 
-		c.Check(retrievedModel.AgentVersion, jc.DeepEquals, modelCreationArgs.AgentVersion)
 		c.Check(retrievedModel.Cloud, gc.Equals, modelCreationArgs.Cloud)
 		c.Check(retrievedModel.CloudRegion, gc.Equals, modelCreationArgs.CloudRegion)
 		c.Check(retrievedModel.Credential, jc.DeepEquals, modelCreationArgs.Credential)
@@ -1571,9 +1531,8 @@ func (m *stateSuite) createTestModel(c *gc.C, modelSt *State, name string, creat
 		modelUUID,
 		coremodel.IAAS,
 		model.GlobalModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
 				Owner: usertesting.GenNewName(c, "test-user"),

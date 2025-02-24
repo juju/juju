@@ -15,7 +15,6 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	jujuversion "github.com/juju/juju/core/version"
 	accessstate "github.com/juju/juju/domain/access/state"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
@@ -96,8 +95,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	modelFn := modelbootstrap.CreateGlobalModelRecord(
 		modelUUID,
 		model.GlobalModelCreationArgs{
-			AgentVersion: jujuversion.Current,
-			Cloud:        cloudName,
+			Cloud: cloudName,
 			Credential: credential.Key{
 				Cloud: cloudName,
 				Name:  credentialName,

@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	jujuversion "github.com/juju/juju/core/version"
 )
 
 type modelSchemaSuite struct {
@@ -68,6 +67,9 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Model
 		"model",
+		"agent_version",
+
+		// Model config
 		"model_config",
 		"model_constraint",
 
@@ -332,6 +334,8 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 	// Expected changelog triggers. Additional triggers are not included and
 	// can be added to the addition list.
 	expected := set.NewStrings(
+		"trg_log_agent_version_update",
+
 		"trg_log_application_delete",
 		"trg_log_application_insert",
 		"trg_log_application_update",
@@ -484,9 +488,10 @@ func (s *modelSchemaSuite) TestModelTriggersForImmutableTables(c *gc.C) {
 	modelUUID := utils.MustNewUUID().String()
 	controllerUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type, cloud_region)
-VALUES (?, ?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
-		modelUUID, controllerUUID, jujuversion.Current.String())
+INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type, cloud_region)
+VALUES (?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
+		modelUUID, controllerUUID)
+
 	s.assertExecSQLError(c,
 		"UPDATE model SET name = 'new-name' WHERE uuid = ?",
 		"model table is immutable, only insertions are allowed", modelUUID)

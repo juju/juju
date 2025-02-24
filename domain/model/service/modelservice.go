@@ -5,12 +5,15 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/clock"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
@@ -65,6 +68,15 @@ type ControllerState interface {
 	GetModelState(context.Context, coremodel.UUID) (model.ModelState, error)
 }
 
+// AgentBinaryFinder represents a helper for establishing if agent binaries for
+// a specific Juju version are available.
+type AgentBinaryFinder interface {
+	// HasBinariesForVersion will interrogate agent binaries available in the
+	// system and return true or false if agent binaries exist for the provided
+	// version.
+	HasBinariesForVersion(version.Number) (bool, error)
+}
+
 // ModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state.
 type ModelService struct {
@@ -73,6 +85,7 @@ type ModelService struct {
 	controllerSt          ControllerState
 	modelSt               ModelState
 	environProviderGetter EnvironVersionProviderFunc
+	agentBinaryFinder     AgentBinaryFinder
 }
 
 // NewModelService returns a new Service for interacting with a models state.
@@ -81,6 +94,7 @@ func NewModelService(
 	controllerSt ControllerState,
 	modelSt ModelState,
 	environProviderGetter EnvironVersionProviderFunc,
+	agentBinaryFinder AgentBinaryFinder,
 ) *ModelService {
 	return &ModelService{
 		modelID:               modelID,
@@ -88,6 +102,7 @@ func NewModelService(
 		modelSt:               modelSt,
 		clock:                 clock.WallClock,
 		environProviderGetter: environProviderGetter,
+		agentBinaryFinder:     agentBinaryFinder,
 	}
 }
 
@@ -138,7 +153,7 @@ func (s *ModelService) GetModelMetrics(ctx context.Context) (coremodel.ModelMetr
 }
 
 // CreateModel is responsible for creating a new model within the model
-// database.
+// database, using the default agent version.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use.
@@ -146,14 +161,30 @@ func (s *ModelService) CreateModel(
 	ctx context.Context,
 	controllerUUID uuid.UUID,
 ) error {
+	return errors.Capture(s.CreateModelForVersion(ctx, controllerUUID, agentVersionSelector()))
+}
+
+// CreateModelForVersion is responsible for creating a new model within the
+// model database, using the input agent version.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.AlreadyExists]: When the model uuid is already in use.
+func (s *ModelService) CreateModelForVersion(
+	ctx context.Context,
+	controllerUUID uuid.UUID,
+	agentVersion version.Number,
+) error {
 	m, err := s.controllerSt.GetModel(ctx, s.modelID)
 	if err != nil {
 		return err
 	}
 
+	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
+		return fmt.Errorf("creating model %q with agent version %q: %w", m.Name, agentVersion, err)
+	}
+
 	args := model.ModelDetailArgs{
 		UUID:            m.UUID,
-		AgentVersion:    m.AgentVersion,
 		ControllerUUID:  controllerUUID,
 		Name:            m.Name,
 		Type:            m.ModelType,
@@ -162,6 +193,11 @@ func (s *ModelService) CreateModel(
 		CloudRegion:     m.CloudRegion,
 		CredentialOwner: m.Credential.Owner,
 		CredentialName:  m.Credential.Name,
+
+		// TODO (manadart 2024-01-13): Note that this comes from the arg.
+		// It is not populated in the return from the controller state.
+		// So that method should not return the core type.
+		AgentVersion: agentVersion,
 	}
 
 	return s.modelSt.Create(ctx, args)
@@ -215,4 +251,79 @@ func (s *ModelService) GetStatus(ctx context.Context) (model.StatusInfo, error) 
 		Status: corestatus.Available,
 		Since:  now,
 	}, nil
+}
+
+// agentBinaryFinderFn is func type for the AgentBinaryFinder interface.
+type agentBinaryFinderFn func(version.Number) (bool, error)
+
+// HasBinariesForVersion implements AgentBinaryFinder by calling the receiver.
+func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, error) {
+	return t(v)
+}
+
+// DefaultAgentBinaryFinder is a transition implementation of the agent binary
+// finder that will return true for any version.
+// This will be removed and replaced soon.
+func DefaultAgentBinaryFinder() AgentBinaryFinder {
+	return agentBinaryFinderFn(func(v version.Number) (bool, error) {
+		// This is a temporary implementation that will be replaced. We need
+		// to ensure that we always return true for now, so that we can be
+		// sure that the 3.6 LTS release will work with the controller.
+		return true, nil
+	})
+}
+
+// validateAgentVersion is responsible for checking that the agent version that
+// is about to be chosen for a model is valid for use.
+//
+// If the agent version is equal to that of the currently running controller
+// then this will be allowed.
+//
+// If the agent version is greater than that of the currently running controller
+// then a [modelerrors.AgentVersionNotSupported] error is returned as
+// we can't run an agent version that is greater than that of a controller.
+//
+// If the agent version is less than that of the current controller we use the
+// agentFinder to make sure that we have an agent available for this version.
+// If no agent binaries are available to support the agent version a
+// [modelerrors.AgentVersionNotSupported] error is returned.
+func validateAgentVersion(
+	agentVersion version.Number,
+	agentFinder AgentBinaryFinder,
+) error {
+	n := agentVersion.Compare(jujuversion.Current)
+	switch {
+	// agentVersion is greater than that of the current version.
+	case n > 0:
+		return fmt.Errorf(
+			"%w %q cannot be greater then the controller version %q",
+			modelerrors.AgentVersionNotSupported,
+			agentVersion.String(), jujuversion.Current.String(),
+		)
+	// agentVersion is less than that of the current version.
+	case n < 0:
+		has, err := agentFinder.HasBinariesForVersion(agentVersion)
+		if err != nil {
+			return fmt.Errorf(
+				"validating agent version %q for available tools: %w",
+				agentVersion.String(), err,
+			)
+		}
+		if !has {
+			return fmt.Errorf(
+				"%w %q no agent binaries found",
+				modelerrors.AgentVersionNotSupported,
+				agentVersion,
+			)
+		}
+	}
+
+	return nil
+}
+
+// agentVersionSelector is used to find a suitable agent version to use for
+// newly created models. This is useful when creating new models where no
+// specific version has been requested.
+func agentVersionSelector() version.Number {
+	return jujuversion.Current
 }

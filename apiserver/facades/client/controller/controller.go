@@ -800,7 +800,7 @@ var runMigrationPrechecks = func(
 
 	// Check target controller.
 	modelInfo, srcUserList, err := makeModelInfo(ctx, st,
-		controllerConfigService, modelService, modelExporter, store, leaders)
+		controllerConfigService, modelService, modelAgentService, modelExporter, store, leaders)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -902,6 +902,7 @@ users to the destination controller or remove them from the current model:
 func makeModelInfo(ctx context.Context, st *state.State,
 	controllerConfigService ControllerConfigService,
 	modelService ModelService,
+	modelAgentService ModelAgentService,
 	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
 	store objectstore.ObjectStore,
 	leaders map[string]string,
@@ -914,7 +915,7 @@ func makeModelInfo(ctx context.Context, st *state.State,
 		return empty, ul, errors.Trace(err)
 	}
 
-	description, err := modelExporter(coremodel.UUID(model.UUID()), st).ExportModel(ctx, leaders, store)
+	desc, err := modelExporter(coremodel.UUID(model.UUID()), st).ExportModel(ctx, leaders, store)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
@@ -931,7 +932,7 @@ func makeModelInfo(ctx context.Context, st *state.State,
 	}
 
 	// Retrieve agent version for the model.
-	modelInfo, err := modelService.Model(ctx, modelID)
+	agentVersion, err := modelAgentService.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return empty, userList{}, fmt.Errorf("getting model %q: %w", modelID, err)
 	}
@@ -951,9 +952,9 @@ func makeModelInfo(ctx context.Context, st *state.State,
 		UUID:                   model.UUID(),
 		Name:                   model.Name(),
 		Owner:                  model.Owner(),
-		AgentVersion:           modelInfo.AgentVersion,
+		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerModel.AgentVersion,
-		ModelDescription:       description,
+		ModelDescription:       desc,
 	}, ul, nil
 }
 

@@ -12,7 +12,7 @@ type dbKey struct {
 
 // dbAgentVersion represents the target agent version from the model table.
 type dbAgentVersion struct {
-	TargetAgentVersion string `db:"target_agent_version"`
+	TargetAgentVersion string `db:"target_version"`
 }
 
 // dbKeyValue represents a key-value pair from the model_config table.

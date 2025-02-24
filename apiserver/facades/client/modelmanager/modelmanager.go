@@ -218,7 +218,7 @@ func (m *ModelManagerAPI) createModelNew(
 	// we will try and apply the defaults where authorisation allows us to.
 	defaultCloudName, _, err := m.modelService.DefaultModelCloudNameAndCredential(ctx)
 	if errors.Is(err, modelerrors.NotFound) {
-		return coremodel.UUID(""), errors.New("failed to find default model cloud and credential for controller")
+		return "", errors.New("failed to find default model cloud and credential for controller")
 	}
 
 	var cloudTag names.CloudTag
@@ -226,7 +226,7 @@ func (m *ModelManagerAPI) createModelNew(
 		var err error
 		cloudTag, err = names.ParseCloudTag(args.CloudTag)
 		if err != nil {
-			return coremodel.UUID(""), errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 	} else {
 		cloudTag = names.NewCloudTag(defaultCloudName)
@@ -235,33 +235,33 @@ func (m *ModelManagerAPI) createModelNew(
 
 	err = m.authorizer.HasPermission(ctx, permission.SuperuserAccess, m.state.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
-		return coremodel.UUID(""), errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	if err != nil {
 		canAddModel, err := m.checkAddModelPermission(ctx, cloudTag.Id(), m.apiUser)
 		if err != nil {
-			return coremodel.UUID(""), errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 		if !canAddModel {
-			return coremodel.UUID(""), apiservererrors.ErrPerm
+			return "", apiservererrors.ErrPerm
 		}
 	}
 
 	ownerTag, err := names.ParseUserTag(args.OwnerTag)
 	if err != nil {
-		return coremodel.UUID(""), errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	// a special case of ErrPerm will happen if the user has add-model permission but is trying to
 	// create a model for another person, which is not yet supported.
 	if !m.isAdmin && ownerTag != m.apiUser {
-		return coremodel.UUID(""), errors.Annotatef(apiservererrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
+		return "", errors.Annotatef(apiservererrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
 	}
 
 	user, err := m.accessService.GetUserByName(ctx, user.NameFromTag(ownerTag))
 	if err != nil {
 		// TODO handle error properly
-		return coremodel.UUID(""), errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	creationArgs.Owner = user.UUID
 
@@ -270,7 +270,7 @@ func (m *ModelManagerAPI) createModelNew(
 		var err error
 		cloudCredentialTag, err = names.ParseCloudCredentialTag(args.CloudCredentialTag)
 		if err != nil {
-			return coremodel.UUID(""), errors.Trace(err)
+			return "", errors.Trace(err)
 		}
 
 		creationArgs.Credential = credential.KeyFromTag(cloudCredentialTag)
@@ -279,7 +279,7 @@ func (m *ModelManagerAPI) createModelNew(
 	// Create the model in the controller database.
 	modelID, activator, err := m.modelService.CreateModel(ctx, creationArgs)
 	if err != nil {
-		return coremodel.UUID(""), errors.Annotatef(err, "failed to create model %q", modelID)
+		return "", errors.Annotatef(err, "failed to create model %q", modelID)
 	}
 
 	// We need to get the model domain services from the newly created model
@@ -305,9 +305,7 @@ func (m *ModelManagerAPI) createModelNew(
 		return modelID, errors.Annotatef(err, "failed to finalise model %q", modelID)
 	}
 
-	// Create the model information in the model database. This information
-	// is read-only and is used for providers and brokers without the need
-	// to query the controller database.
+	// Create the model information in the model database.
 	if err := modelInfoService.CreateModel(ctx, m.controllerUUID); err != nil {
 		return modelID, errors.Annotatef(err, "failed to create model info for model %q", modelID)
 	}

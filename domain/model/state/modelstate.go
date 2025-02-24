@@ -44,7 +44,7 @@ func NewModelState(
 	}
 }
 
-// Create creates a new read-only model.
+// Create inserts all of the information about a newly created model.
 func (s *ModelState) Create(ctx context.Context, args model.ModelDetailArgs) error {
 	db, err := s.DB()
 	if err != nil {
@@ -52,7 +52,7 @@ func (s *ModelState) Create(ctx context.Context, args model.ModelDetailArgs) err
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return CreateReadOnlyModel(ctx, args, s, tx)
+		return InsertModelInfo(ctx, args, s, tx)
 	})
 }
 
@@ -614,8 +614,8 @@ func insertContraintZones(
 	return nil
 }
 
-// GetModel returns a read-only model information that has been set in the
-// database. If no model has been set then an error satisfying
+// GetModel returns model information that has been set in the database.
+// If no model has been set then an error satisfying
 // [modelerrors.NotFound] is returned.
 func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) {
 	db, err := s.DB()
@@ -623,18 +623,32 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		return coremodel.ModelInfo{}, errors.Capture(err)
 	}
 
-	m := dbReadOnlyModel{}
-	stmt, err := s.Prepare(`SELECT &dbReadOnlyModel.* FROM model`, m)
+	var m dbReadOnlyModel
+	roStmt, err := s.Prepare(`SELECT &dbReadOnlyModel.* FROM model`, m)
+	if err != nil {
+		return coremodel.ModelInfo{}, errors.Capture(err)
+	}
+
+	var v dbModelAgent
+	avStmt, err := s.Prepare(`SELECT &dbModelAgent.* FROM agent_version`, v)
 	if err != nil {
 		return coremodel.ModelInfo{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).Get(&m)
-		if errors.Is(err, sql.ErrNoRows) {
-			return errors.New("model does not exist").Add(modelerrors.NotFound)
+		err := tx.Query(ctx, roStmt).Get(&m)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return modelerrors.NotFound
+			}
+			return errors.Capture(err)
 		}
-		return err
+
+		err = tx.Query(ctx, avStmt).Get(&v)
+		if errors.Is(err, sql.ErrNoRows) {
+			return modelerrors.AgentVersionNotFound
+		}
+		return errors.Capture(err)
 	})
 
 	if err != nil {
@@ -643,7 +657,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		)
 	}
 
-	model := coremodel.ModelInfo{
+	info := coremodel.ModelInfo{
 		UUID:              coremodel.UUID(m.UUID),
 		Name:              m.Name,
 		Type:              coremodel.ModelType(m.Type),
@@ -652,10 +666,11 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		CloudRegion:       m.CloudRegion,
 		CredentialName:    m.CredentialName,
 		IsControllerModel: m.IsControllerModel,
+		AgentVersion:      version.MustParse(v.TargetVersion),
 	}
 
 	if owner := m.CredentialOwner; owner != "" {
-		model.CredentialOwner, err = user.NewName(owner)
+		info.CredentialOwner, err = user.NewName(owner)
 		if err != nil {
 			return coremodel.ModelInfo{}, errors.Errorf(
 				"parsing model %q owner username %q: %w",
@@ -663,37 +678,24 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 			)
 		}
 	} else {
-		s.logger.Infof(context.TODO(), "model %s: cloud credential owner name is empty", model.Name)
+		s.logger.Infof(ctx, "model %s: cloud credential owner name is empty", m.Name)
 	}
 
-	var agentVersion string
-	if m.TargetAgentVersion.Valid {
-		agentVersion = m.TargetAgentVersion.String
-	}
-
-	model.AgentVersion, err = version.Parse(agentVersion)
-	if err != nil {
-		return coremodel.ModelInfo{}, errors.Errorf(
-			"parsing model %q agent version %q: %w",
-			m.UUID, agentVersion, err,
-		)
-	}
-
-	model.ControllerUUID, err = uuid.UUIDFromString(m.ControllerUUID)
+	info.ControllerUUID, err = uuid.UUIDFromString(m.ControllerUUID)
 	if err != nil {
 		return coremodel.ModelInfo{}, errors.Errorf(
 			"parsing controller uuid %q for model %q: %w",
 			m.ControllerUUID, m.UUID, err,
 		)
 	}
-	return model, nil
+	return info, nil
 }
 
 // GetModelMetrics the current model info and its associated metrics.
 // If no model has been set then an error satisfying
 // [modelerrors.NotFound] is returned.
 func (s *ModelState) GetModelMetrics(ctx context.Context) (coremodel.ModelMetrics, error) {
-	readOnlyModel, err := s.GetModel(ctx)
+	modelInfo, err := s.GetModel(ctx)
 	if err != nil {
 		return coremodel.ModelMetrics{}, err
 	}
@@ -721,7 +723,7 @@ func (s *ModelState) GetModelMetrics(ctx context.Context) (coremodel.ModelMetric
 	}
 
 	return coremodel.ModelMetrics{
-		Model:            readOnlyModel,
+		Model:            modelInfo,
 		ApplicationCount: modelMetrics.ApplicationCount,
 		MachineCount:     modelMetrics.MachineCount,
 		UnitCount:        modelMetrics.UnitCount,
@@ -758,10 +760,12 @@ func (s *ModelState) GetModelCloudType(ctx context.Context) (string, error) {
 	return m.CloudType, nil
 }
 
-// CreateReadOnlyModel is responsible for creating a new model within the model
+// InsertModelInfo is responsible for creating a new model within the model
 // database. If the model already exists then an error satisfying
 // [modelerrors.AlreadyExists] is returned.
-func CreateReadOnlyModel(ctx context.Context, args model.ModelDetailArgs, preparer domain.Preparer, tx *sqlair.TX) error {
+func InsertModelInfo(
+	ctx context.Context, args model.ModelDetailArgs, preparer domain.Preparer, tx *sqlair.TX,
+) error {
 	// This is some defensive programming. The zero value of agent version is
 	// still valid but should really be considered null for the purposes of
 	// allowing the DDL to assert constraints.
@@ -771,53 +775,49 @@ func CreateReadOnlyModel(ctx context.Context, args model.ModelDetailArgs, prepar
 		agentVersion.Valid = true
 	}
 
-	uuid := dbUUID{UUID: args.UUID.String()}
-	checkExistsStmt, err := preparer.Prepare(`
-SELECT &dbUUID.uuid
-FROM model
-	`, uuid)
+	mID := dbUUID{UUID: args.UUID.String()}
+	checkExistsStmt, err := preparer.Prepare("SELECT &dbUUID.uuid FROM model", mID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, checkExistsStmt).Get(&uuid)
+	err = tx.Query(ctx, checkExistsStmt).Get(&mID)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf(
-			"checking if model %q already exists: %w",
-			args.UUID, err,
-		)
+		return errors.Errorf("checking if model already exists: %w", err)
 	} else if err == nil {
-		return errors.Errorf(
-			"creating readonly model %q information but model already exists",
-			args.UUID,
-		).Add(modelerrors.AlreadyExists)
+		return errors.Errorf("read-only model record already exists: %w", modelerrors.AlreadyExists)
 	}
 
 	m := dbReadOnlyModel{
-		UUID:               args.UUID.String(),
-		ControllerUUID:     args.ControllerUUID.String(),
-		Name:               args.Name,
-		Type:               args.Type.String(),
-		TargetAgentVersion: agentVersion,
-		Cloud:              args.Cloud,
-		CloudType:          args.CloudType,
-		CloudRegion:        args.CloudRegion,
-		CredentialOwner:    args.CredentialOwner.Name(),
-		CredentialName:     args.CredentialName,
-		IsControllerModel:  args.IsControllerModel,
+		UUID:              args.UUID.String(),
+		ControllerUUID:    args.ControllerUUID.String(),
+		Name:              args.Name,
+		Type:              args.Type.String(),
+		Cloud:             args.Cloud,
+		CloudType:         args.CloudType,
+		CloudRegion:       args.CloudRegion,
+		CredentialOwner:   args.CredentialOwner.Name(),
+		CredentialName:    args.CredentialName,
+		IsControllerModel: args.IsControllerModel,
 	}
 
-	insertStmt, err := preparer.Prepare(`
-INSERT INTO model (*) VALUES ($dbReadOnlyModel.*)
-`, dbReadOnlyModel{})
+	roStmt, err := preparer.Prepare("INSERT INTO model (*) VALUES ($dbReadOnlyModel.*)", m)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, insertStmt, m).Run(); err != nil {
-		return errors.Errorf(
-			"creating readonly model %q information: %w", args.UUID, err,
-		)
+	v := dbModelAgent{TargetVersion: args.AgentVersion.String()}
+	vStmt, err := preparer.Prepare("INSERT INTO agent_version (*) VALUES ($dbModelAgent.*)", v)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, roStmt, m).Run(); err != nil {
+		return fmt.Errorf("creating model read-only record for %q: %w", args.UUID, err)
+	}
+
+	if err := tx.Query(ctx, vStmt, v).Run(); err != nil {
+		return fmt.Errorf("creating agent_version record for %q: %w", args.UUID, err)
 	}
 
 	return nil
