@@ -71,10 +71,9 @@ type ControllerState interface {
 // AgentBinaryFinder represents a helper for establishing if agent binaries for
 // a specific Juju version are available.
 type AgentBinaryFinder interface {
-	// HasBinariesForVersion will interrogate the tools available in the system
-	// and return true or false if agent binaries exist for the provided
-	// version. Any errors finding the requested binaries will be returned
-	// through error.
+	// HasBinariesForVersion will interrogate agent binaries available in the
+	// system and return true or false if agent binaries exist for the provided
+	// version.
 	HasBinariesForVersion(version.Number) (bool, error)
 }
 
@@ -249,12 +248,13 @@ func (s *ModelService) GetStatus(ctx context.Context) (model.StatusInfo, error) 
 // agentBinaryFinderFn is func type for the AgentBinaryFinder interface.
 type agentBinaryFinderFn func(version.Number) (bool, error)
 
+// HasBinariesForVersion implements AgentBinaryFinder by calling the receiver.
 func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, error) {
 	return t(v)
 }
 
 // DefaultAgentBinaryFinder is a transition implementation of the agent binary
-// finder that will true for any version.
+// finder that will return true for any version.
 // This will be removed and replaced soon.
 func DefaultAgentBinaryFinder() AgentBinaryFinder {
 	return agentBinaryFinderFn(func(v version.Number) (bool, error) {
@@ -276,8 +276,8 @@ func DefaultAgentBinaryFinder() AgentBinaryFinder {
 // we can't run an agent version that is greater than that of a controller.
 //
 // If the agent version is less than that of the current controller we use the
-// toolFinder to make sure that we have tools available for this version. If no
-// tools are available to support the agent version a
+// agentFinder to make sure that we have an agent available for this version.
+// If no agent binaries are available to support the agent version a
 // [modelerrors.AgentVersionNotSupported] error is returned.
 func validateAgentVersion(
 	agentVersion version.Number,

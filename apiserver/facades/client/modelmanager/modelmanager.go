@@ -306,9 +306,7 @@ func (m *ModelManagerAPI) createModelNew(
 		return modelID, errors.Annotatef(err, "failed to finalise model %q", modelID)
 	}
 
-	// Create the model information in the model database. This information
-	// is read-only and is used for providers and brokers without the need
-	// to query the controller database.
+	// Create the model information in the model database.
 	if err := modelInfoService.CreateModel(ctx, m.controllerUUID, version.Current); err != nil {
 		return modelID, errors.Annotatef(err, "failed to create model info for model %q", modelID)
 	}

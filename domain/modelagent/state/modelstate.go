@@ -124,7 +124,7 @@ WHERE name = $unitName.name
 }
 
 // GetTargetAgentVersion returns the agent version for the model.
-// If the agent_version table has not data,
+// If the agent_version table has no data,
 // [modelerrors.AgentVersionNotFound] is returned.
 func (st *State) GetTargetAgentVersion(ctx context.Context) (version.Number, error) {
 	db, err := st.DB()

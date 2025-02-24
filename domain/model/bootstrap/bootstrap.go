@@ -35,10 +35,10 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 // cloud credential will be associated with the model.
 //
 // The following error types can be expected to be returned:
-// - modelerrors.AlreadyExists: When the model uuid is already in use or a model
+// - modelerrors.AlreadyExists: When the model UUID is already in use or a model
 // with the same name and owner already exists.
 // - errors.NotFound: When the cloud, cloud region, or credential do not exist.
-// - errors.NotValid: When the model uuid is not valid.
+// - errors.NotValid: When the model UUID is not valid.
 // - [modelerrors.AgentVersionNotSupported]
 // - [usererrors.NotFound] When the model owner does not exist.
 // - [secretbackenderrors.NotFound] When the secret backend for the model
@@ -46,8 +46,8 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 //
 // CreateGlobalModelRecord expects the caller to generate their own model
 // ID and pass it to this function. In an ideal world we want to have this
-// stopped and make this function generate a new id and return the value.
-// This can only be achieved once we have the Juju client stop generating ID's
+// stopped and make this function generate a new ID and return the value.
+// This can only be achieved once we have the Juju client stop generating IDs
 // for controller models in the bootstrap process.
 func CreateGlobalModelRecord(
 	modelID coremodel.UUID,
