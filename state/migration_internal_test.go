@@ -31,6 +31,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		sshHostKeysC,
 		statusesC,
 		statusesHistoryC,
+		virtualHostKeysC,
 
 		// machine
 		instanceDataC,

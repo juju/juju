@@ -96,6 +96,7 @@ type MachineParams struct {
 	Addresses       network.SpaceAddresses
 	Volumes         []state.HostVolumeParams
 	Filesystems     []state.HostFilesystemParams
+	VirtualHostKey  []byte
 }
 
 // ApplicationParams is used when specifying parameters for a new application.
@@ -294,6 +295,9 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 		}
 		params.Characteristics = &hardware
 	}
+	if params.VirtualHostKey == nil {
+		params.VirtualHostKey = []byte("fake-host-key")
+	}
 
 	return params
 }
@@ -361,11 +365,12 @@ func (factory *Factory) MakeUnprovisionedMachineReturningPassword(c *gc.C, param
 
 func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachineParams, setProvisioned bool) (*state.Machine, string) {
 	machineTemplate := state.MachineTemplate{
-		Base:        params.Base,
-		Jobs:        params.Jobs,
-		Volumes:     params.Volumes,
-		Filesystems: params.Filesystems,
-		Constraints: params.Constraints,
+		Base:           params.Base,
+		Jobs:           params.Jobs,
+		Volumes:        params.Volumes,
+		Filesystems:    params.Filesystems,
+		Constraints:    params.Constraints,
+		VirtualHostKey: params.VirtualHostKey,
 	}
 
 	if params.Characteristics != nil {
