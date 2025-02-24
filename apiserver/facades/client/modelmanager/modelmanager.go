@@ -168,11 +168,6 @@ func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
 	return apiservererrors.ErrPerm
 }
 
-func (m *ModelManagerAPI) hasWriteAccess(ctx context.Context, modelTag names.ModelTag) (bool, error) {
-	err := m.authorizer.HasPermission(ctx, permission.WriteAccess, modelTag)
-	return err == nil, err
-}
-
 // ConfigSource describes a type that is able to provide config.
 // Abstracted primarily for testing.
 type ConfigSource interface {
@@ -1107,6 +1102,11 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 }
 
 func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, withSecrets bool) (params.ModelInfo, error) {
+	// If the logged in user does not have at least read permission, we return an error.
+	if err := m.authorizer.HasPermission(ctx, permission.ReadAccess, tag); err != nil {
+		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+	}
+
 	st, release, err := m.state.GetBackend(tag.Id())
 	if errors.Is(err, errors.NotFound) {
 		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
@@ -1121,6 +1121,18 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	} else if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
+
+	modelAdmin := m.isModelAdmin(ctx, tag)
+	// Admin users also have write access to the model.
+	writeAccess := modelAdmin
+	if !writeAccess {
+		// Otherwise we do a check to see if the user has write access to the model.
+		err = m.authorizer.HasPermission(ctx, permission.WriteAccess, model.ModelTag())
+		writeAccess = err == nil
+	}
+	// At this point, if the user does not have write access, they must have
+	// read access otherwise we would've returned on the initial check at the
+	// beginning of this method.
 
 	modelUUID := model.UUID()
 
@@ -1193,47 +1205,9 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 
-	modelAdmin := m.isModelAdmin(ctx, tag)
 	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, tag, user.NameFromTag(m.apiUser), modelAdmin)
 	if shouldErr(err) {
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
-	}
-
-	canSeeMachinesAndSecrets := modelAdmin
-	if !canSeeMachinesAndSecrets {
-		canSeeMachinesAndSecrets, err = m.hasWriteAccess(ctx, tag)
-		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
-			return params.ModelInfo{}, errors.Trace(err)
-		}
-	}
-	if canSeeMachinesAndSecrets {
-		if info.Machines, err = commonmodel.ModelMachineInfo(ctx, st, modelDomainServices.Machine()); shouldErr(err) {
-			return params.ModelInfo{}, err
-		}
-	}
-	if withSecrets && canSeeMachinesAndSecrets {
-		backends, err := m.secretBackendService.BackendSummaryInfoForModel(ctx, coremodel.UUID(modelUUID))
-		if shouldErr(err) {
-			return params.ModelInfo{}, errors.Trace(err)
-		}
-		for _, backend := range backends {
-			name := backend.Name
-			if name == kubernetes.BackendName {
-				name = kubernetes.BuiltInName(model.Name())
-			}
-			info.SecretBackends = append(info.SecretBackends, params.SecretBackendResult{
-				// Don't expose the id.
-				NumSecrets: backend.NumSecrets,
-				Status:     backend.Status,
-				Message:    backend.Message,
-				Result: params.SecretBackend{
-					Name:                name,
-					BackendType:         backend.BackendType,
-					TokenRotateInterval: backend.TokenRotateInterval,
-					Config:              backend.Config,
-				},
-			})
-		}
 	}
 
 	migration, err := st.LatestMigration()
@@ -1271,6 +1245,44 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 
 		info.SupportedFeatures = append(info.SupportedFeatures, mappedFeat)
 	}
+
+	// Users that do not have write access (only have read access) we return
+	// the info gathered so far.
+	if !writeAccess {
+		return info, nil
+	}
+
+	// For users with write access we also return info on machines and, if
+	// specified, info on secrets.
+
+	if info.Machines, err = commonmodel.ModelMachineInfo(ctx, st, modelDomainServices.Machine()); shouldErr(err) {
+		return params.ModelInfo{}, err
+	}
+	if withSecrets {
+		backends, err := m.secretBackendService.BackendSummaryInfoForModel(ctx, coremodel.UUID(modelUUID))
+		if shouldErr(err) {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+		for _, backend := range backends {
+			name := backend.Name
+			if name == kubernetes.BackendName {
+				name = kubernetes.BuiltInName(model.Name())
+			}
+			info.SecretBackends = append(info.SecretBackends, params.SecretBackendResult{
+				// Don't expose the id.
+				NumSecrets: backend.NumSecrets,
+				Status:     backend.Status,
+				Message:    backend.Message,
+				Result: params.SecretBackend{
+					Name:                name,
+					BackendType:         backend.BackendType,
+					TokenRotateInterval: backend.TokenRotateInterval,
+					Config:              backend.Config,
+				},
+			})
+		}
+	}
+
 	return info, nil
 }
 

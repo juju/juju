@@ -1,15 +1,17 @@
 (manage-charms)=
 # How to manage charms or bundles
 
+> See also: {ref}`charm`
+
 This document shows various ways in which you may interact with a charm or a bundle.
 
 (build-a-charm)=
 ## Build a charm
 
-See [Charmcraft docs](https://canonical-charmcraft.readthedocs-hosted.com/en/stable/) for how to initialize, pack, and publish a charm on Charmhub. 
+See [Charmcraft docs](https://canonical-charmcraft.readthedocs-hosted.com/) for how to initialize, pack, and publish a charm on Charmhub.
 
 
-See [Ops docs](https://ops.readthedocs.io/en/latest/) for how to develop and test a charm.
+See [Ops docs](https://ops.readthedocs.io/) for how to develop and test a charm.
 
 <!--
 > See more: {ref}`charming-history`
@@ -147,7 +149,7 @@ Suppose you want to deploy `mediawiki` and also apply an overlay bundle called `
 ```text
 juju deploy mediawiki \
   --overlay ./custom-mediawiki.yaml
-``` 
+```
 
 Suppose now that have a model where you've already deployed `mediawiki`. You've also made some other changes in your model. Finally, you'd like to apply an overlay bundle `custom-mediawiki.yaml`. In that case:
 
@@ -175,10 +177,10 @@ Suppose you want to deploy an OpenStack cloud. This is done by deploying a base 
 ``` text
 juju deploy ./bundle-focal-yoga.yaml \
    --overlay ./overlay-focal-yoga-mymaas.yaml
-   --overlay ./overlay-focal-yoga-mymaas-shared-filesystem.yaml 
+   --overlay ./overlay-focal-yoga-mymaas-shared-filesystem.yaml
 ```
 
-Suppose now that have a model where you've already deployed all of the above. You've maybe also made some other changes in your model. And you'd like to add manual zone Swift services by applying another overlay. 
+Suppose now that have a model where you've already deployed all of the above. You've maybe also made some other changes in your model. And you'd like to add manual zone Swift services by applying another overlay.
 
 1. Export the contents of your model to a bundle (below, `exported-bundle-focal-yoga-2022-06-07.yaml`):
 
@@ -212,13 +214,13 @@ Depending on the cloud substrate that your controller is running on, the above c
 
 ```{note}
 
-Depending on your use case, you may alternatively opt to provision a set of machines in advance via the `juju add-machine` command. 
+Depending on your use case, you may alternatively opt to provision a set of machines in advance via the `juju add-machine` command.
 
 In this case, when running the above `juju deploy` command, Juju will detect that the model contains machines with no applications assigned to them and automatically deploy the application to one of those machines instead of spinning up a new machine.
 
 ```
 
-The command also allows you to add another argument to specify a custom name (alias) for your deployed application (charms only). You can also take advantage of the rich set of flags to specify a charm channel or revision, a machine base, a machine constraint (e.g., availability zone), the number of application units you want (clusterised), a space binding, a placement directive (e.g., to deploy to a LXD container), a specific storage instance, a specific machine, etc., and even to trust the application with the current credential -- in case the application requires access to the backing cloud in order to fulfil its purpose (e.g., stojrage-related tasks). 
+The command also allows you to add another argument to specify a custom name (alias) for your deployed application (charms only). You can also take advantage of the rich set of flags to specify a charm channel or revision, a machine base, a machine constraint (e.g., availability zone), the number of application units you want (clusterised), a space binding, a placement directive (e.g., to deploy to a LXD container), a specific storage instance, a specific machine, etc., and even to trust the application with the current credential -- in case the application requires access to the backing cloud in order to fulfil its purpose (e.g., stojrage-related tasks).
 
 ```{note}
 
@@ -272,10 +274,10 @@ Updating a charm to the latest revision always involves the `refresh` command, b
 ### Update a Charmhub charm
 
 ```{important}
- 
+
 Because of the way charm channels work, 'updating' doesn't have to mean 'upgrading' -- you can switch to any charm revision, no matter if it's newer or older. The instructions below reflect this.
 
-However, as newer versions typically contain improvements, Juju will notify you if a new version exists: Juju polls Charmhub once a day to check for updates and, if an update is found, the poll will cause `juju status` to indicate that a newer charm version is available. 
+However, as newer versions typically contain improvements, Juju will notify you if a new version exists: Juju polls Charmhub once a day to check for updates and, if an update is found, the poll will cause `juju status` to indicate that a newer charm version is available.
 
 ```
 
@@ -348,10 +350,10 @@ Model        Controller  Cloud/Region         Version  SLA          Timestamp
 welcome-lxd  lxd         localhost/localhost  3.1.6    unsupported  15:05:16+01:00
 
 App          Version        Status  Scale  Charm           Channel  Rev  Exposed  Message
-postgresql   14.9           active      1  postgresql      14/edge  365  no       
+postgresql   14.9           active      1  postgresql      14/edge  365  no
 
 Unit            Workload  Agent      Machine  Public address  Ports     Message
-postgresql/0*   active    executing  2        10.122.219.3    5432/tcp  (config-changed) 
+postgresql/0*   active    executing  2        10.122.219.3    5432/tcp  (config-changed)
 
 Machine  State    Address         Inst id        Base          AZ  Message
 2        started  10.122.219.3    juju-f25b73-2  ubuntu@22.04      Running
@@ -366,7 +368,7 @@ Machine  State    Address         Inst id        Base          AZ  Message
 
 ### Update a local charm
 
-To updae a local charm, run the `refresh` command followed by the name of the charm and the local path to the charm: 
+To update a local charm, run the `refresh` command followed by the name of the charm and the local path to the charm:
 
 
 ```text
