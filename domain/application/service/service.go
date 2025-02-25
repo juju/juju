@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/constraints"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
@@ -185,7 +186,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 // error is returned.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error {
+func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) error {
 	if err := appID.Validate(); err != nil {
 		return internalerrors.Errorf("application ID: %w", err)
 	}
@@ -193,10 +194,10 @@ func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID c
 		return err
 	}
 
-	return s.st.SetApplicationConstraints(ctx, appID, cons)
+	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
 }
 
-func (s *ProviderService) validateConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error {
+func (s *ProviderService) validateConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) error {
 	provider, err := s.provider(ctx)
 	if errors.Is(err, errors.NotSupported) {
 		// Not validating constraints, as the provider doesn't support it.
@@ -207,7 +208,7 @@ func (s *ProviderService) validateConstraints(ctx context.Context, appID coreapp
 
 	validator, err := provider.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(ctx))
 	if errors.Is(err, errors.NotImplemented) {
-		validator = constraints.NewValidator()
+		return nil
 	} else if err != nil {
 		return internalerrors.Capture(err)
 	}

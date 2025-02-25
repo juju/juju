@@ -15,7 +15,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	modeldomain "github.com/juju/juju/domain/model"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -447,7 +447,7 @@ type dbConstraintInsert struct {
 // transforming the values into a [dbConstraintInsert] object.
 func constraintsToDBInsert(
 	uuid uuid.UUID,
-	constraints modeldomain.Constraints,
+	constraints constraints.Constraints,
 ) dbConstraintInsert {
 	return dbConstraintInsert{
 		UUID: uuid.String(),
@@ -516,8 +516,8 @@ func (c dbConstraint) toValue(
 	tags []dbConstraintTag,
 	spaces []dbConstraintSpace,
 	zones []dbConstraintZone,
-) (modeldomain.Constraints, error) {
-	rval := modeldomain.Constraints{}
+) (constraints.Constraints, error) {
+	rval := constraints.Constraints{}
 	if c.Arch.Valid {
 		rval.Arch = &c.Arch.String
 	}
@@ -568,9 +568,9 @@ func (c dbConstraint) toValue(
 		rval.Tags = &consTags
 	}
 
-	consSpaces := make([]modeldomain.SpaceConstraint, 0, len(spaces))
+	consSpaces := make([]constraints.SpaceConstraint, 0, len(spaces))
 	for _, space := range spaces {
-		consSpaces = append(consSpaces, modeldomain.SpaceConstraint{
+		consSpaces = append(consSpaces, constraints.SpaceConstraint{
 			SpaceName: space.Space,
 			Exclude:   space.Exclude,
 		})

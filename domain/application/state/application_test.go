@@ -20,7 +20,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
@@ -3573,43 +3573,39 @@ func (s *applicationStateSuite) TestConstraintFull(c *gc.C) {
 			return err
 		}
 
-		addTag0ConsStmt := `INSERT INTO constraint_tag (constraint_uuid, tag) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addTag0ConsStmt, "constraint-uuid", "tag0")
+		addTagConsStmt := `INSERT INTO constraint_tag (constraint_uuid, tag) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, addTagConsStmt, "constraint-uuid", "tag0")
 		if err != nil {
 			return err
 		}
-		addTag1ConsStmt := `INSERT INTO constraint_tag (constraint_uuid, tag) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addTag1ConsStmt, "constraint-uuid", "tag1")
+		_, err = tx.ExecContext(ctx, addTagConsStmt, "constraint-uuid", "tag1")
 		if err != nil {
 			return err
 		}
-		addSpace0Stmt := `INSERT INTO space (uuid, name) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addSpace0Stmt, "space0-uuid", "space0")
+		addSpaceStmt := `INSERT INTO space (uuid, name) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, addSpaceStmt, "space0-uuid", "space0")
 		if err != nil {
 			return err
 		}
-		addSpace1Stmt := `INSERT INTO space (uuid, name) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addSpace1Stmt, "space1-uuid", "space1")
+		_, err = tx.ExecContext(ctx, addSpaceStmt, "space1-uuid", "space1")
 		if err != nil {
 			return err
 		}
-		addSpace0ConsStmt := `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`
-		_, err = tx.ExecContext(ctx, addSpace0ConsStmt, "constraint-uuid", "space0", false)
+		addSpaceConsStmt := `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`
+		_, err = tx.ExecContext(ctx, addSpaceConsStmt, "constraint-uuid", "space0", false)
 		if err != nil {
 			return err
 		}
-		addSpace1ConsStmt := `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`
-		_, err = tx.ExecContext(ctx, addSpace1ConsStmt, "constraint-uuid", "space1", false)
+		_, err = tx.ExecContext(ctx, addSpaceConsStmt, "constraint-uuid", "space1", true)
 		if err != nil {
 			return err
 		}
-		addZone0ConsStmt := `INSERT INTO constraint_zone (constraint_uuid, zone) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addZone0ConsStmt, "constraint-uuid", "zone0")
+		addZoneConsStmt := `INSERT INTO constraint_zone (constraint_uuid, zone) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, addZoneConsStmt, "constraint-uuid", "zone0")
 		if err != nil {
 			return err
 		}
-		addZone1ConsStmt := `INSERT INTO constraint_zone (constraint_uuid, zone) VALUES (?, ?)`
-		_, err = tx.ExecContext(ctx, addZone1ConsStmt, "constraint-uuid", "zone1")
+		_, err = tx.ExecContext(ctx, addZoneConsStmt, "constraint-uuid", "zone1")
 		if err != nil {
 			return err
 		}
@@ -3623,7 +3619,10 @@ func (s *applicationStateSuite) TestConstraintFull(c *gc.C) {
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*cons.Tags, jc.SameContents, []string{"tag0", "tag1"})
-	c.Check(*cons.Spaces, jc.SameContents, []string{"space0", "space1"})
+	c.Check(*cons.Spaces, jc.SameContents, []constraints.SpaceConstraint{
+		{SpaceName: "space0", Exclude: false},
+		{SpaceName: "space1", Exclude: true},
+	})
 	c.Check(*cons.Zones, jc.SameContents, []string{"zone0", "zone1"})
 	c.Check(cons.Arch, jc.DeepEquals, ptr("amd64"))
 	c.Check(cons.CpuCores, jc.DeepEquals, ptr(uint64(2)))
@@ -3656,7 +3655,7 @@ func (s *applicationStateSuite) TestConstraintPartial(c *gc.C) {
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, jc.DeepEquals, constraints.Value{
+	c.Check(cons, jc.DeepEquals, constraints.Constraints{
 		Arch:             ptr("amd64"),
 		CpuCores:         ptr(uint64(2)),
 		AllocatePublicIP: ptr(true),
@@ -3681,7 +3680,7 @@ func (s *applicationStateSuite) TestConstraintSingleValue(c *gc.C) {
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, jc.DeepEquals, constraints.Value{
+	c.Check(cons, jc.DeepEquals, constraints.Constraints{
 		CpuCores: ptr(uint64(2)),
 	})
 }
@@ -3691,7 +3690,7 @@ func (s *applicationStateSuite) TestConstraintEmpty(c *gc.C) {
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, jc.DeepEquals, constraints.Value{})
+	c.Check(cons, jc.DeepEquals, constraints.Constraints{})
 }
 
 func (s *applicationStateSuite) TestConstraintsApplicationNotFound(c *gc.C) {
@@ -3702,7 +3701,7 @@ func (s *applicationStateSuite) TestConstraintsApplicationNotFound(c *gc.C) {
 func (s *applicationStateSuite) TestSetConstraintFull(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	cons := constraints.Value{
+	cons := constraints.Constraints{
 		Arch:             ptr("amd64"),
 		CpuCores:         ptr(uint64(2)),
 		CpuPower:         ptr(uint64(42)),
@@ -3715,9 +3714,12 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *gc.C) {
 		VirtType:         ptr("virt-type"),
 		AllocatePublicIP: ptr(true),
 		ImageID:          ptr("image-id"),
-		Spaces:           ptr([]string{"space0", "space1"}),
-		Tags:             ptr([]string{"tag0", "tag1"}),
-		Zones:            ptr([]string{"zone0", "zone1"}),
+		Spaces: ptr([]constraints.SpaceConstraint{
+			{SpaceName: "space0", Exclude: false},
+			{SpaceName: "space1", Exclude: true},
+		}),
+		Tags:  ptr([]string{"tag0", "tag1"}),
+		Zones: ptr([]string{"zone0", "zone1"}),
 	}
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -3735,10 +3737,14 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *gc.C) {
 	err = s.state.SetApplicationConstraints(context.Background(), id, cons)
 	c.Assert(err, jc.ErrorIsNil)
 
+	type applicationSpace struct {
+		SpaceName    string `db:"space"`
+		SpaceExclude bool   `db:"exclude"`
+	}
 	var (
 		applicationUUID                                                     string
 		constraintUUID                                                      string
-		constraintSpaces                                                    []string
+		constraintSpaces                                                    []applicationSpace
 		constraintTags                                                      []string
 		constraintZones                                                     []string
 		arch, rootDiskSource, instanceRole, instanceType, virtType, imageID string
@@ -3751,14 +3757,14 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *gc.C) {
 			return err
 		}
 
-		rows, err := tx.QueryContext(ctx, "SELECT space FROM constraint_space WHERE constraint_uuid=?", constraintUUID)
+		rows, err := tx.QueryContext(ctx, "SELECT space,exclude FROM constraint_space WHERE constraint_uuid=?", constraintUUID)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var space string
-			if err := rows.Scan(&space); err != nil {
+			var space applicationSpace
+			if err := rows.Scan(&space.SpaceName, &space.SpaceExclude); err != nil {
 				return err
 			}
 			constraintSpaces = append(constraintSpaces, space)
@@ -3825,7 +3831,10 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *gc.C) {
 	c.Check(allocatePublicIP, gc.Equals, true)
 	c.Check(imageID, gc.Equals, "image-id")
 
-	c.Check(constraintSpaces, jc.DeepEquals, []string{"space0", "space1"})
+	c.Check(constraintSpaces, jc.DeepEquals, []applicationSpace{
+		{SpaceName: "space0", SpaceExclude: false},
+		{SpaceName: "space1", SpaceExclude: true},
+	})
 	c.Check(constraintTags, jc.DeepEquals, []string{"tag0", "tag1"})
 	c.Check(constraintZones, jc.DeepEquals, []string{"zone0", "zone1"})
 
@@ -3834,7 +3843,7 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *gc.C) {
 func (s *applicationStateSuite) TestSetConstraintInvalidContainerType(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	cons := constraints.Value{
+	cons := constraints.Constraints{
 		Container: ptr(instance.ContainerType("invalid-container-type")),
 	}
 	err := s.state.SetApplicationConstraints(context.Background(), id, cons)
@@ -3844,8 +3853,10 @@ func (s *applicationStateSuite) TestSetConstraintInvalidContainerType(c *gc.C) {
 func (s *applicationStateSuite) TestSetConstraintInvalidSpace(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	cons := constraints.Value{
-		Spaces: ptr([]string{"invalid-space"}),
+	cons := constraints.Constraints{
+		Spaces: ptr([]constraints.SpaceConstraint{
+			{SpaceName: "invalid-space", Exclude: false},
+		}),
 	}
 	err := s.state.SetApplicationConstraints(context.Background(), id, cons)
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidApplicationConstraints)
@@ -3854,7 +3865,7 @@ func (s *applicationStateSuite) TestSetConstraintInvalidSpace(c *gc.C) {
 func (s *applicationStateSuite) TestSetConstraintsReplacesPrevious(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Value{
+	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Mem:      ptr(uint64(8)),
 		CpuCores: ptr(uint64(2)),
 	})
@@ -3862,19 +3873,19 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPrevious(c *gc.C) {
 
 	cons, err := s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, gc.DeepEquals, constraints.Value{
+	c.Check(cons, gc.DeepEquals, constraints.Constraints{
 		Mem:      ptr(uint64(8)),
 		CpuCores: ptr(uint64(2)),
 	})
 
-	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Value{
+	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		CpuPower: ptr(uint64(42)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons, err = s.state.GetApplicationConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, gc.DeepEquals, constraints.Value{
+	c.Check(cons, gc.DeepEquals, constraints.Constraints{
 		CpuPower: ptr(uint64(42)),
 	})
 }
@@ -3882,7 +3893,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPrevious(c *gc.C) {
 func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousZones(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Value{
+	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Zones: ptr([]string{"zone0", "zone1"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3891,7 +3902,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousZones(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*cons.Zones, jc.SameContents, []string{"zone0", "zone1"})
 
-	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Value{
+	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Tags: ptr([]string{"tag0", "tag1"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3904,7 +3915,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousZones(c *gc.C)
 func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Value{
+	err := s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Zones: ptr([]string{"zone0", "zone1"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3913,7 +3924,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*cons.Zones, jc.SameContents, []string{"zone0", "zone1"})
 
-	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Value{
+	err = s.state.SetApplicationConstraints(context.Background(), id, constraints.Constraints{
 		Zones: ptr([]string{"zone3"}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3924,7 +3935,7 @@ func (s *applicationStateSuite) TestSetConstraintsReplacesPreviousSameZone(c *gc
 }
 
 func (s *applicationStateSuite) TestSetConstraintsApplicationNotFound(c *gc.C) {
-	err := s.state.SetApplicationConstraints(context.Background(), "foo", constraints.Value{Mem: ptr(uint64(8))})
+	err := s.state.SetApplicationConstraints(context.Background(), "foo", constraints.Constraints{Mem: ptr(uint64(8))})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

@@ -16,6 +16,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/constraints"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -132,30 +133,30 @@ func getModelUUID(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX) 
 // set for the model.
 func (s *ModelState) GetModelConstraints(
 	ctx context.Context,
-) (model.Constraints, error) {
+) (constraints.Constraints, error) {
 	db, err := s.DB()
 	if err != nil {
-		return model.Constraints{}, errors.Capture(err)
+		return constraints.Constraints{}, errors.Capture(err)
 	}
 
 	selectTagStmt, err := s.Prepare(
 		"SELECT &dbConstraintTag.* FROM v_model_constraint_tag", dbConstraintTag{},
 	)
 	if err != nil {
-		return model.Constraints{}, errors.Capture(err)
+		return constraints.Constraints{}, errors.Capture(err)
 	}
 
 	selectSpaceStmt, err := s.Prepare(
 		"SELECT &dbConstraintSpace.* FROM v_model_constraint_space", dbConstraintSpace{},
 	)
 	if err != nil {
-		return model.Constraints{}, errors.Capture(err)
+		return constraints.Constraints{}, errors.Capture(err)
 	}
 
 	selectZoneStmt, err := s.Prepare(
 		"SELECT &dbConstraintZone.* FROM v_model_constraint_zone", dbConstraintZone{})
 	if err != nil {
-		return model.Constraints{}, errors.Capture(err)
+		return constraints.Constraints{}, errors.Capture(err)
 	}
 
 	var (
@@ -189,7 +190,7 @@ func (s *ModelState) GetModelConstraints(
 		return nil
 	})
 	if err != nil {
-		return model.Constraints{}, errors.Capture(err)
+		return constraints.Constraints{}, errors.Capture(err)
 	}
 
 	return cons.toValue(tags, spaces, zones)
@@ -341,7 +342,7 @@ func SetModelConstraints(
 	ctx context.Context,
 	preparer domain.Preparer,
 	tx *sqlair.TX,
-	cons model.Constraints,
+	cons constraints.Constraints,
 ) error {
 	constraintsUUID, err := uuid.NewUUID()
 	if err != nil {
@@ -455,7 +456,7 @@ WHERE value = $dbContainerTypeValue.value
 // - [modelerrors.NotFound]: when no model exists to set constraints for.
 func (s *ModelState) SetModelConstraints(
 	ctx context.Context,
-	cons model.Constraints,
+	cons constraints.Constraints,
 ) error {
 	db, err := s.DB()
 	if err != nil {
@@ -516,7 +517,7 @@ func insertContraintSpaces(
 	preparer domain.Preparer,
 	tx *sqlair.TX,
 	constraintUUID uuid.UUID,
-	spaces []model.SpaceConstraint,
+	spaces []constraints.SpaceConstraint,
 ) error {
 	if len(spaces) == 0 {
 		return nil

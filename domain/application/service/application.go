@@ -18,7 +18,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/constraints"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -294,7 +295,7 @@ type ApplicationState interface {
 	// application ID.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
+	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Constraints, error)
 
 	// SetApplicationConstraints sets the application constraints for the
 	// specified application ID.
@@ -304,7 +305,7 @@ type ApplicationState interface {
 	// error is returned.
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error
+	SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Constraints) error
 
 	// GetApplicationStatus looks up the status of the specified application,
 	// returning an error satisfying [applicationerrors.ApplicationNotFound] if the
@@ -1600,13 +1601,13 @@ func (s *Service) SetApplicationConfig(ctx context.Context, appID coreapplicatio
 // application ID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error) {
+func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (coreconstraints.Value, error) {
 	if err := appID.Validate(); err != nil {
-		return constraints.Value{}, internalerrors.Errorf("application ID: %w", err)
+		return coreconstraints.Value{}, internalerrors.Errorf("application ID: %w", err)
 	}
 
 	cons, err := s.st.GetApplicationConstraints(ctx, appID)
-	return cons, internalerrors.Capture(err)
+	return constraints.EncodeConstraints(cons), internalerrors.Capture(err)
 }
 
 // GetApplicationStatus looks up the status of the specified application,

@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
-	modeldomain "github.com/juju/juju/domain/model"
+	domainconstraints "github.com/juju/juju/domain/constraints"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
@@ -72,7 +72,7 @@ func getModelConstraintAssertion(c *gc.C, cons constraints.Value) database.Boots
 			return model, nil
 		}, loggertesting.WrapCheckLog(c))
 
-		expectedConsVal := modeldomain.FromCoreConstraints(cons)
+		expectedConsVal := domainconstraints.DecodeConstraints(cons)
 		data, err := modelState.GetModelConstraints(context.Background())
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(data, jc.DeepEquals, expectedConsVal)

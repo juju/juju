@@ -9,11 +9,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/constraints"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
+	"github.com/juju/juju/domain/constraints"
 )
 
 type typesSuite struct {
@@ -189,18 +190,18 @@ func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
 }
 
 // TestFromCoreConstraints is concerned with testing the mapping from a
-// [constraints.Value] to a [Constraints] object. Specifically the main thing we
+// [coreconstraints.Value] to a [Constraints] object. Specifically the main thing we
 // care about in this test is that spaces are either included or excluded
 // correctly and that the rest of the values are set verbatim.
 func (*typesSuite) TestFromCoreConstraints(c *gc.C) {
 	tests := []struct {
 		Comment string
-		In      constraints.Value
-		Out     Constraints
+		In      coreconstraints.Value
+		Out     constraints.Constraints
 	}{
 		{
 			Comment: "Test every value get's set as described",
-			In: constraints.Value{
+			In: coreconstraints.Value{
 				Arch:             ptr("test"),
 				Container:        ptr(instance.LXD),
 				CpuCores:         ptr(uint64(1)),
@@ -217,7 +218,7 @@ func (*typesSuite) TestFromCoreConstraints(c *gc.C) {
 				ImageID:          ptr("image-123"),
 				Spaces:           ptr([]string{"space1", "space2", "^space3"}),
 			},
-			Out: Constraints{
+			Out: constraints.Constraints{
 				Arch:             ptr("test"),
 				Container:        ptr(instance.LXD),
 				CpuCores:         ptr(uint64(1)),
@@ -232,7 +233,7 @@ func (*typesSuite) TestFromCoreConstraints(c *gc.C) {
 				Zones:            ptr([]string{"zone1", "zone2"}),
 				AllocatePublicIP: ptr(true),
 				ImageID:          ptr("image-123"),
-				Spaces: ptr([]SpaceConstraint{
+				Spaces: ptr([]constraints.SpaceConstraint{
 					{SpaceName: "space1", Exclude: false},
 					{SpaceName: "space2", Exclude: false},
 					{SpaceName: "space3", Exclude: true},
@@ -241,60 +242,60 @@ func (*typesSuite) TestFromCoreConstraints(c *gc.C) {
 		},
 		{
 			Comment: "Test only excluded spaces",
-			In: constraints.Value{
+			In: coreconstraints.Value{
 				Arch:   ptr("test"),
 				Spaces: ptr([]string{"^space3"}),
 			},
-			Out: Constraints{
+			Out: constraints.Constraints{
 				Arch: ptr("test"),
-				Spaces: ptr([]SpaceConstraint{
+				Spaces: ptr([]constraints.SpaceConstraint{
 					{SpaceName: "space3", Exclude: true},
 				}),
 			},
 		},
 		{
 			Comment: "Test only included spaces",
-			In: constraints.Value{
+			In: coreconstraints.Value{
 				Arch:   ptr("test"),
 				Spaces: ptr([]string{"space3"}),
 			},
-			Out: Constraints{
+			Out: constraints.Constraints{
 				Arch: ptr("test"),
-				Spaces: ptr([]SpaceConstraint{
+				Spaces: ptr([]constraints.SpaceConstraint{
 					{SpaceName: "space3", Exclude: false},
 				}),
 			},
 		},
 		{
 			Comment: "Test no spaces",
-			In: constraints.Value{
+			In: coreconstraints.Value{
 				Arch: ptr("test"),
 			},
-			Out: Constraints{
+			Out: constraints.Constraints{
 				Arch: ptr("test"),
 			},
 		},
 	}
 
 	for _, test := range tests {
-		rval := FromCoreConstraints(test.In)
+		rval := constraints.DecodeConstraints(test.In)
 		c.Check(rval, jc.DeepEquals, test.Out, gc.Commentf(test.Comment))
 	}
 }
 
 // TestToCoreConstraints is concerned with testing the mapping from a
-// [Constraints] object to a [constraints.Value]. Specifically the main thing we
+// [Constraints] object to a [coreconstraints.Value]. Specifically the main thing we
 // care about in this test is that spaces are either included or excluded
 // correctly and that the rest of the values are set verbatim.
 func (*typesSuite) TestToCoreConstraints(c *gc.C) {
 	tests := []struct {
 		Comment string
-		Out     constraints.Value
-		In      Constraints
+		Out     coreconstraints.Value
+		In      constraints.Constraints
 	}{
 		{
 			Comment: "Test every value get's set as described",
-			In: Constraints{
+			In: constraints.Constraints{
 				Arch:             ptr("test"),
 				Container:        ptr(instance.LXD),
 				CpuCores:         ptr(uint64(1)),
@@ -309,13 +310,13 @@ func (*typesSuite) TestToCoreConstraints(c *gc.C) {
 				Zones:            ptr([]string{"zone1", "zone2"}),
 				AllocatePublicIP: ptr(true),
 				ImageID:          ptr("image-123"),
-				Spaces: ptr([]SpaceConstraint{
+				Spaces: ptr([]constraints.SpaceConstraint{
 					{SpaceName: "space1", Exclude: false},
 					{SpaceName: "space2", Exclude: false},
 					{SpaceName: "space3", Exclude: true},
 				}),
 			},
-			Out: constraints.Value{
+			Out: coreconstraints.Value{
 				Arch:             ptr("test"),
 				Container:        ptr(instance.LXD),
 				CpuCores:         ptr(uint64(1)),
@@ -335,43 +336,43 @@ func (*typesSuite) TestToCoreConstraints(c *gc.C) {
 		},
 		{
 			Comment: "Test only excluded spaces",
-			In: Constraints{
+			In: constraints.Constraints{
 				Arch: ptr("test"),
-				Spaces: ptr([]SpaceConstraint{
+				Spaces: ptr([]constraints.SpaceConstraint{
 					{SpaceName: "space3", Exclude: true},
 				}),
 			},
-			Out: constraints.Value{
+			Out: coreconstraints.Value{
 				Arch:   ptr("test"),
 				Spaces: ptr([]string{"^space3"}),
 			},
 		},
 		{
 			Comment: "Test only included spaces",
-			In: Constraints{
+			In: constraints.Constraints{
 				Arch: ptr("test"),
-				Spaces: ptr([]SpaceConstraint{
+				Spaces: ptr([]constraints.SpaceConstraint{
 					{SpaceName: "space3", Exclude: false},
 				}),
 			},
-			Out: constraints.Value{
+			Out: coreconstraints.Value{
 				Arch:   ptr("test"),
 				Spaces: ptr([]string{"space3"}),
 			},
 		},
 		{
 			Comment: "Test no spaces",
-			In: Constraints{
+			In: constraints.Constraints{
 				Arch: ptr("test"),
 			},
-			Out: constraints.Value{
+			Out: coreconstraints.Value{
 				Arch: ptr("test"),
 			},
 		},
 	}
 
 	for _, test := range tests {
-		rval := ToCoreConstraints(test.In)
+		rval := constraints.EncodeConstraints(test.In)
 		c.Check(rval, jc.DeepEquals, test.Out, gc.Commentf(test.Comment))
 	}
 }
