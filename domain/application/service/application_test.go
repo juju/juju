@@ -683,10 +683,10 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 		},
 		Platform: platform,
 		Storage: []application.AddApplicationStorageArg{{
-			Name:  "data",
-			Pool:  "loop",
-			Size:  10,
-			Count: 1,
+			Name:           "data",
+			PoolNameOrType: "loop",
+			Size:           10,
+			Count:          1,
 		}},
 		Scale: 1,
 	}
@@ -792,10 +792,10 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 		},
 		Platform: platform,
 		Storage: []application.AddApplicationStorageArg{{
-			Name:  "data",
-			Pool:  "fast",
-			Size:  10,
-			Count: 2,
+			Name:           "data",
+			PoolNameOrType: "fast",
+			Size:           10,
+			Count:          2,
 		}},
 		Scale: 1,
 	}
@@ -905,10 +905,10 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 		},
 		Platform: platform,
 		Storage: []application.AddApplicationStorageArg{{
-			Name:  "data",
-			Pool:  "rootfs",
-			Size:  10,
-			Count: 1,
+			Name:           "data",
+			PoolNameOrType: "rootfs",
+			Size:           10,
+			Count:          1,
 		}},
 		Scale: 1,
 	}
@@ -1015,10 +1015,10 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 		},
 		Platform: platform,
 		Storage: []application.AddApplicationStorageArg{{
-			Name:  "data",
-			Pool:  "fast",
-			Size:  10,
-			Count: 2,
+			Name:           "data",
+			PoolNameOrType: "fast",
+			Size:           10,
+			Count:          2,
 		}},
 		Scale: 1,
 	}

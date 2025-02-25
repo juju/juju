@@ -62,10 +62,10 @@ type AddApplicationResourceArg struct {
 
 // AddApplicationStorageArg defines the arguments required to add storage to an application.
 type AddApplicationStorageArg struct {
-	Name  string
-	Pool  string
-	Size  uint64
-	Count uint64
+	Name           string
+	PoolNameOrType string
+	Size           uint64
+	Count          uint64
 }
 
 // Channel represents the channel of a application charm.

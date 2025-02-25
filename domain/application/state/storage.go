@@ -34,6 +34,25 @@ WHERE  charm_uuid = $applicationDetails.charm_uuid
 		return errors.Capture(err)
 	}
 
+	// Storage is either a storage type or a pool name.
+	// Get a mapping of pool name to pool UUID for all pools.
+	// The number of pools is always small - we'll limit the size
+	// of the result set just in case. If there's more than 200 there's
+	// much bigger problems in play.
+	storageQuery, err := st.Prepare(`SELECT &storagePool.* FROM storage_pool LIMIT 200`, storagePool{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var allPools []storagePool
+	err = tx.Query(ctx, storageQuery).GetAll(&allPools)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return errors.Errorf("querying all storage pools: %w", err)
+	}
+	poolsByName := make(map[string]string)
+	for _, p := range allPools {
+		poolsByName[p.Name] = p.UUID
+	}
+
 	var storageMetadata []charmStorage
 	err = tx.Query(ctx, queryStmt, appDetails).GetAll(&storageMetadata)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -58,9 +77,15 @@ WHERE  charm_uuid = $applicationDetails.charm_uuid
 			ApplicationUUID: appDetails.UUID.String(),
 			CharmUUID:       appDetails.CharmID,
 			StorageName:     stor.Name,
-			StoragePool:     stor.Pool,
 			Size:            uint(stor.Size),
 			Count:           uint(stor.Count),
+		}
+		// PoolNameOrType has already been validated to either be
+		// a pool name or a valid storage type for the relevant cloud.
+		if uuid, ok := poolsByName[stor.PoolNameOrType]; ok {
+			storage[i].StoragePool = &uuid
+		} else {
+			storage[i].StorageType = &stor.PoolNameOrType
 		}
 	}
 
