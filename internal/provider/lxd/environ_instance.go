@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/container/lxd"
-	"github.com/juju/juju/internal/provider/common"
 )
 
 // Instances returns the available instances in the environment that
@@ -33,8 +32,7 @@ func (env *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance
 		// will return either ErrPartialInstances or ErrNoInstances.
 		// TODO(ericsnow) Skip returning here only for certain errors?
 		logger.Errorf(ctx, "failed to get instances from LXD: %v", err)
-		_, _ = common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
-		err = errors.Trace(err)
+		err = errors.Trace(env.HandleCredentialError(ctx, err))
 	}
 
 	// Build the result, matching the provided instance IDs.
@@ -98,8 +96,7 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	containers, err := env.server().AliveContainers("juju-")
 	if err != nil {
-		_, _ = common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(env.HandleCredentialError(ctx, err))
 	}
 
 	var results []instance.Id
@@ -122,8 +119,7 @@ func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, cont
 func (env *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	instances, err := env.AllInstances(ctx)
 	if err != nil {
-		_, _ = common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
-		return errors.Annotate(err, "all instances")
+		return errors.Annotate(env.HandleCredentialError(ctx, err), "all instances")
 	}
 
 	var failed []instance.Id

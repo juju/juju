@@ -115,8 +115,7 @@ func (env *azureEnviron) diskEncryptionInfo(
 	vaultName := fmt.Sprintf("%s-%s", vaultNamePrefix, env.config.Config.UUID()[:8])
 	vault, vaultParams, err := env.ensureVault(ctx, vaults, vaultName, userID, envTagPtr, desIdentity)
 	if err != nil {
-		_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Annotatef(err, "creating vault %q", vaultName))
-		return "", invalidationErr
+		return "", env.HandleCredentialError(ctx, errors.Annotatef(err, "creating vault %q", vaultName))
 	}
 
 	// Create a key in the vault.
@@ -125,8 +124,7 @@ func (env *azureEnviron) diskEncryptionInfo(
 	}
 	keyRef, err := env.createVaultKey(ctx, *vault.Properties.VaultURI, *vault.Name, keyName)
 	if err != nil {
-		_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Annotatef(err, "creating vault key in %q", vaultName))
-		return "", invalidationErr
+		return "", env.HandleCredentialError(ctx, errors.Annotatef(err, "creating vault key in %q", vaultName))
 	}
 
 	// We had an existing disk encryption set.
@@ -137,8 +135,7 @@ func (env *azureEnviron) diskEncryptionInfo(
 	// Create the disk encryption set.
 	desIdentity, err = env.ensureDiskEncryptionSet(ctx, encryptionSets, diskEncryptionSetName, envTagPtr, vault.ID, keyRef)
 	if err != nil {
-		_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Annotatef(err, "creating disk encryption set %q", diskEncryptionSetName))
-		return "", invalidationErr
+		return "", env.HandleCredentialError(ctx, errors.Annotatef(err, "creating disk encryption set %q", diskEncryptionSetName))
 	}
 
 	// Update the vault access policies to allow the disk encryption set to access the key.
@@ -150,8 +147,7 @@ func (env *azureEnviron) diskEncryptionInfo(
 		_, err = poller.PollUntilDone(ctx, nil)
 	}
 	if err != nil {
-		_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Annotatef(err, "updating vault %q access policies ", vaultName))
-		return "", invalidationErr
+		return "", env.HandleCredentialError(ctx, errors.Annotatef(err, "updating vault %q access policies ", vaultName))
 	}
 	return diskEncryptionSetID, nil
 }
@@ -314,8 +310,7 @@ func (env *azureEnviron) deleteVault(ctx envcontext.ProviderCallContext, vaultNa
 	}
 	_, err = vaults.Delete(ctx, env.resourceGroup, vaultName, nil)
 	if err != nil {
-		_, err = errorutils.HandleCredentialError(ctx, env.credentialInvalidator, err)
-		if !errorutils.IsNotFoundError(err) {
+		if !errorutils.IsNotFoundError(env.HandleCredentialError(ctx, err)) {
 			return errors.Annotatef(err, "deleting vault key %q", vaultName)
 		}
 	}

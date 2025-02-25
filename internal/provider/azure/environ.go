@@ -88,6 +88,7 @@ const (
 type azureEnviron struct {
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
+	common.CredentialInvalidator
 
 	// provider is the azureEnvironProvider used to open this environment.
 	provider *azureEnvironProvider
@@ -119,11 +120,6 @@ type azureEnviron struct {
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
-
-	// credentialInvalidator is used to invalidate the credentials
-	// when necessary. This will cause the provider to be unable to
-	// perform any operations until the credentials are updated/fixed.
-	credentialInvalidator environs.CredentialInvalidator
 
 	clientOptions policy.ClientOptions
 	credential    azcore.TokenCredential
@@ -321,17 +317,13 @@ func (env *azureEnviron) initResourceGroup(ctx envcontext.ProviderCallContext, c
 		logger.Debugf(ctx, "using existing resource group %q for model %q", env.resourceGroup, env.modelName)
 		g, err := resourceGroups.Get(ctx, env.resourceGroup, nil)
 		if err != nil {
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator,
-				errors.Annotatef(err, "checking resource group %q", env.resourceGroup))
-			return invalidationErr
+			return env.HandleCredentialError(ctx, errors.Annotatef(err, "checking resource group %q", env.resourceGroup))
 		}
 		if region := toValue(g.Location); region != env.location {
 			return errors.Errorf("cannot use resource group in region %q when operating in region %q", region, env.location)
 		}
 		if err := env.checkResourceGroup(g.ResourceGroup, modelTag); err != nil {
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator,
-				errors.Annotate(err, "validating resource group"))
-			return invalidationErr
+			return env.HandleCredentialError(ctx, errors.Annotate(err, "validating resource group"))
 		}
 	} else {
 		logger.Debugf(ctx, "creating resource group %q for model %q", env.resourceGroup, env.modelName)
@@ -339,9 +331,7 @@ func (env *azureEnviron) initResourceGroup(ctx envcontext.ProviderCallContext, c
 			Location: to.Ptr(env.location),
 			Tags:     toMapPtr(resourceTags),
 		}, nil); err != nil {
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator,
-				errors.Annotate(err, "creating resource group"))
-			return invalidationErr
+			return env.HandleCredentialError(ctx, errors.Annotate(err, "creating resource group"))
 		}
 	}
 
@@ -1310,9 +1300,7 @@ func (env *azureEnviron) cancelDeployment(ctx envcontext.ProviderCallContext, na
 		if isDeployConflictError(err) {
 			return nil
 		}
-		_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator,
-			errors.Annotatef(err, "canceling deployment %q", name))
-		return invalidationErr
+		return env.HandleCredentialError(ctx, errors.Annotatef(err, "canceling deployment %q", name))
 	}
 	return nil
 }
@@ -1351,7 +1339,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 		_, err = poller.PollUntilDone(ctx, nil)
 	}
 	if err != nil {
-		invalidated, _ := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, err)
+		invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
 		if invalidated || !errorutils.IsNotFoundError(err) {
 			return errors.Annotate(err, "deleting virtual machine")
 		}
@@ -1367,7 +1355,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 		_, err = diskPoller.PollUntilDone(ctx, nil)
 	}
 	if err != nil {
-		invalidated, _ := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, err)
+		invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
 		if invalidated || !errorutils.IsNotFoundError(err) {
 			return errors.Annotate(err, "deleting OS disk")
 		}
@@ -1393,7 +1381,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 			_, err = nicPoller.PollUntilDone(ctx, nil)
 		}
 		if err != nil {
-			invalidated, _ := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, err)
+			invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
 			if invalidated || !errorutils.IsNotFoundError(err) {
 				return errors.Annotate(err, "deleting NIC")
 			}
@@ -1413,7 +1401,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 			_, err = ipPoller.PollUntilDone(ctx, nil)
 		}
 		if err != nil {
-			invalidated, _ := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, err)
+			invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
 			if invalidated || !errorutils.IsNotFoundError(err) {
 				return errors.Annotate(err, "deleting public IP")
 			}
@@ -1432,7 +1420,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 	}
 	if err != nil {
 		ignoreError := isDeployConflictError(err) || errorutils.IsNotFoundError(err)
-		invalidated, _ := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, err)
+		invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
 		if !ignoreError || invalidated {
 			return errors.Annotate(err, "deleting deployment")
 		}
@@ -1461,7 +1449,7 @@ func (env *azureEnviron) AdoptResources(ctx envcontext.ProviderCallContext, cont
 		// controller is destroyed, taking the other things with it.
 		return errors.Trace(err)
 	}
-	apiVersions, err := collectAPIVersions(ctx, env.credentialInvalidator, providers)
+	apiVersions, err := env.collectAPIVersions(ctx, providers)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1475,9 +1463,7 @@ func (env *azureEnviron) AdoptResources(ctx envcontext.ProviderCallContext, cont
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator,
-				errors.Annotate(err, "listing resources"))
-			return invalidationErr
+			return env.HandleCredentialError(ctx, errors.Annotate(err, "listing resources"))
 		}
 		for _, res := range next.Value {
 			apiVersion := apiVersions[toValue(res.Type)]
@@ -1503,8 +1489,7 @@ func (env *azureEnviron) AdoptResources(ctx envcontext.ProviderCallContext, cont
 func (env *azureEnviron) updateGroupControllerTag(ctx envcontext.ProviderCallContext, client *armresources.ResourceGroupsClient, groupName, controllerUUID string) error {
 	group, err := client.Get(ctx, groupName, nil)
 	if err != nil {
-		_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Trace(err))
-		return invalidationErr
+		return env.HandleCredentialError(ctx, err)
 	}
 
 	logger.Debugf(ctx,
@@ -1519,9 +1504,10 @@ func (env *azureEnviron) updateGroupControllerTag(ctx envcontext.ProviderCallCon
 	}
 
 	_, err = client.CreateOrUpdate(ctx, groupName, group.ResourceGroup, nil)
-	_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator,
-		errors.Annotatef(err, "updating controller for resource group %q", groupName))
-	return invalidationErr
+	if err == nil {
+		return nil
+	}
+	return env.HandleCredentialError(ctx, errors.Annotatef(err, "updating controller for resource group %q", groupName))
 }
 
 func (env *azureEnviron) updateResourceControllerTag(
@@ -1541,9 +1527,7 @@ func (env *azureEnviron) updateResourceControllerTag(
 	// properties are populated.
 	resource, err := client.GetByID(ctx, toValue(stubResource.ID), apiVersion, nil)
 	if err != nil {
-		_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator,
-			errors.Annotatef(err, "getting full resource %q", toValue(stubResource.Name)))
-		return invalidationErr
+		return env.HandleCredentialError(ctx, errors.Annotatef(err, "getting full resource %q", toValue(stubResource.Name)))
 	}
 
 	logger.Debugf(ctx, "updating %s juju controller UUID to %s", toValue(stubResource.ID), controllerUUID)
@@ -1558,9 +1542,7 @@ func (env *azureEnviron) updateResourceControllerTag(
 		resource.GenericResource,
 		nil,
 	)
-	_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator,
-		errors.Annotatef(err, "updating controller for %q", toValue(resource.Name)))
-	return invalidationErr
+	return env.HandleCredentialError(ctx, errors.Annotatef(err, "updating controller for %q", toValue(resource.Name)))
 }
 
 var (
@@ -1737,8 +1719,7 @@ func (env *azureEnviron) allQueuedInstances(
 				// exist, e.g. in a fresh hosted environment.
 				return nil, nil
 			}
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Trace(err))
-			return nil, invalidationErr
+			return nil, env.HandleCredentialError(ctx, err)
 		}
 		for _, deployment := range next.Value {
 			deployProvisioningState := armresources.ProvisioningStateNotSpecified
@@ -1847,8 +1828,7 @@ func (env *azureEnviron) allProvisionedInstances(
 				// exist, e.g. in a fresh hosted environment.
 				return nil, nil
 			}
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Trace(err))
-			return nil, invalidationErr
+			return nil, env.HandleCredentialError(ctx, err)
 		}
 		for _, vm := range next.Value {
 			name := toValue(vm.Name)
@@ -2030,8 +2010,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx envcontext.Pr
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Annotate(err, "listing resource groups"))
-			return invalidationErr
+			return env.HandleCredentialError(ctx, errors.Annotate(err, "listing resource groups"))
 		}
 		// Walk all the pages of results so we can get a total list of groups to remove.
 		for _, result := range next.Value {
@@ -2092,7 +2071,7 @@ func (env *azureEnviron) deleteResourceGroup(ctx envcontext.ProviderCallContext,
 		_, err = poller.PollUntilDone(ctx, nil)
 	}
 	if err != nil {
-		invalidated, _ := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, err)
+		invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
 		if invalidated || !errorutils.IsNotFoundError(err) {
 			return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 		}
@@ -2104,7 +2083,7 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx envcontext.ProviderCallConte
 	logger.Debugf(ctx, "deleting all resources in %s", resourceGroup)
 
 	defer func() {
-		_, err = errorutils.HandleCredentialError(ctx, env.credentialInvalidator, err)
+		_, err = env.MaybeInvalidateCredentialError(ctx, err)
 	}()
 
 	// Find all the resources tagged as belonging to this model.
@@ -2358,9 +2337,7 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx envcontext.ProviderCallConte
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator,
-				errors.Annotate(err, "listing VM sizes"))
-			return nil, invalidationErr
+			return nil, env.HandleCredentialError(ctx, errors.Annotate(err, "listing VM sizes"))
 		}
 	nextResource:
 		for _, resource := range next.Value {

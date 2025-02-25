@@ -221,6 +221,13 @@ func HandleCredentialError(ctx context.Context, invalidator environs.CredentialI
 	return common.HandleCredentialError(ctx, invalidator, HasDenialStatusCode, converted)
 }
 
+// IsAuthorisationFailure returns true if the error is
+// caused by an authorisation failure.
+func IsAuthorisationFailure(err error) bool {
+	converted := fmt.Errorf("azure cloud denied access: %w", common.CredentialNotValidError(err))
+	return HasDenialStatusCode(converted)
+}
+
 // HasDenialStatusCode returns true of the error has a status code
 // meaning that the credential is invalid.
 func HasDenialStatusCode(err error) bool {

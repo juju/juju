@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 )
 
 var _ environs.NetworkingEnviron = (*azureEnviron)(nil)
@@ -52,8 +51,7 @@ func (env *azureEnviron) Subnets(
 	}
 	subnets, err := env.allSubnets(ctx)
 	if err != nil {
-		_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, err)
-		return nil, invalidationErr
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	return subnets, nil
 }
@@ -347,8 +345,7 @@ func (env *azureEnviron) defaultControllerSubnet() network.Id {
 func (env *azureEnviron) findSubnetID(ctx envcontext.ProviderCallContext, subnetName string) (network.Id, error) {
 	subnets, err := env.allProviderSubnets(ctx)
 	if err != nil {
-		_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, err)
-		return "", invalidationErr
+		return "", env.HandleCredentialError(ctx, err)
 	}
 	for _, subnet := range subnets {
 		if toValue(subnet.Name) == subnetName {
@@ -409,8 +406,7 @@ func (env *azureEnviron) networkInfoForInstance(
 		// So get all accessible subnets.
 		allSubnets, err := env.allSubnets(ctx)
 		if err != nil {
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Trace(err))
-			return "", nil, invalidationErr
+			return "", nil, env.HandleCredentialError(ctx, err)
 		}
 		subnetIds := make([]network.Id, len(allSubnets))
 		for i, subnet := range allSubnets {

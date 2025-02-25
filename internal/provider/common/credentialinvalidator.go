@@ -22,6 +22,47 @@ const (
 	ErrorCredentialNotValid = errors.ConstError("credential not valid")
 )
 
+// AuthErrorFunc is a function that determines if an error is an authentication
+// error.
+type AuthErrorFunc func(error) bool
+
+// CredentialInvalidator is a provider of invalidation of credentials.
+// credentialInvalidator is used to invalidate the credentials
+// when necessary. This will cause the provider to be unable to
+// perform any operations until the credentials are updated/fixed.
+type CredentialInvalidator struct {
+	invalidator environs.CredentialInvalidator
+	authError   AuthErrorFunc
+}
+
+// NewCredentialInvalidator returns a new CredentialInvalidator.
+func NewCredentialInvalidator(invalidator environs.CredentialInvalidator, authError AuthErrorFunc) CredentialInvalidator {
+	return CredentialInvalidator{
+		invalidator: invalidator,
+		authError:   authError,
+	}
+}
+
+// InvalidateCredentials invalidates the credentials.
+func (c CredentialInvalidator) InvalidateCredentials(ctx context.Context, reason environs.CredentialInvalidReason) error {
+	return c.invalidator.InvalidateCredentials(ctx, reason)
+}
+
+// HandleCredentialError determines if a given error relates to an invalid
+// credential. If it is, the credential is invalidated and the returns the
+// origin error.
+func (c CredentialInvalidator) HandleCredentialError(ctx context.Context, err error) error {
+	_, invalidErr := HandleCredentialError(ctx, c.invalidator, c.authError, errors.Trace(err))
+	return invalidErr
+}
+
+// MaybeInvalidateCredentialError determines if a given error relates to an
+// invalid credential. If it is, the credential is invalidated and the return
+// bool is true and the origin error.
+func (c CredentialInvalidator) MaybeInvalidateCredentialError(ctx context.Context, err error) (bool, error) {
+	return HandleCredentialError(ctx, c.invalidator, c.authError, errors.Trace(err))
+}
+
 // CredentialNotValidError returns an error that satisfy both
 // Is(err, ErrorCredentialNotValid) and the errors.Locationer interface.
 func CredentialNotValidError(err error) error {

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
+	"github.com/juju/juju/internal/provider/common"
 )
 
 const (
@@ -126,9 +127,9 @@ func (prov *azureEnvironProvider) Open(ctx context.Context, args environs.OpenPa
 		return nil, errors.Trace(err)
 	}
 	environ := &azureEnviron{
+		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, errorutils.IsAuthorisationFailure),
 		provider:              prov,
 		namespace:             namespace,
-		credentialInvalidator: invalidator,
 	}
 
 	// Config is needed before cloud spec.
@@ -181,6 +182,5 @@ var verifyCredentials = func(e *azureEnviron, ctx envcontext.ProviderCallContext
 	_, err := e.credential.GetToken(ctx, policy.TokenRequestOptions{
 		Scopes: []string{e.clientOptions.Cloud.Services[azurecloud.ResourceManager].Audience + "/.default"},
 	})
-	_, invalidationErr := errorutils.HandleCredentialError(ctx, e.credentialInvalidator, err)
-	return invalidationErr
+	return e.HandleCredentialError(ctx, err)
 }

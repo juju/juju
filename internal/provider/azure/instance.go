@@ -109,8 +109,7 @@ func (env *azureEnviron) instanceNetworkInterfaces(
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Annotate(err, "listing network interfaces"))
-			return nil, invalidationErr
+			return nil, env.HandleCredentialError(ctx, errors.Annotate(err, "listing network interfaces"))
 		}
 		for _, nic := range next.Value {
 			instanceId := instance.Id(toValue(nic.Tags[jujuMachineNameTag]))
@@ -136,8 +135,7 @@ func (env *azureEnviron) instancePublicIPAddresses(
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, env.credentialInvalidator, errors.Annotate(err, "listing public IP addresses"))
-			return nil, invalidationErr
+			return nil, env.HandleCredentialError(ctx, errors.Annotate(err, "listing public IP addresses"))
 		}
 		for _, pip := range next.Value {
 			instanceId := instance.Id(toValue(pip.Tags[jujuMachineNameTag]))
@@ -364,8 +362,7 @@ func (inst *azureInstance) openPortsOnGroup(
 			_, err = poller.PollUntilDone(ctx, nil)
 		}
 		if err != nil {
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, inst.env.credentialInvalidator, errors.Annotatef(err, "creating security rule for %q", ruleName))
-			return invalidationErr
+			return inst.env.HandleCredentialError(ctx, errors.Annotatef(err, "creating security rule for %q", ruleName))
 		}
 		nsg.Properties.SecurityRules = append(nsg.Properties.SecurityRules, to.Ptr(securityRule))
 	}
@@ -413,8 +410,7 @@ func (inst *azureInstance) closePortsOnGroup(
 			_, err = poller.PollUntilDone(ctx, nil)
 		}
 		if err != nil && !errorutils.IsNotFoundError(err) {
-			_, invalidationErr := errorutils.HandleCredentialError(ctx, inst.env.credentialInvalidator, errors.Annotatef(err, "deleting security rule %q", ruleName))
-			return invalidationErr
+			return inst.env.HandleCredentialError(ctx, errors.Annotatef(err, "deleting security rule %q", ruleName))
 		}
 	}
 	return nil
@@ -456,8 +452,7 @@ func (inst *azureInstance) ingressRulesForGroup(ctx envcontext.ProviderCallConte
 	}
 	nsg, err := securityGroups.Get(ctx, nsgInfo.resourceGroup, toValue(nsgInfo.securityGroup.Name), nil)
 	if err != nil {
-		_, invalidationErr := errorutils.HandleCredentialError(ctx, inst.env.credentialInvalidator, errors.Annotate(err, "querying network security group"))
-		return nil, invalidationErr
+		return nil, inst.env.HandleCredentialError(ctx, errors.Annotatef(err, "querying network security group"))
 	}
 	if nsg.Properties == nil || len(nsg.Properties.SecurityRules) == 0 {
 		return nil, nil
@@ -558,7 +553,7 @@ func deleteInstanceNetworkSecurityRules(
 
 	for _, info := range securityGroupInfos {
 		if err := deleteSecurityRules(
-			ctx, env.credentialInvalidator,
+			ctx, env.CredentialInvalidator,
 			id, info,
 			securityRules,
 		); err != nil {
