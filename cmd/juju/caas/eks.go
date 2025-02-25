@@ -39,7 +39,7 @@ func (e *eks) ensureExecutable() error {
 	err := collapseRunError(runCommand(e, cmd, ""))
 	errAnnotationMessage := fmt.Sprintf(`%q not found. Please install %q (see: https://eksctl.io/introduction/#installation), login, and try again`, e.tool, e.tool)
 	if err != nil {
-		return errors.Errorf(errAnnotationMessage)
+		return errors.New(errAnnotationMessage)
 	}
 
 	// check that we are logged in, there is no way to provide login details to a separate command.

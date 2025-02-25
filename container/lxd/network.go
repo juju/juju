@@ -217,11 +217,11 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 	}
 
 	// No nics with a nictype of nicTypeBridged, nicTypeMACVLAN was found.
-	return errors.Errorf(fmt.Sprintf(
+	return errors.Errorf(
 		"no network device found with nictype %q or %q"+
 			"\n\tthe following devices were checked: %s"+
 			"\nReconfigure lxd to use a network of type %q or %q.",
-		nicTypeBridged, nicTypeMACVLAN, strings.Join(checked, ", "), nicTypeBridged, nicTypeMACVLAN))
+		nicTypeBridged, nicTypeMACVLAN, strings.Join(checked, ", "), nicTypeBridged, nicTypeMACVLAN)
 }
 
 // generateNICDeviceName attempts to generate a new NIC device name that is not

@@ -260,7 +260,7 @@ func (c *addRelationCommand) getOffersAPI(url *crossmodel.OfferURL) (application
 
 // offerTerminatedRegexp is used to parse an error due to the remote offer being terminated.
 // (TODO) we don't have an error code for this scenario so need to rely on a string match.
-var offerTerminatedRegexp = regexp.MustCompile(".*offer (?P<offer>\\S+) .*terminated.*")
+var offerTerminatedRegexp = regexp.MustCompile(`.*offer (?P<offer>\S+) .*terminated.*`)
 
 func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAddRelationAPI()
@@ -293,7 +293,7 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 		infoErr := errors.Errorf(`
 
 Use 'juju status --relations' to view the current relations.`)
-		return errors.Annotatef(infoErr, splitError)
+		return errors.Annotate(infoErr, splitError)
 	}
 	if err != nil {
 		if offerTerminatedRegexp.MatchString(err.Error()) {

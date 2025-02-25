@@ -136,7 +136,7 @@ func (d *deployCharm) deploy(
 		appConfig = nil
 	}
 
-	ctx.Infof(d.formatDeployingText(applicationName, charmName))
+	ctx.Infof("%s", d.formatDeployingText(applicationName, charmName))
 	args := applicationapi.DeployArgs{
 		CharmID:          id,
 		CharmOrigin:      id.Origin,
@@ -165,7 +165,7 @@ func (d *deployCharm) deploy(
 deploy application using an alias name:
     juju deploy <application> <alias>
 or use remove-application to remove the existing one and try again.`,
-		), err.Error())
+		), "%s", err.Error())
 	}
 	return errors.Trace(err)
 }
@@ -232,7 +232,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	ctx.Infof(formatLocatedText(d.userCharmURL, commoncharm.Origin{}))
+	ctx.Infof("%s", formatLocatedText(d.userCharmURL, commoncharm.Origin{}))
 
 	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	origin, err := utils.MakeOrigin(charm.Local, userCharmURL.Revision, charm.Channel{}, platform)
@@ -282,7 +282,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	ctx.Infof(formatLocatedText(curl, origin))
+	ctx.Infof("%s", formatLocatedText(curl, origin))
 	l.id = application.CharmID{
 		URL:    curl.String(),
 		Origin: origin,
@@ -386,7 +386,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 			info.Name, uploadErr)
 	}
 
-	ctx.Infof(formatDeployedText(c.dryRun, charmName, info))
+	ctx.Infof("%s", formatDeployedText(c.dryRun, charmName, info))
 	return nil
 }
 
@@ -431,7 +431,7 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 		if usingDefaultBase {
 			msg += " Used the default-base."
 		}
-		return errors.Errorf(msg)
+		return errors.New(msg)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -466,7 +466,7 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 		if usingDefaultBase {
 			msg += " Used the default-base."
 		}
-		return errors.Errorf(msg)
+		return errors.New(msg)
 	}
 	if validationErr := charmValidationError(storeCharmOrBundleURL.Name, errors.Trace(err)); validationErr != nil {
 		return errors.Trace(validationErr)
@@ -497,7 +497,7 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 			channel = fmt.Sprintf(" in channel %s", channel)
 		}
 
-		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
+		ctx.Infof("%s", fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
 			name, origin.Source, curl.Name, curl.Revision, channel, origin.Base.DisplayString()))
 		return nil
 	}
@@ -516,7 +516,7 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 		}
 		return errors.Annotatef(err, "storing charm %q", curl.Name)
 	}
-	ctx.Infof(formatLocatedText(curl, csOrigin))
+	ctx.Infof("%s", formatLocatedText(curl, csOrigin))
 
 	// If the original base was empty, so we couldn't validate the original
 	// charm base, but the charm url wasn't nil, we can check and validate

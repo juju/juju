@@ -2354,7 +2354,7 @@ func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {
 	case v := <-ch:
 		return v
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out " + activity)
+		c.Fatalf("timed out %s", activity)
 		panic("unreachable")
 	}
 }
@@ -2362,7 +2362,7 @@ func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {
 func assertNoEvent(c *gc.C, ch <-chan interface{}, event string) {
 	select {
 	case <-ch:
-		c.Fatalf("unexpected " + event)
+		c.Fatalf("unexpected %s", event)
 	case <-time.After(coretesting.ShortWait):
 	}
 }

@@ -661,7 +661,7 @@ func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepo
 	} else {
 		msg = fmt.Sprintf("base from placements, %q, does not match requested base %q", placementPlatform.String(), platform.String())
 	}
-	return corecharm.Platform{}, usedModelDefaultBase, fmt.Errorf(msg)
+	return corecharm.Platform{}, usedModelDefaultBase, errors.New(msg)
 
 }
 
@@ -764,7 +764,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 			if usedModelDefaultBase {
 				msg += " Used the default-base."
 			}
-			return corecharm.ResolvedDataForDeploy{}, errors.Errorf(msg)
+			return corecharm.ResolvedDataForDeploy{}, errors.New(msg)
 		}
 	} else if resolveErr != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(resolveErr)
@@ -828,7 +828,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 		if usedModelDefaultBase {
 			msg += " Used the default-base."
 		}
-		return corecharm.ResolvedDataForDeploy{}, errors.Errorf(msg)
+		return corecharm.ResolvedDataForDeploy{}, errors.New(msg)
 	} else if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}

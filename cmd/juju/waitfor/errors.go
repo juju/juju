@@ -50,7 +50,7 @@ func syntaxErrDisplay(err error, input string) error {
 	builder.WriteString(helpMessage(input, syntaxErr.Pos, syntaxErr.Expectations))
 	builder.WriteString(".")
 
-	return fmt.Errorf(builder.String())
+	return errors.New(builder.String())
 }
 
 func helpReason(exps []query.TokenType) string {
@@ -156,7 +156,7 @@ func invalidIdentifierDisplay(err error, input string, defaultIdents []string) e
 
 	first, other, ok := orderPotentialMatches(identErr.Name(), idents)
 	if !ok {
-		return fmt.Errorf(builder.String())
+		return errors.New(builder.String())
 	}
 
 	if first != "" {
@@ -176,7 +176,7 @@ func invalidIdentifierDisplay(err error, input string, defaultIdents []string) e
 		builder.WriteString(strings.Join(other, "\n    - "))
 	}
 
-	return fmt.Errorf(builder.String())
+	return errors.New(builder.String())
 }
 
 func orderPotentialMatches(name string, possible []string) (string, []string, bool) {
@@ -242,7 +242,7 @@ func runtimeErrDisplay(err error, input string) error {
 	builder.WriteString("\n")
 	builder.WriteString("Maybe try removing the character and try again.")
 
-	return fmt.Errorf(builder.String())
+	return errors.New(builder.String())
 }
 
 func runtimeSyntaxErrDisplay(err error, input string) error {
@@ -263,7 +263,7 @@ func runtimeSyntaxErrDisplay(err error, input string) error {
 
 	first, other, ok := orderPotentialMatches(runErr.Name, runErr.Options)
 	if !ok {
-		return fmt.Errorf(builder.String())
+		return errors.New(builder.String())
 	}
 
 	if first != "" {
@@ -283,5 +283,5 @@ func runtimeSyntaxErrDisplay(err error, input string) error {
 		builder.WriteString(strings.Join(other, "\n    - "))
 	}
 
-	return fmt.Errorf(builder.String())
+	return errors.New(builder.String())
 }
