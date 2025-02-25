@@ -47,6 +47,7 @@ type CrossModelRelationsAPIv3 struct {
 	fw                 firewall.State
 	secretService      SecretService
 	modelConfigService ModelConfigService
+	applicationService ApplicationService
 	resources          facade.Resources
 	authorizer         facade.Authorizer
 
@@ -72,6 +73,7 @@ func NewCrossModelRelationsAPI(
 	authCtxt *commoncrossmodel.AuthContext,
 	secretService SecretService,
 	modelConfigService ModelConfigService,
+	applicationService ApplicationService,
 	egressAddressWatcher egressAddressWatcherFunc,
 	relationStatusWatcher relationStatusWatcherFunc,
 	offerStatusWatcher offerStatusWatcherFunc,
@@ -86,6 +88,7 @@ func NewCrossModelRelationsAPI(
 		authCtxt:               authCtxt,
 		secretService:          secretService,
 		modelConfigService:     modelConfigService,
+		applicationService:     applicationService,
 		egressAddressWatcher:   egressAddressWatcher,
 		relationStatusWatcher:  relationStatusWatcher,
 		offerStatusWatcher:     offerStatusWatcher,
@@ -543,7 +546,7 @@ func (api *CrossModelRelationsAPIv3) WatchOfferStatus(
 			continue
 		}
 
-		change, err := commoncrossmodel.GetOfferStatusChange(api.st, arg.OfferUUID, w.OfferName())
+		change, err := commoncrossmodel.GetOfferStatusChange(ctx, api.st, api.applicationService, arg.OfferUUID, w.OfferName())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			w.Kill()

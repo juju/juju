@@ -17,9 +17,11 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corestatus "github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/rpc/params"
@@ -298,12 +300,28 @@ func (w *srvRelationStatusWatcher) Next(ctx context.Context) (params.RelationLif
 	}, nil
 }
 
+type ApplicationService interface {
+	// GetApplicationDisplayStatus returns the display status of the specified application.
+	// The display status is equal to the application status if it is set, otherwise it is
+	// derived from the unit display statuses.
+	// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
+	// is returned.
+	GetApplicationDisplayStatus(context.Context, coreapplication.ID) (*corestatus.StatusInfo, error)
+
+	// GetApplicationIDByName returns an application ID by application name. It
+	// returns an error if the application can not be found by the name.
+	//
+	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationIDByName(context.Context, string) (coreapplication.ID, error)
+}
+
 // srvOfferStatusWatcher defines the API wrapping a
 // crossmodelrelations.OfferStatusWatcher.
 type srvOfferStatusWatcher struct {
 	watcherCommon
-	st      *state.State
-	watcher crossmodelrelations.OfferWatcher
+	st                 *state.State
+	applicationService ApplicationService
+	watcher            crossmodelrelations.OfferWatcher
 }
 
 func newOfferStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
@@ -317,17 +335,15 @@ func newOfferStatusWatcher(_ context.Context, context facade.ModelContext) (faca
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	watcher, ok := w.(crossmodelrelations.OfferWatcher)
 	if !ok {
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
 	return &srvOfferStatusWatcher{
-		watcherCommon: newWatcherCommon(context),
-		st:            context.State(),
-		watcher:       watcher,
+		watcherCommon:      newWatcherCommon(context),
+		st:                 context.State(),
+		applicationService: context.DomainServices().Application(),
+		watcher:            watcher,
 	}, nil
 }
 
@@ -339,8 +355,8 @@ func (w *srvOfferStatusWatcher) Next(ctx context.Context) (params.OfferStatusWat
 	if err != nil {
 		return params.OfferStatusWatchResult{}, errors.Trace(err)
 	}
-	change, err := crossmodel.GetOfferStatusChange(
-		crossmodel.GetBackend(w.st),
+	change, err := crossmodel.GetOfferStatusChange(ctx,
+		crossmodel.GetBackend(w.st), w.applicationService,
 		w.watcher.OfferUUID(), w.watcher.OfferName())
 	if err != nil {
 		// For the specific case where we are informed that a migration is

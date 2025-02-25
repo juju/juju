@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -48,6 +49,7 @@ type crossmodelRelationsSuite struct {
 	coretesting.BaseSuite
 
 	modelConfigService *MockModelConfigService
+	applicationService *MockApplicationService
 
 	resources     *common.Resources
 	authorizer    *apiservertesting.FakeAuthorizer
@@ -65,6 +67,7 @@ func (s *crossmodelRelationsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.applicationService = NewMockApplicationService(ctrl)
 
 	return ctrl
 }
@@ -137,7 +140,7 @@ func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
 		model.UUID(coretesting.ModelTag.Id()),
 		s.st, fw, s.resources, s.authorizer,
-		authContext, s.secretService, s.modelConfigService, egressAddressWatcher, relationStatusWatcher,
+		authContext, s.secretService, s.modelConfigService, s.applicationService, egressAddressWatcher, relationStatusWatcher,
 		offerStatusWatcher, consumedSecretsWatcher,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -651,8 +654,6 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 
 	s.st.offers["f47ac10b-58cc-4372-a567-0e02b2c3d479"] = &crossmodel.ApplicationOffer{
 		OfferName: "hosted-mysql", OfferUUID: "f47ac10b-58cc-4372-a567-0e02b2c3d479", ApplicationName: "mysql"}
-	app := &mockApplication{name: "mysql", appStatus: status.Waiting}
-	s.st.applications["mysql"] = app
 	s.st.remoteEntities[names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")] = "token-hosted-mysql"
 	mac, err := s.bakery.NewMacaroon(
 		context.Background(),
@@ -680,6 +681,13 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 			},
 		},
 	}
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql").Return(appID, nil)
+	s.applicationService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), appID).Return(&status.StatusInfo{
+		Status: status.Waiting,
+	}, nil)
+
 	results, err := s.api.WatchOfferStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
@@ -696,10 +704,6 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"IsMigrationActive", nil},
 		{"ApplicationOfferForUUID", []interface{}{"f47ac10b-58cc-4372-a567-0e02b2c3d479"}},
-		{"Application", []interface{}{"mysql"}},
-	})
-	app.CheckCalls(c, []testing.StubCall{
-		{"Status", nil},
 	})
 }
 

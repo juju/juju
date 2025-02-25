@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/rpc/params"
@@ -564,7 +565,6 @@ func GetRelationLifeSuspendedStatusChange(
 
 type offerGetter interface {
 	ApplicationOfferForUUID(string) (*crossmodel.ApplicationOffer, error)
-	Application(string) (Application, error)
 
 	// IsMigrationActive returns true if the current model is
 	// in the process of being migrated to another controller.
@@ -576,7 +576,7 @@ type offerGetter interface {
 // error to indicate the migration-in-progress is returned.
 // This is interpreted upstream as a watcher error and propagated to the
 // remote CMR consumer.
-func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.OfferStatusChange, error) {
+func GetOfferStatusChange(ctx context.Context, st offerGetter, appService ApplicationService, offerUUID, offerName string) (*params.OfferStatusChange, error) {
 	migrating, err := st.IsMigrationActive()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -598,37 +598,18 @@ func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.
 		return nil, errors.Trace(err)
 	}
 
-	app, err := st.Application(offer.ApplicationName)
-	if errors.Is(err, errors.NotFound) {
-		if migrating {
-			return nil, migration.ErrMigrating
-		}
-		return &params.OfferStatusChange{
-			OfferName: offerName,
-			Status: params.EntityStatus{
-				Status: status.Terminated,
-				Info:   "application has been removed",
-			},
-		}, nil
+	appID, err := appService.GetApplicationIDByName(ctx, offer.ApplicationName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return handleNotFound(migrating, offerName)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	sts := status.StatusInfo{
-		Status: status.Unknown,
-	}
-
-	if appStatus, err := app.Status(); err == nil {
-		// If the status is set to unset, then we need to query all the
-		// units of the application to work out the correct series.
-		if appStatus.Status == status.Unset {
-			derived, err := getDerivedUnitsStatus(app)
-			if err == nil {
-				sts = derived
-			}
-		} else {
-			sts = appStatus
-		}
+	sts, err := appService.GetApplicationDisplayStatus(ctx, appID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return handleNotFound(migrating, offerName)
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return &params.OfferStatusChange{
@@ -642,21 +623,15 @@ func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.
 	}, nil
 }
 
-func getDerivedUnitsStatus(app Application) (status.StatusInfo, error) {
-	units, err := app.AllUnits()
-	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
+func handleNotFound(migrating bool, offerName string) (*params.OfferStatusChange, error) {
+	if migrating {
+		return nil, migration.ErrMigrating
 	}
-
-	statuses := make([]status.StatusInfo, 0, len(units))
-	for _, unit := range units {
-		st, err := unit.Status()
-		if err != nil {
-			return status.StatusInfo{}, errors.Trace(err)
-		}
-
-		statuses = append(statuses, st)
-	}
-	derived := status.DeriveStatus(statuses)
-	return derived, nil
+	return &params.OfferStatusChange{
+		OfferName: offerName,
+		Status: params.EntityStatus{
+			Status: status.Terminated,
+			Info:   "application has been removed",
+		},
+	}, nil
 }
