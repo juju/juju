@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/ec2"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -80,17 +79,17 @@ func (s *ProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec,
 }
 
 func (s *ProviderSuite) TestVerifyCredentialsErrs(c *gc.C) {
-	err := ec2.VerifyCredentials(envcontext.WithoutCredentialInvalidator(context.Background()))
+	err := ec2.VerifyCredentials(context.Background(), nil)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 	c.Assert(err, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
 }
 
-func (s *ProviderSuite) TestMaybeConvertCredentialErrorIgnoresNil(c *gc.C) {
-	err := ec2.MaybeConvertCredentialError(nil, envcontext.WithoutCredentialInvalidator(context.Background()))
-	c.Assert(err, jc.ErrorIsNil)
+func (s *ProviderSuite) TestIsAuthorizationErrorIgnoresNil(c *gc.C) {
+	isAuthErr := ec2.IsAuthorizationError(nil)
+	c.Assert(isAuthErr, jc.IsFalse)
 }
 
-func (s *ProviderSuite) TestMaybeConvertCredentialErrorConvertsCredentialRelatedFailures(c *gc.C) {
+func (s *ProviderSuite) TestIsAuthorizationErrorConvertsCredentialRelatedFailures(c *gc.C) {
 	for _, code := range []string{
 		"AuthFailure",
 		"InvalidClientTokenId",
@@ -100,36 +99,81 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorConvertsCredentialRelated
 		"PendingVerification",
 		"SignatureDoesNotMatch",
 	} {
-		err := ec2.MaybeConvertCredentialError(
-			&smithy.GenericAPIError{Code: code}, envcontext.WithoutCredentialInvalidator(context.Background()))
-		c.Assert(err, gc.NotNil)
-		c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
+		isAuthErr := ec2.IsAuthorizationError(
+			&smithy.GenericAPIError{Code: code})
+		c.Assert(isAuthErr, jc.IsTrue)
 	}
 }
 
-func (s *ProviderSuite) TestMaybeConvertCredentialErrorNotInvalidCredential(c *gc.C) {
+func (s *ProviderSuite) TestIsAuthorizationErrorConvertsCredentialRelatedFailuresWrapped(c *gc.C) {
+	for _, code := range []string{
+		"AuthFailure",
+		"InvalidClientTokenId",
+		"MissingAuthenticationToken",
+		"Blocked",
+		"CustomerKeyHasBeenRevoked",
+		"PendingVerification",
+		"SignatureDoesNotMatch",
+	} {
+		isAuthErr := ec2.IsAuthorizationError(
+			errors.Annotatef(&smithy.GenericAPIError{Code: code}, "wrapped"))
+		c.Assert(isAuthErr, jc.IsTrue)
+	}
+}
+
+func (s *ProviderSuite) TestIsAuthorizationErrorNotInvalidCredential(c *gc.C) {
 	for _, code := range []string{
 		"OptInRequired",
 		"UnauthorizedOperation",
 	} {
-		err := ec2.MaybeConvertCredentialError(
-			&smithy.GenericAPIError{Code: code}, envcontext.WithoutCredentialInvalidator(context.Background()))
-		c.Assert(err, gc.NotNil)
-		c.Assert(err, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
+		isAuthErr := ec2.IsAuthorizationError(
+			&smithy.GenericAPIError{Code: code})
+		c.Assert(isAuthErr, jc.IsFalse)
 	}
 }
 
-func (s *ProviderSuite) TestMaybeConvertCredentialErrorHandlesOtherProviderErrors(c *gc.C) {
+func (s *ProviderSuite) TestIsAuthorizationErrorHandlesOtherProviderErrors(c *gc.C) {
 	// Any other ec2.Error is returned unwrapped.
-	err := ec2.MaybeConvertCredentialError(&smithy.GenericAPIError{Code: "DryRunOperation"}, envcontext.WithoutCredentialInvalidator(context.Background()))
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Assert(err, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
+	isAuthErr := ec2.IsAuthorizationError(&smithy.GenericAPIError{Code: "DryRunOperation"})
+	c.Assert(isAuthErr, jc.IsFalse)
+}
+
+func (s *ProviderSuite) TestConvertAuthorizationErrorsCredentialRelatedFailures(c *gc.C) {
+	for _, code := range []string{
+		"AuthFailure",
+		"InvalidClientTokenId",
+		"MissingAuthenticationToken",
+		"Blocked",
+		"CustomerKeyHasBeenRevoked",
+		"PendingVerification",
+		"SignatureDoesNotMatch",
+	} {
+		authErr := ec2.ConvertAuthorizationError(
+			&smithy.GenericAPIError{Code: code})
+		c.Assert(authErr, jc.ErrorIs, common.ErrorCredentialNotValid)
+	}
+}
+
+func (s *ProviderSuite) TestConvertAuthorizationErrorsNotInvalidCredential(c *gc.C) {
+	for _, code := range []string{
+		"OptInRequired",
+		"UnauthorizedOperation",
+	} {
+		authErr := ec2.ConvertAuthorizationError(
+			&smithy.GenericAPIError{Code: code})
+		c.Assert(authErr, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
+	}
+}
+
+func (s *ProviderSuite) TestConvertAuthorizationErrorsIsNil(c *gc.C) {
+	authErr := ec2.ConvertAuthorizationError(nil)
+	c.Assert(authErr, jc.ErrorIsNil)
 }
 
 func (s *ProviderSuite) TestConvertedCredentialError(c *gc.C) {
 	// Trace() will keep error type
-	inner := ec2.MaybeConvertCredentialError(
-		&smithy.GenericAPIError{Code: "Blocked"}, envcontext.WithoutCredentialInvalidator(context.Background()))
+	inner := ec2.ConvertAuthorizationError(
+		&smithy.GenericAPIError{Code: "Blocked"})
 	traced := errors.Trace(inner)
 	c.Assert(traced, gc.NotNil)
 	c.Assert(traced, jc.ErrorIs, common.ErrorCredentialNotValid)
@@ -140,13 +184,13 @@ func (s *ProviderSuite) TestConvertedCredentialError(c *gc.C) {
 	c.Assert(annotated, jc.ErrorIs, common.ErrorCredentialNotValid)
 
 	// Running a CredentialNotValid through conversion call again is a no-op.
-	again := ec2.MaybeConvertCredentialError(inner, envcontext.WithoutCredentialInvalidator(context.Background()))
+	again := ec2.ConvertAuthorizationError(inner)
 	c.Assert(again, gc.NotNil)
 	c.Assert(again, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(again.Error(), jc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")
 
 	// Running an annotated CredentialNotValid through conversion call again is a no-op too.
-	againAnotated := ec2.MaybeConvertCredentialError(annotated, envcontext.WithoutCredentialInvalidator(context.Background()))
+	againAnotated := ec2.ConvertAuthorizationError(annotated)
 	c.Assert(againAnotated, gc.NotNil)
 	c.Assert(againAnotated, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(againAnotated.Error(), jc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")

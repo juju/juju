@@ -470,7 +470,7 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
 	msg := "terminate instances error"
-	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2.Client, envcontext.ProviderCallContext, ...instance.Id) ([]types.InstanceStateChange, error) {
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(context.Context, ec2.Client, ...instance.Id) ([]types.InstanceStateChange, error) {
 		return nil, errors.New(msg)
 	})
 
@@ -536,7 +536,7 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	inst1, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	inst := t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
-	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(client ec2.Client, ctx envcontext.ProviderCallContext, ids ...instance.Id) ([]types.InstanceStateChange, error) {
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ctx context.Context, client ec2.Client, ids ...instance.Id) ([]types.InstanceStateChange, error) {
 		// Terminate the one destined for termination and
 		// err out to ensure that one instance will be terminated, the other - not.
 		_, err = client.TerminateInstances(ctx, &awsec2.TerminateInstancesInput{
@@ -579,7 +579,7 @@ func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsisten
 	env := t.prepareAndBootstrap(c)
 	msg := "destroy security group error"
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
-		ec2.SecurityGroupCleaner, envcontext.ProviderCallContext, types.GroupIdentifier, clock.Clock,
+		context.Context, ec2.SecurityGroupCleaner, types.GroupIdentifier, clock.Clock,
 	) error {
 		return errors.New(msg)
 	})
@@ -597,7 +597,7 @@ func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyE
 
 	msg := "destroy security group error"
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
-		ec2.SecurityGroupCleaner, envcontext.ProviderCallContext, types.GroupIdentifier, clock.Clock,
+		context.Context, ec2.SecurityGroupCleaner, types.GroupIdentifier, clock.Clock,
 	) error {
 		return errors.New(msg)
 	})
@@ -907,7 +907,7 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 
 	resultErr = fmt.Errorf("failed to get availability zones")
 	zones, err := env.AvailabilityZones(t.callCtx)
-	c.Assert(err, gc.Equals, resultErr)
+	c.Assert(err, jc.ErrorIs, resultErr)
 	c.Assert(zones, gc.IsNil)
 
 	resultErr = nil
@@ -1078,7 +1078,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllNoDefaultSubnet(c *gc.C)
 func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError smithy.APIError) {
 	env := t.prepareAndBootstrap(c)
 
-	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx envcontext.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
+	t.PatchValue(ec2.RunInstances, func(ctx context.Context, e ec2.Client, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
 		return nil, runInstancesError
 	})
 
@@ -1640,12 +1640,12 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 	var azArgs []string
 	realRunInstances := *ec2.RunInstances
 
-	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx envcontext.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
+	t.PatchValue(ec2.RunInstances, func(ctx context.Context, e ec2.Client, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
 		azArgs = append(azArgs, aws.ToString(ri.Placement.AvailabilityZone))
 		if len(azArgs) == 1 {
 			return nil, runInstancesError
 		}
-		return realRunInstances(e, ctx, ri, fakeCallback)
+		return realRunInstances(ctx, e, ri, fakeCallback)
 	})
 
 	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID}
@@ -1678,7 +1678,7 @@ func (t *localServerSuite) TestStartInstanceWithImageIDErr(c *gc.C) {
 		Constraints:    constraints.Value{ImageID: expectedImageID},
 	}
 
-	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx envcontext.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
+	t.PatchValue(ec2.RunInstances, func(ctx context.Context, e ec2.Client, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
 		return nil, &smithy.GenericAPIError{
 			Code:    "InvalisAMIID",
 			Message: fmt.Sprintf("The image id '[%s]' does not exist", *ri.ImageId),
@@ -2007,7 +2007,7 @@ func (t *localServerSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 
 	infoLists, err := env.NetworkInterfaces(t.callCtx, []instance.Id{inst.Id(), instance.Id("bogus")})
 	c.Log(infoLists)
-	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
+	c.Assert(err, jc.ErrorIs, environs.ErrPartialInstances)
 	c.Assert(infoLists, gc.HasLen, 2)
 
 	// Check interfaces for first instance
@@ -2944,7 +2944,7 @@ func (t *localServerSuite) TestGlobalPorts(c *gc.C) {
 	// retrying due to StopInstances deleting the security groups, which are
 	// global when firewall-mode is FwGlobal.
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
-		ec2.SecurityGroupCleaner, envcontext.ProviderCallContext, types.GroupIdentifier, clock.Clock,
+		context.Context, ec2.SecurityGroupCleaner, types.GroupIdentifier, clock.Clock,
 	) error {
 		return nil
 	})
