@@ -1020,14 +1020,6 @@ func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupDefaultStateExpects(c)
 
-	s.mockState.EXPECT().GetControllerModel(gomock.Any()).Return(
-		coremodel.Model{
-			Name:  "test",
-			Cloud: "foo",
-			UUID:  modeltesting.GenModelUUID(c),
-			Owner: usertesting.GenUserUUID(c),
-		}, nil,
-	)
 	s.mockState.EXPECT().CloudSupportsAuthType(gomock.Any(), "foo", cloud.EmptyAuthType)
 
 	svc := NewService(
@@ -1044,56 +1036,6 @@ func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *gc.C) {
 		Name:        "new-test-model",
 	})
 	c.Check(err, jc.ErrorIs, modelerrors.CredentialNotValid)
-}
-
-// TestCreateModelEmptyCredentialFollowsController is asserting that is we
-// specify ane empty credential for a new model and it is the same cloud as that
-// of the controller model and also the same owner the new model is set to use
-// the controller model credential.
-func (s *serviceSuite) TestCreateModelEmptyCredentialFollowsController(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.setupDefaultStateExpects(c)
-
-	adminUserUUID := usertesting.GenUserUUID(c)
-	s.mockState.EXPECT().GetControllerModel(gomock.Any()).Return(
-		coremodel.Model{
-			Name:  "test",
-			Cloud: "foo",
-			Credential: credential.Key{
-				Cloud: "foo",
-				Name:  "test-credential",
-				Owner: usertesting.GenNewName(c, "admin"),
-			},
-			UUID:  modeltesting.GenModelUUID(c),
-			Owner: adminUserUUID,
-		}, nil,
-	)
-
-	svc := NewService(
-		s.mockState,
-		s.mockModelDeleter,
-		loggertesting.WrapCheckLog(c),
-	)
-
-	s.mockState.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ coremodel.UUID, _ coremodel.ModelType, a model.GlobalModelCreationArgs) error {
-			c.Check(a.Credential, gc.Equals, credential.Key{
-				Cloud: "foo",
-				Name:  "test-credential",
-				Owner: usertesting.GenNewName(c, "admin"),
-			})
-			return nil
-		},
-	)
-
-	_, _, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
-		Cloud:       "foo",
-		CloudRegion: "ap-southeast-2",
-		Credential:  credential.Key{}, // zero value of credential implies empty
-		Owner:       adminUserUUID,
-		Name:        "new-test-model",
-	})
-	c.Check(err, jc.ErrorIsNil)
 }
 
 // TestDefaultModelCloudNameAndCredentialNotFound is a white box test that
