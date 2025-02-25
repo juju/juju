@@ -22,7 +22,7 @@ var _ = gc.Suite(&printInfoSuite{})
 func (s *printInfoSuite) TestCharmPrintInfo(c *gc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir, -1)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -56,7 +56,7 @@ channels: |
 func (s *printInfoSuite) TestCharmPrintInfoModeNone(c *gc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeNone, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeNone, &ir, -1)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -90,7 +90,7 @@ channels: |
 func (s *printInfoSuite) TestCharmPrintInfoModeArches(c *gc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeArches, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeArches, &ir, -1)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -125,7 +125,7 @@ channels: |
 func (s *printInfoSuite) TestCharmPrintInfoModeBases(c *gc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBases, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBases, &ir, -1)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -159,7 +159,7 @@ channels: |
 func (s *printInfoSuite) TestCharmPrintInfoWithConfig(c *gc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, true, "never", baseModeNone, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, true, "never", baseModeNone, &ir, -1)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -203,7 +203,7 @@ config:
 func (s *printInfoSuite) TestBundleChannelClosed(c *gc.C) {
 	ir := getBundleInfoClosedTrack()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir, -1)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -225,7 +225,7 @@ channels: |
 func (s *printInfoSuite) TestBundleChannelClosedWithUnicode(c *gc.C) {
 	ir := getBundleInfoClosedTrack()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "always", baseModeBoth, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "always", baseModeBoth, &ir, -1)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -247,7 +247,7 @@ channels: |
 func (s *printInfoSuite) TestBundlePrintInfo(c *gc.C) {
 	ir := getBundleInfoResponse()
 	ctx := commandContextForTest(c)
-	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir)
+	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir, -1)
 	err := iw.Print()
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -4,6 +4,7 @@
 package charmhub
 
 import (
+	"github.com/juju/charm/v12"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,10 +24,163 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 	tests := []struct {
 		Name     string
 		Arch     string
+		Risk     charm.Risk
+		Revision int
+		Track    string
 		Base     corebase.Base
 		Input    []transport.InfoChannelMap
 		Expected RevisionsMap
 	}{{
+		Name:     "match all with no filters",
+		Arch:     "all",
+		Risk:     "",
+		Revision: -1,
+		Track:    "",
+		Base:     corebase.Base{},
+		Input: []transport.InfoChannelMap{{
+			Channel: transport.Channel{Risk: "stable"},
+			Revision: transport.InfoRevision{
+				Bases: []transport.Base{{
+					Name:         "ubuntu",
+					Channel:      "18.04",
+					Architecture: "all",
+				}},
+			},
+		}},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []Base{{Name: "ubuntu", Channel: "18.04"}},
+				}},
+			},
+		},
+	}, {
+		Name:     "filter by risk",
+		Arch:     "all",
+		Risk:     "edge",
+		Revision: -1,
+		Track:    "",
+		Base:     corebase.Base{},
+		Input: []transport.InfoChannelMap{{
+			Channel: transport.Channel{Risk: "stable"},
+			Revision: transport.InfoRevision{
+				Bases: []transport.Base{{
+					Name:         "ubuntu",
+					Channel:      "18.04",
+					Architecture: "all",
+				}},
+			},
+		}, {
+			Channel: transport.Channel{Risk: "edge"},
+			Revision: transport.InfoRevision{
+				Bases: []transport.Base{{
+					Name:         "ubuntu",
+					Channel:      "18.04",
+					Architecture: "all",
+				}},
+			},
+		}},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:  "latest",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []Base{{Name: "ubuntu", Channel: "18.04"}},
+				}},
+				"edge": {{
+					Track:  "latest",
+					Risk:   "edge",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []Base{{Name: "ubuntu", Channel: "18.04"}},
+				}},
+			},
+		},
+	}, {
+		Name:     "filter by revision",
+		Arch:     "all",
+		Risk:     "",
+		Revision: 42,
+		Track:    "",
+		Base:     corebase.Base{},
+		Input: []transport.InfoChannelMap{{
+			Channel: transport.Channel{Risk: "stable"},
+			Revision: transport.InfoRevision{
+				Revision: 42,
+				Bases: []transport.Base{{
+					Name:         "ubuntu",
+					Channel:      "18.04",
+					Architecture: "all",
+				}},
+			},
+		}, {
+			Channel: transport.Channel{Risk: "edge"},
+			Revision: transport.InfoRevision{
+				Revision: 43,
+				Bases: []transport.Base{{
+					Name:         "ubuntu",
+					Channel:      "18.04",
+					Architecture: "all",
+				}},
+			},
+		}},
+		Expected: RevisionsMap{
+			"latest": {
+				"stable": {{
+					Track:    "latest",
+					Risk:     "stable",
+					Revision: 42,
+					Arches:   arch.AllArches().StringList(),
+					Bases:    []Base{{Name: "ubuntu", Channel: "18.04"}},
+				}},
+			},
+		},
+	}, {
+		Name:     "filter by track",
+		Arch:     "all",
+		Risk:     "",
+		Revision: -1,
+		Track:    "2.0",
+		Base:     corebase.Base{},
+		Input: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Track: "1.0",
+				Risk:  "stable",
+			},
+			Revision: transport.InfoRevision{
+				Bases: []transport.Base{{
+					Name:         "ubuntu",
+					Channel:      "18.04",
+					Architecture: "all",
+				}},
+			},
+		}, {
+			Channel: transport.Channel{
+				Track: "2.0",
+				Risk:  "stable",
+			},
+			Revision: transport.InfoRevision{
+				Bases: []transport.Base{{
+					Name:         "ubuntu",
+					Channel:      "18.04",
+					Architecture: "all",
+				}},
+			},
+		}},
+		Expected: RevisionsMap{
+			"2.0": {
+				"stable": {{
+					Track:  "2.0",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []Base{{Name: "ubuntu", Channel: "18.04"}},
+				}},
+			},
+		},
+	}, {
 		Name: "match all",
 		Arch: "all",
 		Base: corebase.Base{},
@@ -242,9 +396,10 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 		}},
 		Expected: RevisionsMap{},
 	}, {
-		Name: "exact match finds no valid channels",
-		Arch: "amd64",
-		Base: corebase.MustParseBaseFromString("ubuntu@20.04"),
+		Name:     "exact match finds no valid channels",
+		Arch:     "amd64",
+		Revision: -1,
+		Base:     corebase.MustParseBaseFromString("ubuntu@20.04"),
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{
 				Name:       "xena/edge",
@@ -283,9 +438,10 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			},
 		},
 	}, {
-		Name: "sorts latest revisions first",
-		Arch: "all",
-		Base: corebase.Base{},
+		Name:     "sorts latest revisions first",
+		Arch:     "all",
+		Revision: -1,
+		Base:     corebase.Base{},
 		Input: []transport.InfoChannelMap{{
 			Channel: transport.Channel{
 				Name:       "xena/edge",
@@ -333,7 +489,7 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 	}}
 	for k, v := range tests {
 		c.Logf("Test %d %s", k, v.Name)
-		_, got, err := filterChannels(v.Input, v.Arch, v.Base)
+		_, got, err := filterChannels(v.Input, v.Arch, v.Risk, v.Revision, v.Track, v.Base)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(got, jc.DeepEquals, v.Expected)
 	}
