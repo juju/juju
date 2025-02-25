@@ -38,7 +38,12 @@ func (s *RemoteSuite) TestNotConnectedConnection(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	c.Assert(w.Connection(), gc.IsNil)
+	ch := w.Connection(context.Background())
+	select {
+	case <-ch:
+		c.Fatalf("expected connection to block")
+	case <-time.After(jujutesting.ShortWait):
+	}
 
 	workertest.CleanKill(c, w)
 }
@@ -70,11 +75,64 @@ func (s *RemoteSuite) TestConnect(c *gc.C) {
 
 	s.ensureChanged(c)
 
-	conn := w.Connection()
-	c.Assert(conn, gc.NotNil)
-	c.Check(conn.Addr().String(), jc.DeepEquals, addr.String())
+	ch := w.Connection(context.Background())
+
+	select {
+	case conn := <-ch:
+		c.Assert(conn, gc.NotNil)
+		c.Check(conn.Addr().String(), jc.DeepEquals, addr.String())
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for connection")
+	}
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *RemoteSuite) TestConnectWhenAlreadyContextCancelled(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	s.expectClockAfter(make(<-chan time.Time))
+
+	w := s.newRemoteServer(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	ch := w.Connection(ctx)
+
+	select {
+	case <-ch:
+		c.Fatalf("expected connection to block")
+	case <-time.After(jujutesting.ShortWait):
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *RemoteSuite) TestConnectWhenAlreadyKilled(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	s.expectClockAfter(make(<-chan time.Time))
+
+	w := s.newRemoteServer(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	workertest.CleanKill(c, w)
+
+	ch := w.Connection(context.Background())
+
+	select {
+	case <-ch:
+		c.Fatalf("expected connection to block")
+	case <-time.After(jujutesting.ShortWait):
+	}
 }
 
 func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
@@ -125,9 +183,15 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 
 	s.ensureChanged(c)
 
-	conn := w.Connection()
-	c.Assert(conn, gc.NotNil)
-	c.Check(conn.Addr(), jc.DeepEquals, addr1)
+	ch := w.Connection(context.Background())
+
+	select {
+	case conn := <-ch:
+		c.Assert(conn, gc.NotNil)
+		c.Check(conn.Addr().String(), jc.DeepEquals, addr1.String())
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for connection")
+	}
 
 	workertest.CleanKill(c, w)
 }
