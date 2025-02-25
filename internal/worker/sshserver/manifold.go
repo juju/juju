@@ -22,7 +22,7 @@ type GetControllerConfigServiceFunc = func(getter dependency.Getter, name string
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerObjectStoreServices) ControllerConfigService {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) ControllerConfigService {
 		return factory.ControllerConfig()
 	})
 }
