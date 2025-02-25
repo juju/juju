@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
@@ -49,7 +50,15 @@ type UpgradeService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
+	// GetApplicationLife looks up the life of the specified application, returning
+	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
+	// application is not found.
 	GetApplicationLife(context.Context, string) (life.Value, error)
+
+	// GetUnitWorkloadStatus returns the workload status of the specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+	// doesn't exist.
+	GetUnitWorkloadStatus(context.Context, unit.Name) (*status.StatusInfo, error)
 }
 
 // ControllerConfigService describes the method needed to get the

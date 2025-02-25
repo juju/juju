@@ -1409,7 +1409,7 @@ func (context *statusContext) processUnit(ctx context.Context, unit *state.Unit,
 		logger.Debugf(ctx, "error fetching workload version: %v", err)
 	}
 
-	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(ctx, unit)
+	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(ctx, unit, unitName)
 
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		result.Subordinates = make(map[string]params.UnitStatus)
@@ -1559,36 +1559,42 @@ type lifer interface {
 	Life() state.Life
 }
 
-// contextUnit overloads the AgentStatus and Status calls to use the cached
-// status values, and delegates everything else to the Unit.
-type contextUnit struct {
-	*state.Unit
-	context *statusContext
-}
-
-// AgentStatus implements UnitStatusGetter.
-func (c *contextUnit) AgentStatus() (status.StatusInfo, error) {
-	return c.context.status.UnitAgent(c.Name())
-}
-
-// Status implements UnitStatusGetter.
-func (c *contextUnit) Status() (status.StatusInfo, error) {
-	return c.context.status.UnitWorkload(c.Name())
-}
-
 // processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
-func (c *statusContext) processUnitAndAgentStatus(ctx context.Context, unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
-	wrapped := &contextUnit{Unit: unit, context: c}
-	agent, workload := c.presence.UnitStatus(ctx, wrapped)
-	populateStatusFromStatusInfoAndErr(&agentStatus, agent.Status, agent.Err)
-	populateStatusFromStatusInfoAndErr(&workloadStatus, workload.Status, workload.Err)
+//
+// NOTE(jack-w-shaw): When this method was Mongo-backed, it will pull the unit statuses
+// out of a cache.
+func (c *statusContext) processUnitAndAgentStatus(ctx context.Context, unit *state.Unit, unitName coreunit.Name) (params.DetailedStatus, params.DetailedStatus) {
+	agentStatus, err := c.status.UnitAgent(unitName.String())
+	if err != nil {
+		return params.DetailedStatus{Err: apiservererrors.ServerError(err)}, params.DetailedStatus{}
+	}
 
-	agentStatus.Life = processLife(unit)
+	workloadStatus, err := c.applicationService.GetUnitDisplayStatus(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return params.DetailedStatus{}, params.DetailedStatus{Err: apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))}
+	} else if err != nil {
+		return params.DetailedStatus{}, params.DetailedStatus{Err: apiservererrors.ServerError(err)}
+	}
+
+	agentPresenceStatus, workloadPresenceStatus := c.presence.UnitStatus(ctx, unit, agentStatus, *workloadStatus)
+	detailedAgentStatus := params.DetailedStatus{
+		Status: agentPresenceStatus.Status.String(),
+		Info:   agentPresenceStatus.Message,
+		Data:   filterStatusData(agentPresenceStatus.Data),
+		Since:  agentPresenceStatus.Since,
+		Life:   processLife(unit),
+	}
+	detailedWorkloadStatus := params.DetailedStatus{
+		Status: workloadPresenceStatus.Status.String(),
+		Info:   workloadPresenceStatus.Message,
+		Data:   filterStatusData(workloadPresenceStatus.Data),
+		Since:  workloadPresenceStatus.Since,
+	}
 
 	if t, err := unit.AgentTools(); err == nil {
-		agentStatus.Version = t.Version.Number.String()
+		detailedAgentStatus.Version = t.Version.Number.String()
 	}
-	return
+	return detailedAgentStatus, detailedWorkloadStatus
 }
 
 // populateStatusFromStatusInfoAndErr creates AgentStatus from the typical output

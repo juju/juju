@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -49,7 +51,10 @@ type ModelService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	GetApplicationLife(context.Context, string) (life.Value, error)
+	// GetApplicationLife returns the life value of the application with the given name.
+	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+	// GetUnitWorkloadStatus returns the workload status of the specified unit.
+	GetUnitWorkloadStatus(context.Context, unit.Name) (*status.StatusInfo, error)
 }
 
 // ModelAgentService provides access to the Juju agent version for the model.

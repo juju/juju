@@ -26,6 +26,8 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
@@ -61,7 +63,10 @@ type ControllerConfigService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	GetApplicationLife(context.Context, string) (life.Value, error)
+	// GetApplicationLife returns the life value of the application with the given name.
+	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+	// GetUnitWorkloadStatus returns the workload status of the specified unit.
+	GetUnitWorkloadStatus(context.Context, unit.Name) (*status.StatusInfo, error)
 }
 
 // ModelManagerService describes the method needed to update model metadata.

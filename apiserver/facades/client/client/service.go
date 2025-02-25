@@ -84,6 +84,12 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
 	// is returned.
 	GetApplicationDisplayStatus(context.Context, application.ID) (*status.StatusInfo, error)
+
+	// GetUnitDisplayStatus returns the display status of the specified unit. The display
+	// status a function of both the unit workload status and the cloud container status.
+	// It returns an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+	// exist.
+	GetUnitDisplayStatus(context.Context, unit.Name) (*status.StatusInfo, error)
 }
 
 // PortService defines the methods that the facade assumes from the Port
