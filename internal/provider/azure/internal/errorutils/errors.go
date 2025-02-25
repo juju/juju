@@ -14,11 +14,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
-	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
 )
-
-var logger = internallogger.GetLogger("juju.provider.azure")
 
 // RequestError represents an error response from Azure.
 type RequestError struct {
