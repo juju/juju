@@ -279,24 +279,6 @@ func (s *Service) createModel(
 		)
 	}
 
-	// First: Check to if a credential has been supplied and if not let's
-	// determine the most appropriate default credential to be used.
-	if args.Credential.IsZero() {
-		credKey, err := s.determineDefaultCloudCredential(ctx, args)
-		if err != nil {
-			return nil, errors.Errorf(
-				"determining a default cloud credential to use for new model %q: %w",
-				args.Name, err,
-			)
-		}
-
-		args.Credential = credKey
-	}
-
-	// Second: Now the default credential has potentially been applied we check
-	// to see if the credential is still zero. This indicates that an empty
-	// auth type is to be used for the cloud and this must be checked to see if
-	// it is supported by the cloud.
 	if args.Credential.IsZero() {
 		supports, err := s.st.CloudSupportsAuthType(ctx, args.Cloud, cloud.EmptyAuthType)
 		if err != nil {
@@ -319,47 +301,6 @@ func (s *Service) createModel(
 	})
 
 	return activator, s.st.Create(ctx, id, modelType, args)
-}
-
-// determineDefaultCloudCredential is responsible for determining if there
-// exists a default cloud credential that can be used for the model that is
-// about to be created.
-//
-// The logic for this is looking to see if the model that is about to be created
-// has the same owner as that of the controller and also that the model is using
-// the same cloud as the controller. If both of these facts are true we are safe
-// to use the same cloud credential as the controller model. It is not an error
-// if there exists no controller model we simply just fall through to the next
-// determination.
-//
-// For all other cases this function will return the zero value of
-// [credential.Key] indicating an empty auth type is to be used. No checks are
-// performed by this function to see if empty auth type is valid for the cloud
-// the model is about to be created on.
-func (s *Service) determineDefaultCloudCredential(
-	ctx context.Context,
-	args model.GlobalModelCreationArgs,
-) (credential.Key, error) {
-	ctrlModel, err := s.st.GetControllerModel(ctx)
-
-	// If no controller model exists this is not an error. That is this should
-	// never happen but it also is not the opinion of this code about what this
-	// should mean as well.
-	if errors.Is(err, modelerrors.NotFound) {
-		return credential.Key{}, nil
-	} else if err != nil {
-		return credential.Key{}, errors.Errorf(
-			"getting controller model information: %w", err,
-		)
-	}
-
-	// If this is the same owner as the controller model and the same cloud we
-	// can re-use the same cloud credential as the controller model.
-	if args.Owner == ctrlModel.Owner && args.Cloud == ctrlModel.Cloud {
-		return ctrlModel.Credential, nil
-	}
-
-	return credential.Key{}, nil
 }
 
 // ImportModel is responsible for importing an existing model into this Juju
