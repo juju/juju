@@ -276,6 +276,7 @@ func (api *OffersAPIv5) modifyOneOfferAccess(ctx context.Context, user names.Use
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return errors.Trace(err)
 		}
+		canModifyOffer = err == nil
 	}
 
 	if !canModifyOffer {

@@ -109,6 +109,7 @@ import (
 	"github.com/juju/juju/internal/worker/reboot"
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/singular"
+	"github.com/juju/juju/internal/worker/sshserver"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/stateconverter"
@@ -828,6 +829,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SocketName:         path.Join(agentConfig.DataDir(), "control.socket"),
 		})),
 
+		// The ssh server worker runs on the controller machine.
+		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
+			DomainServicesName:         domainServicesName,
+			Logger:                     internallogger.GetLogger("juju.worker.sshserver"),
+			NewServerWrapperWorker:     sshserver.NewServerWrapperWorker,
+			NewServerWorker:            sshserver.NewServerWorker,
+			GetControllerConfigService: sshserver.GetControllerConfigService,
+		})),
+
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
 			AgentName:                  agentName,
 			TraceName:                  traceName,
@@ -1377,6 +1387,7 @@ const (
 	queryLoggerName               = "query-logger"
 	rebootName                    = "reboot-executor"
 	secretBackendRotateName       = "secret-backend-rotate"
+	sshServerName                 = "ssh-server"
 	stateConverterName            = "state-converter"
 	storageProvisionerName        = "storage-provisioner"
 	storageRegistryName           = "storage-registry"

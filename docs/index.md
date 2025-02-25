@@ -34,7 +34,7 @@ contributor/index.md
 
 Docs for people who want to use `juju`, whether as SREs or as charm authors
 
-- [Tutorial](user/tutorial) -> **Start here!**
+- [Tutorial](user/tutorial) <- **Start here!**
 - [How-to guides](user/howto/index)
 - [Reference](user/reference/index)
 - [Explanation](user/explanation/index)

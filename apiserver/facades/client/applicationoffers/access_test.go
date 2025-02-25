@@ -22,7 +22,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
-	access "github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -367,6 +367,26 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+}
+
+// TestModifyOfferAccessForModelAdminPermission tests modifying offer access when authorized as model admin.
+// It validates bugfix https://bugs.launchpad.net/juju/+bug/2082494
+func (s *offerAccessSuite) TestModifyOfferAccessForModelAdminPermission(c *gc.C) {
+	modelUUID := uuid.MustNewUUID().String()
+	s.setupOffer(modelUUID, "test", "admin", "someoffer")
+
+	s.authorizer.Tag = names.NewUserTag("admin-model-" + modelUUID)
+	args := params.ModifyOfferAccessRequest{
+		Changes: []params.ModifyOfferAccess{{
+			UserTag:  "user-luke",
+			Action:   params.GrantOfferAccess,
+			Access:   params.OfferReadAccess,
+			OfferURL: "admin/test.someoffer",
+		}}}
+
+	result, err := s.api.ModifyOfferAccess(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.OneError(), jc.ErrorIsNil)
 }
 
 func offerAccessSpec(offerUUID string, accessLevel permission.Access) permission.AccessSpec {

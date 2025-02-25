@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -109,13 +110,12 @@ func (s *providerSuite) k8sNotFoundError() *k8serrors.StatusError {
 	return k8serrors.NewNotFound(schema.GroupResource{}, "test")
 }
 
-func (s *providerSuite) expectEnsureSecretAccessToken(unit string, owned, read []string) {
-	name := unit + "-06f00d"
+func (s *providerSuite) expectEnsureSecretAccessToken(consumer, appNameLabel string, owned, read []string) {
 	objMeta := v1.ObjectMeta{
-		Name: name,
+		Name: consumer,
 		Labels: map[string]string{
 			"app.kubernetes.io/managed-by": "juju",
-			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/name":       appNameLabel,
 			"model.juju.is/name":           "fred",
 		},
 		Annotations: map[string]string{
@@ -189,15 +189,15 @@ func (s *providerSuite) expectEnsureSecretAccessToken(unit string, owned, read [
 		s.mockServiceAccounts.EXPECT().List(gomock.Any(), v1.ListOptions{
 			LabelSelector: "model.juju.is/name=fred",
 		}).Return(&core.ServiceAccountList{}, nil),
-		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), "unit-gitlab-0-06f00d", v1.GetOptions{}).
+		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), consumer, v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(gomock.Any(), sa, v1.CreateOptions{FieldManager: "juju"}).Return(sa, nil),
-		s.mockRoles.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
+		s.mockRoles.EXPECT().Get(gomock.Any(), consumer, v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockRoles.EXPECT().Create(gomock.Any(), role, v1.CreateOptions{FieldManager: "juju"}).Return(role, nil),
-		s.mockRoleBindings.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), consumer, v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), roleBinding, v1.CreateOptions{FieldManager: "juju"}).Return(roleBinding, nil),
-		s.mockRoleBindings.EXPECT().Get(gomock.Any(), name, v1.GetOptions{}).Return(roleBinding, nil),
-		s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), name, treq, v1.CreateOptions{FieldManager: "juju"}).
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), consumer, v1.GetOptions{}).Return(roleBinding, nil),
+		s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), consumer, treq, v1.CreateOptions{FieldManager: "juju"}).
 			Return(&authenticationv1.TokenRequest{
 				Status: authenticationv1.TokenRequestStatus{Token: "token"},
 			}, nil),
@@ -322,11 +322,17 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 	gomock.InOrder(args...)
 }
 
-func (s *providerSuite) assertRestrictedConfig(c *gc.C, isControllerCloud, sameController bool) {
+func (s *providerSuite) assertRestrictedConfig(c *gc.C, accessor secrets.Accessor, isControllerCloud, sameController bool) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	s.expectEnsureSecretAccessToken("unit-gitlab-0", []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"})
+	appNameLabel := "gitlab"
+	consumer := "unit-" + strings.ReplaceAll(accessor.ID, "/", "-") + "-06f00d"
+	if accessor.Kind == secrets.ModelAccessor {
+		consumer = "model-fred-06f00d"
+		appNameLabel = coretesting.ModelTag.Id()
+	}
+	s.expectEnsureSecretAccessToken(consumer, appNameLabel, []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"})
 
 	s.PatchValue(&kubernetes.InClusterConfig, func() (*rest.Config, error) {
 		host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
@@ -361,10 +367,6 @@ func (s *providerSuite) assertRestrictedConfig(c *gc.C, isControllerCloud, sameC
 		BackendConfig:  cfg,
 	}
 
-	accessor := secrets.Accessor{
-		Kind: secrets.UnitAccessor,
-		ID:   "gitlab/0",
-	}
 	backendCfg, err := p.RestrictedConfig(context.Background(), adminCfg, sameController, false, accessor,
 		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
 		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
@@ -385,16 +387,32 @@ func (s *providerSuite) assertRestrictedConfig(c *gc.C, isControllerCloud, sameC
 	c.Assert(backendCfg, jc.DeepEquals, expected)
 }
 
-func (s *providerSuite) TestRestrictedConfig(c *gc.C) {
-	s.assertRestrictedConfig(c, false, false)
+func (s *providerSuite) TestRestrictedConfigWithUnit(c *gc.C) {
+	s.assertRestrictedConfig(c, secrets.Accessor{
+		Kind: secrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}, false, false)
 }
 
-func (s *providerSuite) TestRestrictedConfigWithControllerCloud(c *gc.C) {
-	s.assertRestrictedConfig(c, true, true)
+func (s *providerSuite) TestRestrictedConfigWithModel(c *gc.C) {
+	s.assertRestrictedConfig(c, secrets.Accessor{
+		Kind: secrets.ModelAccessor,
+		ID:   coretesting.ModelTag.Id(),
+	}, false, false)
+}
+
+func (s *providerSuite) TestRestrictedConfiWithControllerCloud(c *gc.C) {
+	s.assertRestrictedConfig(c, secrets.Accessor{
+		Kind: secrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}, true, true)
 }
 
 func (s *providerSuite) TestRestrictedConfigWithControllerCloudDifferentController(c *gc.C) {
-	s.assertRestrictedConfig(c, true, false)
+	s.assertRestrictedConfig(c, secrets.Accessor{
+		Kind: secrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}, true, false)
 }
 
 func ptr[T any](v T) *T {
@@ -467,7 +485,8 @@ func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	s.expectEnsureSecretAccessToken("unit-gitlab-0", nil, nil)
+	consumer := "unit-gitlab-0-06f00d"
+	s.expectEnsureSecretAccessToken(consumer, "gitlab", nil, nil)
 
 	p, err := provider.Provider(kubernetes.BackendType)
 	c.Assert(err, jc.ErrorIsNil)
