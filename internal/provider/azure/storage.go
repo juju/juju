@@ -645,7 +645,7 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			_, err = poller.PollUntilDone(ctx, nil)
 		}
 		if err != nil {
-			if handled, _ := errorutils.HandleCredentialError(ctx, v.env.credentialInvalidator, err); handled {
+			if invalidated, _ := errorutils.HandleCredentialError(ctx, v.env.credentialInvalidator, err); invalidated {
 				return nil, errors.Trace(err)
 			}
 			results[i] = err
