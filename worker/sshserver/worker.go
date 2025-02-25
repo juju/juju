@@ -9,6 +9,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 )
 
@@ -22,6 +23,12 @@ type SystemState interface {
 	// SSHServerHostKey returns the host key for the SSH server. This key was set
 	// during the controller bootstrap process via bootstrap-state and is currently
 	// a FIXED value.
+	SSHServerHostKey() (string, error)
+}
+
+type FacadeClient interface {
+	ControllerConfig() (controller.Config, error)
+	WatchControllerConfig() (watcher.NotifyWatcher, error)
 	SSHServerHostKey() (string, error)
 }
 
