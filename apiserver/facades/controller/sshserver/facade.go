@@ -14,15 +14,23 @@ import (
 // State provides required state for the Facade.
 type State interface {
 	WatchControllerConfig() state.NotifyWatcher
+	SSHServerHostKey() (string, error)
 }
 
 // Facade allows model config manager clients to watch controller config changes and fetch controller config.
 type Facade struct {
-	auth      facade.Authorizer
 	resources facade.Resources
 
 	ctrlState           State
 	controllerConfigAPI *common.ControllerConfigAPI
+}
+
+func NewFacade(ctx facade.Context, systemState *state.State) *Facade {
+	return &Facade{
+		resources:           ctx.Resources(),
+		controllerConfigAPI: common.NewStateControllerConfig(systemState),
+		ctrlState:           systemState,
+	}
 }
 
 func (f *Facade) ControllerConfig() (params.ControllerConfigResult, error) {
@@ -37,5 +45,15 @@ func (f *Facade) WatchControllerConfig() (params.NotifyWatchResult, error) {
 	} else {
 		return result, watcher.EnsureErr(w)
 	}
+	return result, nil
+}
+
+func (f *Facade) SSHServerHostKey() (params.SSHServerHostPrivateKeyResult, error) {
+	result := params.SSHServerHostPrivateKeyResult{}
+	key, err := f.ctrlState.SSHServerHostKey()
+	if err != nil {
+		return result, err
+	}
+	result.HostKey = key
 	return result, nil
 }

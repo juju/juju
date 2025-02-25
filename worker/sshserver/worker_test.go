@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/sshserver"
 	"github.com/juju/juju/worker/sshserver/mocks"
 )
@@ -27,13 +28,13 @@ var _ = gc.Suite(&workerSuite{})
 
 func newServerWrapperWorkerConfig(
 	l loggo.Logger,
-	s *mocks.MockSystemState,
+	client *mocks.MockFacadeClient,
 	modifier func(*sshserver.ServerWrapperWorkerConfig),
 ) *sshserver.ServerWrapperWorkerConfig {
 	cfg := &sshserver.ServerWrapperWorkerConfig{
 		NewServerWorker: func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:          l,
-		SystemState:     s,
+		FacadeClient:    client,
 	}
 
 	modifier(cfg)
@@ -46,27 +47,27 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	defer ctrl.Finish()
 
 	l := loggo.GetLogger("test")
-	mockSystemState := mocks.NewMockSystemState(ctrl)
+	mockFacadeClient := mocks.NewMockFacadeClient(ctrl)
 
-	cfg := newServerWrapperWorkerConfig(l, mockSystemState, func(cfg *sshserver.ServerWrapperWorkerConfig) {})
+	cfg := newServerWrapperWorkerConfig(l, mockFacadeClient, func(cfg *sshserver.ServerWrapperWorkerConfig) {})
 	c.Assert(cfg.Validate(), jc.ErrorIsNil)
 
 	// Test no Logger.
 	cfg = newServerWrapperWorkerConfig(
 		l,
-		mockSystemState,
+		mockFacadeClient,
 		func(cfg *sshserver.ServerWrapperWorkerConfig) {
 			cfg.Logger = nil
 		},
 	)
 	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
 
-	// Test no SystemState.
+	// Test no FacadeClient.
 	cfg = newServerWrapperWorkerConfig(
 		l,
-		mockSystemState,
+		mockFacadeClient,
 		func(cfg *sshserver.ServerWrapperWorkerConfig) {
-			cfg.SystemState = nil
+			cfg.FacadeClient = nil
 		},
 	)
 	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
@@ -74,7 +75,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	// Test no NewServerWorker.
 	cfg = newServerWrapperWorkerConfig(
 		l,
-		mockSystemState,
+		mockFacadeClient,
 		func(cfg *sshserver.ServerWrapperWorkerConfig) {
 			cfg.NewServerWorker = nil
 		},
@@ -86,29 +87,29 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	mockSystemState := mocks.NewMockSystemState(ctrl)
+	mockFacadeClient := mocks.NewMockFacadeClient(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
 	defer workertest.DirtyKill(c, serverWorker)
 
-	controllerConfigWatcher := workertest.NewFakeWatcher(1, 0)
+	controllerConfigWatcher := NewFakeFacadeWatcher(1, 0)
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
 	// Expect SSHServerHostKey to be retrieved
-	mockSystemState.EXPECT().SSHServerHostKey().Return("key", nil).Times(1)
+	mockFacadeClient.EXPECT().SSHServerHostKey().Return("key", nil).Times(1)
 	// Expect WatchControllerConfig call
-	mockSystemState.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher)
+	mockFacadeClient.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
 	// Expect config to be called just the once.
 	ctrlCfg := controller.Config{
 		controller.SSHServerPort:               22,
 		controller.SSHMaxConcurrentConnections: 10,
 	}
-	mockSystemState.EXPECT().ControllerConfig().Return(ctrlCfg, nil).Times(1)
+	mockFacadeClient.EXPECT().ControllerConfig().Return(ctrlCfg, nil).Times(1)
 
 	cfg := sshserver.ServerWrapperWorkerConfig{
-		SystemState: mockSystemState,
-		Logger:      loggo.GetLogger("test"),
+		FacadeClient: mockFacadeClient,
+		Logger:       loggo.GetLogger("test"),
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
@@ -135,21 +136,21 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	mockSystemState := mocks.NewMockSystemState(ctrl)
+	mockFacadeClient := mocks.NewMockFacadeClient(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
 	defer workertest.DirtyKill(c, serverWorker)
 
-	controllerConfigWatcher := workertest.NewFakeWatcher(1, 0)
+	controllerConfigWatcher := NewFakeFacadeWatcher(1, 0)
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
 	// Expect SSHServerHostKey to be retrieved
-	mockSystemState.EXPECT().SSHServerHostKey().Return("key", nil).Times(1)
+	mockFacadeClient.EXPECT().SSHServerHostKey().Return("key", nil).Times(1)
 	// Expect WatchControllerConfig call
-	mockSystemState.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher)
+	mockFacadeClient.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
 	// Expect first call to have port of 22 and called once.
-	mockSystemState.EXPECT().
+	mockFacadeClient.EXPECT().
 		ControllerConfig().
 		Return(
 			controller.Config{
@@ -160,7 +161,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 		).
 		Times(1)
 	// The second call, we're updating the port and should see it changes in our NewServerWorker call.
-	mockSystemState.EXPECT().
+	mockFacadeClient.EXPECT().
 		ControllerConfig().
 		Return(
 			controller.Config{
@@ -173,8 +174,8 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 
 	startCounter := 0
 	cfg := sshserver.ServerWrapperWorkerConfig{
-		SystemState: mockSystemState,
-		Logger:      loggo.GetLogger("test"),
+		FacadeClient: mockFacadeClient,
+		Logger:       loggo.GetLogger("test"),
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
 			startCounter++
 			if startCounter == 1 {
@@ -217,20 +218,20 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	mockSystemState := mocks.NewMockSystemState(ctrl)
+	mockFacadeClient := mocks.NewMockFacadeClient(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
 	defer workertest.DirtyKill(c, serverWorker)
 
-	controllerConfigWatcher := workertest.NewFakeWatcher(1, 0)
+	controllerConfigWatcher := NewFakeFacadeWatcher(1, 0)
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
 	// Test where the host key is an empty
-	mockSystemState.EXPECT().SSHServerHostKey().Return("", nil).Times(1)
+	mockFacadeClient.EXPECT().SSHServerHostKey().Return("", nil).Times(1)
 
 	cfg := sshserver.ServerWrapperWorkerConfig{
-		SystemState: mockSystemState,
-		Logger:      l,
+		FacadeClient: mockFacadeClient,
+		Logger:       l,
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
@@ -242,12 +243,12 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 	err = workertest.CheckKilled(c, w1)
 	c.Assert(err, gc.ErrorMatches, "jump host key is empty")
 
-	// Test where the host key state method errors
-	mockSystemState.EXPECT().SSHServerHostKey().Return("", errors.New("state failed")).Times(1)
+	// Test where the host key method errors
+	mockFacadeClient.EXPECT().SSHServerHostKey().Return("", errors.New("state failed")).Times(1)
 
 	cfg = sshserver.ServerWrapperWorkerConfig{
-		SystemState: mockSystemState,
-		Logger:      l,
+		FacadeClient: mockFacadeClient,
+		Logger:       l,
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
@@ -258,5 +259,47 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 
 	err = workertest.CheckKilled(c, w2)
 	c.Assert(err, gc.ErrorMatches, "state failed")
+}
 
+// NotAWatcher is a copy from workertest.NewFakeWatcher, we needed to modify the
+// Change() return type as watcher.NotifyWatcher expects Changes() watcher.NotifyChannel
+// (which is just a <-chan struct{}).
+type NotAWatcher struct {
+	changes chan struct{}
+	worker.Worker
+}
+
+// NewFakeFacadeWatcher returns a fake watcher
+func NewFakeFacadeWatcher(len, preload int) NotAWatcher {
+	if len < preload {
+		panic("len must be larger than preload")
+	}
+	ch := make(chan struct{}, len)
+	for i := 0; i < preload; i++ {
+		ch <- struct{}{}
+	}
+	return NotAWatcher{
+		changes: ch,
+		Worker:  workertest.NewErrorWorker(nil),
+	}
+}
+
+func (w NotAWatcher) Changes() watcher.NotifyChannel {
+	return w.changes
+}
+
+func (w NotAWatcher) Stop() error {
+	return nil
+}
+
+func (w NotAWatcher) Err() error {
+	return errors.New("An error")
+}
+
+func (w *NotAWatcher) Ping() {
+	w.changes <- struct{}{}
+}
+
+func (w *NotAWatcher) Close() {
+	close(w.changes)
 }

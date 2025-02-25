@@ -4,8 +4,6 @@
 package sshserver
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -21,10 +19,6 @@ type Client struct {
 
 // NewClient returns an SSH server facade client.
 func NewClient(caller base.APICaller) (*Client, error) {
-	_, isModel := caller.ModelTag()
-	if !isModel {
-		return nil, errors.New("expected model specific API connection")
-	}
 	facadeCaller := base.NewFacadeCaller(caller, "SSHServer")
 	return &Client{
 		facade:              facadeCaller,
@@ -42,4 +36,14 @@ func (c *Client) WatchControllerConfig() (watcher.NotifyWatcher, error) {
 		return nil, result.Error
 	}
 	return apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result), nil
+}
+
+// SSHServerHostKey returns the private host key for the controller's SSH server.
+func (c *Client) SSHServerHostKey() (string, error) {
+	var result params.SSHServerHostPrivateKeyResult
+	err := c.facade.FacadeCall("SSHServerHostKey", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	return result.HostKey, nil
 }

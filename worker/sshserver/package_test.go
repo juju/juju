@@ -6,12 +6,11 @@ package sshserver_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_tracker_mock.go github.com/juju/juju/worker/state StateTracker
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/system_state_mock.go github.com/juju/juju/worker/sshserver SystemState
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/facade_client_mock.go github.com/juju/juju/worker/sshserver FacadeClient
 
 func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	gc.TestingT(t)
 }

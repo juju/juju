@@ -55,3 +55,29 @@ func (s *sshserverSuite) TestControllerConfig(c *gc.C) {
 		},
 	)
 }
+
+func (s *sshserverSuite) TestSSHServerHostKey(c *gc.C) {
+	client, err := newClient(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "SSHServer")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "SSHServerHostKey")
+			c.Assert(arg, gc.IsNil)
+			c.Assert(result, gc.FitsTypeOf, &params.SSHServerHostPrivateKeyResult{})
+
+			*(result.(*params.SSHServerHostPrivateKeyResult)) = params.SSHServerHostPrivateKeyResult{
+				HostKey: "key",
+			}
+			return nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	key, err := client.SSHServerHostKey()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(
+		key,
+		jc.DeepEquals,
+		"key",
+	)
+}

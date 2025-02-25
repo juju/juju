@@ -6,33 +6,30 @@ package sshserver_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	"go.uber.org/mock/gomock"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker/sshserver"
-	"github.com/juju/juju/worker/sshserver/mocks"
 )
 
 type manifoldSuite struct {
-	statetesting.StateSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&manifoldSuite{})
 
-func (s *manifoldSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-}
-
 func newManifoldConfig(l loggo.Logger, modifier func(cfg *sshserver.ManifoldConfig)) *sshserver.ManifoldConfig {
 	cfg := &sshserver.ManifoldConfig{
-		StateName:              "state",
 		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
 		NewServerWorker:        func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:                 l,
+		NewFacadeClient:        func(caller base.APICaller) (sshserver.FacadeClient, error) { return nil, nil },
+		APICallerName:          "api-caller",
 	}
 
 	modifier(cfg)
@@ -49,16 +46,9 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 
 	// Entirely missing.
 	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
-		cfg.StateName = ""
 		cfg.NewServerWrapperWorker = nil
 		cfg.NewServerWorker = nil
 		cfg.Logger = nil
-	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
-
-	// Missing state name.
-	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
-		cfg.StateName = ""
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
@@ -80,32 +70,46 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
+	// Missing NewFacadeClient.
+	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
+		cfg.NewFacadeClient = nil
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	// Empty APICallerName.
+	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
+		cfg.NewFacadeClient = nil
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	mockState := mocks.NewMockStateTracker(ctrl)
-	mockState.EXPECT().Use().Return(s.StatePool, nil).Times(1)
-
 	// Setup the manifold
 	manifold := sshserver.Manifold(sshserver.ManifoldConfig{
-		StateName:              "state",
-		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
-		NewServerWorker:        func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
-		Logger:                 loggo.GetLogger("test"),
+		APICallerName: "api-caller",
+		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) {
+			return workertest.NewDeadWorker(nil), nil
+		},
+		NewServerWorker: func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
+		Logger:          loggo.GetLogger("test"),
+		NewFacadeClient: func(caller base.APICaller) (sshserver.FacadeClient, error) { return nil, nil },
 	})
 
 	// Check the inputs are as expected
-	c.Assert(manifold.Inputs, gc.DeepEquals, []string{"state"})
+	c.Assert(manifold.Inputs, gc.DeepEquals, []string{
+		"api-caller",
+	})
 
 	// Start the worker
-	worker, err := manifold.Start(
+	w, err := manifold.Start(
 		dt.StubContext(nil, map[string]interface{}{
-			"state": mockState,
+			"api-caller": mockAPICaller{},
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(worker, gc.NotNil)
+	c.Assert(w, gc.NotNil)
+}
+
+type mockAPICaller struct {
+	base.APICaller
 }

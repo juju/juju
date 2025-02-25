@@ -58,3 +58,8 @@ type SSHPublicKeysResult struct {
 	Error      *Error   `json:"error,omitempty"`
 	PublicKeys []string `json:"public-keys,omitempty"`
 }
+
+// SSHServerHostPrivateKeyResult holds controller's private host key for it's SSH server.
+type SSHServerHostPrivateKeyResult struct {
+	HostKey string `json:"host-key"`
+}
