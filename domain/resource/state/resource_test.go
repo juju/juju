@@ -443,6 +443,39 @@ func (s *resourceSuite) TestGetApplicationResourceIDNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Act) unexpected error"))
 }
 
+// TestGetApplicationResourceIDCannotGetPotentialResource verifies that
+// potential resources cannot be found by the method.
+func (s *resourceSuite) TestGetApplicationResourceIDCannotGetPotentialResource(c *gc.C) {
+	// Arrange: Add only a potential resource.
+	potentialRes := resourceData{
+		UUID:            "with-potential-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "potential-resource-name",
+		Type:            charmresource.TypeFile,
+		State:           resource.StatePotential.String(),
+		Revision:        2,
+	}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		for _, input := range []resourceData{potentialRes} {
+			if err := input.insert(context.Background(), tx); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act: Get application resource ID.
+	_, err = s.state.GetApplicationResourceID(context.Background(), resource.GetApplicationResourceIDArgs{
+		ApplicationID: application.ID(s.constants.fakeApplicationUUID1),
+		Name:          "potential-resource-name",
+	})
+
+	// Assert: No resource can be found.
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Act) unexpected error"))
+}
+
 // TestGetResourceUUIDByApplicationAndResourceName tests that the resource ID can be correctly
 // retrieved from the database, given a name and an application
 func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceName(c *gc.C) {
@@ -503,6 +536,39 @@ func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameApplicati
 		"resource-name-found",
 	)
 	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound, gc.Commentf("(Act) unexpected error"))
+}
+
+// TestGetResourceUUIDByApplicationAndResourceNameCannotGetPotentialResource verifies that
+// potential resources cannot be found by the method.
+func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceNameCannotGetPotentialResource(c *gc.C) {
+	// Arrange: Add only a potential resource.
+	potentialRes := resourceData{
+		UUID:            "with-potential-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "potential-resource-name",
+		Type:            charmresource.TypeFile,
+		State:           resource.StatePotential.String(),
+		Revision:        2,
+	}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) (err error) {
+		for _, input := range []resourceData{potentialRes} {
+			if err := input.insert(context.Background(), tx); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act: Get application resource ID.
+	_, err = s.state.GetResourceUUIDByApplicationAndResourceName(context.Background(),
+		s.constants.fakeApplicationName1,
+		"potential-resource-name",
+	)
+
+	// Assert: No resource can be found.
+	c.Assert(err, jc.ErrorIs, resourceerrors.ResourceNotFound, gc.Commentf("(Act) unexpected error"))
 }
 
 // TestGetResourceNotFound verifies that attempting to retrieve a non-existent
