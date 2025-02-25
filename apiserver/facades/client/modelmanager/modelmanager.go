@@ -32,9 +32,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	environsContext "github.com/juju/juju/environs/envcontext"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
@@ -431,26 +429,6 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		}
 	}
 
-	var cred *jujucloud.Credential
-	if cloudCredentialTag != (names.CloudCredentialTag{}) {
-		credentialValue, err := m.credentialService.CloudCredential(ctx, credential.KeyFromTag(cloudCredentialTag))
-		if err != nil {
-			return result, errors.Annotate(err, "getting credential")
-		}
-		cloudCredential := jujucloud.NewNamedCredential(
-			credentialValue.Label,
-			credentialValue.AuthType(),
-			credentialValue.Attributes(),
-			credentialValue.Revoked,
-		)
-		cred = &cloudCredential
-	}
-
-	cloudSpec, err := environscloudspec.MakeCloudSpec(*cloud, cloudRegionName, cred)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
 	// createModelNew represents the logic needed for moving to DQlite. It is in
 	// a half finished state at the moment for the purpose of removing the model
 	// manager service. This check will go in the very near future.
@@ -465,10 +443,6 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			return result, err
 		}
 
-		if args.Config == nil {
-			args.Config = map[string]any{}
-		}
-		args.Config[config.UUIDKey] = modelUUID.String()
 	}
 
 	svc, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
@@ -481,149 +455,30 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotate(err, "failed to get config")
 	}
 
-	var createdModel commonmodel.Model
+	modelType := state.ModelTypeIAAS
 	if jujucloud.CloudIsCAAS(*cloud) {
-		createdModel, err = m.newCAASModel(
-			ctx,
-			cloudSpec,
-			args,
-			cloudTag,
-			cloudRegionName,
-			cloudCredentialTag,
-			ownerTag,
-			newConfig,
-		)
-	} else {
-		createdModel, err = m.newIAASModel(
-			ctx,
-			cloudSpec,
-			cloudTag,
-			cloudRegionName,
-			cloudCredentialTag,
-			ownerTag,
-			newConfig,
-		)
-	}
-	if err != nil {
-		return result, errors.Trace(err)
+		modelType = state.ModelTypeCAAS
 	}
 
-	modelInfo, err := m.getModelInfo(ctx, createdModel.ModelTag(), false)
+	model, st, err := m.state.NewModel(state.ModelArgs{
+		Type:            modelType,
+		CloudName:       cloudTag.Id(),
+		CloudRegion:     cloudRegionName,
+		CloudCredential: cloudCredentialTag,
+		Config:          newConfig,
+		Owner:           ownerTag,
+	})
+	if err != nil {
+		return result, errors.Annotate(err, "failed to create new model")
+	}
+	defer st.Close()
+
+	modelInfo, err := m.getModelInfo(ctx, model.ModelTag(), false)
 	if err != nil {
 		return result, err
 	}
 
 	return modelInfo, nil
-}
-
-func (m *ModelManagerAPI) newCAASModel(
-	ctx context.Context,
-	cloudSpec environscloudspec.CloudSpec,
-	createArgs params.ModelCreateArgs,
-	cloudTag names.CloudTag,
-	cloudRegionName string,
-	cloudCredentialTag names.CloudCredentialTag,
-	ownerTag names.UserTag,
-	newConfig *config.Config,
-) (_ commonmodel.Model, err error) {
-	defer func() {
-		// Retain the error stack but with a better message.
-		if errors.Is(err, errors.AlreadyExists) {
-			err = errors.Wrap(err, errors.NewAlreadyExists(nil,
-				`
-the model cannot be created because a namespace with the proposed
-model name already exists in the k8s cluster.
-Please choose a different model name.
-`[1:],
-			))
-		}
-	}()
-
-	broker, err := m.getBroker(ctx, environs.OpenParams{
-		ControllerUUID: m.controllerUUID.String(),
-		Cloud:          cloudSpec,
-		Config:         newConfig,
-	}, environs.NoopCredentialInvalidator())
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to open kubernetes client")
-	}
-
-	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
-	if err = broker.Create(
-		callCtx,
-		environs.CreateParams{ControllerUUID: m.controllerUUID.String()},
-	); err != nil {
-		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
-	}
-
-	model, st, err := m.state.NewModel(state.ModelArgs{
-		Type:            state.ModelTypeCAAS,
-		CloudName:       cloudTag.Id(),
-		CloudRegion:     cloudRegionName,
-		CloudCredential: cloudCredentialTag,
-		Config:          newConfig,
-		Owner:           ownerTag,
-	})
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to create new model")
-	}
-	defer st.Close()
-
-	return model, nil
-}
-
-func (m *ModelManagerAPI) newIAASModel(
-	ctx context.Context,
-	cloudSpec environscloudspec.CloudSpec,
-	cloudTag names.CloudTag,
-	cloudRegionName string,
-	cloudCredentialTag names.CloudCredentialTag,
-	ownerTag names.UserTag,
-	newConfig *config.Config,
-) (commonmodel.Model, error) {
-	// Create the Environ.
-	env, err := environs.New(ctx, environs.OpenParams{
-		ControllerUUID: m.controllerUUID.String(),
-		Cloud:          cloudSpec,
-		Config:         newConfig,
-	}, environs.NoopCredentialInvalidator())
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to open environ")
-	}
-
-	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
-	err = env.Create(
-		callCtx,
-		environs.CreateParams{
-			ControllerUUID: m.controllerUUID.String(),
-		},
-	)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to create environ")
-	}
-
-	// NOTE: check the agent-version of the config, and if it is > the current
-	// version, it is not supported, also check existing tools, and if we don't
-	// have tools for that version, also die.
-	model, st, err := m.state.NewModel(state.ModelArgs{
-		Type:            state.ModelTypeIAAS,
-		CloudName:       cloudTag.Id(),
-		CloudRegion:     cloudRegionName,
-		CloudCredential: cloudCredentialTag,
-		Config:          newConfig,
-		Owner:           ownerTag,
-		EnvironVersion:  env.Provider().Version(),
-	})
-	if err != nil {
-		// Clean up the environ.
-		if e := env.Destroy(callCtx); e != nil {
-			logger.Warningf(context.TODO(), "failed to destroy environ, error %v", e)
-		}
-		return nil, errors.Annotate(err, "failed to create new model")
-	}
-	defer st.Close()
-
-	return model, nil
 }
 
 func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, simplified bool) ([]byte, error) {

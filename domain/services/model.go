@@ -302,7 +302,7 @@ func (s *ModelServices) ModelInfo() *modelservice.ModelService {
 		s.modelUUID,
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("modelinfo")),
-		modelservice.EnvironVersionProviderGetter(),
+		providertracker.ProviderRunner[modelservice.Provider](s.providerFactory, s.modelUUID.String()),
 		modelservice.DefaultAgentBinaryFinder(),
 	)
 }
