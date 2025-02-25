@@ -204,12 +204,12 @@ func (v *azureVolumeSource) createManagedDiskVolume(ctx envcontext.ProviderCallC
 		result, err = poller.PollUntilDone(ctx, nil)
 	}
 	if err != nil || result.Properties == nil {
-		return nil, errorutils.HandleCredentialError(errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id()), ctx)
+		return nil, v.env.HandleCredentialError(ctx, errors.Annotatef(err, "creating disk for volume %q", p.Tag.Id()))
 	}
 
 	volume := storage.Volume{
-		p.Tag,
-		storage.VolumeInfo{
+		Tag: p.Tag,
+		VolumeInfo: storage.VolumeInfo{
 			VolumeId:   diskName,
 			Size:       gibToMib(uint64(toValue(result.Properties.DiskSizeGB))),
 			Persistent: true,
@@ -233,7 +233,7 @@ func (v *azureVolumeSource) listManagedDiskVolumes(ctx envcontext.ProviderCallCo
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing disks"), ctx)
+			return nil, v.env.HandleCredentialError(ctx, errors.Annotatef(err, "listing disks"))
 		}
 		for _, d := range next.Value {
 			diskName := toValue(d.Name)
@@ -264,11 +264,11 @@ func (v *azureVolumeSource) describeManagedDiskVolumes(ctx envcontext.ProviderCa
 				return
 			}
 			disk, err := disks.Get(ctx, v.env.resourceGroup, volumeId, nil)
-			if err != nil {
-				if errorutils.IsNotFoundError(err) {
-					err = errors.NotFoundf("disk %s", volumeId)
-				}
-				results[i].Error = errorutils.HandleCredentialError(err, ctx)
+			if errorutils.IsNotFoundError(err) {
+				results[i].Error = errors.NotFoundf("disk %s", volumeId)
+				return
+			} else if err != nil {
+				results[i].Error = v.env.HandleCredentialError(ctx, err)
 				return
 			}
 			results[i].VolumeInfo = &storage.VolumeInfo{
@@ -299,7 +299,7 @@ func (v *azureVolumeSource) destroyManagedDiskVolumes(ctx envcontext.ProviderCal
 		}
 		if err != nil {
 			if !errorutils.IsNotFoundError(err) {
-				return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting disk %q", volumeId), ctx)
+				return v.env.HandleCredentialError(ctx, errors.Annotatef(err, "deleting disk %q", volumeId))
 			}
 		}
 		return nil
@@ -592,7 +592,7 @@ func (v *azureVolumeSource) virtualMachines(ctx envcontext.ProviderCallContext, 
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing virtual machines"), ctx)
+			return nil, v.env.HandleCredentialError(ctx, errors.Annotate(err, "listing virtual machines"))
 		}
 		for _, vm := range next.Value {
 			vmCopy := *vm
@@ -640,8 +640,8 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			_, err = poller.PollUntilDone(ctx, nil)
 		}
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) {
-				return nil, errors.Trace(err)
+			if invalidated, _ := v.env.MaybeInvalidateCredentialError(ctx, err); invalidated {
+				return nil, errors.Trace(v.env.HandleCredentialError(ctx, err))
 			}
 			results[i] = err
 			vm.err = err

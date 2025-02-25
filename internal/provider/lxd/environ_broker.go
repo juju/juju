@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/container/lxd"
-	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -40,7 +39,7 @@ func (env *environ) StartInstance(
 
 	container, err := env.newContainer(ctx, args, arch, virtType)
 	if err != nil {
-		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
+		err = env.HandleCredentialError(ctx, err)
 		if args.StatusCallback != nil {
 			_ = args.StatusCallback(ctx, status.ProvisioningError, err.Error(), nil)
 		}
@@ -447,7 +446,7 @@ func (env *environ) StopInstances(ctx envcontext.ProviderCallContext, instances 
 
 	err := env.server().RemoveContainers(names)
 	if err != nil {
-		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
+		return env.HandleCredentialError(ctx, err)
 	}
-	return errors.Trace(err)
+	return nil
 }

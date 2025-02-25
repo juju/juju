@@ -12,9 +12,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/envcontext"
+	environs "github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/testing"
@@ -22,6 +23,8 @@ import (
 
 type ErrorSuite struct {
 	testing.BaseSuite
+
+	invalidator *MockCredentialInvalidator
 
 	azureError *azcore.ResponseError
 }
@@ -36,17 +39,17 @@ func (s *ErrorSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestNoValidation(c *gc.C) {
-	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
-	err := errorutils.HandleCredentialError(s.azureError, ctx)
-	c.Assert(err, gc.DeepEquals, s.azureError)
+	defer s.setupMocks(c).Finish()
 
-	denied := errorutils.MaybeInvalidateCredential(s.azureError, ctx)
-	c.Assert(denied, jc.IsTrue)
-
-	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
+	handled, err := errorutils.HandleCredentialError(context.Background(), nil, s.azureError)
+	c.Assert(err, jc.ErrorIs, s.azureError)
+	c.Check(handled, jc.IsFalse)
+	c.Check(c.GetTestLog(), jc.Contains, "no credential invalidator provided to handle error")
 }
 
 func (s *ErrorSuite) TestHasDenialStatusCode(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	c.Assert(errorutils.HasDenialStatusCode(
 		&azcore.ResponseError{StatusCode: http.StatusUnauthorized}), jc.IsTrue)
 	c.Assert(errorutils.HasDenialStatusCode(
@@ -56,45 +59,53 @@ func (s *ErrorSuite) TestHasDenialStatusCode(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		return errors.New("kaboom")
-	})
-	errorutils.MaybeInvalidateCredential(s.azureError, ctx)
-	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored azure cloud credential on the controller")
+	defer s.setupMocks(c).Finish()
+
+	s.invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Return(errors.New("kaboom"))
+
+	handled, err := errorutils.HandleCredentialError(context.Background(), s.invalidator, s.azureError)
+	c.Assert(err, jc.ErrorIs, s.azureError)
+	c.Check(handled, jc.IsTrue)
+	c.Check(c.GetTestLog(), jc.Contains, "could not invalidate stored cloud credential on the controller")
 }
 
 func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
-	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		c.Assert(msg, gc.Matches, "(?s)azure cloud denied access: .*")
+	defer s.setupMocks(c).Finish()
+
+	var called bool
+	s.invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, reason environs.CredentialInvalidReason) error {
+		c.Assert(string(reason), jc.Contains, "azure cloud denied access")
 		called = true
 		return nil
-	})
+	}).Times(common.AuthorisationFailureStatusCodes.Size())
 
 	// First test another status code.
 	s.azureError.StatusCode = http.StatusAccepted
-	errorutils.HandleCredentialError(s.azureError, ctx)
-	c.Assert(called, jc.IsFalse)
+	handled, err := errorutils.HandleCredentialError(context.Background(), s.invalidator, s.azureError)
+	c.Assert(err, jc.ErrorIs, s.azureError)
+	c.Check(handled, jc.IsFalse)
+	c.Check(called, jc.IsFalse)
 
 	for t := range common.AuthorisationFailureStatusCodes {
 		called = false
+
 		s.azureError.StatusCode = t
 		s.azureError.ErrorCode = "some error code"
 		s.azureError.RawResponse = &http.Response{}
-		errorutils.HandleCredentialError(s.azureError, ctx)
-		c.Assert(called, jc.IsTrue)
+
+		handled, err := errorutils.HandleCredentialError(context.Background(), s.invalidator, s.azureError)
+		c.Assert(err, jc.ErrorIs, s.azureError)
+		c.Check(handled, jc.IsTrue)
+		c.Check(called, jc.IsTrue)
 	}
 }
 
-func (*ErrorSuite) TestNilAzureError(c *gc.C) {
-	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		called = true
-		return nil
-	})
-	returnedErr := errorutils.HandleCredentialError(nil, ctx)
-	c.Assert(called, jc.IsFalse)
+func (s *ErrorSuite) TestNilAzureError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	handled, returnedErr := errorutils.HandleCredentialError(context.Background(), s.invalidator, nil)
 	c.Assert(returnedErr, jc.ErrorIsNil)
+	c.Assert(handled, jc.IsFalse)
 }
 
 func (*ErrorSuite) TestMaybeQuotaExceededError(c *gc.C) {
@@ -172,4 +183,12 @@ func (*ErrorSuite) TestSimpleError(c *gc.C) {
 
 	err := errorutils.SimpleError(re)
 	c.Assert(err, gc.ErrorMatches, "failed")
+}
+
+func (s *ErrorSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.invalidator = NewMockCredentialInvalidator(ctrl)
+
+	return ctrl
 }

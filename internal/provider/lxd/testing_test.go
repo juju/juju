@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/container/lxd"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -129,14 +130,14 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 		"server-cert": testing.ServerCert,
 	})
 	s.Env = &environ{
+		CredentialInvalidator: common.NewCredentialInvalidator(s.Invalidator, IsAuthorisationFailure),
 		cloud: environscloudspec.CloudSpec{
 			Name:       "localhost",
 			Type:       "lxd",
 			Credential: &certCred,
 		},
-		provider:              s.Provider,
-		name:                  "lxd",
-		credentialInvalidator: s.Invalidator,
+		provider: s.Provider,
+		name:     "lxd",
 	}
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(c, cfg)
@@ -772,11 +773,11 @@ func (s *EnvironSuite) NewEnviron(c *gc.C,
 	c.Assert(err, jc.ErrorIsNil)
 
 	return &environ{
+		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, IsAuthorisationFailure),
 		serverUnlocked:        srv,
 		ecfgUnlocked:          eCfg,
 		namespace:             namespace,
 		cloud:                 cloudSpec,
-		credentialInvalidator: invalidator,
 	}
 }
 
@@ -805,11 +806,11 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C,
 	}
 
 	return &environ{
+		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, IsAuthorisationFailure),
 		name:                  "controller",
 		provider:              &provid,
 		ecfgUnlocked:          eCfg,
 		namespace:             namespace,
-		credentialInvalidator: invalidator,
 	}
 }
 

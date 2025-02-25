@@ -18,8 +18,8 @@ import (
 // UpgradeOperations is part of the upgrades.OperationSource interface.
 func (env *azureEnviron) UpgradeOperations(envcontext.ProviderCallContext, environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	return []environs.UpgradeOperation{{
-		providerVersion1,
-		[]environs.UpgradeStep{
+		TargetVersion: providerVersion1,
+		Steps: []environs.UpgradeStep{
 			commonDeploymentUpgradeStep{env},
 		},
 	}}
@@ -108,7 +108,7 @@ func isControllerEnviron(env *azureEnviron, ctx envcontext.ProviderCallContext) 
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return false, errorutils.HandleCredentialError(errors.Annotate(err, "listing virtual machines"), ctx)
+			return false, env.HandleCredentialError(ctx, err)
 		}
 		for _, vm := range next.Value {
 			if toValue(vm.Tags[tags.JujuIsController]) == "true" {

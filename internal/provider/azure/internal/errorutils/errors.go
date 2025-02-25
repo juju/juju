@@ -13,12 +13,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/envcontext"
-	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/common"
 )
-
-var logger = internallogger.GetLogger("juju.provider.azure")
 
 // RequestError represents an error response from Azure.
 type RequestError struct {
@@ -215,24 +212,20 @@ func SimpleError(err error) error {
 // HandleCredentialError determines if given error relates to invalid credential.
 // If it is, the credential is invalidated.
 // Original error is returned untouched.
-func HandleCredentialError(err error, ctx envcontext.ProviderCallContext) error {
-	MaybeInvalidateCredential(err, ctx)
-	return err
-}
-
-// MaybeInvalidateCredential determines if given error is related to authentication/authorisation failures.
-// If an error is related to an invalid credential, then this call will try to invalidate that credential as well.
-func MaybeInvalidateCredential(err error, ctx envcontext.ProviderCallContext) bool {
-	if !HasDenialStatusCode(err) {
-		return false
+func HandleCredentialError(ctx context.Context, invalidator environs.CredentialInvalidator, err error) (bool, error) {
+	if err == nil {
+		return false, nil
 	}
 
 	converted := fmt.Errorf("azure cloud denied access: %w", common.CredentialNotValidError(err))
-	invalidateErr := ctx.InvalidateCredential(converted.Error())
-	if invalidateErr != nil {
-		logger.Warningf(context.TODO(), "could not invalidate stored azure cloud credential on the controller: %v", invalidateErr)
-	}
-	return true
+	return common.HandleCredentialError(ctx, invalidator, HasDenialStatusCode, converted)
+}
+
+// IsAuthorisationFailure returns true if the error is
+// caused by an authorisation failure.
+func IsAuthorisationFailure(err error) bool {
+	converted := fmt.Errorf("azure cloud denied access: %w", common.CredentialNotValidError(err))
+	return HasDenialStatusCode(converted)
 }
 
 // HasDenialStatusCode returns true of the error has a status code

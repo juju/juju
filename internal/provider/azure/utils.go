@@ -4,13 +4,11 @@
 package azure
 
 import (
+	"context"
+
 	azurecloud "github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 )
 
 // collectAPIVersions returns a map of the latest API version for each
@@ -18,14 +16,14 @@ import (
 // Management API, because the API version requested must match the
 // type of the resource being manipulated through the API, rather than
 // the API version specified statically in the resource client code.
-func collectAPIVersions(ctx envcontext.ProviderCallContext, client *armresources.ProvidersClient) (map[string]string, error) {
+func (env *azureEnviron) collectAPIVersions(ctx context.Context, client *armresources.ProvidersClient) (map[string]string, error) {
 	result := make(map[string]string)
 
 	res := client.NewListPager(nil)
 	for res.More() {
 		p, err := res.NextPage(ctx)
 		if err != nil {
-			return map[string]string{}, errorutils.HandleCredentialError(errors.Trace(err), ctx)
+			return map[string]string{}, env.HandleCredentialError(ctx, err)
 		}
 
 		providers := p.ProviderListResult

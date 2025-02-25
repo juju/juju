@@ -88,6 +88,7 @@ const (
 type azureEnviron struct {
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
+	common.CredentialInvalidator
 
 	// provider is the azureEnvironProvider used to open this environment.
 	provider *azureEnvironProvider
@@ -204,13 +205,13 @@ func (env *azureEnviron) initEnviron(ctx context.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting tenant ID")
 	}
-	logger.Debugf(context.TODO(), "discovered tenant id: %s", tenantID)
+	logger.Debugf(ctx, "discovered tenant id: %s", tenantID)
 	env.tenantId = tenantID
 
 	if env.cloud.Credential.AuthType() == cloud.ManagedIdentityAuthType {
 		managedIdentity := env.cloud.Credential.Attributes()[credManagedIdentity]
 		managedIdentityId := env.managedIdentityResourceId(managedIdentity)
-		logger.Debugf(context.TODO(), "using managed identity id: %s", managedIdentityId)
+		logger.Debugf(ctx, "using managed identity id: %s", managedIdentityId)
 		env.credential, err = azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
 			ClientOptions: env.clientOptions,
 			ID:            azidentity.ResourceID(managedIdentityId),
@@ -269,12 +270,12 @@ func (env *azureEnviron) Bootstrap(
 	}
 	result, err := common.Bootstrap(ctx, env, callCtx, args)
 	if err != nil {
-		logger.Errorf(context.TODO(), "bootstrap failed, destroying model: %v", err)
+		logger.Errorf(ctx, "bootstrap failed, destroying model: %v", err)
 
 		// First cancel the in-progress deployment.
 		var wg sync.WaitGroup
 		var cancelResult error
-		logger.Debugf(context.TODO(), "canceling deployment for bootstrap instance")
+		logger.Debugf(ctx, "canceling deployment for bootstrap instance")
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
@@ -290,7 +291,7 @@ func (env *azureEnviron) Bootstrap(
 
 		// Then cleanup the resource group.
 		if err := env.Destroy(callCtx); err != nil {
-			logger.Errorf(context.TODO(), "failed to destroy model: %v", err)
+			logger.Errorf(ctx, "failed to destroy model: %v", err)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -313,24 +314,24 @@ func (env *azureEnviron) initResourceGroup(ctx envcontext.ProviderCallContext, c
 		return errors.Trace(err)
 	}
 	if existingResourceGroup {
-		logger.Debugf(context.TODO(), "using existing resource group %q for model %q", env.resourceGroup, env.modelName)
+		logger.Debugf(ctx, "using existing resource group %q for model %q", env.resourceGroup, env.modelName)
 		g, err := resourceGroups.Get(ctx, env.resourceGroup, nil)
 		if err != nil {
-			return errorutils.HandleCredentialError(errors.Annotatef(err, "checking resource group %q", env.resourceGroup), ctx)
+			return env.HandleCredentialError(ctx, errors.Annotatef(err, "checking resource group %q", env.resourceGroup))
 		}
 		if region := toValue(g.Location); region != env.location {
 			return errors.Errorf("cannot use resource group in region %q when operating in region %q", region, env.location)
 		}
 		if err := env.checkResourceGroup(g.ResourceGroup, modelTag); err != nil {
-			return errorutils.HandleCredentialError(errors.Annotate(err, "validating resource group"), ctx)
+			return env.HandleCredentialError(ctx, errors.Annotate(err, "validating resource group"))
 		}
 	} else {
-		logger.Debugf(context.TODO(), "creating resource group %q for model %q", env.resourceGroup, env.modelName)
+		logger.Debugf(ctx, "creating resource group %q for model %q", env.resourceGroup, env.modelName)
 		if _, err := resourceGroups.CreateOrUpdate(ctx, env.resourceGroup, armresources.ResourceGroup{
 			Location: to.Ptr(env.location),
 			Tags:     toMapPtr(resourceTags),
 		}, nil); err != nil {
-			return errorutils.HandleCredentialError(errors.Annotate(err, "creating resource group"), ctx)
+			return env.HandleCredentialError(ctx, errors.Annotate(err, "creating resource group"))
 		}
 	}
 
@@ -574,14 +575,14 @@ func (env *azureEnviron) StartInstance(ctx envcontext.ProviderCallContext, args 
 		result, err := env.startInstance(ctx, args, instanceSpec, envTags)
 		quotaErr, ok := errorutils.MaybeQuotaExceededError(err)
 		if ok {
-			logger.Warningf(context.TODO(), "%v quota exceeded error: %q", instanceSpec.InstanceType.Name, quotaErr.Error())
+			logger.Warningf(ctx, "%v quota exceeded error: %q", instanceSpec.InstanceType.Name, quotaErr.Error())
 			deleteInstanceFamily(instanceTypes, instanceSpec.InstanceType.Name)
 			continue
 		}
 		hypervisorGenErr, ok := errorutils.MaybeHypervisorGenNotSupportedError(err)
 		if ok && !preferGen1Image {
-			logger.Warningf(context.TODO(), "hypervisor generation 2 not supported for %q error: %q", instanceSpec.InstanceType.Name, hypervisorGenErr.Error())
-			logger.Warningf(context.TODO(), "retrying with generation 1 image")
+			logger.Warningf(ctx, "hypervisor generation 2 not supported for %q error: %q", instanceSpec.InstanceType.Name, hypervisorGenErr.Error())
+			logger.Warningf(ctx, "retrying with generation 1 image")
 			preferGen1Image = true
 			continue
 		}
@@ -603,7 +604,7 @@ func (env *azureEnviron) startInstance(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof(context.TODO(), "picked agent binaries %q", selectedTools[0].Version)
+	logger.Infof(ctx, "picked agent binaries %q", selectedTools[0].Version)
 
 	// Finalize the instance config, which we'll render to CustomData below.
 	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {
@@ -643,16 +644,16 @@ func (env *azureEnviron) startInstance(
 	// being provisioned with the same availability set so
 	// retry and do not create the availability set.
 	if errorutils.IsConflictError(err) {
-		logger.Debugf(context.TODO(), "conflict creating %s, retrying...", vmName)
+		logger.Debugf(ctx, "conflict creating %s, retrying...", vmName)
 		err = env.createVirtualMachine(
 			ctx, vmName, vmTags, envTags,
 			instanceSpec, args, usePublicIP, false,
 		)
 	}
 	if err != nil {
-		logger.Debugf(context.TODO(), "creating instance failed, destroying: %v", err)
+		logger.Debugf(ctx, "creating instance failed, destroying: %v", err)
 		if err := env.StopInstances(ctx, instance.Id(vmName)); err != nil {
-			logger.Errorf(context.TODO(), "could not destroy failed virtual machine: %v", err)
+			logger.Errorf(ctx, "could not destroy failed virtual machine: %v", err)
 		}
 		return nil, errors.Annotatef(err, "creating virtual machine %q", vmName)
 	}
@@ -816,7 +817,7 @@ func (env *azureEnviron) createVirtualMachine(
 	if err != nil {
 		return environs.ZoneIndependentError(err)
 	}
-	logger.Debugf(context.TODO(), "creating instance using vnet %v, subnets %q", vnetId, subnetIds)
+	logger.Debugf(ctx, "creating instance using vnet %v, subnets %q", vnetId, subnetIds)
 
 	if env.config.virtualNetworkName == "" && bootstrapping {
 		nicDependsOn = append(nicDependsOn, vnetId)
@@ -925,7 +926,7 @@ func (env *azureEnviron) createVirtualMachine(
 		}
 		if managedIdentity != "" {
 			managedIdentityId := env.managedIdentityResourceId(managedIdentity)
-			logger.Debugf(context.TODO(), "creating instance using managed identity id: %s", managedIdentityId)
+			logger.Debugf(ctx, "creating instance using managed identity id: %s", managedIdentityId)
 			vmTemplate.Identity = &armcompute.VirtualMachineIdentity{
 				Type: to.Ptr(armcompute.ResourceIdentityTypeUserAssigned),
 				UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
@@ -937,7 +938,7 @@ func (env *azureEnviron) createVirtualMachine(
 
 	res = append(res, vmTemplate)
 
-	logger.Debugf(context.TODO(), "- creating virtual machine deployment in %q", env.resourceGroup)
+	logger.Debugf(ctx, "- creating virtual machine deployment in %q", env.resourceGroup)
 	template := armtemplates.Template{Resources: res}
 	if err := env.createDeployment(
 		ctx,
@@ -1071,7 +1072,7 @@ func availabilitySetName(
 	vmTags map[string]string,
 	controller bool,
 ) (string, error) {
-	logger.Debugf(context.TODO(), "selecting availability set for %q", vmName)
+	logger.Debugf(context.Background(), "selecting availability set for %q", vmName)
 	if controller {
 		return controllerAvailabilitySet, nil
 	}
@@ -1101,7 +1102,7 @@ func newStorageProfile(
 	vmName string,
 	instanceSpec *instances.InstanceSpec,
 ) (*armcompute.StorageProfile, error) {
-	logger.Debugf(context.TODO(), "creating storage profile for %q", vmName)
+	logger.Debugf(context.Background(), "creating storage profile for %q", vmName)
 
 	urnParts := strings.SplitN(instanceSpec.Image.Id, ":", 4)
 	if len(urnParts) != 4 {
@@ -1145,7 +1146,7 @@ func newOSProfile(
 	instanceConfig *instancecfg.InstanceConfig,
 	generateSSHKey func(string) (string, string, error),
 ) (*armcompute.OSProfile, error) {
-	logger.Debugf(context.TODO(), "creating OS profile for %q", vmName)
+	logger.Debugf(context.Background(), "creating OS profile for %q", vmName)
 
 	instOS := ostype.OSTypeForName(instanceConfig.Base.OS)
 	if instOS != ostype.Ubuntu {
@@ -1212,7 +1213,7 @@ func (env *azureEnviron) StopInstances(ctx envcontext.ProviderCallContext, ids .
 	var existing int
 	cancelResults := make([]error, len(ids))
 	for i, id := range ids {
-		logger.Debugf(context.TODO(), "canceling deployment for instance %q", id)
+		logger.Debugf(ctx, "canceling deployment for instance %q", id)
 		wg.Add(1)
 		go func(i int, id instance.Id) {
 			defer wg.Done()
@@ -1258,7 +1259,7 @@ func (env *azureEnviron) StopInstances(ctx envcontext.ProviderCallContext, ids .
 			continue
 		}
 		// The deployment does not exist, so there's nothing more to do.
-		logger.Debugf(context.TODO(), "deleting instance %q", id)
+		logger.Debugf(ctx, "deleting instance %q", id)
 		wg.Add(1)
 		go func(i int, id instance.Id) {
 			defer wg.Done()
@@ -1285,7 +1286,7 @@ func (env *azureEnviron) StopInstances(ctx envcontext.ProviderCallContext, ids .
 
 // cancelDeployment cancels a template deployment.
 func (env *azureEnviron) cancelDeployment(ctx envcontext.ProviderCallContext, name string) error {
-	logger.Debugf(context.TODO(), "- canceling deployment %q", name)
+	logger.Debugf(ctx, "- canceling deployment %q", name)
 	deploy, err := env.deployClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -1299,7 +1300,7 @@ func (env *azureEnviron) cancelDeployment(ctx envcontext.ProviderCallContext, na
 		if isDeployConflictError(err) {
 			return nil
 		}
-		return errorutils.HandleCredentialError(errors.Annotatef(err, "canceling deployment %q", name), ctx)
+		return env.HandleCredentialError(ctx, errors.Annotatef(err, "canceling deployment %q", name))
 	}
 	return nil
 }
@@ -1332,18 +1333,19 @@ func (env *azureEnviron) deleteVirtualMachine(
 		return errors.Trace(err)
 	}
 	// The VM must be deleted first, to release the lock on its armresources.
-	logger.Debugf(context.TODO(), "- deleting virtual machine (%s)", vmName)
+	logger.Debugf(ctx, "- deleting virtual machine (%s)", vmName)
 	poller, err := compute.BeginDelete(ctx, env.resourceGroup, vmName, nil)
 	if err == nil {
 		_, err = poller.PollUntilDone(ctx, nil)
 	}
 	if err != nil {
-		if errorutils.MaybeInvalidateCredential(err, ctx) || !errorutils.IsNotFoundError(err) {
+		invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
+		if invalidated || !errorutils.IsNotFoundError(err) {
 			return errors.Annotate(err, "deleting virtual machine")
 		}
 	}
 	// Delete the managed OS disk.
-	logger.Debugf(context.TODO(), "- deleting OS disk (%s)", vmName)
+	logger.Debugf(ctx, "- deleting OS disk (%s)", vmName)
 	disks, err := env.disksClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -1353,11 +1355,12 @@ func (env *azureEnviron) deleteVirtualMachine(
 		_, err = diskPoller.PollUntilDone(ctx, nil)
 	}
 	if err != nil {
-		if errorutils.MaybeInvalidateCredential(err, ctx) || !errorutils.IsNotFoundError(err) {
+		invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
+		if invalidated || !errorutils.IsNotFoundError(err) {
 			return errors.Annotate(err, "deleting OS disk")
 		}
 	}
-	logger.Debugf(context.TODO(), "- deleting security rules (%s)", vmName)
+	logger.Debugf(ctx, "- deleting security rules (%s)", vmName)
 	if err := deleteInstanceNetworkSecurityRules(
 		ctx,
 		env, instId, networkInterfaces,
@@ -1365,46 +1368,48 @@ func (env *azureEnviron) deleteVirtualMachine(
 		return errors.Annotate(err, "deleting network security rules")
 	}
 
-	logger.Debugf(context.TODO(), "- deleting network interfaces (%s)", vmName)
+	logger.Debugf(ctx, "- deleting network interfaces (%s)", vmName)
 	interfaces, err := env.interfacesClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, nic := range networkInterfaces {
 		nicName := toValue(nic.Name)
-		logger.Tracef(context.TODO(), "deleting NIC %q", nicName)
+		logger.Tracef(ctx, "deleting NIC %q", nicName)
 		nicPoller, err := interfaces.BeginDelete(ctx, env.resourceGroup, nicName, nil)
 		if err == nil {
 			_, err = nicPoller.PollUntilDone(ctx, nil)
 		}
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) || !errorutils.IsNotFoundError(err) {
+			invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
+			if invalidated || !errorutils.IsNotFoundError(err) {
 				return errors.Annotate(err, "deleting NIC")
 			}
 		}
 	}
 
-	logger.Debugf(context.TODO(), "- deleting public IPs (%s)", vmName)
+	logger.Debugf(ctx, "- deleting public IPs (%s)", vmName)
 	publicAddresses, err := env.publicAddressesClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, pip := range publicIPAddresses {
 		pipName := toValue(pip.Name)
-		logger.Tracef(context.TODO(), "deleting public IP %q", pipName)
+		logger.Tracef(ctx, "deleting public IP %q", pipName)
 		ipPoller, err := publicAddresses.BeginDelete(ctx, env.resourceGroup, pipName, nil)
 		if err == nil {
 			_, err = ipPoller.PollUntilDone(ctx, nil)
 		}
 		if err != nil {
-			if errorutils.MaybeInvalidateCredential(err, ctx) || !errorutils.IsNotFoundError(err) {
+			invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
+			if invalidated || !errorutils.IsNotFoundError(err) {
 				return errors.Annotate(err, "deleting public IP")
 			}
 		}
 	}
 
 	// The deployment must be deleted last, or we risk leaking armresources.
-	logger.Debugf(context.TODO(), "- deleting deployment (%s)", vmName)
+	logger.Debugf(ctx, "- deleting deployment (%s)", vmName)
 	deploy, err := env.deployClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -1415,7 +1420,8 @@ func (env *azureEnviron) deleteVirtualMachine(
 	}
 	if err != nil {
 		ignoreError := isDeployConflictError(err) || errorutils.IsNotFoundError(err)
-		if !ignoreError || errorutils.MaybeInvalidateCredential(err, ctx) {
+		invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
+		if !ignoreError || invalidated {
 			return errors.Annotate(err, "deleting deployment")
 		}
 	}
@@ -1443,7 +1449,7 @@ func (env *azureEnviron) AdoptResources(ctx envcontext.ProviderCallContext, cont
 		// controller is destroyed, taking the other things with it.
 		return errors.Trace(err)
 	}
-	apiVersions, err := collectAPIVersions(ctx, providers)
+	apiVersions, err := env.collectAPIVersions(ctx, providers)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1457,7 +1463,7 @@ func (env *azureEnviron) AdoptResources(ctx envcontext.ProviderCallContext, cont
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return errorutils.HandleCredentialError(errors.Annotate(err, "listing resources"), ctx)
+			return env.HandleCredentialError(ctx, errors.Annotate(err, "listing resources"))
 		}
 		for _, res := range next.Value {
 			apiVersion := apiVersions[toValue(res.Type)]
@@ -1468,7 +1474,7 @@ func (env *azureEnviron) AdoptResources(ctx envcontext.ProviderCallContext, cont
 			)
 			if err != nil {
 				name := toValue(res.Name)
-				logger.Errorf(context.TODO(), "error updating resource tags for %q: %v", name, err)
+				logger.Errorf(ctx, "error updating resource tags for %q: %v", name, err)
 				failed = append(failed, name)
 			}
 		}
@@ -1483,10 +1489,10 @@ func (env *azureEnviron) AdoptResources(ctx envcontext.ProviderCallContext, cont
 func (env *azureEnviron) updateGroupControllerTag(ctx envcontext.ProviderCallContext, client *armresources.ResourceGroupsClient, groupName, controllerUUID string) error {
 	group, err := client.Get(ctx, groupName, nil)
 	if err != nil {
-		return errorutils.HandleCredentialError(errors.Trace(err), ctx)
+		return env.HandleCredentialError(ctx, err)
 	}
 
-	logger.Debugf(context.TODO(),
+	logger.Debugf(ctx,
 		"updating resource group %s juju controller uuid to %s",
 		toValue(group.Name), controllerUUID,
 	)
@@ -1498,7 +1504,10 @@ func (env *azureEnviron) updateGroupControllerTag(ctx envcontext.ProviderCallCon
 	}
 
 	_, err = client.CreateOrUpdate(ctx, groupName, group.ResourceGroup, nil)
-	return errorutils.HandleCredentialError(errors.Annotatef(err, "updating controller for resource group %q", groupName), ctx)
+	if err == nil {
+		return nil
+	}
+	return env.HandleCredentialError(ctx, errors.Annotatef(err, "updating controller for resource group %q", groupName))
 }
 
 func (env *azureEnviron) updateResourceControllerTag(
@@ -1518,10 +1527,10 @@ func (env *azureEnviron) updateResourceControllerTag(
 	// properties are populated.
 	resource, err := client.GetByID(ctx, toValue(stubResource.ID), apiVersion, nil)
 	if err != nil {
-		return errorutils.HandleCredentialError(errors.Annotatef(err, "getting full resource %q", toValue(stubResource.Name)), ctx)
+		return env.HandleCredentialError(ctx, errors.Annotatef(err, "getting full resource %q", toValue(stubResource.Name)))
 	}
 
-	logger.Debugf(context.TODO(), "updating %s juju controller UUID to %s", toValue(stubResource.ID), controllerUUID)
+	logger.Debugf(ctx, "updating %s juju controller UUID to %s", toValue(stubResource.ID), controllerUUID)
 	if resource.Tags == nil {
 		resource.Tags = make(map[string]*string)
 	}
@@ -1533,7 +1542,7 @@ func (env *azureEnviron) updateResourceControllerTag(
 		resource.GenericResource,
 		nil,
 	)
-	return errorutils.HandleCredentialError(errors.Annotatef(err, "updating controller for %q", toValue(resource.Name)), ctx)
+	return env.HandleCredentialError(ctx, errors.Annotatef(err, "updating controller for %q", toValue(resource.Name)))
 }
 
 var (
@@ -1710,7 +1719,7 @@ func (env *azureEnviron) allQueuedInstances(
 				// exist, e.g. in a fresh hosted environment.
 				return nil, nil
 			}
-			return nil, errorutils.HandleCredentialError(errors.Trace(err), ctx)
+			return nil, env.HandleCredentialError(ctx, err)
 		}
 		for _, deployment := range next.Value {
 			deployProvisioningState := armresources.ProvisioningStateNotSpecified
@@ -1819,7 +1828,7 @@ func (env *azureEnviron) allProvisionedInstances(
 				// exist, e.g. in a fresh hosted environment.
 				return nil, nil
 			}
-			return nil, errorutils.HandleCredentialError(errors.Trace(err), ctx)
+			return nil, env.HandleCredentialError(ctx, err)
 		}
 		for _, vm := range next.Value {
 			name := toValue(vm.Name)
@@ -1875,8 +1884,8 @@ func isControllerInstance(vm *armcompute.VirtualMachine, controllerUUID string) 
 
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy(ctx envcontext.ProviderCallContext) error {
-	logger.Debugf(context.TODO(), "destroying model %q", env.modelName)
-	logger.Debugf(context.TODO(), "- deleting resource group %q", env.resourceGroup)
+	logger.Debugf(ctx, "destroying model %q", env.modelName)
+	logger.Debugf(ctx, "- deleting resource group %q", env.resourceGroup)
 	if err := env.deleteResourceGroup(ctx, env.resourceGroup); err != nil {
 		return errors.Trace(err)
 	}
@@ -1888,12 +1897,12 @@ func (env *azureEnviron) Destroy(ctx envcontext.ProviderCallContext) error {
 
 // DestroyController is specified in the Environ interface.
 func (env *azureEnviron) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
-	logger.Debugf(context.TODO(), "destroying model %q", env.modelName)
-	logger.Debugf(context.TODO(), "deleting resource groups")
+	logger.Debugf(ctx, "destroying model %q", env.modelName)
+	logger.Debugf(ctx, "deleting resource groups")
 	if err := env.deleteControllerManagedResourceGroups(ctx, controllerUUID); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(), "deleting auto managed identities")
+	logger.Debugf(ctx, "deleting auto managed identities")
 	if err := env.deleteControllerManagedIdentities(ctx, controllerUUID); err != nil {
 		return errors.Trace(err)
 	}
@@ -1929,7 +1938,7 @@ func (env *azureEnviron) deleteControllerManagedIdentities(ctx envcontext.Provid
 			}
 		}
 	}
-	logger.Debugf(context.TODO(), "found role definition id: %s", roleDefinitionID)
+	logger.Debugf(ctx, "found role definition id: %s", roleDefinitionID)
 
 	roleAssignmentsClient, err := env.roleAssignmentClient()
 	if err != nil {
@@ -1949,14 +1958,14 @@ func (env *azureEnviron) deleteControllerManagedIdentities(ctx envcontext.Provid
 			}
 		}
 	}
-	logger.Debugf(context.TODO(), "found role assignment id: %s", roleAssignmentID)
+	logger.Debugf(ctx, "found role assignment id: %s", roleAssignmentID)
 
 	if roleAssignmentID != "" {
 		parts := strings.Split(roleAssignmentID, "/")
 		toDelete := parts[len(parts)-1]
 		_, err = roleAssignmentsClient.Delete(ctx, scope, toDelete, &armauthorization.RoleAssignmentsClientDeleteOptions{})
 		if err != nil {
-			logger.Criticalf(context.TODO(), "cannot delete role assignment %q: %v", toDelete, err)
+			logger.Criticalf(ctx, "cannot delete role assignment %q: %v", toDelete, err)
 		}
 	}
 
@@ -1965,7 +1974,7 @@ func (env *azureEnviron) deleteControllerManagedIdentities(ctx envcontext.Provid
 		toDelete := parts[len(parts)-1]
 		_, err = roleDefinitionClient.Delete(ctx, scope, toDelete, &armauthorization.RoleDefinitionsClientDeleteOptions{})
 		if err != nil {
-			logger.Warningf(context.TODO(), "cannot delete role definition %q: %v", toDelete, err)
+			logger.Warningf(ctx, "cannot delete role definition %q: %v", toDelete, err)
 		}
 	}
 
@@ -1979,7 +1988,7 @@ func (env *azureEnviron) deleteControllerManagedIdentities(ctx envcontext.Provid
 	}
 	_, err = clientFactory.NewUserAssignedIdentitiesClient().Delete(ctx, env.resourceGroup, identityName, nil)
 	if !errorutils.IsNotFoundError(err) {
-		logger.Warningf(context.TODO(), "cannot delete managed identity %q: %v", identityName, err)
+		logger.Warningf(ctx, "cannot delete managed identity %q: %v", identityName, err)
 	}
 
 	return nil
@@ -2001,7 +2010,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx envcontext.Pr
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return errorutils.HandleCredentialError(errors.Annotate(err, "listing resource groups"), ctx)
+			return env.HandleCredentialError(ctx, errors.Annotate(err, "listing resource groups"))
 		}
 		// Walk all the pages of results so we can get a total list of groups to remove.
 		for _, result := range next.Value {
@@ -2014,7 +2023,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx envcontext.Pr
 	errs := make([]error, len(groupNames))
 	for i, name := range groupNames {
 		groupName := toValue(name)
-		logger.Debugf(context.TODO(), "  - deleting resource group %q", groupName)
+		logger.Debugf(ctx, "  - deleting resource group %q", groupName)
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -2062,7 +2071,8 @@ func (env *azureEnviron) deleteResourceGroup(ctx envcontext.ProviderCallContext,
 		_, err = poller.PollUntilDone(ctx, nil)
 	}
 	if err != nil {
-		if errorutils.MaybeInvalidateCredential(err, ctx) || !errorutils.IsNotFoundError(err) {
+		invalidated, _ := env.MaybeInvalidateCredentialError(ctx, err)
+		if invalidated || !errorutils.IsNotFoundError(err) {
 			return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 		}
 	}
@@ -2070,10 +2080,10 @@ func (env *azureEnviron) deleteResourceGroup(ctx envcontext.ProviderCallContext,
 }
 
 func (env *azureEnviron) deleteResourcesInGroup(ctx envcontext.ProviderCallContext, resourceGroup string) (err error) {
-	logger.Debugf(context.TODO(), "deleting all resources in %s", resourceGroup)
+	logger.Debugf(ctx, "deleting all resources in %s", resourceGroup)
 
 	defer func() {
-		err = errorutils.HandleCredentialError(err, ctx)
+		_, err = env.MaybeInvalidateCredentialError(ctx, err)
 	}()
 
 	// Find all the resources tagged as belonging to this model.
@@ -2106,7 +2116,7 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx envcontext.ProviderCallConte
 	)
 	for _, r := range resourceItems {
 		rType := toValue(r.Type)
-		logger.Debugf(context.TODO(), "resource to delete: %v (%v)", toValue(r.Name), rType)
+		logger.Debugf(ctx, "resource to delete: %v (%v)", toValue(r.Name), rType)
 		// Vault resources are handled by a separate client.
 		if rType == "Microsoft.KeyVault/vaults" {
 			vaultNames = append(vaultNames, toValue(r.Name))
@@ -2139,7 +2149,7 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx envcontext.ProviderCallConte
 		retries++
 	}
 	if len(remainingResources) > 0 {
-		logger.Warningf(context.TODO(), "could not delete all Azure resources, remaining: %v", remainingResources)
+		logger.Warningf(ctx, "could not delete all Azure resources, remaining: %v", remainingResources)
 	}
 
 	// Lastly delete the vault armresources.
@@ -2151,7 +2161,7 @@ func (env *azureEnviron) deleteResourcesInGroup(ctx envcontext.ProviderCallConte
 	return nil
 }
 
-func (env *azureEnviron) getModelResources(sdkCtx context.Context, resourceGroup, modelFilter string) ([]*armresources.GenericResourceExpanded, error) {
+func (env *azureEnviron) getModelResources(ctx context.Context, resourceGroup, modelFilter string) ([]*armresources.GenericResourceExpanded, error) {
 	resources, err := env.resourcesClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2161,7 +2171,7 @@ func (env *azureEnviron) getModelResources(sdkCtx context.Context, resourceGroup
 		Filter: to.Ptr(modelFilter),
 	})
 	for pager.More() {
-		next, err := pager.NextPage(sdkCtx)
+		next, err := pager.NextPage(ctx)
 		if err != nil {
 			return nil, errors.Annotate(err, "listing resources to delete")
 		}
@@ -2169,7 +2179,7 @@ func (env *azureEnviron) getModelResources(sdkCtx context.Context, resourceGroup
 			// If no modelFilter specified, we need to check that the resource
 			// belongs to this model.
 			if modelFilter == "" {
-				fullRes, err := resources.GetByID(sdkCtx, toValue(res.ID), computeAPIVersion, nil)
+				fullRes, err := resources.GetByID(ctx, toValue(res.ID), computeAPIVersion, nil)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -2185,15 +2195,15 @@ func (env *azureEnviron) getModelResources(sdkCtx context.Context, resourceGroup
 
 // deleteResources deletes the specified resources, returning any that
 // cannot be deleted because they are in use.
-func (env *azureEnviron) deleteResources(sdkCtx context.Context, toDelete []*armresources.GenericResourceExpanded) ([]*armresources.GenericResourceExpanded, error) {
-	logger.Debugf(context.TODO(), "deleting %d resources", len(toDelete))
+func (env *azureEnviron) deleteResources(ctx context.Context, toDelete []*armresources.GenericResourceExpanded) ([]*armresources.GenericResourceExpanded, error) {
+	logger.Debugf(ctx, "deleting %d resources", len(toDelete))
 
 	var remainingResources []*armresources.GenericResourceExpanded
 	var wg sync.WaitGroup
 	deleteResults := make([]error, len(toDelete))
 	for i, res := range toDelete {
 		id := toValue(res.ID)
-		logger.Debugf(context.TODO(), "- deleting resource %q", id)
+		logger.Debugf(ctx, "- deleting resource %q", id)
 		wg.Add(1)
 		go func(i int, id string) {
 			defer wg.Done()
@@ -2202,9 +2212,9 @@ func (env *azureEnviron) deleteResources(sdkCtx context.Context, toDelete []*arm
 				deleteResults[i] = err
 				return
 			}
-			poller, err := resources.BeginDeleteByID(sdkCtx, id, computeAPIVersion, nil)
+			poller, err := resources.BeginDeleteByID(ctx, id, computeAPIVersion, nil)
 			if err == nil {
-				_, err = poller.PollUntilDone(sdkCtx, nil)
+				_, err = poller.PollUntilDone(ctx, nil)
 			}
 			if err != nil {
 				if errorutils.IsNotFoundError(err) {
@@ -2220,6 +2230,10 @@ func (env *azureEnviron) deleteResources(sdkCtx context.Context, toDelete []*arm
 			}
 		}(i, id)
 	}
+
+	// NOTE (stickupkid): This *could* block forever. Instead we should
+	// have a timeout and return an error if it takes too long or if the
+	// context is cancelled.
 	wg.Wait()
 
 	var errStrings []string
@@ -2251,14 +2265,14 @@ func (env *azureEnviron) resourceGroupName(ctx context.Context, modelTag names.M
 	legacyName := legacyResourceGroupName(modelTag, modelName)
 	_, err = resourceGroups.Get(ctx, legacyName, nil)
 	if err == nil {
-		logger.Debugf(context.TODO(), "using existing legacy resource group %q for model %q", legacyName, modelName)
+		logger.Debugf(ctx, "using existing legacy resource group %q for model %q", legacyName, modelName)
 		return legacyName, nil
 	}
 	if !errorutils.IsNotFoundError(err) {
 		return "", errors.Trace(err)
 	}
 
-	logger.Debugf(context.TODO(), "legacy resource group name doesn't exist, using short name")
+	logger.Debugf(ctx, "legacy resource group name doesn't exist, using short name")
 	resourceGroup := resourceGroupName(modelTag, modelName)
 	return resourceGroup, nil
 }
@@ -2323,7 +2337,7 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx envcontext.ProviderCallConte
 	for pager.More() {
 		next, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing VM sizes"), ctx)
+			return nil, env.HandleCredentialError(ctx, errors.Annotate(err, "listing VM sizes"))
 		}
 	nextResource:
 		for _, resource := range next.Value {
