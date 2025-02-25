@@ -178,25 +178,44 @@ func (s *ModelService) CreateModel(
 	ctx context.Context,
 	controllerUUID uuid.UUID,
 ) error {
-	return errors.Capture(s.CreateModelForVersion(ctx, controllerUUID, agentVersionSelector()))
+	if err := createModelForVersion(
+		ctx, s.modelID, controllerUUID, s.agentBinaryFinder, agentVersionSelector(), s.controllerSt, s.modelSt,
+	); err != nil {
+		return errors.Capture(err)
+	}
+
+	env, err := s.providerGetter(ctx)
+	if err != nil {
+		return errors.Errorf("opening environ: %w", err)
+	}
+
+	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
+	if err := env.Create(callCtx, environs.CreateParams{ControllerUUID: controllerUUID.String()}); err != nil {
+		return errors.Errorf("creating model resources for %q: %w", s.modelID, err)
+	}
+	return nil
 }
 
-// CreateModelForVersion is responsible for creating a new model within the
+// createModelForVersion is responsible for creating a new model within the
 // model database, using the input agent version.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use.
-func (s *ModelService) CreateModelForVersion(
+func createModelForVersion(
 	ctx context.Context,
+	modelID coremodel.UUID,
 	controllerUUID uuid.UUID,
+	agentBinaryFinder AgentBinaryFinder,
 	agentVersion version.Number,
+	controllerSt ControllerState,
+	modelSt ModelState,
 ) error {
-	m, err := s.controllerSt.GetModel(ctx, s.modelID)
+	m, err := controllerSt.GetModel(ctx, modelID)
 	if err != nil {
 		return err
 	}
 
-	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
+	if err := validateAgentVersion(agentVersion, agentBinaryFinder); err != nil {
 		return fmt.Errorf("creating model %q with agent version %q: %w", m.Name, agentVersion, err)
 	}
 
@@ -216,21 +235,7 @@ func (s *ModelService) CreateModelForVersion(
 		// So that method should not return the core type.
 		AgentVersion: agentVersion,
 	}
-
-	if err := s.modelSt.Create(ctx, args); err != nil {
-		return err
-	}
-
-	env, err := s.providerGetter(ctx)
-	if err != nil {
-		return errors.Errorf("opening environ: %w", err)
-	}
-
-	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
-	if err := env.Create(callCtx, environs.CreateParams{ControllerUUID: controllerUUID.String()}); err != nil {
-		return errors.Errorf("creating model resources for %q: %w", args.UUID, err)
-	}
-	return nil
+	return errors.Capture(modelSt.Create(ctx, args))
 }
 
 // DeleteModel is responsible for removing a model from the system.
