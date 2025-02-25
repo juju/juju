@@ -5,7 +5,6 @@ package apiremotecaller
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -26,7 +25,7 @@ const (
 // API server.
 type RemoteConnection interface {
 	// Connection returns the connection to the remote API server.
-	Connection() api.Connection
+	Connection(context.Context) <-chan api.Connection
 }
 
 // RemoteServer represents the public interface of the worker
@@ -66,10 +65,8 @@ type remoteServer struct {
 	logger logger.Logger
 	clock  clock.Clock
 
-	changes chan []string
-
-	mu                sync.Mutex
-	currentConnection api.Connection
+	changes     chan []string
+	connections chan chan api.Connection
 }
 
 // NewRemoteServer creates a new RemoteServer that will connect to the remote
@@ -87,17 +84,32 @@ func newRemoteServer(config RemoteServerConfig, internalStates chan string) Remo
 		apiOpener:      config.APIOpener,
 		changes:        make(chan []string),
 		internalStates: internalStates,
+		connections:    make(chan chan api.Connection),
 	}
 	w.tomb.Go(w.loop)
 	return w
 }
 
-// Connection returns the connection to the remote API server.
-func (w *remoteServer) Connection() api.Connection {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+// Connection returns the current connection to the remote API server if it's
+// available, otherwise it will send the connection once it has connected
+// to the remote API server.
+// No updates about the connection will be sent to the connection channel,
+// instead it's up to the caller to watch for the broken connection and then
+// reconnect if necessary.
+func (w *remoteServer) Connection(ctx context.Context) <-chan api.Connection {
+	ch := make(chan api.Connection, 1)
 
-	return w.currentConnection
+	// We don't need to block here, the connection will be send to the channel
+	// once it's available.
+	go func() {
+		select {
+		case <-w.tomb.Dying():
+		case <-ctx.Done():
+		case w.connections <- ch:
+		}
+	}()
+
+	return ch
 }
 
 // UpdateAddresses will update the addresses held for the target API server.
@@ -127,8 +139,6 @@ type request struct {
 func (w *remoteServer) loop() error {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
-
-	defer w.closeCurrentConnection(context.Background())
 
 	ctx, cancel := w.scopedContext()
 	defer cancel()
@@ -190,9 +200,21 @@ func (w *remoteServer) loop() error {
 	})
 
 	var (
-		connected bool
-		monitor   <-chan struct{}
+		connected  bool
+		monitor    <-chan struct{}
+		connection api.Connection
+
+		channels []chan api.Connection
 	)
+
+	defer func() {
+		if connection != nil {
+			if err := connection.Close(); err != nil {
+				w.logger.Errorf(ctx, "failed to close connection %q: %v", w.controllerID, err)
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -212,8 +234,7 @@ func (w *remoteServer) loop() error {
 				continue
 			}
 
-			var err error
-			monitor, err = w.connect(rctx, addresses)
+			conn, err := w.connect(rctx, addresses)
 			if errors.Is(err, newChangeRequestError) {
 				continue
 			} else if err != nil {
@@ -227,7 +248,31 @@ func (w *remoteServer) loop() error {
 				}
 			}
 
+			if connection != nil {
+				if err := connection.Close(); err != nil {
+					w.logger.Errorf(ctx, "failed to close connection %q: %v", w.controllerID, err)
+				}
+			}
+
 			w.logger.Debugf(ctx, "connected to %s with addresses: %v", w.controllerID, addresses)
+
+			connection = conn
+
+			// Notify all the channels that are waiting for a connection.
+			for _, ch := range channels {
+				select {
+				case <-w.tomb.Dying():
+					return tomb.ErrDying
+				case ch <- connection:
+				}
+			}
+
+			// Reset the channels, we can guarantee that nothing else has
+			// been added to this slice because it's only local to this loop,
+			// and everything is sequenced.
+			channels = nil
+
+			monitor = conn.Broken()
 
 			// We've successfully connected to the remote server, so update the
 			// addresses.
@@ -244,6 +289,21 @@ func (w *remoteServer) loop() error {
 				return tomb.ErrDying
 			default:
 				return errors.Errorf("connection to %q has been lost", w.controllerID)
+			}
+
+		case ch := <-w.connections:
+			// If we don't have a connection, we'll add the channel to the list
+			// of channels that are waiting for a connection.
+			if !connected {
+				channels = append(channels, ch)
+				continue
+			}
+
+			// We have one, send it!
+			select {
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case ch <- connection:
 			}
 		}
 	}
@@ -263,7 +323,7 @@ func (w *remoteServer) addressesAlreadyExist(addresses []string) bool {
 	return true
 }
 
-func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan struct{}, error) {
+func (w *remoteServer) connect(ctx context.Context, addresses []string) (api.Connection, error) {
 	w.logger.Debugf(ctx, "connecting to %s with addresses: %v", w.controllerID, addresses)
 
 	// Use temporary info until we're sure we can connect. If the addresses
@@ -307,31 +367,7 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan 
 		return nil, err
 	}
 
-	w.closeCurrentConnection(ctx)
-
-	w.mu.Lock()
-	w.currentConnection = connection
-	w.mu.Unlock()
-
-	return connection.Broken(), nil
-}
-
-// closeCurrentConnection will close the current connection if it exists.
-// This is best effort and will not return an error.
-func (w *remoteServer) closeCurrentConnection(ctx context.Context) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	if w.currentConnection == nil {
-		return
-	}
-
-	err := w.currentConnection.Close()
-	if err != nil {
-		w.logger.Errorf(ctx, "failed to close connection %q: %v", w.controllerID, err)
-	}
-
-	w.currentConnection = nil
+	return connection, nil
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.

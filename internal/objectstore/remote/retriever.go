@@ -6,13 +6,8 @@ package remote
 import (
 	"context"
 	"io"
-	"net/http"
-	"strings"
-	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/retry"
-	"gopkg.in/httprequest.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/database"
@@ -76,6 +71,15 @@ func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespa
 
 // GetBySHA256 returns a reader for the blob with the given SHA256.
 func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadCloser, _ int64, err error) {
+	// Check if we're already dead or dying before we start to do anything.
+	select {
+	case <-r.tomb.Dying():
+		return nil, -1, tomb.ErrDying
+	case <-ctx.Done():
+		return nil, -1, ctx.Err()
+	default:
+	}
+
 	remotes := r.apiRemoteCallers.GetAPIRemotes()
 	if len(remotes) == 0 {
 		return nil, -1, NoRemoteConnections
@@ -83,42 +87,44 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 
 	result := make(chan retrievalResult)
 
-	// Register all the tasks, we can then reference them by index later on.
-	tasks := make([]*task, len(remotes))
+	// Register all the retrievers, we can then reference them by index later on.
+	retrievers := make([]*retriever, len(remotes))
 	for index, remote := range remotes {
-		tasks[index] = newTask(index, remote, r.newObjectClient, r.clock, r.logger)
+		retrievers[index] = newRetriever(index, remote, r.newObjectClient, r.clock, r.logger)
 	}
 
-	// Tie the context to the tomb so that we can stop all the tasks when the
-	// tomb is killed.
+	// Tie the context to the tomb so that we can stop all the retrievers when
+	// the tomb is killed.
 	ctx = r.tomb.Context(ctx)
 
 	// Retrieve the blob from all the remotes concurrently.
-	for _, t := range tasks {
-		go func(task *task) error {
-			reader, size, err := task.Retrieve(ctx, r.namespace, sha256)
+	for _, ret := range retrievers {
+		go func(ret *retriever) error {
+			reader, size, err := ret.Retrieve(ctx, r.namespace, sha256)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case result <- retrievalResult{
-				index:  task.index,
+				index:  ret.index,
 				reader: reader,
 				size:   size,
 				err:    err,
 			}:
 				return nil
 			}
-		}(t)
+		}(ret)
 	}
 
-	// If the function returns an error, we want to stop all the tasks. If there
-	// is an error, we will return the task that was successful and close the
-	// other readers. Once the reader is closed, the task will be stopped, which
-	// will then clean up this set of requests.
+	// If the function returns an error, we want to stop all the retrievers. If
+	// there is an error, we will return the retriever that was successful and
+	// close the other readers. Once the reader is closed, the retriever will be
+	// stopped, which will then clean up this set of requests.
 	defer func() {
-		if err != nil {
-			r.stopAllTasks(tasks)
+		if err == nil {
+			return
 		}
+
+		r.stopAllRetrievers(ctx, retrievers)
 	}()
 
 	// We want to run it like this so we can return the first successful result
@@ -127,8 +133,12 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 	results := make(map[int]struct{})
 	for {
 		select {
+		case <-r.tomb.Dying():
+			return nil, -1, tomb.ErrDying
+
 		case <-ctx.Done():
 			return nil, -1, ctx.Err()
+
 		case res := <-result:
 			results[res.index] = struct{}{}
 
@@ -143,15 +153,26 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 				return nil, -1, err
 			}
 
-			// Stop all the other tasks, we don't want to cancel the task
-			// that is currently being used, as that will cause the reader
-			// to be closed.
-			r.stopAllTasksExcept(tasks, res.index)
+			// Stop all the other retrievers, we don't want to cancel the
+			// retriever that is currently being used, as that will cause the
+			// reader to be closed.
+			for _, retriever := range retrievers {
+				if retriever.index == res.index {
+					continue
+				}
 
-			task := tasks[res.index]
-			return &taskReaderCloser{
+				retriever.Kill()
+
+				// Don't wait for them to stop, when closing the reader, we will
+				// wait for them to stop then. We just want them to stop
+				// processing the request as soon as possible.
+			}
+
+			return &retrieverReaderCloser{
 				reader: res.reader,
-				closer: task.Kill,
+				closer: func() {
+					r.stopAllRetrievers(ctx, retrievers)
+				},
 			}, res.size, nil
 		}
 	}
@@ -174,31 +195,20 @@ func (r *BlobRetriever) loop() error {
 	}
 }
 
-func (r *BlobRetriever) stopAllTasks(tasks []*task) {
-	for _, task := range tasks {
-		task.Kill()
-
-	}
-}
-
-func (r *BlobRetriever) stopAllTasksExcept(tasks []*task, index int) {
-	for _, task := range tasks {
-		if task.Index() == index {
-			continue
+// stopAllRetrievers stops all the retrievers and waits for them to stop. This
+// ensures that there are no dangling goroutines.
+func (r *BlobRetriever) stopAllRetrievers(ctx context.Context, retrievers []*retriever) {
+	// Kill 'Em All.
+	for _, retriever := range retrievers {
+		retriever.Kill()
+		// Wait for them to stop, we don't want to leave any hanging.
+		if err := retriever.Wait(); err != nil {
+			r.logger.Errorf(ctx, "failed to stop blob retriever: %v", err)
 		}
-
-		task.Kill()
 	}
 }
 
-type retrievalResult struct {
-	index  int
-	reader io.ReadCloser
-	size   int64
-	err    error
-}
-
-type task struct {
+type retriever struct {
 	tomb tomb.Tomb
 
 	index           int
@@ -208,8 +218,8 @@ type task struct {
 	logger          logger.Logger
 }
 
-func newTask(index int, remote apiremotecaller.RemoteConnection, newObjectClient NewObjectClientFunc, clock clock.Clock, logger logger.Logger) *task {
-	t := &task{
+func newRetriever(index int, remote apiremotecaller.RemoteConnection, newObjectClient NewObjectClientFunc, clock clock.Clock, logger logger.Logger) *retriever {
+	t := &retriever{
 		index:           index,
 		remote:          remote,
 		newObjectClient: newObjectClient,
@@ -217,133 +227,89 @@ func newTask(index int, remote apiremotecaller.RemoteConnection, newObjectClient
 		logger:          logger,
 	}
 
-	t.tomb.Go(t.loop)
+	t.tomb.Go(func() error {
+		<-t.tomb.Dying()
+		return tomb.ErrDying
+	})
 
 	return t
 }
 
-func (t *task) Retrieve(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
-	ctx = t.tomb.Context(ctx)
+// Retrieve requests a blob from the remote API server, if there is not
+// remote connection, it will retry a number of times before returning an
+// error. This is allow time for the API connection to come up on a new HA node,
+// or after a restart.
+// If the blob isn't found or any other non-retryable error it will return an
+// error right away.
+// If the context is cancelled, it will stop processing the request as soon as
+// possible.
+func (t *retriever) Retrieve(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	var (
-		reader io.ReadCloser
-		size   int64
-	)
-	if err := retry.Call(retry.CallArgs{
-		Func: func() error {
-			conn := t.remote.Connection()
-			if conn == nil {
-				return NoRemoteConnection
+	select {
+	case <-t.tomb.Dying():
+		return nil, -1, tomb.ErrDying
+	case <-ctx.Done():
+		return nil, -1, ctx.Err()
+	case conn, ok := <-t.remote.Connection(ctx):
+		if !ok {
+			return nil, -1, NoRemoteConnection
+		}
+
+		go func() {
+			defer cancel()
+
+			select {
+			case <-t.tomb.Dying():
+			case <-conn.Broken():
 			}
+		}()
 
-			httpClient, err := conn.RootHTTPClient()
-			if err != nil {
-				return err
-			}
+		httpClient, err := conn.RootHTTPClient()
+		if err != nil {
+			return nil, -1, err
+		}
 
-			client, err := t.newObjectClient(httpClient.BaseURL, newHTTPClient(httpClient), t.logger)
-			if err != nil {
-				return err
-			}
+		client, err := t.newObjectClient(httpClient.BaseURL, newHTTPClient(httpClient), t.logger)
+		if err != nil {
+			return nil, -1, err
+		}
 
-			if namespace == database.ControllerNS {
-				tag, _ := conn.ModelTag()
-				namespace = tag.Id()
-			}
+		if namespace == database.ControllerNS {
+			tag, _ := conn.ModelTag()
+			namespace = tag.Id()
+		}
 
-			reader, size, err = client.GetObject(ctx, namespace, sha256)
-			return err
-		},
-		IsFatalError: func(err error) bool {
-			return !errors.Is(err, NoRemoteConnection)
-		},
-		NotifyFunc: func(lastError error, attempt int) {
-			t.logger.Infof(ctx, "failed to retrieve blob from remote: %v (attempt %d)", lastError, attempt)
-		},
-		Clock:       t.clock,
-		Stop:        ctx.Done(),
-		Attempts:    5,
-		Delay:       time.Millisecond * 500,
-		MaxDelay:    time.Second * 10,
-		BackoffFunc: retry.DoubleDelay,
-	}); err != nil {
-		return nil, -1, err
+		return client.GetObject(ctx, namespace, sha256)
 	}
-	return reader, size, nil
 }
 
-func (t *task) Kill() {
+func (t *retriever) Kill() {
 	t.tomb.Kill(nil)
 }
 
-func (t *task) Wait() error {
+func (t *retriever) Wait() error {
 	return t.tomb.Wait()
 }
 
-func (t *task) Index() int {
-	return t.index
+type retrievalResult struct {
+	index  int
+	reader io.ReadCloser
+	size   int64
+	err    error
 }
 
-func (t *task) loop() error {
-	select {
-	case <-t.tomb.Dying():
-		return tomb.ErrDying
-	}
-}
-
-// NewObjectClient returns a new client based on the supplied dependencies.
-// This only provides a read only session to the object store. As this is
-// intended to be used by the unit, there is never an expectation that the unit
-// will write to the object store.
-func NewObjectClient(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
-	session, err := s3client.NewS3Client(ensureHTTPS(url), client, s3client.AnonymousCredentials{}, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	return s3client.NewBlobsS3Client(session), nil
-}
-
-// httpClient is a shim around a shim. The httprequest.Client is a shim around
-// the stdlib http.Client. This is just asinine. The httprequest.Client should
-// be ripped out and replaced with the stdlib http.Client.
-type httpClient struct {
-	client *httprequest.Client
-}
-
-func newHTTPClient(client *httprequest.Client) *httpClient {
-	return &httpClient{
-		client: client,
-	}
-}
-
-func (c *httpClient) Do(req *http.Request) (*http.Response, error) {
-	var res *http.Response
-	err := c.client.Do(req.Context(), req, &res)
-	return res, err
-}
-
-// ensureHTTPS takes a URI and ensures that it is a HTTPS URL.
-func ensureHTTPS(address string) string {
-	if strings.HasPrefix(address, "https://") {
-		return address
-	}
-	if strings.HasPrefix(address, "http://") {
-		return strings.Replace(address, "http://", "https://", 1)
-	}
-	return "https://" + address
-}
-
-type taskReaderCloser struct {
+type retrieverReaderCloser struct {
 	reader io.ReadCloser
 	closer func()
 }
 
-func (t *taskReaderCloser) Read(p []byte) (n int, err error) {
+func (t *retrieverReaderCloser) Read(p []byte) (n int, err error) {
 	return t.reader.Read(p)
 }
 
-func (t *taskReaderCloser) Close() error {
+func (t *retrieverReaderCloser) Close() error {
 	err := t.reader.Close()
 	t.closer()
 	return err
