@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+	sshkeys "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -292,6 +293,11 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	virtualHostKey, err := sshkeys.NewMarshalledED25519()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	template := state.MachineTemplate{
 		Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
 		Constraints:             p.Constraints,
@@ -302,6 +308,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		HardwareCharacteristics: p.HardwareCharacteristics,
 		Addresses:               sAddrs,
 		Placement:               placementDirective,
+		VirtualHostKey:          virtualHostKey,
 	}
 	if p.ContainerType == "" {
 		return mm.st.AddOneMachine(template)

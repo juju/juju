@@ -3159,3 +3159,18 @@ func (s *MigrationExportSuite) TestRemoteSecrets(c *gc.C) {
 	c.Assert(info.CurrentRevision(), gc.Equals, 667)
 	c.Assert(info.LatestRevision(), gc.Equals, 668)
 }
+
+func (s *MigrationExportSuite) TestVirtualHostKeys(c *gc.C) {
+	machineTag := names.NewMachineTag("0")
+	state.AddVirtualHostKey(c, s.State, machineTag, []byte("foo"))
+
+	model, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	virtualHostKeys := model.VirtualHostKeys()
+	c.Assert(virtualHostKeys, gc.HasLen, 1)
+
+	exported := virtualHostKeys[0]
+	c.Assert(exported.HostKey(), gc.DeepEquals, []byte("foo"))
+	c.Assert(exported.ID(), gc.Equals, "machine-0-hostkey")
+}

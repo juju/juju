@@ -2425,6 +2425,14 @@ func (a *Application) addUnitOps(
 	// we verify the application is alive
 	asserts = append(isAliveDoc, asserts...)
 	ops = append(ops, a.incUnitCountOp(asserts))
+
+	if len(args.VirtualHostKey) > 0 {
+		hostKeyOps, err := newUnitVirtualHostKeysOps(a.st, uNames, args.VirtualHostKey)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		ops = append(ops, hostKeyOps...)
+	}
 	return uNames, ops, nil
 }
 
@@ -2757,6 +2765,12 @@ type AddUnitParams struct {
 
 	// PasswordHash is only passed for CAAS sidecar units on creation.
 	PasswordHash *string
+
+	// VirtualHostKey holds an SSH private key that will be used
+	// when making controller-proxied SSH sessions to the unit.
+	// Only passed for CAAS units, on IAAS units the machine's
+	// host key is used instead.
+	VirtualHostKey []byte
 }
 
 // AddUnit adds a new principal unit to the application.

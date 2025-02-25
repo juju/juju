@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
+	sshkeys "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -152,6 +153,11 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	}
 	passwordHash := utils.AgentPasswordHash(password)
 	upsert.PasswordHash = &passwordHash
+
+	upsert.VirtualHostKey, err = sshkeys.NewMarshalledED25519()
+	if err != nil {
+		return errResp(err)
+	}
 
 	unit, err := application.UpsertCAASUnit(upsert)
 	if err != nil {

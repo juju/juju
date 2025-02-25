@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
+	sshkeys "github.com/juju/juju/pki/ssh"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
 )
@@ -213,6 +214,11 @@ func (st *State) enableHAIntentionOps(
 
 	var controllerIds []string
 	for i := 0; i < intent.newCount; i++ {
+		virtualHostKey, err := sshkeys.NewMarshalledED25519()
+		if err != nil {
+			return nil, ControllersChanges{}, errors.Trace(err)
+		}
+
 		placement, cons := getPlacementConstraints()
 		template := MachineTemplate{
 			Base: base,
@@ -220,8 +226,9 @@ func (st *State) enableHAIntentionOps(
 				JobHostUnits,
 				JobManageModel,
 			},
-			Constraints: cons,
-			Placement:   placement,
+			Constraints:    cons,
+			Placement:      placement,
+			VirtualHostKey: virtualHostKey,
 		}
 		// Set up the new controller to have a controller charm unit.
 		// The unit itself is created below.

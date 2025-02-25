@@ -79,6 +79,7 @@ type ExportConfig struct {
 	SkipOfferConnections     bool
 	SkipExternalControllers  bool
 	SkipSecrets              bool
+	SkipVirtualHostKeys      bool
 }
 
 // ExportPartial the current model for the State optionally skipping
@@ -232,6 +233,9 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string) (descri
 		return nil, errors.Trace(err)
 	}
 	if err := export.remoteSecrets(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := export.virtualHostKeys(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1979,6 +1983,23 @@ func (e *exporter) remoteSecrets() error {
 			LatestRevision:  info.LatestRevision,
 		}
 		e.model.AddRemoteSecret(arg)
+	}
+	return nil
+}
+
+func (e *exporter) virtualHostKeys() error {
+	if e.cfg.SkipVirtualHostKeys {
+		return nil
+	}
+	virtualHostKeys, err := e.st.AllVirtualHostKeys()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, virtualHostKey := range virtualHostKeys {
+		e.model.AddVirtualHostKey(description.VirtualHostKeyArgs{
+			ID:      e.st.localID(virtualHostKey.doc.DocId),
+			HostKey: virtualHostKey.doc.HostKey,
+		})
 	}
 	return nil
 }

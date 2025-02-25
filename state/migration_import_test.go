@@ -3528,6 +3528,25 @@ func (s *MigrationImportSuite) TestApplicationWithProvisioningState(c *gc.C) {
 	})
 }
 
+func (s *MigrationImportSuite) TestVirtualHostKeys(c *gc.C) {
+	machineTag := names.NewMachineTag("0")
+	testHostKey := []byte("foo")
+
+	// Add a virtual host key
+	state.AddVirtualHostKey(c, s.State, machineTag, testHostKey)
+
+	allVirtualHostKeys, err := s.State.AllVirtualHostKeys()
+	c.Assert(err, gc.IsNil)
+	c.Assert(allVirtualHostKeys, gc.HasLen, 1)
+
+	_, newSt := s.importModel(c, s.State)
+
+	newVirtualHostKey, err := newSt.MachineVirtualHostKey(machineTag.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(newVirtualHostKey.HostKey(), gc.DeepEquals, testHostKey)
+
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.

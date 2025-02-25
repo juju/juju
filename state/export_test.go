@@ -56,6 +56,7 @@ const (
 	GlobalSettingsC   = globalSettingsC
 	SettingsC         = settingsC
 	UnitsC            = unitsC
+	VirtualHostKeysC  = virtualHostKeysC
 )
 
 var (
@@ -1270,4 +1271,38 @@ func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
 		actionIDs[i] = doc.ActionID
 	}
 	return actionIDs, nil
+}
+
+func AddVirtualHostKey(c *gc.C, st *State, tag names.Tag, key []byte) {
+	var docID string
+	switch tag.Kind() {
+	case names.UnitTagKind:
+		docID = unitHostKeyID(tag.Id())
+	case names.MachineTagKind:
+		docID = machineHostKeyID(tag.Id())
+	default:
+		c.Fatalf("unsupported tag kind %q for creating a virtual host key", tag.Kind())
+	}
+	doc := virtualHostKeyDoc{
+		DocId:   st.docID(docID),
+		HostKey: key,
+	}
+	op := []txn.Op{{
+		C:      virtualHostKeysC,
+		Id:     docID,
+		Insert: &doc,
+		Assert: txn.DocMissing,
+	}}
+	err := st.db().RunTransaction(op)
+	c.Assert(err, gc.IsNil)
+}
+func RemoveVirtualHostKey(c *gc.C, st *State, key *VirtualHostKey) {
+	op := []txn.Op{{
+		C:      virtualHostKeysC,
+		Id:     key.doc.DocId,
+		Remove: true,
+		Assert: txn.DocExists,
+	}}
+	err := st.db().RunTransaction(op)
+	c.Assert(err, gc.IsNil)
 }
