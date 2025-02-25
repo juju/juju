@@ -44,24 +44,11 @@ type ModelLoggerConfig struct {
 }
 
 // NewModelLogger returns a new model logger instance.
-// The actual loggers returned for each model are created
-// by the supplied loggerForModelFunc.
 func NewModelLogger(
 	ctx context.Context,
 	key corelogger.LoggerKey,
 	config ModelLoggerConfig,
 ) (worker.Worker, error) {
-	return newModelLogger(ctx, key, config)
-}
-
-// newModelLogger returns a new model logger instance.
-// The actual loggers returned for each model are created
-// by the supplied loggerForModelFunc.
-func newModelLogger(
-	ctx context.Context,
-	key corelogger.LoggerKey,
-	config ModelLoggerConfig,
-) (*modelLogger, error) {
 	// Create a newLogWriter for the model.
 	logger, err := config.NewLogWriter(ctx, key)
 	if err != nil {
