@@ -22,6 +22,8 @@ type JWTParser struct {
 	refreshURL string
 }
 
+// DefaultHTTPClient returns a defaulthttp client
+// that follows redirects with a sensible timeout.
 func DefaultHTTPClient() HTTPClient {
 	return &http.Client{
 		Timeout: 30 * time.Second,
