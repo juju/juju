@@ -40,7 +40,7 @@ func (env *environ) StartInstance(
 
 	container, err := env.newContainer(ctx, args, arch, virtType)
 	if err != nil {
-		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
+		_, _ = common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		if args.StatusCallback != nil {
 			_ = args.StatusCallback(ctx, status.ProvisioningError, err.Error(), nil)
 		}
@@ -447,7 +447,7 @@ func (env *environ) StopInstances(ctx envcontext.ProviderCallContext, instances 
 
 	err := env.server().RemoveContainers(names)
 	if err != nil {
-		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
+		_, _ = common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 	}
 	return errors.Trace(err)
 }

@@ -33,7 +33,7 @@ func (env *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance
 		// will return either ErrPartialInstances or ErrNoInstances.
 		// TODO(ericsnow) Skip returning here only for certain errors?
 		logger.Errorf(ctx, "failed to get instances from LXD: %v", err)
-		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
+		_, _ = common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		err = errors.Trace(err)
 	}
 
@@ -98,7 +98,7 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	containers, err := env.server().AliveContainers("juju-")
 	if err != nil {
-		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
+		_, _ = common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		return nil, errors.Trace(err)
 	}
 
@@ -122,7 +122,7 @@ func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, cont
 func (env *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	instances, err := env.AllInstances(ctx)
 	if err != nil {
-		common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
+		_, _ = common.HandleCredentialError(ctx, env.credentialInvalidator, IsAuthorisationFailure, err)
 		return errors.Annotate(err, "all instances")
 	}
 
