@@ -89,7 +89,7 @@ SELECT
     l.value AS life,
     m.activated,
     ctrl.uuid AS controller_uuid,
-    IIF(ctrl.model_uuid IS NOT NULL, true, false) AS is_controller_model
+    IIF(ctrl.model_uuid IS NOT NULL, TRUE, FALSE) AS is_controller_model
 FROM model AS m
 JOIN controller AS ctrl
 JOIN cloud AS c ON m.cloud_uuid = c.uuid
