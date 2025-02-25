@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package logsink_test
+package logsink
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
@@ -26,7 +25,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
 	jujutesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/worker/logsink"
 )
 
 type ManifoldSuite struct {
@@ -55,20 +53,65 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.domainServices = stubDomainServices{
 		controllerConfigGetter: s.controllerConfigGetter,
 	}
-	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
+	s.clock = clock.WallClock
 
 	s.stub.ResetCalls()
 
 	s.logger = loggertesting.WrapCheckLog(c)
 
 	s.getter = s.newGetter(c, nil)
-	s.manifold = logsink.Manifold(logsink.ManifoldConfig{
+	s.manifold = Manifold(ManifoldConfig{
 		ClockName:          "clock",
 		AgentName:          "agent",
 		DomainServicesName: "domain-services",
 		DebugLogger:        s.logger,
 		NewWorker:          s.newWorker,
+		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
+			return nil, nil
+		},
 	})
+}
+
+func (s *ManifoldSuite) TestValidateConfig(c *gc.C) {
+	cfg := s.getConfig()
+	c.Check(cfg.Validate(), jc.ErrorIsNil)
+
+	cfg = s.getConfig()
+	cfg.DebugLogger = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.NewWorker = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.NewModelLogger = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ClockName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.DomainServicesName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.AgentName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+}
+
+func (s *ManifoldSuite) getConfig() ManifoldConfig {
+	return ManifoldConfig{
+		DebugLogger: s.logger,
+		NewWorker:   s.newWorker,
+		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
+			return nil, nil
+		},
+		ClockName:          "clock",
+		DomainServicesName: "domain-services",
+		AgentName:          "agent",
+	}
 }
 
 func (s *ManifoldSuite) newGetter(c *gc.C, overlay map[string]any) dependency.Getter {
@@ -85,7 +128,7 @@ func (s *ManifoldSuite) newGetter(c *gc.C, overlay map[string]any) dependency.Ge
 	return dt.StubGetter(resources)
 }
 
-func (s *ManifoldSuite) newWorker(config logsink.Config) (worker.Worker, error) {
+func (s *ManifoldSuite) newWorker(config Config) (worker.Worker, error) {
 	s.stub.MethodCall(s, "NewWorker", config)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
@@ -116,18 +159,23 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	s.stub.CheckCallNames(c, "NewWorker")
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, logsink.Config{})
-	config := args[0].(logsink.Config)
+	c.Check(args[0], gc.FitsTypeOf, Config{})
+
+	config := args[0].(Config)
 	c.Assert(config.LogWriterForModelFunc, gc.NotNil)
 	config.LogWriterForModelFunc = nil
 
-	expectedConfig := logsink.Config{
+	c.Assert(config.NewModelLogger, gc.NotNil)
+	config.NewModelLogger = nil
+
+	expectedConfig := Config{
 		Logger: s.logger,
 		Clock:  s.clock,
-		LogSinkConfig: logsink.LogSinkConfig{
+		LogSinkConfig: LogSinkConfig{
 			LoggerBufferSize:    1000,
 			LoggerFlushInterval: time.Second,
 		},
+		MachineID: "1",
 	}
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "NewWorker")

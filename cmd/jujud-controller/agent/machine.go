@@ -970,17 +970,12 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		return nil, errors.Trace(err)
 	}
 
-	loggingContext := internallogger.LoggerContext(corelogger.INFO)
-	if err := loggingContext.AddWriter("logsink", cfg.ModelLogger); err != nil {
-		logger.Errorf(context.TODO(), "unable to configure logging for model: %v", err)
-	}
-
 	manifoldsCfg := model.ManifoldsConfig{
 		Agent:                       modelAgent,
 		AgentConfigChanged:          a.configChangedVal,
 		Authority:                   cfg.Authority,
 		Clock:                       clock.WallClock,
-		LoggingContext:              loggingContext,
+		LoggingContext:              cfg.LoggerContext,
 		RunFlagDuration:             time.Minute,
 		CharmRevisionUpdateInterval: 24 * time.Hour,
 		NewEnvironFunc:              newEnvirons,
@@ -1013,7 +1008,6 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 
 	return &modelWorker{
 		Engine:    engine,
-		logger:    cfg.ModelLogger,
 		modelUUID: cfg.ModelUUID,
 		metrics:   cfg.ModelMetrics,
 	}, nil
@@ -1035,7 +1029,6 @@ func applyTestingOverrides(agentConfig agent.Config, manifoldsCfg *model.Manifol
 
 type modelWorker struct {
 	*dependency.Engine
-	logger    modelworkermanager.ModelLogger
 	modelUUID string
 	metrics   agentengine.MetricSink
 }
@@ -1045,8 +1038,6 @@ type modelWorker struct {
 func (m *modelWorker) Wait() error {
 	err := m.Engine.Wait()
 
-	logger.Debugf(context.TODO(), "closing db logger for %q", m.modelUUID)
-	_ = m.logger.Close()
 	// When closing the model, ensure that we also close the metrics with the
 	// logger.
 	_ = m.metrics.Unregister()

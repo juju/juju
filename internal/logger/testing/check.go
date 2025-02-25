@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/logger"
@@ -88,4 +89,65 @@ func (c checkLogger) GetChildByName(name string) logger.Logger {
 
 func (c checkLogger) IsLevelEnabled(level logger.Level) bool {
 	return level >= c.level
+}
+
+// WrapCheckLogForContext returns a logger.LoggerContext that creates loggers
+// that log to the given CheckLogger.
+func WrapCheckLogForContext(log CheckLogger) logger.LoggerContext {
+	return checkLoggerContext{
+		logger: log,
+	}
+}
+
+type checkLoggerContext struct {
+	logger CheckLogger
+}
+
+// GetLogger returns a logger with the given name and tags.
+func (c checkLoggerContext) GetLogger(name string, tags ...string) logger.Logger {
+	return WrapCheckLog(c.logger)
+}
+
+// ResetLoggerLevels iterates through the known logging modules and sets the
+// levels of all to UNSPECIFIED, except for <root> which is set to WARNING.
+// If labels are provided, then only loggers that have the provided labels
+// will be reset.
+func (c checkLoggerContext) ResetLoggerLevels() {}
+
+// ConfigureLoggers configures loggers according to the given string
+// specification, which specifies a set of modules and their associated
+// logging levels. Loggers are colon- or semicolon-separated; each
+// module is specified as <modulename>=<level>.  White space outside of
+// module names and levels is ignored. The root module is specified
+// with the name "<root>".
+//
+// An example specification:
+//
+//	<root>=ERROR; foo.bar=WARNING
+//
+// Label matching can be applied to the loggers by providing a set of labels
+// to the function. If a logger has a label that matches the provided labels,
+// then the logger will be configured with the provided level. If the logger
+// does not have a label that matches the provided labels, then the logger
+// will not be configured. No labels will configure all loggers in the
+// specification.
+func (c checkLoggerContext) ConfigureLoggers(specification string) error {
+	return errors.NotImplementedf("ConfigureLoggers")
+}
+
+// Config returns the current configuration of the Loggers. Loggers
+// with UNSPECIFIED level will not be included.
+func (c checkLoggerContext) Config() logger.Config {
+	return make(logger.Config)
+}
+
+// AddWriter adds a writer to the list to be called for each logging call.
+// The name cannot be empty, and the writer cannot be nil. If an existing
+// writer exists with the specified name, an error is returned.
+//
+// Note: we're relying on loggo.Writer here, until we do model level logging.
+// Deprecated: This will be removed in the future and is only here whilst
+// we cut things across.
+func (c checkLoggerContext) AddWriter(name string, writer loggo.Writer) error {
+	return errors.NotImplementedf("AddWriter")
 }

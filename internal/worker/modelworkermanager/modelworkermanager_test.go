@@ -227,13 +227,12 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	config := modelworkermanager.Config{
 		Authority:              s.authority,
 		Logger:                 loggertesting.WrapCheckLog(c),
-		MachineID:              "1",
 		ModelWatcher:           watcher,
 		Controller:             mockController,
 		NewModelWorker:         s.startModelWorker,
 		ModelMetrics:           dummyModelMetrics{},
 		ErrorDelay:             time.Millisecond,
-		LogSink:                dummyModelLogger{},
+		LogSinkGetter:          dummyLogSinkGetter{logger: c},
 		ProviderServicesGetter: s.providerServicesGetter,
 		DomainServicesGetter:   s.domainServicesGetter,
 		HTTPClientGetter:       stubHTTPclientGetter{},
@@ -263,12 +262,19 @@ func (dummyMetricSink) Unregister() bool {
 	return true
 }
 
-type dummyModelLogger struct {
+type dummyLogSinkGetter struct {
 	corelogger.ModelLogger
+	corelogger.LoggerContextGetter
+
+	logger loggertesting.CheckLogger
 }
 
-func (dummyModelLogger) GetLogWriter(modelUUID, modelName, modelOwner string) (corelogger.LogWriterCloser, error) {
+func (l dummyLogSinkGetter) GetLogWriter(ctx context.Context, key corelogger.LoggerKey) (corelogger.LogWriterCloser, error) {
 	return stubLogger{}, nil
+}
+
+func (l dummyLogSinkGetter) GetLoggerContext(ctx context.Context, key corelogger.LoggerKey) (corelogger.LoggerContext, error) {
+	return loggertesting.WrapCheckLogForContext(l.logger), nil
 }
 
 func (s *suite) startModelWorker(config modelworkermanager.NewModelConfig) (worker.Worker, error) {

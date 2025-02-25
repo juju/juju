@@ -19,6 +19,7 @@ var allowedCoreImports = set.NewStrings(
 	"core/life",
 	"core/logger",
 	"core/trace",
+	"internal/errors",
 	"internal/logger",
 )
 

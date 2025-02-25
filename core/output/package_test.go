@@ -29,6 +29,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/status",
 		"core/trace",
 		"internal/cmd",
+		"internal/errors",
 		"internal/logger",
 	})
 }

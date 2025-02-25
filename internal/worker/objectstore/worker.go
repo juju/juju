@@ -150,26 +150,19 @@ func (w *objectStoreWorker) loop() (err error) {
 
 	for {
 		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+
 		// The following ensures that all objectStoreRequests are serialised and
 		// processed in order.
 		case req := <-w.objectStoreRequests:
-			if err := w.initObjectStore(req.namespace); err != nil {
-				select {
-				case req.done <- errors.Trace(err):
-				case <-w.catacomb.Dying():
-					return w.catacomb.ErrDying()
-				}
-				continue
-			}
+			err := w.initObjectStore(req.namespace)
 
 			select {
-			case req.done <- nil:
+			case req.done <- err:
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
 			}
-
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
 		}
 	}
 }

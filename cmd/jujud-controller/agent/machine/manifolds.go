@@ -642,6 +642,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:          agentName,
 			DebugLogger:        internallogger.GetLogger("juju.worker.logsink"),
 			NewWorker:          logsink.NewWorker,
+			NewModelLogger:     logsink.NewModelLogger,
 		})),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
@@ -676,7 +677,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
-			AgentName:                    agentName,
 			AuthorityName:                certificateWatcherName,
 			StateName:                    stateName,
 			LogSinkName:                  logSinkName,

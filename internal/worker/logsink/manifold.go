@@ -5,6 +5,9 @@ package logsink
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -16,20 +19,28 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/logger"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 )
 
+// NewModelLoggerFunc is a function that creates a new model logger.
+type NewModelLoggerFunc func(ctx context.Context,
+	key corelogger.LoggerKey,
+	cfg ModelLoggerConfig) (worker.Worker, error)
+
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
 	// DebugLogger is used to emit debug messages.
-	DebugLogger logger.Logger
+	DebugLogger corelogger.Logger
 
 	// NewWorker creates a log sink worker.
 	NewWorker func(cfg Config) (worker.Worker, error)
+
+	// NewModelLogger creates a new model logger.
+	NewModelLogger NewModelLoggerFunc
 
 	// These attributes are the named workers this worker depends on.
 
@@ -45,6 +56,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.NewModelLogger == nil {
+		return errors.NotValidf("nil NewModelLogger")
 	}
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
@@ -70,6 +84,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 		Output: outputFunc,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			var controllerDomainServices services.ControllerDomainServices
 			if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
 				return nil, errors.Trace(err)
@@ -103,10 +121,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotate(err, "unable to set owner for log directory")
 			}
 
+			machineID := agent.CurrentConfig().Tag().Id()
+
 			w, err := config.NewWorker(Config{
-				Logger:        config.DebugLogger,
-				Clock:         clock,
-				LogSinkConfig: logSinkConfig,
+				Logger:         config.DebugLogger,
+				Clock:          clock,
+				LogSinkConfig:  logSinkConfig,
+				MachineID:      machineID,
+				NewModelLogger: config.NewModelLogger,
 				LogWriterForModelFunc: getLoggerForModelFunc(
 					controllerCfg.ModelLogfileMaxSizeMB(),
 					controllerCfg.ModelLogfileMaxBackups(),
@@ -133,8 +155,12 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	}
 
 	switch outPointer := out.(type) {
-	case *logger.ModelLogger:
-		*outPointer = inWorker.logSink
+	case *corelogger.ModelLogger:
+		*outPointer = inWorker
+	case *corelogger.LoggerContextGetter:
+		*outPointer = inWorker
+	case *corelogger.ModelLogSinkGetter:
+		*outPointer = inWorker
 	default:
 		return errors.Errorf("out should be *logger.Logger; got %T", out)
 	}
@@ -143,12 +169,14 @@ func outputFunc(in worker.Worker, out interface{}) error {
 
 // getLoggerForModelFunc returns a function which can be called to get a logger which can store
 // logs for a specified model.
-func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger logger.Logger, logDir string) logger.LogWriterForModelFunc {
-	return func(modelUUID, modelName string) (logger.LogWriterCloser, error) {
-		if !names.IsValidModel(modelUUID) {
+func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger corelogger.Logger, logDir string) corelogger.LogWriterForModelFunc {
+	return func(ctx context.Context, key corelogger.LoggerKey) (corelogger.LogWriterCloser, error) {
+		modelUUID := key.ModelUUID
+
+		if !names.IsValidModel(key.ModelUUID) {
 			return nil, errors.NotValidf("model UUID %q", modelUUID)
 		}
-		logFilename := logger.ModelLogFile(logDir, modelUUID, modelName)
+		logFilename := corelogger.ModelLogFile(logDir, key)
 		if err := paths.PrimeLogFile(logFilename); err != nil && !errors.Is(err, os.ErrPermission) {
 			// If we don't have permission to chown this, it means we are running rootless.
 			return nil, errors.Annotate(err, "unable to prime log file")
@@ -159,9 +187,30 @@ func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger logger.Logger, l
 			MaxBackups: maxBackups,
 			Compress:   true,
 		}
-		debugLogger.Debugf(context.TODO(), "created rotating log file %q with max size %d MB and max backups %d",
+		debugLogger.Debugf(ctx, "created rotating log file %q with max size %d MB and max backups %d",
 			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 		modelFileLogger := &logWriter{WriteCloser: ljLogger}
 		return modelFileLogger, nil
 	}
+}
+
+// logWriter wraps a io.Writer instance and writes out
+// log records to the writer.
+type logWriter struct {
+	io.WriteCloser
+}
+
+// Log implements logger.Log.
+func (lw *logWriter) Log(records []corelogger.LogRecord) error {
+	for _, r := range records {
+		line, err := json.Marshal(&r)
+		if err != nil {
+			return errors.Annotatef(err, "marshalling log record")
+		}
+		_, err = lw.Write([]byte(fmt.Sprintf("%s\n", line)))
+		if err != nil {
+			return errors.Annotatef(err, "writing log record")
+		}
+	}
+	return nil
 }

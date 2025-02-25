@@ -410,8 +410,11 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	defer release()
 
 	// Look up the last line in the model log file and get the timestamp.
-	modelOwnerAndName := corelogger.ModelFilePrefix(model.Owner().Id(), model.Name())
-	modelLogFile := corelogger.ModelLogFile(api.logDir, model.UUID(), modelOwnerAndName)
+	modelLogFile := corelogger.ModelLogFile(api.logDir, corelogger.LoggerKey{
+		ModelUUID:  model.UUID(),
+		ModelName:  model.Name(),
+		ModelOwner: model.Owner().Id(),
+	})
 
 	f, err := os.Open(modelLogFile)
 	if err != nil && !os.IsNotExist(err) {

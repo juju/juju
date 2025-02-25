@@ -10,7 +10,6 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/http"
@@ -29,8 +28,6 @@ type GetProviderServicesGetterFunc func(getter dependency.Getter, name string) (
 // ManifoldConfig holds the information necessary to run a model worker manager
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	// AgentName is the name of the agent.Agent dependency.
-	AgentName string
 	// AuthorityName is the name of the pki.Authority dependency.
 	AuthorityName string
 	// StateName is the name of the workerstate.StateTracker dependency.
@@ -70,9 +67,6 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if config.AuthorityName == "" {
 		return errors.NotValidf("empty AuthorityName")
 	}
@@ -116,7 +110,6 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.AuthorityName,
 			config.StateName,
 			config.LogSinkName,
@@ -133,18 +126,14 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var agent agent.Agent
-	if err := getter.Get(config.AgentName, &agent); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	var authority pki.Authority
 	if err := getter.Get(config.AuthorityName, &authority); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var logSink logger.ModelLogger
-	if err := getter.Get(config.LogSinkName, &logSink); err != nil {
+	var logSinkGetter logger.ModelLogSinkGetter
+	if err := getter.Get(config.LogSinkName, &logSinkGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -172,18 +161,15 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	machineID := agent.CurrentConfig().Tag().Id()
-
 	w, err := config.NewWorker(Config{
 		Authority:    authority,
 		Logger:       config.Logger,
-		MachineID:    machineID,
 		ModelWatcher: systemState,
 		ModelMetrics: config.ModelMetrics,
 		Controller: StatePoolController{
 			StatePool: statePool,
 		},
-		LogSink:                logSink,
+		LogSinkGetter:          logSinkGetter,
 		NewModelWorker:         config.NewModelWorker,
 		ErrorDelay:             jworker.RestartDelay,
 		DomainServicesGetter:   domainServicesGetter,

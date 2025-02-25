@@ -30,6 +30,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 	c.Assert(found, jc.SameContents, []string{
 		"core/logger",
 		"core/trace",
+		"internal/errors",
 		"internal/logger",
 	})
 }

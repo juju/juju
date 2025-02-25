@@ -60,12 +60,19 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(s.modelUUID, m.Name(), m.Owner().Id()); err != nil {
+
+	key := corelogger.LoggerKey{
+		ModelUUID:  s.modelUUID,
+		ModelName:  m.Name(),
+		ModelOwner: m.Owner().Id(),
+	}
+
+	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), key); err != nil {
 		return errors.Trace(err)
 	}
 	s.releaser = func() error {
 		if removed := st.Release(); removed {
-			return s.modelLogger.RemoveLogWriter(s.modelUUID)
+			return s.modelLogger.RemoveLogWriter(key)
 		}
 		return nil
 	}

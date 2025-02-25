@@ -195,9 +195,12 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.Stat
 	if err != nil {
 		return errors.Trace(err)
 	}
-	modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
 
-	fileName := corelogger.ModelLogFile(c.agentConfig.CurrentConfig().LogDir(), st.ModelUUID(), modelOwnerAndName)
+	fileName := corelogger.ModelLogFile(c.agentConfig.CurrentConfig().LogDir(), corelogger.LoggerKey{
+		ModelUUID:  st.ModelUUID(),
+		ModelName:  m.Name(),
+		ModelOwner: m.Owner().Id(),
+	})
 	tailer, err := logtailer.NewLogTailer(st.ControllerModelUUID(), fileName, logtailer.LogTailerParams{NoTail: true})
 	if err != nil {
 		return errors.Annotate(err, "failed to create a log tailer")
