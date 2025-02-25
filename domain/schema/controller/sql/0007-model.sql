@@ -86,7 +86,7 @@ SELECT
     m.owner_uuid,
     o.name AS owner_name,
     l.value AS life,
-    IIF(ctrl.model_uuid IS NOT NULL, true, false) AS is_controller_model
+    IIF(ctrl.model_uuid IS NOT NULL, TRUE, FALSE) AS is_controller_model
 FROM model AS m
 JOIN cloud AS c ON m.cloud_uuid = c.uuid
 JOIN cloud_type AS ct ON c.cloud_type_id = ct.id
