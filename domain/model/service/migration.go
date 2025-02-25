@@ -7,10 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/core/constraints"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/domain/model"
+	"github.com/juju/juju/domain/constraints"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -23,6 +24,7 @@ type MigrationService struct {
 	controllerSt          ControllerState
 	modelSt               ModelState
 	environProviderGetter EnvironVersionProviderFunc
+	agentBinaryFinder     AgentBinaryFinder
 }
 
 // NewMigrationService creates a new instance of MigrationService.
@@ -31,6 +33,7 @@ func NewMigrationService(
 	controllerSt ControllerState,
 	modelSt ModelState,
 	environProviderGetter EnvironVersionProviderFunc,
+	agentBinaryFinder AgentBinaryFinder,
 ) *MigrationService {
 	return &MigrationService{
 		modelID:               modelID,
@@ -38,6 +41,7 @@ func NewMigrationService(
 		modelSt:               modelSt,
 		clock:                 clock.WallClock,
 		environProviderGetter: environProviderGetter,
+		agentBinaryFinder:     agentBinaryFinder,
 	}
 }
 
@@ -46,18 +50,18 @@ func NewMigrationService(
 // exist.
 // It returns an empty Value if the model does not have any constraints
 // configured.
-func (s *MigrationService) GetModelConstraints(ctx context.Context) (constraints.Value, error) {
+func (s *MigrationService) GetModelConstraints(ctx context.Context) (coreconstraints.Value, error) {
 	cons, err := s.modelSt.GetModelConstraints(ctx)
 	// If no constraints have been set for the model we return a zero value of
 	// constraints. This is done so the state layer isn't making decisions on
 	// what the caller of this service requires.
 	if errors.Is(err, modelerrors.ConstraintsNotFound) {
-		return constraints.Value{}, nil
+		return coreconstraints.Value{}, nil
 	} else if err != nil {
-		return constraints.Value{}, err
+		return coreconstraints.Value{}, err
 	}
 
-	return model.ToCoreConstraints(cons), nil
+	return constraints.EncodeConstraints(cons), nil
 }
 
 // SetModelConstraints sets the model constraints to the new values removing
@@ -69,39 +73,24 @@ func (s *MigrationService) GetModelConstraints(ctx context.Context) (constraints
 // being set in the model constraint doesn't exist.
 // - [github.com/juju/juju/domain/machine/errors.InvalidContainerType]: when
 // the container type being set in the model constraint isn't valid.
-func (s *MigrationService) SetModelConstraints(ctx context.Context, cons constraints.Value) error {
-	modelCons := model.FromCoreConstraints(cons)
+func (s *MigrationService) SetModelConstraints(ctx context.Context, cons coreconstraints.Value) error {
+	modelCons := constraints.DecodeConstraints(cons)
 	return s.modelSt.SetModelConstraints(ctx, modelCons)
 }
 
-// CreateModel is responsible for creating a new model within the model
-// database.
+// CreateModelForVersion is responsible for creating a new model within the
+// model database, using the input agent version.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use.
-func (s *MigrationService) CreateModel(
+func (s *MigrationService) CreateModelForVersion(
 	ctx context.Context,
 	controllerUUID uuid.UUID,
+	agentVersion version.Number,
 ) error {
-	m, err := s.controllerSt.GetModel(ctx, s.modelID)
-	if err != nil {
-		return err
-	}
-
-	args := model.ModelDetailArgs{
-		UUID:            m.UUID,
-		AgentVersion:    m.AgentVersion,
-		ControllerUUID:  controllerUUID,
-		Name:            m.Name,
-		Type:            m.ModelType,
-		Cloud:           m.Cloud,
-		CloudType:       m.CloudType,
-		CloudRegion:     m.CloudRegion,
-		CredentialOwner: m.Credential.Owner,
-		CredentialName:  m.Credential.Name,
-	}
-
-	return s.modelSt.Create(ctx, args)
+	return errors.Capture(createModelForVersion(
+		ctx, s.modelID, controllerUUID, s.agentBinaryFinder, agentVersion, s.controllerSt, s.modelSt,
+	))
 }
 
 // DeleteModel is responsible for removing a model from the system.
