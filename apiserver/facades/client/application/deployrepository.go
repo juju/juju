@@ -56,7 +56,6 @@ type DeployFromRepository interface {
 type DeployFromRepositoryState interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	Machine(string) (Machine, error)
-	ModelConstraints() (constraints.Value, error)
 
 	ReadSequence(name string) (int, error)
 }
@@ -632,15 +631,9 @@ func (v *deployFromRepositoryValidator) deducePlatform(ctx context.Context, arg 
 	}
 	// Fallback to model defaults if set. DefaultArchitecture otherwise.
 	if platform.Architecture == "" {
-		mConst, err := v.state.ModelConstraints()
-		if err != nil {
-			return corecharm.Platform{}, usedModelDefaultBase, err
-		}
-		if mConst.Arch != nil {
-			platform.Architecture = *mConst.Arch
-		} else {
-			platform.Architecture = arch.DefaultArchitecture
-		}
+		// TODO(CodingCookieRookie): Add logic for getting arch from model constraints
+		// and setting as platform arch
+		platform.Architecture = arch.DefaultArchitecture
 	}
 	if argBase != nil {
 		base, err := corebase.ParseBase(argBase.Name, argBase.Channel)
@@ -803,17 +796,16 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 	}
 	resolvedOrigin := &resolvedData.EssentialMetadata.ResolvedOrigin
 
-	modelCons, err := v.state.ModelConstraints()
-	if err != nil {
-		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
-	}
+	// TODO(CodingCookieRookie): Retrieve model constraints to be used later
 
 	// The charmhub API can return "all" for architecture as it's not a real
 	// arch we don't know how to correctly model it. "all " doesn't mean use the
 	// default arch, it means use any arch which isn't quite the same. So if we
 	// do get "all" we should see if there is a clean way to resolve it.
 	if resolvedOrigin.Platform.Architecture == "all" {
-		resolvedOrigin.Platform.Architecture = constraints.ArchOrDefault(modelCons, nil)
+		// TODO(CodingCookieRookie): Retrieve the model constraint architecture from dqlite and use it
+		// as the first arg in constraints.ArchOrDefault instead of DefaultArchitecture
+		resolvedOrigin.Platform.Architecture = arch.DefaultArchitecture
 	}
 
 	var requestedBase corebase.Base
@@ -843,7 +835,8 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 		RequestedBase:       requestedBase,
 		SupportedCharmBases: supportedBases,
 		WorkloadBases:       corebase.WorkloadBases(),
-		UsingImageID:        cons.HasImageID() || modelCons.HasImageID(),
+		// TODO(CodingCookieRookie): Refactor UsingImageID to depend on model constraints HasImageID attribute as well
+		UsingImageID: cons.HasImageID(),
 	}
 	selector, err := corecharm.ConfigureBaseSelector(bsCfg)
 	if err != nil {

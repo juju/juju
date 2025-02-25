@@ -4,8 +4,6 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -188,14 +186,6 @@ func readConstraints(mb modelBackend, id string) (constraints.Value, error) {
 		return constraints.Value{}, err
 	}
 	return doc.value(), nil
-}
-
-func writeConstraints(mb modelBackend, id string, cons constraints.Value) error {
-	ops := []txn.Op{setConstraintsOp(id, cons)}
-	if err := mb.db().RunTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set constraints: %v", err)
-	}
-	return nil
 }
 
 // AllConstraints retrieves all the constraints in the model
