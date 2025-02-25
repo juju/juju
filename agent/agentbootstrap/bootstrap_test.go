@@ -5,6 +5,7 @@ package agentbootstrap_test
 
 import (
 	stdcontext "context"
+	"crypto/ed25519"
 
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -315,6 +317,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	key, err := st.MachineVirtualHostKey(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
+	privateKey, err := ssh.UnmarshalPrivateKey(key.HostKey())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(privateKey, gc.FitsTypeOf, &ed25519.PrivateKey{})
 
 	// Check the initial storage pool.
 	pm := poolmanager.New(state.NewStateSettings(st), registry)

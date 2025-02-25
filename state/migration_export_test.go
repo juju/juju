@@ -3162,7 +3162,7 @@ func (s *MigrationExportSuite) TestRemoteSecrets(c *gc.C) {
 
 func (s *MigrationExportSuite) TestVirtualHostKeys(c *gc.C) {
 	machineTag := names.NewMachineTag("0")
-	_ = state.AddVirtualHostKey(c, s.State, machineTag, []byte("foo"))
+	state.AddVirtualHostKey(c, s.State, machineTag, []byte("foo"))
 
 	model, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)

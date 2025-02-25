@@ -1273,7 +1273,7 @@ func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
 	return actionIDs, nil
 }
 
-func AddVirtualHostKey(c *gc.C, st *State, tag names.Tag, key []byte) *VirtualHostKey {
+func AddVirtualHostKey(c *gc.C, st *State, tag names.Tag, key []byte) {
 	var docID string
 	switch tag.Kind() {
 	case names.UnitTagKind:
@@ -1291,19 +1291,17 @@ func AddVirtualHostKey(c *gc.C, st *State, tag names.Tag, key []byte) *VirtualHo
 		C:      virtualHostKeysC,
 		Id:     docID,
 		Insert: &doc,
+		Assert: txn.DocMissing,
 	}}
 	err := st.db().RunTransaction(op)
 	c.Assert(err, gc.IsNil)
-	return &VirtualHostKey{
-		st:  st,
-		doc: doc,
-	}
 }
 func RemoveVirtualHostKey(c *gc.C, st *State, key *VirtualHostKey) {
 	op := []txn.Op{{
 		C:      virtualHostKeysC,
 		Id:     key.doc.DocId,
 		Remove: true,
+		Assert: txn.DocExists,
 	}}
 	err := st.db().RunTransaction(op)
 	c.Assert(err, gc.IsNil)

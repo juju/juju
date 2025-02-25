@@ -3530,9 +3530,10 @@ func (s *MigrationImportSuite) TestApplicationWithProvisioningState(c *gc.C) {
 
 func (s *MigrationImportSuite) TestVirtualHostKeys(c *gc.C) {
 	machineTag := names.NewMachineTag("0")
+	testHostKey := []byte("foo")
 
 	// Add a virtual host key
-	virtualHostKey := state.AddVirtualHostKey(c, s.State, machineTag, []byte("foo"))
+	state.AddVirtualHostKey(c, s.State, machineTag, testHostKey)
 
 	allVirtualHostKeys, err := s.State.AllVirtualHostKeys()
 	c.Assert(err, gc.IsNil)
@@ -3542,7 +3543,7 @@ func (s *MigrationImportSuite) TestVirtualHostKeys(c *gc.C) {
 
 	newVirtualHostKey, err := newSt.MachineVirtualHostKey(machineTag.Id())
 	c.Assert(err, gc.IsNil)
-	c.Assert(newVirtualHostKey.HostKey(), gc.DeepEquals, virtualHostKey.HostKey())
+	c.Assert(newVirtualHostKey.HostKey(), gc.DeepEquals, testHostKey)
 
 }
 

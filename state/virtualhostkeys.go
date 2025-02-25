@@ -23,7 +23,6 @@ func machineHostKeyID(machineID string) string {
 
 // VirtualHostKey represents the state of a virtual host key.
 type VirtualHostKey struct {
-	st  *State
 	doc virtualHostKeyDoc
 }
 
@@ -115,15 +114,13 @@ func (st *State) virtualHostKey(id string) (*VirtualHostKey, error) {
 		return nil, errors.Annotatef(err, "getting virtual host key %q", id)
 	}
 	return &VirtualHostKey{
-		st:  st,
 		doc: doc,
 	}, nil
 }
 
-type virtualHostKeyDocSlice []virtualHostKeyDoc
-
+// AllVirtualHostKeys returns all virtual host keys.
 func (st *State) AllVirtualHostKeys() ([]*VirtualHostKey, error) {
-	vhkDocs := virtualHostKeyDocSlice{}
+	var vhkDocs []virtualHostKeyDoc
 	virtualHostKeysCollection, closer := st.db().GetCollection(virtualHostKeysC)
 	defer closer()
 
@@ -133,7 +130,7 @@ func (st *State) AllVirtualHostKeys() ([]*VirtualHostKey, error) {
 	}
 	virtualHostKeys := make([]*VirtualHostKey, len(vhkDocs))
 	for i, doc := range vhkDocs {
-		virtualHostKeys[i] = &VirtualHostKey{st: st, doc: doc}
+		virtualHostKeys[i] = &VirtualHostKey{doc: doc}
 	}
 
 	return virtualHostKeys, nil
