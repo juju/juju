@@ -20,7 +20,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application ExternalControllerService,NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,PortService,StubService,Leadership,StorageService,ResourceService
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application ExternalControllerService,NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,PortService,StubService,Leadership,StorageService,RelationService,ResourceService
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application Backend,Application,Model,CaasBrokerInterface
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
@@ -45,6 +45,7 @@ type baseSuite struct {
 	portService               *MockPortService
 	resourceService           *MockResourceService
 	storageService            *MockStorageService
+	relationService           *MockRelationService
 	stubService               *MockStubService
 
 	storageAccess    *MockStorageInterface
@@ -80,6 +81,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.portService = NewMockPortService(ctrl)
 	s.resourceService = NewMockResourceService(ctrl)
 	s.storageService = NewMockStorageService(ctrl)
+	s.relationService = NewMockRelationService(ctrl)
 	s.stubService = NewMockStubService(ctrl)
 
 	s.storageAccess = NewMockStorageInterface(ctrl)
@@ -160,6 +162,7 @@ func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
 			PortService:               s.portService,
 			ResourceService:           s.resourceService,
 			StorageService:            s.storageService,
+			RelationService:           s.relationService,
 			StubService:               s.stubService,
 		},
 		s.storageAccess,

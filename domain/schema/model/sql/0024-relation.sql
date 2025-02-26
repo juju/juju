@@ -2,7 +2,7 @@
 -- Licensed under the AGPLv3, see LICENCE file for details.
 
 -- The application_endpoint ties an application's relation
--- definition to a endpoint binding via a space. Each relation
+-- definition to an endpoint binding via a space. Each relation
 -- has 2 endpoints, unless it is a peer relation. The space
 -- and charm relation combine represent the endpoint binding
 -- of this application endpoint.
