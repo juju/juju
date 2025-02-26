@@ -5,10 +5,8 @@ package stateauthenticator
 
 import (
 	"context"
-	"encoding/base64"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -220,33 +218,21 @@ func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 	if authHeader == "" {
 		return params.LoginRequest{Macaroons: macaroons}, nil
 	}
-
-	parts := strings.Fields(authHeader)
-	if len(parts) != 2 || parts[0] != "Basic" {
+	username, password, ok := req.BasicAuth()
+	if !ok {
 		// Invalid header format or no header provided.
 		return params.LoginRequest{}, errors.NotValidf("request format")
 	}
 
-	// Challenge is a base64-encoded "tag:pass" string.
-	// See RFC 2617, Section 2.
-	challenge, err := base64.StdEncoding.DecodeString(parts[1])
-	if err != nil {
-		return params.LoginRequest{}, errors.NotValidf("request format")
-	}
-	tagPass := strings.SplitN(string(challenge), ":", 2)
-	if len(tagPass) != 2 {
-		return params.LoginRequest{}, errors.NotValidf("request format")
-	}
-
 	// Ensure that a sensible tag was passed.
-	if _, err := names.ParseTag(tagPass[0]); err != nil {
+	if _, err := names.ParseTag(username); err != nil {
 		return params.LoginRequest{}, errors.Trace(err)
 	}
 
 	bakeryVersion, _ := strconv.Atoi(req.Header.Get(httpbakery.BakeryProtocolHeader))
 	loginRequest := params.LoginRequest{
-		AuthTag:       tagPass[0],
-		Credentials:   tagPass[1],
+		AuthTag:       username,
+		Credentials:   password,
 		Nonce:         req.Header.Get(params.MachineNonceHeader),
 		Macaroons:     macaroons,
 		BakeryVersion: bakery.Version(bakeryVersion),

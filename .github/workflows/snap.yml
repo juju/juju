@@ -1,68 +1,64 @@
 name: "Snapcraft"
 on:
   push:
-    branches: [2.9, 3.1, 3.2, 3.3, main]
+    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - '**.go'
-      - 'go.mod'
-      - 'snap/**'
-      - '.github/workflows/snap.yml'
+      - "**.go"
+      - "go.mod"
+      - "snap/**"
+      - ".github/workflows/snap.yml"
   workflow_dispatch:
-permissions:
-  contents: read
 
 jobs:
-
   snap:
     name: linux-arm64
     runs-on: [self-hosted, linux, arm64, aws, large]
     if: github.event.pull_request.draft == false
     steps:
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo snap install snapcraft --classic
+          echo "/snap/bin" >> $GITHUB_PATH
 
-    - name: Install Dependencies
-      shell: bash
-      run: |
-        set -euxo pipefail
-        sudo snap install snapcraft --classic
-        echo "/snap/bin" >> $GITHUB_PATH
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Checkout
-      uses: actions/checkout@v3
+      - name: Setup LXD
+        uses: canonical/setup-lxd@2fa6235ef2dfd3288e0de09edac03f2ebf922968
 
-    - name: Setup LXD
-      uses: canonical/setup-lxd@90d76101915da56a42a562ba766b1a77019242fd
+      - name: Set up Go
+        if: env.RUN_TEST == 'RUN'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: false
 
-    - name: Set up Go
-      if: env.RUN_TEST == 'RUN'
-      uses: actions/setup-go@v3
-      with:
-        go-version-file: 'go.mod'
-        cache: true
+      - name: Build snap
+        shell: bash
+        run: |
+          set -euxo pipefail
+          snapcraft --use-lxd
 
-    - name: Build snap
-      shell: bash
-      run: |
-        set -euxo pipefail
-        snapcraft --use-lxd
+      - name: Install snap
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo snap install *.snap --dangerous
+          # Since we're installing dangerously, we need to
+          # manually grant permissions to juju
+          sudo snap connect juju:lxd lxd
+          sudo snap connect juju:config-lxd
+          sudo snap connect juju:dot-local-share-juju
+          sudo snap connect juju:ssh-keys
+          snap connections juju
 
-    - name: Install snap
-      shell: bash
-      run: |
-        set -euxo pipefail
-        sudo snap install *.snap --dangerous
-        # Since we're installing dangerously, we need to
-        # manually grant permissions to juju
-        sudo snap connect juju:lxd lxd
-        sudo snap connect juju:config-lxd
-        sudo snap connect juju:dot-local-share-juju
-        sudo snap connect juju:ssh-keys
-        snap connections juju
-
-    - name: Test bootstrap
-      shell: bash
-      run: |
-        set -euxo pipefail
-        mkdir -p ~/.ssh
-        juju bootstrap localhost --debug
+      - name: Test bootstrap
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p ~/.ssh
+          juju bootstrap localhost --debug
