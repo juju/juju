@@ -104,6 +104,9 @@ func HandleCredentialError(ctx context.Context, invalidator environs.CredentialI
 		return false, err
 	}
 
+	// TODO (stickupkid): We should remove the `errors.Cause` and let the caller
+	// handle this, otherwise we could be dropping vital information when each
+	// provider checks the error.
 	if denied := isAuthError(errors.Cause(err)); denied {
 		converted := fmt.Errorf("cloud denied access: %w", CredentialNotValidError(err))
 		invalidateErr := invalidator.InvalidateCredentials(ctx, environs.CredentialInvalidReason(converted.Error()))
