@@ -11,6 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/testing"
 	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
@@ -73,6 +75,10 @@ func (s *precheckBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *precheckBaseSuite) expectApplicationLife(appName string, l life.Value) {
 	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), appName).Return(l, nil)
+}
+
+func (s *precheckBaseSuite) expectUnitWorkloadStatus(unitName string, status status.StatusInfo) {
+	s.applicationService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name(unitName)).Return(&status, nil)
 }
 
 func (s *precheckBaseSuite) expectIsUpgrade(upgrading bool) {

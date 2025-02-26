@@ -95,27 +95,22 @@ type StatusAndErr struct {
 // UnitState defines the unit functionality required to
 // determine unit agent and workload status.
 type UnitState interface {
-	AgentStatus() (status.StatusInfo, error)
-	Status() (status.StatusInfo, error)
-	ShouldBeAssigned() bool
 	Name() string
 	Life() state.Life
 }
 
 // UnitStatus returns the unit agent and workload status for a given
 // unit, with special handling for agent presence.
-func (c *ModelPresenceContext) UnitStatus(ctx context.Context, unit UnitState) (agent StatusAndErr, workload StatusAndErr) {
-	agent.Status, agent.Err = unit.AgentStatus()
-	workload.Status, workload.Err = unit.Status()
-	if !canBeLost(agent.Status, workload.Status) {
+func (c *ModelPresenceContext) UnitStatus(ctx context.Context, unit UnitState, agentStatus, workloadStatus status.StatusInfo) (status.StatusInfo, status.StatusInfo) {
+	if !canBeLost(agentStatus, workloadStatus) {
 		// The unit is allocating or installing - there's no point in
 		// enquiring about the agent liveness.
-		return
+		return agentStatus, workloadStatus
 	}
 
 	agentAlive, err := c.unitPresence(unit)
 	if err != nil {
-		return
+		return agentStatus, workloadStatus
 	}
 	if unit.Life() != state.Dead && !agentAlive {
 		// If the unit is in error, it would be bad to throw away
@@ -126,16 +121,16 @@ func (c *ModelPresenceContext) UnitStatus(ctx context.Context, unit UnitState) (
 		// terminated. This happens on k8s sometimes when we remove an
 		// application but the pod is not removed immediately. See:
 		// https://bugs.launchpad.net/juju/+bug/1979292
-		if workload.Status.Status != status.Error &&
-			workload.Status.Status != status.Terminated {
+		if workloadStatus.Status != status.Error &&
+			workloadStatus.Status != status.Terminated {
 
-			workload.Status.Status = status.Unknown
-			workload.Status.Message = fmt.Sprintf("agent lost, see 'juju show-status-log %s'", unit.Name())
+			workloadStatus.Status = status.Unknown
+			workloadStatus.Message = fmt.Sprintf("agent lost, see 'juju show-status-log %s'", unit.Name())
 		}
-		agent.Status.Status = status.Lost
-		agent.Status.Message = "agent is not communicating with the server"
+		agentStatus.Status = status.Lost
+		agentStatus.Message = "agent is not communicating with the server"
 	}
-	return
+	return agentStatus, workloadStatus
 }
 
 func canBeLost(agent, workload status.StatusInfo) bool {

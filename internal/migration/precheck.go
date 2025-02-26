@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -331,17 +332,28 @@ func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplicatio
 }
 
 func (c *precheckContext) checkUnitAgentStatus(ctx context.Context, unit PrecheckUnit) error {
-	modelPresenceContext := common.ModelPresenceContext{Presence: c.presence}
-	statusData, _ := modelPresenceContext.UnitStatus(ctx, unit)
-	if statusData.Err != nil {
-		return errors.Annotatef(statusData.Err, "retrieving unit %s status", unit.Name())
+	unitName, err := coreunit.NewName(unit.Name())
+	if err != nil {
+		return internalerrors.Errorf("parsing unit name %q: %w", unit.Name(), err)
 	}
-	agentStatus := statusData.Status.Status
-	switch agentStatus {
+	agentStatus, err := unit.AgentStatus()
+	if err != nil {
+		return internalerrors.Errorf("retrieving unit %s agent status: %w", unit.Name(), err)
+	}
+	workloadStatus, err := c.applicationService.GetUnitWorkloadStatus(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.NotFoundf("unit %s", unit.Name())
+	} else if err != nil {
+		return internalerrors.Errorf("retrieving unit %s workload status: %w", unit.Name(), err)
+	}
+
+	modelPresenceContext := common.ModelPresenceContext{Presence: c.presence}
+	agentStatus, _ = modelPresenceContext.UnitStatus(ctx, unit, agentStatus, *workloadStatus)
+	switch agentStatus.Status {
 	case status.Idle, status.Executing:
 		// These two are fine.
 	default:
-		return newStatusError("unit %s not idle or executing", unit.Name(), agentStatus)
+		return newStatusError("unit %s not idle or executing", unit.Name(), agentStatus.Status)
 	}
 	return nil
 }

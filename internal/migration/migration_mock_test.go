@@ -18,7 +18,9 @@ import (
 	controller "github.com/juju/juju/controller"
 	life "github.com/juju/juju/core/life"
 	modelmigration "github.com/juju/juju/core/modelmigration"
+	status "github.com/juju/juju/core/status"
 	storage "github.com/juju/juju/core/storage"
+	unit "github.com/juju/juju/core/unit"
 	charm "github.com/juju/juju/domain/application/charm"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
@@ -206,6 +208,45 @@ func (c *MockApplicationServiceGetApplicationLifeCall) Do(f func(context.Context
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(context.Context, string) (life.Value, error)) *MockApplicationServiceGetApplicationLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitWorkloadStatus mocks base method.
+func (m *MockApplicationService) GetUnitWorkloadStatus(arg0 context.Context, arg1 unit.Name) (*status.StatusInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitWorkloadStatus", arg0, arg1)
+	ret0, _ := ret[0].(*status.StatusInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitWorkloadStatus indicates an expected call of GetUnitWorkloadStatus.
+func (mr *MockApplicationServiceMockRecorder) GetUnitWorkloadStatus(arg0, arg1 any) *MockApplicationServiceGetUnitWorkloadStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatus", reflect.TypeOf((*MockApplicationService)(nil).GetUnitWorkloadStatus), arg0, arg1)
+	return &MockApplicationServiceGetUnitWorkloadStatusCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitWorkloadStatusCall wrap *gomock.Call
+type MockApplicationServiceGetUnitWorkloadStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitWorkloadStatusCall) Return(arg0 *status.StatusInfo, arg1 error) *MockApplicationServiceGetUnitWorkloadStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitWorkloadStatusCall) Do(f func(context.Context, unit.Name) (*status.StatusInfo, error)) *MockApplicationServiceGetUnitWorkloadStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.Name) (*status.StatusInfo, error)) *MockApplicationServiceGetUnitWorkloadStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

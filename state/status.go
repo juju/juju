@@ -121,36 +121,6 @@ func (m *ModelStatus) UnitAgent(unitName string) (status.StatusInfo, error) {
 	return info, nil
 }
 
-// UnitWorkload returns the status of the unit's workload.
-func (m *ModelStatus) UnitWorkload(unitName string) (status.StatusInfo, error) {
-	// We do horrible things with unit status.
-	// See notes in unit.go.
-	info, err := m.getStatus(unitAgentGlobalKey(unitName), "unit")
-	if err != nil {
-		return info, err
-	} else if info.Status == status.Error {
-		return info, nil
-	}
-
-	// (for CAAS models) Use cloud container status over unit if the cloud
-	// container status is error or active or the unit status hasn't shifted
-	// from 'allocating'
-	info, err = m.getStatus(unitGlobalKey(unitName), "workload")
-	if err != nil {
-		return info, errors.Trace(err)
-	}
-
-	if m.model.Type() == ModelTypeIAAS {
-		return info, nil
-	}
-
-	containerInfo, err := m.getStatus(globalCloudContainerKey(unitName), "cloud container")
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return info, err
-	}
-	return status.UnitDisplayStatus(info, containerInfo), nil
-}
-
 type statusDocWithID struct {
 	ID         string                 `bson:"_id"`
 	ModelUUID  string                 `bson:"model-uuid"`

@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/access"
@@ -95,6 +97,8 @@ type ModelInfoService interface {
 type ApplicationService interface {
 	// GetApplicationLife returns the life value of the application with the given name.
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+	// GetUnitWorkloadStatus returns the workload status of the specified unit.
+	GetUnitWorkloadStatus(context.Context, unit.Name) (*status.StatusInfo, error)
 }
 
 // ProxyService provides access to the proxy service.
