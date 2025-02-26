@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"strings"
 
+	"gopkg.in/httprequest.v1"
+
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/s3client"
-	"gopkg.in/httprequest.v1"
 )
 
 // NewObjectClient returns a new client based on the supplied dependencies.

@@ -99,18 +99,16 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 
 	// Retrieve the blob from all the remotes concurrently.
 	for _, ret := range retrievers {
-		go func(ret *retriever) error {
+		go func(ret *retriever) {
 			reader, size, err := ret.Retrieve(ctx, r.namespace, sha256)
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
 			case result <- retrievalResult{
 				index:  ret.index,
 				reader: reader,
 				size:   size,
 				err:    err,
 			}:
-				return nil
 			}
 		}(ret)
 	}
@@ -150,6 +148,7 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 				}
 				continue
 			} else if err != nil {
+				// If there is an error that is not BlobNotFound, return it
 				return nil, -1, err
 			}
 
