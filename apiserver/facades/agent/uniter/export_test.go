@@ -38,6 +38,7 @@ func NewTestAPI(
 	authorizer facade.Authorizer,
 	leadership leadership.Checker,
 	secretService SecretService,
+	applicationService ApplicationService,
 	clock clock.Clock,
 ) (*UniterAPI, error) {
 	if !authorizer.AuthUnitAgent() {
@@ -45,11 +46,12 @@ func NewTestAPI(
 	}
 
 	return &UniterAPI{
-		auth:              authorizer,
-		secretService:     secretService,
-		leadershipChecker: leadership,
-		clock:             clock,
-		logger:            loggertesting.WrapCheckLog(c),
+		auth:               authorizer,
+		secretService:      secretService,
+		applicationService: applicationService,
+		leadershipChecker:  leadership,
+		clock:              clock,
+		logger:             loggertesting.WrapCheckLog(c),
 	}, nil
 }
 

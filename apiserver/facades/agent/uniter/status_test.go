@@ -22,7 +22,7 @@ import (
 )
 
 type statusBaseSuite struct {
-	applicationService *MockApplicationService
+	applicationService *uniter.MockApplicationService
 	leadershipChecker  *fakeLeadershipChecker
 	badTag             names.Tag
 	api                *uniter.StatusAPI
@@ -35,7 +35,7 @@ func (s *statusBaseSuite) SetUpTest(c *gc.C) {
 
 func (s *statusBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.applicationService = NewMockApplicationService(ctrl)
+	s.applicationService = uniter.NewMockApplicationService(ctrl)
 	s.api = s.newStatusAPI()
 	return ctrl
 }
