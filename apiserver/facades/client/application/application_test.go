@@ -79,6 +79,7 @@ func (s *applicationSuite) TestSetCharm(c *gc.C) {
 			"trust":        "true",
 		},
 		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
+		ForceUnits:         true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -176,6 +177,7 @@ func (s *applicationSuite) TestSetCharmEndpointBindings(c *gc.C) {
 		EndpointBindings: map[string]string{
 			"baz": "bar",
 		},
+		ForceUnits: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.CharmOrigin, gc.DeepEquals, &state.CharmOrigin{
@@ -327,6 +329,7 @@ func (s *applicationSuite) TestSetCharmWithoutTrust(c *gc.C) {
 			"stringOption": "foo",
 		},
 		ConfigSettingsYAML: `foo: {"stringOption": "bar"}`,
+		ForceUnits:         true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -971,7 +974,7 @@ func (s *applicationSuite) expectSetCharm(c *gc.C, name string, fn func(*gc.C, s
 	})
 
 	// TODO (stickupkid): This isn't actually checking much here...
-	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), name, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, params applicationservice.UpdateCharmParams) error {
+	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), name, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, params applicationservice.UpdateCharmParams) error {
 		c.Assert(params.Charm, gc.DeepEquals, &domainCharm{
 			charm: s.charm,
 			locator: applicationcharm.CharmLocator{
@@ -981,6 +984,7 @@ func (s *applicationSuite) expectSetCharm(c *gc.C, name string, fn func(*gc.C, s
 			},
 			available: true,
 		})
+		c.Assert(params.CharmUpgradeOnError, gc.Equals, true)
 		return nil
 	})
 }

@@ -125,6 +125,10 @@ type UpdateCharmParams struct {
 	// unaffected; the storage directives will only be used for
 	// provisioning new storage instances.
 	Storage map[string]storage.Directive
+
+	// CharmUpgradeOnError indicates whether the charm must be upgraded
+	// even when on error.
+	CharmUpgradeOnError bool
 }
 
 // ResolvedResources is a collection of ResolvedResource elements.
@@ -211,6 +215,11 @@ type ImportApplicationArgs struct {
 
 	// Units contains the units to import.
 	Units []ImportUnitArg
+
 	// ApplicationConstraints contains the application constraints.
 	ApplicationConstraints constraints.Value
+
+	// CharmUpgradeOnError indicates whether the charm must be upgraded
+	// even when on error.
+	CharmUpgradeOnError bool
 }
