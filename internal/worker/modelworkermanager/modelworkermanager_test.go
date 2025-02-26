@@ -269,11 +269,11 @@ type dummyLogSinkGetter struct {
 	logger loggertesting.CheckLogger
 }
 
-func (l dummyLogSinkGetter) GetLogWriter(ctx context.Context, key corelogger.LoggerKey) (corelogger.LogWriterCloser, error) {
+func (l dummyLogSinkGetter) GetLogWriter(ctx context.Context, modelUUID model.UUID) (corelogger.LogWriterCloser, error) {
 	return stubLogger{}, nil
 }
 
-func (l dummyLogSinkGetter) GetLoggerContext(ctx context.Context, key corelogger.LoggerKey) (corelogger.LoggerContext, error) {
+func (l dummyLogSinkGetter) GetLoggerContext(ctx context.Context, modelUUID model.UUID) (corelogger.LoggerContext, error) {
 	return loggertesting.WrapCheckLogForContext(l.logger), nil
 }
 

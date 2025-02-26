@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/logsink"
 	corelogger "github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -25,7 +26,7 @@ type agentLoggingStrategy struct {
 	recordLogWriter corelogger.LogWriter
 	releaser        func() error
 	entity          string
-	modelUUID       string
+	modelUUID       coremodel.UUID
 }
 
 // newAgentLogWriteCloserFunc returns a function that will create a
@@ -55,24 +56,14 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	}
 
 	s.entity = entity.Tag().String()
-	s.modelUUID = st.ModelUUID()
-	m, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	s.modelUUID = coremodel.UUID(st.ModelUUID())
 
-	key := corelogger.LoggerKey{
-		ModelUUID:  s.modelUUID,
-		ModelName:  m.Name(),
-		ModelOwner: m.Owner().Id(),
-	}
-
-	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), key); err != nil {
+	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), s.modelUUID); err != nil {
 		return errors.Trace(err)
 	}
 	s.releaser = func() error {
 		if removed := st.Release(); removed {
-			return s.modelLogger.RemoveLogWriter(key)
+			return s.modelLogger.RemoveLogWriter(s.modelUUID)
 		}
 		return nil
 	}
@@ -80,7 +71,7 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 }
 
 func (s *agentLoggingStrategy) filePrefix() string {
-	return s.modelUUID + ":"
+	return s.modelUUID.String() + ":"
 }
 
 // Close is part of the logsink.LogWriteCloser interface.
@@ -103,7 +94,7 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 		Level:     level,
 		Message:   m.Message,
 		Labels:    m.Labels,
-		ModelUUID: s.modelUUID,
+		ModelUUID: s.modelUUID.String(),
 	}}), "writing model logs failed")
 
 	// If the log entries cannot be inserted to the DB log out an error

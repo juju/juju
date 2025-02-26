@@ -18,6 +18,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -27,6 +29,8 @@ type workerSuite struct {
 	states    chan string
 	called    int64
 	logWriter *MockLogWriterCloser
+
+	modelService *MockModelService
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -34,6 +38,8 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) TestKilledGetLogger(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	id := modeltesting.GenModelUUID(c)
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -42,17 +48,15 @@ func (s *workerSuite) TestKilledGetLogger(c *gc.C) {
 	w.Kill()
 
 	worker := w.(*LogSink)
-	_, err := worker.GetLogWriter(context.Background(), logger.LoggerKey{
-		ModelUUID:  "foo",
-		ModelName:  "foo",
-		ModelOwner: "bar",
-	})
+	_, err := worker.GetLogWriter(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, logger.ErrLoggerDying)
 }
 
 func (s *workerSuite) TestKilledGetLoggerContext(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	id := modeltesting.GenModelUUID(c)
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -61,11 +65,7 @@ func (s *workerSuite) TestKilledGetLoggerContext(c *gc.C) {
 	w.Kill()
 
 	worker := w.(*LogSink)
-	_, err := worker.GetLoggerContext(context.Background(), logger.LoggerKey{
-		ModelUUID:  "foo",
-		ModelName:  "foo",
-		ModelOwner: "bar",
-	})
+	_, err := worker.GetLoggerContext(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, logger.ErrLoggerDying)
 }
 
@@ -87,17 +87,17 @@ func (s *workerSuite) TestClose(c *gc.C) {
 func (s *workerSuite) TestGetLogWriter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	id := modeltesting.GenModelUUID(c)
+
+	s.expectModel(c, id)
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	s.ensureStartup(c)
 
 	worker := w.(*LogSink)
-	logger, err := worker.GetLogWriter(context.Background(), logger.LoggerKey{
-		ModelUUID:  "foo",
-		ModelName:  "foo",
-		ModelOwner: "bar",
-	})
+	logger, err := worker.GetLogWriter(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(logger, gc.NotNil)
 
@@ -107,6 +107,10 @@ func (s *workerSuite) TestGetLogWriter(c *gc.C) {
 func (s *workerSuite) TestGetLogWriterIsCached(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	id := modeltesting.GenModelUUID(c)
+
+	s.expectModel(c, id)
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -115,11 +119,7 @@ func (s *workerSuite) TestGetLogWriterIsCached(c *gc.C) {
 	worker := w.(*LogSink)
 
 	for i := 0; i < 10; i++ {
-		logger, err := worker.GetLogWriter(context.Background(), logger.LoggerKey{
-			ModelUUID:  "foo",
-			ModelName:  "foo",
-			ModelOwner: "bar",
-		})
+		logger, err := worker.GetLogWriter(context.Background(), id)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(logger, gc.NotNil)
 	}
@@ -132,6 +132,10 @@ func (s *workerSuite) TestGetLogWriterIsCached(c *gc.C) {
 func (s *workerSuite) TestGetLoggerContext(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	id := modeltesting.GenModelUUID(c)
+
+	s.expectModel(c, id)
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -139,11 +143,7 @@ func (s *workerSuite) TestGetLoggerContext(c *gc.C) {
 
 	worker := w.(*LogSink)
 
-	logger, err := worker.GetLoggerContext(context.Background(), logger.LoggerKey{
-		ModelUUID:  "foo",
-		ModelName:  "foo",
-		ModelOwner: "bar",
-	})
+	logger, err := worker.GetLoggerContext(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(logger, gc.NotNil)
 
@@ -153,6 +153,10 @@ func (s *workerSuite) TestGetLoggerContext(c *gc.C) {
 func (s *workerSuite) TestGetLoggerContextIsCached(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	id := modeltesting.GenModelUUID(c)
+
+	s.expectModel(c, id)
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -161,11 +165,7 @@ func (s *workerSuite) TestGetLoggerContextIsCached(c *gc.C) {
 	worker := w.(*LogSink)
 
 	for i := 0; i < 10; i++ {
-		logger, err := worker.GetLoggerContext(context.Background(), logger.LoggerKey{
-			ModelUUID:  "foo",
-			ModelName:  "foo",
-			ModelOwner: "bar",
-		})
+		logger, err := worker.GetLoggerContext(context.Background(), id)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(logger, gc.NotNil)
 	}
@@ -178,6 +178,10 @@ func (s *workerSuite) TestGetLoggerContextIsCached(c *gc.C) {
 func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	id := modeltesting.GenModelUUID(c)
+
+	s.expectModel(c, id)
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -189,20 +193,12 @@ func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *gc.
 
 	for i := 0; i < 10; i++ {
 		if i%2 == 0 {
-			_, err := worker.GetLogWriter(context.Background(), logger.LoggerKey{
-				ModelUUID:  "foo",
-				ModelName:  "foo",
-				ModelOwner: "bar",
-			})
+			_, err := worker.GetLogWriter(context.Background(), id)
 			c.Assert(err, jc.ErrorIsNil)
 			continue
 		}
 
-		_, err := worker.GetLoggerContext(context.Background(), logger.LoggerKey{
-			ModelUUID:  "foo",
-			ModelName:  "foo",
-			ModelOwner: "bar",
-		})
+		_, err := worker.GetLoggerContext(context.Background(), id)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -219,7 +215,15 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	ctrl := gomock.NewController(c)
 
+	s.modelService = NewMockModelService(ctrl)
+
 	return ctrl
+}
+
+func (s *workerSuite) expectModel(c *gc.C, id model.UUID) {
+	s.modelService.EXPECT().Model(gomock.Any(), id).Return(model.ModelInfo{
+		Name: "foo",
+	}, nil)
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
@@ -232,8 +236,9 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		LogWriterForModelFunc: func(ctx context.Context, key logger.LoggerKey) (logger.LogWriterCloser, error) {
 			return s.logWriter, nil
 		},
-		Logger: loggertesting.WrapCheckLog(c),
-		Clock:  clock.WallClock,
+		ModelService: s.modelService,
+		Logger:       loggertesting.WrapCheckLog(c),
+		Clock:        clock.WallClock,
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w

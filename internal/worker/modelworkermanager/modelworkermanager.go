@@ -279,13 +279,13 @@ func (m *modelWorkerManager) ensure(cfg NewModelConfig) error {
 
 func (m *modelWorkerManager) starter(cfg NewModelConfig) func(context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
-		modelUUID := cfg.ModelUUID
-		modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s-%s", cfg.ModelOwner, cfg.ModelName), cfg.ModelUUID)
+		modelUUID := model.UUID(cfg.ModelUUID)
+		modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s-%s", cfg.ModelOwner, cfg.ModelName), modelUUID)
 		m.config.Logger.Debugf(ctx, "starting workers for model %s", modelName)
 
 		// Get the provider domain services for the model.
 		cfg.ProviderServicesGetter = m.config.ProviderServicesGetter
-		cfg.DomainServices = m.config.DomainServicesGetter.ServicesForModel(model.UUID(modelUUID))
+		cfg.DomainServices = m.config.DomainServicesGetter.ServicesForModel(modelUUID)
 
 		cfg.HTTPClientGetter = m.config.HTTPClientGetter
 
@@ -301,11 +301,7 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func(context.Context) (
 
 		// LoggerContext for the model worker, this is then used for all
 		// logging.
-		cfg.LoggerContext, err = m.config.LogSinkGetter.GetLoggerContext(ctx, corelogger.LoggerKey{
-			ModelUUID:  modelUUID,
-			ModelName:  cfg.ModelName,
-			ModelOwner: cfg.ModelOwner,
-		})
+		cfg.LoggerContext, err = m.config.LogSinkGetter.GetLoggerContext(ctx, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

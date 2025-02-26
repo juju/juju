@@ -28,9 +28,16 @@ func (*ImportTest) TestImports(c *gc.C) {
 
 	// This package brings in nothing else from outside juju/juju/core
 	c.Assert(found, jc.SameContents, []string{
+		"core/credential",
+		"core/life",
 		"core/logger",
+		"core/model",
+		"core/permission",
+		"core/status",
 		"core/trace",
+		"core/user",
 		"internal/errors",
 		"internal/logger",
+		"internal/uuid",
 	})
 }

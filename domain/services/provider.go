@@ -29,7 +29,7 @@ func NewProviderServices(
 	logger logger.Logger,
 ) *ProviderServices {
 	return &ProviderServices{
-		modelServiceFactoryBase{
+		modelServiceFactoryBase: modelServiceFactoryBase{
 			serviceFactoryBase: serviceFactoryBase{
 				controllerDB: controllerDB,
 				logger:       logger,

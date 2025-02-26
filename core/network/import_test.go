@@ -16,16 +16,21 @@ type ImportSuite struct{}
 var _ = gc.Suite(&ImportSuite{})
 
 var allowedCoreImports = set.NewStrings(
+	"core/credential",
 	"core/life",
 	"core/logger",
+	"core/model",
+	"core/permission",
+	"core/status",
 	"core/trace",
+	"core/user",
 	"internal/errors",
 	"internal/logger",
+	"internal/uuid",
 )
 
 func (*ImportSuite) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/network")
-	for _, packageImport := range found {
-		c.Assert(allowedCoreImports.Contains(packageImport), jc.IsTrue)
-	}
+
+	c.Assert(found, jc.SameContents, allowedCoreImports.SortedValues())
 }

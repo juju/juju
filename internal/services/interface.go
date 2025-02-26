@@ -207,3 +207,26 @@ type ObjectStoreServicesGetter interface {
 	// ServicesForModel returns a ObjectStoreServices for the given model.
 	ServicesForModel(modelUUID model.UUID) ObjectStoreServices
 }
+
+// ControllerLogSinkServices provides access to the services required by the
+// log sink worker.
+type ControllerLogSinkServices interface {
+	// ControllerConfig returns the controller configuration service.
+	ControllerConfig() *controllerconfigservice.WatchableService
+}
+
+// LogSinkServices provides access to the services required by the log sink
+// worker.
+type LogSinkServices interface {
+	ControllerLogSinkServices
+
+	// Model returns the log sink model service.
+	Model() *modelservice.LogSinkService
+}
+
+// LogSinkServicesGetter represents a way to get a LogSinkServices
+// for a given model.
+type LogSinkServicesGetter interface {
+	// ServicesForModel returns a LogSinkServices for the given model.
+	ServicesForModel(modelUUID model.UUID) LogSinkServices
+}

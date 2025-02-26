@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package logsink -destination logger_mock_test.go github.com/juju/juju/core/logger Logger,LogWriterCloser,LoggerContextGetter,ModelLogger
+//go:generate go run go.uber.org/mock/mockgen -typed -package logsink -destination services_mock_test.go github.com/juju/juju/internal/worker/logsink ModelService
 
 func Test(t *testing.T) {
 	gc.TestingT(t)
