@@ -1,17 +1,14 @@
 name: "Generate"
 on:
   push:
-    branches: [2.9, 3.1, 3.2, 3.3, main]
+    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - '**.go'
-      - 'go.mod'
-      - '.github/workflows/gen.yml'
+      - "**.go"
+      - "go.mod"
+      - ".github/workflows/gen.yml"
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   Generate:
@@ -21,13 +18,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
-          cache: true
+          go-version-file: "go.mod"
+          cache: false
 
       - name: Regenerate code
         shell: bash
@@ -50,7 +47,7 @@ jobs:
         run: |
           # The generation sometimes adds things to go.sum. Tidy to remove these.
           go mod tidy
-          
+
           git add -A
           if [[ -n $(git diff HEAD) ]]; then
             # Print the full diff for debugging purposes
