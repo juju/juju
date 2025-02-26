@@ -16,10 +16,10 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(registry facade.FacadeRegistry) {
 	return func(registry facade.FacadeRegistry) {
-		registry.MustRegisterForMultiModel("MigrationTarget", 3, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
+		registry.MustRegisterForMultiModel("MigrationTarget", 4, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 			api, err := makeFacade(stdCtx, ctx, requiredMigrationFacadeVersions)
 			if err != nil {
-				return nil, errors.Errorf("making migration target version 3: %w", err)
+				return nil, errors.Errorf("making migration target version 4: %w", err)
 			}
 			return api, nil
 		}, reflect.TypeOf((*API)(nil)))

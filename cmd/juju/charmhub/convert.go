@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/internal/charmhub/transport"
 )
 
-func convertInfoResponse(info transport.InfoResponse, arch string, base corebase.Base) (InfoResponse, error) {
+func convertInfoResponse(info transport.InfoResponse, arch string, risk charm.Risk, revision int, track string, base corebase.Base) (InfoResponse, error) {
 	ir := InfoResponse{
 		Type:        string(info.Type),
 		ID:          info.ID,
@@ -52,7 +52,7 @@ func convertInfoResponse(info transport.InfoResponse, arch string, base corebase
 	}
 
 	var err error
-	ir.Tracks, ir.Channels, err = filterChannels(info.ChannelMap, arch, base)
+	ir.Tracks, ir.Channels, err = filterChannels(info.ChannelMap, arch, risk, revision, track, base)
 	if err != nil {
 		return ir, errors.Trace(err)
 	}
@@ -302,7 +302,7 @@ func formatRelationPart(r map[string]charm.Relation) (map[string]string, bool) {
 // filterChannels returns channel map data in a format that facilitates
 // determining track order and open vs closed channels for displaying channel
 // data. The result is filtered on base and arch.
-func filterChannels(channelMap []transport.InfoChannelMap, arch string, base corebase.Base) ([]string, RevisionsMap, error) {
+func filterChannels(channelMap []transport.InfoChannelMap, arch string, risk charm.Risk, revision int, track string, base corebase.Base) ([]string, RevisionsMap, error) {
 	var trackList []string
 
 	tracksSeen := set.NewStrings()
@@ -315,6 +315,19 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch string, base cor
 		if ch.Track == "" {
 			ch.Track = "latest"
 		}
+
+		if risk != "" && track == "" {
+			track = ch.Track
+		}
+
+		if track != "" && ch.Track != track {
+			continue
+		}
+
+		if revision != -1 && cm.Revision.Revision != revision {
+			continue
+		}
+
 		if !tracksSeen.Contains(ch.Track) {
 			tracksSeen.Add(ch.Track)
 			trackList = append(trackList, ch.Track)
@@ -331,7 +344,7 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch string, base cor
 		}
 		revisionsSeen.Add(revisionKey)
 
-		revision := Revision{
+		channelRevision := Revision{
 			Track:      ch.Track,
 			Risk:       ch.Risk,
 			Version:    cm.Revision.Version,
@@ -345,7 +358,7 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch string, base cor
 		if _, ok := channels[ch.Track]; !ok {
 			channels[ch.Track] = make(map[string][]Revision)
 		}
-		channels[ch.Track][ch.Risk] = append(channels[ch.Track][ch.Risk], revision)
+		channels[ch.Track][ch.Risk] = append(channels[ch.Track][ch.Risk], channelRevision)
 	}
 
 	for _, risks := range channels {
