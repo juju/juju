@@ -40,7 +40,7 @@ type newLxdProfileSuite struct {
 
 	machineService     *MockMachineService
 	modelInfoService   *MockModelInfoService
-	applicationService *MockApplicationService
+	applicationService *uniter.MockApplicationService
 }
 
 var _ = gc.Suite(&newLxdProfileSuite{})
@@ -280,7 +280,7 @@ func (s *newLxdProfileSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.machine = NewMockLXDProfileMachineV2(ctrl)
 	s.unit = NewMockLXDProfileUnitV2(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
-	s.applicationService = NewMockApplicationService(ctrl)
+	s.applicationService = uniter.NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	return ctrl
 }

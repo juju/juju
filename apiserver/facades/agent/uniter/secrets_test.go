@@ -46,7 +46,7 @@ func (s *UniterSecretsSuite) SetUpTest(c *gc.C) {
 	s.authTag = names.NewUnitTag("mariadb/0")
 }
 
-func (s *UniterSecretsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *UniterSecretsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -58,7 +58,7 @@ func (s *UniterSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Now())
 
 	var err error
-	s.facade, err = NewTestAPI(c, s.authorizer, s.leadership, s.secretService, s.clock)
+	s.facade, err = NewTestAPI(c, s.authorizer, s.leadership, s.secretService, nil, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -70,7 +70,7 @@ func (s *UniterSecretsSuite) expectAuthUnitAgent() {
 }
 
 func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
 	checksum, err := coresecrets.NewSecretValue(data).Checksum()
@@ -134,7 +134,7 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *gc.C) {
 }
 
 func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	p := secretservice.CreateCharmSecretParams{
 		Version:    secrets.Version,
@@ -170,7 +170,7 @@ func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *gc.C) {
 }
 
 func (s *UniterSecretsSuite) TestUpdateSecrets(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
 	checksum, err := coresecrets.NewSecretValue(data).Checksum()
@@ -238,7 +238,7 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *gc.C) {
 }
 
 func (s *UniterSecretsSuite) TestRemoveSecrets(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
@@ -261,7 +261,7 @@ func (s *UniterSecretsSuite) TestRemoveSecrets(c *gc.C) {
 }
 
 func (s *UniterSecretsSuite) TestRemoveSecretRevision(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
@@ -286,7 +286,7 @@ func (s *UniterSecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 }
 
 func (s *UniterSecretsSuite) TestRemoveSecretNotFound(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
@@ -309,7 +309,7 @@ func (s *UniterSecretsSuite) TestRemoveSecretNotFound(c *gc.C) {
 }
 
 func (s *UniterSecretsSuite) TestSecretsGrant(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
 	s.secretService.EXPECT().GrantSecretAccess(gomock.Any(), uri, secretservice.SecretAccessParams{
@@ -350,7 +350,7 @@ func (s *UniterSecretsSuite) TestSecretsGrant(c *gc.C) {
 }
 
 func (s *UniterSecretsSuite) TestSecretsRevoke(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
 	s.secretService.EXPECT().RevokeSecretAccess(gomock.Any(), uri, secretservice.SecretAccessParams{
@@ -391,7 +391,7 @@ func (s *UniterSecretsSuite) TestSecretsRevoke(c *gc.C) {
 }
 
 func (s *UniterSecretsSuite) TestUpdateTrackedRevisions(c *gc.C) {
-	defer s.setup(c).Finish()
+	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
 	s.secretService.EXPECT().GetConsumedRevision(gomock.Any(), uri, "mariadb/0", true, false, nil).

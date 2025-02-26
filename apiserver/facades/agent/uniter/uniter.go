@@ -2228,7 +2228,7 @@ func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (param
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result.Results[i].Result, err = u.oneGoalState(unit)
+		result.Results[i].Result, err = u.oneGoalState(ctx, unit)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
@@ -2237,14 +2237,14 @@ func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (param
 }
 
 // oneGoalState creates the goal state for a given unit.
-func (u *UniterAPI) oneGoalState(unit *state.Unit) (*params.GoalState, error) {
+func (u *UniterAPI) oneGoalState(ctx context.Context, unit *state.Unit) (*params.GoalState, error) {
 	app, err := unit.Application()
 	if err != nil {
 		return nil, err
 	}
 
 	gs := params.GoalState{}
-	gs.Units, err = u.goalStateUnits(app, unit.Name())
+	gs.Units, err = u.goalStateUnits(ctx, app, unit.Name())
 	if err != nil {
 		return nil, err
 	}
@@ -2253,7 +2253,7 @@ func (u *UniterAPI) oneGoalState(unit *state.Unit) (*params.GoalState, error) {
 		return nil, err
 	}
 	if allRelations != nil {
-		gs.Relations, err = u.goalStateRelations(app.Name(), unit.Name(), allRelations)
+		gs.Relations, err = u.goalStateRelations(ctx, app.Name(), unit.Name(), allRelations)
 		if err != nil {
 			return nil, err
 		}
@@ -2262,7 +2262,7 @@ func (u *UniterAPI) oneGoalState(unit *state.Unit) (*params.GoalState, error) {
 }
 
 // goalStateRelations creates the structure with all the relations between endpoints in an application.
-func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelations []*state.Relation) (map[string]params.UnitsGoalState, error) {
+func (u *UniterAPI) goalStateRelations(ctx context.Context, appName, principalName string, allRelations []*state.Relation) (map[string]params.UnitsGoalState, error) {
 
 	result := map[string]params.UnitsGoalState{}
 
@@ -2328,7 +2328,7 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 
 			// For local applications, add in the status of units as well.
 			if app != nil {
-				units, err := u.goalStateUnits(app, principalName)
+				units, err := u.goalStateUnits(ctx, app, principalName)
 				if err != nil {
 					return nil, err
 				}
@@ -2354,13 +2354,28 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 
 // goalStateUnits loops through all application units related to principalName,
 // and stores the goal state status in UnitsGoalState.
-func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string) (params.UnitsGoalState, error) {
+func (u *UniterAPI) goalStateUnits(ctx context.Context, app *state.Application, principalName string) (params.UnitsGoalState, error) {
 
 	// TODO(units) - add service method for AllUnits
 	allUnits, err := app.AllUnits()
 	if err != nil {
 		return nil, err
 	}
+
+	appID, err := u.applicationService.GetApplicationIDByName(ctx, app.Name())
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil, errors.NotFoundf("application %q", app.Name())
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	unitWorkloadStatuses, err := u.applicationService.GetUnitWorkloadStatusesForApplication(ctx, appID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil, errors.NotFoundf("application %q", app.Name())
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	unitsGoalState := params.UnitsGoalState{}
 	for _, unit := range allUnits {
 		// Ignore subordinates belonging to other units.
@@ -2371,13 +2386,17 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 		unitLife := unit.Life()
 		if unitLife == state.Dead {
 			// only show Alive and Dying units
-			u.logger.Debugf(context.TODO(), "unit %q is dead, ignore it.", unit.Name())
+			u.logger.Debugf(ctx, "unit %q is dead, ignore it.", unit.Name())
 			continue
 		}
 		unitGoalState := params.GoalStateStatus{}
-		statusInfo, err := unit.Status()
+		unitName, err := coreunit.NewName(unit.Name())
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+		statusInfo, ok := unitWorkloadStatuses[unitName]
+		if !ok {
+			return nil, errors.Errorf("status for unit %q not found", unitName)
 		}
 		unitGoalState.Status = statusInfo.Status.String()
 		if unitLife == state.Dying {
