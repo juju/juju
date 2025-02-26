@@ -124,9 +124,9 @@ type ApplicationService interface {
 	CreateApplication(ctx context.Context, name string, charm internalcharm.Charm, origin corecharm.Origin, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
 	// AddUnits adds units to the application.
 	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) error
-	// UpdateApplicationCharm sets a new charm for the application, validating that aspects such
+	// SetApplicationCharm sets a new charm for the application, validating that aspects such
 	// as storage are still viable with the new charm.
-	UpdateApplicationCharm(ctx context.Context, name string, params applicationservice.UpdateCharmParams) error
+	SetApplicationCharm(ctx context.Context, name string, params applicationservice.UpdateCharmParams) error
 	// SetApplicationScale sets the application's desired scale value.
 	// This is used on CAAS models.
 	SetApplicationScale(ctx context.Context, name string, scale int) error

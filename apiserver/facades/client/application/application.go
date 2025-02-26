@@ -1083,7 +1083,6 @@ func (api *APIBase) applicationSetCharm(
 		return errors.New("cannot downgrade from v2 charm format to v1")
 	}
 
-	// TODO(dqlite) - remove SetCharm (replaced below with UpdateApplicationCharm).
 	if err := params.Application.SetCharm(cfg, api.store); err != nil {
 		return errors.Annotate(err, "updating charm config")
 	}
@@ -1102,9 +1101,10 @@ func (api *APIBase) applicationSetCharm(
 			storageDirectives[name] = sc
 		}
 	}
-	if err := api.applicationService.UpdateApplicationCharm(ctx, params.AppName, applicationservice.UpdateCharmParams{
-		Charm:   newCharm,
-		Storage: storageDirectives,
+	if err := api.applicationService.SetApplicationCharm(ctx, params.AppName, applicationservice.UpdateCharmParams{
+		Charm:               newCharm,
+		Storage:             storageDirectives,
+		CharmUpgradeOnError: params.Force.ForceUnits,
 	}); err != nil {
 		return errors.Annotatef(err, "updating charm for application %q", params.AppName)
 	}

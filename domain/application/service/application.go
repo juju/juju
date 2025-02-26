@@ -1006,9 +1006,9 @@ func (s *Service) MarkApplicationDead(ctx context.Context, appName string) error
 	return nil
 }
 
-// UpdateApplicationCharm sets a new charm for the application, validating that aspects such
+// SetApplicationCharm sets a new charm for the application, validating that aspects such
 // as storage are still viable with the new charm.
-func (s *Service) UpdateApplicationCharm(ctx context.Context, name string, params UpdateCharmParams) error {
+func (s *Service) SetApplicationCharm(ctx context.Context, name string, params UpdateCharmParams) error {
 	//TODO(storage) - update charm and storage directive for app
 	return nil
 }
