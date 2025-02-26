@@ -1,5 +1,5 @@
 (juju_unit_status)=
-# juju_unit_status
+# `juju_unit_status`
 
 The `juju_unit_status` introspection function was introduced in 2.9.
 
