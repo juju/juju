@@ -12,6 +12,7 @@ import (
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
@@ -20,9 +21,11 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/linklayerdevice"
 	internalcharm "github.com/juju/juju/internal/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // MigrationService provides the API for migrating applications.
@@ -192,6 +195,26 @@ func (s *MigrationService) GetApplicationStatus(ctx context.Context, name string
 	return decodedStatus, nil
 }
 
+// GetApplicationConstraints returns the application constraints for the
+// specified application name.
+// Empty constraints are returned if no constraints exist for the given
+// application ID.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name string) (coreconstraints.Value, error) {
+	if !isValidApplicationName(name) {
+		return coreconstraints.Value{}, applicationerrors.ApplicationNameNotValid
+	}
+
+	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return coreconstraints.Value{}, errors.Trace(err)
+	}
+
+	cons, err := s.st.GetApplicationConstraints(ctx, appID)
+	return constraints.EncodeConstraints(cons), internalerrors.Capture(err)
+}
+
 // ImportApplication imports the specified application and units if required,
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
@@ -258,6 +281,14 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 			return errors.Annotatef(err, "inserting unit %q", arg.UnitName)
 		}
 	}
+	// TODO(nvinuesa): We should use the service method to set the
+	// constraints because we need validation. For the moment it's not
+	// possible because we need a provider during migration.
+	err = s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(args.ApplicationConstraints))
+	if err != nil {
+		return errors.Annotatef(err, "setting application constraints for application %q", name)
+	}
+
 	return nil
 }
 

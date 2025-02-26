@@ -17,6 +17,8 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
@@ -157,12 +159,13 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		applicationStatus := i.importStatus(app.Status())
 
 		err = i.service.ImportApplication(ctx, app.Name(), service.ImportApplicationArgs{
-			Charm:               charm,
-			CharmOrigin:         origin,
-			Units:               unitArgs,
-			ApplicationConfig:   applicationConfig,
-			ApplicationSettings: applicationSettings,
-			ApplicationStatus:   &applicationStatus,
+			Charm:                  charm,
+			CharmOrigin:            origin,
+			Units:                  unitArgs,
+			ApplicationConfig:      applicationConfig,
+			ApplicationSettings:    applicationSettings,
+			ApplicationStatus:      &applicationStatus,
+			ApplicationConstraints: i.importApplicationConstraints(app),
 
 			// ReferenceName is the name of the charm URL, not the application
 			// name and not the charm name in the metadata, but the name of
@@ -287,6 +290,60 @@ func (i *importOperation) importStatus(s description.Status) corestatus.StatusIn
 		Data:    s.Data(),
 		Since:   ptr(s.Updated()),
 	}
+}
+
+func (i *importOperation) importApplicationConstraints(app description.Application) constraints.Value {
+	result := constraints.Value{}
+
+	cons := app.Constraints()
+	if cons == nil {
+		return result
+	}
+
+	if allocate := cons.AllocatePublicIP(); allocate {
+		result.AllocatePublicIP = &allocate
+	}
+	if arch := cons.Architecture(); arch != "" {
+		result.Arch = &arch
+	}
+	if container := instance.ContainerType(cons.Container()); container != "" {
+		result.Container = &container
+	}
+	if cores := cons.CpuCores(); cores != 0 {
+		result.CpuCores = &cores
+	}
+	if power := cons.CpuPower(); power != 0 {
+		result.CpuPower = &power
+	}
+	if inst := cons.InstanceType(); inst != "" {
+		result.InstanceType = &inst
+	}
+	if mem := cons.Memory(); mem != 0 {
+		result.Mem = &mem
+	}
+	if imageID := cons.ImageID(); imageID != "" {
+		result.ImageID = &imageID
+	}
+	if disk := cons.RootDisk(); disk != 0 {
+		result.RootDisk = &disk
+	}
+	if source := cons.RootDiskSource(); source != "" {
+		result.RootDiskSource = &source
+	}
+	if spaces := cons.Spaces(); len(spaces) > 0 {
+		result.Spaces = &spaces
+	}
+	if tags := cons.Tags(); len(tags) > 0 {
+		result.Tags = &tags
+	}
+	if virt := cons.VirtType(); virt != "" {
+		result.VirtType = &virt
+	}
+	if zones := cons.Zones(); len(zones) > 0 {
+		result.Zones = &zones
+	}
+
+	return result
 }
 
 // importCharmOrigin returns the charm origin for an application

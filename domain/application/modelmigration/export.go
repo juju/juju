@@ -15,6 +15,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	corestatus "github.com/juju/juju/core/status"
@@ -68,6 +69,14 @@ type ExportService interface {
 	// If the application does not exist, a [applicationerrors.ApplicationNotFound]
 	// error is returned.
 	GetApplicationStatus(ctx context.Context, name string) (*corestatus.StatusInfo, error)
+
+	// GetApplicationConstraints returns the application constraints for the
+	// specified application name.
+	// Empty constraints are returned if no constraints exist for the given
+	// application ID.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationConstraints(ctx context.Context, name string) (constraints.Value, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -153,6 +162,12 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		if err := e.exportCharm(ctx, app, charm); err != nil {
 			return errors.Trace(err)
 		}
+
+		appCons, err := e.service.GetApplicationConstraints(ctx, app.Name())
+		if err != nil {
+			return fmt.Errorf("getting application constraints %q: %v", app.Name(), err)
+		}
+		app.SetConstraints(e.exportApplicationConstraints(appCons))
 	}
 	return nil
 }
@@ -343,6 +358,53 @@ func (e *exportOperation) exportCharmActions(actions *internalcharm.Actions) (de
 	return description.CharmActionsArgs{
 		Actions: result,
 	}, nil
+}
+
+func (e *exportOperation) exportApplicationConstraints(cons constraints.Value) description.ConstraintsArgs {
+	result := description.ConstraintsArgs{}
+	if cons.AllocatePublicIP != nil {
+		result.AllocatePublicIP = *cons.AllocatePublicIP
+	}
+	if cons.Arch != nil {
+		result.Architecture = *cons.Arch
+	}
+	if cons.Container != nil {
+		result.Container = string(*cons.Container)
+	}
+	if cons.CpuCores != nil {
+		result.CpuCores = *cons.CpuCores
+	}
+	if cons.CpuPower != nil {
+		result.CpuPower = *cons.CpuPower
+	}
+	if cons.Mem != nil {
+		result.Memory = *cons.Mem
+	}
+	if cons.RootDisk != nil {
+		result.RootDisk = *cons.RootDisk
+	}
+	if cons.RootDiskSource != nil {
+		result.RootDiskSource = *cons.RootDiskSource
+	}
+	if cons.ImageID != nil {
+		result.ImageID = *cons.ImageID
+	}
+	if cons.InstanceType != nil {
+		result.InstanceType = *cons.InstanceType
+	}
+	if cons.VirtType != nil {
+		result.VirtType = *cons.VirtType
+	}
+	if cons.Spaces != nil {
+		result.Spaces = *cons.Spaces
+	}
+	if cons.Tags != nil {
+		result.Tags = *cons.Tags
+	}
+	if cons.Zones != nil {
+		result.Zones = *cons.Zones
+	}
+	return result
 }
 
 const (

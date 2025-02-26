@@ -16,6 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -64,6 +66,7 @@ func (s *exportSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()
 	s.expectApplicationStatus()
+	s.expectApplicationConstraints(constraints.Value{})
 
 	exportOp := exportOperation{
 		service: s.exportService,
@@ -81,6 +84,68 @@ func (s *exportSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 	metadata := app.CharmMetadata()
 	c.Assert(metadata, gc.NotNil)
 	c.Check(metadata.Name(), gc.Equals, "prometheus")
+}
+
+func (s *exportSuite) TestApplicationExportConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	appArgs := description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("prometheus"),
+		CharmURL: "ch:prometheus-1",
+	}
+	app := model.AddApplication(appArgs)
+	app.AddUnit(description.UnitArgs{
+		Tag: names.NewUnitTag("prometheus/0"),
+	})
+
+	s.expectApplicationStatus()
+	s.expectMinimalCharm()
+	s.expectApplicationConfig()
+	cons := constraints.Value{
+		AllocatePublicIP: ptr(true),
+		Arch:             ptr("amd64"),
+		Container:        ptr(instance.ContainerType("lxd")),
+		CpuCores:         ptr(uint64(2)),
+		CpuPower:         ptr(uint64(1000)),
+		ImageID:          ptr("foo"),
+		InstanceRole:     ptr("bar"),
+		InstanceType:     ptr("baz"),
+		VirtType:         ptr("vm"),
+		Mem:              ptr(uint64(1024)),
+		RootDisk:         ptr(uint64(1024)),
+		RootDiskSource:   ptr("qux"),
+		Spaces:           ptr([]string{"space0", "space1"}),
+		Tags:             ptr([]string{"tag0", "tag1"}),
+		Zones:            ptr([]string{"zone0", "zone1"}),
+	}
+	s.expectApplicationConstraints(cons)
+
+	exportOp := exportOperation{
+		service: s.exportService,
+		clock:   clock.WallClock,
+	}
+
+	err := exportOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Applications(), gc.HasLen, 1)
+
+	app = model.Applications()[0]
+	c.Check(app.Constraints().AllocatePublicIP(), gc.Equals, true)
+	c.Check(app.Constraints().Architecture(), gc.Equals, "amd64")
+	c.Check(app.Constraints().Container(), gc.Equals, "lxd")
+	c.Check(app.Constraints().CpuCores(), gc.Equals, uint64(2))
+	c.Check(app.Constraints().CpuPower(), gc.Equals, uint64(1000))
+	c.Check(app.Constraints().ImageID(), gc.Equals, "foo")
+	c.Check(app.Constraints().InstanceType(), gc.Equals, "baz")
+	c.Check(app.Constraints().VirtType(), gc.Equals, "vm")
+	c.Check(app.Constraints().Memory(), gc.Equals, uint64(1024))
+	c.Check(app.Constraints().RootDisk(), gc.Equals, uint64(1024))
+	c.Check(app.Constraints().RootDiskSource(), gc.Equals, "qux")
+	c.Check(app.Constraints().Spaces(), gc.DeepEquals, []string{"space0", "space1"})
+	c.Check(app.Constraints().Tags(), gc.DeepEquals, []string{"tag0", "tag1"})
+	c.Check(app.Constraints().Zones(), gc.DeepEquals, []string{"zone0", "zone1"})
 }
 
 func (s *exportSuite) TestExportCharmMetadata(c *gc.C) {
@@ -427,4 +492,8 @@ func (s *exportSuite) expectApplicationStatus() {
 	s.exportService.EXPECT().GetApplicationStatus(gomock.Any(), "prometheus").Return(&corestatus.StatusInfo{
 		Status: corestatus.Running,
 	}, nil)
+}
+
+func (s *exportSuite) expectApplicationConstraints(cons constraints.Value) {
+	s.exportService.EXPECT().GetApplicationConstraints(gomock.Any(), "prometheus").Return(cons, nil)
 }

@@ -6,6 +6,7 @@ package service
 import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
@@ -210,4 +211,6 @@ type ImportApplicationArgs struct {
 
 	// Units contains the units to import.
 	Units []ImportUnitArg
+	// ApplicationConstraints contains the application constraints.
+	ApplicationConstraints constraints.Value
 }
