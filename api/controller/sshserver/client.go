@@ -40,10 +40,13 @@ func (c *Client) WatchControllerConfig() (watcher.NotifyWatcher, error) {
 
 // SSHServerHostKey returns the private host key for the controller's SSH server.
 func (c *Client) SSHServerHostKey() (string, error) {
-	var result params.SSHServerHostPrivateKeyResult
+	var result params.StringResult
 	err := c.facade.FacadeCall("SSHServerHostKey", nil, &result)
 	if err != nil {
 		return "", err
 	}
-	return result.HostKey, nil
+	if err := result.Error; err != nil {
+		return "", err
+	}
+	return result.Result, nil
 }

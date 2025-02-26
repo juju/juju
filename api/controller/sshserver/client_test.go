@@ -4,12 +4,14 @@
 package sshserver_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/sshserver"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 )
@@ -63,10 +65,10 @@ func (s *sshserverSuite) TestSSHServerHostKey(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "SSHServerHostKey")
 			c.Assert(arg, gc.IsNil)
-			c.Assert(result, gc.FitsTypeOf, &params.SSHServerHostPrivateKeyResult{})
+			c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
 
-			*(result.(*params.SSHServerHostPrivateKeyResult)) = params.SSHServerHostPrivateKeyResult{
-				HostKey: "key",
+			*(result.(*params.StringResult)) = params.StringResult{
+				Result: "key",
 			}
 			return nil
 		},
@@ -80,4 +82,26 @@ func (s *sshserverSuite) TestSSHServerHostKey(c *gc.C) {
 		jc.DeepEquals,
 		"key",
 	)
+}
+
+func (s *sshserverSuite) TestSSHServerHostKeyError(c *gc.C) {
+	client, err := newClient(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "SSHServer")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "SSHServerHostKey")
+			c.Assert(arg, gc.IsNil)
+			c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
+
+			*(result.(*params.StringResult)) = params.StringResult{
+				Result: "",
+				Error:  apiservererrors.ServerError(errors.New("blah")),
+			}
+			return nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = client.SSHServerHostKey()
+	c.Assert(err, gc.NotNil)
 }

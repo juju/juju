@@ -24,6 +24,18 @@ import (
 // before allowing a close to take effect. The corresponding
 // piece to this is to receive from the closeAllowed channel
 // within your cleanup routine.
+//
+// Example:
+//
+//	listener, closeAllowed := newSSHServerListener(s.config.Listener)
+//
+//	s.tomb.Go(func() error {
+//		<-s.tomb.Dying()
+//		<-closeAllowed // Not until accept has been called once, will this be allowed to continue.
+//		if err := s.Server.Close(); err != nil {
+//			...
+//		}
+//	})
 type sshServerListener struct {
 	net.Listener
 	// closeAllowed indicates when the server has reached

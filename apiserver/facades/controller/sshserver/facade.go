@@ -5,14 +5,17 @@ package sshserver
 
 import (
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
-// State provides required state for the Facade.
-type State interface {
+// Backend provides required state for the Facade.
+type Backend interface {
+	common.ControllerConfigState
+
 	WatchControllerConfig() state.NotifyWatcher
 	SSHServerHostKey() (string, error)
 }
@@ -21,15 +24,17 @@ type State interface {
 type Facade struct {
 	resources facade.Resources
 
-	ctrlState           State
+	ctrlState           Backend
 	controllerConfigAPI *common.ControllerConfigAPI
 }
 
-func NewFacade(ctx facade.Context, systemState *state.State) *Facade {
+// NewFacade returns a new SSHServer facade to be registered for use within
+// the worker.
+func NewFacade(ctx facade.Context, backend Backend) *Facade {
 	return &Facade{
 		resources:           ctx.Resources(),
-		controllerConfigAPI: common.NewStateControllerConfig(systemState),
-		ctrlState:           systemState,
+		controllerConfigAPI: common.NewStateControllerConfig(backend),
+		ctrlState:           backend,
 	}
 }
 
@@ -48,12 +53,12 @@ func (f *Facade) WatchControllerConfig() (params.NotifyWatchResult, error) {
 	return result, nil
 }
 
-func (f *Facade) SSHServerHostKey() (params.SSHServerHostPrivateKeyResult, error) {
-	result := params.SSHServerHostPrivateKeyResult{}
+func (f *Facade) SSHServerHostKey() (params.StringResult, error) {
+	result := params.StringResult{}
 	key, err := f.ctrlState.SSHServerHostKey()
 	if err != nil {
-		return result, err
+		result.Error = apiservererrors.ServerError(err)
 	}
-	result.HostKey = key
+	result.Result = key
 	return result, nil
 }
