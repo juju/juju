@@ -18,14 +18,9 @@ Displays detailed information about CharmHub charms.
 | `--config` | false | Display config for this charm |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
 | `-o`, `--output` |  | Specify an output file |
-<<<<<<< HEAD
-| `--unicode` | auto | display output using unicode &lt;auto&#x7c;never&#x7c;always&gt; |
-=======
 | `--revision` | -1 | Specify a revision number |
-| `--series` | all | Specify a series. DEPRECATED use --base |
 | `--track` |  | Specify a track to use instead of the default track |
 | `--unicode` | auto | Display output using unicode &lt;auto&#x7c;never&#x7c;always&gt; |
->>>>>>> 5890ca751d
 
 ## Examples
 
@@ -43,9 +38,9 @@ separated by @.
 For example: --base ubuntu@22.04
 
 Use --revision to display information about a specific revision of the charm,
-which cannot be used together with --arch, --base, --channel or --series.
+which cannot be used together with --arch, --base or --channel.
 For example: --revision 42
 
 Use --track to display information about a specific track of the charm,
-which cannot be used together with --arch, --base, --channel or --series.
+which cannot be used together with --arch, --base or --channel.
 For example: --track 14

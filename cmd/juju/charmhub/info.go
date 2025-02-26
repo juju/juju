@@ -30,11 +30,11 @@ separated by @.
 For example: --base ubuntu@22.04
 
 Use --revision to display information about a specific revision of the charm,
-which cannot be used together with --arch, --base, --channel or --series.
+which cannot be used together with --arch, --base or --channel.
 For example: --revision 42
 
 Use --track to display information about a specific track of the charm,
-which cannot be used together with --arch, --base, --channel or --series.
+which cannot be used together with --arch, --base or --channel.
 For example: --track 14
 `
 	infoExamples = `
@@ -88,22 +88,13 @@ func (c *infoCommand) Info() *cmd.Info {
 func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
-<<<<<<< HEAD
-	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.base, "base", "", "specify a base")
-	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
-	f.BoolVar(&c.config, "config", false, "display config for this charm")
-	f.StringVar(&c.unicode, "unicode", "auto", "display output using unicode <auto|never|always>")
-=======
 	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("Specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "Specify a series. DEPRECATED use --base")
 	f.StringVar(&c.base, "base", "", "Specify a base")
 	f.StringVar(&c.channel, "channel", "", "Specify a channel to use instead of the default release")
 	f.BoolVar(&c.config, "config", false, "Display config for this charm")
 	f.IntVar(&c.revision, "revision", -1, "Specify a revision number")
 	f.StringVar(&c.track, "track", "", "Specify a track to use instead of the default track")
 	f.StringVar(&c.unicode, "unicode", "auto", "Display output using unicode <auto|never|always>")
->>>>>>> 5890ca751d
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -114,25 +105,17 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the info command, including validating the provided
 // flags. It implements part of the cmd.Command interface.
 func (c *infoCommand) Init(args []string) error {
-<<<<<<< HEAD
-=======
-	if c.base != "" && (c.series != "" && c.series != SeriesAll) {
-		return errors.New("--series and --base cannot be specified together")
-	}
-
 	hasArch := c.arch != ArchAll && c.arch != ""
 	hasBase := c.base != ""
 	hasChannel := c.channel != ""
-	hasSeries := c.series != SeriesAll && c.series != ""
-	if c.revision != -1 && (hasArch || hasBase || hasChannel || hasSeries) {
-		return errors.New("--revision cannot be specified together with --arch, --base, --channel or --series")
+	if c.revision != -1 && (hasArch || hasBase || hasChannel) {
+		return errors.New("--revision cannot be specified together with --arch, --base or --channel")
 	}
 
-	if c.track != "" && (hasArch || hasBase || hasChannel || hasSeries) {
-		return errors.New("--track cannot be specified together with --arch, --base, --channel or --series")
+	if c.track != "" && (hasArch || hasBase || hasChannel) {
+		return errors.New("--track cannot be specified together with --arch, --base or --channel")
 	}
 
->>>>>>> 5890ca751d
 	if err := c.charmHubCommand.Init(args); err != nil {
 		return errors.Trace(err)
 	}
