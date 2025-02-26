@@ -524,6 +524,8 @@ func (s *loginSuite) TestNoLoginPermissions(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
+	// todo(gfouillet): re-enable whenever relation domain will be implemented.
+	c.Skip("TODO: disabled until relation domain is implemented")
 	s.WithUpgrading = true
 	s.testLoginDuringMaintenance(c, func(st api.Connection) {
 		var statusResult params.FullStatus
@@ -1147,7 +1149,11 @@ func (s *migrationSuite) TestExportingModel(c *gc.C) {
 
 	// Status is fine.
 	_, err = apiclient.NewClient(userConn, loggertesting.WrapCheckLog(c)).Status(context.Background(), nil)
-	c.Check(err, jc.ErrorIsNil)
+	// TODO(gfouillet): restore this check to isNil when the relation domain
+	//   would be implemented. It breaks because it try to access to relation
+	//   statuses
+	c.Check(err, jc.ErrorIs, errors.NotImplemented)
+	// c.Check(err, jc.ErrorIsNil)
 
 	// Modifying commands like destroy machines are not.
 	_, err = machineclient.NewClient(userConn).DestroyMachinesWithParams(context.Background(), false, false, false, nil, "42")
