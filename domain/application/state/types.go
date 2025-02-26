@@ -649,7 +649,7 @@ type storageToAdd struct {
 	ApplicationUUID string  `db:"application_uuid"`
 	CharmUUID       string  `db:"charm_uuid"`
 	StorageName     string  `db:"storage_name"`
-	StoragePool     *string `db:"storage_pool_uuid"`
+	StoragePoolUUID *string `db:"storage_pool_uuid"`
 	StorageType     *string `db:"storage_type"`
 	Size            uint    `db:"size_mib"`
 	Count           uint    `db:"count"`

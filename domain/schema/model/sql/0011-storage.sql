@@ -171,11 +171,12 @@ ON storage_instance (storage_id);
 
 CREATE VIEW v_storage_instance AS
 SELECT
-    si.unit_uuid,
+    si.uuid,
     si.charm_uuid,
     si.storage_name,
-    si.size_mib,
-    si.count,
+    si.storage_id,
+    si.life_id,
+    si.requested_size_mib,
     COALESCE(sp.name, si.storage_type) AS storage_pool
 FROM storage_instance AS si
 LEFT JOIN storage_pool AS sp ON si.storage_pool_uuid = sp.uuid;
