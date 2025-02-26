@@ -62,6 +62,31 @@ func (s *apiclientSuite) TestDialAPIToModel(c *gc.C) {
 	assertConnAddrForModel(c, location, info.Addrs[0], s.State.ModelUUID())
 }
 
+func (s *apiclientSuite) TestDialAPIToModelParallel(c *gc.C) {
+	info := s.APIInfo(c)
+	info.Addrs = append(info.Addrs, "1.2.3.4:17070")
+
+	n := 10
+	errors := make(chan error, n)
+	for i := 0; i < n; i++ {
+		go func() {
+			conn, _, err := api.DialAPI(info, api.DialOpts{
+				DialTimeout: 100 * time.Millisecond,
+			})
+			if err == nil {
+				conn.Close()
+			}
+
+			errors <- err
+		}()
+	}
+
+	for i := 0; i < n; i++ {
+		err := <-errors
+		c.Assert(err, gc.Equals, nil)
+	}
+}
+
 func (s *apiclientSuite) TestDialAPIToRoot(c *gc.C) {
 	info := s.APIInfo(c)
 	info.ModelTag = names.NewModelTag("")

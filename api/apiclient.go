@@ -498,8 +498,8 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no API addresses to connect to")
 	}
-
-	addrs := info.Addrs[:]
+	addrs := make([]string, len(info.Addrs))
+	copy(addrs, info.Addrs)
 
 	if info.Proxier != nil {
 		if err := info.Proxier.Start(); err != nil {
