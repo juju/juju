@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/v4"
 
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/stringcompare"
 )
 
 var logger = internallogger.GetLogger("cmd")
@@ -631,7 +632,7 @@ func (c *SuperCommand) FindClosestSubCommand(name string) (string, Command, bool
 	for cmdName := range c.subcmds {
 		matches = append(matches, Indexed{
 			Name:  cmdName,
-			Value: levenshteinDistance(name, cmdName),
+			Value: stringcompare.LevenshteinDistance(name, cmdName),
 		})
 	}
 	// Find the smallest levenshtein distance. If two values are the same,
@@ -654,43 +655,6 @@ func (c *SuperCommand) FindClosestSubCommand(name string) (string, Command, bool
 		return matchedName, c.subcmds[matchedName].command, true
 	}
 	return "", nil, false
-}
-
-// levenshteinDistance
-// from https://groups.google.com/forum/#!topic/golang-nuts/YyH1f_qCZVc
-// (no min, compute lengths once, 2 rows array)
-// fastest profiled
-func levenshteinDistance(a, b string) int {
-	la := len(a)
-	lb := len(b)
-	d := make([]int, la+1)
-	var lastdiag, olddiag, temp int
-
-	for i := 1; i <= la; i++ {
-		d[i] = i
-	}
-	for i := 1; i <= lb; i++ {
-		d[0] = i
-		lastdiag = i - 1
-		for j := 1; j <= la; j++ {
-			olddiag = d[j]
-			min := d[j] + 1
-			if (d[j-1] + 1) < min {
-				min = d[j-1] + 1
-			}
-			if a[j-1] == b[i-1] {
-				temp = 0
-			} else {
-				temp = 1
-			}
-			if (lastdiag + temp) < min {
-				min = lastdiag + temp
-			}
-			d[j] = min
-			lastdiag = olddiag
-		}
-	}
-	return d[la]
 }
 
 type missingCommand struct {

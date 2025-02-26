@@ -31,5 +31,6 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"internal/cmd",
 		"internal/errors",
 		"internal/logger",
+		"internal/stringcompare",
 	})
 }
