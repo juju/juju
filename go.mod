@@ -34,7 +34,7 @@ require (
 	github.com/fatih/color v1.16.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/gliderlabs/ssh v0.3.8
-	github.com/go-delve/delve v1.23.1
+	github.com/go-delve/delve v1.24.0
 	github.com/go-goose/goose/v5 v5.0.0-20230421180421-abaee9096e3a
 	github.com/go-logr/logr v1.4.2
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.2
