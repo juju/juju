@@ -417,11 +417,11 @@ func ensureSSHServerHostKey(args *instancecfg.StateInitializationParams) error {
 		return nil
 	}
 	// Generate the embedded SSH server host key and store it within StateInitializationParams.
-	hostKey, err := pkissh.GenerateED25519KeyString()
+	hostKey, err := pkissh.NewMarshalledED25519()
 	if err != nil {
 		return errors.Annotatef(err, "failed to ensure ssh server host key")
 	}
-	args.SSHServerHostKey = hostKey
+	args.SSHServerHostKey = string(hostKey)
 	return nil
 }
 
