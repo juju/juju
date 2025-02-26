@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/ssh"
@@ -31,10 +32,10 @@ func (s *sshServerSuite) SetUpSuite(c *gc.C) {
 
 	// Setup user signer
 	userKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	userSigner, err := ssh.NewSignerFromKey(userKey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.userSigner = userSigner
 }
@@ -55,13 +56,13 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 		Logger:   loggertesting.WrapCheckLog(c),
 		Listener: listener,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)
 	workertest.CheckAlive(c, server)
 
 	// Dial the in-memory listener
 	conn, err := listener.Dial()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Open a client connection
 	jumpConn, chans, terminatingReqs, err := ssh.NewClientConn(
@@ -74,12 +75,12 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 			},
 		},
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Open jump connection
 	client := ssh.NewClient(jumpConn, chans, terminatingReqs)
 	tunnel, err := client.Dial("tcp", "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local:20")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Now with this opened direct-tcpip channel, open a session connection
 	terminatingClientConn, terminatingClientChan, terminatingReqs, err := ssh.NewClientConn(
@@ -92,14 +93,14 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 				ssh.PublicKeys(s.userSigner),
 			},
 		})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	terminatingClient := ssh.NewClient(terminatingClientConn, terminatingClientChan, terminatingReqs)
 	terminatingSession, err := terminatingClient.NewSession()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	output, err := terminatingSession.CombinedOutput("")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, "Your final destination is: 1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local as user: ubuntu\n")
 
 	// Server isn't gracefully closed, it's forcefully closed. All connections ended
