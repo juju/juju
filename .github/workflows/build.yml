@@ -1,48 +1,45 @@
 name: "Build"
 on:
   push:
-    branches: [2.*, 3.*, 4.*, main]
+    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - '**.go'
-      - 'go.mod'
-      - '.github/workflows/build.yml'
-      - 'scripts/dqlite/**'
-      - 'Makefile'
-      - 'make_functions.sh'
+      - "**.go"
+      - "go.mod"
+      - ".github/workflows/build.yml"
+      - "scripts/dqlite/**"
+      - "Makefile"
+      - "make_functions.sh"
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   Build:
     name: Build
-    runs-on: [self-hosted, linux, "${{ matrix.platform.host_arch }}", aws, large]
+    runs-on:
+      [self-hosted, linux, "${{ matrix.platform.host_arch }}", aws, large]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
         platform:
-           - { os: linux, arch: amd64, host_arch: x64 }
-           - { os: linux, arch: arm64, host_arch: arm64 }
+          - { os: linux, arch: amd64 }
+          - { os: linux, arch: arm64 }
 # Until we get rid of musl, lets just disable these to save build time.
-#           - { os: linux, arch: s390x }
-#           - { os: linux, arch: ppc64le }
-           - { os: windows, arch: amd64, host_arch: arm64 }
-           - { os: darwin, arch: arm64, host_arch: arm64 }
-
+#          - { os: linux, arch: s390x }
+#          - { os: linux, arch: ppc64le }
+          - { os: windows, arch: amd64 }
+          - { os: darwin, arch: amd64 }
     steps:
-    - name: "Checkout"
-      uses: actions/checkout@v4
+      - name: "Checkout"
+        uses: actions/checkout@v4
 
-    - name: "Set up Go"
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: 'go.mod'
-        cache: true
+      - name: "Set up Go"
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: false
 
-    - name: "Build"
-      run: |
-        GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make go-build
+      - name: "Build"
+        run: |
+          GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make go-build
