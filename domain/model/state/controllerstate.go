@@ -1633,6 +1633,24 @@ func (s *State) CloudSupportsAuthType(
 		return false, errors.Capture(err)
 	}
 
+	supports := false
+	return supports, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		supports, err = CloudSupportsAuthType(ctx, s, tx, cloudName, authType)
+		return err
+	})
+}
+
+// CloudSupportsAuthType allows the caller to ask if a given auth type is
+// currently supported by the given cloud name. If no cloud is found for
+// name an error matching [clouderrors.NotFound] is returned.
+func CloudSupportsAuthType(
+	ctx context.Context,
+	preparer domain.Preparer,
+	tx *sqlair.TX,
+	cloudName string,
+	authType cloud.AuthType,
+) (bool, error) {
 	type dbCloudUUID struct {
 		UUID string `db:"uuid"`
 	}
@@ -1646,7 +1664,7 @@ func (s *State) CloudSupportsAuthType(
 	cloudStmt := `
 SELECT &dbCloudUUID.* FROM cloud WHERE name = $dbCloudName.name
 `
-	selectCloudStmt, err := s.Prepare(cloudStmt, cloudUUIDVal, cloudNameVal)
+	selectCloudStmt, err := preparer.Prepare(cloudStmt, cloudUUIDVal, cloudNameVal)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -1666,45 +1684,32 @@ ON cloud_auth_type.auth_type_id = auth_type.id
 WHERE cloud.uuid = $dbCloudUUID.uuid
 AND auth_type.type = $dbCloudAuthType.type
 `
-	selectCloudAuthTypeStmt, err := sqlair.Prepare(authTypeStmt, cloudUUIDVal, authTypeVal)
+	selectCloudAuthTypeStmt, err := preparer.Prepare(authTypeStmt, cloudUUIDVal, authTypeVal)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	supports := false
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, selectCloudStmt, cloudNameVal).Get(&cloudUUIDVal)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return clouderrors.NotFound
-		} else if err != nil {
-			return err
-		}
-
-		err = tx.Query(
-			ctx,
-			selectCloudAuthTypeStmt,
-			authTypeVal,
-			cloudUUIDVal,
-		).Get(&authTypeVal)
-
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return err
-		}
-
-		supports = true
-		return nil
-	})
-
-	if err != nil {
-		return supports, errors.Errorf(
-			"checking if cloud %q supports auth type %q: %w",
-			cloudName, authType, err,
-		)
+	err = tx.Query(ctx, selectCloudStmt, cloudNameVal).Get(&cloudUUIDVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, errors.Errorf("cloud %q does not exist", cloudName).Add(clouderrors.NotFound)
+	} else if err != nil {
+		return false, errors.Capture(err)
 	}
 
-	return supports, nil
+	err = tx.Query(
+		ctx,
+		selectCloudAuthTypeStmt,
+		authTypeVal,
+		cloudUUIDVal,
+	).Get(&authTypeVal)
+
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
 }
 
 // updateCredential is responsible for updating the cloud credential in use

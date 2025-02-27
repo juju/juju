@@ -290,7 +290,7 @@ func (s *Service) createModel(
 
 		if !supports {
 			return nil, errors.Errorf(
-				"new model %q cloud %q does not support empty authentication, a credential needs to specified",
+				"new model %q cloud %q does not support empty authentication, a credential needs to be specified",
 				args.Name, args.Cloud,
 			).Add(modelerrors.CredentialNotValid)
 		}
