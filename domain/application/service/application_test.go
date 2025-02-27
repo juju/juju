@@ -682,13 +682,16 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Storage: []application.AddApplicationStorageArg{{
+		Storage: []application.ApplicationStorageArg{{
 			Name:           "data",
 			PoolNameOrType: "loop",
 			Size:           10,
 			Count:          1,
 		}},
 		Scale: 1,
+		StoragePoolKind: map[string]storage.StorageKind{
+			"loop": storage.StorageKindBlock,
+		},
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -716,7 +719,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	}}}).MinTimes(1)
 
 	pool := domainstorage.StoragePoolDetails{Name: "loop", Provider: "loop"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").Return(pool, nil)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").Return(pool, nil).MaxTimes(2)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -791,13 +794,16 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Storage: []application.AddApplicationStorageArg{{
+		Storage: []application.ApplicationStorageArg{{
 			Name:           "data",
 			PoolNameOrType: "fast",
 			Size:           10,
 			Count:          2,
 		}},
 		Scale: 1,
+		StoragePoolKind: map[string]storage.StorageKind{
+			"fast": storage.StorageKindBlock,
+		},
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultBlockSource: ptr("fast")}, nil)
@@ -825,7 +831,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.
 	}}}).MinTimes(1)
 
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped-block"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -904,13 +910,16 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Storage: []application.AddApplicationStorageArg{{
+		Storage: []application.ApplicationStorageArg{{
 			Name:           "data",
 			PoolNameOrType: "rootfs",
 			Size:           10,
 			Count:          1,
 		}},
 		Scale: 1,
+		StoragePoolKind: map[string]storage.StorageKind{
+			"rootfs": storage.StorageKindFilesystem,
+		},
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -938,7 +947,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	}}}).MinTimes(1)
 
 	pool := domainstorage.StoragePoolDetails{Name: "rootfs", Provider: "rootfs"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "rootfs").Return(pool, nil)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "rootfs").Return(pool, nil).MaxTimes(2)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -1014,13 +1023,16 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Storage: []application.AddApplicationStorageArg{{
+		Storage: []application.ApplicationStorageArg{{
 			Name:           "data",
 			PoolNameOrType: "fast",
 			Size:           10,
 			Count:          2,
 		}},
 		Scale: 1,
+		StoragePoolKind: map[string]storage.StorageKind{
+			"fast": storage.StorageKindBlock,
+		},
 	}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{DefaultFilesystemSource: ptr("fast")}, nil)
@@ -1048,7 +1060,7 @@ func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c
 	}}}).MinTimes(1)
 
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",

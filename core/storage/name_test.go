@@ -52,3 +52,8 @@ func assertStorageIDInvalid(c *gc.C, id string) {
 	_, err := storage.ParseID(id)
 	c.Assert(err, jc.ErrorIs, storage.InvalidStorageID)
 }
+
+func (s *storageIDSuite) TestMakeID(c *gc.C) {
+	id := storage.MakeID("foo", 666)
+	c.Assert(id, gc.Equals, storage.ID("foo/666"))
+}
