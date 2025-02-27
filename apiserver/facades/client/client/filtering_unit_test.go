@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 )
 
 type filteringUnitTests struct {
@@ -81,4 +82,53 @@ func (s *filteringUnitTests) TestMatchSubnet(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsTrue)
+}
+
+func (s *filteringUnitTests) TestMatchWorkloadStatus(c *gc.C) {
+	match, ok, err := client.MatchWorkloadStatus(
+		[]string{"active"},
+		status.Active,
+		status.Idle,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsTrue)
+	c.Check(match, jc.IsTrue)
+
+	// Verify we don't match on the agent status
+	match, ok, err = client.MatchWorkloadStatus(
+		[]string{"idle"},
+		status.Active,
+		status.Idle,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsFalse)
+	c.Check(match, jc.IsFalse)
+
+	// Verify the agent status is just checked for non-error status
+	match, ok, err = client.MatchWorkloadStatus(
+		[]string{"active"},
+		status.Active,
+		status.Error,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsTrue)
+	c.Check(match, jc.IsFalse)
+
+	match, ok, err = client.MatchWorkloadStatus(
+		[]string{"error"},
+		status.Active,
+		status.Idle,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsTrue)
+	c.Check(match, jc.IsFalse)
+
+	match, ok, err = client.MatchWorkloadStatus(
+		[]string{"blah"},
+		status.Active,
+		status.Idle,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsFalse)
+	c.Check(match, jc.IsFalse)
 }

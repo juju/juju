@@ -168,7 +168,11 @@ func (c *Client) unitMatchAgentStatus(ctx context.Context, u *state.Unit, patter
 }
 
 func (c *Client) unitMatchWorkloadStatus(ctx context.Context, u *state.Unit, patterns []string) (bool, bool, error) {
-	workloadStatusInfo, err := u.Status()
+	unitName, err := coreunit.NewName(u.Name())
+	if err != nil {
+		return false, false, err
+	}
+	workloadStatusInfo, err := c.applicationService.GetUnitDisplayStatus(ctx, unitName)
 	if err != nil {
 		return false, false, err
 	}
