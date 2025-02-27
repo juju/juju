@@ -89,7 +89,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.leaseManager = &lease.Manager{}
 	s.sysLogger = &mockSysLogger{}
 	s.charmhubHTTPClient = &http.Client{}
-	s.jwtParserGetter = jwtParserGetter{}
+	s.jwtParserGetter = testJWTParserGetter{}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -140,12 +140,13 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	return dt.StubContext(nil, resources)
 }
 
-type jwtParserGetter struct {
+type testJWTParserGetter struct {
 	parser *jwtparser.JWTParser
+	ok     bool
 }
 
-func (j jwtParserGetter) Get() *jwtparser.JWTParser {
-	return j.parser
+func (j testJWTParserGetter) Get() (*jwtparser.JWTParser, bool) {
+	return j.parser, j.ok
 }
 
 type mockSysLogger struct {

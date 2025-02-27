@@ -45,7 +45,9 @@ func (s *workerSuite) TestJWTParserWorkerWithNoConfig(c *gc.C) {
 
 	parserWorker, ok := w.(*jwtParserWorker)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(parserWorker.Get(), gc.IsNil)
+	parser, ok := parserWorker.Get()
+	c.Assert(parser, gc.Not(gc.IsNil))
+	c.Assert(ok, gc.Equals, false)
 }
 
 // TestJWTParserWorkerWithLoginRefreshURL tests that NewWorker function
@@ -65,5 +67,7 @@ func (s *workerSuite) TestJWTParserWorkerWithLoginRefreshURL(c *gc.C) {
 
 	parserWorker, ok := w.(*jwtParserWorker)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(parserWorker.Get(), gc.Not(gc.IsNil))
+	parser, ok := parserWorker.Get()
+	c.Assert(parser, gc.Not(gc.IsNil))
+	c.Assert(ok, gc.Equals, true)
 }

@@ -103,6 +103,10 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
 
+	jwtAuthenticator := jwt.NewAuthenticator(apiserver.NewJWTParserGetterWrapper(
+		s.jwtParserGetter,
+	))
+
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
 		StatePool:                  s.StatePool,
 		LocalMacaroonAuthenticator: s.authenticator,
@@ -122,6 +126,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		SysLogger:                  s.sysLogger,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
-		JWTAuthenticator:           &jwt.NotImplementedAuthenticator{},
+		JWTAuthenticator:           jwtAuthenticator,
 	})
 }

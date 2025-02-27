@@ -13,6 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	gc "gopkg.in/check.v1"
+
+	jwtauth "github.com/juju/juju/apiserver/authentication/jwt"
 )
 
 func TestPackage(t *T) {
@@ -27,6 +29,17 @@ func (m *testJWTParser) Parse(ctx context.Context, tok string) (jwt.Token, error
 		return nil, err
 	}
 	return jwt.ParseInsecure(data)
+}
+
+type testParserGetter struct {
+	parserUnavailable bool
+}
+
+func (t testParserGetter) Get() (jwtauth.TokenParser, bool) {
+	if t.parserUnavailable {
+		return nil, false
+	}
+	return &testJWTParser{}, true
 }
 
 // JWTParams are the necessary params to issue a ready-to-go JWT.

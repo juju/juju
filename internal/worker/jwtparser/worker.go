@@ -20,9 +20,10 @@ type jwtParserWorker struct {
 }
 
 // Getter defines an interface to retrieve a JWTParser.
-// If a JWTParser is not available, it will return nil.
+// The JWTParser is never expected to be nil but if the
+// parser is not configured, the returned bool will be false.
 type Getter interface {
-	Get() *JWTParser
+	Get() (*JWTParser, bool)
 }
 
 // ControllerConfig defines an interface to retrieve controller config.
@@ -44,11 +45,9 @@ func NewWorker(configGetter ControllerConfig, httpClient jwk.HTTPClient) (worker
 	}
 	jwtRefreshURL := controllerConfig.LoginTokenRefreshURL()
 
-	// If the login refresh URL is not set, we will return a nil parser.
-	var jwtParser *JWTParser
+	jwtParser := NewParserWithHTTPClient(httpClient)
 	if jwtRefreshURL != "" {
-		jwtParser = NewParserWithHTTPClient(httpClient, jwtRefreshURL)
-		if err := jwtParser.RegisterJWKSCache(context.Background()); err != nil {
+		if err := jwtParser.RegisterJWKSCache(context.Background(), jwtRefreshURL); err != nil {
 			return nil, err
 		}
 	}
@@ -59,8 +58,11 @@ func NewWorker(configGetter ControllerConfig, httpClient jwk.HTTPClient) (worker
 }
 
 // Get implements Getter.
-func (w *jwtParserWorker) Get() *JWTParser {
-	return w.jwtParser
+// Returns the jwt parser and a boolean
+// that is false when no refresh URL is set
+// i.e. when the parser is not yet configured.
+func (w *jwtParserWorker) Get() (*JWTParser, bool) {
+	return w.jwtParser, w.jwtParser.refreshURL != ""
 }
 
 // Kill is part of the worker.Worker interface.

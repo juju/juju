@@ -34,13 +34,9 @@ func DefaultHTTPClient() HTTPClient {
 }
 
 // NewParserWithHTTPClient creates a new JWT parser with a custom http client.
-func NewParserWithHTTPClient(
-	client HTTPClient,
-	refreshURL string,
-) *JWTParser {
+func NewParserWithHTTPClient(client HTTPClient) *JWTParser {
 	return &JWTParser{
 		httpClient: client,
-		refreshURL: refreshURL,
 	}
 }
 
@@ -70,7 +66,8 @@ func (j *JWTParser) Parse(ctx context.Context, tok string) (jwt.Token, error) {
 }
 
 // RegisterJWKSCache sets up the token key cache and refreshes the public key.
-func (j *JWTParser) RegisterJWKSCache(ctx context.Context) error {
+func (j *JWTParser) RegisterJWKSCache(ctx context.Context, refreshURL string) error {
+	j.refreshURL = refreshURL
 	j.cache = jwk.NewCache(ctx)
 
 	err := j.cache.Register(j.refreshURL, jwk.WithHTTPClient(j.httpClient))
