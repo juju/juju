@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/juju/juju/core/status"
@@ -11,6 +12,14 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/internal/errors"
 )
+
+// StatusHistory records status information into a generalized way.
+type StatusHistory interface {
+	// RecordStatus records the given status information.
+	// If the status data cannot be marshalled, it will not be recorded, instead
+	// the error will be logged under the data_error key.
+	RecordStatus(ctx context.Context, status status.StatusInfo)
+}
 
 // encodeCloudContainerStatusType converts a core status to a db cloud container
 // status id.
