@@ -63,4 +63,4 @@ jobs:
       run: |
         set -euxo pipefail
         mkdir -p ~/.ssh
-        juju bootstrap --model-default enable-os-upgrade=false localhost --debug
+        juju bootstrap --model-default enable-os-upgrade=false localhost --debug --build-agent
