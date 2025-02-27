@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	modeltesting "github.com/juju/juju/core/model/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	unitstateerrors "github.com/juju/juju/domain/unitstate/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type stateSuite struct {
@@ -35,6 +37,16 @@ var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -60,7 +72,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	unitArgs := []application.AddUnitArg{{UnitName: s.unitName}}
 
 	ctx := context.Background()
-	_, err := appState.CreateApplication(ctx, "app", appArg, unitArgs)
+	_, err = appState.CreateApplication(ctx, "app", appArg, unitArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {

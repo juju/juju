@@ -294,7 +294,7 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		return errors.Annotatef(err, "creating application %q", name)
 	}
 	for _, arg := range unitArgs {
-		if err := s.st.InsertUnit(ctx, appID, arg); err != nil {
+		if err := s.st.InsertUnit(ctx, modelType, appID, arg); err != nil {
 			return errors.Annotatef(err, "inserting unit %q", arg.UnitName)
 		}
 	}

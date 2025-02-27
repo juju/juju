@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
+	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/domain/linklayerdevice"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/storage"
 )
 
 // AddApplicationArg contains parameters for saving an application to state.
@@ -41,7 +43,7 @@ type AddApplicationArg struct {
 	PendingResources []resource.UUID
 	// Storage defines the list of storage directives to add to an application.
 	// The Name values should match the storage defined in the Charm.
-	Storage []AddApplicationStorageArg
+	Storage []ApplicationStorageArg
 	// Config contains the configuration for the application, overlaid on top
 	// of the charm's default configuration.
 	Config map[string]ApplicationConfig
@@ -52,6 +54,9 @@ type AddApplicationArg struct {
 	Scale int
 	// Status contains the status of the application.
 	Status *StatusInfo[WorkloadStatusType]
+	// StoragePoolKind holds a mapping of the kind of storage supported
+	// by the named storage pool / provider type.
+	StoragePoolKind map[string]storage.StorageKind
 }
 
 // AddApplicationResourceArg defines the arguments required to add a resource to an application.
@@ -61,9 +66,9 @@ type AddApplicationResourceArg struct {
 	Origin   charmresource.Origin
 }
 
-// AddApplicationStorageArg defines the arguments required to add storage to an application.
-type AddApplicationStorageArg struct {
-	Name           string
+// ApplicationStorageArg describes details of storage for an application.
+type ApplicationStorageArg struct {
+	Name           corestorage.Name
 	PoolNameOrType string
 	Size           uint64
 	Count          uint64
@@ -187,10 +192,12 @@ type AddUnitArg struct {
 // InsertUnitArg is used to insert a fully populated unit.
 // Used by import and when registering a CAAS unit.
 type InsertUnitArg struct {
-	UnitName       coreunit.Name
-	CloudContainer *CloudContainer
-	Password       *PasswordInfo
-	Constraints    constraints.Constraints
+	UnitName        coreunit.Name
+	CloudContainer  *CloudContainer
+	Password        *PasswordInfo
+	Constraints     constraints.Constraints
+	Storage         []ApplicationStorageArg
+	StoragePoolKind map[string]storage.StorageKind
 	UnitStatusArg
 }
 
@@ -204,6 +211,10 @@ type RegisterCAASUnitArg struct {
 	Ports        *[]string
 	OrderedScale bool
 	OrderedId    int
+	// TODO(storage) - this needs to be wired through to the register CAAS unit workflow.
+	// ObservedAttachedVolumeIDs is the filesystem attachments observed to be attached
+	// by the infrastructure, used to map existing attachments.
+	ObservedAttachedVolumeIDs []string
 }
 
 // UnitStatusArg contains parameters for updating a unit status in state.

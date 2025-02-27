@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -23,6 +24,7 @@ import (
 	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/logger"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type baseSuite struct {
@@ -50,8 +52,18 @@ var (
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
-	err := machineSt.CreateMachine(context.Background(), "m", netNodeUUIDs[0], machineUUIDs[0])
+	err = machineSt.CreateMachine(context.Background(), "m", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.appUUID = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")

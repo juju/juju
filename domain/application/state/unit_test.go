@@ -16,6 +16,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -38,7 +39,7 @@ type unitStateSuite struct {
 var _ = gc.Suite(&unitStateSuite{})
 
 func (s *unitStateSuite) SetUpTest(c *gc.C) {
-	s.ModelSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
@@ -66,7 +67,7 @@ func (s *unitStateSuite) TestInsertUnitCloudContainer(c *gc.C) {
 	ctx := context.Background()
 
 	appID := s.createApplication(c, "foo", life.Alive)
-	err := s.state.InsertUnit(ctx, appID, u)
+	err := s.state.InsertUnit(ctx, model.CAAS, appID, u)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertContainerAddressValues(c, "foo/666", "some-id", "10.6.6.6",
 		ipaddress.AddressTypeIPv4, ipaddress.OriginHost, ipaddress.ScopeMachineLocal, ipaddress.ConfigTypeDHCP)
@@ -280,7 +281,7 @@ func (s *unitStateSuite) TestInsertUnit(c *gc.C) {
 	}
 	ctx := context.Background()
 
-	err := s.state.InsertUnit(ctx, appID, u)
+	err := s.state.InsertUnit(ctx, model.IAAS, appID, u)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var providerId string
@@ -298,7 +299,7 @@ WHERE u.name=?`,
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(providerId, gc.Equals, "some-id")
 
-	err = s.state.InsertUnit(ctx, appID, u)
+	err = s.state.InsertUnit(ctx, model.IAAS, appID, u)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
 }
 

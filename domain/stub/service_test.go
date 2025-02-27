@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -22,6 +23,7 @@ import (
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/logger"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type stubSuite struct {
@@ -217,6 +219,16 @@ func (s *stubSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.srv = NewStubService(s.TxnRunnerFactory())
 	s.appState = applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
 	s.machineState = machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
 }

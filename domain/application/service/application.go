@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -486,12 +487,12 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 	return result
 }
 
-// makeStorageArgs creates a slice of AddApplicationStorageArg from a map of storage directives.
-func makeStorageArgs(storage map[string]storage.Directive) []application.AddApplicationStorageArg {
-	var result []application.AddApplicationStorageArg
+// makeStorageArgs creates a slice of ApplicationStorageArg from a map of storage directives.
+func makeStorageArgs(storage map[string]storage.Directive) []application.ApplicationStorageArg {
+	var result []application.ApplicationStorageArg
 	for name, stor := range storage {
-		result = append(result, application.AddApplicationStorageArg{
-			Name:           name,
+		result = append(result, application.ApplicationStorageArg{
+			Name:           corestorage.Name(name),
 			PoolNameOrType: stor.Pool,
 			Size:           stor.Size,
 			Count:          stor.Count,
