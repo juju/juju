@@ -39,10 +39,10 @@ type ServerWorkerConfig struct {
 // Validate validates the workers configuration is as expected.
 func (c ServerWorkerConfig) Validate() error {
 	if c.Logger == nil {
-		return errors.NotValidf("Logger")
+		return errors.NotValidf("missing Logger")
 	}
 	if c.JumpHostKey == "" {
-		return errors.NotValidf("JumpHostKey")
+		return errors.NotValidf("empty JumpHostKey")
 	}
 	return nil
 }
