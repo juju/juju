@@ -1,0 +1,55 @@
+name: "Juju JAAS Smoke Test"
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: JAAS Smoke
+    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "/snap/bin" >> $GITHUB_PATH
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
+
+      - name: Checkout juju
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: setup env
+        shell: bash
+        run: |
+          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Install local Juju
+        shell: bash
+        run: |
+          make go-install
+
+      - name: Setup JAAS
+        uses: canonical/jimm/.github/actions/test-server@v3
+        id: jaas
+        with:
+          jimm-version: v3.2.2
+          ghcr-pat: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Create a model, deploy an application and run juju status
+        run: |
+          juju add-model foo && \
+          juju deploy haproxy && \
+          sleep 5 && \
+          juju status
