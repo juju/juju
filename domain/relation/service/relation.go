@@ -42,15 +42,9 @@ func NewService(
 	}
 }
 
-// AddRelation takes two endpoints identifiers of the form
-// <application>[:<endpoint>]. The identifiers will be used to infer two
-// endpoint between applications on the model. A new relation will be created
-// between these endpoints and the details of the endpoint returned.
-//
-// If the identifiers do not uniquely specify a relation, an error will be
-// returned.
-func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error) {
-	return relation.Endpoint{}, relation.Endpoint{}, errors.NotImplemented
+// AddRelation adds a relation between the two provided endpoints.
+func (s *Service) AddRelation(ctx context.Context, eps []relation.Endpoint) error {
+	return errors.NotImplemented
 }
 
 // AllRelations
@@ -136,14 +130,14 @@ func (s *Service) GetRelationStatus(
 	return corestatus.StatusInfo{}, errors.NotImplemented
 }
 
-// GetRelationString returns a key identifier for the given relation UUID.
+// RelationString returns a key identifier for the given relation UUID.
 // The key describes the relation defined by endpoints in sorted order.
 // Note: See the state.relationKey() function.
 func (s *Service) GetRelationString(ctx context.Context, relationUUID corerelation.UUID) string {
 	return ""
 }
 
-// GetRelationTag returns the tag for the given relation UUID.
+// RelationTag returns the tag for the given relation UUID.
 func (s *Service) GetRelationTag(ctx context.Context, relationUUID corerelation.UUID) names.Tag {
 	return names.NewRelationTag(s.GetRelationString(ctx, relationUUID))
 }
@@ -158,8 +152,8 @@ func (s *Service) GetRelationUnit(
 	return "", errors.NotImplemented
 }
 
-// GetRelationUnitSettings returns the unit settings for the relation
-// identifier.
+// GetRelationApplicationSettings returns the application settings for the
+// given unit and relation identifier combination.
 func (s *Service) GetRelationUnitSettings(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
@@ -180,7 +174,7 @@ func (s *Service) LeaveScope(ctx context.Context, relationID corerelation.UnitUU
 
 // ReestablishRelation brings the given relation back to normal after
 // suspension, any reason given for the suspension is cleared.
-func (s *Service) ReestablishRelation(ctx context.Context, relationUUID corerelation.UUID) error {
+func (s Service) ReestablishRelation(ctx context.Context, relationUUID corerelation.UUID) error {
 	return errors.NotImplemented
 }
 
