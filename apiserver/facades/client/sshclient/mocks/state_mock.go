@@ -24,6 +24,7 @@ import (
 type MockBackend struct {
 	ctrl     *gomock.Controller
 	recorder *MockBackendMockRecorder
+	isgomock struct{}
 }
 
 // MockBackendMockRecorder is the mock recorder for MockBackend.
@@ -73,18 +74,18 @@ func (mr *MockBackendMockRecorder) ControllerTag() *gomock.Call {
 }
 
 // GetMachineForEntity mocks base method.
-func (m *MockBackend) GetMachineForEntity(arg0 string) (sshclient.SSHMachine, error) {
+func (m *MockBackend) GetMachineForEntity(tag string) (sshclient.SSHMachine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachineForEntity", arg0)
+	ret := m.ctrl.Call(m, "GetMachineForEntity", tag)
 	ret0, _ := ret[0].(sshclient.SSHMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetMachineForEntity indicates an expected call of GetMachineForEntity.
-func (mr *MockBackendMockRecorder) GetMachineForEntity(arg0 any) *gomock.Call {
+func (mr *MockBackendMockRecorder) GetMachineForEntity(tag any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineForEntity", reflect.TypeOf((*MockBackend)(nil).GetMachineForEntity), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineForEntity", reflect.TypeOf((*MockBackend)(nil).GetMachineForEntity), tag)
 }
 
 // GetSSHHostKeys mocks base method.
@@ -100,6 +101,21 @@ func (m *MockBackend) GetSSHHostKeys(arg0 names.MachineTag) (state.SSHHostKeys, 
 func (mr *MockBackendMockRecorder) GetSSHHostKeys(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSSHHostKeys", reflect.TypeOf((*MockBackend)(nil).GetSSHHostKeys), arg0)
+}
+
+// MachineVirtualHostKeyPEM mocks base method.
+func (m *MockBackend) MachineVirtualHostKeyPEM(machineID int) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MachineVirtualHostKeyPEM", machineID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MachineVirtualHostKeyPEM indicates an expected call of MachineVirtualHostKeyPEM.
+func (mr *MockBackendMockRecorder) MachineVirtualHostKeyPEM(machineID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineVirtualHostKeyPEM", reflect.TypeOf((*MockBackend)(nil).MachineVirtualHostKeyPEM), machineID)
 }
 
 // Model mocks base method.
@@ -146,10 +162,41 @@ func (mr *MockBackendMockRecorder) ModelTag() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockBackend)(nil).ModelTag))
 }
 
+// SSHServerHostKey mocks base method.
+func (m *MockBackend) SSHServerHostKey() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SSHServerHostKey")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SSHServerHostKey indicates an expected call of SSHServerHostKey.
+func (mr *MockBackendMockRecorder) SSHServerHostKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SSHServerHostKey", reflect.TypeOf((*MockBackend)(nil).SSHServerHostKey))
+}
+
+// UnitVirtualHostKeyPEM mocks base method.
+func (m *MockBackend) UnitVirtualHostKeyPEM(unitID string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnitVirtualHostKeyPEM", unitID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnitVirtualHostKeyPEM indicates an expected call of UnitVirtualHostKeyPEM.
+func (mr *MockBackendMockRecorder) UnitVirtualHostKeyPEM(unitID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitVirtualHostKeyPEM", reflect.TypeOf((*MockBackend)(nil).UnitVirtualHostKeyPEM), unitID)
+}
+
 // MockModel is a mock of Model interface.
 type MockModel struct {
 	ctrl     *gomock.Controller
 	recorder *MockModelMockRecorder
+	isgomock struct{}
 }
 
 // MockModelMockRecorder is the mock recorder for MockModel.
@@ -216,6 +263,7 @@ func (mr *MockModelMockRecorder) Type() *gomock.Call {
 type MockBroker struct {
 	ctrl     *gomock.Controller
 	recorder *MockBrokerMockRecorder
+	isgomock struct{}
 }
 
 // MockBrokerMockRecorder is the mock recorder for MockBroker.
@@ -236,16 +284,16 @@ func (m *MockBroker) EXPECT() *MockBrokerMockRecorder {
 }
 
 // GetSecretToken mocks base method.
-func (m *MockBroker) GetSecretToken(arg0 string) (string, error) {
+func (m *MockBroker) GetSecretToken(name string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretToken", arg0)
+	ret := m.ctrl.Call(m, "GetSecretToken", name)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecretToken indicates an expected call of GetSecretToken.
-func (mr *MockBrokerMockRecorder) GetSecretToken(arg0 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) GetSecretToken(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretToken", reflect.TypeOf((*MockBroker)(nil).GetSecretToken), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretToken", reflect.TypeOf((*MockBroker)(nil).GetSecretToken), name)
 }
