@@ -307,6 +307,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_hardware_characteristics",
 		"v_machine_cloud_instance_status",
 		"v_machine_status",
+		"v_model_all",
 		"v_model_constraint_space",
 		"v_model_constraint_tag",
 		"v_model_constraint_zone",
@@ -320,7 +321,6 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_secret_permission",
 		"v_space_subnet",
 		"v_storage_instance",
-		"v_unactivated_model",
 		"v_unit_resource",
 		"v_unit_storage_directive",
 	)

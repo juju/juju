@@ -62,11 +62,11 @@ CREATE TABLE model (
 CREATE UNIQUE INDEX idx_model_name_owner ON model (name, owner_uuid);
 CREATE INDEX idx_model_activated ON model (activated);
 
--- v_unactivated_model is a view that provides a simple way to access models
+-- v_model_all is a view that provides a simple way to access models
 -- that have not been activated. This is useful for the model creation process
 -- where we need to access the model to update it but we do not want to show it
 -- to the user until it is ready.
-CREATE VIEW v_unactivated_model AS
+CREATE VIEW v_model_all AS
 SELECT
     m.uuid,
     m.cloud_uuid,
@@ -105,7 +105,29 @@ LEFT JOIN user AS cco ON cc.owner_uuid = cco.uuid;
 --- system. It will only show models that have been activated so the caller does
 --- not have to worry about retrieving half complete models.
 CREATE VIEW v_model AS
-SELECT * FROM v_unactivated_model
+SELECT
+    uuid,
+    cloud_uuid,
+    cloud_name,
+    cloud_type,
+    cloud_endpoint,
+    cloud_skip_tls_verify,
+    cloud_region_uuid,
+    cloud_region_name,
+    cloud_credential_uuid,
+    cloud_credential_name,
+    cloud_credential_cloud_name,
+    cloud_credential_owner_uuid,
+    cloud_credential_owner_name,
+    model_type_id,
+    model_type,
+    name,
+    owner_uuid,
+    owner_name,
+    life,
+    activated,
+    controller_uuid
+FROM v_model_all
 WHERE activated = TRUE;
 
 -- v_model_state exists to provide a simple view over the states that are

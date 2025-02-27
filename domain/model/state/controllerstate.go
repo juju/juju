@@ -26,7 +26,6 @@ import (
 	jujudb "github.com/juju/juju/internal/database"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
-	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 // State represents a type for interacting with the underlying model state.
@@ -350,10 +349,9 @@ FROM   controller
 }
 
 // GetModelInfo returns the model associated with the provided uuid. This will
-// return a model, even if it's unactivated, so it can be used to determine the
-// model's status.
-// If the model does not exist then an error satisfying [modelerrors.NotFound]
-// will be returned.
+// return a model, even if it's not activated, so it can be used to determine
+// the model's status. If the model does not exist then an error satisfying
+// [modelerrors.NotFound] will be returned.
 func (s *State) GetModelInfo(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
@@ -365,7 +363,7 @@ func (s *State) GetModelInfo(
 
 	q := `
 SELECT &dbModel.*
-FROM v_unactivated_model
+FROM v_model_all
 WHERE uuid = $dbModel.uuid
 `
 	model := dbModel{UUID: modelUUID.String()}
@@ -1676,7 +1674,7 @@ func addAdminPermissions(
 	modelUUID coremodel.UUID,
 	ownerUUID user.UUID,
 ) error {
-	permUUID, err := internaluuid.NewUUID()
+	permUUID, err := uuid.NewUUID()
 	if err != nil {
 		return err
 	}
