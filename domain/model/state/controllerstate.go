@@ -25,6 +25,7 @@ import (
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	jujudb "github.com/juju/juju/internal/database"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
@@ -346,6 +347,75 @@ FROM   controller
 		return coremodel.Model{}, errors.Annotatef(err, "getting controller model")
 	}
 	return model, nil
+}
+
+// GetModelInfo returns the model associated with the provided uuid. This will
+// return a model, even if it's unactivated, so it can be used to determine the
+// model's status.
+// If the model does not exist then an error satisfying [modelerrors.NotFound]
+// will be returned.
+func (s *State) GetModelInfo(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+) (coremodel.ModelInfo, error) {
+	db, err := s.DB()
+	if err != nil {
+		return coremodel.ModelInfo{}, errors.Trace(err)
+	}
+
+	q := `
+SELECT &dbModel.*
+FROM v_unactivated_model
+WHERE uuid = $dbModel.uuid
+`
+	model := dbModel{UUID: modelUUID.String()}
+	stmt, err := s.Prepare(q, model)
+	if err != nil {
+		return coremodel.ModelInfo{}, errors.Annotate(err, "preparing select model statement")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, model).Get(&model)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("%w for uuid %q", modelerrors.NotFound, modelUUID)
+		} else if err != nil {
+			return fmt.Errorf("getting model %q: %w", modelUUID, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return coremodel.ModelInfo{}, errors.Trace(err)
+	}
+
+	info := coremodel.ModelInfo{
+		UUID:           coremodel.UUID(model.UUID),
+		Name:           model.Name,
+		Type:           coremodel.ModelType(model.ModelType),
+		Cloud:          model.CloudName,
+		CloudType:      model.CloudType,
+		CloudRegion:    model.CloudRegion.String,
+		CredentialName: model.CredentialName.String,
+	}
+
+	if owner := model.CredentialOwnerName; owner != "" {
+		info.CredentialOwner, err = user.NewName(owner)
+		if err != nil {
+			return coremodel.ModelInfo{}, fmt.Errorf(
+				"parsing model %q owner username %q: %w",
+				model.UUID, owner, err,
+			)
+		}
+	}
+
+	info.ControllerUUID, err = uuid.UUIDFromString(model.ControllerUUID)
+	if err != nil {
+		return coremodel.ModelInfo{}, fmt.Errorf(
+			"parsing controller uuid %q for model %q: %w",
+			model.ControllerUUID, model.UUID, err,
+		)
+	}
+
+	return info, nil
 }
 
 // GetModelType returns the model type for the provided model uuid. If the model

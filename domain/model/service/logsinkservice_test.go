@@ -19,8 +19,8 @@ type dummyLogSinkState struct {
 	model *coremodel.ModelInfo
 }
 
-func (d *dummyLogSinkState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) {
-	if d.model != nil {
+func (d *dummyLogSinkState) GetModelInfo(ctx context.Context, modelUUID coremodel.UUID) (coremodel.ModelInfo, error) {
+	if d.model != nil && d.model.UUID == modelUUID {
 		return *d.model, nil
 	}
 	return coremodel.ModelInfo{}, modelerrors.NotFound
@@ -51,7 +51,7 @@ func (s *logSinkServiceSuite) TestModel(c *gc.C) {
 	}
 	s.state.model = &model
 
-	got, err := svc.Model(context.Background())
+	got, err := svc.Model(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(got, gc.Equals, model)
