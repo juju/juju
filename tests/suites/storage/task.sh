@@ -15,6 +15,7 @@ test_storage() {
 
 	test_charm_storage
 	test_persistent_storage
+	test_model_storage
 
 	destroy_controller "test-storage"
 }
