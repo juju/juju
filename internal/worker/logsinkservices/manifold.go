@@ -100,7 +100,7 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 	return nil
 }
 
-// NewLogSinkServices returns a new provider domain services.
+// NewLogSinkServices returns a new logsink domain services.
 func NewLogSinkServices(
 	dbGetter changestream.WatchableDBGetter,
 	logger logger.Logger,

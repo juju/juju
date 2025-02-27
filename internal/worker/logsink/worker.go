@@ -46,7 +46,7 @@ type Config struct {
 	ModelService          ModelService
 }
 
-// request is used to pass requests for ObjectStore
+// request is used to pass requests for LogSink
 // instances into the worker loop.
 type request struct {
 	modelUUID model.UUID
@@ -198,7 +198,7 @@ func (w *LogSink) getLogSink(ctx context.Context, modelUUID model.UUID) (LogSink
 	select {
 	case err := <-req.done:
 		// If we know we've got an error, just return that error before
-		// attempting to ask the objectStoreRunnerWorker.
+		// attempting to ask the LogSinkRunnerWorker.
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
