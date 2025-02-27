@@ -5,7 +5,8 @@ package client
 
 // Filtering exports
 var (
-	MatchPortRanges = matchPortRanges
-	MatchSubnet     = matchSubnet
-	NewFacade       = newFacadeV8
+	MatchPortRanges     = matchPortRanges
+	MatchSubnet         = matchSubnet
+	MatchWorkloadStatus = matchWorkloadStatus
+	NewFacade           = newFacadeV8
 )
