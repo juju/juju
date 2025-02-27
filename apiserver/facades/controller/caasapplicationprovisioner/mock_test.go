@@ -353,7 +353,6 @@ type mockUnit struct {
 	testing.Stub
 	destroyOp           *state.DestroyUnitOperation
 	containerInfo       *mockCloudContainer
-	status              status.StatusInfo
 	tag                 names.Tag
 	updateUnitOperation *state.UpdateUnitOperation
 }
@@ -367,11 +366,6 @@ func (u *mockUnit) DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitO
 	return u.destroyOp
 }
 
-func (u *mockUnit) Status() (status.StatusInfo, error) {
-	u.MethodCall(u, "Status")
-	return u.status, u.NextErr()
-}
-
 func (u *mockUnit) EnsureDead() error {
 	u.MethodCall(u, "EnsureDead")
 	return u.NextErr()
@@ -380,11 +374,6 @@ func (u *mockUnit) EnsureDead() error {
 func (u *mockUnit) Remove(objectstore.ObjectStore) error {
 	u.MethodCall(u, "Remove")
 	return u.NextErr()
-}
-
-func (u *mockUnit) ContainerInfo() (state.CloudContainer, error) {
-	u.MethodCall(u, "ContainerInfo")
-	return u.containerInfo, u.NextErr()
 }
 
 func (u *mockUnit) UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation {

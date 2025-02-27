@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
@@ -276,29 +277,14 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	s.st.app = &mockApplication{
-		life: state.Alive,
-		units: []*mockUnit{
-			{
-				tag: names.NewUnitTag("gitlab/0"),
-				status: status.StatusInfo{
-					Status: status.Active,
-				},
-			},
-			{
-				tag: names.NewUnitTag("gitlab/1"),
-				status: status.StatusInfo{
-					Status: status.Maintenance,
-				},
-			},
-			{
-				tag: names.NewUnitTag("gitlab/2"),
-				status: status.StatusInfo{
-					Status: status.Unknown,
-				},
-			},
-		},
-	}
+	appId := applicationtesting.GenApplicationUUID(c)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(appId, nil)
+	s.applicationService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appId).Return(map[coreunit.Name]status.StatusInfo{
+		coreunit.Name("gitlab/0"): {Status: status.Active},
+		coreunit.Name("gitlab/1"): {Status: status.Maintenance},
+		coreunit.Name("gitlab/2"): {Status: status.Unknown},
+	}, nil)
+
 	result, err := s.api.Units(context.Background(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-gitlab",

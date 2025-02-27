@@ -19,6 +19,7 @@ import (
 	leadership "github.com/juju/juju/core/leadership"
 	life "github.com/juju/juju/core/life"
 	model "github.com/juju/juju/core/model"
+	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
 	charm "github.com/juju/juju/domain/application/charm"
@@ -343,6 +344,21 @@ func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Nam
 func (mr *MockApplicationServiceMockRecorder) GetUnitLife(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitLife", reflect.TypeOf((*MockApplicationService)(nil).GetUnitLife), arg0, arg1)
+}
+
+// GetUnitWorkloadStatusesForApplication mocks base method.
+func (m *MockApplicationService) GetUnitWorkloadStatusesForApplication(arg0 context.Context, arg1 application.ID) (map[unit.Name]status.StatusInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitWorkloadStatusesForApplication", arg0, arg1)
+	ret0, _ := ret[0].(map[unit.Name]status.StatusInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitWorkloadStatusesForApplication indicates an expected call of GetUnitWorkloadStatusesForApplication.
+func (mr *MockApplicationServiceMockRecorder) GetUnitWorkloadStatusesForApplication(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatusesForApplication", reflect.TypeOf((*MockApplicationService)(nil).GetUnitWorkloadStatusesForApplication), arg0, arg1)
 }
 
 // IsCharmAvailable mocks base method.
