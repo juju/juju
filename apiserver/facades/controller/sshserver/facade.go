@@ -24,7 +24,7 @@ type Backend interface {
 type Facade struct {
 	resources facade.Resources
 
-	ctrlState           Backend
+	backend             Backend
 	controllerConfigAPI *common.ControllerConfigAPI
 }
 
@@ -34,7 +34,7 @@ func NewFacade(ctx facade.Context, backend Backend) *Facade {
 	return &Facade{
 		resources:           ctx.Resources(),
 		controllerConfigAPI: common.NewStateControllerConfig(backend),
-		ctrlState:           backend,
+		backend:             backend,
 	}
 }
 
@@ -46,7 +46,7 @@ func (f *Facade) ControllerConfig() (params.ControllerConfigResult, error) {
 // WatchControllerConfig creates a watcher and returns it's ID for watching upon.
 func (f *Facade) WatchControllerConfig() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	w := f.ctrlState.WatchControllerConfig()
+	w := f.backend.WatchControllerConfig()
 	if _, ok := <-w.Changes(); ok {
 		result.NotifyWatcherId = f.resources.Register(w)
 	} else {
@@ -58,7 +58,7 @@ func (f *Facade) WatchControllerConfig() (params.NotifyWatchResult, error) {
 // SSHServerHostKey returns the controller's SSH server host key.
 func (f *Facade) SSHServerHostKey() (params.StringResult, error) {
 	result := params.StringResult{}
-	key, err := f.ctrlState.SSHServerHostKey()
+	key, err := f.backend.SSHServerHostKey()
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 	}
