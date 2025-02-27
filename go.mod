@@ -25,7 +25,7 @@ require (
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f
 	github.com/canonical/go-dqlite v1.21.0
 	github.com/canonical/lxd v0.0.0-20231214113525-e676fc63c50a
-	github.com/canonical/pebble v1.18.0
+	github.com/canonical/pebble v1.19.0
 	github.com/chzyer/readline v1.5.1
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/docker/distribution v2.8.3+incompatible
@@ -142,6 +142,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.0.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2 // indirect
+	github.com/GehirnInc/crypt v0.0.0-20230320061759-8cc1b52080c5 // indirect
 	github.com/Rican7/retry v0.3.1 // indirect
 	github.com/adrg/xdg v0.3.3 // indirect
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
