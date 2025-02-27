@@ -1065,17 +1065,28 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	return bsResult, nil
 }
 
+type jwtParserGetter struct {
+	configured bool
+	parser     *jwtparser.JWTParser
+}
+
+func (w jwtParserGetter) Get() (jwt.TokenParser, bool) {
+	return w.parser, w.configured
+}
+
 // if this controller has been provisioned to trust external jwt tokens.
 func gatherJWTAuthenticator(controllerConfig jujucontroller.Config) (jwt.Authenticator, error) {
+	parser := jwtparser.NewParserWithHTTPClient(jwtparser.DefaultHTTPClient())
 	jwtRefreshURL := controllerConfig.LoginTokenRefreshURL()
-	if jwtRefreshURL == "" {
-		return &jwt.NotImplementedAuthenticator{}, nil
+	configured := false
+	if jwtRefreshURL != "" {
+		configured = true
+		if err := parser.RegisterJWKSCache(stdcontext.Background(), jwtRefreshURL); err != nil {
+			return nil, err
+		}
 	}
-	parser := jwtparser.NewParserWithHTTPClient(jwtparser.DefaultHTTPClient(), jwtRefreshURL)
-	if err := parser.RegisterJWKSCache(stdcontext.Background()); err != nil {
-		return nil, err
-	}
-	return jwt.NewAuthenticator(parser), nil
+	parserGetter := jwtParserGetter{parser: parser, configured: configured}
+	return jwt.NewAuthenticator(parserGetter), nil
 }
 
 type noopSysLogger struct{}

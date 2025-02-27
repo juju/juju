@@ -45,7 +45,7 @@ type workerFixture struct {
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubDBGetter
-	jwtParserGetter      jwtParserGetter
+	jwtParserGetter      testJWTParserGetter
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {

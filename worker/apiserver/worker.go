@@ -180,17 +180,21 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return config.NewServer(serverConfig)
 }
 
-// getJWTAuthenticator will return a JWT authenticator based on the
-// provided JWTParserGetter. If the getter returns nil, a NotImplementedAuthenticator
-// will be returned. A not implemented error will ensure other
-// authenticators are also tried.
-func getJWTAuthenticator(jwtParserGetter jwtparser.Getter) jwt.Authenticator {
-	var jwtAuthenticator jwt.Authenticator
-	jwtAuthenticator = &jwt.NotImplementedAuthenticator{}
-	if parser := jwtParserGetter.Get(); parser != nil {
-		jwtAuthenticator = jwt.NewAuthenticator(parser)
-	}
-	return jwtAuthenticator
+// jwtParserGetterWrapper acts as an adapter
+// for the jwt.TokenParserGetter interface.
+type jwtParserGetterWrapper struct {
+	getter jwtparser.Getter
+}
+
+// Get satisfies jwt.TokenParserGetter.
+func (j jwtParserGetterWrapper) Get() (jwt.TokenParser, bool) {
+	return j.getter.Get()
+}
+
+// getJWTAuthenticator returns a JWT authenticator.
+func getJWTAuthenticator(g jwtparser.Getter) jwt.Authenticator {
+	parserFetcher := jwtParserGetterWrapper{getter: g}
+	return jwt.NewAuthenticator(parserFetcher)
 }
 
 func newServerShim(config apiserver.ServerConfig) (worker.Worker, error) {

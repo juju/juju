@@ -29,34 +29,24 @@ type TokenParser interface {
 	Parse(ctx context.Context, tok string) (jwt.Token, error)
 }
 
-// NotImplementedAuthenticator is an authenticator that always returns
-// NotImplemented error.
-type NotImplementedAuthenticator struct{}
-
-// Authenticate satisfies the Authenticator interface.
-func (n *NotImplementedAuthenticator) Authenticate(req *http.Request) (authentication.AuthInfo, error) {
-	return authentication.AuthInfo{}, errors.NotImplemented
-}
-
-// AuthenticateLoginRequest satisfies the Authenticator interface.
-func (n *NotImplementedAuthenticator) AuthenticateLoginRequest(
-	ctx context.Context,
-	_, _ string,
-	authParams authentication.AuthParams,
-) (authentication.AuthInfo, error) {
-	return authentication.AuthInfo{}, errors.NotImplemented
+// TokenParserGetter defines an interface for retrieving
+// a token parser if one is available.
+type TokenParserGetter interface {
+	Get() (TokenParser, bool)
 }
 
 // JWTAuthenticator is an authenticator responsible for handling JWT tokens from
 // a client.
 type JWTAuthenticator struct {
-	parser TokenParser
+	parserGetter TokenParserGetter
 }
 
-// NewAuthenticator creates a new JWT authenticator with the supplied parser.
-func NewAuthenticator(parser TokenParser) *JWTAuthenticator {
+// NewAuthenticator creates a new JWT authenticator with the supplied parser getter.
+// Use of a getter allows the token parser to change dynamically and delays binding
+// the parser to the time of authentication.
+func NewAuthenticator(getter TokenParserGetter) *JWTAuthenticator {
 	return &JWTAuthenticator{
-		parser: parser,
+		parserGetter: getter,
 	}
 }
 
@@ -77,7 +67,11 @@ type TokenEntity struct {
 
 // Authenticate implements EntityAuthenticator
 func (j *JWTAuthenticator) Parse(ctx context.Context, tok string) (jwt.Token, TokenEntity, error) {
-	token, err := j.parser.Parse(ctx, tok)
+	parser, ok := j.parserGetter.Get()
+	if !ok {
+		return nil, TokenEntity{}, errors.NotImplemented
+	}
+	token, err := parser.Parse(ctx, tok)
 	if err != nil {
 		return nil, TokenEntity{}, errors.Trace(err)
 	}
