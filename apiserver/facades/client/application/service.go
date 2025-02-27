@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
@@ -38,7 +37,6 @@ type Services struct {
 	ModelConfigService        ModelConfigService
 	NetworkService            NetworkService
 	PortService               PortService
-	RelationService           RelationService
 	ResourceService           ResourceService
 	StorageService            StorageService
 	StubService               StubService
@@ -72,9 +70,6 @@ func (s Services) Validate() error {
 	}
 	if s.StubService == nil {
 		return errors.NotValidf("empty StubService")
-	}
-	if s.RelationService == nil {
-		return errors.NotValidf("empty RelationService")
 	}
 	return nil
 }
@@ -280,20 +275,4 @@ type Leadership interface {
 	// in order to support state.ApplicationLeaders for legacy leases.
 	// When legacy leases are removed, so can the error return.
 	Leaders() (map[string]string, error)
-}
-
-// RelationService defines operations for managing relations between application
-// endpoints.
-type RelationService interface {
-	// AddRelation takes two endpoint identifiers of the form
-	// <application>[:<endpoint>]. The identifiers will be used to infer two
-	// endpoint between applications on the model. A new relation will be created
-	// between these endpoints and the details of the endpoint returned.
-	//
-	// If the identifiers do not uniquely specify a relation, an error will be
-	// returned.
-	AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error)
-
-	// ApplicationRelationsInfo returns all EndpointRelationData for an application.
-	ApplicationRelationsInfo(ctx context.Context, applicationID coreapplication.ID) ([]relation.EndpointRelationData, error)
 }

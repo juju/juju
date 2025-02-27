@@ -4,6 +4,9 @@
 package application
 
 import (
+	"time"
+
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 
@@ -31,10 +34,16 @@ type Backend interface {
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
+	AddRelation(...relation.Endpoint) (Relation, error)
+	Relation(int) (Relation, error)
+	InferEndpoints(...string) ([]relation.Endpoint, error)
+	InferActiveRelation(...string) (Relation, error)
 	Machine(string) (Machine, error)
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
 	ControllerTag() names.ControllerTag
+	OfferConnectionForRelation(string) (OfferConnection, error)
+	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
 
 	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
 	// so that correctly matching units can be written to dqlite.
@@ -69,6 +78,7 @@ type Application interface {
 	UpdateCharmConfig(charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, configschema.Fields, schema.Defaults) error
 	MergeBindings(*state.Bindings, bool) error
+	Relations() ([]Relation, error)
 }
 
 // Bindings defines a subset of the functionality provided by the
@@ -107,6 +117,33 @@ type Machine interface {
 	Base() state.Base
 	Id() string
 	PublicAddress() (network.SpaceAddress, error)
+}
+
+// Relation defines a subset of the functionality provided by the
+// state.Relation type, as required by the application facade. For
+// details on the methods, see the methods on state.Relation with
+// the same names.
+type Relation interface {
+	status.StatusSetter
+	Tag() names.Tag
+	Destroy(objectstore.ObjectStore) error
+	DestroyWithForce(bool, time.Duration) ([]error, error)
+	Id() int
+	Endpoints() []relation.Endpoint
+	RelatedEndpoints(applicationname string) ([]relation.Endpoint, error)
+	ApplicationSettings(appName string) (map[string]interface{}, error)
+	AllRemoteUnits(appName string) ([]RelationUnit, error)
+	Unit(string) (RelationUnit, error)
+	Endpoint(string) (relation.Endpoint, error)
+	SetSuspended(bool, string) error
+	Suspended() bool
+	SuspendedReason() string
+}
+
+type RelationUnit interface {
+	UnitName() string
+	InScope() (bool, error)
+	Settings() (map[string]interface{}, error)
 }
 
 // Unit defines a subset of the functionality provided by the
@@ -257,6 +294,43 @@ func (s stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) (
 	return &remoteApplicationShim{RemoteApplication: app}, err
 }
 
+func (s stateShim) AddRelation(eps ...relation.Endpoint) (Relation, error) {
+	r, err := s.State.AddRelation(eps...)
+	if err != nil {
+		return nil, err
+	}
+	return stateRelationShim{Relation: r, st: s.State}, nil
+}
+
+func (s stateShim) SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error) {
+	api := state.NewRelationEgressNetworks(s.State)
+	return api.Save(relationKey, false, cidrs)
+}
+
+func (s stateShim) Model() (Model, error) {
+	m, err := s.State.Model()
+	if err != nil {
+		return nil, err
+	}
+	return modelShim{Model: m}, nil
+}
+
+func (s stateShim) Relation(id int) (Relation, error) {
+	r, err := s.State.Relation(id)
+	if err != nil {
+		return nil, err
+	}
+	return stateRelationShim{Relation: r, st: s.State}, nil
+}
+
+func (s stateShim) InferActiveRelation(names ...string) (Relation, error) {
+	r, err := s.State.InferActiveRelation(names...)
+	if err != nil {
+		return nil, err
+	}
+	return stateRelationShim{Relation: r, st: s.State}, nil
+}
+
 func (s stateShim) Machine(name string) (Machine, error) {
 	m, err := s.State.Machine(name)
 	if err != nil {
@@ -336,6 +410,18 @@ func (a stateApplicationShim) AllUnits() ([]Unit, error) {
 	return out, nil
 }
 
+func (a stateApplicationShim) Relations() ([]Relation, error) {
+	rels, err := a.Application.Relations()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Relation, len(rels))
+	for i, r := range rels {
+		out[i] = stateRelationShim{Relation: r, st: a.st}
+	}
+	return out, nil
+}
+
 func (a stateApplicationShim) EndpointBindings() (Bindings, error) {
 	return a.Application.EndpointBindings()
 }
@@ -349,6 +435,47 @@ func (a stateApplicationShim) SetCharm(
 
 type stateMachineShim struct {
 	*state.Machine
+}
+
+type stateRelationShim struct {
+	*state.Relation
+	st *state.State
+}
+
+func (r stateRelationShim) Unit(unitName string) (RelationUnit, error) {
+	u, err := r.st.Unit(unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ru, err := r.Relation.Unit(u)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return stateRelationUnitShim{RelationUnit: ru}, nil
+}
+
+func (r stateRelationShim) AllRemoteUnits(appName string) ([]RelationUnit, error) {
+	rus, err := r.Relation.AllRemoteUnits(appName)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]RelationUnit, len(rus))
+	for i, ru := range rus {
+		out[i] = stateRelationUnitShim{RelationUnit: ru}
+	}
+	return out, nil
+}
+
+type stateRelationUnitShim struct {
+	*state.RelationUnit
+}
+
+func (ru stateRelationUnitShim) Settings() (map[string]interface{}, error) {
+	s, err := ru.RelationUnit.Settings()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.Map(), nil
 }
 
 type stateUnitShim struct {
