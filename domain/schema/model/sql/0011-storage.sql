@@ -38,18 +38,25 @@ CREATE TABLE application_storage_directive (
     -- been fixed (since first implemented). We don't envisage
     -- any change to how these are modelled.
     --
-    -- Note: one might wonder why storage_pool below is not a
-    -- FK to a row defined in the storage pool table. This value
-    -- can also be one of the pool types. As with the comment on the
-    -- type column in the storage pool table, it's problematic to use a lookup
-    -- with an ID. Storage pools, once created, cannot be renamed so
-    -- this will not be able to become "orphaned".
-    storage_pool TEXT NOT NULL,
+    -- One of storage_pool_uuid or storage_type must be set.
+    -- Storage types are provider sourced, so we do not use a lookup with ID.
+    -- This constitutes "repeating data" and would tend to indicate
+    -- bad relational design. However we choose that here over the
+    -- burden of:
+    --   - Knowing every possible type up front to populate a look-up or;
+    --   - Sourcing the lookup from the provider and keeping it updated.
+    storage_pool_uuid TEXT,
+    storage_type TEXT,
     size_mib INT NOT NULL,
     count INT NOT NULL,
+    CONSTRAINT chk_application_storage_specified
+    CHECK (storage_pool_uuid IS NOT NULL OR storage_type IS NOT NULL),
     CONSTRAINT fk_application_storage_directive_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),
+    CONSTRAINT fk_application_storage_directive_storage_pool
+    FOREIGN KEY (storage_pool_uuid)
+    REFERENCES storage_pool (uuid),
     CONSTRAINT fk_application_storage_directive_charm_storage
     FOREIGN KEY (charm_uuid, storage_name)
     REFERENCES charm_storage (charm_uuid, name),
@@ -59,6 +66,17 @@ CREATE TABLE application_storage_directive (
 -- Note that this is not unique; it speeds access by application.
 CREATE INDEX idx_application_storage_directive
 ON application_storage_directive (application_uuid);
+
+CREATE VIEW v_application_storage_directive AS
+SELECT
+    asd.application_uuid,
+    asd.charm_uuid,
+    asd.storage_name,
+    asd.size_mib,
+    asd.count,
+    COALESCE(sp.name, asd.storage_type) AS storage_pool
+FROM application_storage_directive AS asd
+LEFT JOIN storage_pool AS sp ON asd.storage_pool_uuid = sp.uuid;
 
 -- This table stores storage directive values for each named storage item
 -- defined by the unit's current charm. If the charm is updated, then
@@ -78,15 +96,25 @@ CREATE TABLE unit_storage_directive (
     -- been fixed (since first implemented). We don't envisage
     -- any change to how these are modelled.
     --
-    -- Note: one might wonder why storage_pool below is not a
-    -- FK to a row defined in the storage pool table. This value
-    -- can also be one of the pool types. As with the comment on the
-    -- type column in the storage pool table, it's problematic to use a lookup
-    -- with an ID. Storage pools, once created, cannot be renamed so
-    -- this will not be able to become "orphaned".
-    storage_pool TEXT NOT NULL,
+    -- One of storage_pool_uuid or storage_type must be set.
+    -- Storage types are provider sourced, so we do not use a lookup with ID.
+    -- This constitutes "repeating data" and would tend to indicate
+    -- bad relational design. However we choose that here over the
+    -- burden of:
+    --   - Knowing every possible type up front to populate a look-up or;
+    --   - Sourcing the lookup from the provider and keeping it updated.
+    storage_pool_uuid TEXT,
+    storage_type TEXT,
     size_mib INT NOT NULL,
     count INT NOT NULL,
+    CONSTRAINT chk_unit_storage_specified
+    CHECK (storage_pool_uuid IS NOT NULL OR storage_type IS NOT NULL),
+    CONSTRAINT fk_unit_storage_directive_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit (uuid),
+    CONSTRAINT fk_unit_storage_directive_storage_pool
+    FOREIGN KEY (storage_pool_uuid)
+    REFERENCES storage_pool (uuid),
     CONSTRAINT fk_unit_storage_directive_charm_storage
     FOREIGN KEY (charm_uuid, storage_name)
     REFERENCES charm_storage (charm_uuid, name),
@@ -97,6 +125,17 @@ CREATE TABLE unit_storage_directive (
 CREATE INDEX idx_unit_storage_directive
 ON unit_storage_directive (unit_uuid);
 
+CREATE VIEW v_unit_storage_directive AS
+SELECT
+    usd.unit_uuid,
+    usd.charm_uuid,
+    usd.storage_name,
+    usd.size_mib,
+    usd.count,
+    COALESCE(sp.name, usd.storage_type) AS storage_pool
+FROM unit_storage_directive AS usd
+LEFT JOIN storage_pool AS sp ON usd.storage_pool_uuid = sp.uuid;
+
 CREATE TABLE storage_instance (
     uuid TEXT NOT NULL PRIMARY KEY,
     charm_uuid TEXT NOT NULL,
@@ -104,21 +143,43 @@ CREATE TABLE storage_instance (
     -- storage_id is created from the storage name and a unique id number.
     storage_id TEXT NOT NULL,
     life_id INT NOT NULL,
-    -- Note: one might wonder why storage_pool below is not a
-    -- FK to a row defined in the storage pool table. This value
-    -- can also be one of the pool types. As with the comment on the
-    -- type column in the storage pool table, it's problematic to use a lookup
-    -- with an ID. Storage pools, once created, cannot be renamed so
-    -- this will not be able to become "orphaned".
-    storage_pool TEXT NOT NULL,
-    size_mib INT NOT NULL,
+    -- One of storage_pool_uuid or storage_type must be set.
+    -- Storage types are provider sourced, so we do not use a lookup with ID.
+    -- This constitutes "repeating data" and would tend to indicate
+    -- bad relational design. However we choose that here over the
+    -- burden of:
+    --   - Knowing every possible type up front to populate a look-up or;
+    --   - Sourcing the lookup from the provider and keeping it updated.
+    storage_pool_uuid TEXT,
+    storage_type TEXT,
+    requested_size_mib INT NOT NULL,
+    CONSTRAINT chk_storage_instance_storage_specified
+    CHECK (storage_pool_uuid IS NOT NULL OR storage_type IS NOT NULL),
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
+    CONSTRAINT fk_storage_instance_storage_pool
+    FOREIGN KEY (storage_pool_uuid)
+    REFERENCES storage_pool (uuid),
     CONSTRAINT fk_storage_instance_charm_storage
     FOREIGN KEY (charm_uuid, storage_name)
     REFERENCES charm_storage (charm_uuid, name)
 );
+
+CREATE UNIQUE INDEX idx_storage_instance_id
+ON storage_instance (storage_id);
+
+CREATE VIEW v_storage_instance AS
+SELECT
+    si.uuid,
+    si.charm_uuid,
+    si.storage_name,
+    si.storage_id,
+    si.life_id,
+    si.requested_size_mib,
+    COALESCE(sp.name, si.storage_type) AS storage_pool
+FROM storage_instance AS si
+LEFT JOIN storage_pool AS sp ON si.storage_pool_uuid = sp.uuid;
 
 -- storage_unit_owner is used to indicate when
 -- a unit is the owner of a storage instance.
@@ -169,10 +230,9 @@ INSERT INTO storage_provisioning_status VALUES
 
 CREATE TABLE storage_volume (
     uuid TEXT NOT NULL PRIMARY KEY,
+    volume_id TEXT NOT NULL,
     life_id INT NOT NULL,
-    name TEXT NOT NULL,
     provider_id TEXT,
-    storage_pool_uuid TEXT,
     size_mib INT,
     hardware_id TEXT,
     wwn TEXT,
@@ -181,13 +241,13 @@ CREATE TABLE storage_volume (
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
-    CONSTRAINT fk_storage_volume_pool
-    FOREIGN KEY (storage_pool_uuid)
-    REFERENCES storage_pool (uuid),
     CONSTRAINT fk_storage_vol_provisioning_status
     FOREIGN KEY (provisioning_status_id)
     REFERENCES storage_provisioning_status (id)
 );
+
+CREATE UNIQUE INDEX idx_storage_volume_id
+ON storage_volume (volume_id);
 
 -- An instance can have at most one volume.
 -- A volume can have at most one instance.
@@ -232,21 +292,21 @@ CREATE TABLE storage_volume_attachment (
 
 CREATE TABLE storage_filesystem (
     uuid TEXT NOT NULL PRIMARY KEY,
+    filesystem_id TEXT NOT NULL,
     life_id INT NOT NULL,
     provider_id TEXT,
-    storage_pool_uuid TEXT,
     size_mib INT,
     provisioning_status_id INT NOT NULL,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
-    CONSTRAINT fk_storage_filesystem_pool
-    FOREIGN KEY (storage_pool_uuid)
-    REFERENCES storage_pool (uuid),
     CONSTRAINT fk_storage_fs_provisioning_status
     FOREIGN KEY (provisioning_status_id)
     REFERENCES storage_provisioning_status (id)
 );
+
+CREATE UNIQUE INDEX idx_storage_filesystem_id
+ON storage_filesystem (filesystem_id);
 
 -- An instance can have at most one filesystem.
 -- A filesystem can have at most one instance.

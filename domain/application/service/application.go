@@ -783,10 +783,10 @@ func makeStorageArgs(storage map[string]storage.Directive) []application.AddAppl
 	var result []application.AddApplicationStorageArg
 	for name, stor := range storage {
 		result = append(result, application.AddApplicationStorageArg{
-			Name:  name,
-			Pool:  stor.Pool,
-			Size:  stor.Size,
-			Count: stor.Count,
+			Name:           name,
+			PoolNameOrType: stor.Pool,
+			Size:           stor.Size,
+			Count:          stor.Count,
 		})
 	}
 	return result

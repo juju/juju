@@ -18,6 +18,28 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
+func (st *State) loadStoragePoolUUIDByName(ctx context.Context, tx *sqlair.TX, poolNames []string) (map[string]string, error) {
+	type poolnames []string
+	storageQuery, err := st.Prepare(`
+SELECT &storagePool.*
+FROM   storage_pool
+WHERE  name IN ($poolnames[:])
+`, storagePool{}, poolnames{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var dbPools []storagePool
+	err = tx.Query(ctx, storageQuery, poolnames(poolNames)).GetAll(&dbPools)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, errors.Errorf("querying storage pools: %w", err)
+	}
+	poolsByName := make(map[string]string)
+	for _, p := range dbPools {
+		poolsByName[p.Name] = p.UUID
+	}
+	return poolsByName, nil
+}
+
 // insertStorage constructs inserts storage directive records for the application.
 func (st *State) insertStorage(ctx context.Context, tx *sqlair.TX, appDetails applicationDetails, appStorage []application.AddApplicationStorageArg) error {
 	if len(appStorage) == 0 {
@@ -52,15 +74,33 @@ WHERE  charm_uuid = $applicationDetails.charm_uuid
 		return errors.Errorf("storage %q is not supported", unsupportedStorage.SortedValues())
 	}
 
+	// Storage is either a storage type or a pool name.
+	// Get a mapping of pool name to pool UUID for any
+	// pools specified in the app storage directives.
+	poolNames := make([]string, len(appStorage))
+	for i, stor := range appStorage {
+		poolNames[i] = stor.PoolNameOrType
+	}
+	poolsByName, err := st.loadStoragePoolUUIDByName(ctx, tx, poolNames)
+	if err != nil {
+		return errors.Errorf("loading storage pool UUIDs: %w", err)
+	}
+
 	storage := make([]storageToAdd, len(appStorage))
 	for i, stor := range appStorage {
 		storage[i] = storageToAdd{
 			ApplicationUUID: appDetails.UUID.String(),
 			CharmUUID:       appDetails.CharmID,
 			StorageName:     stor.Name,
-			StoragePool:     stor.Pool,
 			Size:            uint(stor.Size),
 			Count:           uint(stor.Count),
+		}
+		// PoolNameOrType has already been validated to either be
+		// a pool name or a valid storage type for the relevant cloud.
+		if uuid, ok := poolsByName[stor.PoolNameOrType]; ok {
+			storage[i].StoragePoolUUID = &uuid
+		} else {
+			storage[i].StorageType = &stor.PoolNameOrType
 		}
 	}
 

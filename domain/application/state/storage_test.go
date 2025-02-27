@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // TestCreateApplicationWithResources tests creation of an application with
@@ -23,28 +24,48 @@ import (
 // It verifies that the charm_resource table is populated, alongside the
 // resource and application_resource table with datas from charm and arguments.
 func (s *applicationStateSuite) TestCreateApplicationWithStorage(c *gc.C) {
+	ctx := context.Background()
+	uuid := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
+			uuid, "fast", "ebs")
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
 	chStorage := []charm.Storage{{
 		Name: "database",
 		Type: "block",
 	}, {
 		Name: "logs",
 		Type: "filesystem",
+	}, {
+		Name: "cache",
+		Type: "block",
 	}}
 	addStorageArgs := []application.AddApplicationStorageArg{
 		{
-			Name:  "database",
-			Pool:  "ebs",
-			Size:  10,
-			Count: 2,
+			Name:           "database",
+			PoolNameOrType: "ebs",
+			Size:           10,
+			Count:          2,
 		},
 		{
-			Name:  "logs",
-			Pool:  "rootfs",
-			Size:  20,
-			Count: 1,
+			Name:           "logs",
+			PoolNameOrType: "rootfs",
+			Size:           20,
+			Count:          1,
+		},
+		{
+			Name:           "cache",
+			PoolNameOrType: "fast",
+			Size:           30,
+			Count:          1,
 		},
 	}
-	ctx := context.Background()
+	c.Assert(err, jc.ErrorIsNil)
 
 	appUUID, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
 		chStorage, addStorageArgs), nil)
@@ -61,6 +82,7 @@ WHERE name=?`, "666").Scan(&charmUUID)
 	var (
 		foundCharmStorage []charm.Storage
 		foundAppStorage   []application.AddApplicationStorageArg
+		poolUUID          string
 	)
 
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -87,7 +109,7 @@ WHERE charm_uuid=?`, charmUUID)
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT storage_name, storage_pool, size_mib, count
-FROM application_storage_directive
+FROM v_application_storage_directive
 WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 		if err != nil {
 			return errors.Capture(err)
@@ -95,16 +117,30 @@ WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var stor application.AddApplicationStorageArg
-			if err := rows.Scan(&stor.Name, &stor.Pool, &stor.Size, &stor.Count); err != nil {
+			if err := rows.Scan(&stor.Name, &stor.PoolNameOrType, &stor.Size, &stor.Count); err != nil {
 				return errors.Capture(err)
 			}
 			foundAppStorage = append(foundAppStorage, stor)
 		}
+		rows, err = tx.QueryContext(ctx, `
+SELECT storage_pool_uuid
+FROM application_storage_directive
+WHERE storage_type IS NULL AND application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			if err := rows.Scan(&poolUUID); err != nil {
+				return errors.Capture(err)
+			}
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundCharmStorage, jc.SameContents, chStorage)
-	c.Assert(foundAppStorage, jc.SameContents, addStorageArgs)
+	c.Check(foundCharmStorage, jc.SameContents, chStorage)
+	c.Check(foundAppStorage, jc.SameContents, addStorageArgs)
+	c.Assert(poolUUID, gc.Equals, uuid)
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithUnrecognisedStorage(c *gc.C) {
@@ -113,10 +149,10 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnrecognisedStorage(c *
 		Type: "block",
 	}}
 	addStorageArgs := []application.AddApplicationStorageArg{{
-		Name:  "foo",
-		Pool:  "rootfs",
-		Size:  20,
-		Count: 1,
+		Name:           "foo",
+		PoolNameOrType: "rootfs",
+		Size:           20,
+		Count:          1,
 	}}
 	ctx := context.Background()
 
@@ -127,10 +163,10 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnrecognisedStorage(c *
 
 func (s *applicationStateSuite) TestCreateApplicationWithStorageButCharmHasNone(c *gc.C) {
 	addStorageArgs := []application.AddApplicationStorageArg{{
-		Name:  "foo",
-		Pool:  "rootfs",
-		Size:  20,
-		Count: 1,
+		Name:           "foo",
+		PoolNameOrType: "rootfs",
+		Size:           20,
+		Count:          1,
 	}}
 	ctx := context.Background()
 
@@ -198,8 +234,8 @@ func (s *applicationStateSuite) TestGetStorageUUIDByID(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, storage_pool, size_mib)
-VALUES (?, ?, ?, ?, ?, ?, ?)`, uuid, charmUUID, "pgdata", "pgdata/0", 0, "pool", 666)
+INSERT INTO storage_instance(uuid, charm_uuid, storage_name, storage_id, life_id, storage_type, requested_size_mib)
+VALUES (?, ?, ?, ?, ?, ?, ?)`, uuid, charmUUID, "pgdata", "pgdata/0", 0, "rootfs", 666)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

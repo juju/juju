@@ -292,6 +292,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_application_constraint",
 		"v_application_exposed_endpoint",
 		"v_application_resource",
+		"v_application_storage_directive",
 		"v_charm_annotation_index",
 		"v_charm_config",
 		"v_charm_container",
@@ -318,7 +319,9 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_revision_updater_application",
 		"v_secret_permission",
 		"v_space_subnet",
+		"v_storage_instance",
 		"v_unit_resource",
+		"v_unit_storage_directive",
 	)
 	got := readEntityNames(c, s.DB(), "view")
 	c.Assert(got, jc.SameContents, expected.SortedValues(), gc.Commentf(

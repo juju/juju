@@ -438,7 +438,7 @@ VALUES (?, ?, ?, ?, ?)
 func (s *stateSuite) ensureStorage(c *gc.C, name, uuid, charmUUID string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO storage_instance (uuid, storage_id, storage_pool, size_mib, charm_uuid, storage_name, life_id)
+INSERT INTO storage_instance (uuid, storage_id, storage_type, requested_size_mib, charm_uuid, storage_name, life_id)
 VALUES (?, ?, ?, ?, ?, ?, ?)
 		`, uuid, name+"/0", "loop", 100, charmUUID, name, 0)
 		return err

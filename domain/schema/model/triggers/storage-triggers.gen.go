@@ -114,9 +114,9 @@ CREATE TRIGGER trg_log_storage_filesystem_update
 AFTER UPDATE ON storage_filesystem FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
+	NEW.filesystem_id != OLD.filesystem_id OR
 	NEW.life_id != OLD.life_id OR
 	(NEW.provider_id != OLD.provider_id OR (NEW.provider_id IS NOT NULL AND OLD.provider_id IS NULL) OR (NEW.provider_id IS NULL AND OLD.provider_id IS NOT NULL)) OR
-	(NEW.storage_pool_uuid != OLD.storage_pool_uuid OR (NEW.storage_pool_uuid IS NOT NULL AND OLD.storage_pool_uuid IS NULL) OR (NEW.storage_pool_uuid IS NULL AND OLD.storage_pool_uuid IS NOT NULL)) OR
 	(NEW.size_mib != OLD.size_mib OR (NEW.size_mib IS NOT NULL AND OLD.size_mib IS NULL) OR (NEW.size_mib IS NULL AND OLD.size_mib IS NOT NULL)) OR
 	NEW.provisioning_status_id != OLD.provisioning_status_id 
 BEGIN
@@ -195,10 +195,9 @@ CREATE TRIGGER trg_log_storage_volume_update
 AFTER UPDATE ON storage_volume FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
+	NEW.volume_id != OLD.volume_id OR
 	NEW.life_id != OLD.life_id OR
-	NEW.name != OLD.name OR
 	(NEW.provider_id != OLD.provider_id OR (NEW.provider_id IS NOT NULL AND OLD.provider_id IS NULL) OR (NEW.provider_id IS NULL AND OLD.provider_id IS NOT NULL)) OR
-	(NEW.storage_pool_uuid != OLD.storage_pool_uuid OR (NEW.storage_pool_uuid IS NOT NULL AND OLD.storage_pool_uuid IS NULL) OR (NEW.storage_pool_uuid IS NULL AND OLD.storage_pool_uuid IS NOT NULL)) OR
 	(NEW.size_mib != OLD.size_mib OR (NEW.size_mib IS NOT NULL AND OLD.size_mib IS NULL) OR (NEW.size_mib IS NULL AND OLD.size_mib IS NOT NULL)) OR
 	(NEW.hardware_id != OLD.hardware_id OR (NEW.hardware_id IS NOT NULL AND OLD.hardware_id IS NULL) OR (NEW.hardware_id IS NULL AND OLD.hardware_id IS NOT NULL)) OR
 	(NEW.wwn != OLD.wwn OR (NEW.wwn IS NOT NULL AND OLD.wwn IS NULL) OR (NEW.wwn IS NULL AND OLD.wwn IS NOT NULL)) OR
