@@ -768,45 +768,6 @@ func (c *MockBackendToolsStorageCall) DoAndReturn(f func(objectstore.ObjectStore
 	return c
 }
 
-// Unit mocks base method.
-func (m *MockBackend) Unit(arg0 string) (Unit, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unit", arg0)
-	ret0, _ := ret[0].(Unit)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Unit indicates an expected call of Unit.
-func (mr *MockBackendMockRecorder) Unit(arg0 any) *MockBackendUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockBackend)(nil).Unit), arg0)
-	return &MockBackendUnitCall{Call: call}
-}
-
-// MockBackendUnitCall wrap *gomock.Call
-type MockBackendUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendUnitCall) Return(arg0 Unit, arg1 error) *MockBackendUnitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendUnitCall) Do(f func(string) (Unit, error)) *MockBackendUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendUnitCall) DoAndReturn(f func(string) (Unit, error)) *MockBackendUnitCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockStorageInterface is a mock of StorageInterface interface.
 type MockStorageInterface struct {
 	ctrl     *gomock.Controller
@@ -1724,45 +1685,6 @@ func (c *MockUnitNameCall) Do(f func() string) *MockUnitNameCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockUnitNameCall) DoAndReturn(f func() string) *MockUnitNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Status mocks base method.
-func (m *MockUnit) Status() (status.StatusInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status")
-	ret0, _ := ret[0].(status.StatusInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Status indicates an expected call of Status.
-func (mr *MockUnitMockRecorder) Status() *MockUnitStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockUnit)(nil).Status))
-	return &MockUnitStatusCall{Call: call}
-}
-
-// MockUnitStatusCall wrap *gomock.Call
-type MockUnitStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUnitStatusCall) Return(arg0 status.StatusInfo, arg1 error) *MockUnitStatusCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUnitStatusCall) Do(f func() (status.StatusInfo, error)) *MockUnitStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitStatusCall) DoAndReturn(f func() (status.StatusInfo, error)) *MockUnitStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
