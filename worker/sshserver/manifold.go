@@ -41,9 +41,6 @@ type ManifoldConfig struct {
 
 	// Logger is the logger to use for the worker.
 	Logger Logger
-
-	// NewFacadeClient returns a facade client for the SSH server worker to use.
-	NewFacadeClient func(caller base.APICaller) (FacadeClient, error)
 }
 
 // Validate validates the manifold configuration.
@@ -56,9 +53,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if config.NewFacadeClient == nil {
-		return errors.NotValidf("nil NewFacadeClient")
 	}
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
@@ -88,7 +82,7 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		return nil, errors.Trace(err)
 	}
 
-	client, err := config.NewFacadeClient(apiCaller)
+	client, err := sshserverapi.NewClient(apiCaller)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -103,11 +97,4 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 	}
 
 	return w, nil
-}
-
-// NewFacadeClient returns a facade client for the SSH server worker to use.
-// This is more of a shim as the client returns a concrete type and we're really
-// just using this for testing.
-func NewFacadeClient(caller base.APICaller) (FacadeClient, error) {
-	return sshserverapi.NewClient(caller)
 }

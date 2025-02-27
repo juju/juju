@@ -79,7 +79,7 @@ func (s *sshserverSuite) TestSSHServerHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		key,
-		jc.DeepEquals,
+		gc.Equals,
 		"key",
 	)
 }
@@ -103,5 +103,5 @@ func (s *sshserverSuite) TestSSHServerHostKeyError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = client.SSHServerHostKey()
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, "blah")
 }

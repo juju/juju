@@ -91,7 +91,7 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 		s.config.Listener = listener
 	}
 
-	listener, closeAllowed := newSSHServerListener(s.config.Listener)
+	listener, closeAllowed := NewSSHServerListener(s.config.Listener)
 
 	// Start server.
 	s.tomb.Go(func() error {
@@ -131,7 +131,7 @@ func (s *ServerWorker) Wait() error {
 func (s *ServerWorker) setJumpServerHostKey() error {
 	signer, err := gossh.ParsePrivateKey([]byte(s.config.JumpHostKey))
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	s.Server.AddHostKey(signer)

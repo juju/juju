@@ -24,10 +24,8 @@ func (s *sshserverSuite) TestAuth(c *gc.C) {
 	ctx := NewMockContext(ctrl)
 	authorizer := NewMockAuthorizer(ctrl)
 
-	gomock.InOrder(
-		ctx.EXPECT().Auth().Return(authorizer),
-		authorizer.EXPECT().AuthController().Return(false),
-	)
+	ctx.EXPECT().Auth().Return(authorizer)
+	authorizer.EXPECT().AuthController().Return(false)
 
 	_, err := sshserver.NewExternalFacade(ctx)
 	c.Assert(err, gc.ErrorMatches, `permission denied`)

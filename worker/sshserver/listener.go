@@ -47,7 +47,7 @@ type sshServerListener struct {
 // sshServerListener returns a listener and a closedAllowed channel. You are
 // expected to receive from the closeAlloed channel within your Close() function.
 // The channel is closed once an accept has occurred at least once.
-func newSSHServerListener(l net.Listener) (sshServerListener, chan struct{}) {
+func NewSSHServerListener(l net.Listener) (sshServerListener, chan struct{}) {
 	c := make(chan struct{})
 	return sshServerListener{
 		Listener:     l,

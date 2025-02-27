@@ -4,8 +4,7 @@
 package sshserver_test
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,9 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/worker/sshserver"
-	"github.com/juju/juju/worker/sshserver/mocks"
 )
 
 type workerSuite struct {
@@ -28,7 +26,7 @@ var _ = gc.Suite(&workerSuite{})
 
 func newServerWrapperWorkerConfig(
 	l loggo.Logger,
-	client *mocks.MockFacadeClient,
+	client *MockFacadeClient,
 	modifier func(*sshserver.ServerWrapperWorkerConfig),
 ) *sshserver.ServerWrapperWorkerConfig {
 	cfg := &sshserver.ServerWrapperWorkerConfig{
@@ -47,7 +45,8 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	defer ctrl.Finish()
 
 	l := loggo.GetLogger("test")
-	mockFacadeClient := mocks.NewMockFacadeClient(ctrl)
+
+	mockFacadeClient := NewMockFacadeClient(ctrl)
 
 	cfg := newServerWrapperWorkerConfig(l, mockFacadeClient, func(cfg *sshserver.ServerWrapperWorkerConfig) {})
 	c.Assert(cfg.Validate(), jc.ErrorIsNil)
@@ -60,7 +59,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 			cfg.Logger = nil
 		},
 	)
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	// Test no FacadeClient.
 	cfg = newServerWrapperWorkerConfig(
@@ -70,7 +69,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 			cfg.FacadeClient = nil
 		},
 	)
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	// Test no NewServerWorker.
 	cfg = newServerWrapperWorkerConfig(
@@ -80,19 +79,19 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 			cfg.NewServerWorker = nil
 		},
 	)
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	mockFacadeClient := mocks.NewMockFacadeClient(ctrl)
+	mockFacadeClient := NewMockFacadeClient(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
 	defer workertest.DirtyKill(c, serverWorker)
 
-	controllerConfigWatcher := NewFakeFacadeWatcher(1, 0)
+	controllerConfigWatcher := watchertest.NewMockNotifyWatcher(make(<-chan struct{}))
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
 	// Expect SSHServerHostKey to be retrieved
@@ -136,12 +135,13 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	mockFacadeClient := mocks.NewMockFacadeClient(ctrl)
+	mockFacadeClient := NewMockFacadeClient(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
 	defer workertest.DirtyKill(c, serverWorker)
 
-	controllerConfigWatcher := NewFakeFacadeWatcher(1, 0)
+	watcherChan := make(chan struct{})
+	controllerConfigWatcher := watchertest.NewMockNotifyWatcher(watcherChan)
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
 	// Expect SSHServerHostKey to be retrieved
@@ -197,7 +197,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	workertest.CheckAlive(c, controllerConfigWatcher)
 
 	// Send some changes to restart the server.
-	controllerConfigWatcher.Ping()
+	watcherChan <- struct{}{}
 
 	// Kill wrapper worker.
 	workertest.CleanKill(c, w)
@@ -218,12 +218,13 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	mockFacadeClient := mocks.NewMockFacadeClient(ctrl)
+	mockFacadeClient := NewMockFacadeClient(ctrl)
 
 	serverWorker := workertest.NewErrorWorker(nil)
 	defer workertest.DirtyKill(c, serverWorker)
 
-	controllerConfigWatcher := NewFakeFacadeWatcher(1, 0)
+	watcherChan := make(chan struct{})
+	controllerConfigWatcher := watchertest.NewMockNotifyWatcher(watcherChan)
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
 	// Test where the host key is an empty
@@ -259,47 +260,4 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 
 	err = workertest.CheckKilled(c, w2)
 	c.Assert(err, gc.ErrorMatches, "state failed")
-}
-
-// NotAWatcher is a copy from workertest.NewFakeWatcher, we needed to modify the
-// Change() return type as watcher.NotifyWatcher expects Changes() watcher.NotifyChannel
-// (which is just a <-chan struct{}).
-type NotAWatcher struct {
-	changes chan struct{}
-	worker.Worker
-}
-
-// NewFakeFacadeWatcher returns a fake watcher
-func NewFakeFacadeWatcher(len, preload int) NotAWatcher {
-	if len < preload {
-		panic("len must be larger than preload")
-	}
-	ch := make(chan struct{}, len)
-	for i := 0; i < preload; i++ {
-		ch <- struct{}{}
-	}
-	return NotAWatcher{
-		changes: ch,
-		Worker:  workertest.NewErrorWorker(nil),
-	}
-}
-
-func (w NotAWatcher) Changes() watcher.NotifyChannel {
-	return w.changes
-}
-
-func (w NotAWatcher) Stop() error {
-	return nil
-}
-
-func (w NotAWatcher) Err() error {
-	return errors.New("An error")
-}
-
-func (w *NotAWatcher) Ping() {
-	w.changes <- struct{}{}
-}
-
-func (w *NotAWatcher) Close() {
-	close(w.changes)
 }

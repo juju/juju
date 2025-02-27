@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -60,7 +61,7 @@ func (s *sshServerSuite) TestValidate(c *gc.C) {
 	cfg := &sshserver.ServerWorkerConfig{}
 	l := loggo.GetLogger("test")
 
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*not valid.*")
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -69,13 +70,13 @@ func (s *sshServerSuite) TestValidate(c *gc.C) {
 	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *sshserver.ServerWorkerConfig) {
 		cfg.Logger = nil
 	})
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*not valid.*")
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	// Test no JumpHostKey.
 	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *sshserver.ServerWorkerConfig) {
 		cfg.JumpHostKey = ""
 	})
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*not valid.*")
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *sshServerSuite) TestSSHServer(c *gc.C) {

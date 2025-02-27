@@ -786,11 +786,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The ssh server worker runs on the controller machine.
 		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
-			Logger:                 loggo.GetLogger("juju.worker.sshserver"),
 			APICallerName:          apiCallerName,
+			Logger:                 loggo.GetLogger("juju.worker.sshserver"),
 			NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
 			NewServerWorker:        sshserver.NewServerWorker,
-			NewFacadeClient:        sshserver.NewFacadeClient,
 		})),
 	}
 

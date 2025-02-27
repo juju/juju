@@ -38,10 +38,12 @@ func NewFacade(ctx facade.Context, backend Backend) *Facade {
 	}
 }
 
+// ControllerConfig returns the current controller config.
 func (f *Facade) ControllerConfig() (params.ControllerConfigResult, error) {
 	return f.controllerConfigAPI.ControllerConfig()
 }
 
+// WatchControllerConfig creates a watcher and returns it's ID for watching upon.
 func (f *Facade) WatchControllerConfig() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	w := f.ctrlState.WatchControllerConfig()
@@ -53,6 +55,7 @@ func (f *Facade) WatchControllerConfig() (params.NotifyWatchResult, error) {
 	return result, nil
 }
 
+// SSHServerHostKey returns the controller's SSH server host key.
 func (f *Facade) SSHServerHostKey() (params.StringResult, error) {
 	result := params.StringResult{}
 	key, err := f.ctrlState.SSHServerHostKey()

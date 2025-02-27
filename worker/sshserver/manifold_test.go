@@ -28,7 +28,6 @@ func newManifoldConfig(l loggo.Logger, modifier func(cfg *sshserver.ManifoldConf
 		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
 		NewServerWorker:        func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:                 l,
-		NewFacadeClient:        func(caller base.APICaller) (sshserver.FacadeClient, error) { return nil, nil },
 		APICallerName:          "api-caller",
 	}
 
@@ -70,15 +69,9 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
-	// Missing NewFacadeClient.
-	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
-		cfg.NewFacadeClient = nil
-	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
-
 	// Empty APICallerName.
 	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
-		cfg.NewFacadeClient = nil
+		cfg.APICallerName = ""
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
@@ -92,7 +85,6 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 		},
 		NewServerWorker: func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:          loggo.GetLogger("test"),
-		NewFacadeClient: func(caller base.APICaller) (sshserver.FacadeClient, error) { return nil, nil },
 	})
 
 	// Check the inputs are as expected
@@ -112,4 +104,8 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 
 type mockAPICaller struct {
 	base.APICaller
+}
+
+func (a mockAPICaller) BestFacadeVersion(facade string) int {
+	return 0
 }
