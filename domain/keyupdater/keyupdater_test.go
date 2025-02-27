@@ -52,6 +52,8 @@ func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.ModelSuite.SetUpTest(c)
 
+	s.SeedControllerUUID(c)
+
 	s.userID = usertesting.GenUserUUID(c)
 
 	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
