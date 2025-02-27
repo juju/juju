@@ -24,7 +24,6 @@ type Backend interface {
 	Application(string) (Application, error)
 	Machine(string) (Machine, error)
 	AllMachines() ([]Machine, error)
-	Unit(string) (Unit, error)
 	AddOneMachine(template state.MachineTemplate) (Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (Machine, error)
 	AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (Machine, error)
@@ -116,16 +115,6 @@ func (s stateShim) AllMachines() ([]Machine, error) {
 	return result, nil
 }
 
-func (s stateShim) Unit(name string) (Unit, error) {
-	u, err := s.State.Unit(name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return unitShim{
-		Unit: u,
-	}, nil
-}
-
 type poolShim struct {
 	pool *state.StatePool
 }
@@ -154,15 +143,10 @@ func (m machineShim) Units() ([]Unit, error) {
 	return out, nil
 }
 
-type unitShim struct {
-	*state.Unit
-}
-
 type Unit interface {
 	UnitTag() names.UnitTag
 	Name() string
 	AgentStatus() (status.StatusInfo, error)
-	Status() (status.StatusInfo, error)
 }
 
 type StorageInterface interface {

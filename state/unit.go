@@ -1319,7 +1319,7 @@ func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) Status() (status.StatusInfo, error) {
+func (u *Unit) status() (status.StatusInfo, error) {
 	// The current health spec says when a hook error occurs, the workload should
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
@@ -2368,7 +2368,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
-	statusInfo, err := u.Status()
+	statusInfo, err := u.status()
 	if err != nil {
 		return err
 	}

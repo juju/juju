@@ -216,15 +216,19 @@ func (s *uniterLegacySuite) TestSetUnitStatus(c *gc.C) {
 	})
 
 	// Verify mysqlUnit - no change.
-	statusInfo, err := s.mysqlUnit.Status()
+	statusInfo, err := s.uniter.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{Tag: s.mysqlUnit.Tag().String()}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Terminated)
-	c.Assert(statusInfo.Message, gc.Equals, "foo")
+	c.Assert(statusInfo.Results, gc.HasLen, 1)
+	c.Assert(statusInfo.Results[0].Error, jc.ErrorIsNil)
+	c.Assert(statusInfo.Results[0].Status, gc.Equals, status.Terminated)
+	c.Assert(statusInfo.Results[0].Info, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
-	statusInfo, err = s.wordpressUnit.Status()
+	statusInfo, err = s.uniter.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{Tag: s.wordpressUnit.Tag().String()}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Terminated)
-	c.Assert(statusInfo.Message, gc.Equals, "foobar")
+	c.Assert(statusInfo.Results, gc.HasLen, 1)
+	c.Assert(statusInfo.Results[0].Error, jc.ErrorIsNil)
+	c.Assert(statusInfo.Results[0].Status, gc.Equals, status.Terminated)
+	c.Assert(statusInfo.Results[0].Info, gc.Equals, "foobar")
 }
 
 func (s *uniterLegacySuite) TestLife(c *gc.C) {

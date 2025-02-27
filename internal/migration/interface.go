@@ -113,7 +113,6 @@ type PrecheckUnit interface {
 	Life() state.Life
 	CharmURL() *string
 	AgentStatus() (status.StatusInfo, error)
-	Status() (status.StatusInfo, error)
 	ShouldBeAssigned() bool
 }
 
