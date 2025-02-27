@@ -1023,3 +1023,21 @@ VALUES      ($lxdProfile.*)`, lxdProfile{})
 		return nil
 	})
 }
+
+// NamespaceForWatchMachineCloudInstance returns the namespace for watching
+// machine cloud instance changes.
+func (st *State) NamespaceForWatchMachineCloudInstance() string {
+	return "machine_cloud_instance"
+}
+
+// NamespaceForWatchMachineLXDProfiles returns the namespace for watching
+// machine LXD profile changes.
+func (st *State) NamespaceForWatchMachineLXDProfiles() string {
+	return "machine_lxd_profile"
+}
+
+// NamespaceForWatchMachineReboot returns the namespace string used for
+// tracking machine reboot events in the model.
+func (st *State) NamespaceForWatchMachineReboot() string {
+	return "machine_requires_reboot"
+}

@@ -78,6 +78,14 @@ type State interface {
 	// the machine does not exist an error satisfying
 	// [github.com/juju/juju/domain/machine/errors.MachineNotFound] is returned.
 	CheckMachineExists(context.Context, coremachine.Name) error
+
+	// NamespaceForWatchUserAuthentication returns the namespace used to
+	// monitor user authentication changes.
+	NamespaceForWatchUserAuthentication() string
+
+	// NamespaceForWatchModelAuthorizationKeys returns the namespace used to
+	// monitor authorization keys for the current model.
+	NamespaceForWatchModelAuthorizationKeys() string
 }
 
 // ControllerState provides the access layer the [Service] needs for retrieving
@@ -206,12 +214,12 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
-			"model_authorized_keys",
+			s.st.NamespaceForWatchModelAuthorizationKeys(),
 			changestream.All,
 			func(s string) bool { return s == modelId.String() },
 		),
 		eventsource.NamespaceFilter(
-			"user_authentication",
+			s.st.NamespaceForWatchUserAuthentication(),
 			changestream.All,
 		),
 	)

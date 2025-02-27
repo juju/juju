@@ -2017,6 +2017,8 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	mockAutoPruneWatcher.EXPECT().Wait().Return(nil).AnyTimes()
 	mockAutoPruneWatcher.EXPECT().Kill().AnyTimes()
 
+	s.state.EXPECT().NamespaceForWatchSecretRevisionObsolete().Return("secret_revision_obsolete")
+	s.state.EXPECT().NamespaceForWatchSecretMetadata().Return("secret_metadata")
 	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_revision_obsolete", changestream.Changed, gomock.Any()).Return(mockObsoleteWatcher, nil)
 	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_metadata", changestream.Changed, gomock.Any()).Return(mockAutoPruneWatcher, nil)
 

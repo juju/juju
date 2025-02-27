@@ -86,7 +86,7 @@ func (s *WatchableService) WatchModelMachines() (watcher.StringsWatcher, error) 
 // machine UUID.
 func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error) {
 	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		"machine_cloud_instance",
+		s.st.NamespaceForWatchMachineCloudInstance(),
 		changestream.All,
 		eventsource.FilterEvents(func(event changestream.ChangeEvent) bool {
 			return event.Changed() == machineUUID
@@ -101,7 +101,7 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machi
 // table, which could become noisy.
 func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error) {
 	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		"machine_lxd_profile",
+		s.st.NamespaceForWatchMachineLXDProfiles(),
 		changestream.All,
 		eventsource.FilterEvents(func(event changestream.ChangeEvent) bool {
 			return event.Changed() == machineUUID
@@ -119,7 +119,7 @@ func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid string) 
 	}
 	machines := set.NewStrings(uuids...)
 	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		"machine_requires_reboot",
+		s.st.NamespaceForWatchMachineReboot(),
 		changestream.All,
 		eventsource.FilterEvents(func(event changestream.ChangeEvent) bool {
 			return machines.Contains(event.Changed())

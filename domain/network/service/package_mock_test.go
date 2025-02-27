@@ -475,6 +475,44 @@ func (c *MockStateGetSubnetsByCIDRCall) DoAndReturn(f func(context.Context, ...s
 	return c
 }
 
+// NamespaceForWatchSubnet mocks base method.
+func (m *MockState) NamespaceForWatchSubnet() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchSubnet")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchSubnet indicates an expected call of NamespaceForWatchSubnet.
+func (mr *MockStateMockRecorder) NamespaceForWatchSubnet() *MockStateNamespaceForWatchSubnetCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchSubnet", reflect.TypeOf((*MockState)(nil).NamespaceForWatchSubnet))
+	return &MockStateNamespaceForWatchSubnetCall{Call: call}
+}
+
+// MockStateNamespaceForWatchSubnetCall wrap *gomock.Call
+type MockStateNamespaceForWatchSubnetCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchSubnetCall) Return(arg0 string) *MockStateNamespaceForWatchSubnetCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchSubnetCall) Do(f func() string) *MockStateNamespaceForWatchSubnetCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchSubnetCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchSubnetCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpdateSpace mocks base method.
 func (m *MockState) UpdateSpace(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()

@@ -35,6 +35,7 @@ type State interface {
 
 	InitialWatchStatementForSecretBackendRotationChanges() (string, string)
 	GetSecretBackendRotateChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error)
+	NamespaceForWatchModelSecretBackend() string
 }
 
 // WatcherFactory describes methods for creating watchers.

@@ -1232,3 +1232,9 @@ WHERE b.uuid IN ($S[:])`,
 	})
 	return rows.toChanges(s.logger), errors.Trace(err)
 }
+
+// NamespaceForWatchModelSecretBackend returns the namespace for the model
+// secret backend watcher.
+func (s *State) NamespaceForWatchModelSecretBackend() string {
+	return "model_secret_backend"
+}

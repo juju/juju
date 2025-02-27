@@ -2732,6 +2732,158 @@ func (c *MockStateListCharmLocatorsByNamesCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// NamespaceForWatchApplication mocks base method.
+func (m *MockState) NamespaceForWatchApplication() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchApplication")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchApplication indicates an expected call of NamespaceForWatchApplication.
+func (mr *MockStateMockRecorder) NamespaceForWatchApplication() *MockStateNamespaceForWatchApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchApplication", reflect.TypeOf((*MockState)(nil).NamespaceForWatchApplication))
+	return &MockStateNamespaceForWatchApplicationCall{Call: call}
+}
+
+// MockStateNamespaceForWatchApplicationCall wrap *gomock.Call
+type MockStateNamespaceForWatchApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchApplicationCall) Return(arg0 string) *MockStateNamespaceForWatchApplicationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchApplicationCall) Do(f func() string) *MockStateNamespaceForWatchApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchApplicationCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceForWatchApplicationConfig mocks base method.
+func (m *MockState) NamespaceForWatchApplicationConfig() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchApplicationConfig")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchApplicationConfig indicates an expected call of NamespaceForWatchApplicationConfig.
+func (mr *MockStateMockRecorder) NamespaceForWatchApplicationConfig() *MockStateNamespaceForWatchApplicationConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchApplicationConfig", reflect.TypeOf((*MockState)(nil).NamespaceForWatchApplicationConfig))
+	return &MockStateNamespaceForWatchApplicationConfigCall{Call: call}
+}
+
+// MockStateNamespaceForWatchApplicationConfigCall wrap *gomock.Call
+type MockStateNamespaceForWatchApplicationConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchApplicationConfigCall) Return(arg0 string) *MockStateNamespaceForWatchApplicationConfigCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchApplicationConfigCall) Do(f func() string) *MockStateNamespaceForWatchApplicationConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchApplicationConfigCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchApplicationConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceForWatchApplicationScale mocks base method.
+func (m *MockState) NamespaceForWatchApplicationScale() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchApplicationScale")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchApplicationScale indicates an expected call of NamespaceForWatchApplicationScale.
+func (mr *MockStateMockRecorder) NamespaceForWatchApplicationScale() *MockStateNamespaceForWatchApplicationScaleCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchApplicationScale", reflect.TypeOf((*MockState)(nil).NamespaceForWatchApplicationScale))
+	return &MockStateNamespaceForWatchApplicationScaleCall{Call: call}
+}
+
+// MockStateNamespaceForWatchApplicationScaleCall wrap *gomock.Call
+type MockStateNamespaceForWatchApplicationScaleCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchApplicationScaleCall) Return(arg0 string) *MockStateNamespaceForWatchApplicationScaleCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchApplicationScaleCall) Do(f func() string) *MockStateNamespaceForWatchApplicationScaleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchApplicationScaleCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchApplicationScaleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceForWatchCharm mocks base method.
+func (m *MockState) NamespaceForWatchCharm() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchCharm")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchCharm indicates an expected call of NamespaceForWatchCharm.
+func (mr *MockStateMockRecorder) NamespaceForWatchCharm() *MockStateNamespaceForWatchCharmCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchCharm", reflect.TypeOf((*MockState)(nil).NamespaceForWatchCharm))
+	return &MockStateNamespaceForWatchCharmCall{Call: call}
+}
+
+// MockStateNamespaceForWatchCharmCall wrap *gomock.Call
+type MockStateNamespaceForWatchCharmCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchCharmCall) Return(arg0 string) *MockStateNamespaceForWatchCharmCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchCharmCall) Do(f func() string) *MockStateNamespaceForWatchCharmCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchCharmCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchCharmCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RegisterCAASUnit mocks base method.
 func (m *MockState) RegisterCAASUnit(arg0 context.Context, arg1 application.ID, arg2 application0.RegisterCAASUnitArg) error {
 	m.ctrl.T.Helper()

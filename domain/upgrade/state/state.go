@@ -450,3 +450,10 @@ AND state_type_id = $M.from;`, info, m)
 	}
 	return nil
 }
+
+func (st *State) NamespaceForWatchUpgradeReady() string {
+	return "upgrade_info_controller_node"
+}
+func (st *State) NamespaceForWatchUpgradeState() string {
+	return "upgrade_info"
+}

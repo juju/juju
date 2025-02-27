@@ -200,6 +200,44 @@ func (c *MockStateModelsForControllerCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
+// NamespaceForWatchExternalController mocks base method.
+func (m *MockState) NamespaceForWatchExternalController() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchExternalController")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchExternalController indicates an expected call of NamespaceForWatchExternalController.
+func (mr *MockStateMockRecorder) NamespaceForWatchExternalController() *MockStateNamespaceForWatchExternalControllerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchExternalController", reflect.TypeOf((*MockState)(nil).NamespaceForWatchExternalController))
+	return &MockStateNamespaceForWatchExternalControllerCall{Call: call}
+}
+
+// MockStateNamespaceForWatchExternalControllerCall wrap *gomock.Call
+type MockStateNamespaceForWatchExternalControllerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchExternalControllerCall) Return(arg0 string) *MockStateNamespaceForWatchExternalControllerCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchExternalControllerCall) Do(f func() string) *MockStateNamespaceForWatchExternalControllerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchExternalControllerCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchExternalControllerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpdateExternalController mocks base method.
 func (m *MockState) UpdateExternalController(arg0 context.Context, arg1 crossmodel.ControllerInfo) error {
 	m.ctrl.T.Helper()

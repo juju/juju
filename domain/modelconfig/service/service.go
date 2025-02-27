@@ -49,6 +49,10 @@ type State interface {
 	// UpdateModelConfig is responsible for both inserting, updating and
 	// removing model config values for the current model.
 	UpdateModelConfig(context.Context, map[string]string, []string) error
+
+	// NamespaceForWatchModelConfig returns the namespace identifier used for
+	// watching model configuration changes.
+	NamespaceForWatchModelConfig() string
 }
 
 // SpaceValidatorState represents the state entity for validating space-related
@@ -389,7 +393,7 @@ func NewWatchableService(
 // config.
 func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher(
-		"model_config", changestream.All,
+		s.st.NamespaceForWatchModelConfig(), changestream.All,
 		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
 	)
 }

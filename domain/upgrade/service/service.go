@@ -29,6 +29,8 @@ type State interface {
 	SetDBUpgradeCompleted(context.Context, upgrade.UUID) error
 	SetDBUpgradeFailed(context.Context, upgrade.UUID) error
 	UpgradeInfo(context.Context, upgrade.UUID) (coreupgrade.Info, error)
+	NamespaceForWatchUpgradeReady() string
+	NamespaceForWatchUpgradeState() string
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -166,7 +168,7 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 		}
 		return nil, nil
 	}
-	return s.watcherFactory.NewValueMapperWatcher("upgrade_info_controller_node", upgradeUUID.String(), changestream.Changed, mapper)
+	return s.watcherFactory.NewValueMapperWatcher(s.st.NamespaceForWatchUpgradeReady(), upgradeUUID.String(), changestream.Changed, mapper)
 }
 
 // WatchForUpgradeState creates a watcher which notifies when the upgrade
@@ -186,5 +188,5 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 		}
 		return nil, nil
 	}
-	return s.watcherFactory.NewValueMapperWatcher("upgrade_info", upgradeUUID.String(), changestream.Changed, mapper)
+	return s.watcherFactory.NewValueMapperWatcher(s.st.NamespaceForWatchUpgradeState(), upgradeUUID.String(), changestream.Changed, mapper)
 }

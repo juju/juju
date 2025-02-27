@@ -127,6 +127,12 @@ func (s *MemoryState) UpdateModelConfig(
 	return s.FeedChange(ctx, "model_config", changestream.Changed, changes)
 }
 
+// NamespaceForWatchModelConfig returns the namespace identifier used for
+// watching model configuration changes.
+func (s *MemoryState) NamespaceForWatchModelConfig() string {
+	return "model_config"
+}
+
 // SpaceExists checks if the space identified by the given space name exists.
 func (st *MemoryState) SpaceExists(ctx context.Context, spaceName string) (bool, error) {
 	return false, nil

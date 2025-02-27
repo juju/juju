@@ -34,6 +34,9 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.state = NewMockState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
 
+	s.state.EXPECT().NamespaceForWatchUpgradeReady().Return("upgrade_info_controller_node").AnyTimes()
+	s.state.EXPECT().NamespaceForWatchUpgradeState().Return("upgrade_info").AnyTimes()
+
 	s.service = NewWatchableService(s.state, s.watcherFactory)
 	return ctrl
 }

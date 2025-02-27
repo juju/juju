@@ -285,6 +285,12 @@ WHERE key = excluded.key
 	})
 }
 
+// NamespaceForWatchModelConfig returns the namespace identifier used for
+// watching model configuration changes.
+func (st *State) NamespaceForWatchModelConfig() string {
+	return "model_config"
+}
+
 // SpaceExists checks if the space identified by the given space name exists.
 func (st *State) SpaceExists(ctx context.Context, spaceName string) (bool, error) {
 	db, err := st.DB()

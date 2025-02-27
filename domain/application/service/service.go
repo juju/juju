@@ -200,7 +200,12 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 		}
 		return nil, nil
 	}
-	return s.watcherFactory.NewValueMapperWatcher("application_scale", appID.String(), mask, mapper)
+	return s.watcherFactory.NewValueMapperWatcher(
+		s.st.NamespaceForWatchApplicationScale(),
+		appID.String(),
+		mask,
+		mapper,
+	)
 }
 
 // WatchApplicationsWithPendingCharms returns a watcher that observes changes to
@@ -294,7 +299,7 @@ func (s *WatchableService) WatchApplication(ctx context.Context, name string) (w
 		return nil, internalerrors.Errorf("getting ID of application %s: %w", name, err)
 	}
 	return s.watcherFactory.NewValueWatcher(
-		"application",
+		s.st.NamespaceForWatchApplication(),
 		uuid.String(),
 		changestream.All,
 	)
@@ -314,7 +319,11 @@ func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name stri
 		return nil, internalerrors.Errorf("getting ID of application %s: %w", name, err)
 	}
 
-	return s.watcherFactory.NewValueWatcher("application_config_hash", uuid.String(), changestream.All)
+	return s.watcherFactory.NewValueWatcher(
+		s.st.NamespaceForWatchApplicationConfig(),
+		uuid.String(),
+		changestream.All,
+	)
 }
 
 // WatchApplicationConfigHash watches for changes to the specified application's

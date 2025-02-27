@@ -183,6 +183,9 @@ type CharmState interface {
 	// response.
 	// If the charm does not exist, a [errors.CharmNotFound] error is returned.
 	GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (charm.CharmLocator, error)
+
+	// NamespaceForWatchCharm return the namespace used to listen charm changes
+	NamespaceForWatchCharm() string
 }
 
 // CharmStore defines the interface for storing and retrieving charms archive
@@ -991,7 +994,7 @@ func (s *Service) GetLatestPendingCharmhubCharm(ctx context.Context, name string
 // WatchCharms returns a watcher that observes changes to charms.
 func (s *WatchableService) WatchCharms() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewUUIDsWatcher(
-		"charm",
+		s.st.NamespaceForWatchCharm(),
 		changestream.All,
 	)
 }

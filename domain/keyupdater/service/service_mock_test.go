@@ -180,6 +180,82 @@ func (c *MockStateGetModelUUIDCall) DoAndReturn(f func(context.Context) (model.U
 	return c
 }
 
+// NamespaceForWatchModelAuthorizationKeys mocks base method.
+func (m *MockState) NamespaceForWatchModelAuthorizationKeys() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchModelAuthorizationKeys")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchModelAuthorizationKeys indicates an expected call of NamespaceForWatchModelAuthorizationKeys.
+func (mr *MockStateMockRecorder) NamespaceForWatchModelAuthorizationKeys() *MockStateNamespaceForWatchModelAuthorizationKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchModelAuthorizationKeys", reflect.TypeOf((*MockState)(nil).NamespaceForWatchModelAuthorizationKeys))
+	return &MockStateNamespaceForWatchModelAuthorizationKeysCall{Call: call}
+}
+
+// MockStateNamespaceForWatchModelAuthorizationKeysCall wrap *gomock.Call
+type MockStateNamespaceForWatchModelAuthorizationKeysCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchModelAuthorizationKeysCall) Return(arg0 string) *MockStateNamespaceForWatchModelAuthorizationKeysCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchModelAuthorizationKeysCall) Do(f func() string) *MockStateNamespaceForWatchModelAuthorizationKeysCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchModelAuthorizationKeysCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchModelAuthorizationKeysCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceForWatchUserAuthentication mocks base method.
+func (m *MockState) NamespaceForWatchUserAuthentication() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchUserAuthentication")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchUserAuthentication indicates an expected call of NamespaceForWatchUserAuthentication.
+func (mr *MockStateMockRecorder) NamespaceForWatchUserAuthentication() *MockStateNamespaceForWatchUserAuthenticationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchUserAuthentication", reflect.TypeOf((*MockState)(nil).NamespaceForWatchUserAuthentication))
+	return &MockStateNamespaceForWatchUserAuthenticationCall{Call: call}
+}
+
+// MockStateNamespaceForWatchUserAuthenticationCall wrap *gomock.Call
+type MockStateNamespaceForWatchUserAuthenticationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchUserAuthenticationCall) Return(arg0 string) *MockStateNamespaceForWatchUserAuthenticationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchUserAuthenticationCall) Do(f func() string) *MockStateNamespaceForWatchUserAuthenticationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchUserAuthenticationCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchUserAuthenticationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockControllerState is a mock of ControllerState interface.
 type MockControllerState struct {
 	ctrl     *gomock.Controller

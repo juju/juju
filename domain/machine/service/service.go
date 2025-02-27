@@ -148,6 +148,18 @@ type State interface {
 	// lxd_profile table for the given machine. This method will overwrite the list
 	// of profiles for the given machine without any checks.
 	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
+
+	// NamespaceForWatchMachineCloudInstance returns the namespace for watching
+	// machine cloud instance changes.
+	NamespaceForWatchMachineCloudInstance() string
+
+	// NamespaceForWatchMachineLXDProfiles returns the namespace for watching
+	// machine LXD profile changes.
+	NamespaceForWatchMachineLXDProfiles() string
+
+	// NamespaceForWatchMachineReboot returns the namespace string used for
+	// tracking machine reboot events in the model.
+	NamespaceForWatchMachineReboot() string
 }
 
 // Provider represents an underlying cloud provider.

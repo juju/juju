@@ -80,4 +80,8 @@ type SubnetState interface {
 	// AllSubnetsQuery returns the SQL query that finds all subnet UUIDs from the
 	// subnet table, needed for the subnets watcher.
 	AllSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error)
+
+	// NamespaceForWatchSubnet returns the namespace identifier used for
+	// observing changes to subnets.
+	NamespaceForWatchSubnet() string
 }

@@ -1906,6 +1906,7 @@ func (s *watchableServiceSuite) TestWatchCharms(c *gc.C) {
 	stringsWatcher := watchertest.NewStringsWatcher(ch)
 	defer workertest.DirtyKill(c, stringsWatcher)
 
+	s.state.EXPECT().NamespaceForWatchCharm().Return("charm")
 	s.watcherFactory.EXPECT().NewUUIDsWatcher("charm", changestream.All).Return(stringsWatcher, nil)
 
 	watcher, err := s.service.WatchCharms()
@@ -1916,7 +1917,6 @@ func (s *watchableServiceSuite) TestWatchCharms(c *gc.C) {
 func (s *watchableServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
-	s.state = NewMockState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
 
 	s.service = &WatchableService{

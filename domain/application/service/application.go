@@ -271,6 +271,17 @@ type ApplicationState interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationCharmOrigin(ctx context.Context, appID coreapplication.ID) (application.CharmOrigin, error)
+
+	// NamespaceForWatchApplication returns the namespace identifier
+	// for application watchers.
+	NamespaceForWatchApplication() string
+	// NamespaceForWatchApplicationConfig returns a namespace string identifier
+	// for application configuration changes.
+	NamespaceForWatchApplicationConfig() string
+
+	// NamespaceForWatchApplicationScale returns the namespace identifier
+	// for application scale change watchers.
+	NamespaceForWatchApplicationScale() string
 }
 
 func validateCharmAndApplicationParams(
