@@ -362,6 +362,37 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 	c.Assert(newModelArgs.CloudName, gc.Equals, "some-cloud")
 }
 
+func (s *modelManagerSuite) TestModelInfoWithReadAccess(c *gc.C) {
+	args := params.ModelCreateArgs{
+		Name:     "foo",
+		OwnerTag: "user-admin",
+		Config: map[string]interface{}{
+			"bar": "baz",
+		},
+	}
+	modelInfoAdmin, err := s.api.CreateModel(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_true := true
+	expectedModelInfo := modelInfoAdmin
+	expectedModelInfo.Users = []params.ModelUserInfo{}
+	expectedModelInfo.CloudCredentialValidity = &_true
+	expectedModelInfo.Machines = []params.ModelMachineInfo{}
+	expectedModelInfo.SecretBackends = []params.SecretBackendResult{}
+
+	alice := names.NewUserTag("alice")
+	s.setAPIUser(c, alice, apiservertesting.SetTagWithReadAccess(alice))
+	modelInfoReader, err := s.api.ModelInfo(params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewModelTag(modelInfoAdmin.UUID).String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelInfoReader.Results, gc.HasLen, 1)
+	c.Assert(modelInfoReader.Results[0].Error, gc.IsNil)
+	c.Assert(modelInfoReader.Results[0].Result, jc.DeepEquals, &expectedModelInfo)
+}
+
 func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
 	s.st.SetErrors(errors.NotFoundf("cloud"))
 	args := params.ModelCreateArgs{
