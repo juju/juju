@@ -598,41 +598,43 @@ func (a *API) Units(ctx context.Context, args params.Entities) (params.CAASUnits
 		Results: make([]params.CAASUnitsResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		appName, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		app, err := a.state.Application(appName.Id())
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		units, err := app.AllUnits()
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		result := params.CAASUnitsResult{
-			Units: make([]params.CAASUnitInfo, len(units)),
-		}
-		for uIdx, unit := range units {
-			unitStatus, err := unit.Status()
-			if err != nil {
-				result.Error = apiservererrors.ServerError(err)
-				break
-			}
-			result.Units[uIdx] = params.CAASUnitInfo{
-				Tag: unit.Tag().String(),
-				UnitStatus: &params.UnitStatus{
-					AgentStatus:    statusInfoToDetailedStatus(unitStatus),
-					WorkloadStatus: statusInfoToDetailedStatus(unitStatus),
-				},
-			}
-		}
-		results.Results[i] = result
+		results.Results[i] = a.units(ctx, entity)
 	}
 	return results, nil
+}
+
+func (a *API) units(ctx context.Context, arg params.Entity) params.CAASUnitsResult {
+	appName, err := names.ParseApplicationTag(arg.Tag)
+	if err != nil {
+		return params.CAASUnitsResult{Error: apiservererrors.ServerError(err)}
+	}
+	appId, err := a.applicationService.GetApplicationIDByName(ctx, appName.Id())
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.CAASUnitsResult{Error: apiservererrors.ServerError(errors.NotFoundf("application %q", appName.Id()))}
+	} else if err != nil {
+		return params.CAASUnitsResult{Error: apiservererrors.ServerError(err)}
+	}
+	unitStatuses, err := a.applicationService.GetUnitWorkloadStatusesForApplication(ctx, appId)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.CAASUnitsResult{Error: apiservererrors.ServerError(errors.NotFoundf("application %q", appName.Id()))}
+	} else if err != nil {
+		return params.CAASUnitsResult{Error: apiservererrors.ServerError(err)}
+	}
+
+	result := params.CAASUnitsResult{
+		Units: make([]params.CAASUnitInfo, 0, len(unitStatuses)),
+	}
+	for unitName, unitStatus := range unitStatuses {
+		unitTag := names.NewUnitTag(unitName.String())
+		result.Units = append(result.Units, params.CAASUnitInfo{
+			Tag: unitTag.String(),
+			UnitStatus: &params.UnitStatus{
+				AgentStatus:    statusInfoToDetailedStatus(unitStatus),
+				WorkloadStatus: statusInfoToDetailedStatus(unitStatus),
+			},
+		})
+	}
+	return result
 }
 
 func statusInfoToDetailedStatus(in status.StatusInfo) params.DetailedStatus {

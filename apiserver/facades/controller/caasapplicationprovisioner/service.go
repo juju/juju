@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -72,6 +73,12 @@ type ApplicationService interface {
 	DestroyUnit(context.Context, unit.Name) error
 	RemoveUnit(context.Context, unit.Name, leadership.Revoker) error
 	UpdateCAASUnit(context.Context, unit.Name, service.UpdateCAASUnitParams) error
+
+	// GetUnitWorkloadStatusesForApplication returns the workload statuses of all
+	// units in the specified application, indexed by unit name, returning an error
+	// satisfying [applicationerrors.ApplicationNotFound] if the application doesn't
+	// exist.
+	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[unit.Name]status.StatusInfo, error)
 
 	// GetApplicationIDByName returns an application ID by application name. It
 	// returns an error if the application can not be found by the name.
