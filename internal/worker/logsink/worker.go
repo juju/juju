@@ -5,6 +5,7 @@ package logsink
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
@@ -71,8 +73,20 @@ func newWorker(cfg Config, internalState chan string) (worker.Worker, error) {
 	w := &LogSink{
 		cfg: cfg,
 		runner: worker.NewRunner(worker.RunnerParams{
-			Clock:  cfg.Clock,
-			Logger: internalworker.WrapLogger(cfg.Logger),
+			IsFatal: func(err error) bool {
+				return false
+			},
+			ShouldRestart: func(err error) bool {
+				if errors.Is(err, logger.ErrLoggerDying) {
+					return false
+				} else if errors.Is(err, modelerrors.NotFound) {
+					return false
+				}
+				return true
+			},
+			RestartDelay: time.Second,
+			Clock:        cfg.Clock,
+			Logger:       internalworker.WrapLogger(cfg.Logger),
 		}),
 		requests:       make(chan request),
 		internalStates: internalState,

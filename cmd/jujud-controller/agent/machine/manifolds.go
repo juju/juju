@@ -648,11 +648,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		logSinkServicesName: logsinkservices.Manifold(logsinkservices.ManifoldConfig{
-			ChangeStreamName:         changeStreamName,
-			Logger:                   internallogger.GetLogger("juju.worker.logsinkservices"),
-			NewWorker:                logsinkservices.NewWorker,
-			NewLogSinkServicesGetter: logsinkservices.NewLogSinkServicesGetter,
-			NewLogSinkServices:       logsinkservices.NewLogSinkServices,
+			ChangeStreamName:   changeStreamName,
+			Logger:             internallogger.GetLogger("juju.worker.logsinkservices"),
+			NewWorker:          logsinkservices.NewWorker,
+			NewLogSinkServices: logsinkservices.NewLogSinkServices,
 		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{

@@ -320,6 +320,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_secret_permission",
 		"v_space_subnet",
 		"v_storage_instance",
+		"v_unactivated_model",
 		"v_unit_resource",
 		"v_unit_storage_directive",
 	)

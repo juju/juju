@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -21,8 +20,7 @@ type Config struct {
 
 	Logger logger.Logger
 
-	NewLogSinkServicesGetter LogSinkServicesGetterFn
-	NewLogSinkServices       LogSinkServicesFn
+	NewLogSinkServices LogSinkServicesFn
 }
 
 // Validate validates the domain services configuration.
@@ -36,9 +34,7 @@ func (config Config) Validate() error {
 	if config.NewLogSinkServices == nil {
 		return errors.NotValidf("nil NewLogSinkServices")
 	}
-	if config.NewLogSinkServicesGetter == nil {
-		return errors.NotValidf("nil NewLogSinkServicesGetter")
-	}
+
 	return nil
 }
 
@@ -49,10 +45,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	w := &servicesWorker{
-		servicesGetter: config.NewLogSinkServicesGetter(
-			config.NewLogSinkServices,
-			config.DBGetter,
-			config.Logger,
+		services: config.NewLogSinkServices(
+			config.DBGetter, config.Logger,
 		),
 	}
 	w.tomb.Go(func() error {
@@ -68,19 +62,12 @@ func NewWorker(config Config) (worker.Worker, error) {
 type servicesWorker struct {
 	tomb tomb.Tomb
 
-	servicesGetter services.LogSinkServicesGetter
+	services services.LogSinkServices
 }
 
-// ServicesGetter returns the log sink domain services getter.
-func (w *servicesWorker) ServicesGetter() services.LogSinkServicesGetter {
-	return w.servicesGetter
-}
-
-// ControllerServices returns the controller log sink services.
-// Attempting to use anything other than the controller services will
-// result in a panic.
-func (w *servicesWorker) ControllerServices() services.ControllerLogSinkServices {
-	return w.servicesGetter.ServicesForModel(coremodel.ControllerModelName)
+// Services returns the log sink domain services getter.
+func (w *servicesWorker) Services() services.LogSinkServices {
+	return w.services
 }
 
 // Kill kills the domain services worker.
@@ -91,29 +78,4 @@ func (w *servicesWorker) Kill() {
 // Wait waits for the domain services worker to stop.
 func (w *servicesWorker) Wait() error {
 	return w.tomb.Wait()
-}
-
-// domainServices is a log sink domain services type.
-type domainServices struct {
-	services.LogSinkServices
-}
-
-// domainServicesGetter is a log sink domain services getter that returns a
-// log sink domain services for the given model uuid. This is late binding,
-// so the log sink domain services is created on demand.
-type domainServicesGetter struct {
-	newLogSinkServices LogSinkServicesFn
-	dbGetter           changestream.WatchableDBGetter
-	logger             logger.Logger
-}
-
-// ServicesForModel returns a log sink domain services for the given model uuid.
-// This will late bind the log sink domain services to the actual service
-// factory.
-func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) services.LogSinkServices {
-	return &domainServices{
-		LogSinkServices: s.newLogSinkServices(
-			modelUUID, s.dbGetter, s.logger,
-		),
-	}
 }

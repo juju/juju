@@ -33,7 +33,6 @@ type ManifoldSuite struct {
 	manifold               dependency.Manifold
 	getter                 dependency.Getter
 	logSinkServices        services.LogSinkServices
-	logSinkServicesGetter  services.LogSinkServicesGetter
 	controllerConfigGetter *controllerconfigservice.WatchableService
 
 	logger logger.Logger
@@ -54,9 +53,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.logSinkServices = stubLogSinkServices{
 		controllerConfigGetter: s.controllerConfigGetter,
 	}
-	s.logSinkServicesGetter = stubLogSinkServicesGetter{
-		logSinkServices: s.logSinkServices,
-	}
 	s.clock = clock.WallClock
 
 	s.stub.ResetCalls()
@@ -73,7 +69,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
 			return nil, nil
 		},
-		ModelServiceGetter: func(s services.LogSinkServicesGetter) ModelService {
+		ModelServiceGetter: func(s services.LogSinkServices) ModelService {
 			return nil
 		},
 	})
@@ -119,7 +115,7 @@ func (s *ManifoldSuite) getConfig() ManifoldConfig {
 		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
 			return nil, nil
 		},
-		ModelServiceGetter: func(s services.LogSinkServicesGetter) ModelService {
+		ModelServiceGetter: func(s services.LogSinkServices) ModelService {
 			return nil
 		},
 		ClockName:       "clock",
@@ -133,7 +129,7 @@ func (s *ManifoldSuite) newGetter(c *gc.C, overlay map[string]any) dependency.Ge
 		"agent": &fakeAgent{
 			logDir: c.MkDir(),
 		},
-		"logsink": s.logSinkServicesGetter,
+		"logsink": s.logSinkServices,
 		"clock":   s.clock,
 	}
 	for k, v := range overlay {
@@ -223,15 +219,6 @@ func (f *fakeAgent) Value(key string) string {
 
 func (f *fakeAgent) LogDir() string {
 	return f.logDir
-}
-
-type stubLogSinkServicesGetter struct {
-	services.LogSinkServicesGetter
-	logSinkServices services.LogSinkServices
-}
-
-func (s stubLogSinkServicesGetter) ControllerConfig() *controllerconfigservice.WatchableService {
-	return s.logSinkServices.ControllerConfig()
 }
 
 type stubLogSinkServices struct {
