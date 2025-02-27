@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/canonical/pebble/client"
@@ -163,7 +164,18 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 		// anything else, so cannot miss the change entirely.
 		chg, err := pebbleClient.Change(notice.Key)
 		if err != nil {
-			return errors.Annotatef(err, "failed to get change %q", notice.Key)
+			var clientErr *client.Error
+			if !errors.As(err, &clientErr) || clientErr.StatusCode != http.StatusNotFound {
+				return errors.Annotatef(err, "failed to get change %q", notice.Key)
+			}
+			// Couldn't find change associated with notice, likely because it's
+			// been pruned. Pebble prunes changes when they're 7 days old or
+			// there's more than 500 total changes, so this may happen if the
+			// check has been in the same state (perform or recover) for a long
+			// time and then changes state. In this case, proceed and assume the
+			// change was completed (Error for perform-check, Done for recover-check).
+			n.logger.Debugf("container %q: %s notice, could not fetch change %q: %v",
+				containerName, notice.Type, notice.Key, err)
 		}
 
 		// Although we determine that a check has reached the failure threshold
@@ -172,12 +184,16 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 		// of hooks as this reflects a change of (workload) state, rather than
 		// a change of data. See OP046 for more background.
 		switch {
-		case kind == "perform-check" && chg.Status == "Error":
+		case kind == "perform-check" && (chg == nil || chg.Status == "Error"):
 			eventType = container.CheckFailedEvent
-		case kind == "recover-check" && chg.Status == "Done":
+		case kind == "recover-check" && (chg == nil || chg.Status == "Done"):
 			eventType = container.CheckRecoveredEvent
 		default:
-			n.logger.Debugf("container %q: ignoring %s, status %s", containerName, kind, chg.Status)
+			chgStatus := "<unknown>"
+			if chg != nil {
+				chgStatus = chg.Status
+			}
+			n.logger.Debugf("container %q: ignoring %s, status %s", containerName, kind, chgStatus)
 			return nil
 		}
 		event = container.WorkloadEvent{
