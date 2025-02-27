@@ -5,16 +5,17 @@ package bootstrap
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/cloud"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/model/state"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -45,6 +46,8 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 // - [usererrors.NotFound] When the model owner does not exist.
 // - [secretbackenderrors.NotFound] When the secret backend for the model
 // cannot be found.
+// - [modelerrors.CredentialNotValid] - when a credential has been provided that
+// isn't supported by the cloud.
 //
 // CreateGlobalModelRecord expects the caller to generate their own model
 // ID and pass it to this function. In an ideal world we want to have this
@@ -88,6 +91,25 @@ func CreateGlobalModelRecord(
 					modelType,
 					args.Name,
 				)
+			}
+
+			if args.Credential.IsZero() {
+				supports, err := state.CloudSupportsAuthType(
+					ctx, preparer{}, tx, args.Cloud, cloud.EmptyAuthType,
+				)
+				if err != nil {
+					return errors.Errorf(
+						"checking if new model %q cloud %q supports empty auth type: %w",
+						args.Name, args.Cloud, err,
+					)
+				}
+
+				if !supports {
+					errors.Errorf(
+						"new model %q cloud %q does not support empty authentication, a credential needs to be supplied",
+						args.Name, args.Cloud,
+					).Add(modelerrors.CredentialNotValid)
+				}
 			}
 
 			if err := state.Create(ctx, preparer{}, tx, modelID, modelType, args); err != nil {
