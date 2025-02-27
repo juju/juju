@@ -43,10 +43,8 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.defaultProfile = &api.Profile{
-		ProfilePut: api.ProfilePut{
-			Devices: map[string]map[string]string{
-				"eth0": {},
-			},
+		Devices: map[string]map[string]string{
+			"eth0": {},
 		},
 	}
 }

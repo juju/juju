@@ -389,7 +389,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		return errors.NotSupportedf("auth type %q for cloud %q", authType, c.CloudName)
 	}
 
-	attrs, err := c.promptCredentialAttributes(pollster, authType, schema)
+	attrs, err := c.promptCredentialAttributes(pollster, schema)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -521,7 +521,7 @@ func (c *addCredentialCommand) promptAuthType(p *interact.Pollster, authTypes []
 	return jujucloud.AuthType(authType), nil
 }
 
-func (c *addCredentialCommand) promptCredentialAttributes(p *interact.Pollster, authType jujucloud.AuthType, schema jujucloud.CredentialSchema) (attributes map[string]string, err error) {
+func (c *addCredentialCommand) promptCredentialAttributes(p *interact.Pollster, schema jujucloud.CredentialSchema) (attributes map[string]string, err error) {
 	// Interactive add does not support adding multi-line values, which
 	// is what we typically get when the attribute can come from a file.
 	// For now we'll skip, and just get the user to enter the file path.
@@ -576,12 +576,16 @@ func (c *addCredentialCommand) promptFieldValue(p *interact.Pollster, attr jujuc
 	// Adds support for lp1988239. Order is important here!
 	case attr.Hidden && attr.ExpandFilePath:
 		return enterFile(name, attr.Description, p, true, attr.Optional)
+	case attr.Hidden && attr.Optional && attr.ShortSuffix != "":
+		return p.EnterPasswordWithSuffix(name, attr.ShortSuffix)
 	case attr.Hidden:
 		return p.EnterPassword(name)
 	case attr.ExpandFilePath:
 		return enterFile(name, attr.Description, p, true, attr.Optional)
 	case attr.FilePath:
 		return enterFile(name, attr.Description, p, false, attr.Optional)
+	case attr.Optional && attr.ShortSuffix != "":
+		return p.EnterWithSuffix(name, attr.ShortSuffix)
 	case attr.Optional:
 		return p.EnterOptional(name)
 	default:
