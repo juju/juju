@@ -71,6 +71,7 @@ import (
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/resource/store"
+	"github.com/juju/juju/internal/statushistory"
 )
 
 // PublicKeyImporter describes a service that is capable of fetching and
@@ -189,6 +190,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		charmstore.NewCharmStore(s.objectstore, log.Child("charmstore")),
+		statushistory.NewStatusHistory(log),
 		s.clock,
 		log,
 	)

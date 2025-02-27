@@ -20,6 +20,6 @@ type loggerWrapper struct {
 }
 
 func (w *loggerWrapper) Write(content []byte) (int, error) {
-	w.logger.Logf(context.TODO(), w.level, "%s", string(content))
+	w.logger.Logf(context.TODO(), w.level, logger.Labels{}, "%s", string(content))
 	return len(content), nil
 }

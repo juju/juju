@@ -18,34 +18,34 @@ func Noop() logger.Logger {
 	return noopLogger{}
 }
 
-// Critical logs a message at the critical level.
+// Criticalf logs a message at the critical level.
 func (c noopLogger) Criticalf(ctx context.Context, msg string, args ...any) {
 }
 
-// Error logs a message at the error level.
+// Errorf logs a message at the error level.
 func (c noopLogger) Errorf(ctx context.Context, msg string, args ...any) {
 }
 
-// Warning logs a message at the warning level.
+// Warningf logs a message at the warning level.
 func (c noopLogger) Warningf(ctx context.Context, msg string, args ...any) {
 }
 
-// Info logs a message at the info level.
+// Infof logs a message at the info level.
 func (c noopLogger) Infof(ctx context.Context, msg string, args ...any) {
 }
 
-// Debug logs a message at the debug level.
+// Debugf logs a message at the debug level.
 func (c noopLogger) Debugf(ctx context.Context, msg string, args ...any) {
 }
 
-// Trace logs a message at the trace level.
+// Tracef logs a message at the trace level.
 func (c noopLogger) Tracef(ctx context.Context, msg string, args ...any) {
 }
 
-// Log logs some information into the test error output.
+// Logf logs some information into the test error output.
 // The provided arguments are assembled together into a string with
 // fmt.Sprintf.
-func (c noopLogger) Logf(ctx context.Context, level logger.Level, msg string, args ...any) {
+func (c noopLogger) Logf(ctx context.Context, level logger.Level, labels logger.Labels, msg string, args ...any) {
 }
 
 // IsLevelEnabled returns true if the given level is enabled for the logger.

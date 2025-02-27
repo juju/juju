@@ -119,28 +119,28 @@ func (c Config) String() string {
 
 // Logger is an interface that provides logging methods.
 type Logger interface {
-	// Critical logs a message at the critical level.
+	// Criticalf logs a message at the critical level.
 	Criticalf(ctx context.Context, msg string, args ...any)
 
-	// Error logs a message at the error level.
+	// Errorf logs a message at the error level.
 	Errorf(ctx context.Context, msg string, args ...any)
 
-	// Warning logs a message at the warning level.
+	// Warningf logs a message at the warning level.
 	Warningf(ctx context.Context, msg string, args ...any)
 
-	// Info logs a message at the info level.
+	// Infof logs a message at the info level.
 	Infof(ctx context.Context, msg string, args ...any)
 
-	// Debug logs a message at the debug level.
+	// Debugf logs a message at the debug level.
 	Debugf(ctx context.Context, msg string, args ...any)
 
-	// Trace logs a message at the trace level.
+	// Tracef logs a message at the trace level.
 	Tracef(ctx context.Context, msg string, args ...any)
 
-	// Log logs some information into the test error output.
+	// Logf logs information at the given level.
 	// The provided arguments are assembled together into a string with
 	// fmt.Sprintf.
-	Logf(ctx context.Context, level Level, format string, args ...any)
+	Logf(ctx context.Context, level Level, labels Labels, format string, args ...any)
 
 	// IsLevelEnabled returns true if the given level is enabled for the logger.
 	IsLevelEnabled(Level) bool
