@@ -46,7 +46,7 @@ func (s *valueSuite) TestNotificationsByPredicate(c *gc.C) {
 	subExp.Unsubscribe()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
 	w := NewValueMapperWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All, func(ctx context.Context, _ database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
@@ -120,7 +120,7 @@ func (s *valueSuite) TestNotificationsByPredicateError(c *gc.C) {
 	subExp.Unsubscribe()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
 	w := NewValueMapperWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All, func(_ context.Context, _ database.TxnRunner, _ []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
@@ -179,7 +179,7 @@ func (s *valueSuite) TestNotificationsSent(c *gc.C) {
 	subExp.Unsubscribe()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
 	w := NewValueWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All)
@@ -226,7 +226,7 @@ func (s *valueSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	subExp.Unsubscribe()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
 	w := NewValueWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All)
@@ -266,7 +266,7 @@ func (s *valueSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 	subExp.Unsubscribe()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
 	w := NewValueWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All)
@@ -302,7 +302,7 @@ func (s *namespaceNotifyWatcherSuite) TestNotificationsByPredicate(c *gc.C) {
 	subExp.Unsubscribe()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
 	w := NewNamespaceNotifyMapperWatcher(s.newBaseWatcher(c), "random_namespace", changestream.All, func(ctx context.Context, _ database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
@@ -376,7 +376,7 @@ func (s *namespaceNotifyWatcherSuite) TestNotificationsByPredicateError(c *gc.C)
 	subExp.Unsubscribe()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
 	w := NewNamespaceNotifyMapperWatcher(s.newBaseWatcher(c), "random_namespace", changestream.All, func(_ context.Context, _ database.TxnRunner, _ []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
@@ -435,7 +435,7 @@ func (s *namespaceNotifyWatcherSuite) TestNotificationsSent(c *gc.C) {
 	subExp.Unsubscribe()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
 	w := NewNamespaceNotifyWatcher(s.newBaseWatcher(c), "random_namespace", changestream.All)
@@ -482,7 +482,7 @@ func (s *namespaceNotifyWatcherSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	subExp.Unsubscribe()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
 	w := NewNamespaceNotifyWatcher(s.newBaseWatcher(c), "random_namespace", changestream.All)
@@ -522,7 +522,7 @@ func (s *namespaceNotifyWatcherSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 	subExp.Unsubscribe()
 
 	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
 	w := NewNamespaceNotifyWatcher(s.newBaseWatcher(c), "random_namespace", changestream.All)
