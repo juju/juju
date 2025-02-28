@@ -3544,7 +3544,23 @@ func (s *MigrationImportSuite) TestVirtualHostKeys(c *gc.C) {
 	newVirtualHostKey, err := newSt.MachineVirtualHostKey(machineTag.Id())
 	c.Assert(err, gc.IsNil)
 	c.Assert(newVirtualHostKey.HostKey(), gc.DeepEquals, testHostKey)
+}
 
+func (s *MigrationImportSuite) TestGenerateMissingVirtualHostKeys(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	existingVirtualHostKey, err := s.State.MachineVirtualHostKey(machine.Tag().Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(existingVirtualHostKey.HostKey()), gc.Equals, "fake-host-key")
+
+	state.RemoveVirtualHostKey(c, s.State, existingVirtualHostKey)
+
+	_, newSt := s.importModel(c, s.State)
+
+	newVirtualHostKey, err := newSt.MachineVirtualHostKey(machine.Tag().Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(newVirtualHostKey.HostKey()), gc.Matches, `(?s)-----BEGIN OPENSSH PRIVATE KEY-----.*`)
 }
 
 // newModel replaces the uuid and name of the config attributes so we
