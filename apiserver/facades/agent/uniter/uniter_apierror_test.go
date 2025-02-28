@@ -52,20 +52,20 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	}
 
 	domainServices := s.ControllerDomainServices(c)
-	applicationService := domainServices.Application()
-	_, err := uniter.NewUniterAPIWithServices(
-		context.Background(), facadeContext,
-		domainServices.ControllerConfig(),
-		domainServices.Config(),
-		domainServices.ModelInfo(),
-		domainServices.Secret(),
-		domainServices.Network(),
-		domainServices.Machine(),
-		domainServices.Cloud(),
-		domainServices.Credential(),
-		applicationService,
-		domainServices.UnitState(),
-		domainServices.Port(),
-	)
+	services := uniter.Services{
+		ApplicationService:      domainServices.Application(),
+		CloudService:            domainServices.Cloud(),
+		CredentialService:       domainServices.Credential(),
+		ControllerConfigService: domainServices.ControllerConfig(),
+		MachineService:          domainServices.Machine(),
+		ModelConfigService:      domainServices.Config(),
+		ModelInfoService:        domainServices.ModelInfo(),
+		NetworkService:          domainServices.Network(),
+		PortService:             domainServices.Port(),
+		SecretService:           domainServices.Secret(),
+		UnitStateService:        domainServices.UnitState(),
+	}
+
+	_, err := uniter.NewUniterAPIWithServices(context.Background(), facadeContext, services)
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }

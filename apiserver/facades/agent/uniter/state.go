@@ -134,3 +134,14 @@ func unitStorageConstraints(backend backend, u names.UnitTag) (map[string]state.
 	}
 	return cons, nil
 }
+
+// EnvironConfigGetterModel represents methods required of a model
+// passed to the EnvironConfigGetter.
+type EnvironConfigGetterModel interface {
+	CloudName() string
+	CloudRegion() string
+	CloudCredentialTag() (names.CloudCredentialTag, bool)
+	ModelTag() names.ModelTag
+	ControllerUUID() string
+	Type() state.ModelType
+}

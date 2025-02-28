@@ -68,18 +68,19 @@ type UniterAPI struct {
 	containerBrokerFunc     caas.NewContainerBrokerFunc
 	watcherRegistry         facade.WatcherRegistry
 
+	applicationService      ApplicationService
 	cloudService            CloudService
-	credentialService       CredentialService
 	controllerConfigService ControllerConfigService
+	credentialService       CredentialService
+	machineService          MachineService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
-	machineService          MachineService
-	secretService           SecretService
 	networkService          NetworkService
-	applicationService      ApplicationService
-	unitStateService        UnitStateService
 	portService             PortService
-	store                   objectstore.ObjectStore
+	secretService           SecretService
+	unitStateService        UnitStateService
+
+	store objectstore.ObjectStore
 
 	// A cloud spec can only be accessed for the model of the unit or
 	// application that is authorised for this API facade.
