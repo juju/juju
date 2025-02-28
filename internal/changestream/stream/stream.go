@@ -228,6 +228,9 @@ func (s *Stream) loop() error {
 		return errors.Trace(err)
 	}
 
+	ctx, cancel := s.scopedContext()
+	defer cancel()
+
 	var attempt int
 	for {
 		select {
@@ -249,7 +252,7 @@ func (s *Stream) loop() error {
 				continue
 			}
 
-			s.logger.Infof(context.TODO(), "Change stream has been blocked")
+			s.logger.Infof(ctx, "Change stream has been blocked")
 
 			// Create an inner loop, that will block the outer loop until we
 			// receive a change fileCreated event from the file notifier.
@@ -265,11 +268,11 @@ func (s *Stream) loop() error {
 					// If we get a fileCreated event, and we're already waiting
 					// for a fileRemoved event, then we're in the middle of a
 					// block, so just continue.
-					s.logger.Debugf(context.TODO(), "ignoring file change event")
+					s.logger.Debugf(ctx, "ignoring file change event")
 				}
 			}
 
-			s.logger.Infof(context.TODO(), "Change stream has been unblocked")
+			s.logger.Infof(ctx, "Change stream has been unblocked")
 
 		case <-watermarkTimer.Chan():
 			// Every interval we'll write the last ID to the database. This
@@ -284,7 +287,7 @@ func (s *Stream) loop() error {
 				// let the worker die.
 				return errors.Trace(err)
 			} else if err != nil {
-				s.logger.Infof(context.TODO(), "failed to record last ID: %v", err)
+				s.logger.Infof(ctx, "failed to record last ID: %v", err)
 			}
 
 			// Jitter the watermark interval to prevent all workers from
@@ -310,7 +313,7 @@ func (s *Stream) loop() error {
 
 			traceEnabled := s.logger.IsLevelEnabled(logger.TRACE)
 			if traceEnabled {
-				s.logger.Tracef(context.TODO(), "read %d changes", len(changes))
+				s.logger.Tracef(ctx, "read %d changes", len(changes))
 			}
 
 			// We only want to record successful changes retrieve
@@ -326,7 +329,7 @@ func (s *Stream) loop() error {
 				attempt++
 
 				if traceEnabled {
-					s.logger.Tracef(context.TODO(), "no changes, with attempt %d", attempt)
+					s.logger.Tracef(ctx, "no changes, with attempt %d", attempt)
 				}
 
 				select {
@@ -354,7 +357,7 @@ func (s *Stream) loop() error {
 			)
 			for _, change := range changes {
 				if traceEnabled {
-					s.logger.Tracef(context.TODO(), "change event: %v", change)
+					s.logger.Tracef(ctx, "change event: %v", change)
 				}
 				term.changes = append(term.changes, change)
 
@@ -367,7 +370,7 @@ func (s *Stream) loop() error {
 			}
 			if lower == math.MaxInt64 || upper == math.MinInt64 {
 				// This should never happen, but if it does, just continue.
-				s.logger.Infof(context.TODO(), "invalid lower or upper bound: lower: %d, upper: %d", lower, upper)
+				s.logger.Infof(ctx, "invalid lower or upper bound: lower: %d, upper: %d", lower, upper)
 				continue
 			}
 
@@ -378,7 +381,7 @@ func (s *Stream) loop() error {
 			// fastest possible time.
 
 			if traceEnabled {
-				s.logger.Tracef(context.TODO(), "term start: processing changes %d", len(changes))
+				s.logger.Tracef(ctx, "term start: processing changes %d", len(changes))
 			}
 
 			select {
@@ -404,7 +407,7 @@ func (s *Stream) loop() error {
 					// aborted, so we just continue. This is likely the case
 					// when the worker is dying. We don't want to block the
 					// change stream, so we just continue.
-					s.logger.Infof(context.TODO(), "term has been aborted")
+					s.logger.Infof(ctx, "term has been aborted")
 					continue
 				}
 
@@ -427,7 +430,7 @@ func (s *Stream) loop() error {
 					attempt++
 
 					if traceEnabled {
-						s.logger.Tracef(context.TODO(), "empty term, with attempt %d", attempt)
+						s.logger.Tracef(ctx, "empty term, with attempt %d", attempt)
 					}
 
 					select {
@@ -443,7 +446,7 @@ func (s *Stream) loop() error {
 				attempt = 0
 
 				if traceEnabled {
-					s.logger.Tracef(context.TODO(), "term done: processed changes %d", len(changes))
+					s.logger.Tracef(ctx, "term done: processed changes %d", len(changes))
 				}
 			}
 		}
@@ -605,8 +608,7 @@ func (s *Stream) updateWatermark() error {
 // It returns a cancellable context that is cancelled when the action has
 // completed.
 func (s *Stream) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return s.tomb.Context(ctx), cancel
+	return context.WithCancel(s.tomb.Context(context.Background()))
 }
 
 func (s *Stream) upperBound() int64 {

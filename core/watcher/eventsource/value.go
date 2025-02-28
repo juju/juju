@@ -20,60 +20,55 @@ type ValueWatcher struct {
 	*BaseWatcher
 
 	out        chan struct{}
-	namespace  string
-	changeMask changestream.ChangeType
-	filter     func(changestream.ChangeEvent) bool
-
-	mapper Mapper
+	filterOpts []changestream.SubscriptionOption
+	mapper     Mapper
 }
 
 // NewValueWatcher returns a new watcher that receives changes from the input
-// base watcher's db/queue when change-log events occur for a specific changeValue
-// from the input namespace.
+// base watcher's db/queue when change-log events occur for a specific
+// changeValue from the input namespace.
 func NewValueWatcher(
 	base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType,
 ) *ValueWatcher {
 	return NewValueMapperWatcher(base, namespace, changeValue, changeMask, defaultMapper)
 }
 
-// NewValueMapperWatcher returns a new watcher that receives changes from
-// the input base watcher's db/queue when mapper accepts the change-log
-// events for a specific changeValue from the input namespace.
+// NewValueMapperWatcher returns a new watcher that receives changes from the
+// input base watcher's db/queue when mapper accepts the change-log events for a
+// specific changeValue from the input namespace.
 func NewValueMapperWatcher(
 	base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType, mapper Mapper,
 ) *ValueWatcher {
 	w := &ValueWatcher{
 		BaseWatcher: base,
 		out:         make(chan struct{}),
-		namespace:   namespace,
-		filter: func(e changestream.ChangeEvent) bool {
-			return e.Changed() == changeValue
+		filterOpts: []changestream.SubscriptionOption{
+			changestream.FilteredNamespace(namespace, changeMask, func(e changestream.ChangeEvent) bool {
+				return e.Changed() == changeValue
+			}),
 		},
-		changeMask: changeMask,
-		mapper:     mapper,
+		mapper: mapper,
 	}
 
 	w.tomb.Go(w.loop)
 	return w
 }
 
-// NewNamespaceNotifyWatcher returns a new watcher that receives changes from the input
-// base watcher's db/queue when changes in the namespace occur.
+// NewNamespaceNotifyWatcher returns a new watcher that receives changes from
+// the input base watcher's db/queue when changes in the namespace occur.
 func NewNamespaceNotifyWatcher(base *BaseWatcher, namespace string, changeMask changestream.ChangeType) *ValueWatcher {
 	return NewNamespaceNotifyMapperWatcher(base, namespace, changeMask, defaultMapper)
 }
 
-// NewNamespaceNotifyMapperWatcher returns a new watcher that receives changes from
-// the input base watcher's db/queue when changes in the namespace occur.
+// NewNamespaceNotifyMapperWatcher returns a new watcher that receives changes
+// from the input base watcher's db/queue when changes in the namespace occur.
 func NewNamespaceNotifyMapperWatcher(
 	base *BaseWatcher, namespace string, changeMask changestream.ChangeType, mapper Mapper,
 ) *ValueWatcher {
 	w := &ValueWatcher{
 		BaseWatcher: base,
 		out:         make(chan struct{}),
-		namespace:   namespace,
-		filter:      func(changestream.ChangeEvent) bool { return true },
-		changeMask:  changeMask,
+		filterOpts:  []changestream.SubscriptionOption{changestream.Namespace(namespace, changeMask)},
 		mapper:      mapper,
 	}
 
@@ -81,8 +76,48 @@ func NewNamespaceNotifyMapperWatcher(
 	return w
 }
 
-// Changes returns the channel on which notifications
-// are sent when the watched database row changes.
+// FilterOption is a filter option for the MultiValueWatcher.
+type FilterOption struct {
+	Namespace   string
+	ChangeValue string
+	ChangeMask  changestream.ChangeType
+}
+
+// NewMultiValueWatcher returns a new watcher that receives changes from the
+// input base watcher's db/queue when change-log events occur for a specific
+// changeValue from the input namespace.
+func NewMultiValueWatcher(
+	base *BaseWatcher, filterOptions ...FilterOption,
+) *ValueWatcher {
+	return NewMultiValueMapperWatcher(base, defaultMapper, filterOptions...)
+}
+
+// NewMultiValueMapperWatcher returns a new watcher that receives changes from
+// the input base watcher's db/queue when mapper accepts the change-log events
+// for a specific changeValue from the input namespace.
+func NewMultiValueMapperWatcher(
+	base *BaseWatcher, mapper Mapper, filterOptions ...FilterOption,
+) *ValueWatcher {
+	opts := make([]changestream.SubscriptionOption, len(filterOptions))
+	for i, opt := range filterOptions {
+		opts[i] = changestream.FilteredNamespace(opt.Namespace, opt.ChangeMask, func(e changestream.ChangeEvent) bool {
+			return e.Changed() == opt.ChangeValue
+		})
+	}
+
+	w := &ValueWatcher{
+		BaseWatcher: base,
+		out:         make(chan struct{}),
+		filterOpts:  opts,
+		mapper:      mapper,
+	}
+
+	w.tomb.Go(w.loop)
+	return w
+}
+
+// Changes returns the channel on which notifications are sent when the watched
+// database row changes.
 func (w *ValueWatcher) Changes() <-chan struct{} {
 	return w.out
 }
@@ -90,10 +125,9 @@ func (w *ValueWatcher) Changes() <-chan struct{} {
 func (w *ValueWatcher) loop() error {
 	defer close(w.out)
 
-	opt := changestream.FilteredNamespace(w.namespace, w.changeMask, w.filter)
-	subscription, err := w.watchableDB.Subscribe(opt)
+	subscription, err := w.watchableDB.Subscribe(w.filterOpts...)
 	if err != nil {
-		return errors.Annotatef(err, "subscribing to namespace %q", w.namespace)
+		return errors.Annotatef(err, "subscribing to namespaces")
 	}
 	defer subscription.Unsubscribe()
 
@@ -119,7 +153,7 @@ func (w *ValueWatcher) loop() error {
 			return ErrSubscriptionClosed
 		case changes, ok := <-in:
 			if !ok {
-				w.logger.Debugf(context.TODO(), "change channel closed for %q; terminating watcher", w.namespace)
+				w.logger.Debugf(ctx, "change channel closed; terminating watcher")
 				return nil
 			}
 
@@ -147,7 +181,7 @@ func (w *ValueWatcher) drainInitialEvent(in <-chan []changestream.ChangeEvent) {
 	select {
 	case _, ok := <-in:
 		if !ok {
-			w.logger.Debugf(context.TODO(), "change channel closed for %q; terminating watcher", w.namespace)
+			w.logger.Debugf(context.Background(), "change channel closed; terminating watcher")
 			return
 		}
 	default:
