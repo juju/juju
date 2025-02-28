@@ -813,34 +813,13 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwnersWithRevisions(c *gc.C) {
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return mockprovider, nil })
 
 	removeState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
-	removeState.EXPECT().GetSecretRevision(&expectURI, 666).Return(&coresecrets.SecretRevisionMetadata{
-		Revision: 666,
-		ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-666"},
-	}, nil)
 	removeState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return([]coresecrets.ValueRef{{
 		BackendID:  "backend-id",
 		RevisionID: "rev-666",
 	}}, nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
-		return &provider.ModelBackendConfigInfo{
-			ActiveID: "backend-id",
-			Configs: map[string]provider.ModelBackendConfig{
-				"backend-id": {
-					ControllerUUID: coretesting.ControllerTag.Id(),
-					ModelUUID:      coretesting.ModelTag.Id(),
-					ModelName:      "fred",
-					BackendConfig: provider.BackendConfig{
-						BackendType: "some-backend",
-						Config:      map[string]interface{}{"foo": "admin"},
-					},
-				},
-			},
-		}, nil
-	}
-
 	results, err := secrets.RemoveSecretsForAgent(
-		removeState, adminConfigGetter,
+		removeState,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
 				URI:       expectURI.String(),
@@ -867,39 +846,13 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return mockprovider, nil })
 
 	removeState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
-	removeState.EXPECT().ListSecretRevisions(&expectURI).Return(
-		[]*coresecrets.SecretRevisionMetadata{
-			{
-				Revision: 666,
-				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-666"},
-			},
-		},
-		nil,
-	)
 	removeState.EXPECT().DeleteSecret(&expectURI, []int{}).Return([]coresecrets.ValueRef{{
 		BackendID:  "backend-id",
 		RevisionID: "rev-666",
 	}}, nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
-		return &provider.ModelBackendConfigInfo{
-			ActiveID: "backend-id",
-			Configs: map[string]provider.ModelBackendConfig{
-				"backend-id": {
-					ControllerUUID: coretesting.ControllerTag.Id(),
-					ModelUUID:      coretesting.ModelTag.Id(),
-					ModelName:      "fred",
-					BackendConfig: provider.BackendConfig{
-						BackendType: "some-backend",
-						Config:      map[string]interface{}{"foo": "admin"},
-					},
-				},
-			},
-		}, nil
-	}
-
 	results, err := secrets.RemoveSecretsForAgent(
-		removeState, adminConfigGetter,
+		removeState,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
 				URI: expectURI.String(),
@@ -935,39 +888,13 @@ func (s *secretsSuite) TestRemoveSecretsByLabel(c *gc.C) {
 		URI: uri,
 	}}, nil)
 	removeState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
-	removeState.EXPECT().ListSecretRevisions(&expectURI).Return(
-		[]*coresecrets.SecretRevisionMetadata{
-			{
-				Revision: 666,
-				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-666"},
-			},
-		},
-		nil,
-	)
 	removeState.EXPECT().DeleteSecret(&expectURI, []int{}).Return([]coresecrets.ValueRef{{
 		BackendID:  "backend-id",
 		RevisionID: "rev-666",
 	}}, nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
-		return &provider.ModelBackendConfigInfo{
-			ActiveID: "backend-id",
-			Configs: map[string]provider.ModelBackendConfig{
-				"backend-id": {
-					ControllerUUID: coretesting.ControllerTag.Id(),
-					ModelUUID:      coretesting.ModelTag.Id(),
-					ModelName:      "fred",
-					BackendConfig: provider.BackendConfig{
-						BackendType: "some-backend",
-						Config:      map[string]interface{}{"foo": "admin"},
-					},
-				},
-			},
-		}, nil
-	}
-
 	results, err := secrets.RemoveSecretsForAgent(
-		removeState, adminConfigGetter,
+		removeState,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
 				Label: "my-secret",

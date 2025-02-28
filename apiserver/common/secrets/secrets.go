@@ -600,23 +600,57 @@ func GetSecretMetadata(
 	return result, nil
 }
 
+// secretDeletionPreflightCheck parses arguments for secret deletion and validates whether deletion is allowed,
+// returning the secret URI on success
+func secretDeletionPreflightCheck(uri string, label string, removeState SecretsRemoveState, modelUUID string, canDelete func(*coresecrets.URI) error) (*coresecrets.URI, error) {
+	var (
+		uriObject *coresecrets.URI
+		err       error
+	)
+	if uri != "" {
+		uriObject, err = coresecrets.ParseURI(uri)
+	} else {
+		uriObject, err = getSecretURIForLabel(removeState, modelUUID, label)
+	}
+	if err != nil {
+		return nil, errors.New("must specify either URI or label")
+	}
+	if _, err := removeState.GetSecret(uriObject); err != nil {
+		// Check if the uriObject exists or not.
+		return nil, err
+	}
+	if err := canDelete(uriObject); err != nil {
+		return nil, err
+	}
+
+	return uriObject, nil
+}
+
 // RemoveSecretsForAgent removes the specified secrets for agent.
 // The secrets are only removed from the state and
 // the caller must have permission to manage the secret(secret owners remove secrets from the backend on uniter side).
 func RemoveSecretsForAgent(
-	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
+	removeState SecretsRemoveState,
 	args params.DeleteSecretArgs,
 	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
-	return removeSecrets(
-		removeState, adminConfigGetter, args,
-		modelUUID,
-		canDelete,
-		func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error {
-			return nil
-		},
-	)
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+
+	for i, arg := range args.Args {
+		uri, err := secretDeletionPreflightCheck(arg.URI, arg.Label, removeState, modelUUID, canDelete)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if _, err = removeState.DeleteSecret(uri, arg.Revisions...); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return result, nil
 }
 
 // RemoveUserSecrets removes the specified user supplied secrets.
@@ -627,50 +661,22 @@ func RemoveUserSecrets(
 	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
-	return removeSecrets(
-		removeState, adminConfigGetter, args, modelUUID, canDelete,
-		func(p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
-			backend, err := p.NewBackend(&cfg)
-			if err != nil {
+	removeFromBackend := func(p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
+		backend, err := p.NewBackend(&cfg)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, revId := range revs.RevisionIDs() {
+			if err = backend.DeleteContent(context.TODO(), revId); err != nil {
 				return errors.Trace(err)
 			}
-			for _, revId := range revs.RevisionIDs() {
-				if err = backend.DeleteContent(context.TODO(), revId); err != nil {
-					return errors.Trace(err)
-				}
-			}
-			if err := p.CleanupSecrets(&cfg, authTag, revs); err != nil {
-				return errors.Trace(err)
-			}
-			return nil
-		},
-	)
-}
+		}
+		if err := p.CleanupSecrets(&cfg, authTag, revs); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
 
-func getSecretURIForLabel(secretsState ListSecretsState, modelUUID string, label string) (*coresecrets.URI, error) {
-	results, err := secretsState.ListSecrets(state.SecretsFilter{
-		Label:     &label,
-		OwnerTags: []names.Tag{names.NewModelTag(modelUUID)},
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results) == 0 {
-		return nil, errors.NotFoundf("secret %q", label)
-	}
-	if len(results) > 1 {
-		return nil, errors.NotFoundf("more than 1 secret with label %q", label)
-	}
-	return results[0].URI, nil
-}
-
-func removeSecrets(
-	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
-	args params.DeleteSecretArgs,
-	modelUUID string,
-	canDelete func(*coresecrets.URI) error,
-	removeFromBackend func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error,
-) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -731,30 +737,8 @@ func removeSecrets(
 	}
 
 	for i, arg := range args.Args {
-		if arg.URI == "" && arg.Label == "" {
-			result.Results[i].Error = apiservererrors.ServerError(errors.New("must specify either URI or label"))
-			continue
-		}
-
-		var (
-			uri *coresecrets.URI
-			err error
-		)
-		if arg.URI != "" {
-			uri, err = coresecrets.ParseURI(arg.URI)
-		} else {
-			uri, err = getSecretURIForLabel(removeState, modelUUID, arg.Label)
-		}
+		uri, err := secretDeletionPreflightCheck(arg.URI, arg.Label, removeState, modelUUID, canDelete)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if _, err := removeState.GetSecret(uri); err != nil {
-			// Check if the uri exists or not.
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := canDelete(uri); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -769,4 +753,22 @@ func removeSecrets(
 		}
 	}
 	return result, nil
+
+}
+
+func getSecretURIForLabel(secretsState ListSecretsState, modelUUID string, label string) (*coresecrets.URI, error) {
+	results, err := secretsState.ListSecrets(state.SecretsFilter{
+		Label:     &label,
+		OwnerTags: []names.Tag{names.NewModelTag(modelUUID)},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results) == 0 {
+		return nil, errors.NotFoundf("secret %q", label)
+	}
+	if len(results) > 1 {
+		return nil, errors.NotFoundf("more than 1 secret with label %q", label)
+	}
+	return results[0].URI, nil
 }
