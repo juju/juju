@@ -76,6 +76,80 @@ func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
 	}
 }
 
+func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
+	testCases := []struct {
+		input  *status.StatusInfo
+		output *application.StatusInfo[application.UnitAgentStatusType]
+	}{
+		{
+			input: &status.StatusInfo{
+				Status: status.Idle,
+			},
+			output: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusIdle,
+			},
+		},
+		{
+			input: &status.StatusInfo{
+				Status: status.Allocating,
+			},
+			output: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusAllocating,
+			},
+		},
+		{
+			input: &status.StatusInfo{
+				Status: status.Error,
+			},
+			output: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusError,
+			},
+		},
+		{
+			input: &status.StatusInfo{
+				Status: status.Executing,
+			},
+			output: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusExecuting,
+			},
+		},
+		{
+			input: &status.StatusInfo{
+				Status: status.Failed,
+			},
+			output: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusFailed,
+			},
+		},
+		{
+			input: &status.StatusInfo{
+				Status: status.Lost,
+			},
+			output: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusLost,
+			},
+		},
+		{
+			input: &status.StatusInfo{
+				Status: status.Rebooting,
+			},
+			output: &application.StatusInfo[application.UnitAgentStatusType]{
+				Status: application.UnitAgentStatusRebooting,
+			},
+		},
+	}
+
+	for i, test := range testCases {
+		c.Logf("test %d: %v", i, test.input)
+		output, err := encodeUnitAgentStatus(test.input)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(output, jc.DeepEquals, test.output)
+		result, err := decodeUnitAgentStatus(output)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(result, jc.DeepEquals, test.input)
+	}
+}
+
 func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 	testCases := []struct {
 		input  *status.StatusInfo
@@ -202,19 +276,19 @@ func (s *statusSuite) TestReduceWorkloadStatusesPriority(c *gc.C) {
 		expected status.Status
 	}{
 		// Waiting trumps active
-		{application.WorkloadStatusActive, application.WorkloadStatusWaiting, status.Waiting},
+		{status1: application.WorkloadStatusActive, status2: application.WorkloadStatusWaiting, expected: status.Waiting},
 
 		// Maintenance trumps active
-		{application.WorkloadStatusMaintenance, application.WorkloadStatusWaiting, status.Maintenance},
+		{status1: application.WorkloadStatusMaintenance, status2: application.WorkloadStatusWaiting, expected: status.Maintenance},
 
 		// Blocked trumps active
-		{application.WorkloadStatusActive, application.WorkloadStatusBlocked, status.Blocked},
+		{status1: application.WorkloadStatusActive, status2: application.WorkloadStatusBlocked, expected: status.Blocked},
 
 		// Blocked trumps waiting
-		{application.WorkloadStatusWaiting, application.WorkloadStatusBlocked, status.Blocked},
+		{status1: application.WorkloadStatusWaiting, status2: application.WorkloadStatusBlocked, expected: status.Blocked},
 
 		// Blocked trumps maintenance
-		{application.WorkloadStatusMaintenance, application.WorkloadStatusBlocked, status.Blocked},
+		{status1: application.WorkloadStatusMaintenance, status2: application.WorkloadStatusBlocked, expected: status.Blocked},
 	} {
 		value, err := reduceWorkloadStatuses([]application.StatusInfo[application.WorkloadStatusType]{
 			{Status: t.status1}, {Status: t.status2},
@@ -243,7 +317,7 @@ func (s *statusSuite) TestUnitDisplayStatusNoContainer(c *gc.C) {
 	})
 }
 
-func (s *statusSuite) TestUnitDisplayStatusWorkloadTerminatedBlockedMaintainanceDominates(c *gc.C) {
+func (s *statusSuite) TestUnitDisplayStatusWorkloadTerminatedBlockedMaintenanceDominates(c *gc.C) {
 	containerStatus := &application.StatusInfo[application.CloudContainerStatusType]{
 		Status: application.CloudContainerStatusBlocked,
 	}

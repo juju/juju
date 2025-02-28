@@ -94,6 +94,6 @@ func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	logger.Logf(ctx, logLevel, "%s%s", prefix, c.Message)
+	logger.Logf(ctx, logLevel, corelogger.Labels{}, "%s%s", prefix, c.Message)
 	return nil
 }

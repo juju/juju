@@ -19,6 +19,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/application/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
@@ -81,6 +82,7 @@ func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context)
 		s.agentVersionGetter,
 		fn,
 		s.charmStore,
+		statushistory.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -121,6 +123,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 			return s.provider, nil
 		},
 		s.charmStore,
+		statushistory.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)

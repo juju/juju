@@ -71,6 +71,7 @@ type Service struct {
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	charmStore            CharmStore
+	statusHistory         StatusHistory
 }
 
 // NewService returns a new service reference wrapping the input state.
@@ -79,6 +80,7 @@ func NewService(
 	leaderEnsurer leadership.Ensurer,
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
 	charmStore CharmStore,
+	statusHistory StatusHistory,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *Service {
@@ -89,6 +91,7 @@ func NewService(
 		clock:                 clock,
 		storageRegistryGetter: storageRegistryGetter,
 		charmStore:            charmStore,
+		statusHistory:         statusHistory,
 	}
 }
 
@@ -126,6 +129,7 @@ func NewProviderService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	charmStore CharmStore,
+	statusHistory StatusHistory,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ProviderService {
@@ -135,6 +139,7 @@ func NewProviderService(
 			leaderEnsurer,
 			storageRegistryGetter,
 			charmStore,
+			statusHistory,
 			clock,
 			logger,
 		),
@@ -241,6 +246,7 @@ func NewWatchableService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	charmStore CharmStore,
+	statusHistory StatusHistory,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
@@ -253,6 +259,7 @@ func NewWatchableService(
 			agentVersionGetter,
 			provider,
 			charmStore,
+			statusHistory,
 			clock,
 			logger,
 		),

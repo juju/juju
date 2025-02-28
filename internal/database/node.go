@@ -418,7 +418,7 @@ func (m *NodeManager) appLogFunc(level client.LogLevel, msg string, args ...inte
 	case client.LogError:
 		translatedLevel = logger.ERROR
 	}
-	m.logger.Logf(context.TODO(), translatedLevel, msg, args...)
+	m.logger.Logf(context.TODO(), translatedLevel, logger.Labels{}, msg, args...)
 }
 
 // QueryType represents the type of query that is being sent. This simplifies
