@@ -310,7 +310,7 @@ juju ssh 0 -i ~/.ssh/my-private-key
 ```
 -->
 
-### Use the OpenSHH `ssh` command
+### Use the OpenSSH `ssh` command
 
 First, make sure you've added a public SSH key for your user to the target model. 
 
