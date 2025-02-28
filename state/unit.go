@@ -1315,54 +1315,9 @@ func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 	return agent.Status()
 }
 
-// Status returns the status of the unit.
-// This method relies on globalKey instead of globalAgentKey since it is part of
-// the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
-// the UnitAgent struct.
-func (u *Unit) status() (status.StatusInfo, error) {
-	// The current health spec says when a hook error occurs, the workload should
-	// be in error state, but the state model more correctly records the agent
-	// itself as being in error. So we'll do that model translation here.
-	// TODO(fwereade) as on unitagent, this transformation does not belong here.
-	// For now, pretend we're always reading the unit status.
-	info, err := getStatus(u.st.db(), u.globalAgentKey(), "unit")
-	if err != nil {
-		return status.StatusInfo{}, err
-	}
-	if info.Status != status.Error {
-		info, err = getStatus(u.st.db(), u.globalKey(), "unit")
-		if err != nil {
-			return status.StatusInfo{}, err
-		}
-	}
-	return info, nil
-}
-
 // ContainerStatus returns the container status for a unit.
 func (u *Unit) ContainerStatus() (status.StatusInfo, error) {
 	return getStatus(u.st.db(), u.globalCloudContainerKey(), "cloud container")
-}
-
-// SetStatus sets the status of the unit agent. The optional values
-// allow to pass additional helpful status data.
-// This method relies on globalKey instead of globalAgentKey since it is part of
-// the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
-// the UnitAgent struct.
-func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
-	if !status.ValidWorkloadStatus(unitStatus.Status) {
-		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
-	}
-
-	return setStatus(u.st.db(), setStatusParams{
-		badge:      "unit",
-		statusKind: u.Kind(),
-		statusId:   u.Name(),
-		globalKey:  u.globalKey(),
-		status:     unitStatus.Status,
-		message:    unitStatus.Message,
-		rawData:    unitStatus.Data,
-		updated:    timeOrNow(unitStatus.Since, u.st.clock()),
-	})
 }
 
 // CharmURL returns the charm URL this unit is currently using.
@@ -2364,17 +2319,11 @@ func (u *Unit) RunningActions() ([]Action, error) {
 // reestablish normal workflow. The retryHooks parameter informs
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
+//
+// NOTE(jack-w-shaw): Initially, method would check the unit workload
+// status to see if a unit is in error state. However, workload status
+// has been entirely cut over to DQLite, so this check was removed.
 func (u *Unit) Resolve(retryHooks bool) error {
-	// We currently check agent status to see if a unit is
-	// in error state. As the new Juju Health work is completed,
-	// this will change to checking the unit status.
-	statusInfo, err := u.status()
-	if err != nil {
-		return err
-	}
-	if statusInfo.Status != status.Error {
-		return errors.Errorf("unit %q is not in an error state", u)
-	}
 	mode := ResolvedNoHooks
 	if retryHooks {
 		mode = ResolvedRetryHooks

@@ -104,7 +104,7 @@ func NewDeployerAPI(
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),
 		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getCanWatch),
-		unitStatusSetter:       common.NewUnitStatusSetter(st, applicationService, clock, getAuthFunc),
+		unitStatusSetter:       common.NewUnitStatusSetter(applicationService, clock, getAuthFunc),
 		controllerConfigGetter: controllerConfigGetter,
 		applicationService:     applicationService,
 		leadershipRevoker:      leadershipRevoker,

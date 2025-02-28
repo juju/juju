@@ -686,18 +686,6 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	err = unit.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	if params.Status != nil {
-		now := time.Now()
-		s := status.StatusInfo{
-			Status:  params.Status.Status,
-			Message: params.Status.Message,
-			Data:    params.Status.Data,
-			Since:   &now,
-		}
-		err = unit.SetStatus(s)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
 	return unit, params.Password
 }
 

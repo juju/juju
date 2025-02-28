@@ -21,7 +21,6 @@ import (
 )
 
 type unitStatusSuite struct {
-	entityFinder       *mocks.MockEntityFinder
 	applicationService *mocks.MockApplicationService
 	now                time.Time
 	clock              *mocks.MockClock
@@ -35,7 +34,6 @@ func (s *unitStatusSuite) SetUpTest(c *gc.C) {
 
 func (s *unitStatusSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.entityFinder = mocks.NewMockEntityFinder(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 
 	s.now = time.Now()
@@ -61,7 +59,7 @@ func (s *unitSetStatusSuite) TestSetStatusUnauthorised(c *gc.C) {
 	tag := names.NewUnitTag("ubuntu/42")
 	s.badTag = tag
 
-	setter := common.NewUnitStatusSetter(s.entityFinder, s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	setter := common.NewUnitStatusSetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
@@ -76,7 +74,7 @@ func (s *unitSetStatusSuite) TestSetStatusUnauthorised(c *gc.C) {
 func (s *unitSetStatusSuite) TestSetStatusNotATag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	setter := common.NewUnitStatusSetter(s.entityFinder, s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	setter := common.NewUnitStatusSetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
@@ -93,7 +91,7 @@ func (s *unitSetStatusSuite) TestSetStatusNotAUnitTag(c *gc.C) {
 
 	tag := names.NewMachineTag("42")
 
-	setter := common.NewUnitStatusSetter(s.entityFinder, s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	setter := common.NewUnitStatusSetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
@@ -112,7 +110,7 @@ func (s *unitSetStatusSuite) TestSetStatusUnitNotFound(c *gc.C) {
 
 	s.applicationService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), gomock.Any()).Return(applicationerrors.UnitNotFound)
 
-	setter := common.NewUnitStatusSetter(s.entityFinder, s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	setter := common.NewUnitStatusSetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
@@ -122,11 +120,6 @@ func (s *unitSetStatusSuite) TestSetStatusUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
-}
-
-type mockUnit struct {
-	*mocks.MockStatusSetter
-	*mocks.MockEntity
 }
 
 func (s *unitSetStatusSuite) TestSetStatus(c *gc.C) {
@@ -146,11 +139,7 @@ func (s *unitSetStatusSuite) TestSetStatus(c *gc.C) {
 
 	s.applicationService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), &sInfo).Return(nil)
 
-	unit := mockUnit{MockStatusSetter: mocks.NewMockStatusSetter(ctrl)}
-	unit.MockStatusSetter.EXPECT().SetStatus(sInfo).Return(nil)
-	s.entityFinder.EXPECT().FindEntity(tag).Return(unit, nil)
-
-	setter := common.NewUnitStatusSetter(s.entityFinder, s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	setter := common.NewUnitStatusSetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 

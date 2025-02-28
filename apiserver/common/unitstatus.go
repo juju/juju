@@ -15,7 +15,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type ApplicationService interface {
@@ -31,15 +30,13 @@ type ApplicationService interface {
 // UnitStatusSetter defines the API used to set the workload status of a unit.
 type UnitStatusSetter struct {
 	clock              clock.Clock
-	st                 state.EntityFinder
 	applicationService ApplicationService
 	getCanModify       GetAuthFunc
 }
 
 // NewUnitStatusSetter returns a new UnitStatusSetter.
-func NewUnitStatusSetter(st state.EntityFinder, applicationService ApplicationService, clock clock.Clock, getCanModify GetAuthFunc) *UnitStatusSetter {
+func NewUnitStatusSetter(applicationService ApplicationService, clock clock.Clock, getCanModify GetAuthFunc) *UnitStatusSetter {
 	return &UnitStatusSetter{
-		st:                 st,
 		applicationService: applicationService,
 		getCanModify:       getCanModify,
 		clock:              clock,
@@ -89,20 +86,6 @@ func (s *UnitStatusSetter) SetStatus(ctx context.Context, args params.SetStatus)
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
 			continue
 		} else if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// TODO: Remove dual writing when we have completed the transition to DQLite
-		// for unit workload status.
-		entity, err := s.st.FindEntity(tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		unit := entity.(corestatus.StatusSetter)
-		err = unit.SetStatus(sInfo)
-		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
