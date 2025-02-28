@@ -34,7 +34,7 @@ apps:
   juju:
     environment:
       # Make sure we access snap binaries first (i.e. juju-metadata lp:1759013)
-      PATH: "$SNAP/bin:$SNAP/usr/bin:/snap/bin:$PATH"
+      PATH: "$SNAP/bin:$SNAP/usr/bin:$SNAP/opt/jaas/bin:/snap/bin:$PATH"
     command: bin/juju
     plugs:
       - network
@@ -327,7 +327,7 @@ plugs:
   jaas-plugin:
     interface: content
     content: jaas-plugin
-    target: $SNAP/usr/bin
+    target: $SNAP/opt/jaas/bin
 
   dot-local-share-juju:
     interface: personal-files
