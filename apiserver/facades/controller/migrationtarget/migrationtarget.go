@@ -100,11 +100,11 @@ type ModelAgentService interface {
 
 // ModelMigrationServiceGetter describes a function that is able to return the
 // [ModelMigrationService] for a given model id.
-type ModelMigrationServiceGetter func(coremodel.UUID) ModelMigrationService
+type ModelMigrationServiceGetter func(context.Context, coremodel.UUID) (ModelMigrationService, error)
 
 // ModelAgentServiceGetter describes a function that is able to return the
 // [ModelAgentService] for a given model id.
-type ModelAgentServiceGetter func(modelId coremodel.UUID) ModelAgentService
+type ModelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error)
 
 // UpgradeService provides a subset of the upgrade domain service methods.
 type UpgradeService interface {
@@ -242,7 +242,10 @@ with an earlier version of the target controller and try again.
 	// from the controllerState as I had thought that the Precheck call was
 	// on the controller model, in which case it should be the same as the
 	// controllerState.
-	modelAgentService := api.modelAgentServiceGetter(coremodel.UUID(controllerState.ModelUUID()))
+	modelAgentService, err := api.modelAgentServiceGetter(ctx, coremodel.UUID(controllerState.ModelUUID()))
+	if err != nil {
+		return errors.Errorf("cannot get model agent service: %w", err)
+	}
 	backend, err := migration.PrecheckShim(api.state, controllerState)
 	if err != nil {
 		return errors.Errorf("cannot create prechecks backend: %w", err)
@@ -487,7 +490,12 @@ func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesAr
 	}
 
 	modelId := coremodel.UUID(tag.Id())
-	return api.modelMigrationServiceGetter(modelId).AdoptResources(ctx, args.SourceControllerVersion)
+	svc, err := api.modelMigrationServiceGetter(ctx, modelId)
+	if err != nil {
+		return errors.Errorf("cannot get model migration service for model %q: %w", modelId, err)
+	}
+
+	return svc.AdoptResources(ctx, args.SourceControllerVersion)
 }
 
 // CheckMachines compares the machines in state with the ones reported
@@ -501,7 +509,14 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 	}
 
 	modelId := coremodel.UUID(tag.Id())
-	migrationService := api.modelMigrationServiceGetter(modelId)
+	migrationService, err := api.modelMigrationServiceGetter(ctx, modelId)
+	if err != nil {
+		return params.ErrorResults{}, errors.Errorf(
+			"cannot get model migration service for model %q: %w",
+			modelId,
+			err,
+		)
+	}
 	discrepancies, err := migrationService.CheckMachines(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Errorf(

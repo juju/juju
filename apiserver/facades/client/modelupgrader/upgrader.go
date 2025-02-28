@@ -68,7 +68,7 @@ type ModelUpgraderAPI struct {
 	upgradeService              UpgradeService
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
-	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
+	environsCloudSpecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
 	logger                  corelogger.Logger
 }
 
@@ -83,7 +83,7 @@ func NewModelUpgraderAPI(
 	authorizer facade.Authorizer,
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
-	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
+	environsCloudSpecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	modelAgentServiceGetter func(modelID coremodel.UUID) ModelAgentService,
 	controllerAgentService ModelAgentService,
 	controllerConfigService ControllerConfigService,
@@ -107,7 +107,7 @@ func NewModelUpgraderAPI(
 		credentialInvalidatorGetter: credentialInvalidatorGetter,
 		newEnviron:                  newEnviron,
 		registryAPIFunc:             registryAPIFunc,
-		environscloudspecGetter:     environscloudspecGetter,
+		environsCloudSpecGetter:     environsCloudSpecGetter,
 		upgradeService:              upgradeService,
 		modelAgentServiceGetter:     modelAgentServiceGetter,
 		controllerAgentService:      controllerAgentService,
@@ -351,7 +351,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		}
 	}()
 
-	cloudspec, err := m.environscloudspecGetter(ctx, modelTag)
+	cloudspec, err := m.environsCloudSpecGetter(ctx, modelTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -403,7 +403,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 			continue
 		}
 
-		cloudspec, err := m.environscloudspecGetter(ctx, names.NewModelTag(modelUUID))
+		cloudspec, err := m.environsCloudSpecGetter(ctx, names.NewModelTag(modelUUID))
 		if err != nil {
 			return errors.Trace(err)
 		}

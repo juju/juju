@@ -66,7 +66,7 @@ func (ctxt *httpContext) domainServicesForRequest(ctx context.Context) (services
 	if !valid {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
-	return ctxt.srv.shared.domainServicesGetter.ServicesForModel(model.UUID(modelUUID)), nil
+	return ctxt.srv.shared.domainServicesGetter.ServicesForModel(ctx, model.UUID(modelUUID))
 }
 
 // objectStoreForRequest returns an object store instance
@@ -205,7 +205,7 @@ func (ctxt *httpContext) domainServicesDuringMigrationForRequest(r *http.Request
 	if modelUUID == "" {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
-	return ctxt.srv.shared.domainServicesGetter.ServicesForModel(model.UUID(modelUUID)), nil
+	return ctxt.srv.shared.domainServicesGetter.ServicesForModel(r.Context(), model.UUID(modelUUID))
 }
 
 // stop returns a channel which will be closed when a handler should

@@ -32,7 +32,7 @@ type NewModelLoggerFunc func(ctx context.Context,
 	cfg ModelLoggerConfig) (worker.Worker, error)
 
 // ModelServiceGetterFunc is a function that returns the model service.
-type ModelServiceGetterFunc func(services.LogSinkServicesGetter) ModelService
+type ModelServiceGetterFunc func(services.LogSinkServices) ModelService
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
@@ -97,17 +97,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var logSinkServicesGetter services.LogSinkServicesGetter
-			if err := getter.Get(config.LogSinkServices, &logSinkServicesGetter); err != nil {
+			var logSinkServices services.LogSinkServices
+			if err := getter.Get(config.LogSinkServices, &logSinkServices); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			var controllerService services.ControllerLogSinkServices
-			if err := getter.Get(config.LogSinkServices, &controllerService); err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			controllerCfg, err := controllerService.ControllerConfig().ControllerConfig(ctx)
+			controllerCfg, err := logSinkServices.ControllerConfig().ControllerConfig(ctx)
 			if err != nil {
 				return nil, errors.Annotate(err, "cannot read controller config")
 			}
@@ -150,7 +145,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					config.DebugLogger,
 					currentConfig.LogDir(),
 				),
-				ModelService: config.ModelServiceGetter(logSinkServicesGetter),
+				ModelService: config.ModelServiceGetter(logSinkServices),
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -232,18 +227,17 @@ func (lw *logWriter) Log(records []corelogger.LogRecord) error {
 }
 
 // NewModelService returns a new model service.
-func NewModelService(servicesGetter services.LogSinkServicesGetter) ModelService {
+func NewModelService(services services.LogSinkServices) ModelService {
 	return modelService{
-		servicesGetter: servicesGetter,
+		services: services,
 	}
 }
 
 type modelService struct {
-	servicesGetter services.LogSinkServicesGetter
+	services services.LogSinkServices
 }
 
 // Model returns the model information.
 func (s modelService) Model(ctx context.Context, modelUUID model.UUID) (model.ModelInfo, error) {
-	service := s.servicesGetter.ServicesForModel(modelUUID)
-	return service.Model().Model(ctx)
+	return s.services.Model().Model(ctx, modelUUID)
 }

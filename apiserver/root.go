@@ -929,11 +929,15 @@ func (c modelObjectStore) GetObjectStore(ctx context.Context) (objectstore.Objec
 }
 
 // ModelExporter returns a model exporter for the current model.
-func (ctx *facadeContext) ModelExporter(modelUUID model.UUID, backend facade.LegacyStateExporter) facade.ModelExporter {
+func (ctx *facadeContext) ModelExporter(c context.Context, modelUUID model.UUID, backend facade.LegacyStateExporter) (facade.ModelExporter, error) {
 	logger := ctx.Logger()
 	clock := ctx.r.clock
 
-	domainServices := ctx.DomainServicesForModel(modelUUID)
+	domainServices, err := ctx.DomainServicesForModel(c, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	coordinator := modelmigration.NewCoordinator(logger)
 
 	objectStoreGetter := modelObjectStore(func(stdCtx context.Context) (objectstore.ObjectStore, error) {
@@ -961,7 +965,7 @@ func (ctx *facadeContext) ModelExporter(modelUUID model.UUID, backend facade.Leg
 		coordinator,
 		logger,
 		clock,
-	)
+	), nil
 }
 
 // ModelImporter returns a model importer.
@@ -1063,8 +1067,8 @@ func (ctx *facadeContext) migrationScope(modelUUID model.UUID) modelmigration.Sc
 
 // DomainServicesForModel returns the services factory for a given
 // model uuid.
-func (ctx *facadeContext) DomainServicesForModel(uuid model.UUID) services.DomainServices {
-	return ctx.r.domainServicesGetter.ServicesForModel(uuid)
+func (ctx *facadeContext) DomainServicesForModel(c context.Context, uuid model.UUID) (services.DomainServices, error) {
+	return ctx.r.domainServicesGetter.ServicesForModel(c, uuid)
 }
 
 // ObjectStoreForModel returns the object store for a given model uuid.

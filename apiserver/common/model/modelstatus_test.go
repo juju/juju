@@ -160,8 +160,8 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (s *modelStatusSuite) machineServiceGetter(uuid coremodel.UUID) model.MachineService {
-	return s.machineService
+func (s *modelStatusSuite) machineServiceGetter(ctx context.Context, uuid coremodel.UUID) (model.MachineService, error) {
+	return s.machineService, nil
 }
 
 type noopStoragePoolGetter struct{}

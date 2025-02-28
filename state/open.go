@@ -57,7 +57,7 @@ type OpenParams struct {
 
 	// Note(nvinuesa): Having a dqlite domain service here is an awful hack
 	// and should disapear as soon as we migrate units and applications.
-	CharmServiceGetter func(modelUUID coremodel.UUID) CharmService
+	CharmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error)
 
 	// WatcherPollInterval is defaulted by the TxnWatcher if otherwise not set.
 	WatcherPollInterval time.Duration
@@ -104,7 +104,7 @@ func open(
 	controllerConfig *controller.Config,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
-	charmServiceGetter func(modelUUID coremodel.UUID) CharmService,
+	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error),
 	runTransactionObserver RunTransactionObserverFunc,
 	maxTxnAttempts int,
 ) (*State, error) {
@@ -143,7 +143,7 @@ func newState(
 	session *mgo.Session,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
-	charmServiceGetter func(modelUUID coremodel.UUID) CharmService,
+	charmServiceGetter func(modelUUID coremodel.UUID) (CharmService, error),
 	runTransactionObserver RunTransactionObserverFunc,
 	maxTxnAttempts int,
 ) (_ *State, err error) {

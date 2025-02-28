@@ -259,14 +259,26 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	// modelUUID param is not used so can pass in anything.
 	domainServices := s.ControllerDomainServices(c)
 
-	storageServiceGetter := func(modelUUID coremodel.UUID) state.StoragePoolGetter {
-		return s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(modelUUID).Storage()
+	storageServiceGetter := func(modelUUID coremodel.UUID) (state.StoragePoolGetter, error) {
+		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(context.Background(), modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Storage(), nil
 	}
-	modelConfigServiceGetter := func(modelUUID coremodel.UUID) stateenvirons.ModelConfigService {
-		return s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(modelUUID).Config()
+	modelConfigServiceGetter := func(modelUUID coremodel.UUID) (stateenvirons.ModelConfigService, error) {
+		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(context.Background(), modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Config(), nil
 	}
-	charmServiceGetter := func(modelUUID coremodel.UUID) state.CharmService {
-		return s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(modelUUID).Application()
+	charmServiceGetter := func(modelUUID coremodel.UUID) (state.CharmService, error) {
+		svc, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c)).ServicesForModel(context.Background(), modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Application(), nil
 	}
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
@@ -546,7 +558,9 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 		st = pooledSt.State
 	}
 
-	modelDomainServices := s.DomainServicesGetter(c, s.NoopObjectStore(c), servicefactorytesting.TestingLeaseManager{}).ServicesForModel(coremodel.UUID(modelUUID))
+	modelDomainServices, err := s.DomainServicesGetter(c, s.NoopObjectStore(c), servicefactorytesting.TestingLeaseManager{}).ServicesForModel(context.Background(), coremodel.UUID(modelUUID))
+	c.Assert(err, jc.ErrorIsNil)
+
 	applicationService := modelDomainServices.Application()
 	return factory.NewFactory(st, s.controller.StatePool(), coretesting.FakeControllerConfig()).
 		WithApplicationService(applicationService), releaser

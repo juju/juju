@@ -69,6 +69,7 @@ func generatePublicKeys(c *gc.C, publicKeys []string) []keymanager.PublicKey {
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
+	s.SeedControllerUUID(c)
 
 	s.modelId = statemodeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "keys")
 

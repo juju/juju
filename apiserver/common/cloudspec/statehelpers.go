@@ -53,7 +53,7 @@ type ModelConfigService interface {
 
 // ModelConfigServiceGetter is a factory for ModelConfigService. It takes a model
 // UUID and returns a ModelConfigService for that model.
-type ModelConfigServiceGetter func(coremodel.UUID) ModelConfigService
+type ModelConfigServiceGetter func(context.Context, coremodel.UUID) (ModelConfigService, error)
 
 // MakeCloudSpecGetter returns a function which returns a CloudSpec
 // for a given model, using the given Pool.
@@ -70,7 +70,10 @@ func MakeCloudSpecGetter(pool Pool, cloudService common.CloudService, credential
 			return environscloudspec.CloudSpec{}, errors.Trace(err)
 		}
 
-		modelConfigService := modelConfigServiceGetter(coremodel.UUID(m.UUID()))
+		modelConfigService, err := modelConfigServiceGetter(ctx, coremodel.UUID(m.UUID()))
+		if err != nil {
+			return environscloudspec.CloudSpec{}, errors.Trace(err)
+		}
 
 		// TODO - CAAS(externalreality): Once cloud methods are migrated
 		// to model EnvironConfigGetter will no longer need to contain

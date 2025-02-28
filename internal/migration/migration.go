@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/resource"
 	corestorage "github.com/juju/juju/core/storage"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/modeldefaults"
 	migrations "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -208,14 +209,20 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 
 	modelUUID := coremodel.UUID(model.Tag().Id())
 
-	domainServices := i.domainServices.ServicesForModel(modelUUID)
 	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	modelDefaults := domainServices.ModelDefaults()
-	modelDefaultsProvider := modelDefaults.ModelDefaultsProvider(modelUUID)
+	// The domain services are not available during the import, until the
+	// model is created and activated. The model defaults provider is used
+	// to provide the model defaults during the migration, so we allow access
+	// but in a lazy way.
+
+	modelDefaultsProvider := modelDefaultsProvider{
+		modelUUID:      modelUUID,
+		servicesGetter: i.domainServices,
+	}
 
 	coordinator := modelmigration.NewCoordinator(i.logger)
 	migrations.ImportOperations(coordinator, modelDefaultsProvider, i.storageRegistryGetter, i.objectStoreGetter, i.clock, i.logger)
@@ -224,6 +231,21 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	}
 
 	return dbModel, dbState, nil
+}
+
+type modelDefaultsProvider struct {
+	modelUUID      coremodel.UUID
+	servicesGetter services.DomainServicesGetter
+}
+
+func (p modelDefaultsProvider) ModelDefaults(ctx context.Context) (modeldefaults.Defaults, error) {
+	domainServices, err := p.servicesGetter.ServicesForModel(ctx, p.modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelDefaults := domainServices.ModelDefaults()
+	fn := modelDefaults.ModelDefaultsProvider(p.modelUUID)
+	return fn(ctx)
 }
 
 type CharmService interface {

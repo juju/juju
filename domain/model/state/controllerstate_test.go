@@ -268,6 +268,85 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 	})
 }
 
+func (m *stateSuite) TestGetModelInfoNotActivated(c *gc.C) {
+	runner := m.TxnRunnerFactory()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	modelSt := NewState(runner)
+	err := modelSt.Create(
+		context.Background(),
+		modelUUID,
+		coremodel.IAAS,
+		model.GlobalModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: usertesting.GenNewName(c, "test-user"),
+				Name:  "foobar",
+			},
+			Name:          "my-amazing-model",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	userName, err := user.NewName("test-user")
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerUUID, err := uuid.UUIDFromString(m.controllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelInfo, err := modelSt.GetModelInfo(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelInfo, gc.Equals, coremodel.ModelInfo{
+		UUID:            modelUUID,
+		ControllerUUID:  controllerUUID,
+		Cloud:           "my-cloud",
+		CloudType:       "ec2",
+		CloudRegion:     "my-region",
+		CredentialOwner: userName,
+		CredentialName:  "foobar",
+		Name:            "my-amazing-model",
+		Type:            coremodel.IAAS,
+	})
+}
+
+func (m *stateSuite) TestGetModelInfoActivated(c *gc.C) {
+	runner := m.TxnRunnerFactory()
+
+	userName, err := user.NewName("test-user")
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerUUID, err := uuid.UUIDFromString(m.controllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelSt := NewState(runner)
+	modelInfo, err := modelSt.GetModelInfo(context.Background(), m.uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(modelInfo, gc.Equals, coremodel.ModelInfo{
+		UUID:            m.uuid,
+		ControllerUUID:  controllerUUID,
+		Cloud:           "my-cloud",
+		CloudType:       "ec2",
+		CloudRegion:     "my-region",
+		CredentialOwner: userName,
+		CredentialName:  "foobar",
+		Name:            "my-test-model",
+		Type:            coremodel.IAAS,
+	})
+}
+
+func (m *stateSuite) TestGetModelInfoNotFound(c *gc.C) {
+	runner := m.TxnRunnerFactory()
+
+	modelSt := NewState(runner)
+	_, err := modelSt.GetModelInfo(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
 func (m *stateSuite) TestGetModelType(c *gc.C) {
 	runner := m.TxnRunnerFactory()
 

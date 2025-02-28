@@ -158,6 +158,7 @@ func (s *controllerSchemaSuite) TestControllerViews(c *gc.C) {
 
 		// Models
 		"v_model",
+		"v_model_all",
 		"v_model_state",
 		"v_model_authorized_keys",
 

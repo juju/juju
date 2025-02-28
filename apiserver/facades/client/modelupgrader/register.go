@@ -71,10 +71,10 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	modelAgentServiceGetter := func(modelID coremodel.UUID) ModelAgentService {
 		return domainServices.Agent()
 	}
-	modelConfigServiceGetter := func(modelID coremodel.UUID) cloudspec.ModelConfigService {
-		return domainServices.Config()
+	modelConfigServiceGetter := func(ctx context.Context, modelID coremodel.UUID) (cloudspec.ModelConfigService, error) {
+		return domainServices.Config(), nil
 	}
-	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService, modelConfigServiceGetter)
+	environsCloudSpecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService, modelConfigServiceGetter)
 
 	return NewModelUpgraderAPI(
 		systemState.ControllerTag(),
@@ -85,7 +85,7 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 		auth,
 		credentialcommon.CredentialInvalidatorGetter(ctx),
 		registry.New,
-		environscloudspecGetter,
+		environsCloudSpecGetter,
 		modelAgentServiceGetter,
 		controllerAgentService,
 		controllerConfigService,

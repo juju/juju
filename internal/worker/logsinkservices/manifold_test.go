@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -46,10 +45,6 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.NewLogSinkServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
-	cfg.NewLogSinkServicesGetter = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
@@ -60,11 +55,10 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	}
 
 	manifold := Manifold(ManifoldConfig{
-		ChangeStreamName:         "changestream",
-		Logger:                   s.logger,
-		NewWorker:                NewWorker,
-		NewLogSinkServices:       NewLogSinkServices,
-		NewLogSinkServicesGetter: NewLogSinkServicesGetter,
+		ChangeStreamName:   "changestream",
+		Logger:             s.logger,
+		NewWorker:          NewWorker,
+		NewLogSinkServices: NewLogSinkServices,
 	})
 	w, err := manifold.Start(context.Background(), dt.StubGetter(getter))
 	c.Assert(err, jc.ErrorIsNil)
@@ -77,17 +71,16 @@ func (s *manifoldSuite) TestOutputLogSinkServicesGetter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
-		DBGetter:                 s.dbGetter,
-		Logger:                   s.logger,
-		NewLogSinkServices:       NewLogSinkServices,
-		NewLogSinkServicesGetter: NewLogSinkServicesGetter,
+		DBGetter:           s.dbGetter,
+		Logger:             s.logger,
+		NewLogSinkServices: NewLogSinkServices,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	manifold := ManifoldConfig{}
 
-	var factory services.LogSinkServicesGetter
+	var factory services.LogSinkServices
 	err = manifold.output(w, &factory)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -96,10 +89,9 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := NewWorker(Config{
-		DBGetter:                 s.dbGetter,
-		Logger:                   s.logger,
-		NewLogSinkServices:       NewLogSinkServices,
-		NewLogSinkServicesGetter: NewLogSinkServicesGetter,
+		DBGetter:           s.dbGetter,
+		Logger:             s.logger,
+		NewLogSinkServices: NewLogSinkServices,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -118,10 +110,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewLogSinkServices: func(model.UUID, changestream.WatchableDBGetter, logger.Logger) services.LogSinkServices {
-			return nil
-		},
-		NewLogSinkServicesGetter: func(LogSinkServicesFn, changestream.WatchableDBGetter, logger.Logger) services.LogSinkServicesGetter {
+		NewLogSinkServices: func(changestream.WatchableDBGetter, logger.Logger) services.LogSinkServices {
 			return nil
 		},
 	}

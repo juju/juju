@@ -76,12 +76,12 @@ type ControllerAPI struct {
 	modelService              ModelService
 	modelInfoService          ModelInfoService
 	blockCommandService       common.BlockCommandService
-	applicationServiceGetter  func(coremodel.UUID) ApplicationService
-	modelAgentServiceGetter   func(coremodel.UUID) common.ModelAgentService
-	modelConfigServiceGetter  func(coremodel.UUID) cloudspec.ModelConfigService
-	blockCommandServiceGetter func(coremodel.UUID) BlockCommandService
+	applicationServiceGetter  func(context.Context, coremodel.UUID) (ApplicationService, error)
+	modelAgentServiceGetter   func(context.Context, coremodel.UUID) (common.ModelAgentService, error)
+	modelConfigServiceGetter  func(context.Context, coremodel.UUID) (cloudspec.ModelConfigService, error)
+	blockCommandServiceGetter func(context.Context, coremodel.UUID) (BlockCommandService, error)
 	proxyService              ProxyService
-	modelExporter             func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter
+	modelExporter             func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error)
 	store                     objectstore.ObjectStore
 	leadership                leadership.Reader
 	logger                    corelogger.Logger
@@ -109,16 +109,16 @@ func NewControllerAPI(
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	accessService ControllerAccessService,
-	machineServiceGetter func(coremodel.UUID) commonmodel.MachineService,
+	machineServiceGetter func(context.Context, coremodel.UUID) (commonmodel.MachineService, error),
 	modelService ModelService,
 	modelInfoService ModelInfoService,
 	blockCommandService common.BlockCommandService,
-	applicationServiceGetter func(coremodel.UUID) ApplicationService,
-	modelAgentServiceGetter func(coremodel.UUID) common.ModelAgentService,
-	modelConfigServiceGetter func(coremodel.UUID) cloudspec.ModelConfigService,
-	blockCommandServiceGetter func(coremodel.UUID) BlockCommandService,
+	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
+	modelAgentServiceGetter func(context.Context, coremodel.UUID) (common.ModelAgentService, error),
+	modelConfigServiceGetter func(context.Context, coremodel.UUID) (cloudspec.ModelConfigService, error),
+	blockCommandServiceGetter func(context.Context, coremodel.UUID) (BlockCommandService, error),
 	proxyService ProxyService,
-	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
+	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
 	leadership leadership.Reader,
 ) (*ControllerAPI, error) {
@@ -322,7 +322,10 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 	}
 	modelBlocks := make(map[string]set.Strings)
 	for _, uuid := range uuids {
-		blockService := c.blockCommandServiceGetter(coremodel.UUID(uuid))
+		blockService, err := c.blockCommandServiceGetter(ctx, coremodel.UUID(uuid))
+		if err != nil {
+			return results, errors.Trace(err)
+		}
 
 		blocks, err := blockService.GetBlocks(ctx)
 		if err != nil {
@@ -408,7 +411,11 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 			Name:     model.Name(),
 			OwnerTag: model.Owner().String(),
 		}
-		modelConf, err := c.modelConfigServiceGetter(coremodel.UUID(modelUUID)).ModelConfig(ctx)
+		svc, err := c.modelConfigServiceGetter(ctx, coremodel.UUID(modelUUID))
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		modelConf, err := svc.ModelConfig(ctx)
 		if err != nil {
 			config.Error = apiservererrors.ServerError(err)
 		} else {
@@ -442,10 +449,13 @@ func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBloc
 		return errors.Trace(err)
 	}
 	for _, uuid := range uuids {
-		blockService := c.blockCommandServiceGetter(coremodel.UUID(uuid))
-		err := blockService.RemoveAllBlocks(ctx)
+		blockService, err := c.blockCommandServiceGetter(ctx, coremodel.UUID(uuid))
 		if err != nil {
-			c.logger.Debugf(context.TODO(), "Unable to get blocks for controller: %s", err)
+			return errors.Trace(err)
+		}
+		err = blockService.RemoveAllBlocks(ctx)
+		if err != nil {
+			c.logger.Debugf(ctx, "unable to get blocks for controller: %s", err)
 			return errors.Trace(err)
 		}
 	}
@@ -598,8 +608,16 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		Macaroons:       macs,
 	}
 
-	modelConfigService := c.modelConfigServiceGetter(coremodel.UUID(modelTag.Id()))
-	modelAgentService := c.modelAgentServiceGetter(coremodel.UUID(modelTag.Id()))
+	// TODO (stickupkid): This is terrible, this should be 1 call, not lots of
+	// individual calls to get the services.
+	modelConfigService, err := c.modelConfigServiceGetter(ctx, coremodel.UUID(modelTag.Id()))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	modelAgentService, err := c.modelAgentServiceGetter(ctx, coremodel.UUID(modelTag.Id()))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 
 	// Check if the migration is likely to succeed.
 	systemState, err := c.statePool.SystemState()
@@ -610,7 +628,10 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	applicationService := c.applicationServiceGetter(coremodel.UUID(hostedState.ModelUUID()))
+	applicationService, err := c.applicationServiceGetter(ctx, coremodel.UUID(hostedState.ModelUUID()))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	if err := runMigrationPrechecks(
 		ctx,
 		hostedState.State,
@@ -773,7 +794,7 @@ var runMigrationPrechecks = func(
 	upgradeService UpgradeService,
 	modelService ModelService,
 	applicationService ApplicationService,
-	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
+	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
 	leaders map[string]string,
 ) error {
@@ -903,7 +924,7 @@ func makeModelInfo(ctx context.Context, st *state.State,
 	controllerConfigService ControllerConfigService,
 	modelService ModelService,
 	modelAgentService ModelAgentService,
-	modelExporter func(coremodel.UUID, facade.LegacyStateExporter) ModelExporter,
+	modelExporterFn func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
 	leaders map[string]string,
 ) (coremigration.ModelInfo, userList, error) {
@@ -915,7 +936,11 @@ func makeModelInfo(ctx context.Context, st *state.State,
 		return empty, ul, errors.Trace(err)
 	}
 
-	desc, err := modelExporter(coremodel.UUID(model.UUID()), st).ExportModel(ctx, leaders, store)
+	modelExporter, err := modelExporterFn(ctx, coremodel.UUID(model.UUID()), st)
+	if err != nil {
+		return empty, ul, errors.Trace(err)
+	}
+	description, err := modelExporter.ExportModel(ctx, leaders, store)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
@@ -954,7 +979,7 @@ func makeModelInfo(ctx context.Context, st *state.State,
 		Owner:                  model.Owner(),
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerModel.AgentVersion,
-		ModelDescription:       desc,
+		ModelDescription:       description,
 	}, ul, nil
 }
 

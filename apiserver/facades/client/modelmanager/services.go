@@ -57,7 +57,7 @@ type ModelDomainServices interface {
 
 // DomainServicesGetter is a factory for creating model services.
 type DomainServicesGetter interface {
-	DomainServicesForModel(coremodel.UUID) ModelDomainServices
+	DomainServicesForModel(context.Context, coremodel.UUID) (ModelDomainServices, error)
 }
 
 // ModelConfigServiceGetter provides a means to fetch the model config service
@@ -306,8 +306,12 @@ type domainServicesGetter struct {
 	ctx facade.MultiModelContext
 }
 
-func (s domainServicesGetter) DomainServicesForModel(uuid coremodel.UUID) ModelDomainServices {
-	return domainServices{domainServices: s.ctx.DomainServicesForModel(uuid)}
+func (s domainServicesGetter) DomainServicesForModel(ctx context.Context, uuid coremodel.UUID) (ModelDomainServices, error) {
+	svc, err := s.ctx.DomainServicesForModel(ctx, uuid)
+	if err != nil {
+		return nil, err
+	}
+	return domainServices{domainServices: svc}, nil
 }
 
 type domainServices struct {

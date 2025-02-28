@@ -49,10 +49,20 @@ func ImportOperations(
 ) {
 	// Note: All the import operations are registered here.
 	// Order is important!
+
+	// The domain services are not available until the model has been
+	// imported and activated. If you require the domain services, you must
+	// not access them directly, instead provide a way to access them in
+	// a lazy fashion.
+
 	lease.RegisterImport(coordinator, logger.Child("lease"))
 	externalcontroller.RegisterImport(coordinator)
 	credential.RegisterImport(coordinator, logger.Child("credential"))
 	model.RegisterImport(coordinator, logger.Child("model"))
+
+	// Domain services is available for all the following services, but only
+	// after the model has been imported and activated.
+
 	keymanager.RegisterImport(coordinator, logger.Child("keymanager"))
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider, logger.Child("modelconfig"))
 	access.RegisterImport(coordinator, logger.Child("access"))

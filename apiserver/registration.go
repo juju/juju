@@ -36,14 +36,14 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	if req.Method != "POST" {
 		err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 		if err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+			logger.Errorf(req.Context(), "%v", err)
 		}
 		return
 	}
 	st, err := h.ctxt.stateForRequestUnauthenticated(req.Context())
 	if err != nil {
 		if err := sendError(w, err); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+			logger.Errorf(req.Context(), "%v", err)
 		}
 		return
 	}
@@ -51,7 +51,13 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 	// TODO (stickupkid): Remove this nonsense, we should be able to get the
 	// domain services from the handler.
-	domainServices := h.ctxt.srv.shared.domainServicesGetter.ServicesForModel(h.ctxt.srv.shared.controllerModelUUID)
+	domainServices, err := h.ctxt.srv.shared.domainServicesGetter.ServicesForModel(req.Context(), h.ctxt.srv.shared.controllerModelUUID)
+	if err != nil {
+		if err := sendError(w, err); err != nil {
+			logger.Errorf(req.Context(), "%v", err)
+		}
+		return
+	}
 	userTag, response, err := h.processPost(
 		req,
 		st.State,
@@ -61,7 +67,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+			logger.Errorf(req.Context(), "%v", err)
 		}
 		return
 	}
@@ -71,14 +77,14 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	m, err := h.ctxt.srv.localMacaroonAuthenticator.CreateLocalLoginMacaroon(req.Context(), userTag, httpbakery.RequestVersion(req))
 	if err != nil {
 		if err := sendError(w, err); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+			logger.Errorf(req.Context(), "%v", err)
 		}
 		return
 	}
 	cookie, err := httpbakery.NewCookie(internalmacaroon.MacaroonNamespace, macaroon.Slice{m})
 	if err != nil {
 		if err := sendError(w, err); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+			logger.Errorf(req.Context(), "%v", err)
 		}
 		return
 	}

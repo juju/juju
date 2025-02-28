@@ -22,7 +22,6 @@ type LogSinkServices struct {
 // object store.
 func NewLogSinkServices(
 	controllerDB changestream.WatchableDBFactory,
-	modelDB changestream.WatchableDBFactory,
 	logger logger.Logger,
 ) *LogSinkServices {
 	return &LogSinkServices{
@@ -31,7 +30,6 @@ func NewLogSinkServices(
 				controllerDB: controllerDB,
 				logger:       logger,
 			},
-			modelDB: modelDB,
 		},
 	}
 }
@@ -47,9 +45,8 @@ func (s *LogSinkServices) ControllerConfig() *controllerconfigservice.WatchableS
 // Model returns the provider model service.
 func (s *LogSinkServices) Model() *modelservice.LogSinkService {
 	return modelservice.NewLogSinkService(
-		modelstate.NewModelState(
-			changestream.NewTxnRunnerFactory(s.modelDB),
-			s.logger.Child("modelinfo"),
+		modelstate.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
 		),
 	)
 }

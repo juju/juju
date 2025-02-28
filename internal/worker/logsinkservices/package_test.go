@@ -14,7 +14,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package logsinkservices -destination servicefactory_mock_test.go github.com/juju/juju/internal/services LogSinkServices,LogSinkServicesGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package logsinkservices -destination servicefactory_mock_test.go github.com/juju/juju/internal/services LogSinkServices
 //go:generate go run go.uber.org/mock/mockgen -typed -package logsinkservices -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 
 func TestPackage(t *testing.T) {
@@ -27,8 +27,7 @@ type baseSuite struct {
 	logger   logger.Logger
 	dbGetter *MockWatchableDBGetter
 
-	providerServices       *MockLogSinkServices
-	providerServicesGetter *MockLogSinkServicesGetter
+	logSinkServices *MockLogSinkServices
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -37,8 +36,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.logger = loggertesting.WrapCheckLog(c)
 	s.dbGetter = NewMockWatchableDBGetter(ctrl)
 
-	s.providerServices = NewMockLogSinkServices(ctrl)
-	s.providerServicesGetter = NewMockLogSinkServicesGetter(ctrl)
+	s.logSinkServices = NewMockLogSinkServices(ctrl)
 
 	return ctrl
 }

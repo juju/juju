@@ -59,6 +59,9 @@ type dbModel struct {
 
 	// OwnerName is the name of the model owner in the Juju controller.
 	OwnerName string `db:"owner_name"`
+
+	// ControllerUUID is the uuid of the controller that the model is in.
+	ControllerUUID string `db:"controller_uuid"`
 }
 
 func (m *dbModel) toCoreModel() (coremodel.Model, error) {

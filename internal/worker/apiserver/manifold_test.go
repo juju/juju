@@ -415,8 +415,8 @@ type stubDomainServicesGetter struct {
 	services.DomainServicesGetter
 }
 
-func (s *stubDomainServicesGetter) ServicesForModel(model.UUID) services.DomainServices {
-	return nil
+func (s *stubDomainServicesGetter) ServicesForModel(context.Context, model.UUID) (services.DomainServices, error) {
+	return nil, nil
 }
 
 type stubTracerGetter struct {

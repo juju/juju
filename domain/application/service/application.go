@@ -374,6 +374,8 @@ func (s *Service) CreateApplication(
 	if err != nil {
 		return "", errors.Annotatef(err, "creating application %q", name)
 	}
+
+	s.logger.Infof(ctx, "created application %q with ID %q", name, appID)
 	return appID, nil
 }
 

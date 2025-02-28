@@ -10,6 +10,7 @@
 package keyupdater
 
 import (
+	context "context"
 	reflect "reflect"
 
 	clock "github.com/juju/clock"
@@ -738,17 +739,18 @@ func (c *MockModelContextMachineTagCall) DoAndReturn(f func() names.Tag) *MockMo
 }
 
 // ModelExporter mocks base method.
-func (m *MockModelContext) ModelExporter(arg0 model.UUID, arg1 facade.LegacyStateExporter) facade.ModelExporter {
+func (m *MockModelContext) ModelExporter(arg0 context.Context, arg1 model.UUID, arg2 facade.LegacyStateExporter) (facade.ModelExporter, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelExporter", arg0, arg1)
+	ret := m.ctrl.Call(m, "ModelExporter", arg0, arg1, arg2)
 	ret0, _ := ret[0].(facade.ModelExporter)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ModelExporter indicates an expected call of ModelExporter.
-func (mr *MockModelContextMockRecorder) ModelExporter(arg0, arg1 any) *MockModelContextModelExporterCall {
+func (mr *MockModelContextMockRecorder) ModelExporter(arg0, arg1, arg2 any) *MockModelContextModelExporterCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelExporter", reflect.TypeOf((*MockModelContext)(nil).ModelExporter), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelExporter", reflect.TypeOf((*MockModelContext)(nil).ModelExporter), arg0, arg1, arg2)
 	return &MockModelContextModelExporterCall{Call: call}
 }
 
@@ -758,19 +760,19 @@ type MockModelContextModelExporterCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelContextModelExporterCall) Return(arg0 facade.ModelExporter) *MockModelContextModelExporterCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockModelContextModelExporterCall) Return(arg0 facade.ModelExporter, arg1 error) *MockModelContextModelExporterCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelContextModelExporterCall) Do(f func(model.UUID, facade.LegacyStateExporter) facade.ModelExporter) *MockModelContextModelExporterCall {
+func (c *MockModelContextModelExporterCall) Do(f func(context.Context, model.UUID, facade.LegacyStateExporter) (facade.ModelExporter, error)) *MockModelContextModelExporterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextModelExporterCall) DoAndReturn(f func(model.UUID, facade.LegacyStateExporter) facade.ModelExporter) *MockModelContextModelExporterCall {
+func (c *MockModelContextModelExporterCall) DoAndReturn(f func(context.Context, model.UUID, facade.LegacyStateExporter) (facade.ModelExporter, error)) *MockModelContextModelExporterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

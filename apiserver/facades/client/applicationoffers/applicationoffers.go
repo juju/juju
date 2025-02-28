@@ -125,7 +125,10 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 		}
 	}
 
-	modelDomainServices := api.modelDomainServicesGetter.DomainServicesForModel(modelUUID)
+	modelDomainServices, err := api.modelDomainServicesGetter.DomainServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return handleErr(err), nil
+	}
 	applicationOfferParams, err := api.makeAddOfferArgsFromParams(ctx, owner, modelDomainServices.Application(), one)
 	if err != nil {
 		return handleErr(err), nil

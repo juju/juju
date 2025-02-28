@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -39,26 +38,19 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.NewLogSinkServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
-	cfg.NewLogSinkServicesGetter = nil
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) getConfig() Config {
 	return Config{
 		DBGetter: s.dbGetter,
 		Logger:   s.logger,
-		NewLogSinkServices: func(coremodel.UUID, changestream.WatchableDBGetter, logger.Logger) services.LogSinkServices {
-			return s.providerServices
-		},
-		NewLogSinkServicesGetter: func(LogSinkServicesFn, changestream.WatchableDBGetter, logger.Logger) services.LogSinkServicesGetter {
-			return s.providerServicesGetter
+		NewLogSinkServices: func(changestream.WatchableDBGetter, logger.Logger) services.LogSinkServices {
+			return s.logSinkServices
 		},
 	}
 }
 
-func (s *workerSuite) TestWorkerServicesGetter(c *gc.C) {
+func (s *workerSuite) TestWorkerServices(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.newWorker(c)
@@ -67,8 +59,8 @@ func (s *workerSuite) TestWorkerServicesGetter(c *gc.C) {
 	srvFact, ok := w.(*servicesWorker)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement servicesWorker"))
 
-	factory := srvFact.ServicesGetter()
-	c.Assert(factory, gc.NotNil)
+	services := srvFact.Services()
+	c.Assert(services, gc.NotNil)
 
 	workertest.CleanKill(c, w)
 }

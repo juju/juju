@@ -4,6 +4,7 @@
 package facadetest
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/clock"
@@ -208,8 +209,8 @@ func (c ModelContext) DomainServices() services.DomainServices {
 }
 
 // ModelExporter returns a model exporter for the current model.
-func (c ModelContext) ModelExporter(model.UUID, facade.LegacyStateExporter) facade.ModelExporter {
-	return c.ModelExporter_
+func (c ModelContext) ModelExporter(context.Context, model.UUID, facade.LegacyStateExporter) (facade.ModelExporter, error) {
+	return c.ModelExporter_, nil
 }
 
 // ModelImporter returns a model importer.

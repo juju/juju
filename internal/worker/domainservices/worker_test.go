@@ -82,6 +82,10 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.PublicKeyImporter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.LoggerContextGetter = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) getConfig() Config {
@@ -95,6 +99,7 @@ func (s *workerSuite) getConfig() Config {
 		LeaseManager:          s.leaseManager,
 		Clock:                 s.clock,
 		Logger:                s.logger,
+		LoggerContextGetter:   s.loggerContextGetter,
 		NewDomainServicesGetter: func(
 			services.ControllerDomainServices,
 			changestream.WatchableDBGetter,
@@ -105,7 +110,7 @@ func (s *workerSuite) getConfig() Config {
 			domainservices.PublicKeyImporter,
 			lease.Manager,
 			clock.Clock,
-			logger.Logger,
+			logger.LoggerContextGetter,
 		) services.DomainServicesGetter {
 			return s.domainServicesGetter
 		},

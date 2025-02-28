@@ -12,8 +12,8 @@ import (
 // LogSinkState is the model state required by the provide service. This is
 // the model database state, not the controller state.
 type LogSinkState interface {
-	// GetModel returns a the model info.
-	GetModel(context.Context) (coremodel.ModelInfo, error)
+	// GetModelInfo returns a the model info.
+	GetModelInfo(context.Context, coremodel.UUID) (coremodel.ModelInfo, error)
 }
 
 // LogSinkService defines a service for interacting with the underlying model
@@ -33,6 +33,6 @@ func NewLogSinkService(st LogSinkState) *LogSinkService {
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model is not found for a given uuid.
-func (s *LogSinkService) Model(ctx context.Context) (coremodel.ModelInfo, error) {
-	return s.st.GetModel(ctx)
+func (s *LogSinkService) Model(ctx context.Context, modelUUID coremodel.UUID) (coremodel.ModelInfo, error) {
+	return s.st.GetModelInfo(ctx, modelUUID)
 }

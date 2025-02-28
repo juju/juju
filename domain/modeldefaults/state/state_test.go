@@ -39,6 +39,9 @@ var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
+
+	s.SeedControllerUUID(c)
+
 	s.modelUUID = modelstatetesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-defaults")
 
 	var cloudUUIDStr, cloudName, cloudRegionName string
