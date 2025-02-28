@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/pki/ssh"
 	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage"
@@ -60,14 +61,9 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 		return nil, nil, errors.AlreadyExistsf("model %s", modelUUID)
 	}
 
-	// Unfortunately a version was released that exports v4 models
-	// with the Type field blank. Treat this as IAAS.
-	modelType := ModelTypeIAAS
-	if model.Type() != "" {
-		modelType, err = ParseModelType(model.Type())
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
+	modelType, err := ParseModelType(model.Type())
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Create the model.
@@ -2855,20 +2851,74 @@ func (i *importer) remoteSecrets() error {
 
 func (i *importer) virtualHostKeys() error {
 	i.logger.Debugf("importing virtual host key")
-	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
-	}
-	migration.Add(func() error {
-		m := ImportVirtualHostKeys{}
-		return m.Execute(stateModelNamspaceShim{
-			Model: migration.src,
-			st:    i.st,
-		}, migration.dst)
-	})
-	if err := migration.Run(); err != nil {
-		return errors.Trace(err)
+
+	vhKeys := i.model.VirtualHostKeys()
+	// Generate virtual host keys when migrating from an old controller.
+	if len(vhKeys) == 0 {
+		if err := i.generateMissingVirtualHostKeys(); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		migration := &ImportStateMigration{
+			src: i.model,
+			dst: i.st.db(),
+		}
+		migration.Add(func() error {
+			m := ImportVirtualHostKeys{}
+			return m.Execute(stateModelNamspaceShim{
+				Model: migration.src,
+				st:    i.st,
+			}, migration.dst)
+		})
+		if err := migration.Run(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	i.logger.Debugf("importing virtual host key succeeded")
 	return nil
+}
+
+func (i *importer) generateMissingVirtualHostKeys() error {
+	machines := i.model.Machines()
+	modelUUID := i.model.Tag().Id()
+
+	var ops []txn.Op
+	for _, machine := range machines {
+		key, err := ssh.NewMarshalledED25519()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		addOps, err := newMachineVirtualHostKeysOps(modelUUID, machine.Id(), key)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, addOps...)
+	}
+
+	modelType, err := ParseModelType(i.model.Type())
+	if err != nil {
+		return errors.Annotate(err, "unknown model type")
+	}
+
+	if modelType == ModelTypeCAAS {
+		var units []*Unit
+		for _, apps := range i.applicationUnits {
+			for _, unit := range apps {
+				units = append(units, unit)
+			}
+		}
+		// add host keys for CaaS units.
+		for _, unit := range units {
+			key, err := ssh.NewMarshalledED25519()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			addOps, err := newUnitVirtualHostKeysOps(modelUUID, unit.Tag().Id(), key)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ops = append(ops, addOps...)
+		}
+	}
+	return errors.Trace(i.st.db().RunTransaction(ops))
 }

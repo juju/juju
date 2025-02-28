@@ -3026,30 +3026,6 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 	checkScope(wpLogUnit, logWpRel, true)
 }
 
-func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
-	testModel, err := s.State.Export(map[string]string{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newConfig := testModel.Config()
-	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
-	newConfig["name"] = "something-new"
-	noTypeModel := description.NewModel(description.ModelArgs{
-		Type:               "",
-		Owner:              testModel.Owner(),
-		Config:             newConfig,
-		LatestToolsVersion: testModel.LatestToolsVersion(),
-		EnvironVersion:     testModel.EnvironVersion(),
-		Blocks:             testModel.Blocks(),
-		Cloud:              testModel.Cloud(),
-		CloudRegion:        testModel.CloudRegion(),
-	})
-	imported, newSt, err := s.Controller.Import(noTypeModel)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { _ = newSt.Close() }()
-
-	c.Assert(imported.Type(), gc.Equals, state.ModelTypeIAAS)
-}
-
 func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesBefore2935(c *gc.C) {
 	defaultBase, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.7.8"))
 	c.Assert(ok, jc.IsFalse, gc.Commentf("value: %q", defaultBase))
@@ -3544,7 +3520,23 @@ func (s *MigrationImportSuite) TestVirtualHostKeys(c *gc.C) {
 	newVirtualHostKey, err := newSt.MachineVirtualHostKey(machineTag.Id())
 	c.Assert(err, gc.IsNil)
 	c.Assert(newVirtualHostKey.HostKey(), gc.DeepEquals, testHostKey)
+}
 
+func (s *MigrationImportSuite) TestGenerateMissingVirtualHostKeys(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	existingVirtualHostKey, err := s.State.MachineVirtualHostKey(machine.Tag().Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(existingVirtualHostKey.HostKey()), gc.Equals, "fake-host-key")
+
+	state.RemoveVirtualHostKey(c, s.State, existingVirtualHostKey)
+
+	_, newSt := s.importModel(c, s.State)
+
+	newVirtualHostKey, err := newSt.MachineVirtualHostKey(machine.Tag().Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(newVirtualHostKey.HostKey()), gc.Matches, `(?s)-----BEGIN OPENSSH PRIVATE KEY-----.*`)
 }
 
 // newModel replaces the uuid and name of the config attributes so we
