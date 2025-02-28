@@ -12,6 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -37,6 +38,36 @@ func NewMockSystemState(ctrl *gomock.Controller) *MockSystemState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSystemState) EXPECT() *MockSystemStateMockRecorder {
 	return m.recorder
+}
+
+// ControllerConfig mocks base method.
+func (m *MockSystemState) ControllerConfig() (controller.Config, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret0, _ := ret[0].(controller.Config)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerConfig indicates an expected call of ControllerConfig.
+func (mr *MockSystemStateMockRecorder) ControllerConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockSystemState)(nil).ControllerConfig))
+}
+
+// SSHServerHostKey mocks base method.
+func (m *MockSystemState) SSHServerHostKey() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SSHServerHostKey")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SSHServerHostKey indicates an expected call of SSHServerHostKey.
+func (mr *MockSystemStateMockRecorder) SSHServerHostKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SSHServerHostKey", reflect.TypeOf((*MockSystemState)(nil).SSHServerHostKey))
 }
 
 // WatchControllerConfig mocks base method.
