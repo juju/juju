@@ -280,9 +280,9 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 	appId := applicationtesting.GenApplicationUUID(c)
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(appId, nil)
 	s.applicationService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appId).Return(map[coreunit.Name]status.StatusInfo{
-		coreunit.Name("gitlab/0"): {Status: status.Active},
-		coreunit.Name("gitlab/1"): {Status: status.Maintenance},
-		coreunit.Name("gitlab/2"): {Status: status.Unknown},
+		"gitlab/0": {Status: status.Active},
+		"gitlab/1": {Status: status.Maintenance},
+		"gitlab/2": {Status: status.Unknown},
 	}, nil)
 
 	result, err := s.api.Units(context.Background(), params.Entities{
@@ -292,7 +292,7 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Units, gc.DeepEquals, []params.CAASUnitInfo{
+	c.Assert(result.Results[0].Units, jc.SameContents, []params.CAASUnitInfo{
 		{
 			Tag: "unit-gitlab-0",
 			UnitStatus: &params.UnitStatus{
