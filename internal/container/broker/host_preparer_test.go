@@ -81,8 +81,8 @@ type stubBridger struct {
 
 var _ network.Bridger = (*stubBridger)(nil)
 
-func (br *stubBridger) Bridge(devices []network.DeviceToBridge, reconfigureDelay int) error {
-	br.Stub.MethodCall(br, "Bridge", devices, reconfigureDelay)
+func (br *stubBridger) Bridge(devices []network.DeviceToBridge) error {
+	br.Stub.MethodCall(br, "Bridge", devices)
 	if err := br.Stub.NextErr(); err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *gc.C) {
 			FuncName: "CreateBridger",
 		}, {
 			FuncName: "Bridge",
-			Args:     []interface{}{devices, 0},
+			Args:     []interface{}{devices},
 		}, {
 			FuncName: "ObserveNetwork",
 		}, {
@@ -244,7 +244,7 @@ func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *gc.C) {
 			FuncName: "CreateBridger",
 		}, {
 			FuncName: "Bridge",
-			Args:     []interface{}{devices, 0},
+			Args:     []interface{}{devices},
 		}, {
 			FuncName: "ObserveNetwork",
 			// We don't call SetHostMachineNetworkConfig if ObserveNetwork returns nothing
@@ -354,7 +354,7 @@ func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *gc.C) {
 			FuncName: "CreateBridger",
 		}, {
 			FuncName: "Bridge",
-			Args:     []interface{}{devices, 0},
+			Args:     []interface{}{devices},
 		}, {
 			// We don't observe the network information.
 			// TODO(jam): 2017-02-15 This is possibly wrong, we might consider
@@ -392,7 +392,7 @@ func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *gc.C) {
 			FuncName: "CreateBridger",
 		}, {
 			FuncName: "Bridge",
-			Args:     []interface{}{devices, 0},
+			Args:     []interface{}{devices},
 		}, {
 			FuncName: "ObserveNetwork",
 		}, {
@@ -429,7 +429,7 @@ func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *gc.C) {
 			FuncName: "CreateBridger",
 		}, {
 			FuncName: "Bridge",
-			Args:     []interface{}{devices, 0},
+			Args:     []interface{}{devices},
 		}, {
 			FuncName: "ObserveNetwork",
 		}, {
