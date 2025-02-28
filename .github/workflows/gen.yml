@@ -1,7 +1,7 @@
 name: "Generate"
 on:
   push:
-    branches: [2.*, 3.*, 4.*, main]
+    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -11,9 +11,6 @@ on:
       - 'Makefile'
       - 'make_functions.sh'
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   Generate:
@@ -28,8 +25,8 @@ jobs:
       - name: "Set up Go"
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
-          cache: true
+          go-version-file: "go.mod"
+          cache: false
 
       - name: "Regenerate code"
         shell: bash
@@ -52,7 +49,7 @@ jobs:
         run: |
           # The generation sometimes adds things to go.sum. Tidy to remove these.
           go mod tidy
-          
+
           git add -A
           if [[ -n $(git diff HEAD) ]]; then
             # Print the full diff for debugging purposes

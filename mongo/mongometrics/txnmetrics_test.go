@@ -77,9 +77,10 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 	}
 	c.Assert(metrics, gc.HasLen, 7)
 
-	var dtoMetrics [7]dto.Metric
+	var dtoMetrics [7]*dto.Metric
 	for i, metric := range metrics {
-		err := metric.Write(&dtoMetrics[i])
+		dtoMetrics[i] = &dto.Metric{}
+		err := metric.Write(dtoMetrics[i])
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -114,7 +115,7 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 			UpperBound:      float64ptr(float64(2 * i)),
 		})
 	}
-	expected := []dto.Metric{
+	expected := []*dto.Metric{
 		{
 			Counter: &dto.Counter{Value: float64ptr(1)},
 			Label: []*dto.LabelPair{
@@ -175,10 +176,20 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 			},
 		},
 	}
-	for i := range dtoMetrics {
+	for _, dm := range dtoMetrics {
+		dm.TimestampMs = nil
+		if dm.Counter != nil {
+			dm.Counter.CreatedTimestamp = nil
+		}
+		if dm.Histogram != nil {
+			dm.Histogram.CreatedTimestamp = nil
+		}
+		if dm.Summary != nil {
+			dm.Summary.CreatedTimestamp = nil
+		}
 		var found bool
 		for j := range expected {
-			if !metricsEqual(&dtoMetrics[i], &expected[j]) {
+			if !metricsEqual(dm, expected[j]) {
 				continue
 			}
 			expected = append(expected[:j], expected[j+1:]...)
@@ -186,7 +197,7 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 			break
 		}
 		if !found {
-			c.Errorf("metric %+v not expected", &dtoMetrics[i])
+			c.Errorf("metric %+v not expected", dm)
 		}
 	}
 }

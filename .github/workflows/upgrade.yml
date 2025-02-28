@@ -1,7 +1,7 @@
 name: "Upgrade"
 on:
   push:
-    branches: [3.*]
+    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -14,11 +14,8 @@ on:
       - 'Makefile'
       - 'make_functions.sh'
     branches-ignore:
-      - 'main'
+      - "main"
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   setup:
@@ -72,7 +69,7 @@ jobs:
 
       - name: Setup LXD
         if: matrix.cloud == 'localhost'
-        uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
+        uses: canonical/setup-lxd@2fa6235ef2dfd3288e0de09edac03f2ebf922968
     
       - name: Wait for LXD
         if: matrix.cloud == 'localhost'
@@ -93,8 +90,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
-          cache: true
+          go-version-file: "go.mod"
+          cache: false
 
       - name: Setup Environment
         shell: bash
@@ -132,27 +129,27 @@ jobs:
         if: matrix.cloud == 'microk8s'
         run: |
           set -euxo pipefail
-          
+
           # Become a CA
           mkdir ~/certs
           sudo cp /var/snap/microk8s/current/certs/ca.crt ~/certs/
           sudo cp /var/snap/microk8s/current/certs/ca.key ~/certs/
           sudo chmod a+wr ~/certs/ca.crt
           sudo chmod a+wr ~/certs/ca.key
-          
+
           # Recognise CA
           sudo cp ~/certs/ca.crt /usr/local/share/ca-certificates
           sudo update-ca-certificates
-                    
+
           # Generate certs
           openssl req -nodes -newkey rsa:2048 -keyout ~/certs/registry.key -out ~/certs/registry.csr -subj "/CN=registry"
-          
+
           openssl x509 -req -in ~/certs/registry.csr -CA ~/certs/ca.crt -CAkey ~/certs/ca.key \
             -out ~/certs/registry.crt -CAcreateserial -days 365 -sha256 -extfile $GITHUB_WORKSPACE/.github/registry.ext
-          
+
           # Deploy registry
           cat $GITHUB_WORKSPACE/.github/reg.yml | CERT_DIR=$HOME/certs envsubst | sg snap_microk8s "microk8s kubectl create -f -"
-          
+
           # Wait for registry
           sg snap_microk8s "microk8s kubectl wait --for condition=available deployment registry -n container-registry --timeout 180s" || true
           sg snap_microk8s "microk8s kubectl describe pod -n container-registry"
@@ -164,7 +161,7 @@ jobs:
           SOURCE_JUJU_VERSION: ${{ steps.vars.outputs.source-juju-version }}
         run: |
           set -euxo pipefail
-          
+
           # Shim in recognition for our CA to jujud-operator
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
@@ -172,7 +169,7 @@ jobs:
             FROM docker.io/jujusolutions/jujud-operator:${SOURCE_JUJU_VERSION}
           
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
-          
+
             RUN update-ca-certificates
           EOL
           docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
@@ -185,11 +182,11 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          
+
           juju bootstrap localhost c \
             --constraints "arch=$(go env GOARCH)"
           juju version
-          
+
           juju add-model m
           juju set-model-constraints arch=$(go env GOARCH)
           juju status
@@ -202,7 +199,7 @@ jobs:
         # and filter with as standard, instead of skipping over them with this flag
         run: |
           set -euxo pipefail
-          
+
           sg snap_microk8s <<EOF
             juju bootstrap microk8s c \
               --constraints "arch=$(go env GOARCH)" \
@@ -219,17 +216,17 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          
+
           # On k8s, we have to grant the app access to the cluster.
           DEPLOY_FLAGS=''
           if [[ ${{ matrix.cloud }} == 'microk8s' ]]; then
             DEPLOY_FLAGS='--trust'
           fi
-          
+
           juju deploy ${CHARM_${{ matrix.cloud }}} $DEPLOY_FLAGS
-          
+
           juju wait-for application ${CHARM_${{ matrix.cloud }}}
-          
+
           $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.cloud }}}.sh 30
 
       - name: Update Juju
@@ -244,9 +241,9 @@ jobs:
           TARGET_JUJU_VERSION: ${{ needs.setup.outputs.version }}
         run: |
           set -euxo pipefail
-          
+
           make operator-image
-          
+
           # Shim in recognition for our CA to jujud-operator
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
@@ -254,7 +251,7 @@ jobs:
             FROM docker.io/jujusolutions/jujud-operator:${TARGET_JUJU_VERSION}
           
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
-          
+
             RUN update-ca-certificates
           EOL
           docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
@@ -273,7 +270,7 @@ jobs:
           TARGET_JUJU_VERSION: ${{ needs.setup.outputs.version }}
         run: |
           set -euxo pipefail
-          
+
           OUTPUT=$(juju upgrade-controller --debug ${UPGRADE_FLAGS_${{ matrix.cloud }}})
           if [[ $OUTPUT == 'no upgrades available' ]]; then
             exit 1
@@ -286,7 +283,7 @@ jobs:
               juju debug-log --replay --no-tail -m controller
               exit 1
           fi
-          
+
           $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.cloud }}}.sh 30
 
       - name: Test upgrade model
@@ -295,7 +292,7 @@ jobs:
           TARGET_JUJU_VERSION: ${{ needs.setup.outputs.version }}
         run: |
           set -euxo pipefail
-          
+
           while true; do
             juju upgrade-model 2>&1 | tee output.log || true
             RES=$(cat output.log | grep "upgrade in progress" || echo "NOT-UPGRADING")
@@ -303,7 +300,7 @@ jobs:
               break
             fi
           done
-          
+
           attempt=0
           while true; do
             UPDATED=$((juju show-model m --format=json || echo "") | jq -r '.m."agent-version"')
@@ -317,22 +314,22 @@ jobs:
               exit 1
             fi
           done
-          
+
           PANIC=$(juju debug-log --replay --no-tail | grep "panic" || true)
           if [ "$PANIC" != "" ]; then
             echo "Panic found:"
             juju debug-log --replay --no-tail
             exit 1
           fi
-          
+
           $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.cloud }}}.sh 30
 
       - name: Wrap up
         run: |
           set -euxo pipefail
-          
+
           juju version
           juju status
-          
+
           sg snap_microk8s "microk8s kubectl get all -A" || true
           lxc ls || true
