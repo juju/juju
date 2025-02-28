@@ -208,7 +208,7 @@ func (st *State) CreateApplication(
 		); err != nil {
 			return errors.Errorf("inserting or resolving resources for application %q: %w", name, err)
 		}
-		if err := st.insertStorage(ctx, tx, appDetails, args.Storage); err != nil {
+		if err := st.insertApplicationStorage(ctx, tx, appDetails, args.Storage); err != nil {
 			return errors.Errorf("inserting storage for application %q: %w", name, err)
 		}
 		if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
@@ -232,15 +232,22 @@ func (st *State) CreateApplication(
 			}
 		}
 
+		modelType, err := st.GetModelType(ctx)
+		if err != nil {
+			return errors.Errorf("getting model type: %w", err)
+		}
+
 		for _, unit := range units {
 			insertArg := application.InsertUnitArg{
-				UnitName: unit.UnitName,
+				UnitName:        unit.UnitName,
+				Storage:         args.Storage,
+				StoragePoolKind: args.StoragePoolKind,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    unit.UnitStatusArg.AgentStatus,
 					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
 				},
 			}
-			if _, err := st.insertUnit(ctx, tx, appUUID, insertArg); err != nil {
+			if _, err := st.insertUnit(ctx, tx, modelType, appUUID, insertArg); err != nil {
 				return errors.Errorf("adding unit for application %q: %w", appUUID, err)
 			}
 		}
@@ -414,6 +421,12 @@ func (st *State) AddUnits(ctx context.Context, appUUID coreapplication.ID, args 
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		modelType, err := st.GetModelType(ctx)
+		if err != nil {
+			return errors.Errorf("getting model type: %w", err)
+		}
+
+		// TODO(storage) - read and use storage directives
 		for _, arg := range args {
 			insertArg := application.InsertUnitArg{
 				UnitName: arg.UnitName,
@@ -422,7 +435,7 @@ func (st *State) AddUnits(ctx context.Context, appUUID coreapplication.ID, args 
 					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
 				},
 			}
-			if _, err := st.insertUnit(ctx, tx, appUUID, insertArg); err != nil {
+			if _, err := st.insertUnit(ctx, tx, modelType, appUUID, insertArg); err != nil {
 				return errors.Errorf("adding unit for application %q: %w", appUUID, err)
 			}
 		}
@@ -851,7 +864,7 @@ func (st *State) InsertCAASUnit(ctx context.Context, appUUID coreapplication.ID,
 	cloudContainer := makeCloudContainerArg(arg.UnitName, cloudContainerParams)
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		unitLife, err := st.getUnitLife(ctx, tx, arg.UnitName)
+		unitLife, err := st.getUnitNameLife(ctx, tx, arg.UnitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			return st.insertCAASUnit(ctx, tx, appUUID, arg, cloudContainer)
 		} else if err != nil {
@@ -923,7 +936,7 @@ func (st *State) insertCAASUnit(
 		},
 	}
 
-	if _, err := st.insertUnit(ctx, tx, appID, insertArg); err != nil {
+	if _, err := st.insertUnit(ctx, tx, coremodel.CAAS, appID, insertArg); err != nil {
 		return errors.Errorf("inserting unit for CAAS application %q: %w", appID, err)
 	}
 	return nil
@@ -932,7 +945,7 @@ func (st *State) insertCAASUnit(
 // InsertUnit insert the specified application unit, returning an error
 // satisfying [applicationerrors.UnitAlreadyExists] if the unit exists.
 func (st *State) InsertUnit(
-	ctx context.Context, appUUID coreapplication.ID, args application.InsertUnitArg,
+	ctx context.Context, modelType coremodel.ModelType, appUUID coreapplication.ID, args application.InsertUnitArg,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -948,7 +961,7 @@ func (st *State) InsertUnit(
 			return errors.Errorf("looking up unit %q: %w", args.UnitName, err)
 		}
 
-		_, err = st.insertUnit(ctx, tx, appUUID, args)
+		_, err = st.insertUnit(ctx, tx, modelType, appUUID, args)
 		if err != nil {
 			return errors.Errorf("inserting unit for application %q: %w", appUUID, err)
 		}
@@ -961,7 +974,7 @@ func (st *State) InsertUnit(
 }
 
 func (st *State) insertUnit(
-	ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, args application.InsertUnitArg,
+	ctx context.Context, tx *sqlair.TX, modelType coremodel.ModelType, appUUID coreapplication.ID, args application.InsertUnitArg,
 ) (string, error) {
 	unitUUID, err := coreunit.NewUUID()
 	if err != nil {
@@ -1008,6 +1021,9 @@ func (st *State) insertUnit(
 		}
 	}
 
+	if err := st.insertUnitStorage(ctx, tx, modelType, appUUID, unitUUID, nodeUUID.String(), args.Storage, args.StoragePoolKind); err != nil {
+		return "", errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
+	}
 	if err := st.setUnitAgentStatus(ctx, tx, unitUUID, args.AgentStatus); err != nil {
 		return "", errors.Errorf("saving agent status for unit %q: %w", args.UnitName, err)
 	}
@@ -1594,7 +1610,7 @@ func (st *State) GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.
 	var life life.Life
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		life, err = st.getUnitLife(ctx, tx, unitName)
+		life, err = st.getUnitNameLife(ctx, tx, unitName)
 		return errors.Capture(err)
 	})
 	if err != nil {
@@ -1603,7 +1619,7 @@ func (st *State) GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.
 	return life, nil
 }
 
-func (st *State) getUnitLife(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (life.Life, error) {
+func (st *State) getUnitNameLife(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (life.Life, error) {
 	unit := minimalUnit{Name: unitName}
 	queryUnit := `
 SELECT &minimalUnit.life_id
@@ -1623,6 +1639,28 @@ WHERE name = $minimalUnit.name
 		return -1, errors.Errorf("%w: %s", applicationerrors.UnitNotFound, unitName)
 	}
 	return unit.LifeID, nil
+}
+
+func (st *State) getUnitLifeAndNetNode(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) (life.Life, string, error) {
+	unit := minimalUnit{UUID: unitUUID}
+	queryUnit := `
+SELECT &minimalUnit.*
+FROM unit
+WHERE uuid = $minimalUnit.uuid
+`
+	queryUnitStmt, err := st.Prepare(queryUnit, unit)
+	if err != nil {
+		return 0, "", jujuerrors.Trace(err)
+	}
+
+	err = tx.Query(ctx, queryUnitStmt, unit).Get(&unit)
+	if err != nil {
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return 0, "", errors.Errorf("querying unit %q life: %w", unitUUID, err)
+		}
+		return 0, "", errors.Errorf("%w: %s", applicationerrors.UnitNotFound, unitUUID)
+	}
+	return unit.LifeID, unit.NetNodeID, nil
 }
 
 // SetUnitLife sets the life of the specified unit, returning an error

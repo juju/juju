@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -68,7 +69,7 @@ type ApplicationState interface {
 	// InsertUnit insert the specified application unit, returning an error
 	// satisfying [applicationerrors.UnitAlreadyExists]
 	// if the unit exists.
-	InsertUnit(context.Context, coreapplication.ID, application.InsertUnitArg) error
+	InsertUnit(context.Context, coremodel.ModelType, coreapplication.ID, application.InsertUnitArg) error
 
 	// SetUnitPassword updates the password for the specified unit UUID.
 	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
@@ -320,6 +321,34 @@ type ApplicationState interface {
 	) error
 }
 
+func (s *Service) poolStorageProvider(
+	ctx context.Context,
+	registry storage.ProviderRegistry,
+	poolNameOrType string,
+) (storage.Provider, error) {
+	pool, err := s.st.GetStoragePoolByName(ctx, poolNameOrType)
+	if errors.Is(err, storageerrors.PoolNotFoundError) {
+		// If there's no pool called poolNameOrType, maybe a provider type
+		// has been specified directly.
+		providerType := storage.ProviderType(poolNameOrType)
+		aProvider, err1 := registry.StorageProvider(providerType)
+		if err1 != nil {
+			// The name can't be resolved as a storage provider type,
+			// so return the original "pool not found" error.
+			return nil, errors.Trace(err)
+		}
+		return aProvider, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	providerType := storage.ProviderType(pool.Provider)
+	aProvider, err := registry.StorageProvider(providerType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return aProvider, nil
+}
+
 // CreateApplication creates the specified application and units if required,
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
@@ -370,6 +399,29 @@ func (s *Service) CreateApplication(
 		return "", errors.Annotatef(err, "making unit args")
 	}
 
+	// Adding units with storage needs to know the kind of storage supported
+	// by the underlying provider so gather that here as it needs to be
+	// done outside a transaction.
+	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, arg := range appArg.Storage {
+		if appArg.StoragePoolKind == nil {
+			appArg.StoragePoolKind = make(map[string]storage.StorageKind)
+		}
+		p, err := s.poolStorageProvider(ctx, registry, arg.PoolNameOrType)
+		if err != nil {
+			return "", err
+		}
+		for _, k := range []storage.StorageKind{
+			storage.StorageKindFilesystem, storage.StorageKindBlock,
+		} {
+			if p.Supports(k) {
+				appArg.StoragePoolKind[arg.PoolNameOrType] = k
+			}
+		}
+	}
 	appID, err := s.st.CreateApplication(ctx, name, appArg, unitArgs)
 	if err != nil {
 		return "", errors.Annotatef(err, "creating application %q", name)
@@ -606,12 +658,12 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 	return result
 }
 
-// makeStorageArgs creates a slice of AddApplicationStorageArg from a map of storage directives.
-func makeStorageArgs(storage map[string]storage.Directive) []application.AddApplicationStorageArg {
-	var result []application.AddApplicationStorageArg
+// makeStorageArgs creates a slice of ApplicationStorageArg from a map of storage directives.
+func makeStorageArgs(storage map[string]storage.Directive) []application.ApplicationStorageArg {
+	var result []application.ApplicationStorageArg
 	for name, stor := range storage {
-		result = append(result, application.AddApplicationStorageArg{
-			Name:           name,
+		result = append(result, application.ApplicationStorageArg{
+			Name:           corestorage.Name(name),
 			PoolNameOrType: stor.Pool,
 			Size:           stor.Size,
 			Count:          stor.Count,

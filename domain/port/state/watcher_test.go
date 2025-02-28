@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -13,9 +14,11 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/internal/logger"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type watcherSuite struct {
@@ -31,9 +34,19 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
-	err := machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
+	err = machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machineUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
