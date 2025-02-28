@@ -10,19 +10,35 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 // State describes retrieval and persistence methods for relations.
-type State interface{}
+type State interface {
+	// GetRelationEndpointUUID retrieves the unique identifier for a specific
+	// relation endpoint based on the provided arguments.
+	GetRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (corerelation.EndpointUUID, error)
+
+	// WatcherApplicationSettingsNamespace provides the table name to set up
+	// watchers for relation application settings.
+	WatcherApplicationSettingsNamespace() string
+}
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
 type WatcherFactory interface {
+	// NewValueWatcher creates a watcher for the specified namespace and UUID,
+	// observing changes matching the provided mask.
+	NewValueWatcher(
+		namespace, uuid string, changeMask changestream.ChangeType,
+	) (watcher.NotifyWatcher, error)
 }
 
 // Service provides the API for working with relations.
@@ -117,6 +133,21 @@ func (s *Service) GetRelationEndpoints(ctx context.Context, id application.ID) (
 	return nil, errors.NotImplemented
 }
 
+// getRelationEndpointUUID retrieves the unique identifier for a specific
+// relation endpoint based on the provided arguments.
+func (s *Service) getRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (
+	corerelation.EndpointUUID, error) {
+	if err := args.RelationUUID.Validate(); err != nil {
+		return "", internalerrors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	if err := args.ApplicationID.Validate(); err != nil {
+		return "", internalerrors.Errorf(
+			"%w:%w", relationerrors.ApplicationIDNotValid, err)
+	}
+	return s.st.GetRelationEndpointUUID(ctx, args)
+}
+
 // GetRelationID returns the relation ID for the given relation UUID.
 func (s *Service) GetRelationID(ctx context.Context, relationUUID corerelation.UUID) int {
 	return -1
@@ -130,14 +161,14 @@ func (s *Service) GetRelationStatus(
 	return corestatus.StatusInfo{}, errors.NotImplemented
 }
 
-// RelationString returns a key identifier for the given relation UUID.
+// GetRelationString returns a key identifier for the given relation UUID.
 // The key describes the relation defined by endpoints in sorted order.
 // Note: See the state.relationKey() function.
 func (s *Service) GetRelationString(ctx context.Context, relationUUID corerelation.UUID) string {
 	return ""
 }
 
-// RelationTag returns the tag for the given relation UUID.
+// GetRelationTag returns the tag for the given relation UUID.
 func (s *Service) GetRelationTag(ctx context.Context, relationUUID corerelation.UUID) names.Tag {
 	return names.NewRelationTag(s.GetRelationString(ctx, relationUUID))
 }
@@ -152,7 +183,7 @@ func (s *Service) GetRelationUnit(
 	return "", errors.NotImplemented
 }
 
-// GetRelationApplicationSettings returns the application settings for the
+// GetRelationUnitSettings returns the application settings for the
 // given unit and relation identifier combination.
 func (s *Service) GetRelationUnitSettings(
 	ctx context.Context,
@@ -174,7 +205,7 @@ func (s *Service) LeaveScope(ctx context.Context, relationID corerelation.UnitUU
 
 // ReestablishRelation brings the given relation back to normal after
 // suspension, any reason given for the suspension is cleared.
-func (s Service) ReestablishRelation(ctx context.Context, relationUUID corerelation.UUID) error {
+func (s *Service) ReestablishRelation(ctx context.Context, relationUUID corerelation.UUID) error {
 	return errors.NotImplemented
 }
 
@@ -200,7 +231,7 @@ func (s *Service) RelationUnitInScope(ctx context.Context, relationUnitUUID core
 	return false, errors.NotImplemented
 }
 
-// RelationUnitInScope returns a boolean to indicate whether the given
+// RelationUnitValid returns a boolean to indicate whether the given
 // relation unit is in scope.
 func (s *Service) RelationUnitValid(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (bool, error) {
 	return false, errors.NotImplemented
@@ -268,7 +299,16 @@ func (s *WatchableService) WatchApplicationSettings(
 	relationUUID corerelation.UUID,
 	applicationID application.ID,
 ) (watcher.NotifyWatcher, error) {
-	return nil, errors.NotImplemented
+	relationEndpointUUID, err := s.getRelationEndpointUUID(ctx, relation.GetRelationEndpointUUIDArgs{
+		RelationUUID:  relationUUID,
+		ApplicationID: applicationID,
+	})
+	if err != nil {
+		return nil, internalerrors.Capture(internalerrors.Errorf("watch application settings: %w", err))
+	}
+	return s.watcherFactory.NewValueWatcher(
+		s.st.WatcherApplicationSettingsNamespace(), relationEndpointUUID.String(),
+		changestream.All)
 }
 
 // WatchLifeSuspendedStatus returns a watcher that notifies of changes to the life

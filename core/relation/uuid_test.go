@@ -79,7 +79,46 @@ func (*relationUnitUUIDSuite) TestUUIDValidate(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %q", i, test.uuid)
-		err := UUID(test.uuid).Validate()
+		err := UnitUUID(test.uuid).Validate()
+
+		if test.err == nil {
+			c.Check(err, gc.IsNil)
+			continue
+		}
+
+		c.Check(err, jc.ErrorIs, test.err)
+	}
+}
+
+type relationEndpointUUIDSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&relationEndpointUUIDSuite{})
+
+func (*relationEndpointUUIDSuite) TestUUIDValidate(c *gc.C) {
+	// Test that the uuid.Validate method succeeds and
+	// fails as expected.
+	tests := []struct {
+		uuid string
+		err  error
+	}{
+		{
+			uuid: "",
+			err:  errors.NotValid,
+		},
+		{
+			uuid: "invalid",
+			err:  errors.NotValid,
+		},
+		{
+			uuid: uuid.MustNewUUID().String(),
+		},
+	}
+
+	for i, test := range tests {
+		c.Logf("test %d: %q", i, test.uuid)
+		err := EndpointUUID(test.uuid).Validate()
 
 		if test.err == nil {
 			c.Check(err, gc.IsNil)
