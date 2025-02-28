@@ -27,12 +27,13 @@ type Client struct {
 	presence         facade.Presence
 	leadershipReader leadership.Reader
 
-	blockDeviceService BlockDeviceService
-	networkService     NetworkService
-	modelInfoService   ModelInfoService
-	machineService     MachineService
 	applicationService ApplicationService
+	blockDeviceService BlockDeviceService
+	machineService     MachineService
+	modelInfoService   ModelInfoService
+	networkService     NetworkService
 	portService        PortService
+	relationService    RelationService
 }
 
 // TODO(wallyworld) - remove this method

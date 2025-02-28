@@ -47,6 +47,7 @@ func (s *statusUnitTestSuite) TestStub(c *gc.C) {
 - Status when migration is in progress (assert migration in progress status message is reported).
 - Status with filtered relations (assert relations are filtered accordig to the pattern passed to status).
 - Status with filtered applications, ensure lp#1592872 fix is working.
+- Status with cross model relations
 - TestFilterOutRelationsForRelatedApplicationsThatDoNotMatchCriteriaDirectly
  tests scenario where applications are returned as part of the status because
  they are related to an application that matches given filter.
