@@ -281,7 +281,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *gc.C) {
 	token, err := apitesting.NewJWT(apitesting.JWTParams{
 		Controller: coretesting.ControllerTag.Id(),
 		User:       user.String(),
-		Access: map[string]string{
+		Access: map[string]any{
 			coretesting.ControllerTag.String(): "superuser",
 			coretesting.ModelTag.String():      "write",
 		},
@@ -302,7 +302,7 @@ func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *gc.C) {
 	token, err := apitesting.NewJWT(apitesting.JWTParams{
 		Controller: coretesting.ControllerTag.Id(),
 		User:       user.String(),
-		Access: map[string]string{
+		Access: map[string]any{
 			coretesting.ControllerTag.String(): "superuser",
 			coretesting.ModelTag.String():      "write",
 		},

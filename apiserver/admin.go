@@ -293,6 +293,8 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 			authInfo, err = authenticator.AuthenticateLoginRequest(ctx, a.root.serverHost, modelUUID, authParams)
 			if errors.Is(err, errors.NotSupported) {
 				continue
+			} else if errors.Is(err, errors.NotImplemented) {
+				continue
 			} else if err != nil {
 				return nil, a.handleAuthError(err)
 			}

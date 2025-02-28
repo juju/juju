@@ -35,6 +35,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/jwtparser"
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/syslogger"
 )
@@ -61,6 +62,7 @@ type ManifoldSuite struct {
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubDBGetter
+	jwtParserGetter      jwtparser.Getter
 
 	stub testing.Stub
 }
@@ -87,6 +89,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.leaseManager = &lease.Manager{}
 	s.sysLogger = &mockSysLogger{}
 	s.charmhubHTTPClient = &http.Client{}
+	s.jwtParserGetter = testJWTParserGetter{}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -104,6 +107,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		SyslogName:                        "syslog",
 		CharmhubHTTPClientName:            "charmhub-http-client",
 		DBAccessorName:                    "db-accessor",
+		JWTParserName:                     "jwt-parser",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -128,11 +132,21 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"syslog":               s.sysLogger,
 		"charmhub-http-client": s.charmhubHTTPClient,
 		"db-accessor":          s.dbGetter,
+		"jwt-parser":           s.jwtParserGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
 	}
 	return dt.StubContext(nil, resources)
+}
+
+type testJWTParserGetter struct {
+	parser *jwtparser.JWTParser
+	ok     bool
+}
+
+func (j testJWTParserGetter) Get() (*jwtparser.JWTParser, bool) {
+	return j.parser, j.ok
 }
 
 type mockSysLogger struct {
@@ -158,7 +172,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "modelcache", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
-	"syslog", "charmhub-http-client", "db-accessor",
+	"syslog", "charmhub-http-client", "db-accessor", "jwt-parser",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -228,6 +242,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		SysLogger:                  s.sysLogger,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
+		JWTParserGetter:            s.jwtParserGetter,
 	})
 }
 

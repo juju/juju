@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapiserver "github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/authentication/jwt"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	statetesting "github.com/juju/juju/state/testing"
@@ -102,6 +103,10 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
 
+	jwtAuthenticator := jwt.NewAuthenticator(apiserver.NewJWTParserGetterWrapper(
+		s.jwtParserGetter,
+	))
+
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
 		StatePool:                  s.StatePool,
 		LocalMacaroonAuthenticator: s.authenticator,
@@ -121,5 +126,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		SysLogger:                  s.sysLogger,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
+		JWTAuthenticator:           jwtAuthenticator,
 	})
 }
