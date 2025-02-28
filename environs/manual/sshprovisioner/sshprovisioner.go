@@ -106,9 +106,13 @@ fi`
 // by connecting to the machine and executing a bash script.
 var DetectBaseAndHardwareCharacteristics = detectBaseAndHardwareCharacteristics
 
-func detectBaseAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, base corebase.Base, err error) {
+func detectBaseAndHardwareCharacteristics(host, login string) (hc instance.HardwareCharacteristics, base corebase.Base,
+	err error) {
 	logger.Infof(context.TODO(), "Detecting base and characteristics on %s", host)
-	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
+	if login != "" {
+		host = login + "@" + host
+	}
+	cmd := ssh.Command(host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -179,12 +183,15 @@ func detectBaseAndHardwareCharacteristics(host string) (hc instance.HardwareChar
 // exist on the host machine.
 var CheckProvisioned = checkProvisioned
 
-func checkProvisioned(host string) (bool, error) {
+func checkProvisioned(host, login string) (bool, error) {
 	logger.Infof(context.TODO(), "Checking if %s is already provisioned", host)
 
 	script := service.ListServicesScript()
 
-	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
+	if login != "" {
+		host = login + "@" + host
+	}
+	cmd := ssh.Command(host, []string{"/bin/bash"}, nil)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -216,7 +223,7 @@ cat /proc/cpuinfo`
 // The hostname supplied should not include a username.
 // If we can, we will reverse lookup the hostname by its IP address, and use
 // the DNS resolved name, rather than the name that was supplied
-func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
+func gatherMachineParams(hostname string, login string) (*params.AddMachineParams, error) {
 
 	// Generate a unique nonce for the machine.
 	uuid, err := uuid.NewUUID()
@@ -224,7 +231,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, err
 	}
 
-	provisioned, err := checkProvisioned(hostname)
+	provisioned, err := checkProvisioned(hostname, login)
 	if err != nil {
 		return nil, errors.Annotatef(err, "error checking if provisioned")
 	}
@@ -232,7 +239,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, manual.ErrProvisioned
 	}
 
-	hc, machineBase, err := DetectBaseAndHardwareCharacteristics(hostname)
+	hc, machineBase, err := DetectBaseAndHardwareCharacteristics(hostname, login)
 	if err != nil {
 		return nil, errors.Annotatef(err, "error detecting linux hardware characteristics")
 	}
