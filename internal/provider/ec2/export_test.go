@@ -71,7 +71,9 @@ var (
 	DestroyVolumeAttempt           = &destroyVolumeAttempt
 	DeleteSecurityGroupInsistently = &deleteSecurityGroupInsistently
 	TerminateInstancesById         = &terminateInstancesById
-	MaybeConvertCredentialError    = maybeConvertCredentialError
+
+	IsAuthorizationError      = isAuthorizationError
+	ConvertAuthorizationError = convertAuthorizationError
 )
 
 const (
@@ -91,6 +93,6 @@ func (s *stubAccountAPIClient) DescribeAccountAttributes(
 	return nil, errors.New("boom")
 }
 
-func VerifyCredentials(ctx envcontext.ProviderCallContext) error {
-	return verifyCredentials(&stubAccountAPIClient{}, ctx)
+func VerifyCredentials(ctx context.Context, invalidator environs.CredentialInvalidator) error {
+	return verifyCredentials(ctx, invalidator, &stubAccountAPIClient{})
 }

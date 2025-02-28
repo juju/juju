@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -139,8 +140,8 @@ func selectorInstanceTypeFilter(selector instanceType) instanceTypeFilter {
 // generalPurposeInstanceFilter supplies a filter that is capable of filtering
 // only on machines that are considered general purpose enough for Juju to use
 // as a sane default.
-func generalPurposeInstanceFilter(
-	ctx envcontext.ProviderCallContext,
+func (e *environ) generalPurposeInstanceFilter(
+	ctx context.Context,
 	cache *instanceTypeCache,
 ) (instanceTypeFilter, error) {
 	highestGenerationIntel, err := cache.HighestFamilyGeneration(
@@ -258,7 +259,7 @@ func parseInstanceType(instType types.InstanceType) (instanceType, error) {
 }
 
 // populateCache loads aws instance type info the region into the cache
-func (c *instanceTypeCache) populateCache(ctx envcontext.ProviderCallContext) error {
+func (c *instanceTypeCache) populateCache(ctx context.Context) error {
 	c.populateMutex.Lock()
 	defer c.populateMutex.Unlock()
 
@@ -292,7 +293,7 @@ func newInstanceTypeCache(ec2Client Client, region string) *instanceTypeCache {
 // provided aws ec2 family. If no generation is found for the family then an
 // error satisfying NotFound is returned.
 func (c *instanceTypeCache) HighestFamilyGeneration(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	family,
 	processor string,
 ) (int, error) {
@@ -310,7 +311,9 @@ func (c *instanceTypeCache) HighestFamilyGeneration(
 
 // InstanceTypesInfo returns the cached instance type info or an error if there
 // was a problem loading the cache.
-func (c *instanceTypeCache) InstanceTypesInfo(ctx envcontext.ProviderCallContext) ([]types.InstanceTypeInfo, error) {
+func (c *instanceTypeCache) InstanceTypesInfo(
+	ctx context.Context,
+) ([]types.InstanceTypeInfo, error) {
 	if err := c.populateCache(ctx); err != nil {
 		return nil, err
 	}
@@ -322,7 +325,7 @@ func (e *environ) InstanceTypes(ctx envcontext.ProviderCallContext, c constraint
 	iTypeFilter := allInstanceTypeFilter()
 	iTypes, err := e.supportedInstanceTypes(ctx, iTypeFilter)
 	if err != nil {
-		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
+		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(e.HandleCredentialError(ctx, err))
 	}
 	iTypes, err = instances.MatchingInstanceTypes(iTypes, "", c)
 	if err != nil {
@@ -391,7 +394,7 @@ func archName(in types.ArchitectureType) string {
 }
 
 func (e *environ) supportedInstanceTypes(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	filter instanceTypeFilter,
 ) ([]instances.InstanceType, error) {
 	instanceTypes, err := e.instanceTypeCache().InstanceTypesInfo(ctx)

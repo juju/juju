@@ -38,11 +38,9 @@ func (environProvider) Version() int {
 
 // Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
-	logger.Debugf(context.TODO(), "opening model %q", args.Config.Name())
+	logger.Debugf(ctx, "opening model %q", args.Config.Name())
 
-	e := newEnviron()
-	e.name = args.Config.Name()
-	e.controllerUUID = args.ControllerUUID
+	e := newEnviron(args.Config.Name(), args.ControllerUUID, invalidator)
 
 	namespace, err := instance.NewNamespace(args.Config.UUID())
 	if err != nil {
@@ -139,61 +137,110 @@ page in the AWS console: %w
 // verify the configured credentials. If verification fails, a user-friendly
 // error will be returned, and the original error will be logged at debug
 // level.
-var verifyCredentials = func(e Client, ctx envcontext.ProviderCallContext) error {
+var verifyCredentials = func(ctx context.Context, invalidator environs.CredentialInvalidator, e Client) error {
 	_, err := e.DescribeAccountAttributes(ctx, nil)
-	return maybeConvertCredentialError(err, ctx)
-}
-
-// maybeConvertCredentialError examines the error received from the provider.
-// Authentication related errors conform to common.ErrorCredentialNotValid.
-// Authorisation related errors are annotated with an additional
-// user-friendly explanation.
-// All other errors are returned un-wrapped and not annotated.
-var maybeConvertCredentialError = func(err error, ctx envcontext.ProviderCallContext) error {
 	if err == nil {
 		return nil
 	}
 
-	if errors.Is(err, common.ErrorCredentialNotValid) {
-		return err
+	converted := convertAuthorizationError(err)
+	if invalidator == nil {
+		return converted
 	}
 
-	convert := func(converted error) error {
-		callbackErr := ctx.InvalidateCredential(converted.Error())
-		if callbackErr != nil {
-			// We want to proceed with the actual processing but still keep a log of a problem.
-			logger.Infof(context.TODO(), "callback to invalidate model credential failed with %v", converted)
-		}
-		return converted
+	reason := environs.CredentialInvalidReason(converted.Error())
+	return invalidator.InvalidateCredentials(ctx, reason)
+}
+
+// isAuthorizationError returns true if the error is an authorization error.
+// This is used to determine if the error is related to the credentials used
+// to authenticate with the cloud.
+func isAuthorizationError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if errors.Is(err, common.ErrorCredentialNotValid) {
+		return true
+	}
+
+	switch ec2ErrCode(err) {
+	case "AuthFailure", "InvalidClientTokenId", "MissingAuthenticationToken", "Blocked",
+		"CustomerKeyHasBeenRevoked", "PendingVerification", "SignatureDoesNotMatch":
+		return true
+	default:
+		return false
+	}
+}
+
+func convertAuthorizationError(err error) error {
+	// If the error is nil, there's nothing to convert.
+	if err == nil {
+		return nil
+	}
+
+	// Don't convert an error that's already been converted.
+	if errors.Is(err, common.ErrorCredentialNotValid) {
+		return err
 	}
 
 	// EC2 error codes are from https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.
 	switch ec2ErrCode(err) {
 	case "AuthFailure":
-		return convert(fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err)))
+		return fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err))
 	case "InvalidClientTokenId":
-		return convert(fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err)))
+		return fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err))
 	case "MissingAuthenticationToken":
-		return convert(fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err)))
+		return fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err))
 	case "Blocked":
-		return convert(
-			fmt.Errorf("\nYour Amazon account is currently blocked.: %w",
-				common.CredentialNotValidError(err)),
-		)
+		return fmt.Errorf("\nYour Amazon account is currently blocked.: %w",
+			common.CredentialNotValidError(err))
+
 	case "CustomerKeyHasBeenRevoked":
-		return convert(
-			fmt.Errorf("\nYour Amazon keys have been revoked.: %w",
-				common.CredentialNotValidError(err)),
-		)
+		return fmt.Errorf("\nYour Amazon keys have been revoked.: %w",
+			common.CredentialNotValidError(err))
+
 	case "PendingVerification":
-		return convert(
-			fmt.Errorf("\nYour account is pending verification by Amazon.: %w",
-				common.CredentialNotValidError(err)),
-		)
+		return fmt.Errorf("\nYour account is pending verification by Amazon.: %w",
+			common.CredentialNotValidError(err))
+
 	case "SignatureDoesNotMatch":
-		return convert(fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err)))
+		return fmt.Errorf(badKeysFormat, common.CredentialNotValidError(err))
 	default:
 		// This error is unrelated to access keys, account or credentials...
 		return err
 	}
+}
+
+type credentialInvalidator struct {
+	invalidator common.CredentialInvalidator
+}
+
+// newCredentialInvalidator returns a new credentialInvalidator that provides
+// a user-friendly message when the error is related to the credentials.
+func newCredentialInvalidator(invalidator common.CredentialInvalidator) credentialInvalidator {
+	return credentialInvalidator{
+		invalidator: invalidator,
+	}
+}
+
+// InvalidateCredentials invalidates the credentials.
+// This updates the error to include a user-friendly message if the error is
+// related to the credentials.
+func (c credentialInvalidator) InvalidateCredentials(ctx context.Context, reason environs.CredentialInvalidReason) error {
+	return c.invalidator.InvalidateCredentials(ctx, reason)
+}
+
+// HandleCredentialError determines if a given error relates to an invalid
+// credential. If it is, the credential is invalidated and the error is
+// update to include a user-friendly message.
+func (c credentialInvalidator) HandleCredentialError(ctx context.Context, err error) error {
+	return c.invalidator.HandleCredentialError(ctx, convertAuthorizationError(err))
+}
+
+// MaybeInvalidateCredentialError determines if a given error relates to an invalid
+// credential. If it is, the credential is invalidated and the error is
+// update to include a user-friendly message.
+func (c credentialInvalidator) MaybeInvalidateCredentialError(ctx context.Context, err error) (bool, error) {
+	return c.invalidator.MaybeInvalidateCredentialError(ctx, convertAuthorizationError(err))
 }

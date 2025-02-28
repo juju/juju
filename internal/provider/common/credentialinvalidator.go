@@ -30,28 +30,43 @@ type AuthErrorFunc func(error) bool
 // credentialInvalidator is used to invalidate the credentials
 // when necessary. This will cause the provider to be unable to
 // perform any operations until the credentials are updated/fixed.
-type CredentialInvalidator struct {
+type CredentialInvalidator interface {
+	// InvalidateCredentials invalidates the credentials.
+	InvalidateCredentials(ctx context.Context, reason environs.CredentialInvalidReason) error
+
+	// HandleCredentialError determines if a given error relates to an invalid
+	// credential. If it is, the credential is invalidated and the returns the
+	// origin error.
+	HandleCredentialError(ctx context.Context, err error) error
+
+	// MaybeInvalidateCredentialError determines if a given error relates to an
+	// invalid credential. If it is, the credential is invalidated and the return
+	// bool is true and the origin error.
+	MaybeInvalidateCredentialError(ctx context.Context, err error) (bool, error)
+}
+
+type credentialInvalidator struct {
 	invalidator environs.CredentialInvalidator
 	authError   AuthErrorFunc
 }
 
 // NewCredentialInvalidator returns a new CredentialInvalidator.
 func NewCredentialInvalidator(invalidator environs.CredentialInvalidator, authError AuthErrorFunc) CredentialInvalidator {
-	return CredentialInvalidator{
+	return credentialInvalidator{
 		invalidator: invalidator,
 		authError:   authError,
 	}
 }
 
 // InvalidateCredentials invalidates the credentials.
-func (c CredentialInvalidator) InvalidateCredentials(ctx context.Context, reason environs.CredentialInvalidReason) error {
+func (c credentialInvalidator) InvalidateCredentials(ctx context.Context, reason environs.CredentialInvalidReason) error {
 	return c.invalidator.InvalidateCredentials(ctx, reason)
 }
 
 // HandleCredentialError determines if a given error relates to an invalid
 // credential. If it is, the credential is invalidated and the returns the
 // origin error.
-func (c CredentialInvalidator) HandleCredentialError(ctx context.Context, err error) error {
+func (c credentialInvalidator) HandleCredentialError(ctx context.Context, err error) error {
 	_, invalidErr := HandleCredentialError(ctx, c.invalidator, c.authError, errors.Trace(err))
 	return invalidErr
 }
@@ -59,7 +74,7 @@ func (c CredentialInvalidator) HandleCredentialError(ctx context.Context, err er
 // MaybeInvalidateCredentialError determines if a given error relates to an
 // invalid credential. If it is, the credential is invalidated and the return
 // bool is true and the origin error.
-func (c CredentialInvalidator) MaybeInvalidateCredentialError(ctx context.Context, err error) (bool, error) {
+func (c credentialInvalidator) MaybeInvalidateCredentialError(ctx context.Context, err error) (bool, error) {
 	return HandleCredentialError(ctx, c.invalidator, c.authError, errors.Trace(err))
 }
 
@@ -89,6 +104,9 @@ func HandleCredentialError(ctx context.Context, invalidator environs.CredentialI
 		return false, err
 	}
 
+	// TODO (stickupkid): We should remove the `errors.Cause` and let the caller
+	// handle this, otherwise we could be dropping vital information when each
+	// provider checks the error.
 	if denied := isAuthError(errors.Cause(err)); denied {
 		converted := fmt.Errorf("cloud denied access: %w", CredentialNotValidError(err))
 		invalidateErr := invalidator.InvalidateCredentials(ctx, environs.CredentialInvalidReason(converted.Error()))
