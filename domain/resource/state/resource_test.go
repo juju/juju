@@ -1913,14 +1913,14 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 		{
 			Name: unit.Name(s.constants.fakeUnitName1),
 			Resources: []coreresource.Resource{
-				withUnit1AvailableRes.toResource(s),
-				withUnitBisAvailableRes.toResource(s),
+				withUnit1AvailableRes.toResource(s, c),
+				withUnitBisAvailableRes.toResource(s, c),
 			},
 		},
 		{
 			Name: unit.Name(s.constants.fakeUnitName2),
 			Resources: []coreresource.Resource{
-				withUnit2AvailableRes.toResource(s),
+				withUnit2AvailableRes.toResource(s, c),
 			},
 		},
 		{
@@ -1929,14 +1929,14 @@ func (s *resourceSuite) TestListResources(c *gc.C) {
 		},
 	})
 	c.Check(results.Resources, gc.DeepEquals, []coreresource.Resource{
-		noUnitAvailableRes.toResource(s),
-		withUnit1AvailableRes.toResource(s),
+		noUnitAvailableRes.toResource(s, c),
+		withUnit1AvailableRes.toResource(s, c),
 		// withUnit2AvailableRes is the same resource as above on another unit
-		withUnitBisAvailableRes.toResource(s),
+		withUnitBisAvailableRes.toResource(s, c),
 	})
 	c.Check(results.RepositoryResources, gc.DeepEquals, []charmresource.Resource{
-		noUnitPotentialRes.toCharmResource(),
-		withUnitPotentialRes.toCharmResource(),
+		noUnitPotentialRes.toCharmResource(c),
+		withUnitPotentialRes.toCharmResource(c),
 	})
 }
 
@@ -2030,11 +2030,11 @@ func (s *resourceSuite) TestGetResourcesByApplicationID(c *gc.C) {
 	// Assert
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
 	c.Assert(results, gc.DeepEquals, []coreresource.Resource{
-		simpleRes.toResource(s),
-		polledRes.toResource(s),
-		unitRes.toResource(s),
-		bothRes.toResource(s),
-		anotherUnitRes.toResource(s),
+		simpleRes.toResource(s, c),
+		polledRes.toResource(s, c),
+		unitRes.toResource(s, c),
+		bothRes.toResource(s, c),
+		anotherUnitRes.toResource(s, c),
 	})
 }
 
@@ -2079,7 +2079,7 @@ func (s *resourceSuite) TestGetResourcesByApplicationIDWithStatePotential(c *gc.
 	// Assert
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
 	c.Assert(results, gc.DeepEquals, []coreresource.Resource{
-		availableRes.toResource(s),
+		availableRes.toResource(s, c),
 		// potential resources are not returned
 	})
 }
@@ -2898,6 +2898,139 @@ func (s *resourceSuite) TestImportResourcesOriginNotValid(c *gc.C) {
 	c.Check(err, jc.ErrorIs, resourceerrors.OriginNotValid)
 }
 
+// TestExportResources tests the retrieval and organization of resources from the
+// database.
+func (s *resourceSuite) TestExportResources(c *gc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Arrange : Insert several resources
+	// - 1 with no unit
+	// - 1 associated with two units (state available)
+	// - 1 associated with one unit (state available)
+	resource1 := resourceData{
+		UUID:            "resource-1-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "resource-1",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		OriginType:      "store",
+		Revision:        17,
+		Size:            100,
+		SHA384:          fp.String(),
+		RetrievedByName: "retrieved-by-name",
+		ObjectStoreUUID: "object-store-uuid",
+	}
+	unit1Resource1 := resourceData{
+		UUID:            "resource-1-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "resource-1",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		UnitUUID:        s.constants.fakeUnitUUID1,
+	}
+	unit2Resource1 := resourceData{
+		UUID:            "resource-1-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "resource-1",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		UnitUUID:        s.constants.fakeUnitUUID2,
+	}
+	resource2 := resourceData{
+		UUID:                     "resource-2",
+		ApplicationUUID:          s.constants.fakeApplicationUUID1,
+		Name:                     "resource-2",
+		CreatedAt:                now,
+		Type:                     charmresource.TypeContainerImage,
+		OriginType:               "upload",
+		RetrievedByName:          "retrieved-by-name",
+		ContainerImageStorageKey: "container-image-store-uuid",
+		Size:                     200,
+		SHA384:                   fp.String(),
+	}
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		for _, input := range []resourceData{
+			resource1,
+			unit1Resource1,
+			unit2Resource1,
+			resource2,
+		} {
+			if err := input.insert(context.Background(), tx); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+
+	// Act
+	exportedResources, err := s.state.ExportResources(context.Background(), s.constants.fakeApplicationName1)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Check(exportedResources.Resources, gc.DeepEquals, []coreresource.Resource{
+		resource1.toResource(s, c),
+		resource2.toResource(s, c),
+	})
+	c.Check(exportedResources.UnitResources, gc.DeepEquals, []coreresource.UnitResources{
+		{
+			Name: unit.Name(s.constants.fakeUnitName1),
+			Resources: []coreresource.Resource{
+				resource1.toResource(s, c),
+			},
+		},
+		{
+			Name: unit.Name(s.constants.fakeUnitName2),
+			Resources: []coreresource.Resource{
+				resource1.toResource(s, c),
+			},
+		},
+		{
+			Name: unit.Name(s.constants.fakeUnitName3),
+			// No resources.
+		},
+	})
+}
+
+// TestExportResourcesNoResources verifies that no resources are returned for an
+// application when no resources exist. It checks that the resulting lists for
+// unit resources, general resources, and repository resources are all empty.
+func (s *resourceSuite) TestExportResourcesNoResources(c *gc.C) {
+	// Arrange: No resources
+	// Act
+	exportedResources, err := s.state.ExportResources(context.Background(), s.constants.fakeApplicationName1)
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
+	c.Check(exportedResources.Resources, gc.IsNil)
+	c.Check(exportedResources.UnitResources, gc.DeepEquals, []coreresource.UnitResources{
+		{
+			Name: unit.Name(s.constants.fakeUnitName1),
+			// No resources
+		},
+		{
+			Name: unit.Name(s.constants.fakeUnitName2),
+			// No resources
+		},
+		{
+			Name: unit.Name(s.constants.fakeUnitName3),
+			// No resources
+		},
+	})
+}
+
+func (s *resourceSuite) TestExportResourcesApplicationNotFound(c *gc.C) {
+	// Arrange: No resources
+	// Act
+	_, err := s.state.ExportResources(context.Background(), "bad-app-name")
+	// Assert
+	c.Assert(err, jc.ErrorIs, resourceerrors.ApplicationNotFound)
+}
+
 // TestDeleteImportedApplicationResources checks the importing and then deleting
 // resources leaves the database in the same state it started.
 func (s *resourceSuite) TestDeleteImportedApplicationResources(c *gc.C) {
@@ -3435,11 +3568,16 @@ type resourceData struct {
 }
 
 // toCharmResource converts a resourceData object to a charmresource.Resource object.
-func (d resourceData) toCharmResource() charmresource.Resource {
+func (d resourceData) toCharmResource(c *gc.C) charmresource.Resource {
 	origin, err := charmresource.ParseOrigin(d.OriginType)
 	if err != nil {
 		// default case
 		origin = charmresource.OriginUpload
+	}
+	var fingerprint charmresource.Fingerprint
+	if d.SHA384 != "" {
+		fingerprint, err = charmresource.ParseFingerprint(d.SHA384)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return charmresource.Resource{
 		Meta: charmresource.Meta{
@@ -3448,19 +3586,18 @@ func (d resourceData) toCharmResource() charmresource.Resource {
 			Path:        d.Path,
 			Description: d.Description,
 		},
-		Origin:   origin,
-		Revision: d.Revision,
-		// todo(gfouillet): deal with fingerprint & size
-		Fingerprint: charmresource.Fingerprint{},
-		Size:        0,
+		Origin:      origin,
+		Revision:    d.Revision,
+		Fingerprint: fingerprint,
+		Size:        int64(d.Size),
 	}
 }
 
 // toResource converts a resourceData object to a resource.Resource object with
 // enriched metadata.
-func (d resourceData) toResource(s *resourceSuite) coreresource.Resource {
+func (d resourceData) toResource(s *resourceSuite, c *gc.C) coreresource.Resource {
 	return coreresource.Resource{
-		Resource:        d.toCharmResource(),
+		Resource:        d.toCharmResource(c),
 		UUID:            coreresource.UUID(d.UUID),
 		ApplicationName: s.constants.applicationNameFromUUID[d.ApplicationUUID],
 		RetrievedBy:     d.RetrievedByName,
@@ -3543,7 +3680,9 @@ VALUES (?, ?, ?)`, d.UUID, RetrievedByTypeID(d.RetrievedByType), d.RetrievedByNa
 		_, err = tx.Exec(`
 INSERT INTO unit_resource (resource_uuid, unit_uuid, added_at) 
 VALUES (?, ?, ?)`, d.UUID, d.UnitUUID, d.AddedAt)
-		return errors.Capture(err)
+		if err != nil {
+			return errors.Capture(err)
+		}
 	}
 
 	// Populate kubernetes application resource if required.
@@ -3551,7 +3690,9 @@ VALUES (?, ?, ?)`, d.UUID, d.UnitUUID, d.AddedAt)
 		_, err = tx.Exec(`
 INSERT INTO kubernetes_application_resource (resource_uuid, added_at) 
 VALUES (?, ?)`, d.UUID, d.AddedAt)
-		return errors.Capture(err)
+		if err != nil {
+			return errors.Capture(err)
+		}
 	}
 
 	if d.ObjectStoreUUID != "" {

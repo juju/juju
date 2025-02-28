@@ -91,10 +91,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 
 		for _, res := range resources {
-			// The application revision may be unset, in this case we will get a
-			// struct with zero values. IsZero is used on the timestamp to check
-			// this, as this is the way it was done in 3.6.
-			if appRevision := res.ApplicationRevision(); !appRevision.Timestamp().IsZero() {
+			if appRevision := res.ApplicationRevision(); appRevision != nil {
 				arg, err := importResourceRevision(res.Name(), appRevision)
 				if err != nil {
 					return errors.Errorf("importing resource %q: %w", res.Name(), err)
@@ -163,12 +160,7 @@ func importResourceRevision(name string, rev description.ResourceRevision) (reso
 			)
 		}
 	case charmresource.OriginUpload:
-		if revision > 0 {
-			return resource.ImportResourceInfo{}, errors.Errorf(
-				"expected resource with origin %q to have revision unset, got %d: %w",
-				charmresource.OriginUpload, revision, resourceerrors.ResourceRevisionNotValid,
-			)
-		}
+		revision = -1
 	default:
 		return resource.ImportResourceInfo{}, errors.Errorf(
 			"unexpected origin %s: %w", origin, resourceerrors.OriginNotValid,
@@ -177,7 +169,7 @@ func importResourceRevision(name string, rev description.ResourceRevision) (reso
 	return resource.ImportResourceInfo{
 		Name:      name,
 		Origin:    origin,
-		Revision:  rev.Revision(),
+		Revision:  revision,
 		Timestamp: rev.Timestamp(),
 	}, nil
 }

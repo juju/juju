@@ -889,7 +889,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}, "tools")
 	resourcesMigrationUploadHandler := srv.monitoredHandler(handlersresources.NewResourceMigrationUploadHandler(
 		&migratingResourceServiceGetter{ctxt: httpCtxt},
-		resourcesdownload.NewDownloader(logger.Child("resourcesmigrationdownloader"), resourcesdownload.DefaultFileSystem()),
 		logger,
 	), "applications")
 	registerHandler := srv.monitoredHandler(&registerUserHandler{
