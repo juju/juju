@@ -46,6 +46,7 @@ jobs:
         with:
           jimm-version: v3.2.2
           ghcr-pat: ${{ secrets.GITHUB_TOKEN }}
+          dump-logs: true
       
       - name: Create a model, deploy an application and run juju status
         run: |
