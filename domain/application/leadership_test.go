@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/secretbackend/errors"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -164,6 +165,7 @@ func (s *leadershipSuite) setupService(c *gc.C, factory domain.WatchableDBFactor
 			return provider.CommonStorageProviders()
 		}),
 		nil,
+		statushistory.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

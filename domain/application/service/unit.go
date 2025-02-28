@@ -54,6 +54,19 @@ func (s *Service) AddUnits(ctx context.Context, appName string, units ...AddUnit
 	if err := s.st.AddUnits(ctx, appUUID, args); err != nil {
 		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
 	}
+
+	for _, arg := range args {
+		unitName := arg.UnitName.String()
+
+		if agentStatus, err := decodeUnitAgentStatus(arg.UnitStatusArg.AgentStatus); err == nil && agentStatus != nil {
+			s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName), *agentStatus)
+		}
+
+		if workloadStatus, err := decodeWorkloadStatus(arg.UnitStatusArg.WorkloadStatus); err == nil && workloadStatus != nil {
+			s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName), *workloadStatus)
+		}
+	}
+
 	return nil
 }
 
@@ -100,7 +113,17 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return s.st.SetUnitWorkloadStatus(ctx, unitUUID, workloadStatus)
+	if err := s.st.SetUnitWorkloadStatus(ctx, unitUUID, workloadStatus); err != nil {
+		return internalerrors.Errorf("setting workload status: %w", err)
+	}
+
+	if status == nil {
+		return nil
+	}
+
+	s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName.String()), *status)
+
+	return nil
 }
 
 // GetUnitWorkloadStatusesForApplication returns the workload statuses of all
