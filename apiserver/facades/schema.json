@@ -14114,6 +14114,17 @@
                             "$ref": "#/definitions/SSHPublicKeysResults"
                         }
                     }
+                },
+                "VirtualHostname": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/VirtualHostnameTargetArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SSHAddressResult"
+                        }
+                    }
                 }
             },
             "definitions": {
@@ -14350,6 +14361,21 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "VirtualHostnameTargetArg": {
+                    "type": "object",
+                    "properties": {
+                        "container": {
+                            "type": "string"
+                        },
+                        "entity": {
+                            "$ref": "#/definitions/Entity"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entity"
                     ]
                 }
             }
