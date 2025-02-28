@@ -11,6 +11,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/statushistory"
 )
 
 // StatusHistory records status information into a generalized way.
@@ -18,7 +19,7 @@ type StatusHistory interface {
 	// RecordStatus records the given status information.
 	// If the status data cannot be marshalled, it will not be recorded, instead
 	// the error will be logged under the data_error key.
-	RecordStatus(ctx context.Context, status status.StatusInfo)
+	RecordStatus(context.Context, statushistory.Namespace, status.StatusInfo)
 }
 
 // encodeCloudContainerStatusType converts a core status to a db cloud container
@@ -70,6 +71,29 @@ func encodeUnitAgentStatusType(s status.Status) (application.UnitAgentStatusType
 		return application.UnitAgentStatusRebooting, nil
 	default:
 		return -1, errors.Errorf("unknown agent status %q", s)
+	}
+}
+
+// decodeUnitAgentStatusType converts a db unit agent status id to a core
+// status.
+func decodeUnitAgentStatusType(s application.UnitAgentStatusType) (status.Status, error) {
+	switch s {
+	case application.UnitAgentStatusAllocating:
+		return status.Allocating, nil
+	case application.UnitAgentStatusExecuting:
+		return status.Executing, nil
+	case application.UnitAgentStatusIdle:
+		return status.Idle, nil
+	case application.UnitAgentStatusError:
+		return status.Error, nil
+	case application.UnitAgentStatusFailed:
+		return status.Failed, nil
+	case application.UnitAgentStatusLost:
+		return status.Lost, nil
+	case application.UnitAgentStatusRebooting:
+		return status.Rebooting, nil
+	default:
+		return "", errors.Errorf("unknown agent status %q", s)
 	}
 }
 
@@ -197,6 +221,32 @@ func encodeUnitAgentStatus(s *status.StatusInfo) (*application.StatusInfo[applic
 		Status:  encodedStatus,
 		Message: s.Message,
 		Data:    bytes,
+		Since:   s.Since,
+	}, nil
+}
+
+// decodeUnitAgentStatus converts a db status info to a core status info.
+func decodeUnitAgentStatus(s *application.StatusInfo[application.UnitAgentStatusType]) (*status.StatusInfo, error) {
+	if s == nil {
+		return nil, nil
+	}
+
+	decodedStatus, err := decodeUnitAgentStatusType(s.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	var data map[string]interface{}
+	if len(s.Data) > 0 {
+		if err := json.Unmarshal(s.Data, &data); err != nil {
+			return nil, errors.Errorf("unmarshalling status data: %w", err)
+		}
+	}
+
+	return &status.StatusInfo{
+		Status:  decodedStatus,
+		Message: s.Message,
+		Data:    data,
 		Since:   s.Since,
 	}, nil
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -860,6 +861,7 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 			return storage.NotImplementedProviderRegistry{}
 		}),
 		nil,
+		statushistory.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		logger,
 	)
