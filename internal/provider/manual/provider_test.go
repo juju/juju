@@ -38,15 +38,15 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *providerSuite) TestPrepareForBootstrapCloudEndpointAndRegion(c *gc.C) {
-	ctx, err := s.testPrepareForBootstrap(c, "endpoint", "region")
+	_, err := s.testPrepareForBootstrap(c, "endpoint", "region")
 	c.Assert(err, jc.ErrorIsNil)
-	s.CheckCall(c, 0, "InitUbuntuUser", "endpoint", "", "", "", ctx.GetStdin(), ctx.GetStdout())
+	s.CheckNoCalls(c)
 }
 
 func (s *providerSuite) TestPrepareForBootstrapUserHost(c *gc.C) {
-	ctx, err := s.testPrepareForBootstrap(c, "user@host", "")
+	_, err := s.testPrepareForBootstrap(c, "user@host", "")
 	c.Assert(err, jc.ErrorIsNil)
-	s.CheckCall(c, 0, "InitUbuntuUser", "host", "user", "", "", ctx.GetStdin(), ctx.GetStdout())
+	s.CheckNoCalls(c)
 }
 
 func (s *providerSuite) TestPrepareForBootstrapNoCloudEndpoint(c *gc.C) {
