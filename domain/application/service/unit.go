@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -19,15 +20,39 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
+
+// UnitState describes retrieval and persistence methods for
+// units.
+type UnitState interface {
+	// GetModelConstraints returns the currently set constraints for the model.
+	// The following error types can be expected:
+	// - [modelerrors.NotFound]: when no model exists to set constraints for.
+	// - [modelerrors.ConstraintsNotFound]: when no model constraints have been
+	// set for the model.
+	// Note: This method should mirror the model domain method of the same name.
+	GetModelConstraints(ctx context.Context) (constraints.Constraints, error)
+
+	// SetUnitConstraints sets the unit constraints for the
+	// specified application ID.
+	// This method overwrites the full constraints on every call.
+	// If invalid constraints are provided (e.g. invalid container type or
+	// non-existing space), a [applicationerrors.InvalidUnitConstraints]
+	// error is returned.
+	// If the unit is dead, an error satisfying [applicationerrors.UnitIsDead]
+	// is returned.
+	SetUnitConstraints(ctx context.Context, inUnitUUID coreunit.UUID, cons constraints.Constraints) error
+}
 
 // AddUnits adds the specified units to the application, returning an error
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application
 // doesn't exist.
 // If no units are provided, it will return nil.
-func (s *Service) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
+func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
 	if !isValidApplicationName(appName) {
 		return applicationerrors.ApplicationNameNotValid
 	}
@@ -51,6 +76,17 @@ func (s *Service) AddUnits(ctx context.Context, appName string, units ...AddUnit
 		return internalerrors.Errorf("making unit args: %w", err)
 	}
 
+	// Before adding units, we need to merge the application constraints
+	// with the model constraints and store the result in the db.
+	unitCons, err := s.mergeApplicationAndModelConstraints(ctx, appUUID)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	if err := s.setUnitsConstraints(ctx, constraints.DecodeConstraints(unitCons), args); err != nil {
+		return internalerrors.Errorf("setting unit constraints: %w", err)
+	}
+
 	if err := s.st.AddUnits(ctx, appUUID, args); err != nil {
 		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
 	}
@@ -72,6 +108,34 @@ func (s *Service) AddUnits(ctx context.Context, appName string, units ...AddUnit
 	}
 
 	return nil
+}
+
+func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Context, appUUID coreapplication.ID) (coreconstraints.Value, error) {
+	validator, err := s.constraintsValidator(ctx)
+	if err != nil {
+		return coreconstraints.Value{}, internalerrors.Capture(err)
+	}
+	// If the provider doesn't support constraints validation, then we can
+	// just return the zero value.
+	if validator == nil {
+		return coreconstraints.Value{}, nil
+	}
+
+	appCons, err := s.GetApplicationConstraints(ctx, appUUID)
+	if err != nil {
+		return coreconstraints.Value{}, internalerrors.Errorf("retrieving application %q constraints for merging with model constraints args: %w", appUUID.String(), err)
+	}
+	modelCons, err := s.st.GetModelConstraints(ctx)
+	if err != nil && !errors.Is(err, modelerrors.ConstraintsNotFound) {
+		return coreconstraints.Value{}, internalerrors.Errorf("retrieving model constraints for merging with application %q constraints: %w	", appUUID.String(), err)
+	}
+
+	res, err := validator.Merge(appCons, constraints.EncodeConstraints(modelCons))
+	if err != nil {
+		return coreconstraints.Value{}, internalerrors.Errorf("merging application %q and model constraints: %w", appUUID.String(), err)
+	}
+
+	return res, nil
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg) ([]application.AddUnitArg, error) {
@@ -101,6 +165,23 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 	}
 
 	return args, nil
+}
+
+func (s *Service) setUnitsConstraints(ctx context.Context, cons constraints.Constraints, units []application.AddUnitArg) error {
+	// Check for empty constraints and return early.
+	if (constraints.Constraints{}) == cons {
+		return nil
+	}
+	for _, u := range units {
+		unitUUID, err := s.st.GetUnitUUIDByName(ctx, u.UnitName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := s.st.SetUnitConstraints(ctx, unitUUID, cons); err != nil {
+			return internalerrors.Errorf("setting unit %q constraints: %w", u.UnitName, err)
+		}
+	}
+	return nil
 }
 
 // SetUnitWorkloadStatus sets the workload status of the specified unit, returning an

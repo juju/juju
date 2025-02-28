@@ -50,6 +50,7 @@ type State interface {
 	ApplicationState
 	CharmState
 	StorageState
+	UnitState
 }
 
 const (
@@ -195,33 +196,45 @@ func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID c
 	if err := appID.Validate(); err != nil {
 		return internalerrors.Errorf("application ID: %w", err)
 	}
-	if err := s.validateConstraints(ctx, appID, cons); err != nil {
+	if err := s.validateConstraints(ctx, cons); err != nil {
 		return err
 	}
 
 	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
 }
 
-func (s *ProviderService) validateConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) error {
+func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstraints.Validator, error) {
 	provider, err := s.provider(ctx)
 	if errors.Is(err, errors.NotSupported) {
 		// Not validating constraints, as the provider doesn't support it.
-		return nil
+		return nil, nil
 	} else if err != nil {
-		return internalerrors.Capture(err)
+		return nil, internalerrors.Capture(err)
 	}
 
 	validator, err := provider.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(ctx))
 	if errors.Is(err, errors.NotImplemented) {
-		return nil
+		return nil, nil
 	} else if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	return validator, nil
+}
+
+func (s *ProviderService) validateConstraints(ctx context.Context, cons coreconstraints.Value) error {
+	validator, err := s.constraintsValidator(ctx)
+	if err != nil {
 		return internalerrors.Capture(err)
+	}
+	if validator == nil {
+		return nil
 	}
 
 	unsupported, err := validator.Validate(cons)
 	if len(unsupported) > 0 {
 		s.logger.Warningf(ctx,
-			"setting constraints on application %q: unsupported constraints: %v", appID.String(), strings.Join(unsupported, ","))
+			"unsupported constraints: %v", strings.Join(unsupported, ","))
 	} else if err != nil {
 		return internalerrors.Capture(err)
 	}

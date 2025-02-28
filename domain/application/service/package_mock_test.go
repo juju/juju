@@ -1779,6 +1779,45 @@ func (c *MockStateGetLatestPendingCharmhubCharmCall) DoAndReturn(f func(context.
 	return c
 }
 
+// GetModelConstraints mocks base method.
+func (m *MockState) GetModelConstraints(ctx context.Context) (constraints0.Constraints, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelConstraints", ctx)
+	ret0, _ := ret[0].(constraints0.Constraints)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelConstraints indicates an expected call of GetModelConstraints.
+func (mr *MockStateMockRecorder) GetModelConstraints(ctx any) *MockStateGetModelConstraintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelConstraints", reflect.TypeOf((*MockState)(nil).GetModelConstraints), ctx)
+	return &MockStateGetModelConstraintsCall{Call: call}
+}
+
+// MockStateGetModelConstraintsCall wrap *gomock.Call
+type MockStateGetModelConstraintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetModelConstraintsCall) Return(arg0 constraints0.Constraints, arg1 error) *MockStateGetModelConstraintsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetModelConstraintsCall) Do(f func(context.Context) (constraints0.Constraints, error)) *MockStateGetModelConstraintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetModelConstraintsCall) DoAndReturn(f func(context.Context) (constraints0.Constraints, error)) *MockStateGetModelConstraintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModelType mocks base method.
 func (m *MockState) GetModelType(arg0 context.Context) (model.ModelType, error) {
 	m.ctrl.T.Helper()
@@ -2897,6 +2936,44 @@ func (c *MockStateSetDesiredApplicationScaleCall) Do(f func(context.Context, app
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetDesiredApplicationScaleCall) DoAndReturn(f func(context.Context, application.ID, int) error) *MockStateSetDesiredApplicationScaleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetUnitConstraints mocks base method.
+func (m *MockState) SetUnitConstraints(ctx context.Context, inUnitUUID unit.UUID, cons constraints0.Constraints) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetUnitConstraints", ctx, inUnitUUID, cons)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetUnitConstraints indicates an expected call of SetUnitConstraints.
+func (mr *MockStateMockRecorder) SetUnitConstraints(ctx, inUnitUUID, cons any) *MockStateSetUnitConstraintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitConstraints", reflect.TypeOf((*MockState)(nil).SetUnitConstraints), ctx, inUnitUUID, cons)
+	return &MockStateSetUnitConstraintsCall{Call: call}
+}
+
+// MockStateSetUnitConstraintsCall wrap *gomock.Call
+type MockStateSetUnitConstraintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetUnitConstraintsCall) Return(arg0 error) *MockStateSetUnitConstraintsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetUnitConstraintsCall) Do(f func(context.Context, unit.UUID, constraints0.Constraints) error) *MockStateSetUnitConstraintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetUnitConstraintsCall) DoAndReturn(f func(context.Context, unit.UUID, constraints0.Constraints) error) *MockStateSetUnitConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
