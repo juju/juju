@@ -252,10 +252,8 @@ func (s *BaseSuiteUnpatched) NewContainer(c *gc.C, name string) *containerlxd.Co
 			Name:       name,
 			StatusCode: api.Running,
 			Status:     api.Running.String(),
-			InstancePut: api.InstancePut{
-				Config: metadata,
-			},
-			Type: "container",
+			Config:     metadata,
+			Type:       "container",
 		},
 	}
 }

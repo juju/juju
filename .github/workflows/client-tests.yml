@@ -1,7 +1,7 @@
 name: "Client Tests"
 on:
   push:
-    branches: [2.*, 3.*, 4.*, main]
+    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -13,11 +13,7 @@ on:
       - 'make_functions.sh'
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
-
   test-client-ubuntu:
     name: "Client Tests"
     runs-on: ${{ matrix.os }}

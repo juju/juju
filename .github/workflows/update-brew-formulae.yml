@@ -3,11 +3,8 @@ on:
   release:
     types: [published]
   schedule:
-    - cron:  '0 */12 * * *'
+    - cron: "0 */12 * * *"
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   update-brew-tap:

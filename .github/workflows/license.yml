@@ -1,17 +1,14 @@
 name: "Licenses"
 on:
   push:
-    branches: [2.*, 3.*, 4.*, main]
+    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - '**.go'
-      - 'go.mod'
-      - '.github/workflows/license.yml'
+      - "**.go"
+      - "go.mod"
+      - ".github/workflows/license.yml"
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   go-license-check:
