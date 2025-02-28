@@ -2614,6 +2614,28 @@ func (st *State) SLACredential() ([]byte, error) {
 	return model.SLACredential(), nil
 }
 
+// allUnits returns a slice of all units.
+// It is not exported as it is currently
+// only used during upgrades.
+func (st *State) allUnits() ([]*Unit, error) {
+	unitsCollection, closer := st.db().GetCollection(unitsC)
+	defer closer()
+	var udocs []unitDoc
+	err := unitsCollection.Find(nil).All(&udocs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all units")
+	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	units := make([]*Unit, len(udocs))
+	for i, doc := range udocs {
+		units[i] = newUnit(st, model.Type(), &doc)
+	}
+	return units, nil
+}
+
 var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
 	'a': names.ApplicationTagKind + "-",

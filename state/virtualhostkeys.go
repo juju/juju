@@ -36,16 +36,16 @@ func (s *VirtualHostKey) HostKey() []byte {
 	return s.doc.HostKey
 }
 
-func newVirtualHostKeyDoc(st *State, hostKeyID string, hostkey []byte) (virtualHostKeyDoc, error) {
+func newVirtualHostKeyDoc(modelUUID, hostKeyID string, hostkey []byte) (virtualHostKeyDoc, error) {
 	return virtualHostKeyDoc{
-		DocId:   st.docID(hostKeyID),
+		DocId:   ensureModelUUID(modelUUID, hostKeyID),
 		HostKey: hostkey,
 	}, nil
 }
 
-func newMachineVirtualHostKeysOps(st *State, machineID string, hostKey []byte) ([]txn.Op, error) {
+func newMachineVirtualHostKeysOps(modelUUID, machineID string, hostKey []byte) ([]txn.Op, error) {
 	hostKeyID := machineHostKeyID(machineID)
-	doc, err := newVirtualHostKeyDoc(st, hostKeyID, hostKey)
+	doc, err := newVirtualHostKeyDoc(modelUUID, hostKeyID, hostKey)
 	if err != nil {
 		return nil, err
 	}
@@ -57,9 +57,9 @@ func newMachineVirtualHostKeysOps(st *State, machineID string, hostKey []byte) (
 	}}, nil
 }
 
-func newUnitVirtualHostKeysOps(st *State, unitName string, hostKey []byte) ([]txn.Op, error) {
+func newUnitVirtualHostKeysOps(modelUUID, unitName string, hostKey []byte) ([]txn.Op, error) {
 	hostKeyID := unitHostKeyID(unitName)
-	doc, err := newVirtualHostKeyDoc(st, hostKeyID, hostKey)
+	doc, err := newVirtualHostKeyDoc(modelUUID, hostKeyID, hostKey)
 	if err != nil {
 		return nil, err
 	}
