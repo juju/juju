@@ -147,6 +147,29 @@ func (s *NewAPIClientSuite) TestCorrectAuthTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *NewAPIClientSuite) TestEmptyStoreAuthTag(c *gc.C) {
+	store := newClientStore(c, "noconfig")
+	store.RemoveAccount("noconfig")
+	store.UpdateAccount("noconfig", jujuclient.AccountDetails{
+		// This simulates when the user issues an unqualified "juju login"
+		// and is redirected to an external identity provider.
+		// It is the provider that providers the identity, not the args.
+		User: "",
+	})
+
+	called := 0
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+		called++
+		expectState.authTag = names.NewUserTag("wally@external")
+		return expectState, nil
+	}
+
+	stubStore := jujuclienttesting.WrapClientStore(store)
+	_, err := newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *NewAPIClientSuite) TestIncorrectAdminAuthTag(c *gc.C) {
 	store := newClientStore(c, "noconfig")
 
