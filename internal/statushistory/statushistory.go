@@ -40,13 +40,13 @@ func (n Namespace) String() string {
 
 // StatusHistory records status information into a generalized way.
 type StatusHistory struct {
-	logger logger.Logger
+	recorder Recorder
 }
 
 // NewStatusHistory creates a new StatusHistory.
-func NewStatusHistory(logger logger.Logger) *StatusHistory {
+func NewStatusHistory(recorder Recorder) *StatusHistory {
 	return &StatusHistory{
-		logger: logger,
+		recorder: recorder,
 	}
 }
 
@@ -72,13 +72,13 @@ func (s *StatusHistory) RecordStatus(ctx context.Context, ns Namespace, status s
 	if len(status.Data) > 0 {
 		data, err := json.Marshal(status.Data)
 		if err != nil {
-			labels[dataErrorKey] = err.Error()
+			s.recorder.Logf(ctx, logger.ERROR, logger.Labels{}, "failed to marshal status data: %v", err)
 		} else {
 			labels[dataKey] = string(data)
 		}
 	}
 
-	s.logger.Logf(ctx, logger.INFO, labels, "status-history (state: %q, status-message: %s)", status.Status, status.Message)
+	s.recorder.Logf(ctx, logger.INFO, labels, "status-history (state: %q, status-message: %q)", status.Status, status.Message)
 }
 
 const (
@@ -88,5 +88,4 @@ const (
 	messageKey       = "message"
 	sinceKey         = "since"
 	dataKey          = "data"
-	dataErrorKey     = "data_error"
 )
