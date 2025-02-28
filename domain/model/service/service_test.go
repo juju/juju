@@ -12,8 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -38,6 +40,9 @@ type serviceSuite struct {
 	userUUID user.UUID
 	state    *dummyState
 	deleter  *dummyDeleter
+
+	mockModelDeleter *MockModelDeleter
+	mockState        *MockState
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -61,6 +66,44 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.deleter = &dummyDeleter{
 		deleted: map[string]struct{}{},
 	}
+
+	s.setupControllerModel(c)
+}
+
+func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockModelDeleter = NewMockModelDeleter(ctrl)
+	s.mockState = NewMockState(ctrl)
+	return ctrl
+}
+
+func (s *serviceSuite) setupControllerModel(c *gc.C) {
+	adminUUID := usertesting.GenUserUUID(c)
+	s.state.users[adminUUID] = coremodel.ControllerModelOwnerUsername
+
+	cred := credential.Key{
+		Cloud: "controller-cloud",
+		Name:  "controller-cloud-cred",
+		Owner: usertesting.GenNewName(c, "owner"),
+	}
+	s.state.clouds["controller-cloud"] = dummyStateCloud{
+		Credentials: map[string]credential.Key{
+			cred.String(): cred,
+		},
+		Regions: []string{"ap-southeast-2"},
+	}
+
+	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	modelID, activator, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
+		Cloud:       "controller-cloud",
+		CloudRegion: "ap-southeast-2",
+		Credential:  cred,
+		Owner:       adminUUID,
+		Name:        coremodel.ControllerModelName,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+	s.state.controllerModelUUID = modelID
 }
 
 // TestControllerModelNameChange is here to make the breaker of this test stop
@@ -119,10 +162,8 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 	c.Assert(exists, jc.IsTrue)
 
 	modelList, err := svc.ListModelIDs(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelList, gc.DeepEquals, []coremodel.UUID{
-		id,
-	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(modelList), gc.Equals, 2)
 }
 
 // TestModelCreationSecretBackendNotFound is asserting that if we try and add a
@@ -484,75 +525,92 @@ func (s *serviceSuite) TestListAllModelsNoResults(c *gc.C) {
 	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
 	models, err := svc.ListAllModels(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(len(models), gc.Equals, 0)
+	c.Check(len(models), gc.Equals, 1)
 }
 
+// TestListAllModel is a basic test to assert the happy path of
+// [Service.ListAllModels].
 func (s *serviceSuite) TestListAllModels(c *gc.C) {
-	cred := credential.Key{
-		Cloud: "aws",
-		Name:  "foobar",
-		Owner: usertesting.GenNewName(c, "owner"),
-	}
-	s.state.clouds["aws"] = dummyStateCloud{
-		Credentials: map[string]credential.Key{
-			cred.String(): cred,
-		},
-		Regions: []string{"myregion"},
-	}
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+	)
 
 	usr1 := usertesting.GenUserUUID(c)
-	s.state.users[usr1] = usertesting.GenNewName(c, "tlm")
-
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
-	id1, activator, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
-		Cloud:       "aws",
-		CloudRegion: "myregion",
-		Credential:  cred,
-		Owner:       s.userUUID,
-		Name:        "my-awesome-model",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
-
-	id2, activator, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
-		Cloud:       "aws",
-		CloudRegion: "myregion",
-		Credential:  cred,
-		Owner:       usr1,
-		Name:        "my-awesome-model1",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activator(context.Background()), jc.ErrorIsNil)
-
-	models, err := svc.ListAllModels(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	slices.SortFunc(models, func(a, b coremodel.Model) int {
-		return strings.Compare(a.Name, b.Name)
-	})
-
-	c.Check(models, gc.DeepEquals, []coremodel.Model{
+	id1 := modeltesting.GenModelUUID(c)
+	id2 := modeltesting.GenModelUUID(c)
+	s.mockState.EXPECT().ListAllModels(gomock.Any()).Return([]coremodel.Model{
 		{
-			Name:        "my-awesome-model",
-			UUID:        id1,
-			Cloud:       "aws",
-			CloudRegion: "myregion",
-			ModelType:   coremodel.IAAS,
-			Owner:       s.userUUID,
-			OwnerName:   usertesting.GenNewName(c, "admin"),
-			Credential:  cred,
-			Life:        life.Alive,
+			Name:         "my-awesome-model",
+			AgentVersion: jujuversion.Current,
+			UUID:         id1,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			ModelType:    coremodel.IAAS,
+			Owner:        s.userUUID,
+			OwnerName:    usertesting.GenNewName(c, "admin"),
+			Credential: credential.Key{
+				Cloud: "aws",
+				Name:  "foobar",
+				Owner: usertesting.GenNewName(c, "owner"),
+			},
+			Life: life.Alive,
 		},
 		{
-			Name:        "my-awesome-model1",
-			UUID:        id2,
-			Cloud:       "aws",
-			CloudRegion: "myregion",
-			ModelType:   coremodel.IAAS,
-			Owner:       usr1,
-			OwnerName:   usertesting.GenNewName(c, "tlm"),
-			Credential:  cred,
-			Life:        life.Alive,
+			Name:         "my-awesome-model1",
+			AgentVersion: jujuversion.Current,
+			UUID:         id2,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			ModelType:    coremodel.IAAS,
+			Owner:        usr1,
+			OwnerName:    usertesting.GenNewName(c, "tlm"),
+			Credential: credential.Key{
+				Cloud: "aws",
+				Name:  "foobar",
+				Owner: usertesting.GenNewName(c, "owner"),
+			},
+			Life: life.Alive,
+		},
+	}, nil)
+
+	models, err := svc.ListAllModels(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(models, jc.DeepEquals, []coremodel.Model{
+		{
+			Name:         "my-awesome-model",
+			AgentVersion: jujuversion.Current,
+			UUID:         id1,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			ModelType:    coremodel.IAAS,
+			Owner:        s.userUUID,
+			OwnerName:    usertesting.GenNewName(c, "admin"),
+			Credential: credential.Key{
+				Cloud: "aws",
+				Name:  "foobar",
+				Owner: usertesting.GenNewName(c, "owner"),
+			},
+			Life: life.Alive,
+		},
+		{
+			Name:         "my-awesome-model1",
+			AgentVersion: jujuversion.Current,
+			UUID:         id2,
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			ModelType:    coremodel.IAAS,
+			Owner:        usr1,
+			OwnerName:    usertesting.GenNewName(c, "tlm"),
+			Credential: credential.Key{
+				Cloud: "aws",
+				Name:  "foobar",
+				Owner: usertesting.GenNewName(c, "owner"),
+			},
+			Life: life.Alive,
 		},
 	})
 }
@@ -712,7 +770,17 @@ func (s *serviceSuite) TestImportModel(c *gc.C) {
 // error. This should be a very unlikely scenario but we need to test the
 // schemantics.
 func (s *serviceSuite) TestControllerModelNotFound(c *gc.C) {
-	svc := NewService(s.state, s.deleter, loggertesting.WrapCheckLog(c))
+	defer s.setupMocks(c).Finish()
+
+	s.mockState.EXPECT().GetControllerModel(gomock.Any()).Return(
+		coremodel.Model{}, modelerrors.NotFound,
+	)
+
+	svc := NewService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+	)
 	_, err := svc.ControllerModel(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
@@ -928,4 +996,119 @@ func (s *serviceSuite) TestListModelSummariesForUser(c *gc.C) {
 			IsController:   true,
 		},
 	}})
+}
+
+// setupDefaultStateExpects establishes a common set of well know responses to
+// state calls for mock testing.
+func (s *serviceSuite) setupDefaultStateExpects(c *gc.C) {
+	// This establishes a common response to a cloud's type
+	s.mockState.EXPECT().CloudType(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, name string) (string, error) {
+			if name == "cloud-caas" {
+				return cloud.CloudTypeKubernetes, nil
+			}
+			return "aws", nil
+		},
+	).AnyTimes()
+}
+
+// TestCreateModelEmptyCredentialNotSupported is asserting the case where a
+// model is attempted to being created with empty credentials and the cloud
+// does not support this. In this case we expect a error that satisfies
+// [modelerrors.CredentialNotValid]
+func (s *serviceSuite) TestCreateModelEmptyCredentialNotSupported(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupDefaultStateExpects(c)
+
+	s.mockState.EXPECT().CloudSupportsAuthType(gomock.Any(), "foo", cloud.EmptyAuthType)
+
+	svc := NewService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	_, _, err := svc.CreateModel(context.Background(), model.GlobalModelCreationArgs{
+		Cloud:       "foo",
+		CloudRegion: "ap-southeast-2",
+		Credential:  credential.Key{}, // zero value of credential implies empty
+		Owner:       usertesting.GenUserUUID(c),
+		Name:        "new-test-model",
+	})
+	c.Check(err, jc.ErrorIs, modelerrors.CredentialNotValid)
+}
+
+// TestDefaultModelCloudNameAndCredentialNotFound is a white box test that
+// purposely returns a [modelerrors.NotFound] error when the controller model is
+// asked for. We expect that this error flows back out of the service call.
+func (s *serviceSuite) TestDefaultModelCloudNameAndCredentialNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.mockState.EXPECT().GetControllerModelUUID(gomock.Any()).Return(
+		coremodel.UUID(""),
+		modelerrors.NotFound,
+	)
+
+	svc := NewService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	_, _, err := svc.DefaultModelCloudNameAndCredential(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+
+	// There exists to ways for the controller model to not be found. This is
+	// asserting the second path where the code get's the uuid but the model
+	// no longer exists for this uuid.
+	ctrlModelUUID := modeltesting.GenModelUUID(c)
+	s.mockState.EXPECT().GetControllerModelUUID(gomock.Any()).Return(
+		ctrlModelUUID,
+		nil,
+	)
+	s.mockState.EXPECT().GetModelCloudNameAndCredential(gomock.Any(), ctrlModelUUID).Return(
+		"", credential.Key{}, modelerrors.NotFound,
+	)
+
+	_, _, err = svc.DefaultModelCloudNameAndCredential(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestDefaultModelCloudNameAndCredential is asserting the happy path that when
+// a controller model exists the cloud name and credential are returned.
+func (s *serviceSuite) TestDefaultModelCloudNameAndCredential(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	// There exists to ways for the controller model to not be found. This is
+	// asserting the second path where the code get's the uuid but the model
+	// no longer exists for this uuid.
+	ctrlModelUUID := modeltesting.GenModelUUID(c)
+	s.mockState.EXPECT().GetControllerModelUUID(gomock.Any()).Return(
+		ctrlModelUUID,
+		nil,
+	)
+	s.mockState.EXPECT().GetModelCloudNameAndCredential(gomock.Any(), ctrlModelUUID).Return(
+		"test",
+		credential.Key{
+			Cloud: "test",
+			Owner: usertesting.GenNewName(c, "admin"),
+			Name:  "test-cred",
+		},
+		nil,
+	)
+
+	cloud, cred, err := svc.DefaultModelCloudNameAndCredential(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cloud, gc.Equals, "test")
+	c.Check(cred, jc.DeepEquals, credential.Key{
+		Cloud: "test",
+		Owner: usertesting.GenNewName(c, "admin"),
+		Name:  "test-cred",
+	})
 }

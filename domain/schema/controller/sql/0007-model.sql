@@ -85,13 +85,15 @@ SELECT
     m.name,
     m.owner_uuid,
     o.name AS owner_name,
-    l.value AS life
+    l.value AS life,
+    IIF(ctrl.model_uuid IS NOT NULL, TRUE, FALSE) AS is_controller_model
 FROM model AS m
 JOIN cloud AS c ON m.cloud_uuid = c.uuid
 JOIN cloud_type AS ct ON c.cloud_type_id = ct.id
 JOIN model_type AS mt ON m.model_type_id = mt.id
 JOIN user AS o ON m.owner_uuid = o.uuid
 JOIN life AS l ON m.life_id = l.id
+LEFT JOIN controller AS ctrl ON m.uuid = ctrl.model_uuid
 LEFT JOIN cloud_region AS cr ON m.cloud_region_uuid = cr.uuid
 LEFT JOIN cloud_credential AS cc ON m.cloud_credential_uuid = cc.uuid
 LEFT JOIN cloud AS ccc ON cc.cloud_uuid = ccc.uuid

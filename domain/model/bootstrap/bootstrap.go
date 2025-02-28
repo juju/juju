@@ -5,20 +5,22 @@ package bootstrap
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/cloud"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/model/state"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
@@ -44,6 +46,8 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 // - [usererrors.NotFound] When the model owner does not exist.
 // - [secretbackenderrors.NotFound] When the secret backend for the model
 // cannot be found.
+// - [modelerrors.CredentialNotValid] - when a credential has been provided that
+// isn't supported by the cloud.
 //
 // CreateGlobalModelRecord expects the caller to generate their own model
 // ID and pass it to this function. In an ideal world we want to have this
@@ -56,11 +60,11 @@ func CreateGlobalModelRecord(
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		if err := args.Validate(); err != nil {
-			return fmt.Errorf("cannot create model when validating args: %w", err)
+			return errors.Errorf("cannot create model when validating args: %w", err)
 		}
 
 		if err := modelID.Validate(); err != nil {
-			return fmt.Errorf(
+			return errors.Errorf(
 				"cannot create model %q when validating id: %w", args.Name, err,
 			)
 		}
@@ -73,7 +77,7 @@ func CreateGlobalModelRecord(
 				})
 			modelType, err := service.ModelTypeForCloud(ctx, modelTypeState, args.Cloud)
 			if err != nil {
-				return fmt.Errorf("determining cloud type for model %q: %w", args.Name, err)
+				return errors.Errorf("determining cloud type for model %q: %w", args.Name, err)
 			}
 
 			if args.SecretBackend == "" && modelType == coremodel.CAAS {
@@ -81,7 +85,7 @@ func CreateGlobalModelRecord(
 			} else if args.SecretBackend == "" && modelType == coremodel.IAAS {
 				args.SecretBackend = jujusecrets.BackendName
 			} else if args.SecretBackend == "" {
-				return fmt.Errorf(
+				return errors.Errorf(
 					"%w for model type %q when creating model with name %q",
 					secretbackenderrors.NotFound,
 					modelType,
@@ -89,12 +93,31 @@ func CreateGlobalModelRecord(
 				)
 			}
 
+			if args.Credential.IsZero() {
+				supports, err := state.CloudSupportsAuthType(
+					ctx, preparer{}, tx, args.Cloud, cloud.EmptyAuthType,
+				)
+				if err != nil {
+					return errors.Errorf(
+						"checking if new model %q cloud %q supports empty auth type: %w",
+						args.Name, args.Cloud, err,
+					)
+				}
+
+				if !supports {
+					return errors.Errorf(
+						"new model %q cloud %q does not support empty authentication, a credential needs to be supplied",
+						args.Name, args.Cloud,
+					).Add(modelerrors.CredentialNotValid)
+				}
+			}
+
 			if err := state.Create(ctx, preparer{}, tx, modelID, modelType, args); err != nil {
-				return fmt.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
+				return errors.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
 			}
 
 			if err := activator(ctx, preparer{}, tx, modelID); err != nil {
-				return fmt.Errorf("activating bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
+				return errors.Errorf("activating bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
 			}
 			return nil
 		})
@@ -110,7 +133,7 @@ func CreateLocalModelRecord(
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controllerDB, modelDB database.TxnRunner) error {
 		if err := id.Validate(); err != nil {
-			return fmt.Errorf("creating read only model, id %q: %w", id, err)
+			return errors.Errorf("creating read only model, id %q: %w", id, err)
 		}
 
 		var m coremodel.Model
@@ -120,7 +143,7 @@ func CreateLocalModelRecord(
 			return err
 		})
 		if err != nil {
-			return fmt.Errorf("getting model for id %q: %w", id, err)
+			return errors.Errorf("getting model for id %q: %w", id, err)
 		}
 
 		args := model.ModelDetailArgs{
