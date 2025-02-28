@@ -12,10 +12,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/manual"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -31,37 +34,84 @@ var _ = gc.Suite(&providerSuite{})
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
+	s.PatchValue(&sshprovisioner.CheckProvisioned, func(host string, login string) (bool, error) {
+		s.AddCall("CheckProvisioned", host, login)
+		return false, s.NextErr()
+	})
+	s.PatchValue(&sshprovisioner.DetectBaseAndHardwareCharacteristics, func(host string, login string) (hc instance.HardwareCharacteristics, base corebase.Base,
+		err error) {
+		s.AddCall("DetectBaseAndHardwareCharacteristics", host, login)
+		arch := "fake"
+		hc.Arch = &arch
+		return hc, base, s.NextErr()
+	})
 	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys string, privateKey string, stdin io.Reader, stdout io.Writer) error {
 		s.AddCall("InitUbuntuUser", host, user, keys, privateKey, stdin, stdout)
 		return s.NextErr()
 	})
 }
 
-func (s *providerSuite) TestPrepareForBootstrapCloudEndpointAndRegion(c *gc.C) {
-	ctx, err := s.testPrepareForBootstrap(c, "endpoint", "region")
+// TestPrepareForBootstrap verifies that Prepare For bootstrap is a noop for
+// manual provider
+func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
+	_, err := s.testPrepareForBootstrap(c)
 	c.Assert(err, jc.ErrorIsNil)
-	s.CheckCall(c, 0, "InitUbuntuUser", "endpoint", "", "", "", ctx.GetStdin(), ctx.GetStdout())
+	s.CheckNoCalls(c)
 }
 
-func (s *providerSuite) TestPrepareForBootstrapUserHost(c *gc.C) {
-	ctx, err := s.testPrepareForBootstrap(c, "user@host", "")
-	c.Assert(err, jc.ErrorIsNil)
-	s.CheckCall(c, 0, "InitUbuntuUser", "host", "user", "", "", ctx.GetStdin(), ctx.GetStdout())
-}
-
-func (s *providerSuite) TestPrepareForBootstrapNoCloudEndpoint(c *gc.C) {
-	_, err := s.testPrepareForBootstrap(c, "", "region")
+// TestBootstrapNoCloudEndpoint ensures that error messages are correctly
+// returned when no cloud endpoint is specified during bootstrap.
+func (s *providerSuite) TestBootstrapNoCloudEndpoint(c *gc.C) {
+	_, err := s.testBootstrap(c, testBootstrapArgs{})
 	c.Assert(err, gc.ErrorMatches,
 		`validating cloud spec: missing address of host to bootstrap: please specify "juju bootstrap manual/\[user@\]<host>"`)
 }
 
-func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string) (environs.BootstrapContext, error) {
+// TestBootstrap executes the bootstrap process for a manual provider,
+// verifying key provisioning behaviors and call logic.
+func (s *providerSuite) TestBootstrap(c *gc.C) {
+	ctx, err := s.testBootstrap(c, testBootstrapArgs{
+		endpoint: "hostname",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.CheckCall(c, 0, "CheckProvisioned", "hostname", "")
+	s.CheckCall(c, 1, "InitUbuntuUser", "hostname", "", "", "", ctx.GetStdin(), ctx.GetStdout())
+	s.CheckCall(c, 2, "DetectBaseAndHardwareCharacteristics", "hostname", "")
+}
+
+// TestBootstrapUserHost tests the bootstrap process for a manual provider with
+// a "user@host" endpoint configuration.
+func (s *providerSuite) TestBootstrapUserHost(c *gc.C) {
+	ctx, err := s.testBootstrap(c, testBootstrapArgs{
+		endpoint: "user@hostwithuser",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.CheckCall(c, 0, "CheckProvisioned", "hostwithuser", "user")
+	s.CheckCall(c, 1, "InitUbuntuUser", "hostwithuser", "user", "", "", ctx.GetStdin(), ctx.GetStdout())
+	s.CheckCall(c, 2, "DetectBaseAndHardwareCharacteristics", "hostwithuser", "user")
+}
+
+// TestBootstrapUserHostAuthorizedKeys tests bootstrapping with authorized SSH
+// keys for a user on a specified host.
+func (s *providerSuite) TestBootstrapUserHostAuthorizedKeys(c *gc.C) {
+	ctx, err := s.testBootstrap(c, testBootstrapArgs{
+		endpoint: "userwithauth@host",
+		params: environs.BootstrapParams{
+			AuthorizedKeys: []string{"key1", "key2"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.CheckCall(c, 0, "CheckProvisioned", "host", "userwithauth")
+	s.CheckCall(c, 1, "InitUbuntuUser", "host", "userwithauth", "key1\nkey2", "", ctx.GetStdin(), ctx.GetStdout())
+	s.CheckCall(c, 2, "DetectBaseAndHardwareCharacteristics", "host", "userwithauth")
+}
+
+func (s *providerSuite) testPrepareForBootstrap(c *gc.C) (environs.BootstrapContext, error) {
 	minimal := manual.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudSpec := environscloudspec.CloudSpec{
-		Endpoint: endpoint,
-		Region:   region,
+		Endpoint: "endpoint",
 	}
 	err = manual.ProviderInstance.ValidateCloud(context.Background(), cloudSpec)
 	if err != nil {
@@ -76,6 +126,35 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	}
 	ctx := envtesting.BootstrapContext(context.Background(), c)
 	return ctx, env.PrepareForBootstrap(ctx, "controller-1")
+}
+
+type testBootstrapArgs struct {
+	endpoint string
+	params   environs.BootstrapParams
+}
+
+func (s *providerSuite) testBootstrap(c *gc.C, args testBootstrapArgs) (environs.BootstrapContext, error) {
+	minimal := manual.MinimalConfigValues()
+	testConfig, err := config.New(config.UseDefaults, minimal)
+	c.Assert(err, jc.ErrorIsNil)
+	cloudSpec := environscloudspec.CloudSpec{
+		Endpoint: args.endpoint,
+		Region:   "region",
+	}
+	err = manual.ProviderInstance.ValidateCloud(context.Background(), cloudSpec)
+	if err != nil {
+		return nil, err
+	}
+	env, err := manual.ProviderInstance.Open(context.Background(), environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: testConfig,
+	}, environs.NoopCredentialInvalidator())
+	if err != nil {
+		return nil, err
+	}
+	ctx := envtesting.BootstrapContext(context.Background(), c)
+	_, err = env.Bootstrap(ctx, envcontext.ProviderCallContext{}, args.params)
+	return ctx, err
 }
 
 func (s *providerSuite) TestNullAlias(c *gc.C) {

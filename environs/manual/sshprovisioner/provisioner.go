@@ -42,7 +42,7 @@ func ProvisionMachine(ctx context.Context, args manual.ProvisionMachineArgs) (ma
 		return "", err
 	}
 
-	machineParams, err := gatherMachineParams(args.Host)
+	machineParams, err := gatherMachineParams(args.Host, "ubuntu")
 	if err != nil {
 		return "", err
 	}
