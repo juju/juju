@@ -182,55 +182,6 @@ func (s *uniterLegacySuite) TestSetAgentStatus(c *gc.C) {
 	c.Assert(statusInfo.Message, gc.Equals, "foobar")
 }
 
-func (s *uniterLegacySuite) TestSetUnitStatus(c *gc.C) {
-	now := time.Now()
-	sInfo := status.StatusInfo{
-		Status:  status.Active,
-		Message: "blah",
-		Since:   &now,
-	}
-	err := s.wordpressUnit.SetStatus(sInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	sInfo = status.StatusInfo{
-		Status:  status.Terminated,
-		Message: "foo",
-		Since:   &now,
-	}
-	err = s.mysqlUnit.SetStatus(sInfo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.SetStatus{
-		Entities: []params.EntityStatusArgs{
-			{Tag: "unit-mysql-0", Status: status.Error.String(), Info: "not really"},
-			{Tag: "unit-wordpress-0", Status: status.Terminated.String(), Info: "foobar"},
-			{Tag: "unit-foo-42", Status: status.Active.String(), Info: "blah"},
-		}}
-	result, err := s.uniter.SetUnitStatus(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify mysqlUnit - no change.
-	statusInfo, err := s.uniter.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{Tag: s.mysqlUnit.Tag().String()}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Results, gc.HasLen, 1)
-	c.Assert(statusInfo.Results[0].Error, jc.ErrorIsNil)
-	c.Assert(statusInfo.Results[0].Status, gc.Equals, status.Terminated)
-	c.Assert(statusInfo.Results[0].Info, gc.Equals, "foo")
-	// ...wordpressUnit is fine though.
-	statusInfo, err = s.uniter.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{Tag: s.wordpressUnit.Tag().String()}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Results, gc.HasLen, 1)
-	c.Assert(statusInfo.Results[0].Error, jc.ErrorIsNil)
-	c.Assert(statusInfo.Results[0].Status, gc.Equals, status.Terminated)
-	c.Assert(statusInfo.Results[0].Info, gc.Equals, "foobar")
-}
-
 func (s *uniterLegacySuite) TestLife(c *gc.C) {
 	// Add a relation wordpress-mysql.
 	rel := s.addRelation(c, "wordpress", "mysql")
@@ -3007,53 +2958,6 @@ func (s *uniterLegacySuite) TestStorageAttachments(c *gc.C) {
 		StorageTag: "storage-data-0",
 		UnitTag:    unit.Tag().String(),
 	}})
-}
-
-func (s *uniterLegacySuite) TestUnitStatus(c *gc.C) {
-	now := time.Now()
-	sInfo := status.StatusInfo{
-		Status:  status.Maintenance,
-		Message: "blah",
-		Since:   &now,
-	}
-	err := s.wordpressUnit.SetStatus(sInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	sInfo = status.StatusInfo{
-		Status:  status.Terminated,
-		Message: "foo",
-		Since:   &now,
-	}
-	err = s.mysqlUnit.SetStatus(sInfo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.Entities{
-		Entities: []params.Entity{
-			{Tag: "unit-mysql-0"},
-			{Tag: "unit-wordpress-0"},
-			{Tag: "unit-foo-42"},
-			{Tag: "machine-1"},
-			{Tag: "invalid"},
-		}}
-	result, err := s.uniter.UnitStatus(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	// Zero out the updated timestamps so we can easily check the results.
-	for i, statusResult := range result.Results {
-		r := statusResult
-		if r.Status != "" {
-			c.Assert(r.Since, gc.NotNil)
-		}
-		r.Since = nil
-		result.Results[i] = r
-	}
-	c.Assert(result, gc.DeepEquals, params.StatusResults{
-		Results: []params.StatusResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Status: status.Maintenance.String(), Info: "blah", Data: map[string]interface{}{}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},
-		},
-	})
 }
 
 func (s *uniterLegacySuite) TestAssignedMachine(c *gc.C) {
