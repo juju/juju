@@ -105,7 +105,7 @@ func CreateGlobalModelRecord(
 				}
 
 				if !supports {
-					errors.Errorf(
+					return errors.Errorf(
 						"new model %q cloud %q does not support empty authentication, a credential needs to be supplied",
 						args.Name, args.Cloud,
 					).Add(modelerrors.CredentialNotValid)
