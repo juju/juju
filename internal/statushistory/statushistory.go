@@ -69,14 +69,16 @@ func (s *StatusHistory) RecordStatus(ctx context.Context, ns Namespace, status s
 	// For structured logging this is less than ideal, as we'll have JSON
 	// encoded inside of JSON. However, it's the best we can do without
 	// an alternative.
-	data, err := json.Marshal(status.Data)
-	if err != nil {
-		labels[dataErrorKey] = err.Error()
-	} else {
-		labels[dataKey] = string(data)
+	if len(status.Data) > 0 {
+		data, err := json.Marshal(status.Data)
+		if err != nil {
+			labels[dataErrorKey] = err.Error()
+		} else {
+			labels[dataKey] = string(data)
+		}
 	}
 
-	s.logger.Logf(ctx, logger.INFO, labels, "status: %s", status.Message)
+	s.logger.Logf(ctx, logger.INFO, labels, "status-history (state: %q, status-message: %s)", status.Status, status.Message)
 }
 
 const (
