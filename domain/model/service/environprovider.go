@@ -13,8 +13,6 @@
 package service
 
 import (
-	"context"
-
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
@@ -56,26 +54,4 @@ func EnvironVersionProviderGetter() EnvironVersionProviderFunc {
 
 		return environVersionProvider, nil
 	}
-}
-
-// GetEnvironVersion retrieves the version of the environment provider associated with the model.
-//
-// The following error types can be expected:
-// - [modelerrors.NotFound]: Returned if the model does not exist.
-func (s *ModelService) GetEnvironVersion(ctx context.Context) (int, error) {
-	modelCloudType, err := s.modelSt.GetModelCloudType(ctx)
-	if err != nil {
-		return 0, errors.Errorf(
-			"getting model cloud type from state: %w", err,
-		)
-	}
-
-	envProvider, err := s.environProviderGetter(modelCloudType)
-	if err != nil {
-		return 0, errors.Errorf(
-			"getting environment provider for cloud type %q: %w", modelCloudType, err,
-		)
-	}
-
-	return envProvider.Version(), nil
 }
