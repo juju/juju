@@ -8,8 +8,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/worker/common"
-	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/api/base"
+	sshserverapi "github.com/juju/juju/api/controller/sshserver"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Logger holds the methods required to log messages.
@@ -17,25 +19,32 @@ type Logger interface {
 	Errorf(string, ...interface{})
 }
 
+// FacadeClient represents the SSH server's facade client.
+type FacadeClient interface {
+	ControllerConfig() (controller.Config, error)
+	WatchControllerConfig() (watcher.NotifyWatcher, error)
+	SSHServerHostKey() (string, error)
+}
+
 // ManifoldConfig holds the information necessary to run an embedded SSH server
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
-	// StateName holds the name of the state dependency.
-	StateName string
+	// APICallerName holds the api caller dependency name.
+	APICallerName string
+
 	// NewServerWrapperWorker is the function that creates the embedded SSH server worker.
 	NewServerWrapperWorker func(ServerWrapperWorkerConfig) (worker.Worker, error)
+
 	// NewServerWorker is the function that creates a worker that has a catacomb
 	// to run the server and other worker dependencies.
 	NewServerWorker func(ServerWorkerConfig) (worker.Worker, error)
+
 	// Logger is the logger to use for the worker.
 	Logger Logger
 }
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.StateName == "" {
-		return errors.NotValidf("empty StateName")
-	}
 	if config.NewServerWrapperWorker == nil {
 		return errors.NotValidf("nil NewServerWrapperWorker")
 	}
@@ -45,6 +54,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	if config.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName")
+	}
 	return nil
 }
 
@@ -53,7 +65,7 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.StateName,
+			config.APICallerName,
 		},
 		Start: config.startWrapperWorker,
 	}
@@ -65,33 +77,24 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		return nil, errors.Trace(err)
 	}
 
-	var stTracker workerstate.StateTracker
-	if err := context.Get(config.StateName, &stTracker); err != nil {
+	var apiCaller base.APICaller
+	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	statePool, err := stTracker.Use()
-	if err != nil {
-		_ = stTracker.Done()
-		return nil, errors.Trace(err)
-	}
-
-	sysState, err := statePool.SystemState()
+	client, err := sshserverapi.NewClient(apiCaller)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
-		SystemState:     sysState,
 		NewServerWorker: config.NewServerWorker,
 		Logger:          config.Logger,
+		FacadeClient:    client,
 	})
 	if err != nil {
-		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 
-	return common.NewCleanupWorker(w, func() {
-		_ = stTracker.Done()
-	}), nil
+	return w, nil
 }

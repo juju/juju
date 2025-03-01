@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,6 +17,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	gc "gopkg.in/check.v1"
 
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/sshserver"
 )
 
@@ -40,9 +42,41 @@ func (s *sshServerSuite) SetUpSuite(c *gc.C) {
 	s.userSigner = userSigner
 }
 
+func newServerWorkerConfig(
+	l sshserver.Logger,
+	j string,
+	modifier func(*sshserver.ServerWorkerConfig),
+) *sshserver.ServerWorkerConfig {
+	cfg := &sshserver.ServerWorkerConfig{
+		Logger:      l,
+		JumpHostKey: j,
+	}
+
+	modifier(cfg)
+
+	return cfg
+}
+
 func (s *sshServerSuite) TestValidate(c *gc.C) {
-	cfg := sshserver.ServerWorkerConfig{}
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+	cfg := &sshserver.ServerWorkerConfig{}
+	l := loggo.GetLogger("test")
+
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Test no Logger.
+	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *sshserver.ServerWorkerConfig) {
+		cfg.Logger = nil
+	})
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	// Test no JumpHostKey.
+	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *sshserver.ServerWorkerConfig) {
+		cfg.JumpHostKey = ""
+	})
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *sshServerSuite) TestSSHServer(c *gc.C) {
@@ -53,8 +87,9 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	listener := bufconn.Listen(8 * 1024)
 
 	server, err := sshserver.NewServerWorker(sshserver.ServerWorkerConfig{
-		Logger:   loggo.GetLogger("test"),
-		Listener: listener,
+		Logger:      loggo.GetLogger("test"),
+		Listener:    listener,
+		JumpHostKey: jujutesting.SSHServerHostKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)
