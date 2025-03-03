@@ -49,7 +49,7 @@ type StorageState interface {
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageCount]: when the allowed attachment count would be violated.
 	// - [github.com/juju/juju/domain/application/errors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
 	AddStorageForUnit(
-		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, stor storage.Directive,
+		ctx context.Context, storageName corestorage.Name, unitUUID coreunit.UUID, directive storage.Directive,
 	) ([]corestorage.ID, error)
 
 	// DetachStorageForUnit detaches the specified storage from the specified unit.

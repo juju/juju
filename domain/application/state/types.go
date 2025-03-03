@@ -965,12 +965,12 @@ type storageAttachment struct {
 
 type filesystemUUID struct {
 	UUID       corestorage.FilesystemUUID `db:"uuid"`
-	AttachedTo string                     `db:"net_node_uuid"`
+	AttachedTo *string                    `db:"net_node_uuid"`
 }
 
 type volumeUUID struct {
 	UUID       corestorage.VolumeUUID `db:"uuid"`
-	AttachedTo string                 `db:"net_node_uuid"`
+	AttachedTo *string                `db:"net_node_uuid"`
 }
 
 type filesystem struct {

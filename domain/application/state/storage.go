@@ -451,11 +451,7 @@ AND si.uuid != $storageCount.uuid
 		// Check allowed storage attachment counts - will this attachment exceed the max allowed.
 		// First get the number of storage instances (excluding the one we are attaching)
 		// of the same name already owned by this unit.
-		storageCount := storageCount{
-			StorageUUID: storageUUID,
-			StorageName: stor.StorageName,
-			UnitUUID:    unitUUID,
-		}
+		storageCount := storageCount{StorageUUID: storageUUID, StorageName: stor.StorageName, UnitUUID: unitUUID}
 		err = tx.Query(ctx, countQuery, storageCount).Get(&storageCount)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("querying storage count for storage %q on unit %q: %w", stor.StorageName, unitUUID, err)
@@ -517,20 +513,11 @@ func (st *State) getApplicationCharmStorageByName(ctx context.Context, tx *sqlai
 	}
 	var result charmStorage
 	stmt, err := st.Prepare(`
-SELECT
-      cs.charm_uuid AS &charmStorage.charm_uuid,
-      cs.name AS &charmStorage.name,
-      cs.kind AS &charmStorage.kind,
-      cs.shared AS &charmStorage.shared,
-      cs.read_only AS &charmStorage.read_only,
-      cs.count_min AS &charmStorage.count_min,
-      cs.count_max AS &charmStorage.count_max,
-      cs.minimum_size_mib AS &charmStorage.minimum_size_mib,
-      cs.location AS &charmStorage.location
-FROM  v_charm_storage cs
-JOIN  application ON application.charm_uuid = cs.charm_uuid
-WHERE application.uuid = $appCharmStorage.uuid
-AND   cs.name = $appCharmStorage.name
+SELECT cs.* AS &charmStorage.*
+FROM   v_charm_storage cs
+JOIN   application ON application.charm_uuid = cs.charm_uuid
+WHERE  application.uuid = $appCharmStorage.uuid
+AND    cs.name = $appCharmStorage.name
 `, storageSpec, result)
 	if err != nil {
 		return result, errors.Capture(err)
@@ -550,20 +537,11 @@ func (st *State) getUnitCharmStorageByName(ctx context.Context, tx *sqlair.TX, u
 	}
 	var result charmStorage
 	stmt, err := st.Prepare(`
-SELECT
-      cs.charm_uuid AS &charmStorage.charm_uuid,
-      cs.name AS &charmStorage.name,
-      cs.kind AS &charmStorage.kind,
-      cs.shared AS &charmStorage.shared,
-      cs.read_only AS &charmStorage.read_only,
-      cs.count_min AS &charmStorage.count_min,
-      cs.count_max AS &charmStorage.count_max,
-      cs.minimum_size_mib AS &charmStorage.minimum_size_mib,
-      cs.location AS &charmStorage.location
-FROM  v_charm_storage cs
-JOIN  unit ON unit.charm_uuid = cs.charm_uuid
-WHERE unit.uuid = $unitCharmStorage.uuid
-AND   cs.name = $unitCharmStorage.name
+SELECT cs.* AS &charmStorage.*
+FROM   v_charm_storage cs
+JOIN   unit ON unit.charm_uuid = cs.charm_uuid
+WHERE  unit.uuid = $unitCharmStorage.uuid
+AND    cs.name = $unitCharmStorage.name
 `, storageSpec, result)
 	if err != nil {
 		return result, errors.Capture(err)
@@ -772,9 +750,9 @@ func (st *State) attachmentParamsForStorageInstance(
 			// The storage is not shared, so make sure that it is
 			// not currently attached to any other host. If it
 			// is, it should be in the process of being detached.
-			if filesystem.AttachedTo != "" {
+			if filesystem.AttachedTo != nil {
 				return nil, nil, errors.Errorf(
-					"filesystem %q is attached to %q", filesystem.UUID, filesystem.AttachedTo).
+					"filesystem %q is attached to %q", filesystem.UUID, *filesystem.AttachedTo).
 					Add(applicationerrors.FilesystemAlreadyAttached)
 			}
 		}
@@ -805,8 +783,8 @@ func (st *State) attachmentParamsForStorageInstance(
 			// The storage is not shared, so make sure that it is
 			// not currently attached to any other machine. If it
 			// is, it should be in the process of being detached.
-			if volume.AttachedTo != "" {
-				return nil, nil, errors.Errorf("volume %q is attached to %q", volume.UUID, volume.AttachedTo).
+			if volume.AttachedTo != nil {
+				return nil, nil, errors.Errorf("volume %q is attached to %q", volume.UUID, *volume.AttachedTo).
 					Add(applicationerrors.VolumeAlreadyAttached)
 			}
 		}

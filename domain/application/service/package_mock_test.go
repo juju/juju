@@ -58,18 +58,18 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddStorageForUnit mocks base method.
-func (m *MockState) AddStorageForUnit(ctx context.Context, storageName storage.Name, unitUUID unit.UUID, stor storage1.Directive) ([]storage.ID, error) {
+func (m *MockState) AddStorageForUnit(ctx context.Context, storageName storage.Name, unitUUID unit.UUID, directive storage1.Directive) ([]storage.ID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddStorageForUnit", ctx, storageName, unitUUID, stor)
+	ret := m.ctrl.Call(m, "AddStorageForUnit", ctx, storageName, unitUUID, directive)
 	ret0, _ := ret[0].([]storage.ID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddStorageForUnit indicates an expected call of AddStorageForUnit.
-func (mr *MockStateMockRecorder) AddStorageForUnit(ctx, storageName, unitUUID, stor any) *MockStateAddStorageForUnitCall {
+func (mr *MockStateMockRecorder) AddStorageForUnit(ctx, storageName, unitUUID, directive any) *MockStateAddStorageForUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddStorageForUnit", reflect.TypeOf((*MockState)(nil).AddStorageForUnit), ctx, storageName, unitUUID, stor)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddStorageForUnit", reflect.TypeOf((*MockState)(nil).AddStorageForUnit), ctx, storageName, unitUUID, directive)
 	return &MockStateAddStorageForUnitCall{Call: call}
 }
 
