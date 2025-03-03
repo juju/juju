@@ -231,7 +231,6 @@ func (s *modelBootstrapSuite) TestCreateModelWithEmptyCredential(c *gc.C) {
 		Owner:      s.adminUserUUID,
 	}
 
-	// Create a model and then create a read-only model from it.
 	fn = CreateGlobalModelRecord(modelUUID, args)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Check(err, jc.ErrorIsNil)
