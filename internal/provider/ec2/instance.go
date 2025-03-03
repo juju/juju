@@ -161,7 +161,7 @@ type FetchInstanceClient interface {
 // available instance types for an AWS region. This func assumes that the ec2
 // client provided is scoped to a region already.
 func FetchInstanceTypeInfo(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	ec2Client FetchInstanceClient,
 ) ([]types.InstanceTypeInfo, error) {
 	const maxResults = int32(100)
@@ -174,7 +174,6 @@ func FetchInstanceTypeInfo(
 			NextToken:  nextToken,
 		})
 		if err != nil {
-			err = maybeConvertCredentialError(err, ctx)
 			return nil, fmt.Errorf("describing instance types: %w", err)
 		}
 		instanceTypes = append(instanceTypes, instTypeResults.InstanceTypes...)

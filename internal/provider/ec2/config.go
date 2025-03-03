@@ -60,7 +60,7 @@ func (p environProvider) newConfig(ctx context.Context, cfg *config.Config) (*en
 	if err != nil {
 		return nil, err
 	}
-	return &environConfig{valid, valid.UnknownAttrs()}, nil
+	return &environConfig{Config: valid, attrs: valid.UnknownAttrs()}, nil
 }
 
 // ModelConfigDefaults provides a set of default model config attributes that
@@ -101,7 +101,7 @@ func validateConfig(ctx context.Context, cfg, old *config.Config) (*environConfi
 	if err != nil {
 		return nil, err
 	}
-	ecfg := &environConfig{cfg, validated}
+	ecfg := &environConfig{Config: cfg, attrs: validated}
 
 	if vpcID := ecfg.vpcID(); isVPCIDSetButInvalid(vpcID) {
 		return nil, fmt.Errorf("vpc-id: %q is not a valid AWS VPC ID", vpcID)
