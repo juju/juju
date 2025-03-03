@@ -1074,8 +1074,9 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"ssh-server": {
 		"agent",
+		"api-caller",
+		"api-config-watcher",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 	},
 }
@@ -1489,8 +1490,9 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"ssh-server": {
 		"agent",
+		"api-caller",
+		"api-config-watcher",
 		"is-controller-flag",
-		"state",
 		"state-config-watcher",
 	},
 }
