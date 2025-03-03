@@ -13,7 +13,6 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
-	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -41,36 +40,6 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
-// APIHostPortsForAgents mocks base method.
-func (m *MockBackend) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIHostPortsForAgents")
-	ret0, _ := ret[0].([]network.SpaceHostPorts)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// APIHostPortsForAgents indicates an expected call of APIHostPortsForAgents.
-func (mr *MockBackendMockRecorder) APIHostPortsForAgents() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForAgents", reflect.TypeOf((*MockBackend)(nil).APIHostPortsForAgents))
-}
-
-// CompletedMigrationForModel mocks base method.
-func (m *MockBackend) CompletedMigrationForModel(arg0 string) (state.ModelMigration, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompletedMigrationForModel", arg0)
-	ret0, _ := ret[0].(state.ModelMigration)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CompletedMigrationForModel indicates an expected call of CompletedMigrationForModel.
-func (mr *MockBackendMockRecorder) CompletedMigrationForModel(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompletedMigrationForModel", reflect.TypeOf((*MockBackend)(nil).CompletedMigrationForModel), arg0)
-}
-
 // ControllerConfig mocks base method.
 func (m *MockBackend) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()
@@ -84,35 +53,6 @@ func (m *MockBackend) ControllerConfig() (controller.Config, error) {
 func (mr *MockBackendMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBackend)(nil).ControllerConfig))
-}
-
-// ModelExists mocks base method.
-func (m *MockBackend) ModelExists(arg0 string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelExists", arg0)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelExists indicates an expected call of ModelExists.
-func (mr *MockBackendMockRecorder) ModelExists(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelExists", reflect.TypeOf((*MockBackend)(nil).ModelExists), arg0)
-}
-
-// NewExternalControllers mocks base method.
-func (m *MockBackend) NewExternalControllers() state.ExternalControllers {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewExternalControllers")
-	ret0, _ := ret[0].(state.ExternalControllers)
-	return ret0
-}
-
-// NewExternalControllers indicates an expected call of NewExternalControllers.
-func (mr *MockBackendMockRecorder) NewExternalControllers() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewExternalControllers", reflect.TypeOf((*MockBackend)(nil).NewExternalControllers))
 }
 
 // SSHServerHostKey mocks base method.
