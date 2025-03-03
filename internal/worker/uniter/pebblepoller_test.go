@@ -5,6 +5,8 @@ package uniter_test
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"regexp"
 	"sync"
 	"time"
@@ -121,6 +123,7 @@ type fakePebbleClient struct {
 	clock       *testclock.Clock
 	noticeAdded chan *pebbleclient.Notice
 	changes     map[string]*pebbleclient.Change
+	changeErr   error
 }
 
 func (c *fakePebbleClient) SysInfo() (*pebbleclient.SysInfo, error) {
@@ -197,9 +200,15 @@ func (c *fakePebbleClient) AddChange(checkC *gc.C, change *pebbleclient.Change) 
 
 // Change returns a change by ID, or a NotFound error if it doesn't exist.
 func (c *fakePebbleClient) Change(id string) (*pebbleclient.Change, error) {
+	if c.changeErr != nil {
+		return nil, c.changeErr
+	}
 	change, exists := c.changes[id]
 	if exists {
 		return change, nil
 	}
-	return nil, errors.NotFoundf("change %s", id)
+	return nil, &pebbleclient.Error{
+		Message:    fmt.Sprintf("cannot find change with id %q", id),
+		StatusCode: http.StatusNotFound,
+	}
 }
