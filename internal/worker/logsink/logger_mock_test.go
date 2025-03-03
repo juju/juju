@@ -325,19 +325,19 @@ func (c *MockLoggerIsLevelEnabledCall) DoAndReturn(f func(logger.Level) bool) *M
 }
 
 // Logf mocks base method.
-func (m *MockLogger) Logf(arg0 context.Context, arg1 logger.Level, arg2 string, arg3 ...any) {
+func (m *MockLogger) Logf(arg0 context.Context, arg1 logger.Level, arg2 logger.Labels, arg3 string, arg4 ...any) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
+	varargs := []any{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
 		varargs = append(varargs, a)
 	}
 	m.ctrl.Call(m, "Logf", varargs...)
 }
 
 // Logf indicates an expected call of Logf.
-func (mr *MockLoggerMockRecorder) Logf(arg0, arg1, arg2 any, arg3 ...any) *MockLoggerLogfCall {
+func (mr *MockLoggerMockRecorder) Logf(arg0, arg1, arg2, arg3 any, arg4 ...any) *MockLoggerLogfCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	varargs := append([]any{arg0, arg1, arg2, arg3}, arg4...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logf", reflect.TypeOf((*MockLogger)(nil).Logf), varargs...)
 	return &MockLoggerLogfCall{Call: call}
 }
@@ -354,13 +354,13 @@ func (c *MockLoggerLogfCall) Return() *MockLoggerLogfCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockLoggerLogfCall) Do(f func(context.Context, logger.Level, string, ...any)) *MockLoggerLogfCall {
+func (c *MockLoggerLogfCall) Do(f func(context.Context, logger.Level, logger.Labels, string, ...any)) *MockLoggerLogfCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggerLogfCall) DoAndReturn(f func(context.Context, logger.Level, string, ...any)) *MockLoggerLogfCall {
+func (c *MockLoggerLogfCall) DoAndReturn(f func(context.Context, logger.Level, logger.Labels, string, ...any)) *MockLoggerLogfCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
