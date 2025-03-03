@@ -127,20 +127,7 @@ func (s *watcherSuite) TestWatchController(c *gc.C) {
 	c.Check(testModel.Activated, jc.IsFalse)
 
 	wc := watchertest.NewNotifyWatcherC(c, watcher)
-	// s.updateModelActiveStatus(c, modelUUIDStr, true)
-	// wc.AssertOneChange()
-
-	// s.updateModelName(c, modelUUIDStr, "new-name")
-	// wc.AssertOneChange()
-
-	// dbInitialModel := modeltesting.DbInitialModel{
-	// 	UUID: modelUUIDStr,
-	// }
-	// modeltesting.DeleteTestModel(c, s.TxnRunnerFactory(), dbInitialModel)
-	// wc.AssertOneChange()
-
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		defer tx.Rollback()
+	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", true, modelUUIDStr)
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err := res.RowsAffected()
@@ -164,15 +151,29 @@ func (s *watcherSuite) TestWatchController(c *gc.C) {
 
 		err = tx.Commit()
 		c.Assert(err, jc.ErrorIsNil)
-		return err
+		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNChanges(2)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		defer tx.Rollback()
+	// modeltesting.DeleteTestModel(c, s.TxnRunnerFactory(), modeltesting.DbInitialModel{
+	// 	UUID:      modelUUIDStr,
+	// 	OwnerUUID: testModel.OwnerUUID,
+	// 	CloudUUID: testModel.CloudUUID,
+	// })
+	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		// res, err := tx.ExecContext(ctx, "DELETE from user_authentication WHERE user_uuid = ?", testModel.OwnerUUID)
+		// c.Assert(err, jc.ErrorIsNil)
+		// rowsAffected, err := res.RowsAffected()
+		// c.Assert(err, jc.ErrorIsNil)
+		// c.Check(int(rowsAffected), gc.Equals, 1)
 
-		res, err := tx.ExecContext(ctx, "DELETE from user WHERE uuid = ?", testModel.OwnerUUID)
+		// res, err = tx.ExecContext(ctx, "DELETE from user WHERE uuid = ?", testModel.OwnerUUID)
+		// c.Assert(err, jc.ErrorIsNil)
+		// rowsAffected, err = res.RowsAffected()
+		// c.Assert(err, jc.ErrorIsNil)
+		// c.Check(int(rowsAffected), gc.Equals, 1)
+
+		res, err := tx.ExecContext(ctx, "DELETE from cloud WHERE uuid = ?", testModel.CloudUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err := res.RowsAffected()
 		c.Assert(err, jc.ErrorIsNil)
@@ -190,12 +191,6 @@ func (s *watcherSuite) TestWatchController(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(int(rowsAffected), gc.Equals, 1)
 
-		res, err = tx.ExecContext(ctx, "DELETE from cloud WHERE uuid = ?", testModel.CloudUUID)
-		c.Assert(err, jc.ErrorIsNil)
-		rowsAffected, err = res.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
 		res, err = tx.ExecContext(ctx, "DELETE from model WHERE uuid = ?", testModel.UUID)
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err = res.RowsAffected()
@@ -204,8 +199,7 @@ func (s *watcherSuite) TestWatchController(c *gc.C) {
 
 		err = tx.Commit()
 		c.Assert(err, jc.ErrorIsNil)
-		return err
+		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }

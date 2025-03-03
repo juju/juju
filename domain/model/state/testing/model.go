@@ -226,17 +226,37 @@ func DeleteTestModel(c *gc.C, txnRunner database.TxnRunnerFactory, dbModel DbIni
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			DELETE FROM user where uuid = ?
-		`, dbModel.OwnerUUID)
-		if err != nil {
-			return err
-		}
+		res, err := tx.ExecContext(ctx, "DELETE from user WHERE uuid = ?", dbModel.OwnerUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		rowsAffected, err := res.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(int(rowsAffected), gc.Equals, 1)
 
-		_, err = tx.ExecContext(ctx, `
-			DELETE FROM model WHERE uuid = ?
-		`, dbModel.UUID)
-		return err
+		res, err = tx.ExecContext(ctx, "DELETE from cloud_region WHERE cloud_uuid = ?", dbModel.CloudUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		rowsAffected, err = res.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(int(rowsAffected), gc.Equals, 1)
+
+		res, err = tx.ExecContext(ctx, "DELETE from cloud_credential WHERE cloud_uuid = ?", dbModel.CloudUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		rowsAffected, err = res.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(int(rowsAffected), gc.Equals, 1)
+
+		res, err = tx.ExecContext(ctx, "DELETE from cloud WHERE uuid = ?", dbModel.CloudUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		rowsAffected, err = res.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(int(rowsAffected), gc.Equals, 1)
+
+		res, err = tx.ExecContext(ctx, "DELETE from model WHERE uuid = ?", dbModel.UUID)
+		c.Assert(err, jc.ErrorIsNil)
+		rowsAffected, err = res.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(int(rowsAffected), gc.Equals, 1)
+
+		return tx.Commit()
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
