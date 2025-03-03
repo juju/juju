@@ -3,9 +3,6 @@ on:
   workflow_dispatch:
   workflow_call:
 
-permissions:
-  contents: read
-
 jobs:
   generate:
     name: Check Generated Mocks
@@ -18,8 +15,8 @@ jobs:
       - name: "Set up Go"
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
-          cache: true
+          go-version-file: "go.mod"
+          cache: false
 
       - name: "Regenerate code"
         shell: bash

@@ -1,15 +1,12 @@
 name: "Static Analysis"
 on:
   push:
-    branches: [2.*, 3.*, 4.*, main]
+    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 #   paths:
 #     DON'T SET - these are "required" so they need to run on every PR
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   checks:
@@ -17,44 +14,44 @@ jobs:
     runs-on: [self-hosted, linux, arm64, aws, xxlarge]
     if: github.event.pull_request.draft == false
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: 'go.mod'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
 
-    - name: Install Dependencies
-      run: |
-        echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
-        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+      - name: Install Dependencies
+        run: |
+          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-        sudo add-apt-repository ppa:dqlite/dev -y --no-update
-        sudo apt-get update
-        sudo apt-get install -y \
-          expect \
-          libdqlite-dev \
-          libsqlite3-dev \
-          sqlite3
-        go install golang.org/x/vuln/cmd/govulncheck@latest
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
-        sudo curl -sSfL https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_$(go env GOARCH) -o /usr/bin/shfmt
-        sudo chmod +x /usr/bin/shfmt
-        
-        go install github.com/google/go-licenses@latest
+          sudo add-apt-repository ppa:dqlite/dev -y --no-update
+          sudo apt-get update
+          sudo apt-get install -y \
+            expect \
+            libdqlite-dev \
+            libsqlite3-dev \
+            sqlite3
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
+          sudo curl -sSfL https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_$(go env GOARCH) -o /usr/bin/shfmt
+          sudo chmod +x /usr/bin/shfmt
+          
+          go install github.com/google/go-licenses@latest
 
-    - name: Download Go Dependencies
-      run: go mod download
+      - name: Download Go Dependencies
+        run: go mod download
 
-    - name: "Static Analysis"
-      run: make static-analysis
+      - name: "Static Analysis"
+        run: make static-analysis
 
   conventional-commits:
     name: Check conventional commits
     runs-on: ubuntu-latest
     steps:
-        - uses: actions/checkout@v4
-        - uses: wagoid/commitlint-github-action@v6
-          with:
-            configFile: .github/commitlint.config.mjs
+      - uses: actions/checkout@v4
+      - uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .github/commitlint.config.mjs

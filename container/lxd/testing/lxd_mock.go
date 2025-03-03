@@ -566,6 +566,36 @@ func (mr *MockImageServerMockRecorder) GetImages() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImages", reflect.TypeOf((*MockImageServer)(nil).GetImages))
 }
 
+// GetImagesAllProjects mocks base method.
+func (m *MockImageServer) GetImagesAllProjects() ([]api.Image, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetImagesAllProjects")
+	ret0, _ := ret[0].([]api.Image)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetImagesAllProjects indicates an expected call of GetImagesAllProjects.
+func (mr *MockImageServerMockRecorder) GetImagesAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImagesAllProjects", reflect.TypeOf((*MockImageServer)(nil).GetImagesAllProjects))
+}
+
+// GetImagesAllProjectsWithFilter mocks base method.
+func (m *MockImageServer) GetImagesAllProjectsWithFilter(arg0 []string) ([]api.Image, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetImagesAllProjectsWithFilter", arg0)
+	ret0, _ := ret[0].([]api.Image)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetImagesAllProjectsWithFilter indicates an expected call of GetImagesAllProjectsWithFilter.
+func (mr *MockImageServerMockRecorder) GetImagesAllProjectsWithFilter(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImagesAllProjectsWithFilter", reflect.TypeOf((*MockImageServer)(nil).GetImagesAllProjectsWithFilter), arg0)
+}
+
 // GetImagesWithFilter mocks base method.
 func (m *MockImageServer) GetImagesWithFilter(arg0 []string) ([]api.Image, error) {
 	m.ctrl.T.Helper()
@@ -958,6 +988,35 @@ func (m *MockInstanceServer) CreateIdentityProviderGroup(arg0 api.IdentityProvid
 func (mr *MockInstanceServerMockRecorder) CreateIdentityProviderGroup(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIdentityProviderGroup", reflect.TypeOf((*MockInstanceServer)(nil).CreateIdentityProviderGroup), arg0)
+}
+
+// CreateIdentityTLS mocks base method.
+func (m *MockInstanceServer) CreateIdentityTLS(arg0 api.IdentitiesTLSPost) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateIdentityTLS", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateIdentityTLS indicates an expected call of CreateIdentityTLS.
+func (mr *MockInstanceServerMockRecorder) CreateIdentityTLS(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIdentityTLS", reflect.TypeOf((*MockInstanceServer)(nil).CreateIdentityTLS), arg0)
+}
+
+// CreateIdentityTLSToken mocks base method.
+func (m *MockInstanceServer) CreateIdentityTLSToken(arg0 api.IdentitiesTLSPost) (*api.CertificateAddToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateIdentityTLSToken", arg0)
+	ret0, _ := ret[0].(*api.CertificateAddToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateIdentityTLSToken indicates an expected call of CreateIdentityTLSToken.
+func (mr *MockInstanceServerMockRecorder) CreateIdentityTLSToken(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIdentityTLSToken", reflect.TypeOf((*MockInstanceServer)(nil).CreateIdentityTLSToken), arg0)
 }
 
 // CreateImage mocks base method.
@@ -1506,6 +1565,20 @@ func (m *MockInstanceServer) DeleteContainerTemplateFile(arg0, arg1 string) erro
 func (mr *MockInstanceServerMockRecorder) DeleteContainerTemplateFile(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteContainerTemplateFile", reflect.TypeOf((*MockInstanceServer)(nil).DeleteContainerTemplateFile), arg0, arg1)
+}
+
+// DeleteIdentity mocks base method.
+func (m *MockInstanceServer) DeleteIdentity(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteIdentity", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteIdentity indicates an expected call of DeleteIdentity.
+func (mr *MockInstanceServerMockRecorder) DeleteIdentity(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteIdentity", reflect.TypeOf((*MockInstanceServer)(nil).DeleteIdentity), arg0, arg1)
 }
 
 // DeleteIdentityProviderGroup mocks base method.
@@ -2822,6 +2895,36 @@ func (mr *MockInstanceServerMockRecorder) GetImages() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImages", reflect.TypeOf((*MockInstanceServer)(nil).GetImages))
 }
 
+// GetImagesAllProjects mocks base method.
+func (m *MockInstanceServer) GetImagesAllProjects() ([]api.Image, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetImagesAllProjects")
+	ret0, _ := ret[0].([]api.Image)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetImagesAllProjects indicates an expected call of GetImagesAllProjects.
+func (mr *MockInstanceServerMockRecorder) GetImagesAllProjects() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImagesAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetImagesAllProjects))
+}
+
+// GetImagesAllProjectsWithFilter mocks base method.
+func (m *MockInstanceServer) GetImagesAllProjectsWithFilter(arg0 []string) ([]api.Image, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetImagesAllProjectsWithFilter", arg0)
+	ret0, _ := ret[0].([]api.Image)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetImagesAllProjectsWithFilter indicates an expected call of GetImagesAllProjectsWithFilter.
+func (mr *MockInstanceServerMockRecorder) GetImagesAllProjectsWithFilter(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImagesAllProjectsWithFilter", reflect.TypeOf((*MockInstanceServer)(nil).GetImagesAllProjectsWithFilter), arg0)
+}
+
 // GetImagesWithFilter mocks base method.
 func (m *MockInstanceServer) GetImagesWithFilter(arg0 []string) ([]api.Image, error) {
 	m.ctrl.T.Helper()
@@ -3293,6 +3396,21 @@ func (m *MockInstanceServer) GetInstancesWithFilter(arg0 api.InstanceType, arg1 
 func (mr *MockInstanceServerMockRecorder) GetInstancesWithFilter(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstancesWithFilter", reflect.TypeOf((*MockInstanceServer)(nil).GetInstancesWithFilter), arg0, arg1)
+}
+
+// GetMetadataConfiguration mocks base method.
+func (m *MockInstanceServer) GetMetadataConfiguration() (*api.MetadataConfiguration, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMetadataConfiguration")
+	ret0, _ := ret[0].(*api.MetadataConfiguration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMetadataConfiguration indicates an expected call of GetMetadataConfiguration.
+func (mr *MockInstanceServerMockRecorder) GetMetadataConfiguration() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadataConfiguration", reflect.TypeOf((*MockInstanceServer)(nil).GetMetadataConfiguration))
 }
 
 // GetMetrics mocks base method.
