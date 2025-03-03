@@ -46,12 +46,6 @@ func ObserverFactoryMultiplexer(factories ...ObserverFactory) ObserverFactory {
 	}
 }
 
-// None is a wrapper around the Multiplexer factory to add clarity to
-// code that doesn't need any observers.
-func None() *Multiplexer {
-	return NewMultiplexer()
-}
-
 // NewMultiplexer creates a new Multiplexer with the provided
 // observers.
 func NewMultiplexer(observers ...Observer) *Multiplexer {

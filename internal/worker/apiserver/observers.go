@@ -33,10 +33,9 @@ func newObserverFn(
 	return observer.ObserverFactoryMultiplexer([]observer.ObserverFactory{
 		func() observer.Observer {
 			logger := internallogger.GetLogger("juju.apiserver")
-			ctx := observer.RequestObserverContext{
+			ctx := observer.RequestObserverConfig{
 				Clock:  clock,
 				Logger: logger,
-				Hub:    hub,
 			}
 			return observer.NewRequestObserver(ctx)
 		},

@@ -10,12 +10,10 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/pubsub/apiserver"
 )
 
 type RequestObserverSuite struct {
@@ -24,130 +22,74 @@ type RequestObserverSuite struct {
 
 var _ = gc.Suite(&RequestObserverSuite{})
 
-func (*RequestObserverSuite) makeNotifier(c *gc.C) (*observer.RequestObserver, *connectionHub) {
-	hub := &connectionHub{c: c}
-	return observer.NewRequestObserver(observer.RequestObserverContext{
+func (*RequestObserverSuite) makeNotifier(c *gc.C) *observer.RequestObserver {
+	return observer.NewRequestObserver(observer.RequestObserverConfig{
 		Clock:  testclock.NewClock(time.Now()),
-		Hub:    hub,
 		Logger: loggertesting.WrapCheckLog(c),
-	}), hub
+	})
 }
 
-func (s *RequestObserverSuite) TestAgentConnectionPublished(c *gc.C) {
-	notifier, hub := s.makeNotifier(c)
+func (s *RequestObserverSuite) TestAgentConnection(c *gc.C) {
+	notifier := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("42")
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(context.Background(), agent, model, false, "user data")
-
-	c.Assert(hub.called, gc.Equals, 1)
-	c.Assert(hub.topic, gc.Equals, apiserver.ConnectTopic)
-	c.Assert(hub.details, jc.DeepEquals, apiserver.APIConnection{
-		AgentTag:     "machine-42",
-		ModelUUID:    "fake-uuid",
-		UserData:     "user data",
-		ConnectionID: 0,
-	})
 }
 
-func (s *RequestObserverSuite) assertControllerAgentConnectionPublished(c *gc.C, agent names.Tag) {
-	notifier, hub := s.makeNotifier(c)
+func (s *RequestObserverSuite) assertControllerAgentConnection(c *gc.C, agent names.Tag) {
+	notifier := s.makeNotifier(c)
 
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(context.Background(), agent, model, true, "user data")
-
-	c.Assert(hub.called, gc.Equals, 1)
-	c.Assert(hub.topic, gc.Equals, apiserver.ConnectTopic)
-	c.Assert(hub.details, jc.DeepEquals, apiserver.APIConnection{
-		AgentTag:        agent.String(),
-		ModelUUID:       "fake-uuid",
-		ControllerAgent: true,
-		UserData:        "user data",
-		ConnectionID:    0,
-	})
 }
 
-func (s *RequestObserverSuite) TestControllerMachineAgentConnectionPublished(c *gc.C) {
-	s.assertControllerAgentConnectionPublished(c, names.NewMachineTag("2"))
+func (s *RequestObserverSuite) TestControllerMachineAgentConnection(c *gc.C) {
+	s.assertControllerAgentConnection(c, names.NewMachineTag("2"))
 }
 
-func (s *RequestObserverSuite) TestControllerUnitAgentConnectionPublished(c *gc.C) {
-	s.assertControllerAgentConnectionPublished(c, names.NewUnitTag("mariadb/0"))
+func (s *RequestObserverSuite) TestControllerUnitAgentConnection(c *gc.C) {
+	s.assertControllerAgentConnection(c, names.NewUnitTag("mariadb/0"))
 }
 
-func (s *RequestObserverSuite) TestControllerApplicationAgentConnectionPublished(c *gc.C) {
-	s.assertControllerAgentConnectionPublished(c, names.NewApplicationTag("gitlab"))
+func (s *RequestObserverSuite) TestControllerApplicationAgentConnection(c *gc.C) {
+	s.assertControllerAgentConnection(c, names.NewApplicationTag("gitlab"))
 }
 
-func (s *RequestObserverSuite) TestUserConnectionsNotPublished(c *gc.C) {
-	notifier, hub := s.makeNotifier(c)
+func (s *RequestObserverSuite) TestUserConnectionsNot(c *gc.C) {
+	notifier := s.makeNotifier(c)
 
 	user := names.NewUserTag("bob")
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(context.Background(), user, model, false, "user data")
-
-	c.Assert(hub.called, gc.Equals, 0)
 }
 
-func (s *RequestObserverSuite) TestAgentDisconnectionPublished(c *gc.C) {
-	notifier, hub := s.makeNotifier(c)
+func (s *RequestObserverSuite) TestAgentDisconnection(c *gc.C) {
+	notifier := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("42")
 	model := names.NewModelTag("fake-uuid")
 	// All details are saved from Login.
 	notifier.Login(context.Background(), agent, model, false, "user data")
 	notifier.Leave(context.Background())
-
-	c.Assert(hub.called, gc.Equals, 2)
-	c.Assert(hub.topic, gc.Equals, apiserver.DisconnectTopic)
-	c.Assert(hub.details, jc.DeepEquals, apiserver.APIConnection{
-		AgentTag:     "machine-42",
-		ModelUUID:    "fake-uuid",
-		ConnectionID: 0,
-	})
 }
 
-func (s *RequestObserverSuite) TestControllerAgentDisconnectionPublished(c *gc.C) {
-	notifier, hub := s.makeNotifier(c)
+func (s *RequestObserverSuite) TestControllerAgentDisconnection(c *gc.C) {
+	notifier := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("2")
 	model := names.NewModelTag("fake-uuid")
 	// All details are saved from Login.
 	notifier.Login(context.Background(), agent, model, true, "user data")
 	notifier.Leave(context.Background())
-
-	c.Assert(hub.called, gc.Equals, 2)
-	c.Assert(hub.topic, gc.Equals, apiserver.DisconnectTopic)
-	c.Assert(hub.details, jc.DeepEquals, apiserver.APIConnection{
-		AgentTag:        "machine-2",
-		ModelUUID:       "fake-uuid",
-		ControllerAgent: true,
-		ConnectionID:    0,
-	})
 }
 
-func (s *RequestObserverSuite) TestUserDisconnectionsNotPublished(c *gc.C) {
-	notifier, hub := s.makeNotifier(c)
+func (s *RequestObserverSuite) TestUserDisconnections(c *gc.C) {
+	notifier := s.makeNotifier(c)
 
 	user := names.NewUserTag("bob")
 	model := names.NewModelTag("fake-uuid")
 	// All details are saved from Login.
 	notifier.Login(context.Background(), user, model, false, "user data")
 	notifier.Leave(context.Background())
-
-	c.Assert(hub.called, gc.Equals, 0)
-}
-
-type connectionHub struct {
-	c       *gc.C
-	called  int
-	topic   string
-	details apiserver.APIConnection
-}
-
-func (hub *connectionHub) Publish(topic string, data interface{}) (func(), error) {
-	hub.called++
-	hub.topic = topic
-	hub.details = data.(apiserver.APIConnection)
-	return func() {}, nil
 }
