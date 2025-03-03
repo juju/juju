@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/check.v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
@@ -30,7 +29,7 @@ type watcherSuite struct {
 var _ = gc.Suite(&watcherSuite{})
 
 func Test(t *testing.T) {
-	check.TestingT(t)
+	gc.TestingT(t)
 }
 
 type model struct {
@@ -81,12 +80,15 @@ func (s *watcherSuite) TestWatchController(c *gc.C) {
 
 	// Tests that the watcher sends a change when any model field is updated.
 	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+
+		// Update activated status of model.
 		res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", true, modelUUIDStr)
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err := res.RowsAffected()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(int(rowsAffected), gc.Equals, 1)
 
+		// Update name of model.
 		res, err = tx.ExecContext(ctx, "UPDATE model SET name = ? WHERE uuid = ?", "new-test-model", modelUUIDStr)
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err = res.RowsAffected()
@@ -101,18 +103,27 @@ func (s *watcherSuite) TestWatchController(c *gc.C) {
 		row := tx.QueryRow(selectModelQuery, modelUUIDStr)
 		err = row.Scan(&testModel.UUID, &testModel.Activated, &testModel.ModelTypeID, &testModel.Name, &testModel.CloudUUID, &testModel.LifeID, &testModel.OwnerUUID)
 		c.Assert(err, jc.ErrorIsNil)
+		c.Check(testModel.UUID, gc.Equals, modelUUIDStr)
+		c.Check(testModel.Activated, jc.IsTrue)
 
-		err = tx.Commit()
+		// Insert into and update table that is not model.
+		res, err = tx.ExecContext(ctx, "Insert into cloud_type (id, type) values (100, 'testing')")
 		c.Assert(err, jc.ErrorIsNil)
+		rowsAffected, err = res.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(int(rowsAffected), gc.Equals, 1)
+
+		res, err = tx.ExecContext(ctx, "UPDATE cloud_type SET type = 'test' WHERE id = 100")
+		c.Assert(err, jc.ErrorIsNil)
+		rowsAffected, err = res.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(int(rowsAffected), gc.Equals, 1)
+
 		return nil
 	})
 	wc.AssertNChanges(2)
 
 	// Tests that the watcher sends a change when a model is deleted.
-	modeltesting.DeleteTestModel(c, s.TxnRunnerFactory(), modeltesting.DbInitialModel{
-		UUID:      modelUUIDStr,
-		OwnerUUID: testModel.OwnerUUID,
-		CloudUUID: testModel.CloudUUID,
-	})
+	modeltesting.DeleteTestModel(c, context.Background(), s.TxnRunnerFactory(), modelUUID)
 	wc.AssertOneChange()
 }

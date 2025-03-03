@@ -57,39 +57,35 @@ FROM   controller
 	return model.UUID(uuid.UUID), nil
 }
 
-// AllModelActivationStatusQuery returns a SQL statement that will return all model activated status.
-func (st *State) AllModelActivationStatusQuery() string {
-	return "SELECT activated from model"
-}
-
-type ControllerModel struct {
-	UUID        model.UUID `db:"uuid"`
-	Activated   bool       `db:"activated"`
-	ModelTypeID int        `db:"model_type_id"`
-	Name        string     `db:"name"`
-	CloudUUID   string     `db:"cloud_uuid"`
-	LifeID      int        `db:"life_id"`
-	OwnerUUID   string     `db:"owner_uuid"`
-}
-
+// GetModelActivationStatus returns the activation status of a model.
 func (st *State) GetModelActivationStatus(ctx context.Context, controllerUUID string) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 
-	m := ControllerModel{
+	type controllerModel struct {
+		UUID        model.UUID `db:"uuid"`
+		Activated   bool       `db:"activated"`
+		ModelTypeID int        `db:"model_type_id"`
+		Name        string     `db:"name"`
+		CloudUUID   string     `db:"cloud_uuid"`
+		LifeID      int        `db:"life_id"`
+		OwnerUUID   string     `db:"owner_uuid"`
+	}
+
+	m := controllerModel{
 		UUID: model.UUID(controllerUUID),
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &ControllerModel.*
+SELECT &controllerModel.*
 FROM   model
-WHERE  uuid = $ControllerModel.uuid
-`, ControllerModel{})
+WHERE  uuid = $controllerModel.uuid
+`, controllerModel{})
 
 	if err != nil {
-		return false, errors.Annotate(err, "preparing select controller model activated status statement")
+		return false, errors.Annotate(err, "preparing select model activated status statement")
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -97,31 +93,4 @@ WHERE  uuid = $ControllerModel.uuid
 	})
 
 	return m.Activated, err
-}
-
-func (st *State) GetControllerModel(ctx context.Context, controllerUUID string) (*ControllerModel, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	m := ControllerModel{
-		UUID: model.UUID(controllerUUID),
-	}
-
-	stmt, err := st.Prepare(`
-SELECT &ControllerModel.*
-FROM   model
-WHERE  uuid = $ControllerModel.uuid
-`, ControllerModel{})
-
-	if err != nil {
-		return nil, errors.Annotate(err, "preparing select controller model activated status statement")
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, m).Get(&m)
-	})
-
-	return &m, err
 }

@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -32,4 +33,12 @@ func (s *stateSuite) TestControllerModelUUID(c *gc.C) {
 	uuid, err := st.ControllerModelUUID(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uuid, gc.Equals, s.controllerModelUUID)
+}
+
+func (s *stateSuite) TestGetModelActivationStatus(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	uuid := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-controller")
+	activated, err := st.GetModelActivationStatus(context.Background(), uuid.String())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(activated, jc.IsTrue)
 }

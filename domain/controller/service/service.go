@@ -19,7 +19,6 @@ var log = logger.GetLogger("juju.domain.controller.service")
 // State defines an interface for interacting with the underlying state.
 type State interface {
 	ControllerModelUUID(ctx context.Context) (model.UUID, error)
-	AllModelActivationStatusQuery() string
 	GetModelActivationStatus(ctx context.Context, controllerModelUUID string) (bool, error)
 }
 
@@ -60,19 +59,21 @@ func (s *Service) ControllerModelUUID(ctx context.Context) (model.UUID, error) {
 	return s.st.ControllerModelUUID(ctx)
 }
 
-// Watch returns a watcher that returns keys for any changes to model.
+// Watch returns a watcher that monitors changes to models.
 func (s *Service) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		activatedChanges := make([]changestream.ChangeEvent, 0, len(changes))
 		for _, change := range changes {
+
+			modelUUID := change.Changed()
+
 			if change.Type() == changestream.Deleted {
 				// Watch all deleted events.
 				activatedChanges = append(activatedChanges, change)
 				continue
 			}
 
-			controllerModelUUID := change.Changed()
-			modelActivationStatus, err := s.st.GetModelActivationStatus(ctx, controllerModelUUID)
+			modelActivationStatus, err := s.st.GetModelActivationStatus(ctx, modelUUID)
 			if err != nil {
 				log.Errorf(ctx, "failed to get model activation status: %v\n", err)
 				continue
