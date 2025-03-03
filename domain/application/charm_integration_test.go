@@ -14,6 +14,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
@@ -22,7 +23,6 @@ import (
 	domaintesting "github.com/juju/juju/domain/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 )
@@ -126,7 +126,7 @@ func (s *charmSuite) setupService(c *gc.C) *service.Service {
 			return provider.CommonStorageProviders()
 		}),
 		nil,
-		statushistory.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

@@ -28,7 +28,6 @@ import (
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -706,7 +705,7 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		"",
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil, nil, nil,
-		statushistory.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

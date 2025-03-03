@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/statushistory"
@@ -82,7 +84,7 @@ func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context)
 		s.agentVersionGetter,
 		fn,
 		s.charmStore,
-		statushistory.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -91,8 +93,11 @@ func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context)
 	return ctrl
 }
 
-// Deprecated: atomic context is deprecated.
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+	return s.setupMocksWithStatusHistory(c, domain.NewStatusHistory(loggertesting.WrapCheckLog(c)))
+}
+
+func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHistory) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelID = modeltesting.GenModelUUID(c)
@@ -123,13 +128,14 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 			return s.provider, nil
 		},
 		s.charmStore,
-		statushistory.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		statusHistory,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
 	s.service.clock = s.clock
 
 	return ctrl
+
 }
 
 func (s *baseSuite) minimalManifest() charm.Manifest {
@@ -164,4 +170,21 @@ func (c *changeEvent) Namespace() string {
 
 func (c *changeEvent) Changed() string {
 	return c.changed
+}
+
+type statusHistoryRecord struct {
+	ns statushistory.Namespace
+	s  status.StatusInfo
+}
+
+type statusHistoryRecorder struct {
+	records []statusHistoryRecord
+}
+
+// RecordStatus records the given status information.
+// If the status data cannot be marshalled, it will not be recorded, instead
+// the error will be logged under the data_error key.
+func (r *statusHistoryRecorder) RecordStatus(ctx context.Context, ns statushistory.Namespace, s status.StatusInfo) error {
+	r.records = append(r.records, statusHistoryRecord{ns: ns, s: s})
+	return nil
 }

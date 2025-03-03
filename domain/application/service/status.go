@@ -19,7 +19,7 @@ type StatusHistory interface {
 	// RecordStatus records the given status information.
 	// If the status data cannot be marshalled, it will not be recorded, instead
 	// the error will be logged under the data_error key.
-	RecordStatus(context.Context, statushistory.Namespace, status.StatusInfo)
+	RecordStatus(context.Context, statushistory.Namespace, status.StatusInfo) error
 }
 
 // encodeCloudContainerStatusType converts a core status to a db cloud container

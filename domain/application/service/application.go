@@ -385,7 +385,9 @@ func (s *Service) CreateApplication(
 	s.logger.Infof(ctx, "created application %q with ID %q", name, appID)
 
 	if args.ApplicationStatus != nil {
-		s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(appID.String()), *args.ApplicationStatus)
+		if err := s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(appID.String()), *args.ApplicationStatus); err != nil {
+			return "", errors.Annotatef(err, "recording application status")
+		}
 	}
 
 	return appID, nil
@@ -1309,9 +1311,7 @@ func (s *Service) SetApplicationStatus(
 		return nil
 	}
 
-	s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(applicationID.String()), *status)
-
-	return nil
+	return s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(applicationID.String()), *status)
 }
 
 // SetApplicationStatusForUnitLeader sets the application status using the

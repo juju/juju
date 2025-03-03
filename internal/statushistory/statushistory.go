@@ -5,19 +5,25 @@ package statushistory
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 )
 
+// Record represents a single record of status information.
+type Record struct {
+	Name    string
+	ID      string
+	Message string
+	Status  string
+	Time    string
+	Data    map[string]any
+}
+
 // Recorder is an interface for recording status information.
 type Recorder interface {
-	// Logf logs information at the given level.
-	// The provided arguments are assembled together into a string with
-	// fmt.Sprintf.
-	Logf(ctx context.Context, level logger.Level, labels logger.Labels, format string, args ...any)
+	// Record records the given status information.
+	Record(context.Context, Record) error
 }
 
 // Namespace represents a namespace of the status we're recording.
@@ -35,6 +41,9 @@ func (n Namespace) WithID(id string) Namespace {
 }
 
 func (n Namespace) String() string {
+	if n.ID == "" {
+		return n.Name
+	}
 	return n.Name + " (" + n.ID + ")"
 }
 
@@ -53,39 +62,13 @@ func NewStatusHistory(recorder Recorder) *StatusHistory {
 // RecordStatus records the given status information.
 // If the status data cannot be marshalled, it will not be recorded, instead
 // the error will be logged under the data_error key.
-func (s *StatusHistory) RecordStatus(ctx context.Context, ns Namespace, status status.StatusInfo) {
-	labels := logger.Labels{
-		namespaceNameKey: ns.Name,
-		statusKey:        status.Status.String(),
-		messageKey:       status.Message,
-		sinceKey:         status.Since.Format(time.RFC3339),
-	}
-
-	// Only include the namespace ID if it's set.
-	if ns.ID != "" {
-		labels[namespaceIDKey] = ns.ID
-	}
-
-	// For structured logging this is less than ideal, as we'll have JSON
-	// encoded inside of JSON. However, it's the best we can do without
-	// an alternative.
-	if len(status.Data) > 0 {
-		data, err := json.Marshal(status.Data)
-		if err != nil {
-			s.recorder.Logf(ctx, logger.ERROR, logger.Labels{}, "failed to marshal status data: %v", err)
-		} else {
-			labels[dataKey] = string(data)
-		}
-	}
-
-	s.recorder.Logf(ctx, logger.INFO, labels, "status-history (state: %q, status-message: %q)", status.Status, status.Message)
+func (s *StatusHistory) RecordStatus(ctx context.Context, ns Namespace, status status.StatusInfo) error {
+	return s.recorder.Record(ctx, Record{
+		Name:    ns.Name,
+		ID:      ns.ID,
+		Message: status.Message,
+		Status:  status.Status.String(),
+		Time:    status.Since.Format(time.RFC3339),
+		Data:    status.Data,
+	})
 }
-
-const (
-	namespaceNameKey = "namespace_name"
-	namespaceIDKey   = "namespace_id"
-	statusKey        = "status"
-	messageKey       = "message"
-	sinceKey         = "since"
-	dataKey          = "data"
-)

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/internal/statushistory"
 )
 
 type unitServiceSuite struct {
@@ -65,7 +66,9 @@ func (s *unitServiceSuite) TestAddUnits(c *gc.C) {
 }
 
 func (s *unitServiceSuite) TestSetWorkloadUnitStatus(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	history := &statusHistoryRecorder{}
+
+	defer s.setupMocksWithStatusHistory(c, history).Finish()
 
 	now := time.Now()
 
@@ -85,6 +88,16 @@ func (s *unitServiceSuite) TestSetWorkloadUnitStatus(c *gc.C) {
 		Since:   &now,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(history.records, jc.DeepEquals, []statusHistoryRecord{{
+		ns: statushistory.Namespace{Name: "unit-workload", ID: "foo/666"},
+		s: corestatus.StatusInfo{
+			Status:  corestatus.Active,
+			Message: "doink",
+			Data:    map[string]interface{}{"foo": "bar"},
+			Since:   &now,
+		},
+	}})
 }
 
 func (s *unitServiceSuite) TestSetWorkloadUnitStatusInvalidStatus(c *gc.C) {

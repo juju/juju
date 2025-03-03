@@ -16,9 +16,9 @@ import (
 	storagetesting "github.com/juju/juju/core/storage/testing"
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 )
@@ -43,7 +43,7 @@ func (s *storageSuite) setupMocks(c *gc.C) *gomock.Controller {
 			return provider.CommonStorageProviders()
 		}),
 		nil,
-		statushistory.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

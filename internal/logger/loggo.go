@@ -101,7 +101,7 @@ func (c loggoLogger) Logf(ctx context.Context, level logger.Level, labels logger
 		}
 	}
 
-	c.logger.LogWithLabelsf(loggo.Level(level), msg, labels, args...)
+	c.logger.LogWithLabelsf(loggo.Level(level), msg, ctxLabels, args...)
 }
 
 // IsLevelEnabled returns true if the given level is enabled for the logger.

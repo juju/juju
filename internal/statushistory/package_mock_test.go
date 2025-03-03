@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	logger "github.com/juju/juju/core/logger"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -40,43 +39,40 @@ func (m *MockRecorder) EXPECT() *MockRecorderMockRecorder {
 	return m.recorder
 }
 
-// Logf mocks base method.
-func (m *MockRecorder) Logf(arg0 context.Context, arg1 logger.Level, arg2 logger.Labels, arg3 string, arg4 ...any) {
+// Record mocks base method.
+func (m *MockRecorder) Record(arg0 context.Context, arg1 Record) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2, arg3}
-	for _, a := range arg4 {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "Logf", varargs...)
+	ret := m.ctrl.Call(m, "Record", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// Logf indicates an expected call of Logf.
-func (mr *MockRecorderMockRecorder) Logf(arg0, arg1, arg2, arg3 any, arg4 ...any) *MockRecorderLogfCall {
+// Record indicates an expected call of Record.
+func (mr *MockRecorderMockRecorder) Record(arg0, arg1 any) *MockRecorderRecordCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2, arg3}, arg4...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logf", reflect.TypeOf((*MockRecorder)(nil).Logf), varargs...)
-	return &MockRecorderLogfCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Record", reflect.TypeOf((*MockRecorder)(nil).Record), arg0, arg1)
+	return &MockRecorderRecordCall{Call: call}
 }
 
-// MockRecorderLogfCall wrap *gomock.Call
-type MockRecorderLogfCall struct {
+// MockRecorderRecordCall wrap *gomock.Call
+type MockRecorderRecordCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRecorderLogfCall) Return() *MockRecorderLogfCall {
-	c.Call = c.Call.Return()
+func (c *MockRecorderRecordCall) Return(arg0 error) *MockRecorderRecordCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRecorderLogfCall) Do(f func(context.Context, logger.Level, logger.Labels, string, ...any)) *MockRecorderLogfCall {
+func (c *MockRecorderRecordCall) Do(f func(context.Context, Record) error) *MockRecorderRecordCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRecorderLogfCall) DoAndReturn(f func(context.Context, logger.Level, logger.Labels, string, ...any)) *MockRecorderLogfCall {
+func (c *MockRecorderRecordCall) DoAndReturn(f func(context.Context, Record) error) *MockRecorderRecordCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
