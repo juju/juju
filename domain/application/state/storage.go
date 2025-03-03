@@ -7,8 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"path"
-	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
@@ -317,37 +315,6 @@ INSERT INTO storage_unit_owner (*) VALUES ($storageUnit.*)
 	return nil
 }
 
-// filesystemMountPoint returns a mount point to use for the given charm
-// storage. For stores with potentially multiple instances, the
-// instance ID is appended to the location.
-func filesystemMountPoint(
-	parentDir string,
-	meta charmStorage,
-	storageID corestorage.ID,
-) (string, error) {
-	if parentDir == "" {
-		return "", errors.Errorf("empty parent directory not valid")
-	}
-	if strings.HasPrefix(meta.Location, parentDir) {
-		return "", errors.Errorf(
-			"invalid location %q: must not fall within %q",
-			meta.Location, parentDir,
-		)
-	}
-	if meta.Location != "" && meta.CountMax == 1 {
-		// The location is specified and it's a singleton
-		// store, so just use the location as-is.
-		return meta.Location, nil
-	}
-	// If the location is unspecified then we use
-	// <storage-dir>/<storage-id> as the location.
-	// Otherwise, we use <location>/<storage-id>.
-	if meta.Location != "" {
-		parentDir = meta.Location
-	}
-	return path.Join(parentDir, storageID.String()), nil
-}
-
 func (st *State) attachmentParamsForNewStorageInstance(
 	parentDir string,
 	storageID corestorage.ID,
@@ -359,7 +326,7 @@ func (st *State) attachmentParamsForNewStorageInstance(
 
 	switch charm.StorageType(stor.Kind) {
 	case charm.StorageFilesystem:
-		location, err := filesystemMountPoint(parentDir, stor, storageID)
+		location, err := domainstorage.FilesystemMountPoint(parentDir, stor.Location, stor.CountMax, storageID)
 		if err != nil {
 			return nil, nil, errors.Errorf(
 				"getting filesystem mount point for storage %s: %w",
@@ -784,7 +751,7 @@ func (st *State) attachmentParamsForStorageInstance(
 
 	switch charm.StorageType(charmStorage.Kind) {
 	case charm.StorageFilesystem:
-		location, err := filesystemMountPoint(parentDir, charmStorage, storageID)
+		location, err := domainstorage.FilesystemMountPoint(parentDir, charmStorage.Location, charmStorage.CountMax, storageID)
 		if err != nil {
 			return nil, nil, errors.Errorf(
 				"getting filesystem mount point for storage %s: %w",

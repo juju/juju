@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"path/filepath"
 
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
@@ -79,7 +80,7 @@ INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
 	c.Assert(err, jc.ErrorIsNil)
 
 	appUUID, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
-		chStorage, addStorageArgs), nil)
+		c.MkDir(), chStorage, addStorageArgs), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var charmUUID string
@@ -168,7 +169,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnrecognisedStorage(c *
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
-		chStorage, addStorageArgs), nil)
+		c.MkDir(), chStorage, addStorageArgs), nil)
 	c.Assert(err, gc.ErrorMatches, `.*storage \["foo"\] is not supported`)
 }
 
@@ -182,7 +183,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithStorageButCharmHasNone(
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "666", s.addApplicationArgForStorage(c, "666",
-		[]charm.Storage{}, addStorageArgs), nil)
+		c.MkDir(), []charm.Storage{}, addStorageArgs), nil)
 	c.Assert(err, gc.ErrorMatches, `.*storage \["foo"\] is not supported`)
 }
 
@@ -207,7 +208,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnitsAndStorageInvalidC
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
-		chStorage, addStorageArgs), []application.AddUnitArg{u1})
+		c.MkDir(), chStorage, addStorageArgs), []application.AddUnitArg{u1})
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidStorageCount)
 
 }
@@ -795,7 +796,7 @@ func (s *caasStorageSuite) TestCreateApplicationWithUnitsAndStorage(c *gc.C) {
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "foo", s.addApplicationArgForStorage(c, "foo",
-		chStorage, addStorageArgs), []application.AddUnitArg{u1})
+		s.storageParentDir, chStorage, addStorageArgs), []application.AddUnitArg{u1})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -900,7 +901,7 @@ WHERE charm_uuid = ?`, charmUUID)
 	c.Assert(ok, jc.IsTrue)
 	s.assertStorageAttached(c, unitUUID, storageUUID)
 	s.assertFilesystemAttachment(c, unitUUID, storageUUID, filesystemAttachment{
-		MountPoint:           "/var/lib/juju/storage/logs/2",
+		MountPoint:           filepath.Join(s.storageParentDir, "logs/2"),
 		ReadOnly:             false,
 		LifeID:               life.Alive,
 		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
@@ -909,7 +910,7 @@ WHERE charm_uuid = ?`, charmUUID)
 	c.Assert(ok, jc.IsTrue)
 	s.assertStorageAttached(c, unitUUID, storageUUID)
 	s.assertFilesystemAttachment(c, unitUUID, storageUUID, filesystemAttachment{
-		MountPoint:           "/var/lib/juju/storage/cache/3",
+		MountPoint:           filepath.Join(s.storageParentDir, "cache/3"),
 		ReadOnly:             false,
 		LifeID:               life.Alive,
 		ProvisioningStatusID: domainstorage.ProvisioningStatusPending,
