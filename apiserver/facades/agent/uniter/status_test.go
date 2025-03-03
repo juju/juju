@@ -5,8 +5,8 @@ package uniter_test
 
 import (
 	"context"
+	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -24,6 +24,7 @@ import (
 type statusBaseSuite struct {
 	applicationService *uniter.MockApplicationService
 	leadershipChecker  *fakeLeadershipChecker
+	now                time.Time
 	badTag             names.Tag
 	api                *uniter.StatusAPI
 }
@@ -36,19 +37,21 @@ func (s *statusBaseSuite) SetUpTest(c *gc.C) {
 func (s *statusBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.applicationService = uniter.NewMockApplicationService(ctrl)
-	s.api = s.newStatusAPI()
+
+	s.now = time.Now()
+	clock := uniter.NewMockClock(ctrl)
+	clock.EXPECT().Now().Return(s.now).AnyTimes()
+
+	auth := func() (common.AuthFunc, error) {
+		return s.authFunc, nil
+	}
+	s.api = uniter.NewStatusAPI(nil, s.applicationService, auth, s.leadershipChecker, clock)
+
 	return ctrl
 }
 
 func (s *statusBaseSuite) authFunc(tag names.Tag) bool {
 	return tag != s.badTag
-}
-
-func (s *statusBaseSuite) newStatusAPI() *uniter.StatusAPI {
-	auth := func() (common.AuthFunc, error) {
-		return s.authFunc, nil
-	}
-	return uniter.NewStatusAPI(nil, s.applicationService, auth, s.leadershipChecker, clock.WallClock)
 }
 
 type ApplicationStatusAPISuite struct {
@@ -66,8 +69,8 @@ func (s *ApplicationStatusAPISuite) TestUnauthorized(c *gc.C) {
 		Tag: tag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *ApplicationStatusAPISuite) TestNotATag(c *gc.C) {
@@ -77,8 +80,8 @@ func (s *ApplicationStatusAPISuite) TestNotATag(c *gc.C) {
 		Tag: "not a tag",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
 func (s *ApplicationStatusAPISuite) TestNotFound(c *gc.C) {
@@ -90,8 +93,8 @@ func (s *ApplicationStatusAPISuite) TestNotFound(c *gc.C) {
 		Tag: names.NewUnitTag("foo/0").String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *ApplicationStatusAPISuite) TestGetMachineStatus(c *gc.C) {
@@ -103,9 +106,9 @@ func (s *ApplicationStatusAPISuite) TestGetMachineStatus(c *gc.C) {
 		Tag: machineTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, gc.HasLen, 1)
 	// Can't call application status on a machine.
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *ApplicationStatusAPISuite) TestGetApplicationStatus(c *gc.C) {
@@ -117,9 +120,9 @@ func (s *ApplicationStatusAPISuite) TestGetApplicationStatus(c *gc.C) {
 		Tag: appTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, gc.HasLen, 1)
 	// Can't call unit status on an application.
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *ApplicationStatusAPISuite) TestGetUnitStatusNotLeader(c *gc.C) {
@@ -132,9 +135,9 @@ func (s *ApplicationStatusAPISuite) TestGetUnitStatusNotLeader(c *gc.C) {
 		Tag: unitTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, gc.HasLen, 1)
 	status := result.Results[0]
-	c.Assert(status.Error, gc.ErrorMatches, ".* not leader .*")
+	c.Check(status.Error, gc.ErrorMatches, ".* not leader .*")
 }
 
 func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
@@ -158,17 +161,17 @@ func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
 		Tag: unitTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Check(result.Results, gc.HasLen, 1)
 	r := result.Results[0]
-	c.Assert(r.Error, gc.IsNil)
-	c.Assert(r.Application.Error, gc.IsNil)
-	c.Assert(r.Application.Status, gc.Equals, status.Maintenance.String())
+	c.Check(r.Error, gc.IsNil)
+	c.Check(r.Application.Error, gc.IsNil)
+	c.Check(r.Application.Status, gc.Equals, status.Maintenance.String())
 	units := r.Units
-	c.Assert(units, gc.HasLen, 1)
+	c.Check(units, gc.HasLen, 1)
 	unitStatus, ok := units["foo/0"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(unitStatus.Error, gc.IsNil)
-	c.Assert(unitStatus.Status, gc.Equals, status.Maintenance.String())
+	c.Check(ok, jc.IsTrue)
+	c.Check(unitStatus.Error, gc.IsNil)
+	c.Check(unitStatus.Status, gc.Equals, status.Maintenance.String())
 }
 
 func (s *ApplicationStatusAPISuite) TestBulk(c *gc.C) {
@@ -184,8 +187,181 @@ func (s *ApplicationStatusAPISuite) TestBulk(c *gc.C) {
 		Tag: "bad-tag",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(result.Results[1].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Check(result.Results, gc.HasLen, 3)
+	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[1].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+}
+
+type UnitStatusAPISuite struct {
+	statusBaseSuite
+}
+
+var _ = gc.Suite(&UnitStatusAPISuite{})
+
+func (s *UnitStatusAPISuite) TestSetUnitStatusUnauthorized(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewUnitTag("foo/0")
+	s.badTag = tag
+	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+		Tag:    tag.String(),
+		Status: status.Active.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *UnitStatusAPISuite) TestSetUnitStatusNotATag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+		Tag:    "not a tag",
+		Status: status.Active.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+}
+
+func (s *UnitStatusAPISuite) TestSetUnitStatusNotAUnitTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("42")
+
+	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+		Tag:    tag.String(),
+		Status: status.Active.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, gc.ErrorMatches, `"machine-42" is not a valid unit tag`)
+}
+
+func (s *UnitStatusAPISuite) TestSetUnitStatusUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewUnitTag("ubuntu/42")
+
+	s.applicationService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42"), gomock.Any()).Return(applicationerrors.UnitNotFound)
+
+	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+		Tag:    tag.String(),
+		Status: status.Active.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *UnitStatusAPISuite) TestSetUnitStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewUnitTag("ubuntu/42")
+
+	sInfo := status.StatusInfo{
+		Status:  status.Active,
+		Message: "msg",
+		Data: map[string]interface{}{
+			"key": "value",
+		},
+		Since: &s.now,
+	}
+
+	s.applicationService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42"), &sInfo).Return(nil)
+
+	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
+		Tag:    tag.String(),
+		Status: status.Active.String(),
+		Info:   "msg",
+		Data: map[string]interface{}{
+			"key": "value",
+		},
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, gc.IsNil)
+}
+
+func (s *UnitStatusAPISuite) TestUnitStatusUnauthorized(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewUnitTag("foo/0")
+	s.badTag = tag
+	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: tag.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *UnitStatusAPISuite) TestUnitStatusNotATag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: "not a tag",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+}
+
+func (s *UnitStatusAPISuite) TestUnitStatusNotAUnitTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewMachineTag("42")
+
+	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: tag.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, gc.ErrorMatches, `"machine-42" is not a valid unit tag`)
+}
+
+func (s *UnitStatusAPISuite) TestUnitStatusUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewUnitTag("ubuntu/42")
+
+	s.applicationService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42")).Return(nil, applicationerrors.UnitNotFound)
+
+	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: tag.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *UnitStatusAPISuite) TestUnitStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewUnitTag("ubuntu/42")
+
+	sInfo := status.StatusInfo{
+		Status:  status.Active,
+		Message: "msg",
+		Data: map[string]interface{}{
+			"key": "value",
+		},
+		Since: &s.now,
+	}
+
+	s.applicationService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42")).Return(&sInfo, nil)
+
+	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: tag.String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, gc.IsNil)
+	c.Check(result.Results[0].Status, gc.Equals, status.Active.String())
+	c.Check(result.Results[0].Info, gc.Equals, "msg")
+	c.Check(result.Results[0].Data, gc.DeepEquals, map[string]interface{}{
+		"key": "value",
+	})
+	c.Check(result.Results[0].Since, gc.DeepEquals, &s.now)
 }

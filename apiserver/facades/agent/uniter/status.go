@@ -39,7 +39,7 @@ type StatusAPI struct {
 func NewStatusAPI(st *state.State, applicationService ApplicationService, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker, clock clock.Clock) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
-	unitSetter := common.NewUnitStatusSetter(st, applicationService, clock, getCanModify)
+	unitSetter := common.NewUnitStatusSetter(applicationService, clock, getCanModify)
 	unitGetter := common.NewUnitStatusGetter(applicationService, clock, getCanModify)
 	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
 	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, getCanModify, clock)
