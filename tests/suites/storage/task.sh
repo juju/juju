@@ -14,6 +14,8 @@ test_storage() {
 	bootstrap "test-storage" "${file}"
 
 	test_charm_storage
+	test_model_storage_block
+	test_model_storage_filesystem
 	test_persistent_storage
 
 	destroy_controller "test-storage"
