@@ -173,52 +173,6 @@ func CreateTestModel(
 }
 
 // DeleteTestModel is responsible for cleaning up a testing mode previously
-// // created with [CreateTestModel].
-// func DeleteTestModel(
-// 	c *gc.C,
-// 	txnRunner database.TxnRunnerFactory,
-// 	uuid coremodel.UUID,
-// ) {
-// 	runner, err := txnRunner()
-// 	c.Assert(err, jc.ErrorIsNil)
-
-// 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-// 		_, err := tx.ExecContext(ctx, `
-// 			DELETE FROM model_agent where model_uuid = ?
-// 		`, uuid)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		_, err = tx.ExecContext(ctx, `
-// 			DELETE FROM model WHERE uuid = ?
-// 		`, uuid)
-// 		return err
-// 	})
-// 	c.Assert(err, jc.ErrorIsNil)
-// }
-
-type DbInitialModel struct {
-	// UUID is the universally unique identifier of the model.
-	UUID string `db:"uuid"`
-
-	// CloudUUID is the unique identifier for the cloud the model is on.
-	CloudUUID string `db:"cloud_uuid"`
-
-	// ModelType is the type of model.
-	ModelType string `db:"model_type"`
-
-	// LifeID the ID of the current state of the model.
-	LifeID int `db:"life_id"`
-
-	// Name is the human friendly name of the model.
-	Name string `db:"name"`
-
-	// OwnerUUID is the uuid of the user that owns this model in the Juju controller.
-	OwnerUUID string `db:"owner_uuid"`
-}
-
-// DeleteTestModel is responsible for cleaning up a testing mode previously
 // created with [CreateTestModel].
 func DeleteTestModel(c *gc.C, ctx context.Context, txnRunner database.TxnRunnerFactory, modelUUID coremodel.UUID) {
 	modelSt := modelstate.NewState(txnRunner)
