@@ -24,13 +24,8 @@ type State interface {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewNamespaceWatcher returns a new namespace watcher
-	// for events based on the input change mask.
-	// InitialStateQuery can be used to select only the columns that you want to observe.
-	NewNamespaceMapperWatcher(
-		namespace string, changeMask changestream.ChangeType, initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper,
-	) (watcher.StringsWatcher, error)
-
+	// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
+	// for events based on the input change mask and mapper.
 	NewNamespaceNotifyMapperWatcher(
 		namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
 	) (watcher.NotifyWatcher, error)
@@ -67,18 +62,20 @@ func (s *Service) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 
 			modelUUID := change.Changed()
 
+			// Watch all deleted model events.
 			if change.Type() == changestream.Deleted {
-				// Watch all deleted events.
 				activatedChanges = append(activatedChanges, change)
 				continue
 			}
 
+			// Check if the model is activated.
 			modelActivationStatus, err := s.st.GetModelActivationStatus(ctx, modelUUID)
 			if err != nil {
 				log.Errorf(ctx, "failed to get model activation status: %v\n", err)
 				continue
 			}
 
+			// Watch all activated model events.
 			if modelActivationStatus {
 				activatedChanges = append(activatedChanges, change)
 			}

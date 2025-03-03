@@ -42,7 +42,7 @@ type model struct {
 	OwnerUUID   string `db:"owner_uuid"`
 }
 
-func (s *watcherSuite) TestWatchController(c *gc.C) {
+func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 	logger := loggertesting.WrapCheckLog(c)
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, logger)
@@ -106,13 +106,14 @@ func (s *watcherSuite) TestWatchController(c *gc.C) {
 		c.Check(testModel.UUID, gc.Equals, modelUUIDStr)
 		c.Check(testModel.Activated, jc.IsTrue)
 
-		// Insert into and update table that is not model.
-		res, err = tx.ExecContext(ctx, "Insert into cloud_type (id, type) values (100, 'testing')")
+		// Insert into table that is not model. This should not trigger a change event.
+		res, err = tx.ExecContext(ctx, "INSERT into cloud_type (id, type) values (100, 'testing')")
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err = res.RowsAffected()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(int(rowsAffected), gc.Equals, 1)
 
+		// Update table that is not model. This should not trigger a change event.
 		res, err = tx.ExecContext(ctx, "UPDATE cloud_type SET type = 'test' WHERE id = 100")
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err = res.RowsAffected()
