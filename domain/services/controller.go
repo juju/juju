@@ -69,6 +69,7 @@ func NewControllerServices(
 func (s *ControllerServices) Controller() *controllerservice.Service {
 	return controllerservice.NewService(
 		controllerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.controllerWatcherFactory("model"),
 	)
 }
 

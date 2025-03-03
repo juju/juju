@@ -30,7 +30,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *serviceSuite) TestControllerModelUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	st := NewService(s.state)
+	st := NewService(s.state, nil)
 	controllerModelUUID := model.UUID(jujutesting.ModelTag.Id())
 	s.state.EXPECT().ControllerModelUUID(gomock.Any()).Return(controllerModelUUID, nil)
 	uuid, err := st.ControllerModelUUID(context.Background())
