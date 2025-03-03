@@ -158,7 +158,7 @@ func (st *State) insertUnitStorage(
 	// Reduce the count of new storage created for each existing storage
 	// being attached.
 	// TODO(storage) - implement this when unit machine storage can be supported
-	// (includes validateCharmStorageCountChange below)
+	// (includes ensureCharmStorageCountChange below)
 
 	templates := make([]storageTemplate, 0, len(args))
 	for _, arg := range args {
@@ -202,7 +202,7 @@ func (st *State) insertUnitStorage(
 	}
 
 	for _, t := range templates {
-		if err := validateCharmStorageCountChange(t.meta, 0, t.params.Count); err != nil {
+		if err := ensureCharmStorageCountChange(t.meta, 0, t.params.Count); err != nil {
 			return err
 		}
 		for i := uint64(0); i < t.params.Count; i++ {
@@ -489,8 +489,8 @@ AND si.uuid != $storageCount.uuid
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("querying storage count for storage %q on unit %q: %w", stor.StorageName, unitUUID, err)
 		}
-		// Validate that the attachment count can increase by 1.
-		if err := validateCharmStorageCountChange(charmStorage, storageCount.Count, 1); err != nil {
+		// Ensure that the attachment count can increase by 1.
+		if err := ensureCharmStorageCountChange(charmStorage, storageCount.Count, 1); err != nil {
 			return err
 		}
 
@@ -605,7 +605,10 @@ AND   cs.name = $unitCharmStorage.name
 	return result, nil
 }
 
-func validateCharmStorageCountChange(charmStorage charmStorage, current, n uint64) error {
+// ensureCharmStorageCountChange checks that the charm storage can change by
+// the specified (positive or negative) increment. This is a backstop - the service
+// should already have performed the necessary validation.
+func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint64) error {
 	action := "attach"
 	absn := n
 	if n < 0 {
