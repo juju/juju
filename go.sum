@@ -44,6 +44,8 @@ github.com/BurntSushi/toml v1.1.0/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbi
 github.com/ChrisTrenkamp/goxpath v0.0.0-20210404020558-97928f7e12b6/go.mod h1:nuWgzSkT5PnyOd+272uUmV0dnAnAn42Mk7PiQC5VzN4=
 github.com/EvilSuperstars/go-cidrman v0.0.0-20190607145828-28e79e32899a h1:D9u6wYxZ2bPjDwYYq25y+n6ZmOKj/TsAMGSl4xL1yQI=
 github.com/EvilSuperstars/go-cidrman v0.0.0-20190607145828-28e79e32899a/go.mod h1:pzTfWeRUe2RpUHYF4s8PfLt7C3jnxg62RX10Eh9myYY=
+github.com/GehirnInc/crypt v0.0.0-20230320061759-8cc1b52080c5 h1:IEjq88XO4PuBDcvmjQJcQGg+w+UaafSy8G5Kcb5tBhI=
+github.com/GehirnInc/crypt v0.0.0-20230320061759-8cc1b52080c5/go.mod h1:exZ0C/1emQJAw5tHOaUDyY1ycttqBAPcxuzf7QbY6ec=
 github.com/Microsoft/go-winio v0.5.2 h1:a9IhgEQBCUEk6QCdml9CiJGhAws+YwffDHEMp1VMrpA=
 github.com/Microsoft/go-winio v0.5.2/go.mod h1:WpS1mjBmmwHBEWmogvA2mj8546UReBk4v8QkMxJ6pZY=
 github.com/Microsoft/hcsshim v0.9.4 h1:mnUj0ivWy6UzbB1uLFqKR6F+ZyiDc7j4iGgHTpO+5+I=
@@ -110,8 +112,8 @@ github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8 h1:zGaJEJI9qPVy
 github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8/go.mod h1:ZZFeR9K9iGgpwOaLYF9PdT44/+lfSJ9sQz3B+SsGsYU=
 github.com/canonical/lxd v0.0.0-20240716094749-7d4a9933f461 h1:S9SRpqHWWQXa4uYTwpYQDp7yVq/VXM0doM2QPry+IDc=
 github.com/canonical/lxd v0.0.0-20240716094749-7d4a9933f461/go.mod h1:Fe/clzUuw1/U3wEZccPDTp65H7QVDJGEfytJ/1dpBF0=
-github.com/canonical/pebble v1.18.0 h1:SOlaCDGqxyYzuynZl1rVMGLyIRl6GXkhu6BeTAum4eM=
-github.com/canonical/pebble v1.18.0/go.mod h1:uROQwDXVNnRRNNdiRwaIuSQMfyeKtG3BM4O3yMEoHzU=
+github.com/canonical/pebble v1.19.0 h1:eY6MwsR93pDqS2XwvGsxZGg4hcaAtS3ZkHh/t5oSbmw=
+github.com/canonical/pebble v1.19.0/go.mod h1:fPtK3xrfuiRQBKSzfm3iBfdmIxlD/nup8yS1FVS8ZKQ=
 github.com/canonical/sqlair v0.0.0-20250120155751-a83645b9a121 h1:6weWVME/J1xtVyUDGHfDXhQji3/IdRdFqEEQo0yA6lg=
 github.com/canonical/sqlair v0.0.0-20250120155751-a83645b9a121/go.mod h1:T+40I2sXshY3KRxx0QQpqqn6hCibSKJ2KHzjBvJj8T4=
 github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b h1:Da2fardddn+JDlVEYtrzBLTtyzoyU3nIS0Cf0GvjmwU=
