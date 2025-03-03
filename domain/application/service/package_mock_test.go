@@ -3408,8 +3408,31 @@ func (c *MockProviderConstraintsValidatorCall) DoAndReturn(f func(envcontext.Pro
 	return c
 }
 
+// MockSupportedFeatureProvider is a mock of SupportedFeatureProvider interface.
+type MockSupportedFeatureProvider struct {
+	ctrl     *gomock.Controller
+	recorder *MockSupportedFeatureProviderMockRecorder
+}
+
+// MockSupportedFeatureProviderMockRecorder is the mock recorder for MockSupportedFeatureProvider.
+type MockSupportedFeatureProviderMockRecorder struct {
+	mock *MockSupportedFeatureProvider
+}
+
+// NewMockSupportedFeatureProvider creates a new mock instance.
+func NewMockSupportedFeatureProvider(ctrl *gomock.Controller) *MockSupportedFeatureProvider {
+	mock := &MockSupportedFeatureProvider{ctrl: ctrl}
+	mock.recorder = &MockSupportedFeatureProviderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSupportedFeatureProvider) EXPECT() *MockSupportedFeatureProviderMockRecorder {
+	return m.recorder
+}
+
 // SupportedFeatures mocks base method.
-func (m *MockProvider) SupportedFeatures() (assumes.FeatureSet, error) {
+func (m *MockSupportedFeatureProvider) SupportedFeatures() (assumes.FeatureSet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SupportedFeatures")
 	ret0, _ := ret[0].(assumes.FeatureSet)
@@ -3418,31 +3441,31 @@ func (m *MockProvider) SupportedFeatures() (assumes.FeatureSet, error) {
 }
 
 // SupportedFeatures indicates an expected call of SupportedFeatures.
-func (mr *MockProviderMockRecorder) SupportedFeatures() *MockProviderSupportedFeaturesCall {
+func (mr *MockSupportedFeatureProviderMockRecorder) SupportedFeatures() *MockSupportedFeatureProviderSupportedFeaturesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedFeatures", reflect.TypeOf((*MockProvider)(nil).SupportedFeatures))
-	return &MockProviderSupportedFeaturesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedFeatures", reflect.TypeOf((*MockSupportedFeatureProvider)(nil).SupportedFeatures))
+	return &MockSupportedFeatureProviderSupportedFeaturesCall{Call: call}
 }
 
-// MockProviderSupportedFeaturesCall wrap *gomock.Call
-type MockProviderSupportedFeaturesCall struct {
+// MockSupportedFeatureProviderSupportedFeaturesCall wrap *gomock.Call
+type MockSupportedFeatureProviderSupportedFeaturesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockProviderSupportedFeaturesCall) Return(arg0 assumes.FeatureSet, arg1 error) *MockProviderSupportedFeaturesCall {
+func (c *MockSupportedFeatureProviderSupportedFeaturesCall) Return(arg0 assumes.FeatureSet, arg1 error) *MockSupportedFeatureProviderSupportedFeaturesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderSupportedFeaturesCall) Do(f func() (assumes.FeatureSet, error)) *MockProviderSupportedFeaturesCall {
+func (c *MockSupportedFeatureProviderSupportedFeaturesCall) Do(f func() (assumes.FeatureSet, error)) *MockSupportedFeatureProviderSupportedFeaturesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderSupportedFeaturesCall) DoAndReturn(f func() (assumes.FeatureSet, error)) *MockProviderSupportedFeaturesCall {
+func (c *MockSupportedFeatureProviderSupportedFeaturesCall) DoAndReturn(f func() (assumes.FeatureSet, error)) *MockSupportedFeatureProviderSupportedFeaturesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

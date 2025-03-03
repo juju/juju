@@ -76,8 +76,10 @@ func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ..
 		return internalerrors.Errorf("making unit args: %w", err)
 	}
 
-	// Before adding units, we need to merge the application constraints
-	// with the model constraints and store the result in the db.
+	if err := s.st.AddUnits(ctx, appUUID, args); err != nil {
+		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
+	}
+
 	unitCons, err := s.mergeApplicationAndModelConstraints(ctx, appUUID)
 	if err != nil {
 		return internalerrors.Capture(err)

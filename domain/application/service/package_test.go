@@ -42,12 +42,13 @@ type baseSuite struct {
 
 	modelID model.UUID
 
-	state              *MockState
-	charm              *MockCharm
-	charmStore         *MockCharmStore
-	agentVersionGetter *MockAgentVersionGetter
-	provider           *MockProvider
-	leadership         *MockEnsurer
+	state                     *MockState
+	charm                     *MockCharm
+	charmStore                *MockCharmStore
+	agentVersionGetter        *MockAgentVersionGetter
+	provider                  *MockProvider
+	supportedFeaturesProvider *MockSupportedFeatureProvider
+	leadership                *MockEnsurer
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	clock                 *testclock.Clock
@@ -55,13 +56,18 @@ type baseSuite struct {
 	service *ProviderService
 }
 
-func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context) (Provider, error)) *gomock.Controller {
+func (s *baseSuite) setupMocksWithProvider(
+	c *gc.C,
+	providerGetter func(ctx context.Context) (Provider, error),
+	supportFeaturesProviderGetter func(ctx context.Context) (SupportedFeatureProvider, error),
+) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelID = modeltesting.GenModelUUID(c)
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
+	s.supportedFeaturesProvider = NewMockSupportedFeatureProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
@@ -82,7 +88,8 @@ func (s *baseSuite) setupMocksWithProvider(c *gc.C, fn func(ctx context.Context)
 		s.storageRegistryGetter,
 		s.modelID,
 		s.agentVersionGetter,
-		fn,
+		providerGetter,
+		supportFeaturesProviderGetter,
 		s.charmStore,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		s.clock,
@@ -104,6 +111,7 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHis
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
+	s.supportedFeaturesProvider = NewMockSupportedFeatureProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
@@ -126,6 +134,9 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHis
 		s.agentVersionGetter,
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
+		},
+		func(ctx context.Context) (SupportedFeatureProvider, error) {
+			return s.supportedFeaturesProvider, nil
 		},
 		s.charmStore,
 		statusHistory,

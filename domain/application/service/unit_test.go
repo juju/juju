@@ -34,6 +34,8 @@ var _ = gc.Suite(&unitServiceSuite{})
 func (s *unitServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
 	})
 	defer ctrl.Finish()
 
@@ -86,6 +88,8 @@ func (s *unitServiceSuite) expectEmptyUnitConstraints(c *gc.C, ctrl *gomock.Cont
 func (s *unitServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
 	})
 	defer ctrl.Finish()
 
@@ -157,6 +161,8 @@ func (s *unitServiceSuite) expectAppConstraints(c *gc.C, ctrl *gomock.Controller
 func (s *unitServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
 	})
 	defer ctrl.Finish()
 
@@ -228,6 +234,8 @@ func (s *unitServiceSuite) expectModelConstraints(c *gc.C, ctrl *gomock.Controll
 func (s *unitServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
 	})
 	defer ctrl.Finish()
 

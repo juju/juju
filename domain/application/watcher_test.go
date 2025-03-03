@@ -699,6 +699,9 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 	notSupportedProviderGetter := func(ctx context.Context) (service.Provider, error) {
 		return nil, errors.NotSupported
 	}
+	notSupportedFeatureProviderGetter := func(ctx context.Context) (service.SupportedFeatureProvider, error) {
+		return nil, errors.NotSupported
+	}
 
 	return service.NewWatchableService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
@@ -708,7 +711,8 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		}),
 		"",
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
-		nil, notSupportedProviderGetter, nil,
+		nil, notSupportedProviderGetter,
+		notSupportedFeatureProviderGetter, nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),

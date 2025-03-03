@@ -29,6 +29,9 @@ type Provider interface {
 
 	// ResourceAdopter defines methods for adopting resources.
 	environs.ResourceAdopter
+
+	// ConstraintsChecker provides a means to check that constraints are valid.
+	environs.ConstraintsChecker
 }
 
 // EphemeralProvider returns a provider that is not tracked by the worker.

@@ -107,8 +107,13 @@ type AgentVersionGetter interface {
 // Provider defines the interface for interacting with the underlying model
 // provider.
 type Provider interface {
-	environs.SupportedFeatureEnumerator
 	environs.ConstraintsChecker
+}
+
+// SupportedFeatureProvider defines the interface for interacting with the
+// a model provider that satisfies the SupportedFeatureEnumerator interface.
+type SupportedFeatureProvider interface {
+	environs.SupportedFeatureEnumerator
 }
 
 // ProviderService defines a service for interacting with the underlying
@@ -119,6 +124,10 @@ type ProviderService struct {
 	modelID            coremodel.UUID
 	agentVersionGetter AgentVersionGetter
 	provider           providertracker.ProviderGetter[Provider]
+	// This provider is separated from [provider] because the
+	// [SupportedFeatureProvider] interface is only satisfied by the
+	// k8s provider.
+	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider]
 }
 
 // NewProviderService returns a new Service for interacting with a models state.
@@ -129,6 +138,7 @@ func NewProviderService(
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
+	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -144,9 +154,10 @@ func NewProviderService(
 			clock,
 			logger,
 		),
-		modelID:            modelID,
-		agentVersionGetter: agentVersionGetter,
-		provider:           provider,
+		modelID:                  modelID,
+		agentVersionGetter:       agentVersionGetter,
+		provider:                 provider,
+		supportedFeatureProvider: supportedFeatureProvider,
 	}
 }
 
@@ -167,14 +178,14 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 		Version:     &agentVersion,
 	})
 
-	provider, err := s.provider(ctx)
+	supportedFeatureProvider, err := s.supportedFeatureProvider(ctx)
 	if errors.Is(err, errors.NotSupported) {
 		return fs, nil
 	} else if err != nil {
 		return fs, err
 	}
 
-	envFs, err := provider.SupportedFeatures()
+	envFs, err := supportedFeatureProvider.SupportedFeatures()
 	if err != nil {
 		return fs, fmt.Errorf("enumerating features supported by environment: %w", err)
 	}
@@ -258,6 +269,7 @@ func NewWatchableService(
 	watcherFactory WatcherFactory,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
+	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -271,6 +283,7 @@ func NewWatchableService(
 			modelID,
 			agentVersionGetter,
 			provider,
+			supportedFeatureProvider,
 			charmStore,
 			statusHistory,
 			clock,
