@@ -181,8 +181,6 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 
 // CreateModel is responsible for creating a new model from start to finish with
 // its associated metadata. The function will return the created model's id.
-// If the [GlobalModelCreationArgs] does not have a credential name set then a
-// default credential will be established.
 //
 // If the caller has not prescribed a specific agent version to use for the
 // model the current controllers supported agent version will be used.
@@ -203,6 +201,9 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 // cannot be used with this controller.
 // - [secretbackenderrors.NotFound] When the secret backend for the model
 // cannot be found.
+// - [modelerrors.CredentialNotValid]: When the cloud credential for the model
+// is not valid. This means that either the credential is not supported with
+// the cloud or the cloud doesn't support having an empty credential.
 func (s *Service) CreateModel(
 	ctx context.Context,
 	args model.GlobalModelCreationArgs,
@@ -227,8 +228,7 @@ func (s *Service) CreateModel(
 // createModel is responsible for creating a new model from start to finish with
 // its associated metadata. The function takes the model id to be used as part
 // of the creation. This helps serve both new model creation and model
-// importing. If the [GlobalModelCreationArgs] does not have a credential name
-// set then a default credential will be established.
+// importing.
 //
 // If the caller has not prescribed a specific agent version to use for the
 // model the current controllers supported agent version will be used.
