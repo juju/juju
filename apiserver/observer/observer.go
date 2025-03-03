@@ -4,6 +4,7 @@
 package observer
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
@@ -17,16 +18,16 @@ import (
 type Observer interface {
 	rpc.ObserverFactory
 
-	// Login informs an Observer that an entity has logged in.
-	Login(entity names.Tag, model names.ModelTag, fromController bool, userData string)
-
 	// Join is called when the connection to the API server's
 	// WebSocket is opened.
-	Join(req *http.Request, connectionID uint64)
+	Join(ctx context.Context, req *http.Request, connectionID uint64)
+
+	// Login informs an Observer that an entity has logged in.
+	Login(ctx context.Context, entity names.Tag, model names.ModelTag, fromController bool, userData string)
 
 	// Leave is called when the connection to the API server's
 	// WebSocket is closed.
-	Leave()
+	Leave(ctx context.Context)
 }
 
 // ObserverFactory is a function which creates an Observer.
@@ -77,18 +78,24 @@ type Multiplexer struct {
 
 // Join is called when the connection to the API server's WebSocket is
 // opened.
-func (m *Multiplexer) Join(req *http.Request, connectionID uint64) {
-	mapConcurrent(func(o Observer) { o.Join(req, connectionID) }, m.observers)
-}
-
-// Leave implements Observer.
-func (m *Multiplexer) Leave() {
-	mapConcurrent(Observer.Leave, m.observers)
+func (m *Multiplexer) Join(ctx context.Context, req *http.Request, connectionID uint64) {
+	mapConcurrent(req.Context(), func(ctx context.Context, o Observer) {
+		o.Join(ctx, req, connectionID)
+	}, m.observers)
 }
 
 // Login implements Observer.
-func (m *Multiplexer) Login(entity names.Tag, model names.ModelTag, fromController bool, userData string) {
-	mapConcurrent(func(o Observer) { o.Login(entity, model, fromController, userData) }, m.observers)
+func (m *Multiplexer) Login(ctx context.Context, entity names.Tag, model names.ModelTag, fromController bool, userData string) {
+	mapConcurrent(ctx, func(ctx context.Context, o Observer) {
+		o.Login(ctx, entity, model, fromController, userData)
+	}, m.observers)
+}
+
+// Leave implements Observer.
+func (m *Multiplexer) Leave(ctx context.Context) {
+	mapConcurrent(ctx, func(ctx context.Context, o Observer) {
+		o.Leave(ctx)
+	}, m.observers)
 }
 
 // RPCObserver implements Observer. It will create an
@@ -104,15 +111,25 @@ func (m *Multiplexer) RPCObserver() rpc.Observer {
 
 // mapConcurrent calls fn on all observers concurrently and then waits
 // for all calls to exit before returning.
-func mapConcurrent(fn func(Observer), observers []Observer) {
+func mapConcurrent(ctx context.Context, fn func(context.Context, Observer), observers []Observer) {
 	var wg sync.WaitGroup
 	wg.Add(len(observers))
-	defer wg.Wait()
 
 	for _, o := range observers {
 		go func(obs Observer) {
 			defer wg.Done()
-			fn(obs)
+			fn(ctx, obs)
 		}(o)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+	case <-done:
 	}
 }

@@ -21,19 +21,6 @@ func newObserverFn(
 	hub *pubsub.StructuredHub,
 	metricsCollector *apiserver.Collector,
 ) (observer.ObserverFactory, error) {
-	var observerFactories []observer.ObserverFactory
-
-	// Common logging of RPC requests
-	observerFactories = append(observerFactories, func() observer.Observer {
-		logger := internallogger.GetLogger("juju.apiserver")
-		ctx := observer.RequestObserverContext{
-			Clock:  clock,
-			Logger: logger,
-			Hub:    hub,
-		}
-		return observer.NewRequestObserver(ctx)
-	})
-
 	// Metrics observer.
 	metricObserver, err := metricobserver.NewObserverFactory(metricobserver.Config{
 		Clock:            clock,
@@ -42,9 +29,19 @@ func newObserverFn(
 	if err != nil {
 		return nil, errors.Annotate(err, "creating metric observer factory")
 	}
-	observerFactories = append(observerFactories, metricObserver)
 
-	return observer.ObserverFactoryMultiplexer(observerFactories...), nil
+	return observer.ObserverFactoryMultiplexer([]observer.ObserverFactory{
+		func() observer.Observer {
+			logger := internallogger.GetLogger("juju.apiserver")
+			ctx := observer.RequestObserverContext{
+				Clock:  clock,
+				Logger: logger,
+				Hub:    hub,
+			}
+			return observer.NewRequestObserver(ctx)
+		},
+		metricObserver,
+	}...), nil
 }
 
 type metricCollectorWrapper struct {

@@ -1090,9 +1090,11 @@ func (srv *Server) healthHandler(w http.ResponseWriter, req *http.Request) {
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
 
+	ctx := srv.tomb.Context(req.Context())
+
 	apiObserver := srv.newObserver()
-	apiObserver.Join(req, connectionID)
-	defer apiObserver.Leave()
+	apiObserver.Join(ctx, req, connectionID)
+	defer apiObserver.Leave(ctx)
 
 	websocket.Serve(w, req, func(conn *websocket.Conn) {
 		modelUUID, modelOnlyLogin := httpcontext.RequestModelUUID(req.Context())
@@ -1113,9 +1115,9 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		// deferred to the facade methods.
 		ctx := model.WithContextModelUUID(req.Context(), resolvedModelUUID)
 
-		logger.Tracef(context.TODO(), "got a request for model %q", modelUUID)
+		logger.Tracef(ctx, "got a request for model %q", modelUUID)
 		if err := srv.serveConn(
-			srv.tomb.Context(ctx),
+			ctx,
 			conn,
 			resolvedModelUUID,
 			controllerOnlyLogin,
@@ -1123,7 +1125,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 			apiObserver,
 			req.Host,
 		); err != nil {
-			logger.Errorf(context.TODO(), "error serving RPCs: %v", err)
+			logger.Errorf(ctx, "error serving RPCs: %v", err)
 		}
 	})
 }

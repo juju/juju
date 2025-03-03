@@ -4,6 +4,7 @@
 package fakeobserver
 
 import (
+	"context"
 	"net/http"
 	"runtime"
 	"strings"
@@ -20,17 +21,17 @@ type Instance struct {
 }
 
 // Join implements Observer.
-func (f *Instance) Join(req *http.Request, connectionID uint64) {
+func (f *Instance) Join(ctx context.Context, req *http.Request, connectionID uint64) {
 	f.AddCall(funcName(), req, connectionID)
 }
 
 // Leave implements Observer.
-func (f *Instance) Leave() {
+func (f *Instance) Leave(ctx context.Context) {
 	f.AddCall(funcName())
 }
 
 // Login implements Observer.
-func (f *Instance) Login(entity names.Tag, model names.ModelTag, fromController bool, userData string) {
+func (f *Instance) Login(ctx context.Context, entity names.Tag, model names.ModelTag, fromController bool, userData string) {
 	f.AddCall(funcName(), entity, model, fromController, userData)
 }
 
