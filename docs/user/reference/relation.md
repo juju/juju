@@ -14,8 +14,9 @@ Relations are a Juju abstraction that enables applications to inter-operate. The
 A certain charm knows that it requires, say, a database and, correspondingly, a database charm knows that it is capable of satisfying another charm’s requirements. The act of joining such mutually-dependent charmed operators causes code (*hooks*) to run in each charm in such a way that both charmed operators can effectively talk to one another. When charmed operators have joined logically in this manner they are said to have formed a *relation*.
 -->
 
-
 ## Relation taxonomy
+
+![relation-taxonomy](relation-taxonomy.svg)
 
 (non-peer-relation)=
 ### Non-peer
@@ -32,9 +33,9 @@ A **non-peer** relation is a relation from one application to another, where the
 
 A **non-subordinate** relation (aka 'regular') is a {ref}`non-peer-relation` relation where the applications are both principal. 
 
-##### Same-model
+##### Non-cross-model
 
-A **same-model** relation is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on  the same model.
+A **non-cross-model** relation is a {ref}`non-subordinate <non-subordinate-relation>` relation where the applications are on  the same model.
 
 
 (cross-model-relation)=
@@ -89,7 +90,9 @@ A relation is identified by a **relation ID** (assigned automatically by Juju; e
 
 ## Permissions around relation databags
 
-<!--The primary means for applications to communicate over a relation is using relation data.--> 
+<!--The primary means for applications to communicate over a relation is using relation data.-->
+
+![relation databag permissions](relation-databags.svg)
 
 When an application becomes involved in a relation, each one of its units gets a databag in the Juju database, as follows:
 
