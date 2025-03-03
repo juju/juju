@@ -207,6 +207,10 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 			gorillaws.CloseNoStatusReceived) {
 			return // this is fine
 		}
+		if errors.Is(err, net.ErrClosed) ||
+			strings.Contains(err.Error(), net.ErrClosed.Error()) {
+			return // this is fine
+		}
 		if _, ok := err.(*net.OpError); ok {
 			return // so is this, probably
 		}
