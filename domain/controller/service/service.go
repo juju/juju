@@ -5,14 +5,12 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain/controller/state"
 	"github.com/juju/juju/internal/logger"
 )
 
@@ -23,7 +21,6 @@ type State interface {
 	ControllerModelUUID(ctx context.Context) (model.UUID, error)
 	AllModelActivationStatusQuery() string
 	GetModelActivationStatus(ctx context.Context, controllerModelUUID string) (bool, error)
-	GetControllerModel(ctx context.Context, controllerUUID string) (*state.ControllerModel, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -67,10 +64,7 @@ func (s *Service) ControllerModelUUID(ctx context.Context) (model.UUID, error) {
 func (s *Service) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		activatedChanges := make([]changestream.ChangeEvent, 0, len(changes))
-		fmt.Printf("watched alvin \n")
 		for _, change := range changes {
-			fmt.Printf("changed: %+v\n", change)
-
 			if change.Type() == changestream.Deleted {
 				// Watch all deleted events.
 				activatedChanges = append(activatedChanges, change)
@@ -78,19 +72,11 @@ func (s *Service) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 			}
 
 			controllerModelUUID := change.Changed()
-
 			modelActivationStatus, err := s.st.GetModelActivationStatus(ctx, controllerModelUUID)
 			if err != nil {
 				log.Errorf(ctx, "failed to get model activation status: %v\n", err)
 				continue
 			}
-
-			// model, err := s.st.GetControllerModel(ctx, controllerModelUUID)
-			// if err != nil {
-			// 	log.Errorf(ctx, "failed to get controller model: %v\n", err)
-			// 	continue
-			// }
-			// fmt.Printf("current model: %+v\n", model)
 
 			if modelActivationStatus {
 				activatedChanges = append(activatedChanges, change)
@@ -99,11 +85,6 @@ func (s *Service) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 		return activatedChanges, nil
 	}
 
-	// return s.watcherFactory.NewNamespaceMapperWatcher(
-	// 	"model", changestream.All,
-	// 	eventsource.InitialNamespaceChanges(s.st.AllModelActivationStatusQuery()),
-	// 	mapper,
-	// )
 	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
 		"model", changestream.All,
 		mapper,

@@ -172,32 +172,6 @@ func CreateTestModel(
 	return modelUUID
 }
 
-// DeleteTestModel is responsible for cleaning up a testing mode previously
-// // created with [CreateTestModel].
-// func DeleteTestModel(
-// 	c *gc.C,
-// 	txnRunner database.TxnRunnerFactory,
-// 	uuid coremodel.UUID,
-// ) {
-// 	runner, err := txnRunner()
-// 	c.Assert(err, jc.ErrorIsNil)
-
-// 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-// 		_, err := tx.ExecContext(ctx, `
-// 			DELETE FROM model_agent where model_uuid = ?
-// 		`, uuid)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		_, err = tx.ExecContext(ctx, `
-// 			DELETE FROM model WHERE uuid = ?
-// 		`, uuid)
-// 		return err
-// 	})
-// 	c.Assert(err, jc.ErrorIsNil)
-// }
-
 type DbInitialModel struct {
 	// UUID is the universally unique identifier of the model.
 	UUID string `db:"uuid"`
@@ -220,43 +194,51 @@ type DbInitialModel struct {
 
 // DeleteTestModel is responsible for cleaning up a testing mode previously
 // created with [CreateTestModel].
-func DeleteTestModel(c *gc.C, txnRunner database.TxnRunnerFactory, dbModel DbInitialModel) {
+func DeleteTestModel(c *gc.C, txnRunner database.TxnRunnerFactory, dbInitialModel DbInitialModel) {
 
 	runner, err := txnRunner()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, "DELETE from user WHERE uuid = ?", dbModel.OwnerUUID)
+	runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, "DELETE from user_authentication WHERE user_uuid = ?", dbInitialModel.OwnerUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err := res.RowsAffected()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(int(rowsAffected), gc.Equals, 1)
 
-		res, err = tx.ExecContext(ctx, "DELETE from cloud_region WHERE cloud_uuid = ?", dbModel.CloudUUID)
+		res, err = tx.ExecContext(ctx, "DELETE from user WHERE uuid = ?", dbInitialModel.OwnerUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err = res.RowsAffected()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(int(rowsAffected), gc.Equals, 1)
 
-		res, err = tx.ExecContext(ctx, "DELETE from cloud_credential WHERE cloud_uuid = ?", dbModel.CloudUUID)
+		res, err = tx.ExecContext(ctx, "DELETE from cloud_region WHERE cloud_uuid = ?", dbInitialModel.CloudUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err = res.RowsAffected()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(int(rowsAffected), gc.Equals, 1)
 
-		res, err = tx.ExecContext(ctx, "DELETE from cloud WHERE uuid = ?", dbModel.CloudUUID)
+		res, err = tx.ExecContext(ctx, "DELETE from cloud_credential WHERE cloud_uuid = ?", dbInitialModel.CloudUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err = res.RowsAffected()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(int(rowsAffected), gc.Equals, 1)
 
-		res, err = tx.ExecContext(ctx, "DELETE from model WHERE uuid = ?", dbModel.UUID)
+		res, err = tx.ExecContext(ctx, "DELETE from cloud WHERE uuid = ?", dbInitialModel.CloudUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		rowsAffected, err = res.RowsAffected()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(int(rowsAffected), gc.Equals, 1)
 
-		return tx.Commit()
+		res, err = tx.ExecContext(ctx, "DELETE from model WHERE uuid = ?", dbInitialModel.UUID)
+		c.Assert(err, jc.ErrorIsNil)
+		rowsAffected, err = res.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(int(rowsAffected), gc.Equals, 1)
+
+		err = tx.Commit()
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

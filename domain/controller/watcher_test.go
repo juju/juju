@@ -33,45 +33,6 @@ func Test(t *testing.T) {
 	check.TestingT(t)
 }
 
-func (s *watcherSuite) updateModelActiveStatus(c *gc.C, modelUUID string, status bool) error {
-	return s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", status, modelUUID)
-		if err != nil {
-			return err
-		}
-		rowsAffected, err := res.RowsAffected()
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
-		return err
-	})
-}
-
-func (s *watcherSuite) updateModelName(c *gc.C, modelUUID string, newName string) error {
-	return s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, "UPDATE model SET name = ? WHERE uuid = ?", newName, modelUUID)
-		if err != nil {
-			return err
-		}
-		rowsAffected, err := res.RowsAffected()
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
-		return err
-	})
-}
-
-func (s *watcherSuite) deleteModel(c *gc.C, modelUUID string) error {
-	return s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, "DELETE from model WHERE uuid = ?", modelUUID)
-		if err != nil {
-			return err
-		}
-		rowsAffected, err := res.RowsAffected()
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
-		return err
-	})
-}
-
 type model struct {
 	UUID        string `db:"uuid"`
 	Activated   bool   `db:"activated"`
@@ -82,27 +43,6 @@ type model struct {
 	OwnerUUID   string `db:"owner_uuid"`
 }
 
-func (s *watcherSuite) deleteModelWithDependencyTables(c *gc.C, ctx context.Context, tx *sql.Tx, testModel model) {
-	res, err := tx.ExecContext(ctx, "DELETE from user WHERE uuid = ?", testModel.OwnerUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	rowsAffected, err := res.RowsAffected()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(int(rowsAffected), gc.Equals, 1)
-
-	res, err = tx.ExecContext(ctx, "DELETE from cloud WHERE uuid = ?", testModel.CloudUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	rowsAffected, err = res.RowsAffected()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(int(rowsAffected), gc.Equals, 1)
-
-	res, err = tx.ExecContext(ctx, "DELETE from model WHERE uuid = ?", testModel.UUID)
-	c.Assert(err, jc.ErrorIsNil)
-	rowsAffected, err = res.RowsAffected()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(int(rowsAffected), gc.Equals, 1)
-
-}
-
 func (s *watcherSuite) TestWatchController(c *gc.C) {
 	logger := loggertesting.WrapCheckLog(c)
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
@@ -110,23 +50,36 @@ func (s *watcherSuite) TestWatchController(c *gc.C) {
 	st := state.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
 	controllerSvc := service.NewService(st, watcherFactory)
 
+	// Create a controller service watcher.
 	watcher, err := controllerSvc.Watch(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watcher, gc.NotNil)
 
-	var testModel model
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
+	// Create a new model named test-model.
+	modelName := "test-model"
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), modelName)
 	modelUUIDStr := modelUUID.String()
-	err = s.updateModelActiveStatus(c, modelUUIDStr, false)
-	c.Assert(err, jc.ErrorIsNil)
+
+	// Set model activated status to false.
+	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", false, modelUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		rowsAffected, err := res.RowsAffected()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(int(rowsAffected), gc.Equals, 1)
+		return nil
+	})
 
 	// Ensure that the initial activated status of model is false.
+	var testModel model
 	row := s.DB().QueryRow(`SELECT activated FROM model WHERE  uuid = ?`, modelUUIDStr)
 	err = row.Scan(&testModel.Activated)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(testModel.Activated, jc.IsFalse)
 
 	wc := watchertest.NewNotifyWatcherC(c, watcher)
+
+	// Tests that the watcher sends a change when any model field is updated.
 	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", true, modelUUIDStr)
 		c.Assert(err, jc.ErrorIsNil)
@@ -155,51 +108,11 @@ func (s *watcherSuite) TestWatchController(c *gc.C) {
 	})
 	wc.AssertNChanges(2)
 
-	// modeltesting.DeleteTestModel(c, s.TxnRunnerFactory(), modeltesting.DbInitialModel{
-	// 	UUID:      modelUUIDStr,
-	// 	OwnerUUID: testModel.OwnerUUID,
-	// 	CloudUUID: testModel.CloudUUID,
-	// })
-	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		// res, err := tx.ExecContext(ctx, "DELETE from user_authentication WHERE user_uuid = ?", testModel.OwnerUUID)
-		// c.Assert(err, jc.ErrorIsNil)
-		// rowsAffected, err := res.RowsAffected()
-		// c.Assert(err, jc.ErrorIsNil)
-		// c.Check(int(rowsAffected), gc.Equals, 1)
-
-		// res, err = tx.ExecContext(ctx, "DELETE from user WHERE uuid = ?", testModel.OwnerUUID)
-		// c.Assert(err, jc.ErrorIsNil)
-		// rowsAffected, err = res.RowsAffected()
-		// c.Assert(err, jc.ErrorIsNil)
-		// c.Check(int(rowsAffected), gc.Equals, 1)
-
-		res, err := tx.ExecContext(ctx, "DELETE from cloud WHERE uuid = ?", testModel.CloudUUID)
-		c.Assert(err, jc.ErrorIsNil)
-		rowsAffected, err := res.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
-		res, err = tx.ExecContext(ctx, "DELETE from cloud_region WHERE cloud_uuid = ?", testModel.CloudUUID)
-		c.Assert(err, jc.ErrorIsNil)
-		rowsAffected, err = res.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
-		res, err = tx.ExecContext(ctx, "DELETE from cloud_credential WHERE cloud_uuid = ?", testModel.CloudUUID)
-		c.Assert(err, jc.ErrorIsNil)
-		rowsAffected, err = res.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
-		res, err = tx.ExecContext(ctx, "DELETE from model WHERE uuid = ?", testModel.UUID)
-		c.Assert(err, jc.ErrorIsNil)
-		rowsAffected, err = res.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
-		err = tx.Commit()
-		c.Assert(err, jc.ErrorIsNil)
-		return nil
+	// Tests that the watcher sends a change when a model is deleted.
+	modeltesting.DeleteTestModel(c, s.TxnRunnerFactory(), modeltesting.DbInitialModel{
+		UUID:      modelUUIDStr,
+		OwnerUUID: testModel.OwnerUUID,
+		CloudUUID: testModel.CloudUUID,
 	})
 	wc.AssertOneChange()
 }
