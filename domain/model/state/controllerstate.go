@@ -314,7 +314,7 @@ func (s *State) GetModelType(ctx context.Context, uuid coremodel.UUID) (coremode
 
 // GetControllerModelUUID returns the model uuid for the controller model.
 // If no controller model exists then an error satisfying [modelerrors.NotFound]
-// // is returned.
+// is returned.
 func (s *State) GetControllerModelUUID(ctx context.Context) (coremodel.UUID, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -327,7 +327,7 @@ SELECT &dbModelUUIDRef.model_uuid
 FROM   controller
 `, controllerModelUUID)
 	if err != nil {
-		return coremodel.UUID(""), errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1104,13 +1104,9 @@ AND       u.name = $dbUserName.name
 		return nil, errors.Capture(err)
 	}
 
-	type controllerUUID struct {
-		UUID string `db:"uuid"`
-	}
-
-	cu := controllerUUID{}
+	cu := dbUUID{}
 	controllerUUIDstmt, err := s.Prepare(`
-SELECT &controllerUUID.* FROM controller
+SELECT &dbUUID.* FROM controller
 `, cu)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1126,7 +1122,7 @@ SELECT &controllerUUID.* FROM controller
 		}
 
 		err = tx.Query(ctx, controllerUUIDstmt).Get(&cu)
-		// We don't care about no rows here. We hare fine with the controller
+		// We don't care about no rows here. We are fine with the controller
 		// values being empty or not set.
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
@@ -1250,6 +1246,8 @@ WHERE uuid = $dbModelUUID.uuid
 		err := tx.Query(ctx, stmt, args).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return modelerrors.NotFound
+		} else if err != nil {
+			return err
 		}
 
 		cloudName = result.Name
@@ -1258,8 +1256,7 @@ WHERE uuid = $dbModelUUID.uuid
 			Cloud: result.CredentialCloudName,
 		}
 		credentialOwner = result.CredentialOwnerName
-
-		return err
+		return nil
 	})
 	if err != nil {
 		return "", credential.Key{}, errors.Errorf(
@@ -1661,10 +1658,9 @@ func CloudSupportsAuthType(
 	cloudNameVal := dbCloudName{cloudName}
 	cloudUUIDVal := dbCloudUUID{}
 
-	cloudStmt := `
+	cloudExistsStmt, err := preparer.Prepare(`
 SELECT &dbCloudUUID.* FROM cloud WHERE name = $dbCloudName.name
-`
-	selectCloudStmt, err := preparer.Prepare(cloudStmt, cloudUUIDVal, cloudNameVal)
+`, cloudUUIDVal, cloudNameVal)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
@@ -1677,10 +1673,8 @@ SELECT &dbCloudUUID.* FROM cloud WHERE name = $dbCloudName.name
 	authTypeStmt := `
 SELECT auth_type.type AS &dbCloudAuthType.type
 FROM cloud
-INNER JOIN cloud_auth_type
-ON cloud.uuid = cloud_auth_type.cloud_uuid
-INNER JOIN auth_type
-ON cloud_auth_type.auth_type_id = auth_type.id
+JOIN cloud_auth_type ON cloud.uuid = cloud_auth_type.cloud_uuid
+JOIN auth_type ON cloud_auth_type.auth_type_id = auth_type.id
 WHERE cloud.uuid = $dbCloudUUID.uuid
 AND auth_type.type = $dbCloudAuthType.type
 `
@@ -1689,7 +1683,7 @@ AND auth_type.type = $dbCloudAuthType.type
 		return false, errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, selectCloudStmt, cloudNameVal).Get(&cloudUUIDVal)
+	err = tx.Query(ctx, cloudExistsStmt, cloudNameVal).Get(&cloudUUIDVal)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return false, errors.Errorf("cloud %q does not exist", cloudName).Add(clouderrors.NotFound)
 	} else if err != nil {
