@@ -127,7 +127,6 @@ type API struct {
 
 	pool       *state.StatePool
 	authorizer facade.Authorizer
-	presence   facade.Presence
 
 	requiredMigrationFacadeVersions facades.FacadeVersions
 
@@ -159,7 +158,6 @@ func NewAPI(
 		modelAgentServiceGetter:         modelAgentServiceGetter,
 		modelMigrationServiceGetter:     modelMigrationServiceGetter,
 		authorizer:                      authorizer,
-		presence:                        ctx.Presence(),
 		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
 		logDir:                          logDir,
 	}, nil
@@ -262,7 +260,6 @@ with an earlier version of the target controller and try again.
 			ControllerAgentVersion: model.ControllerAgentVersion,
 			ModelDescription:       modelDescription,
 		},
-		api.presence.ModelPresence(controllerState.ModelUUID()),
 		api.upgradeService,
 		api.applicationService,
 		modelAgentService,

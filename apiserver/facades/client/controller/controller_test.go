@@ -979,7 +979,6 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		s.authorizer,
 		s.resources,
 		nil,
-		nil,
 		loggertesting.WrapCheckLog(c),
 		nil,
 		nil,

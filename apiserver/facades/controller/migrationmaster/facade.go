@@ -46,7 +46,6 @@ type API struct {
 	pool                    migration.Pool
 	authorizer              facade.Authorizer
 	resources               facade.Resources
-	presence                facade.Presence
 	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
 	leadership              leadership.Reader
 	credentialService       CredentialService
@@ -71,7 +70,6 @@ func NewAPI(
 	pool migration.Pool,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	presence facade.Presence,
 	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	leadership leadership.Reader,
 	credentialService CredentialService,
@@ -96,7 +94,6 @@ func NewAPI(
 		pool:                    pool,
 		authorizer:              authorizer,
 		resources:               resources,
-		presence:                presence,
 		environscloudspecGetter: environscloudspecGetter,
 		leadership:              leadership,
 		credentialService:       credentialService,
@@ -264,19 +261,16 @@ func (api *API) SetPhase(ctx context.Context, args params.SetMigrationPhaseArgs)
 // Prechecks performs pre-migration checks on the model and
 // (source) controller.
 func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
+	// Check the model exists, this can be moved into the migration service
+	// code, but for now keep it here.
+	_, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return errors.Annotate(err, "retrieving model info")
 	}
-	controllerModel, err := api.modelService.ControllerModel(ctx)
-	if err != nil {
-		return errors.Annotate(err, "retrieving controller model")
-	}
+
 	return migration.SourcePrecheck(
 		ctx,
 		api.precheckBackend,
-		api.presence.ModelPresence(modelInfo.UUID.String()),
-		api.presence.ModelPresence(controllerModel.UUID.String()),
 		api.environscloudspecGetter,
 		api.credentialService,
 		api.upgradeService,
