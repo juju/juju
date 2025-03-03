@@ -33,12 +33,12 @@ var (
 func NewSessionTokenLoginProvider(
 	token string,
 	output io.Writer,
-	updateAccountDetailsFunc func(string) error,
+	tokenCallback func(string) error,
 ) *sessionTokenLoginProvider {
 	return &sessionTokenLoginProvider{
-		sessionToken:             token,
-		output:                   output,
-		updateAccountDetailsFunc: updateAccountDetailsFunc,
+		sessionToken:  token,
+		output:        output,
+		tokenCallback: tokenCallback,
 	}
 }
 
@@ -47,9 +47,9 @@ type sessionTokenLoginProvider struct {
 	// output is used by the login provider to print the user code
 	// and verification URL.
 	output io.Writer
-	// updateAccountDetailsFunc function is used to update the session
-	// token for the account details.
-	updateAccountDetailsFunc func(string) error
+	// tokenCallback function is used to return the session
+	// token obtained after successful login.
+	tokenCallback func(string) error
 }
 
 // AuthHeader implements the [LoginProvider.AuthHeader] method.
@@ -131,7 +131,7 @@ func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, cal
 
 	p.sessionToken = sessionTokenResult.SessionToken
 
-	return p.updateAccountDetailsFunc(sessionTokenResult.SessionToken)
+	return p.tokenCallback(sessionTokenResult.SessionToken)
 }
 
 func (p *sessionTokenLoginProvider) login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
