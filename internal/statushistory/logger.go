@@ -25,8 +25,8 @@ type logRecorder struct {
 }
 
 // NewLogRecorder returns a new logRecorder that logs to the given logger.
-func NewLogRecorder(logger logger.Logger) Recorder {
-	return &logRecorder{logger: logger}
+func NewLogRecorder(log logger.Logger) Recorder {
+	return &logRecorder{logger: log.Child("status-history", logger.STATUS_HISTORY)}
 }
 
 // Record implements Recorder.Record.
