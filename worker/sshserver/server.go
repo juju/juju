@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
@@ -105,7 +106,13 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	// Handle server cleanup.
 	s.tomb.Go(func() error {
 		<-s.tomb.Dying()
-		<-closeAllowed
+
+		select {
+		case <-closeAllowed:
+		case <-time.After(time.Second * 10):
+			config.Logger.Errorf("closeAllowed not received, proceeding to close")
+		}
+
 		if err := s.Server.Close(); err != nil {
 			// There's really not a lot we can do if the shutdown fails,
 			// either due to a timeout or another reason. So we simply log it.

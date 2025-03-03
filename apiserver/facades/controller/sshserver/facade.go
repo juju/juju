@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -14,8 +15,7 @@ import (
 
 // Backend provides required state for the Facade.
 type Backend interface {
-	common.ControllerConfigState
-
+	ControllerConfig() (controller.Config, error)
 	WatchControllerConfig() state.NotifyWatcher
 	SSHServerHostKey() (string, error)
 }
@@ -32,15 +32,20 @@ type Facade struct {
 // the worker.
 func NewFacade(ctx facade.Context, backend Backend) *Facade {
 	return &Facade{
-		resources:           ctx.Resources(),
-		controllerConfigAPI: common.NewStateControllerConfig(backend),
-		backend:             backend,
+		resources: ctx.Resources(),
+		backend:   backend,
 	}
 }
 
 // ControllerConfig returns the current controller config.
 func (f *Facade) ControllerConfig() (params.ControllerConfigResult, error) {
-	return f.controllerConfigAPI.ControllerConfig()
+	result := params.ControllerConfigResult{}
+	config, err := f.backend.ControllerConfig()
+	if err != nil {
+		return result, err
+	}
+	result.Config = params.ControllerConfig(config)
+	return result, nil
 }
 
 // WatchControllerConfig creates a watcher and returns it's ID for watching upon.
