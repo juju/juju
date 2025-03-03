@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -132,12 +131,6 @@ type PrecheckRelationUnit interface {
 	Valid() (bool, error)
 	InScope() (bool, error)
 	UnitName() string
-}
-
-// ModelPresence represents the API server connections for a model.
-type ModelPresence interface {
-	// For a given non controller agent, return the Status for that agent.
-	AgentStatus(agent string) (presence.Status, error)
 }
 
 type environsCloudSpecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)

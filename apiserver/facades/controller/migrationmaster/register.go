@@ -66,7 +66,6 @@ func newMigrationMasterFacade(stdCtx context.Context, ctx facade.ModelContext) (
 		migration.PoolShim(pool),
 		ctx.Resources(),
 		ctx.Auth(),
-		ctx.Presence(),
 		cloudspec.MakeCloudSpecGetter(pool, domainServices.Cloud(), credentialService, modelConfigServiceGetter),
 		leadership,
 		credentialService,

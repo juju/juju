@@ -46,7 +46,6 @@ type API struct {
 	pool                    migration.Pool
 	authorizer              facade.Authorizer
 	resources               facade.Resources
-	presence                facade.Presence
 	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
 	leadership              leadership.Reader
 	credentialService       CredentialService
@@ -71,7 +70,6 @@ func NewAPI(
 	pool migration.Pool,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	presence facade.Presence,
 	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	leadership leadership.Reader,
 	credentialService CredentialService,
@@ -96,7 +94,6 @@ func NewAPI(
 		pool:                    pool,
 		authorizer:              authorizer,
 		resources:               resources,
-		presence:                presence,
 		environscloudspecGetter: environscloudspecGetter,
 		leadership:              leadership,
 		credentialService:       credentialService,

@@ -130,17 +130,6 @@ func (c ModelContext) RequestRecorder() facade.RequestRecorder {
 	return c.RequestRecorder_
 }
 
-// Presence implements facade.ModelContext.
-func (c ModelContext) Presence() facade.Presence {
-	return c
-}
-
-// ModelPresence implements facade.Presence.
-func (c ModelContext) ModelPresence(modelUUID string) facade.ModelPresence {
-	// Potentially may need to add stuff here at some stage.
-	return nil
-}
-
 // LeadershipClaimer implements facade.ModelContext.
 func (c ModelContext) LeadershipClaimer() (leadership.Claimer, error) {
 	return c.LeadershipClaimer_, nil

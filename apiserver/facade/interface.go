@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/state"
 )
@@ -133,10 +132,6 @@ type ModelContext interface {
 	// StatePool returns the state pool used by the apiserver to minimise the
 	// creation of the expensive *State instances.
 	StatePool() *state.StatePool
-
-	// Presence returns an instance that is able to be asked for
-	// the current model presence.
-	Presence() Presence
 
 	// Hub returns the central hub that the API server holds.
 	// At least at this stage, facades only need to publish events.
@@ -290,18 +285,6 @@ type Authorizer interface {
 	// EntityHasPermission reports whether the given access is allowed for the given
 	// target by the given entity.
 	EntityHasPermission(ctx context.Context, entity names.Tag, operation permission.Access, target names.Tag) error
-}
-
-// Presence represents the current known state of API connections from agents
-// to any of the API servers.
-type Presence interface {
-	ModelPresence(modelUUID string) ModelPresence
-}
-
-// ModelPresence represents the API server connections for a model.
-type ModelPresence interface {
-	// For a given non controller agent, return the Status for that agent.
-	AgentStatus(agent string) (presence.Status, error)
 }
 
 // Hub represents the central hub that the API server has.

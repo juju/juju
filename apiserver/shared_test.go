@@ -6,7 +6,6 @@ package apiserver
 import (
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
@@ -15,7 +14,6 @@ import (
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/presence"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/testing"
@@ -42,7 +40,6 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.config = sharedServerConfig{
 		statePool:            s.StatePool,
 		centralHub:           s.hub,
-		presence:             presence.New(clock.WallClock),
 		leaseManager:         &lease.Manager{},
 		controllerConfig:     controllerConfig,
 		logger:               loggertesting.WrapCheckLog(c),
@@ -71,13 +68,6 @@ func (s *sharedServerContextSuite) TestConfigNoHub(c *gc.C) {
 	err := s.config.validate()
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "nil centralHub not valid")
-}
-
-func (s *sharedServerContextSuite) TestConfigNoPresence(c *gc.C) {
-	s.config.presence = nil
-	err := s.config.validate()
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, "nil presence not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *gc.C) {

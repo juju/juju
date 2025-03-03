@@ -66,7 +66,6 @@ type ControllerAPI struct {
 	authorizer                facade.Authorizer
 	apiUser                   names.UserTag
 	resources                 facade.Resources
-	presence                  facade.Presence
 	hub                       facade.Hub
 	cloudService              CloudService
 	credentialService         CredentialService
@@ -100,7 +99,6 @@ func NewControllerAPI(
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	resources facade.Resources,
-	presence facade.Presence,
 	hub facade.Hub,
 	logger corelogger.Logger,
 	controllerConfigService ControllerConfigService,
@@ -159,7 +157,6 @@ func NewControllerAPI(
 		authorizer:                authorizer,
 		apiUser:                   apiUser,
 		resources:                 resources,
-		presence:                  presence,
 		hub:                       hub,
 		logger:                    logger,
 		controllerConfigService:   controllerConfigService,
@@ -637,7 +634,6 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		hostedState.State,
 		systemState,
 		&targetInfo,
-		c.presence,
 		c.controllerConfigService,
 		c.cloudService,
 		c.credentialService,
@@ -785,7 +781,6 @@ var runMigrationPrechecks = func(
 	ctx context.Context,
 	st, ctlrSt *state.State,
 	targetInfo *coremigration.TargetInfo,
-	presence facade.Presence,
 	controllerConfigService ControllerConfigService,
 	cloudService CloudService,
 	credentialService CredentialService,
@@ -803,13 +798,10 @@ var runMigrationPrechecks = func(
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}
-	modelPresence := presence.ModelPresence(st.ModelUUID())
-	controllerPresence := presence.ModelPresence(ctlrSt.ModelUUID())
 
 	if err := migration.SourcePrecheck(
 		ctx,
 		backend,
-		modelPresence, controllerPresence,
 		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService, modelConfigService),
 		credentialService,
 		upgradeService,

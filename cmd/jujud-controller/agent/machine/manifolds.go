@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/core/presence"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/environs"
 	internalbootstrap "github.com/juju/juju/internal/bootstrap"
@@ -101,7 +100,6 @@ import (
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/objectstoreservices"
 	"github.com/juju/juju/internal/worker/peergrouper"
-	prworker "github.com/juju/juju/internal/worker/presence"
 	"github.com/juju/juju/internal/worker/providerservices"
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/proxyupdater"
@@ -223,9 +221,6 @@ type ManifoldsConfig struct {
 	// PubSubReporter is the introspection reporter for the pubsub forwarding
 	// worker.
 	PubSubReporter psworker.Reporter
-
-	// PresenceRecorder
-	PresenceRecorder presence.Recorder
 
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
@@ -409,19 +404,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:         internallogger.GetLogger("juju.worker.pubsub"),
 			NewWorker:      psworker.NewWorker,
 			Reporter:       config.PubSubReporter,
-		}),
-
-		// The presence manifold listens to pubsub messages about the pubsub
-		// forwarding connections and api connection and disconnections to
-		// establish a view on which agents are "alive".
-		presenceName: prworker.Manifold(prworker.ManifoldConfig{
-			AgentName: agentName,
-			// CentralHubName depends on StateConfigWatcherName,
-			// which implies this can only run on controllers.
-			CentralHubName: centralHubName,
-			Recorder:       config.PresenceRecorder,
-			Logger:         internallogger.GetLogger("juju.worker.presence"),
-			NewWorker:      prworker.NewWorker,
 		}),
 
 		// The state manifold creates a *state.State and makes it
@@ -678,7 +660,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 			Hub:                               config.CentralHub,
-			Presence:                          config.PresenceRecorder,
 			GetControllerConfigService:        apiserver.GetControllerConfigService,
 			GetModelService:                   apiserver.GetModelService,
 			NewWorker:                         apiserver.NewWorker,

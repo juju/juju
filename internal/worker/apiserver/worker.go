@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
@@ -36,7 +35,6 @@ type Config struct {
 	AgentConfig                       agent.Config
 	Clock                             clock.Clock
 	Hub                               *pubsub.StructuredHub
-	Presence                          presence.Recorder
 	Mux                               *apiserverhttp.Mux
 	LocalMacaroonAuthenticator        macaroon.LocalMacaroonAuthenticator
 	StatePool                         *state.StatePool
@@ -78,9 +76,6 @@ func (config Config) Validate() error {
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
-	}
-	if config.Presence == nil {
-		return errors.NotValidf("nil Presence")
 	}
 	if config.StatePool == nil {
 		return errors.NotValidf("nil StatePool")
@@ -179,7 +174,6 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		DataDir:                       config.AgentConfig.DataDir(),
 		LogDir:                        config.AgentConfig.LogDir(),
 		Hub:                           config.Hub,
-		Presence:                      config.Presence,
 		Mux:                           config.Mux,
 		ControllerUUID:                controllerConfig.ControllerUUID(),
 		ControllerModelUUID:           controllerModel.UUID,

@@ -21,7 +21,6 @@ func SetPrecheckResult(p patcher, err error) {
 	p.PatchValue(&runMigrationPrechecks, func(ctx context.Context,
 		st, ctlrSt *state.State,
 		targetInfo *coremigration.TargetInfo,
-		presence facade.Presence,
 		controllerConfigService ControllerConfigService,
 		cloudService CloudService,
 		credentialService CredentialService,

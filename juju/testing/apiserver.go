@@ -43,7 +43,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
@@ -658,7 +657,6 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		LogDir:                     c.MkDir(),
 		DataDir:                    c.MkDir(),
 		Hub:                        hub,
-		Presence:                   &fakePresence{},
 		LeaseManager:               apitesting.StubLeaseManager{},
 		NewObserver:                func() observer.Observer { return &fakeobserver.Instance{} },
 		MetricsCollector:           apiserver.NewMetricsCollector(),
@@ -762,36 +760,4 @@ func (noopLogSink) Log([]corelogger.LogRecord) error { return nil }
 
 type mockAuthenticator struct {
 	macaroon.LocalMacaroonAuthenticator
-}
-
-// fakePresence returns alive for all agent alive requests.
-type fakePresence struct {
-	agent map[string]presence.Status
-}
-
-func (*fakePresence) Disable()        {}
-func (*fakePresence) Enable()         {}
-func (*fakePresence) IsEnabled() bool { return true }
-func (*fakePresence) Connect(server, model, agent string, id uint64, controllerAgent bool, userData string) {
-}
-func (*fakePresence) Disconnect(server string, id uint64)                            {}
-func (*fakePresence) Activity(server string, id uint64)                              {}
-func (*fakePresence) ServerDown(server string)                                       {}
-func (*fakePresence) UpdateServer(server string, connections []presence.Value) error { return nil }
-func (f *fakePresence) Connections() presence.Connections                            { return f }
-
-func (f *fakePresence) ForModel(model string) presence.Connections   { return f }
-func (f *fakePresence) ForServer(server string) presence.Connections { return f }
-func (f *fakePresence) ForAgent(agent string) presence.Connections   { return f }
-func (*fakePresence) Count() int                                     { return 0 }
-func (*fakePresence) Models() []string                               { return nil }
-func (*fakePresence) Servers() []string                              { return nil }
-func (*fakePresence) Agents() []string                               { return nil }
-func (*fakePresence) Values() []presence.Value                       { return nil }
-
-func (f *fakePresence) AgentStatus(agent string) (presence.Status, error) {
-	if status, found := f.agent[agent]; found {
-		return status, nil
-	}
-	return presence.Alive, nil
 }

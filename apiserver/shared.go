@@ -20,7 +20,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/trace"
@@ -45,7 +44,6 @@ type SharedHub interface {
 type sharedServerContext struct {
 	statePool          *state.StatePool
 	centralHub         SharedHub
-	presence           presence.Recorder
 	leaseManager       lease.Manager
 	logger             corelogger.Logger
 	charmhubHTTPClient facade.HTTPClient
@@ -89,7 +87,6 @@ type sharedServerContext struct {
 type sharedServerConfig struct {
 	statePool           *state.StatePool
 	centralHub          SharedHub
-	presence            presence.Recorder
 	leaseManager        lease.Manager
 	controllerUUID      string
 	controllerModelUUID model.UUID
@@ -113,9 +110,6 @@ func (c *sharedServerConfig) validate() error {
 	}
 	if c.centralHub == nil {
 		return errors.NotValidf("nil centralHub")
-	}
-	if c.presence == nil {
-		return errors.NotValidf("nil presence")
 	}
 	if c.leaseManager == nil {
 		return errors.NotValidf("nil leaseManager")
@@ -154,7 +148,6 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 	ctx := &sharedServerContext{
 		statePool:            config.statePool,
 		centralHub:           config.centralHub,
-		presence:             config.presence,
 		leaseManager:         config.leaseManager,
 		logger:               config.logger,
 		controllerUUID:       config.controllerUUID,

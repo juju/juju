@@ -127,7 +127,6 @@ type API struct {
 
 	pool       *state.StatePool
 	authorizer facade.Authorizer
-	presence   facade.Presence
 
 	requiredMigrationFacadeVersions facades.FacadeVersions
 
@@ -159,7 +158,6 @@ func NewAPI(
 		modelAgentServiceGetter:         modelAgentServiceGetter,
 		modelMigrationServiceGetter:     modelMigrationServiceGetter,
 		authorizer:                      authorizer,
-		presence:                        ctx.Presence(),
 		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
 		logDir:                          logDir,
 	}, nil
