@@ -16,7 +16,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/paths"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -151,7 +150,8 @@ type storageTemplate struct {
 // - related attachment records
 // TODO(storage) - support attaching existing storage when adding a unit
 func (st *State) insertUnitStorage(
-	ctx context.Context, tx *sqlair.TX, modelType model.ModelType, appUUID coreapplication.ID, unitUUID coreunit.UUID, netNodeUUID string,
+	ctx context.Context, tx *sqlair.TX, modelType model.ModelType, storageParentDir string,
+	appUUID coreapplication.ID, unitUUID coreunit.UUID, netNodeUUID string,
 	args []application.ApplicationStorageArg, poolKinds map[string]storage.StorageKind,
 ) error {
 
@@ -258,7 +258,7 @@ func (st *State) insertUnitStorage(
 
 			// Get the info needed to create the necessary filesystem and/or volume attachments to the net node.
 			// The required attachments then inform the creation of the filesystem and/or volume.
-			filesystem, volume, err := st.attachmentParamsForNewStorageInstance(inst.StorageID, t.params.PoolNameOrType, inst.StorageName, t.meta, poolKinds)
+			filesystem, volume, err := st.attachmentParamsForNewStorageInstance(storageParentDir, inst.StorageID, t.params.PoolNameOrType, inst.StorageName, t.meta, poolKinds)
 			if err != nil {
 				return errors.Errorf("creating storage parameters: %w", err)
 			}
@@ -321,14 +321,17 @@ INSERT INTO storage_unit_owner (*) VALUES ($storageUnit.*)
 // storage. For stores with potentially multiple instances, the
 // instance ID is appended to the location.
 func filesystemMountPoint(
+	parentDir string,
 	meta charmStorage,
 	storageID corestorage.ID,
 ) (string, error) {
-	storageDir := paths.StorageDir(paths.OSUnixLike)
-	if strings.HasPrefix(meta.Location, storageDir) {
+	if parentDir == "" {
+		return "", errors.Errorf("empty parent directory not valid")
+	}
+	if strings.HasPrefix(meta.Location, parentDir) {
 		return "", errors.Errorf(
 			"invalid location %q: must not fall within %q",
-			meta.Location, storageDir,
+			meta.Location, parentDir,
 		)
 	}
 	if meta.Location != "" && meta.CountMax == 1 {
@@ -340,12 +343,13 @@ func filesystemMountPoint(
 	// <storage-dir>/<storage-id> as the location.
 	// Otherwise, we use <location>/<storage-id>.
 	if meta.Location != "" {
-		storageDir = meta.Location
+		parentDir = meta.Location
 	}
-	return path.Join(storageDir, storageID.String()), nil
+	return path.Join(parentDir, storageID.String()), nil
 }
 
 func (st *State) attachmentParamsForNewStorageInstance(
+	parentDir string,
 	storageID corestorage.ID,
 	poolName string,
 	storageName corestorage.Name,
@@ -355,7 +359,7 @@ func (st *State) attachmentParamsForNewStorageInstance(
 
 	switch charm.StorageType(stor.Kind) {
 	case charm.StorageFilesystem:
-		location, err := filesystemMountPoint(stor, storageID)
+		location, err := filesystemMountPoint(parentDir, stor, storageID)
 		if err != nil {
 			return nil, nil, errors.Errorf(
 				"getting filesystem mount point for storage %s: %w",
@@ -428,7 +432,7 @@ WHERE  storage_id = $storageInstance.storage_id
 // - [applicationerrors.StorageNameNotSupported]: when storage name is not defined in charm metadata.
 // - [applicationerrors.InvalidStorageCount]: when the allowed attachment count would be violated.
 // - [applicationerrors.InvalidStorageMountPoint]: when the filesystem being attached to the unit's machine has a mount point path conflict.
-func (st *State) AttachStorage(ctx context.Context, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error {
+func (st *State) AttachStorage(ctx context.Context, storageParentDir string, storageUUID corestorage.UUID, unitUUID coreunit.UUID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -494,7 +498,7 @@ AND si.uuid != $storageCount.uuid
 			return err
 		}
 
-		return st.attachStorage(ctx, tx, stor, unitUUID, netNodeUUID, charmStorage)
+		return st.attachStorage(ctx, tx, stor, unitUUID, netNodeUUID, storageParentDir, charmStorage)
 	})
 	if err != nil {
 		return errors.Errorf("attaching storage %q to unit %q: %w", storageUUID, unitUUID, err)
@@ -644,7 +648,10 @@ func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint64)
 	return nil
 }
 
-func (st *State) attachStorage(ctx context.Context, tx *sqlair.TX, inst storageInstance, unitUUID coreunit.UUID, netNodeUUID string, charmStorage charmStorage) error {
+func (st *State) attachStorage(
+	ctx context.Context, tx *sqlair.TX, inst storageInstance, unitUUID coreunit.UUID, netNodeUUID string,
+	parentDir string, charmStorage charmStorage,
+) error {
 	su := storageUnit{StorageUUID: inst.StorageUUID, UnitUUID: unitUUID}
 	updateStorageInstanceQuery, err := st.Prepare(`
 UPDATE storage_instance
@@ -671,7 +678,7 @@ WHERE  uuid = $storageUnit.storage_instance_uuid
 		return errors.Errorf("getting model type: %w", err)
 	}
 	if modelType == model.CAAS {
-		filesystem, volume, err := st.attachmentParamsForStorageInstance(ctx, tx, inst.StorageUUID, inst.StorageID, inst.StorageName, charmStorage)
+		filesystem, volume, err := st.attachmentParamsForStorageInstance(ctx, tx, parentDir, inst.StorageUUID, inst.StorageID, inst.StorageName, charmStorage)
 		if err != nil {
 			return errors.Errorf("creating storage attachment parameters: %w", err)
 		}
@@ -768,6 +775,7 @@ WHERE     siv.storage_instance_uuid = $storageInstance.uuid
 func (st *State) attachmentParamsForStorageInstance(
 	ctx context.Context,
 	tx *sqlair.TX,
+	parentDir string,
 	storageUUID corestorage.UUID,
 	storageID corestorage.ID,
 	storageName corestorage.Name,
@@ -776,7 +784,7 @@ func (st *State) attachmentParamsForStorageInstance(
 
 	switch charm.StorageType(charmStorage.Kind) {
 	case charm.StorageFilesystem:
-		location, err := filesystemMountPoint(charmStorage, storageID)
+		location, err := filesystemMountPoint(parentDir, charmStorage, storageID)
 		if err != nil {
 			return nil, nil, errors.Errorf(
 				"getting filesystem mount point for storage %s: %w",

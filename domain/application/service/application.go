@@ -454,6 +454,7 @@ func makeCreateApplicationArgs(
 		Resources:         makeResourcesArgs(args.ResolvedResources),
 		PendingResources:  args.PendingResources,
 		Storage:           makeStorageArgs(storageDirectives),
+		StorageParentDir:  application.StorageParentDir,
 		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,
 		Status:            applicationStatus,

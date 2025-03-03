@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/resource"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -57,6 +58,8 @@ type AddApplicationArg struct {
 	// StoragePoolKind holds a mapping of the kind of storage supported
 	// by the named storage pool / provider type.
 	StoragePoolKind map[string]storage.StorageKind
+	// StorageParentDir is the parent directory for mounting charm storage.
+	StorageParentDir string
 }
 
 // AddApplicationResourceArg defines the arguments required to add a resource to an application.
@@ -189,28 +192,33 @@ type AddUnitArg struct {
 	Constraints constraints.Constraints
 }
 
+// StorageParentDir is the parent directory for mounting charm storage.
+var StorageParentDir = paths.StorageDir(paths.OSUnixLike)
+
 // InsertUnitArg is used to insert a fully populated unit.
 // Used by import and when registering a CAAS unit.
 type InsertUnitArg struct {
-	UnitName        coreunit.Name
-	CloudContainer  *CloudContainer
-	Password        *PasswordInfo
-	Constraints     constraints.Constraints
-	Storage         []ApplicationStorageArg
-	StoragePoolKind map[string]storage.StorageKind
+	UnitName         coreunit.Name
+	CloudContainer   *CloudContainer
+	Password         *PasswordInfo
+	Constraints      constraints.Constraints
+	Storage          []ApplicationStorageArg
+	StoragePoolKind  map[string]storage.StorageKind
+	StorageParentDir string
 	UnitStatusArg
 }
 
 // RegisterCAASUnitArg contains parameters for introducing
 // a k8s unit representing a new pod to the model.
 type RegisterCAASUnitArg struct {
-	UnitName     coreunit.Name
-	PasswordHash string
-	ProviderID   string
-	Address      *string
-	Ports        *[]string
-	OrderedScale bool
-	OrderedId    int
+	UnitName         coreunit.Name
+	PasswordHash     string
+	ProviderID       string
+	Address          *string
+	Ports            *[]string
+	OrderedScale     bool
+	OrderedId        int
+	StorageParentDir string
 	// TODO(storage) - this needs to be wired through to the register CAAS unit workflow.
 	// ObservedAttachedVolumeIDs is the filesystem attachments observed to be attached
 	// by the infrastructure, used to map existing attachments.

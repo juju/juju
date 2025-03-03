@@ -203,13 +203,14 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	upsert.PasswordHash = &passwordHash
 
 	if err := f.applicationService.RegisterCAASUnit(ctx, appName, application.RegisterCAASUnitArg{
-		UnitName:     unitName,
-		ProviderID:   containerID,
-		PasswordHash: passwordHash,
-		Address:      upsert.Address,
-		Ports:        upsert.Ports,
-		OrderedScale: upsert.OrderedScale,
-		OrderedId:    upsert.OrderedId,
+		UnitName:         unitName,
+		ProviderID:       containerID,
+		PasswordHash:     passwordHash,
+		Address:          upsert.Address,
+		Ports:            upsert.Ports,
+		OrderedScale:     upsert.OrderedScale,
+		OrderedId:        upsert.OrderedId,
+		StorageParentDir: application.StorageParentDir,
 	}); err != nil {
 		return errResp(err)
 	}

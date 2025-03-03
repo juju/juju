@@ -276,6 +276,7 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 				AgentStatus:    agentStatus,
 				WorkloadStatus: workloadStatus,
 			},
+			StorageParentDir: application.StorageParentDir,
 		}
 		if u.CloudContainer != nil {
 			arg.CloudContainer = makeCloudContainerArg(u.UnitName, *u.CloudContainer)

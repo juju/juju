@@ -439,7 +439,9 @@ AND a.name = $applicationName.name
 }
 
 // AddUnits adds the specified units to the application.
-func (st *State) AddUnits(ctx context.Context, appUUID coreapplication.ID, args []application.AddUnitArg) error {
+func (st *State) AddUnits(
+	ctx context.Context, storageParentDir string, appUUID coreapplication.ID, args []application.AddUnitArg,
+) error {
 	if len(args) == 0 {
 		return nil
 	}
@@ -464,6 +466,7 @@ func (st *State) AddUnits(ctx context.Context, appUUID coreapplication.ID, args 
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
 					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
 				},
+				StorageParentDir: storageParentDir,
 			}
 			if _, err := st.insertUnit(ctx, tx, modelType, appUUID, insertArg); err != nil {
 				return errors.Errorf("adding unit for application %q: %w", appUUID, err)
@@ -963,7 +966,7 @@ func (st *State) InsertCAASUnit(ctx context.Context, appUUID coreapplication.ID,
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		unitLife, err := st.getLifeForUnitName(ctx, tx, arg.UnitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
-			return st.insertCAASUnit(ctx, tx, appUUID, arg, cloudContainer)
+			return st.insertCAASUnit(ctx, tx, appUUID, arg, cloudContainer, arg.StorageParentDir)
 		} else if err != nil {
 			return errors.Errorf("checking unit life %q: %w", arg.UnitName, err)
 		}
@@ -1002,6 +1005,7 @@ func (st *State) insertCAASUnit(
 	appID coreapplication.ID,
 	arg application.RegisterCAASUnitArg,
 	cloudContainer *application.CloudContainer,
+	storageParentDir string,
 ) error {
 	appScale, err := st.getApplicationScaleState(ctx, tx, appID)
 	if err != nil {
@@ -1031,6 +1035,7 @@ func (st *State) insertCAASUnit(
 				Since:   now,
 			},
 		},
+		StorageParentDir: storageParentDir,
 	}
 
 	if _, err := st.insertUnit(ctx, tx, model.CAAS, appID, insertArg); err != nil {
@@ -1118,7 +1123,7 @@ func (st *State) insertUnit(
 		}
 	}
 
-	if err := st.insertUnitStorage(ctx, tx, modelType, appUUID, unitUUID, nodeUUID.String(), args.Storage, args.StoragePoolKind); err != nil {
+	if err := st.insertUnitStorage(ctx, tx, modelType, args.StorageParentDir, appUUID, unitUUID, nodeUUID.String(), args.Storage, args.StoragePoolKind); err != nil {
 		return "", errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
 	}
 

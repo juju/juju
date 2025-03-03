@@ -62,7 +62,7 @@ func (s *modelSuite) TestGetModelType(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	mt, err := st.GetModelType(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mt, gc.Equals, coremodel.ModelType("iaas"))
+	c.Assert(mt, gc.Equals, coremodel.IAAS)
 }
 
 type applicationStateSuite struct {
