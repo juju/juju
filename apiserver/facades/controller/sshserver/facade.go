@@ -4,7 +4,6 @@
 package sshserver
 
 import (
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
@@ -24,8 +23,7 @@ type Backend interface {
 type Facade struct {
 	resources facade.Resources
 
-	backend             Backend
-	controllerConfigAPI *common.ControllerConfigAPI
+	backend Backend
 }
 
 // NewFacade returns a new SSHServer facade to be registered for use within
