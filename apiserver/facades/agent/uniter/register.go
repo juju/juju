@@ -98,6 +98,8 @@ func newUniterAPIWithServices(
 	accessCloudSpec := cloudSpecAccessor(authorizer, st)
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
+	// Do not use m for anything other than a EnvironConfigGetterModel.
+	// This use will disappear once model is fully gone from state.
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -180,23 +182,23 @@ func newUniterAPIWithServices(
 		// own status *and* its application's? This is not a pleasing arrangement.
 		StatusAPI: statusAPI,
 
-		m:                       m,
-		st:                      st,
-		clock:                   aClock,
-		auth:                    authorizer,
-		resources:               resources,
-		leadershipChecker:       leadershipChecker,
-		leadershipRevoker:       leadershipRevoker,
-		accessUnit:              accessUnit,
-		accessApplication:       accessApplication,
-		accessUnitOrApplication: accessUnitOrApplication,
-		accessMachine:           accessMachine,
-		accessCloudSpec:         accessCloudSpec,
-		cloudSpecer:             cloudSpec,
-		StorageAPI:              storageAPI,
-		logger:                  logger,
-		store:                   context.ObjectStore(),
-		watcherRegistry:         watcherRegistry,
+		environConfigGetterModel: m,
+		st:                       st,
+		clock:                    aClock,
+		auth:                     authorizer,
+		resources:                resources,
+		leadershipChecker:        leadershipChecker,
+		leadershipRevoker:        leadershipRevoker,
+		accessUnit:               accessUnit,
+		accessApplication:        accessApplication,
+		accessUnitOrApplication:  accessUnitOrApplication,
+		accessMachine:            accessMachine,
+		accessCloudSpec:          accessCloudSpec,
+		cloudSpecer:              cloudSpec,
+		StorageAPI:               storageAPI,
+		logger:                   logger,
+		store:                    context.ObjectStore(),
+		watcherRegistry:          watcherRegistry,
 
 		applicationService:      services.ApplicationService,
 		cloudService:            services.CloudService,
