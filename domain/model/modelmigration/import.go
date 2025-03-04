@@ -133,7 +133,7 @@ func modelDetailServiceGetter(
 	logger logger.Logger,
 ) ModelDetailServiceFunc {
 	return func(id coremodel.UUID) ModelDetailService {
-		return modelservice.NewMigrationService(
+		return modelservice.NewModelService(
 			id,
 			modelstate.NewState(scope.ControllerDB()),
 			modelstate.NewModelState(scope.ModelDB(), logger),
