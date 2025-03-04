@@ -36,7 +36,14 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/storage"
+)
+
+var (
+	applicationNamespace  = statushistory.Namespace{Name: "application"}
+	unitAgentNamespace    = statushistory.Namespace{Name: "unit-agent"}
+	unitWorkloadNamespace = statushistory.Namespace{Name: "unit-workload"}
 )
 
 // ApplicationState describes retrieval and persistence methods for
@@ -376,6 +383,13 @@ func (s *Service) CreateApplication(
 	}
 
 	s.logger.Infof(ctx, "created application %q with ID %q", name, appID)
+
+	if args.ApplicationStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(appID.String()), *args.ApplicationStatus); err != nil {
+			s.logger.Infof(ctx, "failed recording application status history: %w", err)
+		}
+	}
+
 	return appID, nil
 }
 
@@ -1283,13 +1297,25 @@ func (s *Service) SetApplicationStatus(
 		return internalerrors.Errorf("application ID: %w", err)
 	}
 
+	if status == nil {
+		return nil
+	}
+
 	// This will implicitly verify that the status is valid.
 	encodedStatus, err := encodeWorkloadStatus(status)
 	if err != nil {
 		return internalerrors.Errorf("encoding workload status: %w", err)
 	}
 
-	return s.st.SetApplicationStatus(ctx, applicationID, encodedStatus)
+	if err := s.st.SetApplicationStatus(ctx, applicationID, encodedStatus); err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(applicationID.String()), *status); err != nil {
+		s.logger.Infof(ctx, "failed recording setting application status history: %v", err)
+	}
+
+	return nil
 }
 
 // SetApplicationStatusForUnitLeader sets the application status using the

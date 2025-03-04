@@ -31,6 +31,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -44,6 +45,7 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
@@ -1242,7 +1244,9 @@ func (s *applicationServiceSuite) TestGetApplicationStatusFallbacktoUnitsNoUnits
 }
 
 func (s *applicationServiceSuite) TestSetApplicationStatus(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	history := &statusHistoryRecorder{}
+
+	defer s.setupMocksWithStatusHistory(c, history).Finish()
 
 	now := time.Now()
 
@@ -1261,6 +1265,16 @@ func (s *applicationServiceSuite) TestSetApplicationStatus(c *gc.C) {
 		Since:   &now,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(history.records, jc.DeepEquals, []statusHistoryRecord{{
+		ns: statushistory.Namespace{Name: "application", ID: applicationUUID.String()},
+		s: corestatus.StatusInfo{
+			Status:  corestatus.Active,
+			Message: "doink",
+			Data:    map[string]interface{}{"foo": "bar"},
+			Since:   &now,
+		},
+	}})
 }
 
 func (s *applicationServiceSuite) TestSetApplicationStatusInvalidStatus(c *gc.C) {
@@ -2269,6 +2283,7 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 		nil,
 		nil,
 		nil,
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)

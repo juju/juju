@@ -17,6 +17,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
@@ -128,6 +129,7 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 			return storage.NotImplementedProviderRegistry{}
 		}),
 		nil,
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

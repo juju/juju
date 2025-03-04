@@ -63,6 +63,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 			return provider.CommonStorageProviders()
 		}),
 		nil,
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

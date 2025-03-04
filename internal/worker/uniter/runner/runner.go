@@ -373,7 +373,7 @@ type loggerAdaptor struct {
 
 // Messagef implements the charmrunner MessageReceiver interface
 func (l *loggerAdaptor) Messagef(isPrefix bool, message string, args ...interface{}) {
-	l.Logf(stdcontext.TODO(), l.level, message, args...)
+	l.Logf(stdcontext.TODO(), l.level, corelogger.Labels{}, message, args...)
 }
 
 // bufferAdaptor implements MessageReceiver and

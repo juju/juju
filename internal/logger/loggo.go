@@ -22,83 +22,86 @@ func WrapLoggo(logger loggo.Logger) logger.Logger {
 	return loggoLogger{logger: logger}
 }
 
-// Critical logs a message at the critical level.
+// Criticalf logs a message at the critical level.
 func (c loggoLogger) Criticalf(ctx context.Context, msg string, args ...any) {
-	tags, ok := c.tagsFromContext(ctx)
+	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
 		c.logger.Criticalf(msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.CRITICAL, msg, tags, args...)
+	c.logger.LogWithLabelsf(loggo.CRITICAL, msg, labels, args...)
 }
 
-// Error logs a message at the error level.
+// Errorf logs a message at the error level.
 func (c loggoLogger) Errorf(ctx context.Context, msg string, args ...any) {
-	tags, ok := c.tagsFromContext(ctx)
+	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
 		c.logger.Errorf(msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.ERROR, msg, tags, args...)
+	c.logger.LogWithLabelsf(loggo.ERROR, msg, labels, args...)
 }
 
-// Warning logs a message at the warning level.
+// Warningf logs a message at the warning level.
 func (c loggoLogger) Warningf(ctx context.Context, msg string, args ...any) {
-	tags, ok := c.tagsFromContext(ctx)
+	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
 		c.logger.Warningf(msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.WARNING, msg, tags, args...)
+	c.logger.LogWithLabelsf(loggo.WARNING, msg, labels, args...)
 }
 
-// Info logs a message at the info level.
+// Infof logs a message at the info level.
 func (c loggoLogger) Infof(ctx context.Context, msg string, args ...any) {
-	tags, ok := c.tagsFromContext(ctx)
+	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
 		c.logger.Infof(msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.INFO, msg, tags, args...)
+	c.logger.LogWithLabelsf(loggo.INFO, msg, labels, args...)
 }
 
-// Debug logs a message at the debug level.
+// Debugf logs a message at the debug level.
 func (c loggoLogger) Debugf(ctx context.Context, msg string, args ...any) {
-	tags, ok := c.tagsFromContext(ctx)
+	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
 		c.logger.Debugf(msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.DEBUG, msg, tags, args...)
+	c.logger.LogWithLabelsf(loggo.DEBUG, msg, labels, args...)
 }
 
-// Trace logs a message at the trace level.
+// Tracef logs a message at the trace level.
 func (c loggoLogger) Tracef(ctx context.Context, msg string, args ...any) {
-	tags, ok := c.tagsFromContext(ctx)
+	labels, ok := c.labelsFromContext(ctx)
 	if !ok {
 		c.logger.Tracef(msg, args...)
 		return
 	}
 
-	c.logger.LogWithLabelsf(loggo.TRACE, msg, tags, args...)
+	c.logger.LogWithLabelsf(loggo.TRACE, msg, labels, args...)
 }
 
-// Log logs some information into the test error output.
-// The provided arguments are assembled together into a string with
-// fmt.Sprintf.
-func (c loggoLogger) Logf(ctx context.Context, level logger.Level, msg string, args ...any) {
-	tags, ok := c.tagsFromContext(ctx)
+// Logf logs some information into the test error output. The labels are
+// merged with the labels from the context, if any. The provided arguments
+// are assembled together into a string with fmt.Sprintf.
+func (c loggoLogger) Logf(ctx context.Context, level logger.Level, labels logger.Labels, msg string, args ...any) {
+	ctxLabels, ok := c.labelsFromContext(ctx)
 	if !ok {
-		c.logger.Logf(loggo.Level(level), msg, args...)
-		return
+		ctxLabels = labels
+	} else {
+		for k, v := range labels {
+			ctxLabels[k] = v
+		}
 	}
 
-	c.logger.LogWithLabelsf(loggo.Level(level), msg, tags, args...)
+	c.logger.LogWithLabelsf(loggo.Level(level), msg, ctxLabels, args...)
 }
 
 // IsLevelEnabled returns true if the given level is enabled for the logger.
@@ -107,9 +110,9 @@ func (c loggoLogger) IsLevelEnabled(level logger.Level) bool {
 }
 
 // Child returns a new logger with the given name.
-func (c loggoLogger) Child(name string, tags ...string) logger.Logger {
+func (c loggoLogger) Child(name string, labels ...string) logger.Logger {
 	return loggoLogger{
-		logger: c.logger.ChildWithTags(name, tags...),
+		logger: c.logger.ChildWithTags(name, labels...),
 	}
 }
 
@@ -120,7 +123,7 @@ func (c loggoLogger) GetChildByName(name string) logger.Logger {
 	}
 }
 
-func (c loggoLogger) tagsFromContext(ctx context.Context) (map[string]string, bool) {
+func (c loggoLogger) labelsFromContext(ctx context.Context) (map[string]string, bool) {
 	traceID, ok := trace.TraceIDFromContext(ctx)
 	if !ok {
 		return nil, false
@@ -142,9 +145,9 @@ func WrapLoggoContext(context *loggo.Context) logger.LoggerContext {
 	}
 }
 
-// GetLogger returns a logger with the given name and tags.
-func (c loggoLoggerContext) GetLogger(name string, tags ...string) logger.Logger {
-	return WrapLoggo(c.context.GetLogger(name, tags...).WithCallDepth(3))
+// GetLogger returns a logger with the given name and labels.
+func (c loggoLoggerContext) GetLogger(name string, labels ...string) logger.Logger {
+	return WrapLoggo(c.context.GetLogger(name, labels...).WithCallDepth(3))
 }
 
 // ResetLoggerLevels iterates through the known logging modules and sets the

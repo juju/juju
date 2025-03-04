@@ -14,6 +14,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
@@ -125,6 +126,7 @@ func (s *charmSuite) setupService(c *gc.C) *service.Service {
 			return provider.CommonStorageProviders()
 		}),
 		nil,
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

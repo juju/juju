@@ -71,7 +71,7 @@ func (c checkLogger) Tracef(ctx context.Context, msg string, args ...any) {
 	c.log.Logf(formatMsg("TRACE", c.name, msg), args...)
 }
 
-func (c checkLogger) Logf(ctx context.Context, level logger.Level, msg string, args ...any) {
+func (c checkLogger) Logf(ctx context.Context, level logger.Level, labels logger.Labels, msg string, args ...any) {
 	if !c.IsLevelEnabled(level) {
 		return
 	}

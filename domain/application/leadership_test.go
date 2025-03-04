@@ -164,6 +164,7 @@ func (s *leadershipSuite) setupService(c *gc.C, factory domain.WatchableDBFactor
 			return provider.CommonStorageProviders()
 		}),
 		nil,
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

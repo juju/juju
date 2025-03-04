@@ -36,6 +36,9 @@ const (
 	// OBJECTSTORE defines a common tag for dealing with objectstore.
 	OBJECTSTORE Tag = "objectstore"
 
-	// SSHIMPORTER defines a common tag for delaing with ssh key importer.
+	// SSHIMPORTER defines a common tag for dealing with ssh key importer.
 	SSHIMPORTER Tag = "ssh-importer"
+
+	// STATUS_HISTORY defines a common tag for dealing with status history.
+	STATUS_HISTORY Tag = "status-history"
 )
