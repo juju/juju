@@ -480,7 +480,7 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
 	// DeleteSecret returns the deleted external revisions iff it is deleting all revisions in a secret, so returning
 	// (not nil, nil) simulates that event.
-	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return([]coresecrets.ValueRef{{
+	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{}).Return([]coresecrets.ValueRef{{
 		BackendID:  "backend-id",
 		RevisionID: "rev-666",
 	}}, nil)
@@ -491,7 +491,7 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
-			Revisions: []int{666},
+			Revisions: []int{},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
