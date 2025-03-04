@@ -3,10 +3,10 @@
 
 package status
 
-// IsMachineViable returns true if the machine is started.
-func IsMachineViable(status StatusInfo) bool {
+// IsMachinePresent returns true if the machine is started.
+func IsMachinePresent(status StatusInfo) bool {
 	// This traps the known machine status codes, but if the status isn't
-	// recognised, we assume the machine is not viable.
+	// recognised, we assume the machine is not present.
 	switch status.Status {
 	case Started:
 		return true
@@ -17,10 +17,10 @@ func IsMachineViable(status StatusInfo) bool {
 	}
 }
 
-// IsInstanceViable returns true if the instance is running.
-func IsInstanceViable(status StatusInfo) bool {
+// IsInstancePresent returns true if the instance is running.
+func IsInstancePresent(status StatusInfo) bool {
 	// This traps the known instance status codes, but if the status isn't
-	// recognised, we assume the instance is not viable.
+	// recognised, we assume the instance is not present.
 	switch status.Status {
 	case Running:
 		return true
@@ -31,10 +31,10 @@ func IsInstanceViable(status StatusInfo) bool {
 	}
 }
 
-// IsAgentViable returns true if the agent is idle or executing.
-func IsAgentViable(status StatusInfo) bool {
+// IsAgentPresent returns true if the agent is idle or executing.
+func IsAgentPresent(status StatusInfo) bool {
 	// This traps the known agent status codes, but if the status isn't
-	// recognised, we assume the agent is not viable.
+	// recognised, we assume the agent is not present.
 	switch status.Status {
 	case Idle, Executing:
 		return true
@@ -45,11 +45,11 @@ func IsAgentViable(status StatusInfo) bool {
 	}
 }
 
-// IsUnitWorkloadViable returns true if the unit workload is active, or is
+// IsUnitWorkloadPresent returns true if the unit workload is active, or is
 // in a state where it is expected to become active.
-func IsUnitWorkloadViable(status StatusInfo) bool {
+func IsUnitWorkloadPresent(status StatusInfo) bool {
 	// This traps the known workload status codes, but if the status isn't
-	// recognised, we assume the workload is not viable.
+	// recognised, we assume the workload is not present.
 	switch status.Status {
 	case Active:
 		return true
