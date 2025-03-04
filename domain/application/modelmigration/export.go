@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
@@ -76,6 +77,10 @@ type ExportService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(ctx context.Context, name string) (constraints.Value, error)
+
+	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	GetUnitWorkloadStatus(ctx context.Context, name coreunit.Name) (*corestatus.StatusInfo, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -140,17 +145,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		}
 		// Application status is optional.
 		if status != nil {
-			now := e.clock.Now().UTC()
-			if status.Since != nil {
-				now = *status.Since
-			}
-
-			app.SetStatus(description.StatusArgs{
-				Value:   status.Status.String(),
-				Message: status.Message,
-				Data:    status.Data,
-				Updated: now,
-			})
+			app.SetStatus(e.exportStatus(status))
 		}
 
 		charm, _, err := e.service.GetCharmByApplicationName(ctx, app.Name())
@@ -167,9 +162,34 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			return fmt.Errorf("getting application constraints %q: %v", app.Name(), err)
 		}
 		app.SetConstraints(e.exportApplicationConstraints(appCons))
+
+		err = e.exportApplicationUnits(ctx, app)
+		if err != nil {
+			return fmt.Errorf("exporting application units %q: %v", app.Name(), err)
+		}
 	}
 
 	return nil
+}
+
+func (e *exportOperation) exportStatus(status *corestatus.StatusInfo) description.StatusArgs {
+	if status == nil {
+		return description.StatusArgs{
+			Value: corestatus.Unset.String(),
+		}
+	}
+
+	now := e.clock.Now().UTC()
+	if status.Since != nil {
+		now = *status.Since
+	}
+
+	return description.StatusArgs{
+		Value:   status.Status.String(),
+		Message: status.Message,
+		Data:    status.Data,
+		Updated: now,
+	}
 }
 
 func (e *exportOperation) exportApplicationConstraints(cons constraints.Value) description.ConstraintsArgs {

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corestatus "github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -65,6 +66,7 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 	})
 
 	s.expectApplicationStatus()
+	s.expectApplicationUnitStatus()
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()
 	cons := constraints.Value{
@@ -152,6 +154,12 @@ func (s *exportSuite) expectApplicationConfig() {
 func (s *exportSuite) expectApplicationStatus() {
 	s.exportService.EXPECT().GetApplicationStatus(gomock.Any(), "prometheus").Return(&corestatus.StatusInfo{
 		Status: corestatus.Running,
+	}, nil)
+}
+
+func (s *exportSuite) expectApplicationUnitStatus() {
+	s.exportService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("prometheus/0")).Return(&corestatus.StatusInfo{
+		Status: corestatus.Active,
 	}, nil)
 }
 

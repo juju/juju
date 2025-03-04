@@ -42,6 +42,7 @@ func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()
 	s.expectApplicationStatus()
+	s.expectApplicationUnitStatus()
 	s.expectApplicationConstraints(constraints.Value{})
 
 	exportOp := exportOperation{
