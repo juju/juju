@@ -3,6 +3,7 @@ run_constraints_aws() {
 
 	# Echo out to ensure nice output to the test suite.
 	echo
+	setup_awscli_credential
 	echo "==> Checking for dependencies"
 	check_dependencies aws
 
