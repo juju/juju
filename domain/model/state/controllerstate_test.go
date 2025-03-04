@@ -314,11 +314,10 @@ func (m *stateSuite) TestGetModelInfoNotActivated(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-
-	userName, err := user.NewName("test-user")
+	controllerUUID, err := uuid.UUIDFromString(m.SeedControllerUUID(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerUUID, err := uuid.UUIDFromString(m.controllerUUID)
+	userName, err := user.NewName("test-user")
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelInfo, err := modelSt.GetModelInfo(context.Background(), modelUUID)
@@ -342,7 +341,7 @@ func (m *stateSuite) TestGetModelInfoActivated(c *gc.C) {
 	userName, err := user.NewName("test-user")
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerUUID, err := uuid.UUIDFromString(m.controllerUUID)
+	controllerUUID, err := uuid.UUIDFromString(m.SeedControllerUUID(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelSt := NewState(runner)

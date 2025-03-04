@@ -194,15 +194,22 @@ type dbModelSummary struct {
 
 	// Access is the access level the supplied user has on this model
 	Access permission.Access `db:"access_type"`
+
 	// UserLastConnection is the last time this user has accessed this model
 	UserLastConnection *time.Time `db:"time"`
 
+	// IsControllerModel provides a boolean indication if we consider this
+	// model to be the one that hosts this Juju controller.
 	IsControllerModel bool `db:"is_controller_model"`
+
+	// ControllerUUID is the UUID of the controller that the model is in. Don't
+	// rely on this value always being set.
+	ControllerUUID sql.NullString `db:"controller_uuid"`
 }
 
 // decodeModelSummary transforms a dbModelSummary into a coremodel.ModelSummary.
-func (m dbModelSummary) decodeUserModelSummary(ctrlUUID string) (coremodel.UserModelSummary, error) {
-	ms, err := m.decodeModelSummary(ctrlUUID)
+func (m dbModelSummary) decodeUserModelSummary() (coremodel.UserModelSummary, error) {
+	ms, err := m.decodeModelSummary()
 	if err != nil {
 		return coremodel.UserModelSummary{}, errors.Trace(err)
 	}
@@ -214,7 +221,7 @@ func (m dbModelSummary) decodeUserModelSummary(ctrlUUID string) (coremodel.UserM
 }
 
 // decodeModelSummary transforms a dbModelSummary into a coremodel.ModelSummary.
-func (m dbModelSummary) decodeModelSummary(ctrlUUID string) (coremodel.ModelSummary, error) {
+func (m dbModelSummary) decodeModelSummary() (coremodel.ModelSummary, error) {
 	ownerName, err := user.NewName(m.OwnerName)
 	if err != nil {
 		return coremodel.ModelSummary{}, errors.Trace(err)
@@ -238,7 +245,7 @@ func (m dbModelSummary) decodeModelSummary(ctrlUUID string) (coremodel.ModelSumm
 			Owner: credOwnerName,
 			Name:  m.CloudCredentialName,
 		},
-		ControllerUUID: ctrlUUID,
+		ControllerUUID: m.ControllerUUID.String,
 		IsController:   m.IsControllerModel,
 		OwnerName:      ownerName,
 		Life:           corelife.Value(m.Life),

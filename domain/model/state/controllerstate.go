@@ -1090,7 +1090,7 @@ func (s *State) ListModelSummariesForUser(ctx context.Context, userName user.Nam
 SELECT    (p.access_type, m.uuid, m.name, m.cloud_name, m.cloud_region_name, 
           m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name, 
           m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
-          m.life, mll.time, m.is_controller_model) AS (&dbModelSummary.*)
+          m.life, mll.time, m.is_controller_model, m.controller_uuid) AS (&dbModelSummary.*)
 FROM      v_user_auth u
 JOIN      v_permission p ON p.grant_to = u.uuid
 JOIN      v_model m ON m.uuid = p.grant_on
@@ -1104,27 +1104,12 @@ AND       u.name = $dbUserName.name
 		return nil, errors.Capture(err)
 	}
 
-	cu := dbUUID{}
-	controllerUUIDstmt, err := s.Prepare(`
-SELECT &dbUUID.* FROM controller
-`, cu)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
 	var models []dbModelSummary
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, modelStmt, name).GetAll(&models)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		err = tx.Query(ctx, controllerUUIDstmt).Get(&cu)
-		// We don't care about no rows here. We are fine with the controller
-		// values being empty or not set.
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
 		return nil
@@ -1135,7 +1120,7 @@ SELECT &dbUUID.* FROM controller
 
 	modelSummaries := make([]coremodel.UserModelSummary, len(models))
 	for i, m := range models {
-		modelSummaries[i], err = m.decodeUserModelSummary(cu.UUID)
+		modelSummaries[i], err = m.decodeUserModelSummary()
 		if err != nil {
 			return nil, errors.Errorf("getting model summaries for user: %w", err)
 		}
@@ -1161,21 +1146,9 @@ func (s *State) ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSum
 SELECT    (m.uuid, m.name, m.cloud_name, m.cloud_region_name, 
           m.model_type, m.cloud_type, m.owner_name, m.cloud_credential_name, 
           m.cloud_credential_cloud_name, m.cloud_credential_owner_name,
-          m.life, m.is_controller_model) AS (&dbModelSummary.*)
+          m.life, m.is_controller_model, m.controller_uuid) AS (&dbModelSummary.*)
 FROM      v_model m 
 `, dbModelSummary{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	type controllerUUID struct {
-		UUID string `db:"uuid"`
-	}
-
-	cu := controllerUUID{}
-	controllerUUIDstmt, err := s.Prepare(`
-SELECT &controllerUUID.* FROM controller
-`, cu)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1186,14 +1159,6 @@ SELECT &controllerUUID.* FROM controller
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
-
-		err = tx.Query(ctx, controllerUUIDstmt).Get(&cu)
-		// We don't care about no rows here. We hare fine with the controller
-		// values being empty or not set.
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		}
-
 		return nil
 	})
 	if err != nil {
@@ -1202,7 +1167,7 @@ SELECT &controllerUUID.* FROM controller
 
 	modelSummaries := make([]coremodel.ModelSummary, len(models))
 	for i, m := range models {
-		modelSummaries[i], err = m.decodeModelSummary(cu.UUID)
+		modelSummaries[i], err = m.decodeModelSummary()
 		if err != nil {
 			return nil, errors.Errorf("decoding model summary result %d: %w", i, err)
 		}
