@@ -1085,8 +1085,8 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
 
 	apiObserver := srv.newObserver()
-	apiObserver.Join(req, connectionID)
-	defer apiObserver.Leave()
+	apiObserver.Join(req.Context(), req, connectionID)
+	defer apiObserver.Leave(req.Context())
 
 	websocket.Serve(w, req, func(conn *websocket.Conn) {
 		modelUUID, modelOnlyLogin := httpcontext.RequestModelUUID(req.Context())

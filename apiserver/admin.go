@@ -332,7 +332,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 	}
 	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
 	if !result.anonymousLogin {
-		a.apiObserver.Login(a.root.authInfo.Entity.Tag(), a.root.model.ModelTag(), controllerConn, req.UserData)
+		a.apiObserver.Login(ctx, a.root.authInfo.Entity.Tag(), a.root.model.ModelTag(), controllerConn, req.UserData)
 	}
 	a.loggedIn = true
 

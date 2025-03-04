@@ -4,6 +4,7 @@
 package metricobserver
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"time"
@@ -105,13 +106,13 @@ type metrics struct {
 }
 
 // Login is part of the observer.Observer interface.
-func (*Observer) Login(entity names.Tag, _ names.ModelTag, _ bool, _ string) {}
+func (*Observer) Login(ctx context.Context, entity names.Tag, _ names.ModelTag, _ bool, _ string) {}
 
 // Join is part of the observer.Observer interface.
-func (*Observer) Join(req *http.Request, connectionID uint64) {}
+func (*Observer) Join(ctx context.Context, req *http.Request, connectionID uint64) {}
 
 // Leave is part of the observer.Observer interface.
-func (*Observer) Leave() {}
+func (*Observer) Leave(ctx context.Context) {}
 
 // RPCObserver is part of the observer.Observer interface.
 func (o *Observer) RPCObserver() rpc.Observer {
