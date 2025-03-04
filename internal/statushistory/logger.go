@@ -45,7 +45,7 @@ func (r *logRecorder) Record(ctx context.Context, record Record) error {
 		sinceKey:         record.Time,
 		dataKey:          string(data),
 	}
-	r.logger.Logf(ctx, logger.INFO, labels, "status-history (state: %q, status-message: %q)", record.Status, record.Message)
+	r.logger.Logf(ctx, logger.INFO, labels, "status-history (status: %q, status-message: %q)", record.Status, record.Message)
 	return nil
 }
 

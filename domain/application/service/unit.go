@@ -60,13 +60,13 @@ func (s *Service) AddUnits(ctx context.Context, appName string, units ...AddUnit
 
 		if agentStatus, err := decodeUnitAgentStatus(arg.UnitStatusArg.AgentStatus); err == nil && agentStatus != nil {
 			if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName), *agentStatus); err != nil {
-				return internalerrors.Errorf("recording agent status: %w", err)
+				s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
 			}
 		}
 
 		if workloadStatus, err := decodeWorkloadStatus(arg.UnitStatusArg.WorkloadStatus); err == nil && workloadStatus != nil {
 			if err := s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName), *workloadStatus); err != nil {
-				return internalerrors.Errorf("recording workload status: %w", err)
+				s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
 			}
 		}
 	}
@@ -109,6 +109,11 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 	if err := unitName.Validate(); err != nil {
 		return errors.Trace(err)
 	}
+
+	if status == nil {
+		return nil
+	}
+
 	workloadStatus, err := encodeWorkloadStatus(status)
 	if err != nil {
 		return internalerrors.Errorf("encoding workload status: %w", err)
@@ -121,11 +126,10 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 		return internalerrors.Errorf("setting workload status: %w", err)
 	}
 
-	if status == nil {
-		return nil
+	if err := s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName.String()), *status); err != nil {
+		s.logger.Infof(ctx, "failed recording setting workload status for unit %q: %v", unitName, err)
 	}
-
-	return s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName.String()), *status)
+	return nil
 }
 
 // GetUnitWorkloadStatusesForApplication returns the workload statuses of all

@@ -386,7 +386,7 @@ func (s *Service) CreateApplication(
 
 	if args.ApplicationStatus != nil {
 		if err := s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(appID.String()), *args.ApplicationStatus); err != nil {
-			return "", errors.Annotatef(err, "recording application status")
+			s.logger.Infof(ctx, "failed recording application status history: %w", err)
 		}
 	}
 
@@ -1297,6 +1297,10 @@ func (s *Service) SetApplicationStatus(
 		return internalerrors.Errorf("application ID: %w", err)
 	}
 
+	if status == nil {
+		return nil
+	}
+
 	// This will implicitly verify that the status is valid.
 	encodedStatus, err := encodeWorkloadStatus(status)
 	if err != nil {
@@ -1307,11 +1311,11 @@ func (s *Service) SetApplicationStatus(
 		return internalerrors.Capture(err)
 	}
 
-	if status == nil {
-		return nil
+	if err := s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(applicationID.String()), *status); err != nil {
+		s.logger.Infof(ctx, "failed recording setting application status history: %v", err)
 	}
 
-	return s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(applicationID.String()), *status)
+	return nil
 }
 
 // SetApplicationStatusForUnitLeader sets the application status using the
