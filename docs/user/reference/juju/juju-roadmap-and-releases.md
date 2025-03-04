@@ -440,7 +440,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 
 ## :juju: **Juju 3.1**
-> 30 Nov 2024: expected end of security fix support
+> 28 Feb 2025: expected end of security fix support
 >
 > 30 July 2023: end of bug fix support
 
