@@ -90,6 +90,11 @@ type unitUUID struct {
 	UnitUUID coreunit.UUID `db:"uuid"`
 }
 
+type unitPresence struct {
+	UnitUUID coreunit.UUID `db:"unit_uuid"`
+	LastSeen time.Time     `db:"last_seen"`
+}
+
 type unitName struct {
 	Name coreunit.Name `db:"name"`
 }

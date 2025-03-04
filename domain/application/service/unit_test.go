@@ -682,3 +682,35 @@ func (s *unitServiceSuite) TestGetWorkloadUnitStatus(c *gc.C) {
 		Since:   &now,
 	})
 }
+
+func (s *unitServiceSuite) TestSetUnitPresence(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().SetUnitPresence(gomock.Any(), coreunit.Name("foo/666"))
+
+	err := s.service.SetUnitPresence(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitServiceSuite) TestSetUnitPresenceInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetUnitPresence(context.Background(), coreunit.Name("!!!"))
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestDeleteUnitPresence(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().DeleteUnitPresence(gomock.Any(), coreunit.Name("foo/666"))
+
+	err := s.service.DeleteUnitPresence(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitServiceSuite) TestDeleteUnitPresenceInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.DeleteUnitPresence(context.Background(), coreunit.Name("!!!"))
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}

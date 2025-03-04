@@ -16,6 +16,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -28,6 +29,89 @@ import (
 // UnitState describes retrieval and persistence methods for
 // units.
 type UnitState interface {
+	// AddUnits adds the specified units to the application.
+	AddUnits(context.Context, coreapplication.ID, []application.AddUnitArg) error
+
+	// InsertCAASUnit inserts the specified CAAS application unit, returning an
+	// error satisfying [applicationerrors.UnitAlreadyExists] if the unit
+	// exists.
+	InsertCAASUnit(context.Context, coreapplication.ID, application.RegisterCAASUnitArg) error
+
+	// UpdateCAASUnit updates the cloud container for specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFoundError]
+	// if the unit doesn't exist.
+	UpdateCAASUnit(context.Context, coreunit.Name, application.UpdateCAASUnitParams) error
+
+	// InsertUnit insert the specified application unit, returning an error
+	// satisfying [applicationerrors.UnitAlreadyExists]
+	// if the unit exists.
+	InsertUnit(context.Context, coreapplication.ID, application.InsertUnitArg) error
+
+	// SetUnitPassword updates the password for the specified unit UUID.
+	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
+
+	// GetUnitWorkloadStatus returns the workload status of the specified unit,
+	// returning: - an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist or; - an error satisfying
+	// [applicationerrors.UnitStatusNotFound] if the status is not set.
+	GetUnitWorkloadStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.WorkloadStatusType], error)
+
+	// SetUnitWorkloadStatus sets the workload status of the specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
+	SetUnitWorkloadStatus(context.Context, coreunit.UUID, *application.StatusInfo[application.WorkloadStatusType]) error
+
+	// GetUnitCloudContainerStatus returns the cloud container status of the
+	// specified unit. It returns; - an error satisfying
+	// [applicationerrors.UnitNotFound] if the unit doesn't exist or; - an error
+	// satisfying [applicationerrors.UnitStatusNotFound] if the status is not
+	// set.
+	GetUnitCloudContainerStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.CloudContainerStatusType], error)
+
+	// GetUnitWorkloadStatusesForApplication returns the workload statuses for
+	// all units of the specified application, returning:
+	//   - an error satisfying [applicationerrors.ApplicationNotFound] if the
+	//     application doesn't exist or;
+	//   - error satisfying [applicationerrors.ApplicationIsDead] if the
+	//     application is dead.
+	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error)
+
+	// GetUnitCloudContainerStatusesForApplication returns the cloud container
+	// statuses for all units of the specified application, returning:
+	//   - an error satisfying [applicationerrors.ApplicationNotFound] if the
+	//     application doesn't exist or;
+	//   - an error satisfying [applicationerrors.ApplicationIsDead] if the
+	//     application is dead.
+	GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error)
+
+	// DeleteUnit deletes the specified unit. If the unit's application is Dying
+	// and no other references to it exist, true is returned to indicate the
+	// application could be safely deleted. It will fail if the unit is not
+	// Dead.
+	DeleteUnit(context.Context, coreunit.Name) (bool, error)
+
+	// GetUnitUUIDByName returns the UUID for the named unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+	// exist.
+	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
+
+	// GetUnitLife looks up the life of the specified unit, returning an error
+	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
+	GetUnitLife(context.Context, coreunit.Name) (life.Life, error)
+
+	// SetUnitLife sets the life of the specified unit.
+	SetUnitLife(context.Context, coreunit.Name, life.Life) error
+
+	// SetUnitPresence marks the presence of the specified unit, returning an error
+	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	// The unit life is not considered when making this query.
+	SetUnitPresence(ctx context.Context, name coreunit.Name) error
+
+	// DeleteUnitPresence removes the presence of the specified unit. If the
+	// unit isn't found it ignores the error.
+	// The unit life is not considered when making this query.
+	DeleteUnitPresence(ctx context.Context, name coreunit.Name) error
+
 	// GetModelConstraints returns the currently set constraints for the model.
 	// The following error types can be expected:
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
@@ -501,4 +585,25 @@ func (s *Service) CAASUnitTerminating(ctx context.Context, appName string, unitN
 		return false, errors.NotSupportedf("unknown deployment type")
 	}
 	return restart, nil
+}
+
+// SetUnitPresence marks the presence of the unit in the model. It is called by
+// the unit agent accesses the API server. If the unit is not found, an error
+// satisfying [applicationerrors.UnitNotFound] is returned. The unit life is not
+// considered when setting the presence.
+func (s *Service) SetUnitPresence(ctx context.Context, unitName unit.Name) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return s.st.SetUnitPresence(ctx, unitName)
+}
+
+// DeleteUnitPresence removes the presence of the unit in the model. If the unit
+// is not found, it ignores the error. The unit life is not considered when
+// deleting the presence.
+func (s *Service) DeleteUnitPresence(ctx context.Context, unitName unit.Name) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return s.st.DeleteUnitPresence(ctx, unitName)
 }

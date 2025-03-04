@@ -247,3 +247,19 @@ LEFT JOIN container_type AS ctype ON c.container_type_id = ctype.id
 LEFT JOIN constraint_tag AS ctag ON c.uuid = ctag.constraint_uuid
 LEFT JOIN constraint_space AS cspace ON c.uuid = cspace.constraint_uuid
 LEFT JOIN constraint_zone AS czone ON c.uuid = czone.constraint_uuid;
+
+CREATE TABLE unit_agent_presence (
+    unit_uuid TEXT NOT NULL PRIMARY KEY,
+    last_seen DATETIME,
+    CONSTRAINT fk_unit_agent_presence_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit (uuid)
+);
+
+CREATE VIEW v_unit_agent_presence AS
+SELECT
+    unit.uuid,
+    unit_agent_presence.last_seen,
+    unit.name
+FROM unit
+JOIN unit_agent_presence ON unit.uuid = unit_agent_presence.unit_uuid;
