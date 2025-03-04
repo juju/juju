@@ -360,6 +360,7 @@ test_deploy_bundles() {
 		# AWS specific image id tests.
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"ec2")
+			setup_awscli_credential
 			check_dependencies aws
 			add_clean_func "run_cleanup_ami"
 			export ami_id

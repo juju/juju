@@ -6,6 +6,8 @@ test_firewall() {
 
 	set_verbosity
 
+	setup_awscli_credential
+
 	echo "==> Checking for dependencies"
 	check_dependencies juju aws
 
