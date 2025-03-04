@@ -89,7 +89,7 @@ func newExportModelConstraintsOperation(l logger.Logger) *exportModelConstraints
 // about the model being exported.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.serviceGetter = func(modelUUID coremodel.UUID) ExportService {
-		return service.NewMigrationService(
+		return service.NewModelService(
 			modelUUID,
 			state.NewState(scope.ControllerDB()),
 			state.NewModelState(scope.ModelDB(), e.logger),

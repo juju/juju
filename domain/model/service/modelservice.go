@@ -8,9 +8,11 @@ import (
 	"fmt"
 
 	"github.com/juju/clock"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	coreconstraints "github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	corestatus "github.com/juju/juju/core/status"
@@ -81,8 +83,9 @@ type AgentBinaryFinder interface {
 	HasBinariesForVersion(version.Number) (bool, error)
 }
 
-// Provider is an subset of the [environs.Environ] interface that is used for the model service.
-type Provider interface {
+// ResourceCreationProvider is an subset of the [environs.Environ] interface that is used for the model service
+// to create resources for a new model.
+type ResourceCreationProvider interface {
 	// Create creates the environment for a new hosted model.
 	//
 	// This will be called before any workers begin operating on the
@@ -97,29 +100,29 @@ type Provider interface {
 // ModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state.
 type ModelService struct {
-	clock             clock.Clock
-	modelID           coremodel.UUID
-	controllerSt      ControllerState
-	modelSt           ModelState
-	providerGetter    providertracker.ProviderGetter[Provider]
-	agentBinaryFinder AgentBinaryFinder
+	clock                 clock.Clock
+	modelUUID             coremodel.UUID
+	controllerSt          ControllerState
+	modelSt               ModelState
+	environProviderGetter EnvironVersionProviderFunc
+	agentBinaryFinder     AgentBinaryFinder
 }
 
-// NewModelService returns a new Service for interacting with a models state.
+// NewModelService creates a new instance of ModelService.
 func NewModelService(
-	modelID coremodel.UUID,
+	modelUUID coremodel.UUID,
 	controllerSt ControllerState,
 	modelSt ModelState,
-	providerGetter providertracker.ProviderGetter[Provider],
+	environProviderGetter EnvironVersionProviderFunc,
 	agentBinaryFinder AgentBinaryFinder,
 ) *ModelService {
 	return &ModelService{
-		modelID:           modelID,
-		controllerSt:      controllerSt,
-		modelSt:           modelSt,
-		clock:             clock.WallClock,
-		providerGetter:    providerGetter,
-		agentBinaryFinder: agentBinaryFinder,
+		modelUUID:             modelUUID,
+		controllerSt:          controllerSt,
+		modelSt:               modelSt,
+		clock:                 clock.WallClock,
+		environProviderGetter: environProviderGetter,
+		agentBinaryFinder:     agentBinaryFinder,
 	}
 }
 
@@ -153,7 +156,6 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (coreconstraints
 // the container type being set in the model constraint isn't valid.
 func (s *ModelService) SetModelConstraints(ctx context.Context, cons coreconstraints.Value) error {
 	modelCons := constraints.DecodeConstraints(cons)
-
 	return s.modelSt.SetModelConstraints(ctx, modelCons)
 }
 
@@ -169,53 +171,22 @@ func (s *ModelService) GetModelMetrics(ctx context.Context) (coremodel.ModelMetr
 	return s.modelSt.GetModelMetrics(ctx)
 }
 
-// CreateModel is responsible for creating a new model within the model
-// database, using the default agent version.
-//
-// The following error types can be expected to be returned:
-// - [modelerrors.AlreadyExists]: When the model uuid is already in use.
-func (s *ModelService) CreateModel(
-	ctx context.Context,
-	controllerUUID uuid.UUID,
-) error {
-	if err := createModelForVersion(
-		ctx, s.modelID, controllerUUID, s.agentBinaryFinder, agentVersionSelector(), s.controllerSt, s.modelSt,
-	); err != nil {
-		return errors.Capture(err)
-	}
-
-	env, err := s.providerGetter(ctx)
-	if err != nil {
-		return errors.Errorf("opening environ: %w", err)
-	}
-
-	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
-	if err := env.Create(callCtx, environs.CreateParams{ControllerUUID: controllerUUID.String()}); err != nil {
-		return errors.Errorf("creating model resources for %q: %w", s.modelID, err)
-	}
-	return nil
-}
-
-// createModelForVersion is responsible for creating a new model within the
+// CreateModelForVersion is responsible for creating a new model within the
 // model database, using the input agent version.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use.
-func createModelForVersion(
+func (s *ModelService) CreateModelForVersion(
 	ctx context.Context,
-	modelID coremodel.UUID,
 	controllerUUID uuid.UUID,
-	agentBinaryFinder AgentBinaryFinder,
 	agentVersion version.Number,
-	controllerSt ControllerState,
-	modelSt ModelState,
 ) error {
-	m, err := controllerSt.GetModel(ctx, modelID)
+	m, err := s.controllerSt.GetModel(ctx, s.modelUUID)
 	if err != nil {
 		return err
 	}
 
-	if err := validateAgentVersion(agentVersion, agentBinaryFinder); err != nil {
+	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
 		return fmt.Errorf("creating model %q with agent version %q: %w", m.Name, agentVersion, err)
 	}
 
@@ -235,7 +206,7 @@ func createModelForVersion(
 		// So that method should not return the core type.
 		AgentVersion: agentVersion,
 	}
-	return errors.Capture(modelSt.Create(ctx, args))
+	return s.modelSt.Create(ctx, args)
 }
 
 // DeleteModel is responsible for removing a model from the system.
@@ -245,7 +216,7 @@ func createModelForVersion(
 func (s *ModelService) DeleteModel(
 	ctx context.Context,
 ) error {
-	return s.modelSt.Delete(ctx, s.modelID)
+	return s.modelSt.Delete(ctx, s.modelUUID)
 }
 
 // GetStatus returns the current status of the model.
@@ -253,7 +224,7 @@ func (s *ModelService) DeleteModel(
 // The following error types can be expected to be returned:
 // - [modelerrors.NotFound]: When the model does not exist.
 func (s *ModelService) GetStatus(ctx context.Context) (model.StatusInfo, error) {
-	modelState, err := s.controllerSt.GetModelState(ctx, s.modelID)
+	modelState, err := s.controllerSt.GetModelState(ctx, s.modelUUID)
 	if err != nil {
 		return model.StatusInfo{}, errors.Capture(err)
 	}
@@ -286,6 +257,87 @@ func (s *ModelService) GetStatus(ctx context.Context) (model.StatusInfo, error) 
 		Status: corestatus.Available,
 		Since:  now,
 	}, nil
+}
+
+// GetEnvironVersion retrieves the version of the environment provider associated with the model.
+//
+// The following error types can be expected:
+// - [modelerrors.NotFound]: Returned if the model does not exist.
+func (s *ModelService) GetEnvironVersion(ctx context.Context) (int, error) {
+	modelCloudType, err := s.modelSt.GetModelCloudType(ctx)
+	if err != nil {
+		return 0, errors.Errorf(
+			"getting model cloud type from state: %w", err,
+		)
+	}
+
+	envProvider, err := s.environProviderGetter(modelCloudType)
+	if err != nil {
+		return 0, errors.Errorf(
+			"getting environment provider for cloud type %q: %w", modelCloudType, err,
+		)
+	}
+
+	return envProvider.Version(), nil
+}
+
+// ProviderModelService defines a service for interacting with the underlying model
+// state, as opposed to the controller state and the provider.
+type ProviderModelService struct {
+	ModelService
+	providerGetter providertracker.ProviderGetter[ResourceCreationProvider]
+}
+
+// NewProviderModelService returns a new Service for interacting with a models state.
+func NewProviderModelService(
+	modelUUID coremodel.UUID,
+	controllerSt ControllerState,
+	modelSt ModelState,
+	environProviderGetter EnvironVersionProviderFunc,
+	providerGetter providertracker.ProviderGetter[ResourceCreationProvider],
+	agentBinaryFinder AgentBinaryFinder,
+) *ProviderModelService {
+	return &ProviderModelService{
+		ModelService: ModelService{
+			modelUUID:             modelUUID,
+			controllerSt:          controllerSt,
+			modelSt:               modelSt,
+			clock:                 clock.WallClock,
+			environProviderGetter: environProviderGetter,
+			agentBinaryFinder:     agentBinaryFinder,
+		},
+		providerGetter: providerGetter,
+	}
+}
+
+// CreateModel is responsible for creating a new model within the model
+// database, using the default agent version.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.AlreadyExists]: When the model uuid is already in use.
+func (s *ProviderModelService) CreateModel(
+	ctx context.Context,
+	controllerUUID uuid.UUID,
+) error {
+	if err := s.CreateModelForVersion(ctx, controllerUUID, agentVersionSelector()); err != nil {
+		return errors.Capture(err)
+	}
+
+	env, err := s.providerGetter(ctx)
+	if errors.Is(err, jujuerrors.NotSupported) {
+		// Exit early if the provider does not support creating model resources for the new model.
+		return nil
+	}
+	if err != nil {
+		return errors.Errorf("opening environ: %w", err)
+	}
+
+	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
+	if err := env.Create(callCtx, environs.CreateParams{ControllerUUID: controllerUUID.String()}); err != nil {
+		// TODO: we should cleanup the model related data created above from database.
+		return errors.Errorf("creating model resources for %q: %w", s.modelUUID, err)
+	}
+	return nil
 }
 
 // agentBinaryFinderFn is func type for the AgentBinaryFinder interface.
@@ -361,4 +413,42 @@ func validateAgentVersion(
 // specific version has been requested.
 func agentVersionSelector() version.Number {
 	return jujuversion.Current
+}
+
+// EnvironVersionProvider defines a minimal subset of the EnvironProvider interface
+// that focuses specifically on the provider's versioning capabilities.
+type EnvironVersionProvider interface {
+	// Version returns the version of the provider. This is recorded as the
+	// environ version for each model, and used to identify which upgrade
+	// operations to run when upgrading a model's environ.
+	Version() int
+}
+
+// EnvironVersionProviderFunc describes a type that is able to return a
+// [EnvironVersionProvider] for the specified cloud type. If no
+// environ version provider exists for the supplied cloud type then a
+// [coreerrors.NotFound] error is returned. If the cloud type provider does not support
+// the EnvironVersionProvider interface then a [coreerrors.NotSupported] error is returned.
+type EnvironVersionProviderFunc func(string) (EnvironVersionProvider, error)
+
+// EnvironVersionProviderGetter returns a [EnvironVersionProviderFunc]
+// for retrieving an EnvironVersionProvider
+func EnvironVersionProviderGetter() EnvironVersionProviderFunc {
+	return func(cloudType string) (EnvironVersionProvider, error) {
+		environProvider, err := environs.GlobalProviderRegistry().Provider(cloudType)
+		if errors.Is(err, coreerrors.NotFound) {
+			return nil, errors.Errorf(
+				"no environ version provider exists for cloud type %q", cloudType,
+			).Add(coreerrors.NotFound)
+		}
+
+		environVersionProvider, supports := environProvider.(EnvironVersionProvider)
+		if !supports {
+			return nil, errors.Errorf(
+				"environ version provider not supported for cloud type %q", cloudType,
+			).Add(coreerrors.NotSupported)
+		}
+
+		return environVersionProvider, nil
+	}
 }
