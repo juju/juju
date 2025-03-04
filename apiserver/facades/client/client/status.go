@@ -1604,18 +1604,6 @@ func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo
 	agent.Since = statusInfo.Since
 }
 
-// contextMachine overloads the Status call to use the cached status values,
-// and delegates everything else to the Machine.
-type contextMachine struct {
-	*state.Machine
-	context *statusContext
-}
-
-// Return the agent status for the machine.
-func (c *contextMachine) Status() (status.StatusInfo, error) {
-	return c.context.status.MachineAgent(c.Id())
-}
-
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
 func (c *statusContext) processMachine(ctx context.Context, machine *state.Machine) (out params.DetailedStatus) {
