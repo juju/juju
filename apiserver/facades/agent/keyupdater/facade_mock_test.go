@@ -891,44 +891,6 @@ func (c *MockModelContextObjectStoreCall) DoAndReturn(f func() objectstore.Objec
 	return c
 }
 
-// Presence mocks base method.
-func (m *MockModelContext) Presence() facade.Presence {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Presence")
-	ret0, _ := ret[0].(facade.Presence)
-	return ret0
-}
-
-// Presence indicates an expected call of Presence.
-func (mr *MockModelContextMockRecorder) Presence() *MockModelContextPresenceCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Presence", reflect.TypeOf((*MockModelContext)(nil).Presence))
-	return &MockModelContextPresenceCall{Call: call}
-}
-
-// MockModelContextPresenceCall wrap *gomock.Call
-type MockModelContextPresenceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelContextPresenceCall) Return(arg0 facade.Presence) *MockModelContextPresenceCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelContextPresenceCall) Do(f func() facade.Presence) *MockModelContextPresenceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelContextPresenceCall) DoAndReturn(f func() facade.Presence) *MockModelContextPresenceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // RequestRecorder mocks base method.
 func (m *MockModelContext) RequestRecorder() facade.RequestRecorder {
 	m.ctrl.T.Helper()

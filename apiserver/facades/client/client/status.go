@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/arch"
@@ -64,7 +63,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	if err != nil {
 		return noStatus, fmt.Errorf("getting model info: %w", err)
 	}
-	context.presence.Presence = c.presence.ModelPresence(modelInfo.UUID.String())
 	context.providerType = modelInfo.CloudType
 
 	if context.spaceInfos, err = c.networkService.GetAllSpaces(ctx); err != nil {
@@ -468,7 +466,6 @@ type statusContext struct {
 	providerType string
 	model        *state.Model
 	status       *state.ModelStatus
-	presence     common.ModelPresenceContext
 
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
@@ -1576,19 +1573,18 @@ func (c *statusContext) processUnitAndAgentStatus(ctx context.Context, unit *sta
 		return params.DetailedStatus{}, params.DetailedStatus{Err: apiservererrors.ServerError(err)}
 	}
 
-	agentPresenceStatus, workloadPresenceStatus := c.presence.UnitStatus(ctx, unit, agentStatus, *workloadStatus)
 	detailedAgentStatus := params.DetailedStatus{
-		Status: agentPresenceStatus.Status.String(),
-		Info:   agentPresenceStatus.Message,
-		Data:   filterStatusData(agentPresenceStatus.Data),
-		Since:  agentPresenceStatus.Since,
+		Status: agentStatus.Status.String(),
+		Info:   agentStatus.Message,
+		Data:   filterStatusData(agentStatus.Data),
+		Since:  agentStatus.Since,
 		Life:   processLife(unit),
 	}
 	detailedWorkloadStatus := params.DetailedStatus{
-		Status: workloadPresenceStatus.Status.String(),
-		Info:   workloadPresenceStatus.Message,
-		Data:   filterStatusData(workloadPresenceStatus.Data),
-		Since:  workloadPresenceStatus.Since,
+		Status: workloadStatus.Status.String(),
+		Info:   workloadStatus.Message,
+		Data:   filterStatusData(workloadStatus.Data),
+		Since:  workloadStatus.Since,
 	}
 
 	if t, err := unit.AgentTools(); err == nil {
@@ -1623,8 +1619,7 @@ func (c *contextMachine) Status() (status.StatusInfo, error) {
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
 func (c *statusContext) processMachine(ctx context.Context, machine *state.Machine) (out params.DetailedStatus) {
-	wrapped := &contextMachine{Machine: machine, context: c}
-	statusInfo, err := c.presence.MachineStatus(ctx, wrapped)
+	statusInfo, err := machine.Status()
 	populateStatusFromStatusInfoAndErr(&out, statusInfo, err)
 
 	out.Life = processLife(machine)

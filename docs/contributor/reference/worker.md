@@ -104,7 +104,6 @@ types are defined by the worker packages listeds below.
 * [`multiwatcher`](#multiwatcher)
 * [`muxhttpserver`](#muxhttpserver)
 * [`peergrouper`](#peergrouper)
-* [`presence`](#presence)
 * [`provisioner`](#provisioner)
 * [`proxyupdater`](#proxyupdater)
 * [`pruner`](#pruner)
@@ -546,9 +545,6 @@ changes over time.
 The `peergrouper` worker maintains the MongoDB replica set.
 
 > See more: [`juju/worker/peergrouper`](https://github.com/juju/juju/tree/3.3/worker/peergrouper)
-
-## `presence`
-> See more: [`juju/worker/presence`](https://github.com/juju/juju/tree/3.3/worker/presence)
 
 ## `provisioner`
 

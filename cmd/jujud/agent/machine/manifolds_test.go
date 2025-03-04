@@ -197,7 +197,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"object-store-s3-caller",
 		"object-store",
 		"peer-grouper",
-		"presence",
 		"pubsub-forwarder",
 		"query-logger",
 		"s3-http-client",

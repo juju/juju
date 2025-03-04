@@ -25,7 +25,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/pubsub/agent"
 	"github.com/juju/juju/internal/worker/introspection"
 	_ "github.com/juju/juju/state"
@@ -76,7 +75,6 @@ type introspectionSuite struct {
 	worker     worker.Worker
 	reporter   introspection.DepEngineReporter
 	gatherer   prometheus.Gatherer
-	recorder   presence.Recorder
 	localHub   *pubsub.SimpleHub
 	centralHub introspection.StructuredHub
 	clock      *testclock.Clock
@@ -91,7 +89,6 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.reporter = nil
 	s.worker = nil
-	s.recorder = nil
 	s.gatherer = newPrometheusGatherer()
 	s.localHub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{Logger: loggo.GetLogger("test.localhub")})
 	s.centralHub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{Logger: loggo.GetLogger("test.centralhub")})
@@ -105,7 +102,6 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 		SocketName:         s.name,
 		DepEngine:          s.reporter,
 		PrometheusGatherer: s.gatherer,
-		Presence:           s.recorder,
 		Clock:              s.clock,
 		LocalHub:           s.localHub,
 		CentralHub:         s.centralHub,
@@ -224,43 +220,6 @@ func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
 Dependency Engine Report
 
 working: true`[1:])
-}
-
-func (s *introspectionSuite) TestMissingPresenceReporter(c *gc.C) {
-	response := s.call(c, "/presence")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
-	s.assertBody(c, response, `"Presence" introspection not supported`)
-}
-
-func (s *introspectionSuite) TestDisabledPresenceReporter(c *gc.C) {
-	// We need to make sure the existing worker is shut down
-	// so we can connect to the socket.
-	workertest.CheckKill(c, s.worker)
-	s.recorder = presence.New(testclock.NewClock(time.Now()))
-	s.startWorker(c)
-
-	response := s.call(c, "/presence")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
-	s.assertBody(c, response, "agent is not an apiserver")
-}
-
-func (s *introspectionSuite) TestEnabledPresenceReporter(c *gc.C) {
-	// We need to make sure the existing worker is shut down
-	// so we can connect to the socket.
-	workertest.CheckKill(c, s.worker)
-	s.recorder = presence.New(testclock.NewClock(time.Now()))
-	s.recorder.Enable()
-	s.recorder.Connect("server", "model-uuid", "agent-1", 42, false, "")
-	s.startWorker(c)
-
-	response := s.call(c, "/presence")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
-	s.assertBody(c, response, `
-[model-uuid]
-
-AGENT    SERVER  CONN ID  STATUS
-agent-1  server  42       alive
-`[1:])
 }
 
 func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {

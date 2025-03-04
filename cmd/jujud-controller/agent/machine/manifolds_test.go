@@ -116,7 +116,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"object-store-services",
 			"object-store",
 			"peer-grouper",
-			"presence",
 			"provider-services",
 			"provider-tracker",
 			"proxy-config-updater",
@@ -197,7 +196,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"object-store-services",
 			"object-store",
 			"peer-grouper",
-			"presence",
 			"provider-services",
 			"provider-tracker",
 			"proxy-config-updater",
@@ -288,7 +286,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"object-store-services",
 		"object-store",
 		"peer-grouper",
-		"presence",
 		"provider-services",
 		"provider-tracker",
 		"pubsub-forwarder",
@@ -1152,8 +1149,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"presence": {"agent", "central-hub", "state-config-watcher"},
-
 	"provider-services": {
 		"agent",
 		"change-stream",
@@ -1984,8 +1979,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
-
-	"presence": {"agent", "central-hub", "state-config-watcher"},
 
 	"provider-services": {
 		"agent",

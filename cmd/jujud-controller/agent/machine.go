@@ -58,7 +58,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
@@ -595,7 +594,6 @@ func (a *MachineAgent) makeEngineCreator(
 			Logger: internalpubsub.WrapLogger(internallogger.GetLogger("juju.localhub")),
 		})
 		pubsubReporter := psworker.NewReporter()
-		presenceRecorder := presence.New(clock.WallClock)
 		updateAgentConfLogging := func(loggingConfig string) error {
 			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
 				setter.SetLoggingConfig(loggingConfig)
@@ -634,7 +632,6 @@ func (a *MachineAgent) makeEngineCreator(
 			CentralHub:                        a.centralHub,
 			LocalHub:                          localHub,
 			PubSubReporter:                    pubsubReporter,
-			PresenceRecorder:                  presenceRecorder,
 			UpdateLoggerConfig:                updateAgentConfLogging,
 			NewAgentStatusSetter:              a.statusSetter,
 			ControllerLeaseDuration:           time.Minute,
@@ -674,7 +671,6 @@ func (a *MachineAgent) makeEngineCreator(
 			PubSubReporter:     pubsubReporter,
 			MachineLock:        a.machineLock,
 			PrometheusGatherer: a.prometheusRegistry,
-			PresenceRecorder:   presenceRecorder,
 			WorkerFunc:         introspection.NewWorker,
 			Clock:              clock.WallClock,
 			LocalHub:           localHub,

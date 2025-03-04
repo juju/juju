@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/worker/introspection"
 )
 
@@ -40,7 +39,6 @@ type IntrospectionConfig struct {
 	PubSubReporter     introspection.Reporter
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
-	PresenceRecorder   presence.Recorder
 	Clock              clock.Clock
 	LocalHub           introspection.SimpleHub
 	CentralHub         introspection.StructuredHub
@@ -69,7 +67,6 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 		PubSub:             cfg.PubSubReporter,
 		MachineLock:        cfg.MachineLock,
 		PrometheusGatherer: cfg.PrometheusGatherer,
-		Presence:           cfg.PresenceRecorder,
 		Clock:              cfg.Clock,
 		LocalHub:           cfg.LocalHub,
 		CentralHub:         cfg.CentralHub,

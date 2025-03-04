@@ -153,10 +153,6 @@ juju_metrics () {
   juju_agent metrics
 }
 
-juju_presence_report () {
-  juju_agent presence
-}
-
 juju_statetracker_report () {
   juju_agent debug/pprof/juju/state/tracker?debug=1
 }
@@ -214,7 +210,6 @@ if [ "$shell" = "bash" ]; then
   export -f juju_statepool_report
   export -f juju_statetracker_report
   export -f juju_pubsub_report
-  export -f juju_presence_report
   export -f juju_machine_lock
   export -f juju_unit_status
   export -f juju_start_unit

@@ -24,7 +24,6 @@ type Client struct {
 	stateAccessor    Backend
 	storageAccessor  StorageInterface
 	auth             facade.Authorizer
-	presence         facade.Presence
 	leadershipReader leadership.Reader
 
 	blockDeviceService BlockDeviceService

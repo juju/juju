@@ -120,9 +120,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	// compare it.
 	config.GetAuditConfig = nil
 
-	c.Assert(config.Presence, gc.NotNil)
-	config.Presence = nil
-
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
 
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{

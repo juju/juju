@@ -67,7 +67,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/output",
 		"core/paths",
 		"core/permission",
-		"core/presence",
 		"core/relation",
 		"core/resource",
 		"core/secrets",

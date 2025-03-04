@@ -107,7 +107,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/paths",
 		"core/paths/transientfile",
 		"core/permission",
-		"core/presence",
 		"core/quota",
 		"core/raftlease",
 		"core/relation",

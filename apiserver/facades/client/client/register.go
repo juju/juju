@@ -53,7 +53,6 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		storageAccessor:    storageAccessor,
 		blockDeviceService: domainServices.BlockDevice(),
 		auth:               authorizer,
-		presence:           ctx.Presence(),
 		leadershipReader:   leadershipReader,
 		networkService:     domainServices.Network(),
 		modelInfoService:   domainServices.ModelInfo(),
