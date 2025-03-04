@@ -215,6 +215,23 @@ func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name s
 	return constraints.EncodeConstraints(cons), internalerrors.Capture(err)
 }
 
+// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
+// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+func (s *MigrationService) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return decodeWorkloadStatus(workloadStatus)
+}
+
 // ImportApplication imports the specified application and units if required,
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.

@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/juju/clock"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
@@ -77,6 +77,10 @@ type ExportService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(ctx context.Context, name string) (constraints.Value, error)
+
+	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	GetUnitWorkloadStatus(ctx context.Context, name coreunit.Name) (*corestatus.StatusInfo, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -141,17 +145,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		}
 		// Application status is optional.
 		if status != nil {
-			now := e.clock.Now().UTC()
-			if status.Since != nil {
-				now = *status.Since
-			}
-
-			app.SetStatus(description.StatusArgs{
-				Value:   status.Status.String(),
-				Message: status.Message,
-				Data:    status.Data,
-				Updated: now,
-			})
+			app.SetStatus(e.exportStatus(status))
 		}
 
 		charm, _, err := e.service.GetCharmByApplicationName(ctx, app.Name())
@@ -168,196 +162,34 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			return fmt.Errorf("getting application constraints %q: %v", app.Name(), err)
 		}
 		app.SetConstraints(e.exportApplicationConstraints(appCons))
-	}
-	return nil
-}
 
-func (e *exportOperation) exportCharm(ctx context.Context, app description.Application, charm internalcharm.Charm) error {
-	var lxdProfile string
-	if profiler, ok := charm.(internalcharm.LXDProfiler); ok {
-		var err error
-		if lxdProfile, err = e.exportLXDProfile(profiler.LXDProfile()); err != nil {
-			return fmt.Errorf("cannot export LXD profile: %v", err)
-		}
-	}
-
-	metadata, err := e.exportCharmMetadata(charm.Meta(), lxdProfile)
-	if err != nil {
-		return fmt.Errorf("cannot export charm metadata: %v", err)
-	}
-
-	manifest, err := e.exportCharmManifest(charm.Manifest())
-	if err != nil {
-		return fmt.Errorf("cannot export charm manifest: %v", err)
-	}
-
-	config, err := e.exportCharmConfig(charm.Config())
-	if err != nil {
-		return fmt.Errorf("cannot export charm config: %v", err)
-	}
-
-	actions, err := e.exportCharmActions(charm.Actions())
-	if err != nil {
-		return fmt.Errorf("cannot export charm actions: %v", err)
-	}
-
-	app.SetCharmMetadata(metadata)
-	app.SetCharmManifest(manifest)
-	app.SetCharmConfigs(config)
-	app.SetCharmActions(actions)
-
-	return nil
-}
-
-func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdProfile string) (description.CharmMetadataArgs, error) {
-	if metadata == nil {
-		return description.CharmMetadataArgs{}, nil
-	}
-
-	// Assumes is a recursive structure, so we need to marshal it to JSON as
-	// a string, to prevent YAML from trying to interpret it.
-	var assumesBytes []byte
-	if expr := metadata.Assumes; expr != nil {
-		var err error
-		assumesBytes, err = json.Marshal(expr)
+		err = e.exportApplicationUnits(ctx, app)
 		if err != nil {
-			return description.CharmMetadataArgs{}, fmt.Errorf("cannot marshal assumes: %v", err)
+			return fmt.Errorf("exporting application units %q: %v", app.Name(), err)
 		}
 	}
 
-	runAs, err := exportCharmUser(metadata.CharmUser)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
-
-	provides, err := exportRelations(metadata.Provides)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
-
-	requires, err := exportRelations(metadata.Requires)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
-
-	peers, err := exportRelations(metadata.Peers)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
-
-	extraBindings := exportExtraBindings(metadata.ExtraBindings)
-
-	storage, err := exportStorage(metadata.Storage)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
-
-	devices, err := exportDevices(metadata.Devices)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
-
-	containers, err := exportContainers(metadata.Containers)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
-
-	resources, err := exportResources(metadata.Resources)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
-	}
-
-	return description.CharmMetadataArgs{
-		Name:           metadata.Name,
-		Summary:        metadata.Summary,
-		Description:    metadata.Description,
-		Subordinate:    metadata.Subordinate,
-		Categories:     metadata.Categories,
-		Tags:           metadata.Tags,
-		Terms:          metadata.Terms,
-		RunAs:          runAs,
-		Assumes:        string(assumesBytes),
-		MinJujuVersion: metadata.MinJujuVersion.String(),
-		Provides:       provides,
-		Requires:       requires,
-		Peers:          peers,
-		ExtraBindings:  extraBindings,
-		Storage:        storage,
-		Devices:        devices,
-		Containers:     containers,
-		Resources:      resources,
-		LXDProfile:     lxdProfile,
-	}, nil
+	return nil
 }
 
-func (e *exportOperation) exportLXDProfile(profile *internalcharm.LXDProfile) (string, error) {
-	if profile == nil {
-		return "", nil
-	}
-
-	// The LXD profile is encoded in the description package as a JSON blob.
-	// This ensures consistency and prevents accidental encoding issues with
-	// YAML.
-	data, err := json.Marshal(profile)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	return string(data), nil
-}
-
-func (e *exportOperation) exportCharmManifest(manifest *internalcharm.Manifest) (description.CharmManifestArgs, error) {
-	if manifest == nil {
-		return description.CharmManifestArgs{}, nil
-	}
-
-	bases, err := exportManifestBases(manifest.Bases)
-	if err != nil {
-		return description.CharmManifestArgs{}, errors.Trace(err)
-	}
-
-	return description.CharmManifestArgs{
-		Bases: bases,
-	}, nil
-}
-
-func (e *exportOperation) exportCharmConfig(config *internalcharm.Config) (description.CharmConfigsArgs, error) {
-	if config == nil {
-		return description.CharmConfigsArgs{}, nil
-	}
-
-	configs := make(map[string]description.CharmConfig, len(config.Options))
-	for name, option := range config.Options {
-		configs[name] = configType{
-			typ:          option.Type,
-			description:  option.Description,
-			defaultValue: option.Default,
+func (e *exportOperation) exportStatus(status *corestatus.StatusInfo) description.StatusArgs {
+	if status == nil {
+		return description.StatusArgs{
+			Value: corestatus.Unset.String(),
 		}
 	}
 
-	return description.CharmConfigsArgs{
-		Configs: configs,
-	}, nil
-}
-
-func (e *exportOperation) exportCharmActions(actions *internalcharm.Actions) (description.CharmActionsArgs, error) {
-	if actions == nil {
-		return description.CharmActionsArgs{}, nil
+	now := e.clock.Now().UTC()
+	if status.Since != nil {
+		now = *status.Since
 	}
 
-	result := make(map[string]description.CharmAction, len(actions.ActionSpecs))
-	for name, action := range actions.ActionSpecs {
-		result[name] = actionType{
-			description:    action.Description,
-			parallel:       action.Parallel,
-			executionGroup: action.ExecutionGroup,
-			parameters:     action.Params,
-		}
+	return description.StatusArgs{
+		Value:   status.Status.String(),
+		Message: status.Message,
+		Data:    status.Data,
+		Updated: now,
 	}
-
-	return description.CharmActionsArgs{
-		Actions: result,
-	}, nil
 }
 
 func (e *exportOperation) exportApplicationConstraints(cons constraints.Value) description.ConstraintsArgs {
