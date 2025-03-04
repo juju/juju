@@ -769,16 +769,6 @@ func (ctx *facadeContext) WatcherRegistry() facade.WatcherRegistry {
 	return ctx.r.watcherRegistry
 }
 
-// Presence implements facade.ModelContext.
-func (ctx *facadeContext) Presence() facade.Presence {
-	return ctx
-}
-
-// ModelPresence implements facade.ModelPresence.
-func (ctx *facadeContext) ModelPresence(modelUUID string) facade.ModelPresence {
-	return ctx.r.shared.presence.Connections().ForModel(modelUUID)
-}
-
 // Hub implements facade.ModelContext.
 func (ctx *facadeContext) Hub() facade.Hub {
 	return ctx.r.shared.centralHub

@@ -23,7 +23,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
@@ -82,7 +81,6 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		LocalMacaroonAuthenticator:        s.authenticator,
 		Clock:                             s.clock,
 		Hub:                               &s.hub,
-		Presence:                          presence.New(s.clock),
 		Mux:                               s.mux,
 		StatePool:                         &state.StatePool{},
 		LeaseManager:                      s.leaseManager,

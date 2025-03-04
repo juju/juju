@@ -13,7 +13,7 @@ type viableSuite struct{}
 
 var _ = gc.Suite(&viableSuite{})
 
-func (s *viableSuite) TestIsMachineViable(c *gc.C) {
+func (s *viableSuite) TestIsMachinePresent(c *gc.C) {
 	testcases := []struct {
 		name   string
 		status status.StatusInfo
@@ -64,11 +64,11 @@ func (s *viableSuite) TestIsMachineViable(c *gc.C) {
 	}
 	for _, v := range testcases {
 		c.Logf("Testing machine status %s", v.name)
-		c.Assert(status.IsMachineViable(v.status), gc.Equals, v.viable)
+		c.Assert(status.IsMachinePresent(v.status), gc.Equals, v.viable)
 	}
 }
 
-func (s *viableSuite) TestIsInstanceViable(c *gc.C) {
+func (s *viableSuite) TestIsInstancePresent(c *gc.C) {
 	testcases := []struct {
 		name   string
 		status status.StatusInfo
@@ -119,11 +119,11 @@ func (s *viableSuite) TestIsInstanceViable(c *gc.C) {
 	}
 	for _, v := range testcases {
 		c.Logf("Testing instance status %s", v.name)
-		c.Assert(status.IsInstanceViable(v.status), gc.Equals, v.viable)
+		c.Assert(status.IsInstancePresent(v.status), gc.Equals, v.viable)
 	}
 }
 
-func (s *viableSuite) TestIsAgentViable(c *gc.C) {
+func (s *viableSuite) TestIsAgentPresent(c *gc.C) {
 	testcases := []struct {
 		name   string
 		status status.StatusInfo
@@ -181,11 +181,11 @@ func (s *viableSuite) TestIsAgentViable(c *gc.C) {
 	}
 	for _, v := range testcases {
 		c.Logf("Testing agent status %s", v.name)
-		c.Assert(status.IsAgentViable(v.status), gc.Equals, v.viable)
+		c.Assert(status.IsAgentPresent(v.status), gc.Equals, v.viable)
 	}
 }
 
-func (s *viableSuite) TestIsUnitWorkloadViable(c *gc.C) {
+func (s *viableSuite) TestIsUnitWorkloadPresent(c *gc.C) {
 	testcases := []struct {
 		name   string
 		status status.StatusInfo
@@ -275,6 +275,6 @@ func (s *viableSuite) TestIsUnitWorkloadViable(c *gc.C) {
 	}
 	for _, v := range testcases {
 		c.Logf("Testing unit workload status %s", v.name)
-		c.Assert(status.IsUnitWorkloadViable(v.status), gc.Equals, v.viable)
+		c.Assert(status.IsUnitWorkloadPresent(v.status), gc.Equals, v.viable)
 	}
 }

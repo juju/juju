@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
@@ -85,7 +84,6 @@ type ManifoldConfig struct {
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	Hub                               *pubsub.StructuredHub
-	Presence                          presence.Recorder
 	GetControllerConfigService        GetControllerConfigServiceFunc
 	GetModelService                   GetModelServiceFunc
 
@@ -148,9 +146,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
-	}
-	if config.Presence == nil {
-		return errors.NotValidf("nil Presence")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -316,7 +311,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 		UpgradeComplete:                   upgradeLock.IsUnlocked,
 		Hub:                               config.Hub,
-		Presence:                          config.Presence,
 		LocalMacaroonAuthenticator:        macaroonAuthenticator,
 		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,

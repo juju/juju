@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"runtime"
-	"sort"
 	"time"
 
 	"github.com/juju/errors"
@@ -20,8 +19,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/core/output"
-	"github.com/juju/juju/core/presence"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pubsub/agent"
 	"github.com/juju/juju/internal/worker/introspection/pprof"
@@ -70,7 +67,6 @@ type Config struct {
 	PubSub             Reporter
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
-	Presence           presence.Recorder
 	Clock              Clock
 	LocalHub           SimpleHub
 	CentralHub         StructuredHub
@@ -99,7 +95,6 @@ type socketListener struct {
 	pubsub             Reporter
 	machineLock        machinelock.Lock
 	prometheusGatherer prometheus.Gatherer
-	presence           presence.Recorder
 	clock              Clock
 	localHub           SimpleHub
 	centralHub         StructuredHub
@@ -132,7 +127,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		pubsub:             config.PubSub,
 		machineLock:        config.MachineLock,
 		prometheusGatherer: config.PrometheusGatherer,
-		presence:           config.Presence,
 		clock:              config.Clock,
 		localHub:           config.LocalHub,
 		centralHub:         config.CentralHub,
@@ -211,11 +205,6 @@ func (w *socketListener) RegisterHTTPHandlers(
 		})
 	} else {
 		handle("/pubsub", notSupportedHandler{"PubSub Report"})
-	}
-	if w.presence != nil {
-		handle("/presence", presenceHandler{w.presence})
-	} else {
-		handle("/presence", notSupportedHandler{"Presence"})
 	}
 	if w.localHub != nil {
 		handle("/units", unitsHandler{w.clock, w.localHub, w.done})
@@ -305,60 +294,6 @@ func (h introspectionReporterHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 
 	fmt.Fprintf(w, "%s:\n\n", h.name)
 	fmt.Fprint(w, h.reporter.IntrospectionReport())
-}
-
-type presenceHandler struct {
-	presence presence.Recorder
-}
-
-// ServeHTTP is part of the http.Handler interface.
-func (h presenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h.presence == nil || !h.presence.IsEnabled() {
-		http.Error(w, "agent is not an apiserver", http.StatusNotFound)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-
-	tw := output.TabWriter(w)
-	wrapper := output.Wrapper{TabWriter: tw}
-
-	// Could be smart here and switch on the request accept header.
-	connections := h.presence.Connections()
-	models := connections.Models()
-	sort.Strings(models)
-
-	for _, name := range models {
-		wrapper.Println("[" + name + "]")
-		wrapper.Println()
-		wrapper.Println("AGENT", "SERVER", "CONN ID", "STATUS")
-		values := connections.ForModel(name).Values()
-		sort.Sort(ValueSort(values))
-		for _, value := range values {
-			agentName := value.Agent
-			if value.ControllerAgent {
-				agentName += " (controller)"
-			}
-			wrapper.Println(agentName, value.Server, value.ConnectionID, value.Status)
-		}
-		wrapper.Println()
-	}
-	tw.Flush()
-}
-
-type ValueSort []presence.Value
-
-func (a ValueSort) Len() int      { return len(a) }
-func (a ValueSort) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ValueSort) Less(i, j int) bool {
-	// Sort by agent, then server, then connection id
-	if a[i].Agent != a[j].Agent {
-		return a[i].Agent < a[j].Agent
-	}
-	if a[i].Server != a[j].Server {
-		return a[i].Server < a[j].Server
-	}
-	return a[i].ConnectionID < a[j].ConnectionID
 }
 
 type unitsHandler struct {

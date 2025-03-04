@@ -231,13 +231,13 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 
 		if statusInfo, err := machine.InstanceStatus(); err != nil {
 			return errors.Annotatef(err, "retrieving machine %s instance status", machine.Id())
-		} else if !status.IsInstanceViable(statusInfo) {
+		} else if !status.IsInstancePresent(statusInfo) {
 			return newStatusError("machine %s not running", machine.Id(), statusInfo.Status)
 		}
 
 		if statusInfo, err := machine.Status(); err != nil {
 			return errors.Annotatef(err, "retrieving machine %s status", machine.Id())
-		} else if !status.IsMachineViable(statusInfo) {
+		} else if !status.IsMachinePresent(statusInfo) {
 			return newStatusError("machine %s agent not functioning at this time",
 				machine.Id(), statusInfo.Status)
 		}
@@ -333,7 +333,7 @@ func (c *precheckContext) checkUnitAgentStatus(ctx context.Context, unit Prechec
 	agentStatus, err := unit.AgentStatus()
 	if err != nil {
 		return internalerrors.Errorf("retrieving unit %s agent status: %w", unit.Name(), err)
-	} else if !status.IsAgentViable(agentStatus) {
+	} else if !status.IsAgentPresent(agentStatus) {
 		return newStatusError("unit %s not idle or executing", unit.Name(), agentStatus.Status)
 	}
 
@@ -342,7 +342,7 @@ func (c *precheckContext) checkUnitAgentStatus(ctx context.Context, unit Prechec
 		return errors.NotFoundf("unit %s", unit.Name())
 	} else if err != nil {
 		return internalerrors.Errorf("retrieving unit %s workload status: %w", unit.Name(), err)
-	} else if !status.IsUnitWorkloadViable(*workloadStatus) {
+	} else if !status.IsUnitWorkloadPresent(*workloadStatus) {
 		return newStatusError("unit %s not active or viable", unit.Name(), workloadStatus.Status)
 	}
 

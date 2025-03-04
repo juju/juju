@@ -52,7 +52,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/presence"
 	coreresource "github.com/juju/juju/core/resource"
 	coretrace "github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
@@ -147,7 +146,6 @@ type ServerConfig struct {
 	DataDir   string
 	LogDir    string
 	Hub       *pubsub.StructuredHub
-	Presence  presence.Recorder
 	Mux       *apiserverhttp.Mux
 
 	// ControllerUUID is the controller unique identifier.
@@ -248,9 +246,6 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.Hub == nil {
 		return errors.NotValidf("missing Hub")
-	}
-	if c.Presence == nil {
-		return errors.NotValidf("missing Presence")
 	}
 	if c.Mux == nil {
 		return errors.NotValidf("missing Mux")
@@ -353,7 +348,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	shared, err := newSharedServerContext(sharedServerConfig{
 		statePool:            cfg.StatePool,
 		centralHub:           cfg.Hub,
-		presence:             cfg.Presence,
 		leaseManager:         cfg.LeaseManager,
 		controllerUUID:       cfg.ControllerUUID,
 		controllerModelUUID:  cfg.ControllerModelUUID,
