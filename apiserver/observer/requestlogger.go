@@ -16,33 +16,9 @@ import (
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
-// RequestObserver serves as a sink for API server requests and
-// responses.
-type RequestObserver struct {
-	clock      clock.Clock
-	logger     logger.Logger
-	connLogger logger.Logger
-	pingLogger logger.Logger
-
-	// state represents information that's built up as methods on this
-	// type are called. We segregate this to ensure it's clear what
-	// information is transient in case we want to extract it
-	// later. It's an anonymous struct so this doesn't leak outside
-	// this type.
-	state struct {
-		id                 uint64
-		websocketConnected time.Time
-		tag                string
-		model              string
-		agent              bool
-		fromController     bool
-	}
-}
-
-// RequestObserverConfig provides information needed for a
-// RequestObserver to operate correctly.
-type RequestObserverConfig struct {
-
+// RequestLoggerConfig provides information needed for a
+// RequestLogger to operate correctly.
+type RequestLoggerConfig struct {
 	// Clock is the clock to use for all time operations on this type.
 	Clock clock.Clock
 
@@ -50,11 +26,25 @@ type RequestObserverConfig struct {
 	Logger logger.Logger
 }
 
-// NewRequestObserver returns a new RPCObserver.
-func NewRequestObserver(ctx RequestObserverConfig) *RequestObserver {
+// RequestLogger serves as a sink for API server requests and
+// responses.
+type RequestLogger struct {
+	BaseObserver
+
+	clock      clock.Clock
+	logger     logger.Logger
+	connLogger logger.Logger
+	pingLogger logger.Logger
+
+	id                 uint64
+	websocketConnected time.Time
+}
+
+// NewRequestLogger returns a new RPCObserver.
+func NewRequestLogger(ctx RequestLoggerConfig) *RequestLogger {
 	// Ideally we should have a logging context so we can log into the correct
 	// model rather than the api server for everything.
-	return &RequestObserver{
+	return &RequestLogger{
 		clock:      ctx.Clock,
 		logger:     ctx.Logger,
 		connLogger: ctx.Logger.Child("connection"),
@@ -62,73 +52,56 @@ func NewRequestObserver(ctx RequestObserverConfig) *RequestObserver {
 	}
 }
 
-func (n *RequestObserver) isAgent(entity names.Tag) bool {
-	switch entity.(type) {
-	case names.UnitTag, names.MachineTag, names.ApplicationTag:
-		return true
-	default:
-		return false
-	}
-}
-
 // Login implements Observer.
-func (n *RequestObserver) Login(ctx context.Context, entity names.Tag, model names.ModelTag, fromController bool, userData string) {
-	n.state.tag = entity.String()
-	n.state.fromController = fromController
-	if !n.isAgent(entity) {
+func (n *RequestLogger) Login(ctx context.Context, entity names.Tag, model names.ModelTag, fromController bool, userData string) {
+	n.BaseObserver.Login(ctx, entity, model, fromController, userData)
+
+	if !n.IsAgent() || n.FromController() {
 		return
 	}
 
-	n.state.agent = true
-	n.state.model = model.Id()
-
-	// Don't log connections from the controller to the model.
-	if n.state.fromController {
-		return
-	}
-
-	n.connLogger.Infof(ctx, "agent login: %s for %s", n.state.tag, n.state.model)
+	n.connLogger.Infof(ctx, "agent login: %s for %s", entity.String(), model.Id())
 }
 
 // Join implements Observer.
-func (n *RequestObserver) Join(ctx context.Context, req *http.Request, connectionID uint64) {
-	n.state.id = connectionID
-	n.state.websocketConnected = n.clock.Now()
+func (n *RequestLogger) Join(ctx context.Context, req *http.Request, connectionID uint64) {
+	n.id = connectionID
+	n.websocketConnected = n.clock.Now()
 
 	n.logger.Debugf(ctx,
 		"[%X] API connection from %s",
-		n.state.id,
+		n.id,
 		req.RemoteAddr,
 	)
 }
 
 // Leave implements Observer.
-func (n *RequestObserver) Leave(ctx context.Context) {
-	if n.state.agent && !n.state.fromController {
+func (n *RequestLogger) Leave(ctx context.Context) {
+	if n.IsAgent() && !n.FromController() {
 		// Don't log disconnections from the controller to the model.
-		n.connLogger.Infof(ctx, "agent disconnected: %s for %s", n.state.tag, n.state.model)
+		n.connLogger.Infof(ctx, "agent disconnected: %s for %s", n.AgentTag(), n.ModelTag().Id())
 	}
 	n.logger.Debugf(ctx,
 		"[%X] %s API connection terminated after %v",
-		n.state.id,
-		n.state.tag,
-		n.clock.Now().Sub(n.state.websocketConnected),
+		n.id,
+		n.AgentTag().String(),
+		n.clock.Now().Sub(n.websocketConnected),
 	)
 }
 
 // RPCObserver implements Observer.
-func (n *RequestObserver) RPCObserver() rpc.Observer {
-	return &rpcObserver{
+func (n *RequestLogger) RPCObserver() rpc.Observer {
+	return &rpcLogger{
 		clock:      n.clock,
 		logger:     n.logger,
 		pingLogger: n.pingLogger,
-		id:         n.state.id,
-		tag:        n.state.tag,
+		id:         n.id,
+		tag:        n.AgentTag().String(),
 	}
 }
 
-// rpcObserver serves as a sink for RPC requests and responses.
-type rpcObserver struct {
+// rpcLogger serves as a sink for RPC requests and responses.
+type rpcLogger struct {
 	clock        clock.Clock
 	logger       logger.Logger
 	pingLogger   logger.Logger
@@ -138,7 +111,7 @@ type rpcObserver struct {
 }
 
 // ServerRequest implements rpc.Observer.
-func (n *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
+func (n *rpcLogger) ServerRequest(ctx context.Context, hdr *rpc.Header, body interface{}) {
 	// We know that if *at least* debug logging is not enabled, there will be
 	// nothing to do here. Since this is a hot path, we can avoid the call to
 	// DumpRequest below that would otherwise still be paid for every request.
@@ -152,7 +125,7 @@ func (n *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
 
 	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
 		if tracing {
-			n.pingLogger.Tracef(context.TODO(), "<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+			n.pingLogger.Tracef(ctx, "<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
 		}
 		return
 	}
@@ -161,14 +134,14 @@ func (n *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
 	if tracing {
-		n.logger.Tracef(context.TODO(), "<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+		n.logger.Tracef(ctx, "<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
 	} else {
-		n.logger.Debugf(context.TODO(), "<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, "'params redacted'"))
+		n.logger.Debugf(ctx, "<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, "'params redacted'"))
 	}
 }
 
 // ServerReply implements rpc.Observer.
-func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (n *rpcLogger) ServerReply(ctx context.Context, req rpc.Request, hdr *rpc.Header, body interface{}) {
 	// We know that if *at least* debug logging is not enabled, there will be
 	// nothing to do here. Since this is a hot path, we can avoid the call to
 	// DumpRequest below that would otherwise still be paid for every reply.
@@ -180,7 +153,7 @@ func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		if tracing {
-			n.pingLogger.Tracef(context.TODO(),
+			n.pingLogger.Tracef(ctx,
 				"-> [%X] %s %s %s %s[%q].%s",
 				n.id, n.tag, time.Since(n.requestStart), jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 		}
@@ -191,11 +164,11 @@ func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 	// Until secrets are removed, we only log the body of the requests at trace level
 	// which is below the default level of debug.
 	if tracing {
-		n.logger.Tracef(context.TODO(),
+		n.logger.Tracef(ctx,
 			"-> [%X] %s %s %s %s[%q].%s",
 			n.id, n.tag, time.Since(n.requestStart), jsoncodec.DumpRequest(hdr, body), req.Type, req.Id, req.Action)
 	} else {
-		n.logger.Debugf(context.TODO(),
+		n.logger.Debugf(ctx,
 			"-> [%X] %s %s %s %s[%q].%s",
 			n.id,
 			n.tag,

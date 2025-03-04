@@ -24,11 +24,11 @@ func newObserverFn(
 	// Common logging of RPC requests
 	observerFactories = append(observerFactories, func() observer.Observer {
 		logger := internallogger.GetLogger("juju.apiserver")
-		cfg := observer.RequestObserverConfig{
+		cfg := observer.RequestLoggerConfig{
 			Clock:  clock,
 			Logger: logger,
 		}
-		return observer.NewRequestObserver(cfg)
+		return observer.NewRequestLogger(cfg)
 	})
 
 	// Metrics observer.

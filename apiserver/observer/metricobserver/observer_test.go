@@ -4,6 +4,7 @@
 package metricobserver_test
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -56,9 +57,9 @@ func (s *observerSuite) TestRPCObserver(c *gc.C) {
 			Version: 42,
 			Action:  "api-method",
 		}
-		o.ServerRequest(&rpc.Header{Request: req}, nil)
+		o.ServerRequest(context.Background(), &rpc.Header{Request: req}, nil)
 		s.clock.Advance(latency)
-		o.ServerReply(req, &rpc.Header{ErrorCode: "badness"}, nil)
+		o.ServerReply(context.Background(), req, &rpc.Header{ErrorCode: "badness"}, nil)
 	}
 }
 

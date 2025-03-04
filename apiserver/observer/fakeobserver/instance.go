@@ -44,18 +44,29 @@ func (f *Instance) RPCObserver() rpc.Observer {
 	return result
 }
 
+// NoRPCInstance is a fake Observer used for testing that does not
+// implement RPCObserver.
+type NoRPCInstance struct {
+	Instance
+}
+
+// RPCObserver implements Observer.
+func (f *NoRPCInstance) RPCObserver() rpc.Observer {
+	return nil
+}
+
 // RPCInstance is a fake RPCObserver used for testing.
 type RPCInstance struct {
 	testing.Stub
 }
 
 // ServerReply implements Observer.
-func (f *RPCInstance) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (f *RPCInstance) ServerReply(ctx context.Context, req rpc.Request, hdr *rpc.Header, body interface{}) {
 	f.AddCall(funcName(), req, hdr, body)
 }
 
 // ServerRequest implements Observer.
-func (f *RPCInstance) ServerRequest(hdr *rpc.Header, body interface{}) {
+func (f *RPCInstance) ServerRequest(ctx context.Context, hdr *rpc.Header, body interface{}) {
 	f.AddCall(funcName(), hdr, body)
 }
 

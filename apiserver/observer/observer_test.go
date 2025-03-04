@@ -21,7 +21,7 @@ type multiplexerSuite struct {
 
 var _ = gc.Suite(&multiplexerSuite{})
 
-func (*multiplexerSuite) TestObserverFactoryMultiplexer_CallsAllFactories(c *gc.C) {
+func (*multiplexerSuite) TestObserverFactoryMultiplexerCallsAllFactories(c *gc.C) {
 	callCount := 0
 	factories := []observer.ObserverFactory{
 		func() observer.Observer { callCount++; return nil },
@@ -36,7 +36,7 @@ func (*multiplexerSuite) TestObserverFactoryMultiplexer_CallsAllFactories(c *gc.
 	c.Check(callCount, gc.Equals, 2)
 }
 
-func (*multiplexerSuite) TestJoin_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestJoinCallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
 		{},
 		{},
@@ -51,7 +51,7 @@ func (*multiplexerSuite) TestJoin_CallsAllObservers(c *gc.C) {
 	}
 }
 
-func (*multiplexerSuite) TestLeave_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestLeaveCallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
 		{},
 		{},
@@ -65,13 +65,13 @@ func (*multiplexerSuite) TestLeave_CallsAllObservers(c *gc.C) {
 	}
 }
 
-func (*multiplexerSuite) TestRPCObserver_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestRPCObserverCallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
 		{},
 		{},
 	}
 
-	o := observer.NewMultiplexer(observers[0], observers[1])
+	o := observer.NewMultiplexer(observers[0], observers[1], &fakeobserver.NoRPCInstance{})
 	o.RPCObserver()
 
 	for _, f := range observers {
@@ -79,7 +79,7 @@ func (*multiplexerSuite) TestRPCObserver_CallsAllObservers(c *gc.C) {
 	}
 }
 
-func (*multiplexerSuite) TestLogin_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestLoginCallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
 		{},
 		{},

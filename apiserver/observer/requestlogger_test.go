@@ -18,13 +18,13 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-type RequestObserverSuite struct {
+type RequestLoggerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&RequestObserverSuite{})
+var _ = gc.Suite(&RequestLoggerSuite{})
 
-func (s *RequestObserverSuite) TestAgentLoginWritesLog(c *gc.C) {
+func (s *RequestLoggerSuite) TestAgentLoginWritesLog(c *gc.C) {
 	notifier, logger := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("42")
@@ -36,7 +36,7 @@ func (s *RequestObserverSuite) TestAgentLoginWritesLog(c *gc.C) {
 	})
 }
 
-func (s *RequestObserverSuite) TestUserConnectionsNoLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestUserConnectionsNoLogs(c *gc.C) {
 	notifier, logger := s.makeNotifier(c)
 
 	user := names.NewUserTag("bob")
@@ -46,31 +46,31 @@ func (s *RequestObserverSuite) TestUserConnectionsNoLogs(c *gc.C) {
 	c.Assert(logger.entries, gc.HasLen, 0)
 }
 
-func (s *RequestObserverSuite) TestControllerMachineAgentConnectionNoLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestControllerMachineAgentConnectionNoLogs(c *gc.C) {
 	s.assertControllerAgentConnectionNoLogs(c, names.NewMachineTag("2"))
 }
 
-func (s *RequestObserverSuite) TestControllerUnitAgentConnectionNoLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestControllerUnitAgentConnectionNoLogs(c *gc.C) {
 	s.assertControllerAgentConnectionNoLogs(c, names.NewUnitTag("mariadb/0"))
 }
 
-func (s *RequestObserverSuite) TestControllerApplicationAgentConnectionNoLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestControllerApplicationAgentConnectionNoLogs(c *gc.C) {
 	s.assertControllerAgentConnectionNoLogs(c, names.NewApplicationTag("gitlab"))
 }
 
-func (s *RequestObserverSuite) TestMachineAgentConnectionLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestMachineAgentConnectionLogs(c *gc.C) {
 	s.assertAgentConnectionLogs(c, names.NewMachineTag("2"))
 }
 
-func (s *RequestObserverSuite) TestUnitAgentConnectionLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestUnitAgentConnectionLogs(c *gc.C) {
 	s.assertAgentConnectionLogs(c, names.NewUnitTag("mariadb/0"))
 }
 
-func (s *RequestObserverSuite) TestApplicationAgentConnectionLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestApplicationAgentConnectionLogs(c *gc.C) {
 	s.assertAgentConnectionLogs(c, names.NewApplicationTag("gitlab"))
 }
 
-func (s *RequestObserverSuite) TestAgentDisconnectionLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestAgentDisconnectionLogs(c *gc.C) {
 	notifier, logger := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("42")
@@ -88,7 +88,7 @@ func (s *RequestObserverSuite) TestAgentDisconnectionLogs(c *gc.C) {
 	})
 }
 
-func (s *RequestObserverSuite) TestControllerAgentDisconnectionLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestControllerAgentDisconnectionLogs(c *gc.C) {
 	notifier, logger := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("42")
@@ -100,7 +100,7 @@ func (s *RequestObserverSuite) TestControllerAgentDisconnectionLogs(c *gc.C) {
 	c.Assert(logger.entries, gc.HasLen, 1)
 }
 
-func (s *RequestObserverSuite) TestUserDisconnectionNoLogs(c *gc.C) {
+func (s *RequestLoggerSuite) TestUserDisconnectionNoLogs(c *gc.C) {
 	notifier, logger := s.makeNotifier(c)
 
 	agent := names.NewUserTag("bob")
@@ -112,7 +112,7 @@ func (s *RequestObserverSuite) TestUserDisconnectionNoLogs(c *gc.C) {
 	c.Assert(logger.entries, gc.HasLen, 1)
 }
 
-func (s *RequestObserverSuite) assertControllerAgentConnectionNoLogs(c *gc.C, agent names.Tag) {
+func (s *RequestLoggerSuite) assertControllerAgentConnectionNoLogs(c *gc.C, agent names.Tag) {
 	notifier, logger := s.makeNotifier(c)
 
 	model := names.NewModelTag("fake-uuid")
@@ -121,7 +121,7 @@ func (s *RequestObserverSuite) assertControllerAgentConnectionNoLogs(c *gc.C, ag
 	c.Assert(logger.entries, gc.HasLen, 0)
 }
 
-func (s *RequestObserverSuite) assertAgentConnectionLogs(c *gc.C, agent names.Tag) {
+func (s *RequestLoggerSuite) assertAgentConnectionLogs(c *gc.C, agent names.Tag) {
 	notifier, logger := s.makeNotifier(c)
 
 	model := names.NewModelTag("fake-uuid")
@@ -131,7 +131,7 @@ func (s *RequestObserverSuite) assertAgentConnectionLogs(c *gc.C, agent names.Ta
 	c.Check(logger.entries[0], gc.Matches, fmt.Sprintf(`INFO: connection agent login: %s for fake-uuid`, agent.String()))
 }
 
-func (*RequestObserverSuite) makeNotifier(c *gc.C) (*observer.RequestObserver, *testLogger) {
+func (*RequestLoggerSuite) makeNotifier(c *gc.C) (*observer.RequestLogger, *testLogger) {
 	testLogger := &testLogger{}
 	recorder := loggertesting.RecordLog(func(s string, a ...interface{}) {
 		if len(a) != 1 {
@@ -145,7 +145,7 @@ func (*RequestObserverSuite) makeNotifier(c *gc.C) (*observer.RequestObserver, *
 		}
 		testLogger.entries = append(testLogger.entries, fmt.Sprintf(s, a...))
 	})
-	return observer.NewRequestObserver(observer.RequestObserverConfig{
+	return observer.NewRequestLogger(observer.RequestLoggerConfig{
 		Clock:  testclock.NewClock(time.Now()),
 		Logger: loggertesting.WrapCheckLog(recorder),
 	}), testLogger

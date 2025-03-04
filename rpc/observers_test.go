@@ -4,6 +4,8 @@
 package rpc_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
@@ -29,7 +31,7 @@ func (*multiplexerSuite) TestServerReply_CallsAllObservers(c *gc.C) {
 		hdr  rpc.Header
 		body string
 	)
-	o.ServerReply(req, &hdr, body)
+	o.ServerReply(context.Background(), req, &hdr, body)
 
 	for _, f := range observers {
 		f.CheckCall(c, 0, "ServerReply", req, &hdr, body)
@@ -47,7 +49,7 @@ func (*multiplexerSuite) TestServerRequest_CallsAllObservers(c *gc.C) {
 		hdr  rpc.Header
 		body string
 	)
-	o.ServerRequest(&hdr, body)
+	o.ServerRequest(context.Background(), &hdr, body)
 
 	for _, f := range observers {
 		f.CheckCall(c, 0, "ServerRequest", &hdr, body)
