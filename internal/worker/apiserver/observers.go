@@ -6,7 +6,6 @@ package apiserver
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
@@ -18,7 +17,6 @@ import (
 func newObserverFn(
 	agentConfig agent.Config,
 	clock clock.Clock,
-	hub *pubsub.StructuredHub,
 	metricsCollector *apiserver.Collector,
 ) (observer.ObserverFactory, error) {
 	var observerFactories []observer.ObserverFactory
@@ -29,7 +27,6 @@ func newObserverFn(
 		ctx := observer.RequestObserverContext{
 			Clock:  clock,
 			Logger: logger,
-			Hub:    hub,
 		}
 		return observer.NewRequestObserver(ctx)
 	})
