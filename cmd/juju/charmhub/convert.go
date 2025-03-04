@@ -308,6 +308,9 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch string, risk cha
 	revisionsSeen := set.NewStrings()
 	channels := make(RevisionsMap)
 
+	riskExists := false
+	checkRisk := risk != ""
+
 	for _, cm := range channelMap {
 		ch := cm.Channel
 		// Per the charmhub/snap channel spec.
@@ -315,7 +318,7 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch string, risk cha
 			ch.Track = "latest"
 		}
 
-		if risk != "" && track == "" {
+		if checkRisk && track == "" {
 			track = ch.Track
 		}
 
@@ -325,6 +328,10 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch string, risk cha
 
 		if revision != -1 && cm.Revision.Revision != revision {
 			continue
+		}
+
+		if checkRisk && ch.Risk == string(risk) {
+			riskExists = true
 		}
 
 		if !tracksSeen.Contains(ch.Track) {
@@ -358,6 +365,10 @@ func filterChannels(channelMap []transport.InfoChannelMap, arch string, risk cha
 			channels[ch.Track] = make(map[string][]Revision)
 		}
 		channels[ch.Track][ch.Risk] = append(channels[ch.Track][ch.Risk], channelRevision)
+	}
+
+	if checkRisk && !riskExists {
+		return []string{}, make(RevisionsMap), nil
 	}
 
 	for _, risks := range channels {

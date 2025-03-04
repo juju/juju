@@ -181,6 +181,66 @@ func (filterSuite) TestFilterChannels(c *gc.C) {
 			},
 		},
 	}, {
+		Name:     "filter by channel configured with track and risk",
+		Arch:     "all",
+		Risk:     "beta",
+		Revision: -1,
+		Track:    "2.0",
+		Base:     corebase.Base{},
+		Input: []transport.InfoChannelMap{{
+			Channel: transport.Channel{
+				Track: "1.0",
+				Risk:  "beta",
+			},
+			Revision: transport.InfoRevision{
+				Bases: []transport.Base{{
+					Name:         "ubuntu",
+					Channel:      "18.04",
+					Architecture: "all",
+				}},
+			},
+		}, {
+			Channel: transport.Channel{
+				Track: "2.0",
+				Risk:  "stable",
+			},
+			Revision: transport.InfoRevision{
+				Bases: []transport.Base{{
+					Name:         "ubuntu",
+					Channel:      "18.04",
+					Architecture: "all",
+				}},
+			},
+		}, {
+			Channel: transport.Channel{
+				Track: "2.0",
+				Risk:  "beta",
+			},
+			Revision: transport.InfoRevision{
+				Bases: []transport.Base{{
+					Name:         "ubuntu",
+					Channel:      "18.04",
+					Architecture: "all",
+				}},
+			},
+		}},
+		Expected: RevisionsMap{
+			"2.0": {
+				"stable": {{
+					Track:  "2.0",
+					Risk:   "stable",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []Base{{Name: "ubuntu", Channel: "18.04"}},
+				}},
+				"beta": {{
+					Track:  "2.0",
+					Risk:   "beta",
+					Arches: arch.AllArches().StringList(),
+					Bases:  []Base{{Name: "ubuntu", Channel: "18.04"}},
+				}},
+			},
+		},
+	}, {
 		Name: "match all",
 		Arch: "all",
 		Base: corebase.Base{},
