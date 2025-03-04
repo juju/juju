@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
@@ -55,7 +54,7 @@ func sourcePrecheck(
 ) error {
 	return migration.SourcePrecheck(
 		context.Background(),
-		backend, allAlivePresence(), allAlivePresence(),
+		backend,
 		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
 		},
@@ -80,7 +79,7 @@ func (s *SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	backend.controllerBackend = newHappyBackend()
 	err := migration.SourcePrecheck(
 		context.Background(),
-		backend, allAlivePresence(), allAlivePresence(),
+		backend,
 		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
 		},
@@ -158,7 +157,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 
 	err := migration.SourcePrecheck(
 		context.Background(),
-		backend, allAlivePresence(), allAlivePresence(),
+		backend,
 		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return cloudSpec.CloudSpec, nil
 		},
@@ -195,7 +194,7 @@ func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	backend.model.owner = names.NewUserTag("foo")
 	err := migration.SourcePrecheck(
 		context.Background(),
-		backend, allAlivePresence(), allAlivePresence(),
+		backend,
 		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
 		},
@@ -310,11 +309,13 @@ func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	s.expectAgentVersion(1)
 
 	backend := newHappyBackend()
-	modelPresence := downAgentPresence("machine-1")
-	controllerPresence := allAlivePresence()
+	backend.machines = []migration.PrecheckMachine{
+		&fakeMachine{id: "0"},
+		&fakeMachine{id: "1", status: status.Down},
+	}
 	err := migration.SourcePrecheck(
 		context.Background(),
-		backend, modelPresence, controllerPresence,
+		backend,
 		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "foo"}, nil
 		},
@@ -436,7 +437,6 @@ func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectApplicationLife("foo", life.Alive)
-	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Active})
 
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
@@ -452,19 +452,25 @@ func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (failed)")
 }
 
-func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
+func (s *SourcePrecheckSuite) TestUnitInErrorState(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAgentVersion(2)
 	s.expectApplicationLife("foo", life.Alive)
-	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Active})
 
-	backend := newHappyBackend()
-	modelPresence := downAgentPresence("unit-foo-0")
-	controllerPresence := allAlivePresence()
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "foo/0", agentStatus: status.Error},
+				},
+			},
+		},
+	}
 	err := migration.SourcePrecheck(
 		context.Background(),
-		backend, modelPresence, controllerPresence,
+		backend,
 		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "foo"}, nil
 		},
@@ -473,7 +479,29 @@ func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
 		s.applicationService,
 		s.agentService,
 	)
-	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (lost)")
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (error)")
+}
+
+func (s *SourcePrecheckSuite) TestUnitWorkloadInErrorState(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAgentVersion(2)
+	s.expectApplicationLife("foo", life.Alive)
+	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Error})
+
+	backend := newHappyBackend()
+	err := migration.SourcePrecheck(
+		context.Background(),
+		backend,
+		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
+			return environscloudspec.CloudSpec{Type: "foo"}, nil
+		},
+		&fakeCredentialService{},
+		s.upgradeService,
+		s.applicationService,
+		s.agentService,
+	)
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 not active or viable (error)")
 }
 
 func (s *SourcePrecheckSuite) TestDyingControllerModel(c *gc.C) {
@@ -758,7 +786,6 @@ func (s *TargetPrecheckSuite) runPrecheck(
 		backend,
 		nil,
 		s.modelInfo,
-		allAlivePresence(),
 		upgradeService,
 		applicationService,
 		s.agentService,
@@ -974,8 +1001,11 @@ func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	s.expectIsUpgrade(false)
 
 	backend := newHappyBackend()
-	modelPresence := downAgentPresence("machine-1")
-	err := migration.TargetPrecheck(context.Background(), backend, nil, s.modelInfo, modelPresence, s.upgradeService, s.applicationService, s.agentService)
+	backend.machines = []migration.PrecheckMachine{
+		&fakeMachine{id: "0"},
+		&fakeMachine{id: "1", status: status.Down},
+	}
+	err := migration.TargetPrecheck(context.Background(), backend, nil, s.modelInfo, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
@@ -996,7 +1026,7 @@ func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, allAlivePresence(), s.upgradeService, s.applicationService, s.agentService)
+	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err, gc.ErrorMatches, "model named \"model-name\" already exists")
 }
 
@@ -1016,7 +1046,7 @@ func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, allAlivePresence(), s.upgradeService, s.applicationService, s.agentService)
+	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1032,7 +1062,7 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, allAlivePresence(), s.upgradeService, s.applicationService, s.agentService)
+	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err.Error(), gc.Equals, "model with same UUID already exists (model-uuid)")
 }
 
@@ -1052,7 +1082,7 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, allAlivePresence(), s.upgradeService, s.applicationService, s.agentService)
+	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, s.upgradeService, s.applicationService, s.agentService)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1503,29 +1533,4 @@ func (ru *fakeRelationUnit) Valid() (bool, error) {
 
 func (ru *fakeRelationUnit) InScope() (bool, error) {
 	return ru.inScope, ru.scopeErr
-}
-
-func allAlivePresence() migration.ModelPresence {
-	return &fakePresence{}
-}
-
-func downAgentPresence(agent ...string) migration.ModelPresence {
-	m := make(map[string]presence.Status)
-	for _, a := range agent {
-		m[a] = presence.Missing
-	}
-	return &fakePresence{
-		agentStatus: m,
-	}
-}
-
-type fakePresence struct {
-	agentStatus map[string]presence.Status
-}
-
-func (f *fakePresence) AgentStatus(agent string) (presence.Status, error) {
-	if value, found := f.agentStatus[agent]; found {
-		return value, nil
-	}
-	return presence.Alive, nil
 }

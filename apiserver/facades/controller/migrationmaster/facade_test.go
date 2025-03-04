@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -27,7 +26,6 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/presence"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -395,8 +393,8 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 		c.Check(serialized.Tools, gc.HasLen, 0)
 	} else {
 		c.Check(serialized.Tools, jc.SameContents, []params.SerializedModelTools{
-			{tools0, "/tools/" + tools0},
-			{tools1, "/tools/" + tools1},
+			{Version: tools0, URI: "/tools/" + tools0},
+			{Version: tools1, URI: "/tools/" + tools1},
 		})
 	}
 	c.Check(serialized.Resources, gc.DeepEquals, []params.SerializedModelResource{{
@@ -586,7 +584,6 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		nil, // pool
 		s.resources,
 		s.authorizer,
-		&stubPresence{},
 		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
 		stubLeadership{},
 		s.credentialService,
@@ -598,16 +595,6 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		s.upgradeService,
 		s.agentService,
 	)
-}
-
-type stubPresence struct{}
-
-func (f *stubPresence) ModelPresence(modelUUID string) facade.ModelPresence {
-	return f
-}
-
-func (f *stubPresence) AgentStatus(agent string) (presence.Status, error) {
-	return presence.Alive, nil
 }
 
 type stubLeadership struct{}

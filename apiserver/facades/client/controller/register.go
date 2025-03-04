@@ -35,7 +35,6 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		authorizer     = ctx.Auth()
 		pool           = ctx.StatePool()
 		resources      = ctx.Resources()
-		presence       = ctx.Presence()
 		hub            = ctx.Hub()
 		domainServices = ctx.DomainServices()
 	)
@@ -87,7 +86,6 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		pool,
 		authorizer,
 		resources,
-		presence,
 		hub,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),

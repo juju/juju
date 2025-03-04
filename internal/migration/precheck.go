@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
@@ -34,14 +33,13 @@ import (
 func SourcePrecheck(
 	ctx context.Context,
 	backend PrecheckBackend,
-	modelPresence ModelPresence, controllerPresence ModelPresence,
 	environscloudspecGetter environsCloudSpecGetter,
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
 	modelAgentService ModelAgentService,
 ) error {
-	c := newPrecheckSource(backend, modelPresence, environscloudspecGetter, credentialService, upgradeService, applicationService, modelAgentService)
+	c := newPrecheckSource(backend, environscloudspecGetter, credentialService, upgradeService, applicationService, modelAgentService)
 	if err := c.checkModel(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -70,7 +68,7 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerCtx := newPrecheckTarget(controllerBackend, controllerPresence, upgradeService, applicationService, modelAgentService)
+	controllerCtx := newPrecheckTarget(controllerBackend, upgradeService, applicationService, modelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Annotate(err, "controller")
 	}
@@ -98,7 +96,6 @@ func TargetPrecheck(ctx context.Context,
 	backend PrecheckBackend,
 	pool Pool,
 	modelInfo coremigration.ModelInfo,
-	presence ModelPresence,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
 	modelAgentService ModelAgentService,
@@ -135,7 +132,7 @@ func TargetPrecheck(ctx context.Context,
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	controllerCtx := newPrecheckTarget(backend, presence, upgradeService, applicationService, modelAgentService)
+	controllerCtx := newPrecheckTarget(backend, upgradeService, applicationService, modelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -178,7 +175,6 @@ type precheckTarget struct {
 
 func newPrecheckTarget(
 	backend PrecheckBackend,
-	presence ModelPresence,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
 	modelAgentService ModelAgentService,
@@ -186,7 +182,6 @@ func newPrecheckTarget(
 	return &precheckTarget{
 		precheckContext: precheckContext{
 			backend:            backend,
-			presence:           presence,
 			upgradeService:     upgradeService,
 			applicationService: applicationService,
 			modelAgentService:  modelAgentService,
@@ -196,7 +191,6 @@ func newPrecheckTarget(
 
 type precheckContext struct {
 	backend            PrecheckBackend
-	presence           ModelPresence
 	upgradeService     UpgradeService
 	applicationService ApplicationService
 	modelAgentService  ModelAgentService
@@ -230,7 +224,6 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "retrieving machines")
 	}
-	modelPresenceContext := common.ModelPresenceContext{Presence: c.presence}
 	for _, machine := range machines {
 		if machine.Life() != state.Alive {
 			return errors.Errorf("machine %s is %s", machine.Id(), machine.Life())
@@ -238,13 +231,13 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 
 		if statusInfo, err := machine.InstanceStatus(); err != nil {
 			return errors.Annotatef(err, "retrieving machine %s instance status", machine.Id())
-		} else if statusInfo.Status != status.Running {
+		} else if !status.IsInstanceViable(statusInfo) {
 			return newStatusError("machine %s not running", machine.Id(), statusInfo.Status)
 		}
 
-		if statusInfo, err := modelPresenceContext.MachineStatus(ctx, machine); err != nil {
+		if statusInfo, err := machine.Status(); err != nil {
 			return errors.Annotatef(err, "retrieving machine %s status", machine.Id())
-		} else if statusInfo.Status != status.Started {
+		} else if !status.IsMachineViable(statusInfo) {
 			return newStatusError("machine %s agent not functioning at this time",
 				machine.Id(), statusInfo.Status)
 		}
@@ -336,25 +329,23 @@ func (c *precheckContext) checkUnitAgentStatus(ctx context.Context, unit Prechec
 	if err != nil {
 		return internalerrors.Errorf("parsing unit name %q: %w", unit.Name(), err)
 	}
+
 	agentStatus, err := unit.AgentStatus()
 	if err != nil {
 		return internalerrors.Errorf("retrieving unit %s agent status: %w", unit.Name(), err)
+	} else if !status.IsAgentViable(agentStatus) {
+		return newStatusError("unit %s not idle or executing", unit.Name(), agentStatus.Status)
 	}
+
 	workloadStatus, err := c.applicationService.GetUnitWorkloadStatus(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return errors.NotFoundf("unit %s", unit.Name())
 	} else if err != nil {
 		return internalerrors.Errorf("retrieving unit %s workload status: %w", unit.Name(), err)
+	} else if !status.IsUnitWorkloadViable(*workloadStatus) {
+		return newStatusError("unit %s not active or viable", unit.Name(), workloadStatus.Status)
 	}
 
-	modelPresenceContext := common.ModelPresenceContext{Presence: c.presence}
-	agentStatus, _ = modelPresenceContext.UnitStatus(ctx, unit, agentStatus, *workloadStatus)
-	switch agentStatus.Status {
-	case status.Idle, status.Executing:
-		// These two are fine.
-	default:
-		return newStatusError("unit %s not idle or executing", unit.Name(), agentStatus.Status)
-	}
 	return nil
 }
 
@@ -423,7 +414,7 @@ type precheckSource struct {
 }
 
 func newPrecheckSource(
-	backend PrecheckBackend, presence ModelPresence, environscloudspecGetter environsCloudSpecGetter,
+	backend PrecheckBackend, environscloudspecGetter environsCloudSpecGetter,
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
@@ -432,7 +423,6 @@ func newPrecheckSource(
 	return &precheckSource{
 		precheckContext: precheckContext{
 			backend:            backend,
-			presence:           presence,
 			upgradeService:     upgradeService,
 			applicationService: applicationService,
 			modelAgentService:  modelAgentService,
