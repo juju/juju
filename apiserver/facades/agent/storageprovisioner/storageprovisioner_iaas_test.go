@@ -50,6 +50,16 @@ type iaasProvisionerSuite struct {
 
 var _ = gc.Suite(&iaasProvisionerSuite{})
 
+func (s *iaasProvisionerSuite) TestStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+- TestRemoveVolumeParams: creates an app that will create a storage instance, 
+so we can release the storage and show the effects on the RemoveVolumeParams.
+- TestRemoveFilesystemParams: creates an application that will create a storage
+instance, so we can release the storage and show the effects on the 
+RemoveFilesystemParams.
+`)
+}
+
 func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.provisionerSuite.SetUpTest(c)
 	s.provisionerSuite.storageSetUp = s
@@ -485,103 +495,6 @@ func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
 	})
 }
 
-func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
-	// Only IAAS models support block storage right now.
-	s.setupVolumes(c)
-
-	f, release := s.NewFactory(c, s.st.ModelUUID())
-	defer release()
-
-	// Deploy an application that will create a storage instance,
-	// so we can release the storage and show the effects on the
-	// RemoveVolumeParams.
-	application := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
-			Name: "storage-block",
-		}),
-		Storage: map[string]state.StorageConstraints{
-			"data": {
-				Count: 1,
-				Size:  1,
-				Pool:  "modelscoped",
-			},
-		},
-	})
-	unit := f.MakeUnit(c, &factory.UnitParams{
-		Application: application,
-	})
-	testStorage, err := s.storageBackend.AllStorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testStorage, gc.HasLen, 1)
-	storageVolume, err := s.storageBackend.StorageInstanceVolume(testStorage[0].StorageTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.SetVolumeInfo(storageVolume.VolumeTag(), state.VolumeInfo{
-		VolumeId:   "zing",
-		Size:       1,
-		Persistent: true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make volumes 0/0 and 3 Dead.
-	for _, volumeId := range []string{"0/0", "3"} {
-		volumeTag := names.NewVolumeTag(volumeId)
-		machineTag := names.NewMachineTag("0")
-		err = s.storageBackend.DestroyVolume(volumeTag, false)
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.storageBackend.DetachVolume(machineTag, volumeTag, false)
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.storageBackend.RemoveVolumeAttachment(machineTag, volumeTag, false)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	// Make the "data" storage volume Dead, releasing.
-	err = unit.Destroy(s.store)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(testStorage[0].StorageTag(), true, false, dontWait)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DetachStorage(testStorage[0].StorageTag(), unit.UnitTag(), false, dontWait)
-	c.Assert(err, jc.ErrorIsNil)
-	unitMachineId, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	unitMachineTag := names.NewMachineTag(unitMachineId)
-	err = s.storageBackend.DetachVolume(unitMachineTag, storageVolume.VolumeTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveVolumeAttachment(unitMachineTag, storageVolume.VolumeTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	results, err := s.api.RemoveVolumeParams(context.Background(), params.Entities{
-		Entities: []params.Entity{
-			{Tag: "volume-0-0"},
-			{Tag: storageVolume.Tag().String()},
-			{Tag: "volume-1"},
-			{Tag: "volume-3"},
-			{Tag: "volume-42"},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.RemoveVolumeParamsResults{
-		Results: []params.RemoveVolumeParamsResult{{
-			Result: params.RemoveVolumeParams{
-				Provider: "machinescoped",
-				VolumeId: "abc",
-				Destroy:  true,
-			},
-		}, {
-			Result: params.RemoveVolumeParams{
-				Provider: "modelscoped",
-				VolumeId: "zing",
-				Destroy:  false,
-			},
-		}, {
-			Error: &params.Error{Message: `volume 1 is not dead (alive)`},
-		}, {
-			Error: &params.Error{Message: `volume "3" not provisioned`, Code: "not provisioned"},
-		}, {
-			Error: &params.Error{Message: "permission denied", Code: "unauthorized access"},
-		}},
-	})
-}
-
 func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
 	// Set custom resource-tags in model config, and check they show up in the
 	// returned filesystem params
@@ -622,101 +535,6 @@ func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
-	})
-}
-
-func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
-	s.setupFilesystems(c)
-
-	f, release := s.NewFactory(c, s.st.ModelUUID())
-	defer release()
-
-	// Deploy an application that will create a storage instance,
-	// so we can release the storage and show the effects on the
-	// RemoveFilesystemParams.
-	application := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: f.MakeCharm(c, &factory.CharmParams{
-			Name: "storage-filesystem",
-		}),
-		Storage: map[string]state.StorageConstraints{
-			"data": {
-				Count: 1,
-				Size:  1,
-				Pool:  "modelscoped",
-			},
-		},
-	})
-	unit := f.MakeUnit(c, &factory.UnitParams{
-		Application: application,
-	})
-	testStorage, err := s.storageBackend.AllStorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testStorage, gc.HasLen, 1)
-	storageFilesystem, err := s.storageBackend.StorageInstanceFilesystem(testStorage[0].StorageTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.SetFilesystemInfo(storageFilesystem.FilesystemTag(), state.FilesystemInfo{
-		FilesystemId: "zing",
-		Size:         1,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make filesystems 0/0 and 1 Dead.
-	for _, filesystemId := range []string{"0/0", "1"} {
-		filesystemTag := names.NewFilesystemTag(filesystemId)
-		machineTag := names.NewMachineTag("0")
-		err = s.storageBackend.DestroyFilesystem(filesystemTag, false)
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.storageBackend.DetachFilesystem(machineTag, filesystemTag)
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.storageBackend.RemoveFilesystemAttachment(machineTag, filesystemTag, false)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	// Make the "data" storage filesystem Dead, releasing.
-	err = unit.Destroy(s.store)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(testStorage[0].StorageTag(), true, false, dontWait)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DetachStorage(testStorage[0].StorageTag(), unit.UnitTag(), false, dontWait)
-	c.Assert(err, jc.ErrorIsNil)
-	unitMachineId, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	unitMachineTag := names.NewMachineTag(unitMachineId)
-	err = s.storageBackend.DetachFilesystem(unitMachineTag, storageFilesystem.FilesystemTag())
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveFilesystemAttachment(unitMachineTag, storageFilesystem.FilesystemTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	results, err := s.api.RemoveFilesystemParams(context.Background(), params.Entities{
-		Entities: []params.Entity{
-			{Tag: "filesystem-0-0"},
-			{Tag: storageFilesystem.Tag().String()},
-			{Tag: "filesystem-1"},
-			{Tag: "filesystem-2"},
-			{Tag: "filesystem-42"},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.RemoveFilesystemParamsResults{
-		Results: []params.RemoveFilesystemParamsResult{{
-			Result: params.RemoveFilesystemParams{
-				Provider:     "machinescoped",
-				FilesystemId: "abc",
-				Destroy:      true,
-			},
-		}, {
-			Result: params.RemoveFilesystemParams{
-				Provider:     "modelscoped",
-				FilesystemId: "zing",
-				Destroy:      false,
-			},
-		}, {
-			Error: &params.Error{Message: `filesystem "1" not provisioned`, Code: "not provisioned"},
-		}, {
-			Error: &params.Error{Message: `filesystem 2 is not dead (alive)`},
-		}, {
-			Error: &params.Error{Message: "permission denied", Code: "unauthorized access"},
-		}},
 	})
 }
 

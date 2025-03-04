@@ -81,8 +81,9 @@ type DomainServicesSuite struct {
 	// will be set during test set up.
 	DefaultModelUUID model.UUID
 
-	// ProviderTracker is the provider tracker to use in the domain services.
-	ProviderTracker providertracker.ProviderFactory
+	// ProviderFactory is the provider tracker factory to use in the domain
+	// services.
+	ProviderFactory providertracker.ProviderFactory
 }
 
 type stubDBDeleter struct{}
@@ -258,7 +259,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 			modelUUID,
 			databasetesting.ConstFactory(s.TxnRunner()),
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
-			s.ProviderTracker,
+			s.ProviderFactory,
 			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
 				return objectStore, nil
 			}),

@@ -112,6 +112,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"unit_agent_status_value",
 		"unit_agent_status",
 		"unit_agent",
+		"unit_constraint",
 		"unit_principal",
 		"unit_resolve_kind",
 		"unit_state_charm",
@@ -320,6 +321,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_secret_permission",
 		"v_space_subnet",
 		"v_storage_instance",
+		"v_unit_constraint",
 		"v_unit_resource",
 		"v_unit_storage_directive",
 	)

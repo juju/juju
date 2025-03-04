@@ -61,6 +61,8 @@ type Factory struct {
 
 var index uint32
 
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func NewFactory(st *state.State, pool *state.StatePool, controllerConfig controller.Config) *Factory {
 	return &Factory{
 		st:               st,
@@ -70,6 +72,8 @@ func NewFactory(st *state.State, pool *state.StatePool, controllerConfig control
 }
 
 // WithApplicationService configures the factory to use the specified application service.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (f *Factory) WithApplicationService(s *applicationservice.WatchableService) *Factory {
 	f.applicationService = s
 	return f
@@ -152,6 +156,8 @@ type SpaceParams struct {
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (*Factory) RandomSuffix(prefix string) string {
 	result := prefix
 	for i := 0; i < 5; i++ {
@@ -206,6 +212,8 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 }
 
 // MakeMachineNested will make a machine nested in the machine with ID given.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *MachineParams) *state.Machine {
 	params = factory.paramsFillDefaults(c, params)
 	machineTemplate := state.MachineTemplate{
@@ -234,6 +242,8 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 // values in params, if they are missing, some meaningful empty values will be
 // set.
 // If params is not specified, defaults are used.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machine {
 	machine, _ := factory.MakeMachineReturningPassword(c, params)
 	return machine
@@ -243,6 +253,8 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 // params. For some values in params, if they are missing, some meaningful
 // empty values will be set. If params is not specified, defaults are used.
 // The machine and its password are returned.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
 	params = factory.paramsFillDefaults(c, params)
 	return factory.makeMachineReturningPassword(c, params, true)
@@ -253,6 +265,8 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 // meaningful empty values will be set. If params is not specified, defaults
 // are used. The machine and its password are returned; the machine will not
 // be provisioned.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeUnprovisionedMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
 	if params != nil {
 		c.Assert(params.Nonce, gc.Equals, "")
@@ -346,6 +360,8 @@ func fromInternalCharm(ch charm.Charm, url string) state.CharmRefFull {
 //	varnish-alternative, wordpress.
 //
 // If params is not specified, defaults are used.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) state.CharmRefFull {
 	if params == nil {
 		params = &CharmParams{}
@@ -407,6 +423,8 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) state.CharmRefFu
 // MakeApplication creates an application with the specified parameters, substituting
 // sane defaults for missing values.
 // If params is not specified, defaults are used.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *state.Application {
 	app, _ := factory.MakeApplicationReturningPassword(c, params)
 	return app
@@ -416,6 +434,8 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 // sane defaults for missing values.
 // If params is not specified, defaults are used.
 // It returns the application and its password.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *ApplicationParams) (*state.Application, string) {
 	if params == nil {
 		params = &ApplicationParams{}
@@ -578,6 +598,8 @@ func fakeResolvedResourcesFromCharmMeta(charmMeta *charm.Meta) applicationservic
 //
 // If the unit is being added to an IAAS model, then it will be assigned
 // to a machine.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 	unit, _ := factory.MakeUnitReturningPassword(c, params)
 	return unit
@@ -589,6 +611,8 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 //
 // If the unit is being added to an IAAS model, then it will be assigned to a
 // machine.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (*state.Unit, string) {
 	if params == nil {
 		params = &UnitParams{}
@@ -692,6 +716,8 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 // MakeRelation create a relation with specified params, filling in sane
 // defaults for missing values.
 // If params is not specified, defaults are used.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Relation {
 	if params == nil {
 		params = &RelationParams{}
@@ -729,6 +755,8 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 // By default the new model shares the same owner as the calling Factory's
 // model. TODO(ericclaudejones) MakeModel should return the model itself rather
 // than the state.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params == nil {
 		params = new(ModelParams)
@@ -796,6 +824,8 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 // MakeCAASModel creates a CAAS model with specified params,
 // filling in sane defaults for missing values. If params is nil,
 // defaults are used for all values.
+// Deprecated: Testing factory is being removed and should not be used in new
+// tests.
 func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State {
 	if params == nil {
 		params = &ModelParams{}

@@ -224,9 +224,7 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 	}
 
 	validator, err := provider.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(ctx))
-	if errors.Is(err, errors.NotImplemented) {
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
 
@@ -237,8 +235,7 @@ func (s *ProviderService) validateConstraints(ctx context.Context, cons corecons
 	validator, err := s.constraintsValidator(ctx)
 	if err != nil {
 		return internalerrors.Capture(err)
-	}
-	if validator == nil {
+	} else if validator == nil {
 		return nil
 	}
 

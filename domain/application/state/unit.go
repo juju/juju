@@ -14,7 +14,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -1468,9 +1467,8 @@ func (st *State) GetModelConstraints(
 		zones  []dbConstraintZone
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := getModelUUID(ctx, st, tx)
-		if err != nil {
-			return errors.Errorf("checking if model exists: %w", err)
+		if err := modelExists(ctx, st, tx); err != nil {
+			return errors.Capture(err)
 		}
 
 		cons, err = st.getModelConstraints(ctx, tx)
@@ -1498,22 +1496,22 @@ func (st *State) GetModelConstraints(
 	return cons.toValue(tags, spaces, zones)
 }
 
-func getModelUUID(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX) (coremodel.UUID, error) {
+func modelExists(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX) error {
 	var modelUUID dbUUID
 	stmt, err := preparer.Prepare(`SELECT &dbUUID.uuid FROM model;`, modelUUID)
 	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	err = tx.Query(ctx, stmt).Get(&modelUUID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", errors.New("model does not exist").Add(modelerrors.NotFound)
+		return errors.New("model does not exist").Add(modelerrors.NotFound)
 	}
 	if err != nil {
-		return "", errors.Errorf("getting model uuid: %w", err)
+		return errors.Errorf("checking model if model exists: %w", err)
 	}
 
-	return coremodel.UUID(modelUUID.UUID), nil
+	return nil
 }
 
 // getModelConstraints returns the values set in the constraints table for the

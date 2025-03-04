@@ -242,7 +242,7 @@ SELECT
     cspace."exclude" AS space_exclude,
     czone.zone
 FROM unit_constraint AS uc
-JOIN "constraint" AS c ON ac.constraint_uuid = c.uuid
+JOIN "constraint" AS c ON uc.constraint_uuid = c.uuid
 LEFT JOIN container_type AS ctype ON c.container_type_id = ctype.id
 LEFT JOIN constraint_tag AS ctag ON c.uuid = ctag.constraint_uuid
 LEFT JOIN constraint_space AS cspace ON c.uuid = cspace.constraint_uuid

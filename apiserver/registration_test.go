@@ -88,7 +88,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	// Setting this like this is less than ideal, as it should be done much
 	// earlier in the test setup, but it's the only way to get the provider
 	// factory to return a provider that implements the providertracker.Provider.
-	s.ProviderTracker = providerFactory
+	s.ProviderFactory = providerFactory
 
 	if hasProxy {
 		// This is a bit of a hack. We can't hack out the domain services,

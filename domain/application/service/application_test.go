@@ -2372,23 +2372,6 @@ func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) TestSetConstraintsValidatorNotImplemented(c *gc.C) {
-	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
-		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
-	})
-	defer ctrl.Finish()
-
-	id := applicationtesting.GenApplicationUUID(c)
-
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, jujuerrors.NotImplemented)
-	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{}).Return(nil)
-
-	err := s.service.SetApplicationConstraints(context.Background(), id, coreconstraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
