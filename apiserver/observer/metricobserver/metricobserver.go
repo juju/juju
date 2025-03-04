@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc"
 )
 
@@ -103,13 +104,13 @@ type metrics struct {
 }
 
 // Login is part of the observer.Observer interface.
-func (*Observer) Login(ctx context.Context, entity names.Tag, _ names.ModelTag, _ bool, _ string) {}
+func (*Observer) Login(context.Context, names.Tag, names.ModelTag, model.UUID, bool, string) {}
 
 // Join is part of the observer.Observer interface.
-func (*Observer) Join(ctx context.Context, req *http.Request, connectionID uint64) {}
+func (*Observer) Join(context.Context, *http.Request, uint64) {}
 
 // Leave is part of the observer.Observer interface.
-func (*Observer) Leave(ctx context.Context) {}
+func (*Observer) Leave(context.Context) {}
 
 // RPCObserver is part of the observer.Observer interface.
 func (o *Observer) RPCObserver() rpc.Observer {

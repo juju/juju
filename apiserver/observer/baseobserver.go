@@ -6,6 +6,7 @@ package observer
 import (
 	"context"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/names/v6"
 )
 
@@ -13,16 +14,18 @@ import (
 type BaseObserver struct {
 	tag            names.Tag
 	model          names.ModelTag
+	modelUUID      model.UUID
 	agent          bool
 	fromController bool
 }
 
 // Login implements Observer.
-func (n *BaseObserver) Login(ctx context.Context, entity names.Tag, model names.ModelTag, fromController bool, userData string) {
+func (n *BaseObserver) Login(ctx context.Context, entity names.Tag, model names.ModelTag, modelUUID model.UUID, fromController bool, userData string) {
 	n.tag = entity
 	n.fromController = fromController
 	n.agent = n.isAgent(entity)
 	n.model = model
+	n.modelUUID = modelUUID
 }
 
 // IsAgent returns whether the entity is an agent during the current login.

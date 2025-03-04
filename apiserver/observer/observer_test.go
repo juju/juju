@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/core/model"
 )
 
 type multiplexerSuite struct {
@@ -87,12 +88,13 @@ func (*multiplexerSuite) TestLoginCallsAllObservers(c *gc.C) {
 
 	o := observer.NewMultiplexer(observers[0], observers[1])
 	entity := names.NewMachineTag("42")
-	model := names.NewModelTag("fake-uuid")
+	modelTag := names.NewModelTag("fake-uuid")
+	modelUUID := model.UUID("abc")
 	fromController := false
 	userData := "foo"
-	o.Login(context.Background(), entity, model, fromController, userData)
+	o.Login(context.Background(), entity, modelTag, modelUUID, fromController, userData)
 
 	for _, f := range observers {
-		f.CheckCall(c, 0, "Login", entity, model, fromController, userData)
+		f.CheckCall(c, 0, "Login", entity, modelTag, modelUUID, fromController, userData)
 	}
 }

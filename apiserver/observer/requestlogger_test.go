@@ -29,7 +29,7 @@ func (s *RequestLoggerSuite) TestAgentLoginWritesLog(c *gc.C) {
 
 	agent := names.NewMachineTag("42")
 	model := names.NewModelTag("fake-uuid")
-	notifier.Login(context.Background(), agent, model, false, "user data")
+	notifier.Login(context.Background(), agent, model, "abc", false, "user data")
 
 	c.Assert(logger.entries, jc.SameContents, []string{
 		`INFO: connection agent login: machine-42 for fake-uuid`,
@@ -41,7 +41,7 @@ func (s *RequestLoggerSuite) TestUserConnectionsNoLogs(c *gc.C) {
 
 	user := names.NewUserTag("bob")
 	model := names.NewModelTag("fake-uuid")
-	notifier.Login(context.Background(), user, model, false, "user data")
+	notifier.Login(context.Background(), user, model, "abc", false, "user data")
 
 	c.Assert(logger.entries, gc.HasLen, 0)
 }
@@ -76,7 +76,7 @@ func (s *RequestLoggerSuite) TestAgentDisconnectionLogs(c *gc.C) {
 	agent := names.NewMachineTag("42")
 	model := names.NewModelTag("fake-uuid")
 	// All details are saved from Login.
-	notifier.Login(context.Background(), agent, model, false, "user data")
+	notifier.Login(context.Background(), agent, model, "abc", false, "user data")
 	notifier.Leave(context.Background())
 
 	c.Assert(logger.entries, gc.HasLen, 3)
@@ -94,7 +94,7 @@ func (s *RequestLoggerSuite) TestControllerAgentDisconnectionLogs(c *gc.C) {
 	agent := names.NewMachineTag("42")
 	model := names.NewModelTag("fake-uuid")
 	// All details are saved from Login.
-	notifier.Login(context.Background(), agent, model, true, "user data")
+	notifier.Login(context.Background(), agent, model, "abc", true, "user data")
 	notifier.Leave(context.Background())
 
 	c.Assert(logger.entries, gc.HasLen, 1)
@@ -106,7 +106,7 @@ func (s *RequestLoggerSuite) TestUserDisconnectionNoLogs(c *gc.C) {
 	agent := names.NewUserTag("bob")
 	model := names.NewModelTag("fake-uuid")
 	// All details are saved from Login.
-	notifier.Login(context.Background(), agent, model, true, "user data")
+	notifier.Login(context.Background(), agent, model, "abc", true, "user data")
 	notifier.Leave(context.Background())
 
 	c.Assert(logger.entries, gc.HasLen, 1)
@@ -116,7 +116,7 @@ func (s *RequestLoggerSuite) assertControllerAgentConnectionNoLogs(c *gc.C, agen
 	notifier, logger := s.makeNotifier(c)
 
 	model := names.NewModelTag("fake-uuid")
-	notifier.Login(context.Background(), agent, model, true, "user data")
+	notifier.Login(context.Background(), agent, model, "abc", true, "user data")
 
 	c.Assert(logger.entries, gc.HasLen, 0)
 }
@@ -125,7 +125,7 @@ func (s *RequestLoggerSuite) assertAgentConnectionLogs(c *gc.C, agent names.Tag)
 	notifier, logger := s.makeNotifier(c)
 
 	model := names.NewModelTag("fake-uuid")
-	notifier.Login(context.Background(), agent, model, false, "user data")
+	notifier.Login(context.Background(), agent, model, "abc", false, "user data")
 
 	c.Assert(logger.entries, gc.HasLen, 1)
 	c.Check(logger.entries[0], gc.Matches, fmt.Sprintf(`INFO: connection agent login: %s for fake-uuid`, agent.String()))

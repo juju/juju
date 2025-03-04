@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc"
 )
 
@@ -31,8 +32,8 @@ func (f *Instance) Leave(ctx context.Context) {
 }
 
 // Login implements Observer.
-func (f *Instance) Login(ctx context.Context, entity names.Tag, model names.ModelTag, fromController bool, userData string) {
-	f.AddCall(funcName(), entity, model, fromController, userData)
+func (f *Instance) Login(ctx context.Context, entity names.Tag, model names.ModelTag, modelUUID model.UUID, fromController bool, userData string) {
+	f.AddCall(funcName(), entity, model, modelUUID, fromController, userData)
 }
 
 // RPCObserver implements Observer.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc"
 )
 
@@ -19,7 +20,7 @@ type Observer interface {
 	rpc.ObserverFactory
 
 	// Login informs an Observer that an entity has logged in.
-	Login(ctx context.Context, entity names.Tag, model names.ModelTag, fromController bool, userData string)
+	Login(ctx context.Context, entity names.Tag, model names.ModelTag, modelUUID model.UUID, fromController bool, userData string)
 
 	// Join is called when the connection to the API server's
 	// WebSocket is opened.
@@ -92,9 +93,9 @@ func (m *Multiplexer) Leave(ctx context.Context) {
 }
 
 // Login implements Observer.
-func (m *Multiplexer) Login(ctx context.Context, entity names.Tag, model names.ModelTag, fromController bool, userData string) {
+func (m *Multiplexer) Login(ctx context.Context, entity names.Tag, model names.ModelTag, modelUUID model.UUID, fromController bool, userData string) {
 	mapConcurrent(ctx, func(ctx context.Context, o Observer) {
-		o.Login(ctx, entity, model, fromController, userData)
+		o.Login(ctx, entity, model, modelUUID, fromController, userData)
 	}, m.observers)
 }
 

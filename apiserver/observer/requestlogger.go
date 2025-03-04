@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
@@ -53,8 +54,8 @@ func NewRequestLogger(ctx RequestLoggerConfig) *RequestLogger {
 }
 
 // Login implements Observer.
-func (n *RequestLogger) Login(ctx context.Context, entity names.Tag, model names.ModelTag, fromController bool, userData string) {
-	n.BaseObserver.Login(ctx, entity, model, fromController, userData)
+func (n *RequestLogger) Login(ctx context.Context, entity names.Tag, model names.ModelTag, modelUUID model.UUID, fromController bool, userData string) {
+	n.BaseObserver.Login(ctx, entity, model, modelUUID, fromController, userData)
 
 	if !n.IsAgent() || n.FromController() {
 		return
