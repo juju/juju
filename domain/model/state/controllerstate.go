@@ -1683,11 +1683,6 @@ func updateCredential(
 	uuid coremodel.UUID,
 	key credential.Key,
 ) error {
-
-	if key.IsZero() {
-
-	}
-
 	selectArgs := dbCredKey{
 		CloudName:           key.Cloud,
 		OwnerName:           key.Owner.Name(),
