@@ -39,9 +39,9 @@ type RequestObserver struct {
 	}
 }
 
-// RequestObserverContext provides information needed for a
+// RequestObserverConfig provides information needed for a
 // RequestObserver to operate correctly.
-type RequestObserverContext struct {
+type RequestObserverConfig struct {
 
 	// Clock is the clock to use for all time operations on this type.
 	Clock clock.Clock
@@ -51,7 +51,7 @@ type RequestObserverContext struct {
 }
 
 // NewRequestObserver returns a new RPCObserver.
-func NewRequestObserver(ctx RequestObserverContext) *RequestObserver {
+func NewRequestObserver(ctx RequestObserverConfig) *RequestObserver {
 	// Ideally we should have a logging context so we can log into the correct
 	// model rather than the api server for everything.
 	return &RequestObserver{

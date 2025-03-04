@@ -145,7 +145,7 @@ func (*RequestObserverSuite) makeNotifier(c *gc.C) (*observer.RequestObserver, *
 		}
 		testLogger.entries = append(testLogger.entries, fmt.Sprintf(s, a...))
 	})
-	return observer.NewRequestObserver(observer.RequestObserverContext{
+	return observer.NewRequestObserver(observer.RequestObserverConfig{
 		Clock:  testclock.NewClock(time.Now()),
 		Logger: loggertesting.WrapCheckLog(recorder),
 	}), testLogger
