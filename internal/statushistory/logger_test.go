@@ -35,7 +35,8 @@ func (s *loggerSuite) TestRecord(c *gc.C) {
 		dataKey:          `{"bar":"baz"}`,
 	}
 
-	s.logger.EXPECT().Logf(gomock.Any(), logger.INFO, labels, "status-history (state: %q, status-message: %q)", "active", "foo")
+	s.logger.EXPECT().Child("status-history", logger.STATUS_HISTORY).Return(s.logger)
+	s.logger.EXPECT().Logf(gomock.Any(), logger.INFO, labels, "status-history (status: %q, status-message: %q)", "active", "foo")
 
 	logger := NewLogRecorder(s.logger)
 	err := logger.Record(context.Background(), Record{
