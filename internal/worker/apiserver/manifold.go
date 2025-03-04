@@ -222,8 +222,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var jwtParserGetter jwtparser.Getter
-	if err := context.Get(config.JWTParserName, &jwtParserGetter); err != nil {
+	var jwtParser *jwtparser.Parser
+	if err := context.Get(config.JWTParserName, &jwtParser); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -258,7 +258,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Hub:                               config.Hub,
 		Presence:                          config.Presence,
 		LocalMacaroonAuthenticator:        macaroonAuthenticator,
-		JWTParserGetter:                   jwtParserGetter,
+		JWTParser:                         jwtParser,
 		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,

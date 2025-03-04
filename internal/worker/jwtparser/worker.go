@@ -12,18 +12,12 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/jwtparser"
 )
 
 type jwtParserWorker struct {
 	tomb      tomb.Tomb
-	jwtParser *JWTParser
-}
-
-// Getter defines an interface to retrieve a JWTParser.
-// The JWTParser is never expected to be nil but if the
-// parser is not configured, the returned bool will be false.
-type Getter interface {
-	Get() (*JWTParser, bool)
+	jwtParser *jwtparser.Parser
 }
 
 // ControllerConfig defines an interface to retrieve controller config.
@@ -38,31 +32,28 @@ type HTTPClient interface {
 }
 
 // NewWorker returns a worker that provides a JWTParser.
-func NewWorker(configGetter ControllerConfig, httpClient jwk.HTTPClient) (worker.Worker, error) {
+func NewWorker(configGetter ControllerConfig, httpClient HTTPClient) (worker.Worker, error) {
 	controllerConfig, err := configGetter.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
 	}
 	jwtRefreshURL := controllerConfig.LoginTokenRefreshURL()
 
-	jwtParser := NewParserWithHTTPClient(httpClient)
+	ctx, done := context.WithCancel(context.Background())
+	jwtParser := jwtparser.NewParserWithHTTPClient(ctx, httpClient)
 	if jwtRefreshURL != "" {
-		if err := jwtParser.RegisterJWKSCache(context.Background(), jwtRefreshURL); err != nil {
-			return nil, err
+		if err := jwtParser.SetJWKSCache(context.Background(), jwtRefreshURL); err != nil {
+			done()
+			return nil, errors.Annotate(err, "cannot register JWKS cache")
 		}
 	}
 
 	w := &jwtParserWorker{jwtParser: jwtParser}
-	w.tomb.Go(w.loop)
+	w.tomb.Go(func() error {
+		defer done()
+		return w.loop()
+	})
 	return w, nil
-}
-
-// Get implements Getter.
-// Returns the jwt parser and a boolean
-// that is false when no refresh URL is set
-// i.e. when the parser is not yet configured.
-func (w *jwtParserWorker) Get() (*JWTParser, bool) {
-	return w.jwtParser, w.jwtParser.refreshURL != ""
 }
 
 // Kill is part of the worker.Worker interface.

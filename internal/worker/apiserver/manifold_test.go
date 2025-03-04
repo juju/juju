@@ -62,7 +62,7 @@ type ManifoldSuite struct {
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubDBGetter
-	jwtParserGetter      jwtparser.Getter
+	jwtParser            *jwtparser.Parser
 
 	stub testing.Stub
 }
@@ -89,7 +89,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.leaseManager = &lease.Manager{}
 	s.sysLogger = &mockSysLogger{}
 	s.charmhubHTTPClient = &http.Client{}
-	s.jwtParserGetter = testJWTParserGetter{}
+	s.jwtParser = &jwtparser.Parser{}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -132,21 +132,12 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"syslog":               s.sysLogger,
 		"charmhub-http-client": s.charmhubHTTPClient,
 		"db-accessor":          s.dbGetter,
-		"jwt-parser":           s.jwtParserGetter,
+		"jwt-parser":           s.jwtParser,
 	}
 	for k, v := range overlay {
 		resources[k] = v
 	}
 	return dt.StubContext(nil, resources)
-}
-
-type testJWTParserGetter struct {
-	parser *jwtparser.JWTParser
-	ok     bool
-}
-
-func (j testJWTParserGetter) Get() (*jwtparser.JWTParser, bool) {
-	return j.parser, j.ok
 }
 
 type mockSysLogger struct {
@@ -242,7 +233,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		SysLogger:                  s.sysLogger,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
-		JWTParserGetter:            s.jwtParserGetter,
+		JWTParser:                  s.jwtParser,
 	})
 }
 

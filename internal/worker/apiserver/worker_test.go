@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/worker/apiserver"
+	"github.com/juju/juju/internal/worker/jwtparser"
 	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/state"
 )
@@ -45,7 +46,7 @@ type workerFixture struct {
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubDBGetter
-	jwtParserGetter      testJWTParserGetter
+	jwtParser            *jwtparser.Parser
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -73,6 +74,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.sysLogger = &mockSysLogger{}
 	s.charmhubHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
+	s.jwtParser = &jwtparser.Parser{}
 
 	s.config = apiserver.Config{
 		AgentConfig:                       &s.agentConfig,
@@ -92,7 +94,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		SysLogger:                         s.sysLogger,
 		CharmhubHTTPClient:                s.charmhubHTTPClient,
 		DBGetter:                          s.dbGetter,
-		JWTParserGetter:                   s.jwtParserGetter,
+		JWTParser:                         s.jwtParser,
 	}
 }
 
@@ -160,8 +162,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.DBGetter = nil },
 		"nil DBGetter not valid",
 	}, {
-		func(cfg *apiserver.Config) { cfg.JWTParserGetter = nil },
-		"nil JWTParserGetter not valid",
+		func(cfg *apiserver.Config) { cfg.JWTParser = nil },
+		"nil JWTParser not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

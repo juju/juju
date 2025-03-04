@@ -4,10 +4,14 @@
 package jwtparser
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
 )
@@ -27,7 +31,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// start is a method on ManifoldConfig because it's more readable than a closure.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	var stTracker workerstate.StateTracker
 	if err := context.Get(config.StateName, &stTracker); err != nil {
@@ -55,8 +58,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}), nil
 }
 
-// outputFunc extracts a jwt.Getter from a jwtParserWorker
-// contained within a CleanupWorker.
+// outputFunc extracts a jwtparser.Parser from a
+// jwtParserWorker contained within a CleanupWorker.
 func outputFunc(in worker.Worker, out interface{}) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
@@ -67,10 +70,21 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	}
 
 	switch outPointer := out.(type) {
-	case *Getter:
-		*outPointer = inWorker
+	case **jwtparser.Parser:
+		*outPointer = inWorker.jwtParser
 	default:
-		return errors.Errorf("out should be jwt.Getter; got %T", out)
+		return errors.Errorf("out should be jwtparser.Parser; got %T", out)
 	}
 	return nil
+}
+
+// DefaultHTTPClient returns a defaulthttp client
+// that follows redirects with a sensible timeout.
+func DefaultHTTPClient() HTTPClient {
+	return &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 }

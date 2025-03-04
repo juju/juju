@@ -17,11 +17,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/worker/jwtparser"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	gc "gopkg.in/check.v1"
+
+<<<<<<<< HEAD:internal/worker/jwtparser/jwt_test.go
+	"github.com/juju/juju/internal/worker/jwtparser"
+|||||||| parent of 2c0e5ff408 (chore: move jwtparser into standalone package):worker/jwtparser/jwt_test.go
+	"github.com/juju/juju/worker/jwtparser"
+========
+	"github.com/juju/juju/internal/jwtparser"
+>>>>>>>> 2c0e5ff408 (chore: move jwtparser into standalone package):internal/jwtparser/jwt_test.go
 )
 
 type jwtParserSuite struct {

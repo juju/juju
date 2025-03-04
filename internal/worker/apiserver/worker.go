@@ -36,7 +36,7 @@ type Config struct {
 	Mux                               *apiserverhttp.Mux
 	MultiwatcherFactory               multiwatcher.Factory
 	LocalMacaroonAuthenticator        macaroon.LocalMacaroonAuthenticator
-	JWTParserGetter                   jwtparser.Getter
+	JWTParser                         *jwtparser.Parser
 	StatePool                         *state.StatePool
 	Controller                        *cache.Controller
 	LeaseManager                      lease.Manager
@@ -113,8 +113,8 @@ func (config Config) Validate() error {
 	if config.DBGetter == nil {
 		return errors.NotValidf("nil DBGetter")
 	}
-	if config.JWTParserGetter == nil {
-		return errors.NotValidf("nil JWTParserGetter")
+	if config.JWTParser == nil {
+		return errors.NotValidf("nil JWTParser")
 	}
 	return nil
 }
@@ -162,7 +162,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		MultiwatcherFactory:           config.MultiwatcherFactory,
 		Mux:                           config.Mux,
 		LocalMacaroonAuthenticator:    config.LocalMacaroonAuthenticator,
-		JWTAuthenticator:              getJWTAuthenticator(config.JWTParserGetter),
+		JWTAuthenticator:              jwt.NewAuthenticator(config.JWTParser),
 		UpgradeComplete:               config.UpgradeComplete,
 		PublicDNSName:                 controllerConfig.AutocertDNSName(),
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),
@@ -178,23 +178,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		DBGetter:                      config.DBGetter,
 	}
 	return config.NewServer(serverConfig)
-}
-
-// jwtParserGetterWrapper acts as an adapter
-// for the jwt.TokenParserGetter interface.
-type jwtParserGetterWrapper struct {
-	getter jwtparser.Getter
-}
-
-// Get satisfies jwt.TokenParserGetter.
-func (j jwtParserGetterWrapper) Get() (jwt.TokenParser, bool) {
-	return j.getter.Get()
-}
-
-// getJWTAuthenticator returns a JWT authenticator.
-func getJWTAuthenticator(g jwtparser.Getter) jwt.Authenticator {
-	parserFetcher := jwtParserGetterWrapper{getter: g}
-	return jwt.NewAuthenticator(parserFetcher)
 }
 
 func newServerShim(config apiserver.ServerConfig) (worker.Worker, error) {

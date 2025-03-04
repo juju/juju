@@ -26,27 +26,24 @@ type Authenticator interface {
 
 // TokenParser defines an interface for parsing JWT tokens.
 type TokenParser interface {
+	// Parse accepts a base64 string and extracts a JWT token.
+	// This method should return a NotProvisioned error if
+	// the parser is not ready.
 	Parse(ctx context.Context, tok string) (jwt.Token, error)
-}
-
-// TokenParserGetter defines an interface for retrieving
-// a token parser if one is available.
-type TokenParserGetter interface {
-	Get() (TokenParser, bool)
 }
 
 // JWTAuthenticator is an authenticator responsible for handling JWT tokens from
 // a client.
 type JWTAuthenticator struct {
-	parserGetter TokenParserGetter
+	parser TokenParser
 }
 
 // NewAuthenticator creates a new JWT authenticator with the supplied parser getter.
 // Use of a getter allows the token parser to change dynamically and delays binding
 // the parser to the time of authentication.
-func NewAuthenticator(getter TokenParserGetter) *JWTAuthenticator {
+func NewAuthenticator(parser TokenParser) *JWTAuthenticator {
 	return &JWTAuthenticator{
-		parserGetter: getter,
+		parser: parser,
 	}
 }
 
@@ -67,12 +64,13 @@ type TokenEntity struct {
 
 // Authenticate implements EntityAuthenticator
 func (j *JWTAuthenticator) Parse(ctx context.Context, tok string) (jwt.Token, TokenEntity, error) {
-	parser, ok := j.parserGetter.Get()
-	if !ok {
-		return nil, TokenEntity{}, errors.NotImplemented
-	}
-	token, err := parser.Parse(ctx, tok)
+	token, err := j.parser.Parse(ctx, tok)
 	if err != nil {
+		// Return a not implemented error if we cannot parse tokens
+		// so that other authenticators are tried by the API server.
+		if errors.Is(err, errors.NotProvisioned) {
+			return nil, TokenEntity{}, errors.Trace(errors.NotImplemented)
+		}
 		return nil, TokenEntity{}, errors.Trace(err)
 	}
 	entity, err := userFromToken(token)

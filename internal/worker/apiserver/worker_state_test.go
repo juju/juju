@@ -15,6 +15,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/internal/worker/apiserver"
+	"github.com/juju/juju/internal/worker/jwtparser"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -103,9 +104,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
 
-	jwtAuthenticator := jwt.NewAuthenticator(apiserver.NewJWTParserGetterWrapper(
-		s.jwtParserGetter,
-	))
+	jwtAuthenticator := jwt.NewAuthenticator(&jwtparser.Parser{})
 
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
 		StatePool:                  s.StatePool,
