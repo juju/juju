@@ -1330,7 +1330,7 @@ INSERT INTO model_namespace (*) VALUES ($dbModelNamespace.*)
 	if jujudb.IsErrConstraintUnique(err) {
 		return "", errors.Errorf("model %q already has a database namespace registered", uuid)
 	} else if jujudb.IsErrConstraintForeignKey(err) {
-		return "", errors.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
+		return "", errors.Errorf("model %q does not exist", uuid).Add(modelerrors.NotFound)
 	} else if err != nil {
 		return "", errors.Errorf("associating database namespace with model %q, %w", uuid, err)
 	}
@@ -1502,7 +1502,7 @@ AND cr.name = $dbName.name
 		}
 
 		if err := tx.Query(ctx, stmt, modelUUID, cloudRegionName).Get(&cloudRegionUUID); errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("%w cloud region %q for model uuid %q", coreerrors.NotFound, region, uuid)
+			return errors.Errorf("cloud region %q for model uuid %q not found", region, uuid).Add(coreerrors.NotFound)
 		} else if err != nil {
 			return errors.Errorf("getting cloud region %q uuid for model %q: %w", region, uuid, err)
 		}
