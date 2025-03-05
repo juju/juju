@@ -35,18 +35,18 @@ type ModelService interface {
 	ApplicationService() ApplicationService
 }
 
-// DomainServiceGetter is the service getter to use to get domain services.
-type DomainServiceGetter interface {
-	// DomainServicesForModel returns the services factory for a given model
+// DomainServicesGetter is the service getter to use to get domain services.
+type DomainServicesGetter interface {
+	// ServicesForModel returns the services factory for a given model
 	// uuid.
-	DomainServicesForModel(context.Context, model.UUID) (ModelService, error)
+	ServicesForModel(context.Context, model.UUID) (ModelService, error)
 }
 
 // AgentPresenceConfig provides information needed for a
 // AgentPresence to operate correctly.
 type AgentPresenceConfig struct {
-	// DomainServiceGetter is the service getter to use to get domain services.
-	DomainServiceGetter DomainServiceGetter
+	// DomainServicesGetter is the service getter to use to get domain services.
+	DomainServicesGetter DomainServicesGetter
 
 	// Logger is the log to use to write log statements.
 	Logger logger.Logger
@@ -57,7 +57,7 @@ type AgentPresenceConfig struct {
 type AgentPresence struct {
 	BaseObserver
 
-	serviceGetter DomainServiceGetter
+	serviceGetter DomainServicesGetter
 	logger        logger.Logger
 
 	modelService ModelService
@@ -68,7 +68,7 @@ func NewAgentPresence(cfg AgentPresenceConfig) *AgentPresence {
 	// Ideally we should have a logging context so we can log into the correct
 	// model rather than the api server for everything.
 	return &AgentPresence{
-		serviceGetter: cfg.DomainServiceGetter,
+		serviceGetter: cfg.DomainServicesGetter,
 		logger:        cfg.Logger,
 	}
 }
@@ -82,7 +82,7 @@ func (n *AgentPresence) Login(ctx context.Context, entity names.Tag, modelTag na
 		return
 	}
 
-	services, err := n.serviceGetter.DomainServicesForModel(ctx, modelUUID)
+	services, err := n.serviceGetter.ServicesForModel(ctx, modelUUID)
 	if err != nil {
 		n.logger.Infof(ctx, "recording presence for agent %s: unable to get domain services model: %s %v", entity, modelTag, err)
 		return
@@ -126,7 +126,27 @@ func (n *AgentPresence) Leave(ctx context.Context) {
 // Join implements Observer.
 func (n *AgentPresence) Join(ctx context.Context, req *http.Request, connectionID uint64) {}
 
-// RPCObserver implements Observer.
+// RPCObserver returns an rpc.Observer for the agent presence that doesn't
+// do anything.
 func (n *AgentPresence) RPCObserver() rpc.Observer {
-	return nil
+	return agentPresenceObserver{}
+}
+
+type agentPresenceObserver struct{}
+
+// ServerRequest informs the Observer of a request made
+// to the Conn. If the request was not recognized or there was
+// an error reading the body, body will be nil.
+//
+// ServerRequest is called just before the server method
+// is invoked.
+func (agentPresenceObserver) ServerRequest(ctx context.Context, hdr *rpc.Header, body interface{}) {}
+
+// ServerReply informs the RequestNotifier of a reply sent to a
+// server request. The given Request gives details of the call
+// that was made; the given Header and body are the header and
+// body sent as reply.
+//
+// ServerReply is called just before the reply is written.
+func (agentPresenceObserver) ServerReply(ctx context.Context, req rpc.Request, hdr *rpc.Header, body interface{}) {
 }

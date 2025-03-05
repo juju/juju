@@ -19,9 +19,9 @@ import (
 type AgentPresenceSuite struct {
 	testing.IsolationSuite
 
-	domainServiceGetter *MockDomainServiceGetter
-	modelService        *MockModelService
-	applicationService  *MockApplicationService
+	domainServicesGetter *MockDomainServicesGetter
+	modelService         *MockModelService
+	applicationService   *MockApplicationService
 }
 
 var _ = gc.Suite(&AgentPresenceSuite{})
@@ -31,7 +31,7 @@ func (s *AgentPresenceSuite) TestLoginForUnit(c *gc.C) {
 
 	uuid := modeltesting.GenModelUUID(c)
 
-	s.domainServiceGetter.EXPECT().DomainServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
 	s.modelService.EXPECT().ApplicationService().Return(s.applicationService)
 	s.applicationService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
 
@@ -44,7 +44,7 @@ func (s *AgentPresenceSuite) TestLoginForMachine(c *gc.C) {
 
 	uuid := modeltesting.GenModelUUID(c)
 
-	s.domainServiceGetter.EXPECT().DomainServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
 
 	// TODO (stickupkid): Once the machine domain is done, this should set
 	// the machine presence.
@@ -67,7 +67,7 @@ func (s *AgentPresenceSuite) TestLeaveForUnit(c *gc.C) {
 
 	uuid := modeltesting.GenModelUUID(c)
 
-	s.domainServiceGetter.EXPECT().DomainServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
 	s.modelService.EXPECT().ApplicationService().Return(s.applicationService).Times(2)
 	s.applicationService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
 	s.applicationService.EXPECT().DeleteUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
@@ -96,15 +96,15 @@ func (s *AgentPresenceSuite) TestLeaveWithoutLogin(c *gc.C) {
 
 func (s *AgentPresenceSuite) newObserver(c *gc.C) *AgentPresence {
 	return NewAgentPresence(AgentPresenceConfig{
-		DomainServiceGetter: s.domainServiceGetter,
-		Logger:              loggertesting.WrapCheckLog(c),
+		DomainServicesGetter: s.domainServicesGetter,
+		Logger:               loggertesting.WrapCheckLog(c),
 	})
 }
 
 func (s *AgentPresenceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.domainServiceGetter = NewMockDomainServiceGetter(ctrl)
+	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
 	s.modelService = NewMockModelService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 

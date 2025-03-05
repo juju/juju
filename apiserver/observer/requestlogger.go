@@ -92,12 +92,17 @@ func (n *RequestLogger) Leave(ctx context.Context) {
 
 // RPCObserver implements Observer.
 func (n *RequestLogger) RPCObserver() rpc.Observer {
+	var tag string
+	if agentTag := n.AgentTag(); agentTag != nil {
+		tag = agentTag.String()
+	}
+
 	return &rpcLogger{
 		clock:      n.clock,
 		logger:     n.logger,
 		pingLogger: n.pingLogger,
 		id:         n.id,
-		tag:        n.AgentTag().String(),
+		tag:        tag,
 	}
 }
 
