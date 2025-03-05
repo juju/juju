@@ -22,6 +22,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -417,7 +418,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *gc.C) {
 	unitUUID, err := coreunit.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "mariadb/0").Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, unittesting.GenNewName(c, "mariadb/0")).Return(unitUUID, nil)
 	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, unitUUID, "my secret").Return(false, nil)
 	s.state.EXPECT().CreateCharmUnitSecret(domaintesting.IsAtomicContextChecker, 1, uri, unitUUID, gomock.AssignableToTypeOf(p)).
 		DoAndReturn(func(_ domain.AtomicContext, _ int, _ *coresecrets.URI, _ coreunit.UUID, got domainsecret.UpsertSecretParams) error {
@@ -468,7 +469,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecretFailedLabelAlreadyExists(c *gc.C
 	unitUUID, err := coreunit.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, "mariadb/0").Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitUUID(domaintesting.IsAtomicContextChecker, unittesting.GenNewName(c, "mariadb/0")).Return(unitUUID, nil)
 	s.state.EXPECT().CheckUnitSecretLabelExists(domaintesting.IsAtomicContextChecker, unitUUID, "my secret").Return(true, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
@@ -902,7 +903,7 @@ func (s *serviceSuite) TestGetSecretConsumer(c *gc.C) {
 		CurrentRevision: 666,
 	}
 
-	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mysql/0").Return(consumer, 666, nil)
+	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mysql/0")).Return(consumer, 666, nil)
 
 	got, err := s.service.GetSecretConsumer(context.Background(), uri, "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -918,7 +919,7 @@ func (s *serviceSuite) TestGetSecretConsumerAndLatest(c *gc.C) {
 		CurrentRevision: 666,
 	}
 
-	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mysql/0").Return(consumer, 666, nil)
+	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mysql/0")).Return(consumer, 666, nil)
 
 	got, latest, err := s.service.GetSecretConsumerAndLatest(context.Background(), uri, "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -935,7 +936,7 @@ func (s *serviceSuite) TestSaveSecretConsumer(c *gc.C) {
 		CurrentRevision: 666,
 	}
 
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mysql/0", consumer).Return(nil)
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mysql/0"), consumer).Return(nil)
 
 	err := s.service.SaveSecretConsumer(context.Background(), uri, "mysql/0", consumer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1066,7 +1067,7 @@ func (s *serviceSuite) TestGetURIByConsumerLabel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.state.EXPECT().GetURIByConsumerLabel(gomock.Any(), "my label", "mysql/0").Return(uri, nil)
+	s.state.EXPECT().GetURIByConsumerLabel(gomock.Any(), "my label", unittesting.GenNewName(c, "mysql/0")).Return(uri, nil)
 
 	got, err := s.service.GetURIByConsumerLabel(context.Background(), "my label", "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1087,10 +1088,10 @@ func (s *serviceSuite) TestUpdateRemoteConsumedRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.state.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0").
+	s.state.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "remote-app/0")).
 		Return(&coresecrets.SecretConsumerMetadata{}, 666, nil)
 
-	got, err := s.service.UpdateRemoteConsumedRevision(context.Background(), uri, "remote-app/0", false)
+	got, err := s.service.UpdateRemoteConsumedRevision(context.Background(), uri, unittesting.GenNewName(c, "remote-app/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.Equals, 666)
 }
@@ -1102,11 +1103,11 @@ func (s *serviceSuite) TestUpdateRemoteConsumedRevisionRefresh(c *gc.C) {
 		CurrentRevision: 666,
 	}
 	uri := coresecrets.NewURI()
-	s.state.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0").
+	s.state.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "remote-app/0")).
 		Return(&coresecrets.SecretConsumerMetadata{}, 666, nil)
-	s.state.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0", consumer).Return(nil)
+	s.state.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "remote-app/0"), consumer).Return(nil)
 
-	got, err := s.service.UpdateRemoteConsumedRevision(context.Background(), uri, "remote-app/0", true)
+	got, err := s.service.UpdateRemoteConsumedRevision(context.Background(), uri, unittesting.GenNewName(c, "remote-app/0"), true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.Equals, 666)
 }
@@ -1118,11 +1119,11 @@ func (s *serviceSuite) TestUpdateRemoteConsumedRevisionFirstTimeRefresh(c *gc.C)
 		CurrentRevision: 666,
 	}
 	uri := coresecrets.NewURI()
-	s.state.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0").
+	s.state.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "remote-app/0")).
 		Return(nil, 666, secreterrors.SecretConsumerNotFound)
-	s.state.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0", consumer).Return(nil)
+	s.state.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "remote-app/0"), consumer).Return(nil)
 
-	got, err := s.service.UpdateRemoteConsumedRevision(context.Background(), uri, "remote-app/0", true)
+	got, err := s.service.UpdateRemoteConsumedRevision(context.Background(), uri, unittesting.GenNewName(c, "remote-app/0"), true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.Equals, 666)
 }
@@ -1715,8 +1716,8 @@ func (s *serviceSuite) TestGetConsumedRevisionFirstTime(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 
-	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(nil, 666, secreterrors.SecretConsumerNotFound)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mariadb/0", &coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0")).Return(nil, 666, secreterrors.SecretConsumerNotFound)
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	})
 
@@ -1730,8 +1731,8 @@ func (s *serviceSuite) TestGetConsumedRevisionFirstTimeUpdateLabel(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 
-	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(nil, 666, secreterrors.SecretConsumerNotFound)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mariadb/0", &coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0")).Return(nil, 666, secreterrors.SecretConsumerNotFound)
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), &coresecrets.SecretConsumerMetadata{
 		Label:           "label",
 		CurrentRevision: 666,
 	})
@@ -1746,11 +1747,11 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionUpdateLabel(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 
-	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(&coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0")).Return(&coresecrets.SecretConsumerMetadata{
 		Label:           "old-label",
 		CurrentRevision: 666,
 	}, 666, nil)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mariadb/0", &coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), &coresecrets.SecretConsumerMetadata{
 		Label:           "new-label",
 		CurrentRevision: 666,
 	})
@@ -1765,11 +1766,11 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionRefresh(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 
-	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(&coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0")).Return(&coresecrets.SecretConsumerMetadata{
 		Label:           "old-label",
 		CurrentRevision: 666,
 	}, 668, nil)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mariadb/0", &coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), &coresecrets.SecretConsumerMetadata{
 		Label:           "old-label",
 		CurrentRevision: 668,
 	})
@@ -1784,7 +1785,7 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionPeek(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 
-	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(&coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0")).Return(&coresecrets.SecretConsumerMetadata{
 		Label:           "old-label",
 		CurrentRevision: 666,
 	}, 668, nil)
@@ -1799,10 +1800,10 @@ func (s *serviceSuite) TestGetSecretConsumedRevisionSecretNotFound(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 
-	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, "mariadb/0").Return(&coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().GetSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0")).Return(&coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	}, 668, nil)
-	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, "mariadb/0", &coresecrets.SecretConsumerMetadata{
+	s.state.EXPECT().SaveSecretConsumer(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), &coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 668,
 	})
 
@@ -1899,7 +1900,7 @@ func (s *serviceSuite) TestProcessCharmSecretConsumerLabelLookupURI(c *gc.C) {
 	s.state.EXPECT().ListCharmSecrets(gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).
 		Return(md, revs, nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
-	s.state.EXPECT().GetURIByConsumerLabel(gomock.Any(), "foo", "mariadb/0").Return(uri, nil)
+	s.state.EXPECT().GetURIByConsumerLabel(gomock.Any(), "foo", unittesting.GenNewName(c, "mariadb/0")).Return(uri, nil)
 
 	gotURI, gotLabel, err := s.service.ProcessCharmSecretConsumerLabel(context.Background(), "mariadb/0", nil, "foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2067,16 +2068,16 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
 		return nil, nil
 	}
-	s.state.EXPECT().InitialWatchStatementForConsumedSecretsChange("mysql/0").Return("secret_revision", namespaceQuery)
-	s.state.EXPECT().InitialWatchStatementForConsumedRemoteSecretsChange("mysql/0").Return("secret_reference", namespaceQuery)
+	s.state.EXPECT().InitialWatchStatementForConsumedSecretsChange(unittesting.GenNewName(c, "mysql/0")).Return("secret_revision", namespaceQuery)
+	s.state.EXPECT().InitialWatchStatementForConsumedRemoteSecretsChange(unittesting.GenNewName(c, "mysql/0")).Return("secret_reference", namespaceQuery)
 	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision", changestream.Changed, gomock.Any()).Return(mockStringWatcher, nil)
 	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_reference", changestream.All, gomock.Any()).Return(mockStringWatcherRemote, nil)
 
 	s.state.EXPECT().GetConsumedSecretURIsWithChanges(gomock.Any(),
-		"mysql/0", "revision-uuid-1",
+		unittesting.GenNewName(c, "mysql/0"), "revision-uuid-1",
 	).Return([]string{uri1.String()}, nil)
 	s.state.EXPECT().GetConsumedRemoteSecretURIsWithChanges(gomock.Any(),
-		"mysql/0", "revision-uuid-2",
+		unittesting.GenNewName(c, "mysql/0"), "revision-uuid-2",
 	).Return([]string{uri2.String()}, nil)
 
 	svc := NewWatchableService(

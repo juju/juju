@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	secrets "github.com/juju/juju/core/secrets"
+	unit "github.com/juju/juju/core/unit"
 	service "github.com/juju/juju/domain/secret/service"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -118,7 +119,7 @@ func (c *MockSecretServiceDeleteSecretCall) DoAndReturn(f func(context.Context, 
 }
 
 // GetConsumedRevision mocks base method.
-func (m *MockSecretService) GetConsumedRevision(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3, arg4 bool, arg5 *string) (int, error) {
+func (m *MockSecretService) GetConsumedRevision(arg0 context.Context, arg1 *secrets.URI, arg2 unit.Name, arg3, arg4 bool, arg5 *string) (int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetConsumedRevision", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(int)
@@ -145,13 +146,13 @@ func (c *MockSecretServiceGetConsumedRevisionCall) Return(arg0 int, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretServiceGetConsumedRevisionCall) Do(f func(context.Context, *secrets.URI, string, bool, bool, *string) (int, error)) *MockSecretServiceGetConsumedRevisionCall {
+func (c *MockSecretServiceGetConsumedRevisionCall) Do(f func(context.Context, *secrets.URI, unit.Name, bool, bool, *string) (int, error)) *MockSecretServiceGetConsumedRevisionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretServiceGetConsumedRevisionCall) DoAndReturn(f func(context.Context, *secrets.URI, string, bool, bool, *string) (int, error)) *MockSecretServiceGetConsumedRevisionCall {
+func (c *MockSecretServiceGetConsumedRevisionCall) DoAndReturn(f func(context.Context, *secrets.URI, unit.Name, bool, bool, *string) (int, error)) *MockSecretServiceGetConsumedRevisionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

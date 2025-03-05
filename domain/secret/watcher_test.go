@@ -18,6 +18,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -360,7 +361,8 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := st.SaveSecretConsumer(ctx, uri, consumerID, consumer)
+		unitName := unittesting.GenNewName(c, consumerID)
+		err := st.SaveSecretConsumer(ctx, uri, unitName, consumer)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -456,7 +458,8 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := st.SaveSecretConsumer(ctx, uri, consumerID, consumer)
+		unitName := unittesting.GenNewName(c, consumerID)
+		err := st.SaveSecretConsumer(ctx, uri, unitName, consumer)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -543,7 +546,8 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		consumer := &coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := st.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
+		unitName := unittesting.GenNewName(c, consumerID)
+		err := st.SaveSecretRemoteConsumer(ctx, uri, unitName, consumer)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -933,7 +937,7 @@ func createCharmApplicationSecret(ctx context.Context, st *state.State, version 
 	})
 }
 
-func createCharmUnitSecret(ctx context.Context, st *state.State, version int, uri *coresecrets.URI, unitName string, secret secret.UpsertSecretParams) error {
+func createCharmUnitSecret(ctx context.Context, st *state.State, version int, uri *coresecrets.URI, unitName unit.Name, secret secret.UpsertSecretParams) error {
 	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitUUID, err := st.GetUnitUUID(ctx, unitName)
 		if err != nil {

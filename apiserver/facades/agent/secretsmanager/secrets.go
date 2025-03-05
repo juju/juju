@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	corewatcher "github.com/juju/juju/core/watcher"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -240,7 +241,11 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(ctx context.Context, unitTag n
 	if err != nil {
 		return nil, 0, errors.Trace(err)
 	}
-	return s.secretsConsumer.GetSecretConsumerAndLatest(ctx, uri, unitTag.Id())
+	unitName, err := unit.NewName(unitTag.Id())
+	if err != nil {
+		return nil, 0, errors.Trace(err)
+	}
+	return s.secretsConsumer.GetSecretConsumerAndLatest(ctx, uri, unitName)
 }
 
 func secretOwnersFromAuthTag(authTag names.Tag, leadershipChecker leadership.Checker) ([]secretservice.CharmSecretOwner, error) {
@@ -422,7 +427,10 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 		return nil, nil, false, errors.NotSupportedf("getting cross model secret for consumer %q", s.authTag)
 	}
 
-	unitName := s.authTag.Id()
+	unitName, err := unit.NewName(s.authTag.Id())
+	if err != nil {
+		return nil, nil, false, errors.Trace(err)
+	}
 	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(ctx, uri, unitName)
 	if err != nil &&
 		// Secret will be not found if the consuming side has not yet
@@ -554,7 +562,10 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 		}
 	}
 
-	unitName := s.authTag.Id()
+	unitName, err := unit.NewName(s.authTag.Id())
+	if err != nil {
+		return nil, nil, false, errors.Trace(err)
+	}
 	uri, labelToUpdate, err := s.secretService.ProcessCharmSecretConsumerLabel(ctx, unitName, uri, arg.Label)
 	if err != nil {
 		return nil, nil, false, errors.Trace(err)
@@ -567,7 +578,7 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 	}
 
 	// labelToUpdate is the consumer label for consumers.
-	consumedRevision, err := s.secretsConsumer.GetConsumedRevision(ctx, uri, s.authTag.Id(), arg.Refresh, arg.Peek, labelToUpdate)
+	consumedRevision, err := s.secretsConsumer.GetConsumedRevision(ctx, uri, unitName, arg.Refresh, arg.Peek, labelToUpdate)
 	if err != nil {
 		return nil, nil, false, errors.Annotate(err, "getting latest secret revision")
 	}
@@ -582,8 +593,8 @@ func (s *SecretsManagerAPI) getSecretContent(ctx context.Context, arg params.Get
 		return content, nil, false, errors.Trace(err)
 	}
 
-	appName, _ := names.UnitApplication(unitName)
-	token := s.leadershipChecker.LeadershipCheck(appName, unitName)
+	appName := unitName.Application()
+	token := s.leadershipChecker.LeadershipCheck(appName, unitName.String())
 	backend, draining, err := s.getBackend(ctx, content.ValueRef.BackendID, accessor, token)
 	return content, backend, draining, errors.Trace(err)
 }
@@ -645,7 +656,11 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(ctx context.Context, arg
 		if !isSameApplication(s.authTag, tag) {
 			return "", nil, apiservererrors.ErrPerm
 		}
-		w, err := s.secretsConsumer.WatchConsumedSecretsChanges(ctx, tag.Id())
+		unitName, err := unit.NewName(tag.Id())
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		w, err := s.secretsConsumer.WatchConsumedSecretsChanges(ctx, unitName)
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}

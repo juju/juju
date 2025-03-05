@@ -32,7 +32,7 @@ type AtomicState interface {
 	) ([]*secrets.URI, error)
 
 	GetApplicationUUID(ctx domain.AtomicContext, appName string) (coreapplication.ID, error)
-	GetUnitUUID(ctx domain.AtomicContext, unitName string) (coreunit.UUID, error)
+	GetUnitUUID(ctx domain.AtomicContext, name coreunit.Name) (coreunit.UUID, error)
 	GetSecretOwner(ctx domain.AtomicContext, uri *secrets.URI) (domainsecret.Owner, error)
 
 	CheckUserSecretLabelExists(ctx domain.AtomicContext, label string) (bool, error)
@@ -66,12 +66,12 @@ type State interface {
 	ListCharmSecrets(ctx context.Context,
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
+	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name) (*secrets.SecretConsumerMetadata, int, error)
+	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name, md *secrets.SecretConsumerMetadata) error
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
-	GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error)
-	GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
-	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
+	GetURIByConsumerLabel(ctx context.Context, label string, unitName coreunit.Name) (*secrets.URI, error)
+	GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name) (*secrets.SecretConsumerMetadata, int, error)
+	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName coreunit.Name, md *secrets.SecretConsumerMetadata) error
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int) error
 	GrantAccess(ctx context.Context, uri *secrets.URI, params domainsecret.GrantParams) error
 	RevokeAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) error
@@ -106,12 +106,12 @@ type State interface {
 	GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context) ([]string, error)
 
 	// For watching consumed local secret changes.
-	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
-	GetConsumedSecretURIsWithChanges(ctx context.Context, unitName string, revisionIDs ...string) ([]string, error)
+	InitialWatchStatementForConsumedSecretsChange(unitName coreunit.Name) (string, eventsource.NamespaceQuery)
+	GetConsumedSecretURIsWithChanges(ctx context.Context, unitName coreunit.Name, revisionIDs ...string) ([]string, error)
 
 	// For watching consumed remote secret changes.
-	InitialWatchStatementForConsumedRemoteSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
-	GetConsumedRemoteSecretURIsWithChanges(ctx context.Context, unitName string, secretIDs ...string) (secretURIs []string, err error)
+	InitialWatchStatementForConsumedRemoteSecretsChange(unitName coreunit.Name) (string, eventsource.NamespaceQuery)
+	GetConsumedRemoteSecretURIsWithChanges(ctx context.Context, unitName coreunit.Name, secretIDs ...string) (secretURIs []string, err error)
 
 	// For watching local secret changes that consumed by remote consumers.
 	InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName string) (string, eventsource.NamespaceQuery)

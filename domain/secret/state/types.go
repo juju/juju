@@ -41,7 +41,7 @@ type entityRef struct {
 
 type unit struct {
 	UUID coreunit.UUID `db:"uuid"`
-	Name string        `db:"name"`
+	Name coreunit.Name `db:"name"`
 }
 
 type application struct {
@@ -170,9 +170,9 @@ type secretUnitConsumer struct {
 }
 
 type secretRemoteUnitConsumer struct {
-	UnitName        string `db:"unit_name"`
-	SecretID        string `db:"secret_id"`
-	CurrentRevision int    `db:"current_revision"`
+	UnitName        coreunit.Name `db:"unit_name"`
+	SecretID        string        `db:"secret_id"`
+	CurrentRevision int           `db:"current_revision"`
 }
 
 type secretUnitConsumerInfo struct {

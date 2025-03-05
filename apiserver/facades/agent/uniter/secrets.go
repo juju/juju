@@ -12,6 +12,7 @@ import (
 
 	apiServerErrors "github.com/juju/juju/apiserver/errors"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
@@ -27,7 +28,7 @@ type SecretService interface {
 	GrantSecretAccess(context.Context, *coresecrets.URI, secretservice.SecretAccessParams) error
 	RevokeSecretAccess(context.Context, *coresecrets.URI, secretservice.SecretAccessParams) error
 	GetConsumedRevision(
-		ctx context.Context, uri *coresecrets.URI, unitName string,
+		ctx context.Context, uri *coresecrets.URI, unitName unit.Name,
 		refresh, peek bool, labelToUpdate *string) (int, error)
 }
 
@@ -322,7 +323,12 @@ func (u *UniterAPI) updateTrackedRevisions(ctx context.Context, uris []string) (
 			result.Results[i].Error = apiServerErrors.ServerError(err)
 			continue
 		}
-		_, err = u.secretService.GetConsumedRevision(ctx, uri, authTag.Id(), true, false, nil)
+		unitName, err := unit.NewName(authTag.Id())
+		if err != nil {
+			result.Results[i].Error = apiServerErrors.ServerError(err)
+			continue
+		}
+		_, err = u.secretService.GetConsumedRevision(ctx, uri, unitName, true, false, nil)
 		result.Results[i].Error = apiServerErrors.ServerError(err)
 	}
 	return result, nil

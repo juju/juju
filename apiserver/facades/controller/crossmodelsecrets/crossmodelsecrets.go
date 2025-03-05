@@ -23,6 +23,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -266,7 +267,11 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx context.Context, arg params.
 	// Use the latest revision as the current one if --peek.
 	if arg.Peek || arg.Refresh {
 		var err error
-		latestRevision, err = secretService.UpdateRemoteConsumedRevision(ctx, uri, consumer.Id(), arg.Refresh)
+		unitName, err := unit.NewName(consumer.Id())
+		if err != nil {
+			return nil, nil, 0, errors.Trace(err)
+		}
+		latestRevision, err = secretService.UpdateRemoteConsumedRevision(ctx, uri, unitName, arg.Refresh)
 		if err != nil {
 			return nil, nil, 0, errors.Trace(err)
 		}

@@ -109,7 +109,7 @@ func (s *serviceSuite) TestDestroyApplication(c *gc.C) {
 	c.Assert(gotLife, gc.Equals, 1)
 }
 
-func (s *serviceSuite) createSecrets(c *gc.C, appUUID coreapplication.ID, unitName string) (appSecretURI *coresecrets.URI, unitSecretURI *coresecrets.URI) {
+func (s *serviceSuite) createSecrets(c *gc.C, appUUID coreapplication.ID, unitName coreunit.Name) (appSecretURI *coresecrets.URI, unitSecretURI *coresecrets.URI) {
 	ctx := context.Background()
 	appSecretURI = coresecrets.NewURI()
 	sp := domainsecret.UpsertSecretParams{

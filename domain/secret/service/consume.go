@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
@@ -19,7 +20,7 @@ import (
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
 // If there's not currently a consumer record for the secret, the latest revision is still returned,
 // along with an error satisfying [secreterrors.SecretConsumerNotFound].
-func (s *SecretService) GetSecretConsumerAndLatest(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error) {
+func (s *SecretService) GetSecretConsumerAndLatest(ctx context.Context, uri *secrets.URI, unitName unit.Name) (*secrets.SecretConsumerMetadata, int, error) {
 	consumerMetadata, latestRevision, err := s.secretState.GetSecretConsumer(ctx, uri, unitName)
 	if err != nil {
 		return nil, latestRevision, errors.Trace(err)
@@ -46,7 +47,7 @@ func (s *SecretService) GetSecretConsumerAndLatest(ctx context.Context, uri *sec
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
 // If there's not currently a consumer record for the secret, an error satisfying [secreterrors.SecretConsumerNotFound]
 // is returned.
-func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, error) {
+func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name) (*secrets.SecretConsumerMetadata, error) {
 	result, _, err := s.GetSecretConsumerAndLatest(ctx, uri, unitName)
 	return result, err
 }
@@ -54,20 +55,20 @@ func (s *SecretService) GetSecretConsumer(ctx context.Context, uri *secrets.URI,
 // SaveSecretConsumer saves the consumer metadata for the given secret and unit.
 // If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
-func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error {
+func (s *SecretService) SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name, md *secrets.SecretConsumerMetadata) error {
 	return s.secretState.SaveSecretConsumer(ctx, uri, unitName, md)
 }
 
 // GetURIByConsumerLabel looks up the secret URI using the label previously registered by the specified unit,
 // returning an error satisfying [secreterrors.SecretNotFound] if there's no corresponding URI.
 // If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
-func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error) {
+func (s *SecretService) GetURIByConsumerLabel(ctx context.Context, label string, unitName unit.Name) (*secrets.URI, error) {
 	return s.secretState.GetURIByConsumerLabel(ctx, label, unitName)
 }
 
 // GetConsumedRevision returns the secret revision number for the specified consumer, possibly updating
 // the label associated with the secret for the consumer.
-func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh, peek bool, labelToUpdate *string) (int, error) {
+func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName unit.Name, refresh, peek bool, labelToUpdate *string) (int, error) {
 	consumerInfo, latestRevision, err := s.GetSecretConsumerAndLatest(ctx, uri, unitName)
 	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
 		return 0, errors.Trace(err)
@@ -130,7 +131,7 @@ func (s *SecretService) ListGrantedSecretsForBackend(
 
 // UpdateRemoteConsumedRevision returns the latest revision for the specified secret,
 // updating the tracked revision for the specified consumer if refresh is true.
-func (s *SecretService) UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets.URI, unitName string, refresh bool) (int, error) {
+func (s *SecretService) UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets.URI, unitName unit.Name, refresh bool) (int, error) {
 	consumerInfo, latestRevision, err := s.secretState.GetSecretRemoteConsumer(ctx, uri, unitName)
 	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
 		return 0, errors.Trace(err)

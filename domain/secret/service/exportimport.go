@@ -10,6 +10,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/secret"
 )
@@ -160,7 +161,11 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 			return errors.Annotatef(err, "saving secret %q", md.URI.ID)
 		}
 		for _, sc := range modelSecrets.Consumers[md.URI.ID] {
-			if err := s.secretState.SaveSecretConsumer(ctx, md.URI, sc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
+			unitName, err := unit.NewName(sc.Accessor.ID)
+			if err != nil {
+				return errors.Annotate(err, "invalid local secret consumer")
+			}
+			if err := s.secretState.SaveSecretConsumer(ctx, md.URI, unitName, &coresecrets.SecretConsumerMetadata{
 				Label:           sc.Label,
 				CurrentRevision: sc.CurrentRevision,
 			}); err != nil {
@@ -169,7 +174,11 @@ func (s *SecretService) ImportSecrets(ctx context.Context, modelSecrets *SecretE
 		}
 
 		for _, rc := range modelSecrets.RemoteConsumers[md.URI.ID] {
-			if err := s.secretState.SaveSecretRemoteConsumer(ctx, md.URI, rc.Accessor.ID, &coresecrets.SecretConsumerMetadata{
+			unitName, err := unit.NewName(rc.Accessor.ID)
+			if err != nil {
+				return errors.Annotate(err, "invalid remote secret consumer")
+			}
+			if err := s.secretState.SaveSecretRemoteConsumer(ctx, md.URI, unitName, &coresecrets.SecretConsumerMetadata{
 				Label:           rc.Label,
 				CurrentRevision: rc.CurrentRevision,
 			}); err != nil {
@@ -311,7 +320,11 @@ func (s *SecretService) importRemoteSecrets(ctx context.Context, remoteSecrets [
 		}
 	}
 	for _, rs := range remoteSecrets {
-		if err := s.secretState.SaveSecretConsumer(ctx, rs.URI, rs.Accessor.ID, &coresecrets.SecretConsumerMetadata{
+		unitName, err := unit.NewName(rs.Accessor.ID)
+		if err != nil {
+			return errors.Annotate(err, "invalid remote secret consumer")
+		}
+		if err := s.secretState.SaveSecretConsumer(ctx, rs.URI, unitName, &coresecrets.SecretConsumerMetadata{
 			Label:           rs.Label,
 			CurrentRevision: rs.CurrentRevision,
 		}); err != nil {

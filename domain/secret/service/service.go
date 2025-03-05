@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
@@ -327,7 +326,11 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 		}
 	}()
 	if params.CharmOwner.Kind == ApplicationOwner {
-		appName, _ := names.UnitApplication(params.Accessor.ID)
+		unitName, err := coreunit.NewName(params.Accessor.ID)
+		if err != nil {
+			return jujuerrors.Trace(err)
+		}
+		appName := unitName.Application()
 		if err := s.leaderEnsurer.LeadershipCheck(appName, params.Accessor.ID).Check(); err != nil {
 			if leadership.IsNotLeaderError(err) {
 				return secreterrors.PermissionDenied
@@ -552,7 +555,11 @@ func (s *SecretService) createSecret(
 		}
 		createSecret = func() error { return s.secretState.CreateCharmApplicationSecret(ctx, version, uri, appUUID, params) }
 	case secrets.UnitOwner:
-		unitUUID, err := s.secretState.GetUnitUUID(ctx, owner.ID)
+		unitName, err := coreunit.NewName(owner.ID)
+		if err != nil {
+			return jujuerrors.Trace(err)
+		}
+		unitUUID, err := s.secretState.GetUnitUUID(ctx, unitName)
 		if err != nil {
 			return jujuerrors.Trace(err)
 		}
@@ -746,7 +753,7 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 // This method returns the resulting uri, and optionally the label to update for
 // the consumer.
 func (s *SecretService) ProcessCharmSecretConsumerLabel(
-	ctx context.Context, unitName string, uri *secrets.URI, label string,
+	ctx context.Context, unitName coreunit.Name, uri *secrets.URI, label string,
 ) (_ *secrets.URI, _ *string, err error) {
 	modelUUID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
@@ -769,7 +776,7 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 			// If the label has is to be changed by the secret owner, update the secret metadata.
 			// TODO(wallyworld) - the label staying the same should be asserted in a txn.
 			if labelToUpdate != nil && *labelToUpdate != md.Label {
-				isOwner, err := checkUnitOwner(unitName, md.Owner, s.leaderEnsurer)
+				isOwner, err := checkUnitOwner(unitName.String(), md.Owner, s.leaderEnsurer)
 				if err != nil {
 					return nil, nil, jujuerrors.Trace(err)
 				}
@@ -783,7 +790,7 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 						Label: &label,
 						Accessor: SecretAccessor{
 							Kind: UnitAccessor,
-							ID:   unitName,
+							ID:   unitName.String(),
 						},
 					})
 					if err != nil {
@@ -839,24 +846,20 @@ func checkUnitOwner(unitName string, owner secrets.Owner, ensurer leadership.Ens
 }
 
 func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(
-	ctx context.Context, uri *secrets.URI, unitName, label string,
+	ctx context.Context, uri *secrets.URI, unitName coreunit.Name, label string,
 ) (*secrets.SecretMetadata, error) {
 	notFoundErr := fmt.Errorf("secret %q not found%w", uri, jujuerrors.Hide(secreterrors.SecretNotFound))
 	if label != "" {
 		notFoundErr = fmt.Errorf("secret with label %q not found%w", label, jujuerrors.Hide(secreterrors.SecretNotFound))
 	}
 
-	appName, err := names.UnitApplication(unitName)
-	if err != nil {
-		// Should never happen.
-		return nil, jujuerrors.Trace(err)
-	}
+	appName := unitName.Application()
 	owners := []CharmSecretOwner{{
 		Kind: ApplicationOwner,
 		ID:   appName,
 	}, {
 		Kind: UnitOwner,
-		ID:   unitName,
+		ID:   unitName.String(),
 	}}
 	metadata, _, err := s.ListCharmSecrets(ctx, owners...)
 	if err != nil {
