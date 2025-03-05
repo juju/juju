@@ -22,6 +22,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/relation"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -674,6 +675,138 @@ func (s *applicationSuite) TestSetApplicationConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *applicationSuite) TestAddRelation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.setupAPI(c)
+	epStr1 := "mattermost"
+	epStr2 := "postgresql:db"
+	appID1 := "app-id-1"
+	appID2 := "app-id-2"
+	ep1 := relation.Endpoint{
+		ApplicationID: application.ID(appID1),
+		Relation: internalcharm.Relation{
+			Name:      "relation-1",
+			Role:      internalcharm.RoleProvider,
+			Interface: "db",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	ep2 := relation.Endpoint{
+		ApplicationID: application.ID(appID2),
+		Relation: internalcharm.Relation{
+			Name:      "relation-1",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "db",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
+		ep1, ep2, nil,
+	)
+
+	// Act:
+	results, err := s.api.AddRelation(context.Background(), params.AddRelation{
+		Endpoints: []string{"mattermost", "postgresql:db"},
+		ViaCIDRs:  nil,
+	})
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.AddRelationResults{
+		Endpoints: map[string]params.CharmRelation{
+			appID1: encodeRelation(ep1.Relation),
+			appID2: encodeRelation(ep2.Relation),
+		},
+	})
+}
+
+func (s *applicationSuite) TestAddRelationError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.setupAPI(c)
+	epStr1 := "mattermost"
+	epStr2 := "postgresql:db"
+	boom := errors.Errorf("boom")
+	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
+		relation.Endpoint{}, relation.Endpoint{}, boom,
+	)
+
+	// Act:
+	_, err := s.api.AddRelation(context.Background(), params.AddRelation{
+		Endpoints: []string{"mattermost", "postgresql:db"},
+	})
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, boom)
+}
+
+func (s *applicationSuite) TestAddRelationNoEndpointsError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.setupAPI(c)
+
+	// Act:
+	_, err := s.api.AddRelation(context.Background(), params.AddRelation{
+		Endpoints: []string{},
+	})
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+}
+
+func (s *applicationSuite) TestAddRelationOneEndpoint(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.setupAPI(c)
+
+	// Act:
+	_, err := s.api.AddRelation(context.Background(), params.AddRelation{
+		Endpoints: []string{"1"},
+	})
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+}
+
+func (s *applicationSuite) TestAddRelationTooManyEndpointsError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.setupAPI(c)
+
+	// Act:
+	_, err := s.api.AddRelation(context.Background(), params.AddRelation{
+		Endpoints: []string{"1", "2", "3"},
+	})
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+}
+
+func (s *applicationSuite) TestDestroyRelationStub(c *gc.C) {
+	c.Skip("Destroy relation isn't implemented yet.\n" +
+		"Once it will be implemented, the following tests should be added:\n" +
+		"- TestDestroyRelation\n" +
+		"- TestDestroyPeerRelation\n" +
+		"- TestDestroyRelationUnknown\n" +
+		"- TestDestroyPeerRelationUnknown\n" +
+		"- TestDestroyRelationWithForce")
+}
+
+func (s *applicationSuite) TestSetRelationsSuspendedStub(c *gc.C) {
+	c.Skip("Suspending relation requires CMR support, which is not yet implemented.\n" +
+		"Once it will be implemented, at minimum, the following tests should be added:\n" +
+		"- TestSetRelationsSuspended\n" +
+		"- TestSetRelationsReestablished\n" +
+		"- TestSetRelationsSuspendedPermissionError\n" +
+		"- TestSetRelationsSuspendedNoOffer")
+}
+
 func (s *applicationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
@@ -810,7 +943,7 @@ func (s *applicationSuite) expectCharmFormatCheck(c *gc.C, name string) {
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{}).Times(2)
 }
 
-func (s applicationSuite) expectCharmFormatCheckDowngrade(c *gc.C, name string) {
+func (s *applicationSuite) expectCharmFormatCheckDowngrade(c *gc.C, name string) {
 	locator := applicationcharm.CharmLocator{
 		Name:     "ubuntu",
 		Revision: 42,
