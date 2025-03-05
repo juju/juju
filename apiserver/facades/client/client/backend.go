@@ -14,21 +14,18 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/state"
 )
 
 // Backend contains the state.State methods used in this package,
 // allowing stubs to be created for testing.
 type Backend interface {
-	AddRelation(...relation.Endpoint) (*state.Relation, error)
 	AllApplications() ([]*state.Application, error)
 	AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error)
 	AllRemoteApplications() ([]*state.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
-	AllRelations() ([]*state.Relation, error)
 	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTag() names.ControllerTag
 	ControllerTimestamp() (*time.Time, error)

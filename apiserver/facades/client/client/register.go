@@ -50,15 +50,17 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 			model:   model,
 			session: nil,
 		},
-		storageAccessor:    storageAccessor,
-		blockDeviceService: domainServices.BlockDevice(),
-		auth:               authorizer,
-		leadershipReader:   leadershipReader,
-		networkService:     domainServices.Network(),
-		modelInfoService:   domainServices.ModelInfo(),
-		machineService:     domainServices.Machine(),
+		storageAccessor:  storageAccessor,
+		auth:             authorizer,
+		leadershipReader: leadershipReader,
+
 		applicationService: domainServices.Application(),
+		blockDeviceService: domainServices.BlockDevice(),
+		machineService:     domainServices.Machine(),
+		modelInfoService:   domainServices.ModelInfo(),
+		networkService:     domainServices.Network(),
 		portService:        domainServices.Port(),
+		relationService:    domainServices.Relation(),
 	}
 	return client, nil
 }
