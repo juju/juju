@@ -682,10 +682,10 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 	s.setupAPI(c)
 	epStr1 := "mattermost"
 	epStr2 := "postgresql:db"
-	appID1 := "app-id-1"
-	appID2 := "app-id-2"
+	appName1 := "mattermost"
+	appName2 := "postgresql"
 	ep1 := relation.Endpoint{
-		ApplicationID: application.ID(appID1),
+		ApplicationName: appName1,
 		Relation: internalcharm.Relation{
 			Name:      "relation-1",
 			Role:      internalcharm.RoleProvider,
@@ -694,7 +694,7 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 		},
 	}
 	ep2 := relation.Endpoint{
-		ApplicationID: application.ID(appID2),
+		ApplicationName: appName2,
 		Relation: internalcharm.Relation{
 			Name:      "relation-1",
 			Role:      internalcharm.RoleRequirer,
@@ -716,8 +716,8 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.AddRelationResults{
 		Endpoints: map[string]params.CharmRelation{
-			appID1: encodeRelation(ep1.Relation),
-			appID2: encodeRelation(ep2.Relation),
+			appName1: encodeRelation(ep1.Relation),
+			appName2: encodeRelation(ep2.Relation),
 		},
 	})
 }

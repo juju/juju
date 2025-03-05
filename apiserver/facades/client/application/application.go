@@ -1842,8 +1842,8 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 		)
 	}
 	return params.AddRelationResults{Endpoints: map[string]params.CharmRelation{
-		ep1.ApplicationID.String(): encodeRelation(ep1.Relation),
-		ep2.ApplicationID.String(): encodeRelation(ep2.Relation),
+		ep1.ApplicationName: encodeRelation(ep1.Relation),
+		ep2.ApplicationName: encodeRelation(ep2.Relation),
 	}}, nil
 }
 
