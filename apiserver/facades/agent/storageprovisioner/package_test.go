@@ -5,7 +5,6 @@ package storageprovisioner_test
 
 import (
 	stdtesting "testing"
-	"time"
 
 	gc "gopkg.in/check.v1"
 
@@ -26,8 +25,6 @@ type storageSetUp interface {
 	setupVolumes(c *gc.C)
 	setupFilesystems(c *gc.C)
 }
-
-const dontWait = time.Duration(0)
 
 type byMachineAndEntity []params.MachineStorageId
 

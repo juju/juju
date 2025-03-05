@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
@@ -250,14 +249,6 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAA
 	u, err := apiuniter.NewFromConnection(api)
 	c.Assert(err, jc.ErrorIsNil)
 	return u, cm, app, unit
-}
-
-type fakeBroker struct {
-	caas.Broker
-}
-
-func (*fakeBroker) APIVersion() (string, error) {
-	return "6.66", nil
 }
 
 type fakeToken struct {

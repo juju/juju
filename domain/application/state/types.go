@@ -8,9 +8,11 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/instance"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 )
@@ -799,6 +801,10 @@ type applicationUUID struct {
 	ApplicationUUID string `db:"application_uuid"`
 }
 
+type unitConstraintUUID struct {
+	UnitUUID string `db:"unit_uuid"`
+}
+
 type constraintUUID struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 }
@@ -904,4 +910,132 @@ func decodeWorkloadStatus(s int) (application.WorkloadStatusType, error) {
 type storageInstance struct {
 	StorageUUID corestorage.UUID `db:"uuid"`
 	StorageID   corestorage.ID   `db:"storage_id"`
+}
+
+type setUnitConstraint struct {
+	UnitUUID       string `db:"unit_uuid"`
+	ConstraintUUID string `db:"constraint_uuid"`
+}
+
+// dbConstraint represents a single row within the v_model_constraint view.
+type dbConstraint struct {
+	Arch             sql.NullString `db:"arch"`
+	CPUCores         sql.NullInt64  `db:"cpu_cores"`
+	CPUPower         sql.NullInt64  `db:"cpu_power"`
+	Mem              sql.NullInt64  `db:"mem"`
+	RootDisk         sql.NullInt64  `db:"root_disk"`
+	RootDiskSource   sql.NullString `db:"root_disk_source"`
+	InstanceRole     sql.NullString `db:"instance_role"`
+	InstanceType     sql.NullString `db:"instance_type"`
+	ContainerType    sql.NullString `db:"container_type"`
+	VirtType         sql.NullString `db:"virt_type"`
+	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
+	ImageID          sql.NullString `db:"image_id"`
+}
+
+func (c dbConstraint) toValue(
+	tags []dbConstraintTag,
+	spaces []dbConstraintSpace,
+	zones []dbConstraintZone,
+) (constraints.Constraints, error) {
+	rval := constraints.Constraints{}
+	if c.Arch.Valid {
+		rval.Arch = &c.Arch.String
+	}
+	if c.CPUCores.Valid {
+		rval.CpuCores = ptr(uint64(c.CPUCores.Int64))
+	}
+	if c.CPUPower.Valid {
+		rval.CpuPower = ptr(uint64(c.CPUPower.Int64))
+	}
+	if c.Mem.Valid {
+		rval.Mem = ptr(uint64(c.Mem.Int64))
+	}
+	if c.RootDisk.Valid {
+		rval.RootDisk = ptr(uint64(c.RootDisk.Int64))
+	}
+	if c.RootDiskSource.Valid {
+		rval.RootDiskSource = &c.RootDiskSource.String
+	}
+	if c.InstanceRole.Valid {
+		rval.InstanceRole = &c.InstanceRole.String
+	}
+	if c.InstanceType.Valid {
+		rval.InstanceType = &c.InstanceType.String
+	}
+	if c.VirtType.Valid {
+		rval.VirtType = &c.VirtType.String
+	}
+	// We only set allocate public ip when it is true and not nil. The reason
+	// for this is no matter what the dqlite driver will always return false
+	// out of the database even when the value is NULL.
+	if c.AllocatePublicIP.Valid {
+		rval.AllocatePublicIP = &c.AllocatePublicIP.Bool
+	}
+	if c.ImageID.Valid {
+		rval.ImageID = &c.ImageID.String
+	}
+	if c.ContainerType.Valid {
+		containerType := instance.ContainerType(c.ContainerType.String)
+		rval.Container = &containerType
+	}
+
+	consTags := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		consTags = append(consTags, tag.Tag)
+	}
+	// Only set constraint tags if there are tags in the database value.
+	if len(consTags) != 0 {
+		rval.Tags = &consTags
+	}
+
+	consSpaces := make([]constraints.SpaceConstraint, 0, len(spaces))
+	for _, space := range spaces {
+		consSpaces = append(consSpaces, constraints.SpaceConstraint{
+			SpaceName: space.Space,
+			Exclude:   space.Exclude,
+		})
+	}
+	// Only set constraint spaces if there are spaces in the database value.
+	if len(consSpaces) != 0 {
+		rval.Spaces = &consSpaces
+	}
+
+	consZones := make([]string, 0, len(zones))
+	for _, zone := range zones {
+		consZones = append(consZones, zone.Zone)
+	}
+	// Only set constraint zones if there are zones in the database value.
+	if len(consZones) != 0 {
+		rval.Zones = &consZones
+	}
+
+	return rval, nil
+}
+
+// dbConstraintTag represents a row from either the constraint_tag table or
+// v_model_constraint_tag view.
+type dbConstraintTag struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Tag            string `db:"tag"`
+}
+
+// dbConstraintSpace represents a row from either the constraint_space table or
+// v_model_constraint_space view.
+type dbConstraintSpace struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Space          string `db:"space"`
+	Exclude        bool   `db:"exclude"`
+}
+
+// dbConstraintZone represents a row from either the constraint_zone table or
+// v_model_constraint_zone view.
+type dbConstraintZone struct {
+	ConstraintUUID string `db:"constraint_uuid"`
+	Zone           string `db:"zone"`
+}
+
+// dbUUID represents a UUID.
+type dbUUID struct {
+	UUID string `db:"uuid"`
 }

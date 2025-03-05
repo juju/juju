@@ -15,10 +15,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
@@ -1149,6 +1151,189 @@ func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *gc.C) {
 	result, err := queryFunc(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.SameContents, []string{unitID1, unitID2})
+}
+
+func (s *unitStateSuite) TestSetConstraintFull(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	appID := s.createApplication(c, "foo", life.Alive)
+	unitUUID := s.addUnit(c, appID, u)
+
+	cons := constraints.Constraints{
+		Arch:             ptr("amd64"),
+		CpuCores:         ptr(uint64(2)),
+		CpuPower:         ptr(uint64(42)),
+		Mem:              ptr(uint64(8)),
+		RootDisk:         ptr(uint64(256)),
+		RootDiskSource:   ptr("root-disk-source"),
+		InstanceRole:     ptr("instance-role"),
+		InstanceType:     ptr("instance-type"),
+		Container:        ptr(instance.LXD),
+		VirtType:         ptr("virt-type"),
+		AllocatePublicIP: ptr(true),
+		ImageID:          ptr("image-id"),
+		Spaces: ptr([]constraints.SpaceConstraint{
+			{SpaceName: "space0", Exclude: false},
+			{SpaceName: "space1", Exclude: true},
+		}),
+		Tags:  ptr([]string{"tag0", "tag1"}),
+		Zones: ptr([]string{"zone0", "zone1"}),
+	}
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertSpace0Stmt := `INSERT INTO space (uuid, name) VALUES (?, ?)`
+		_, err := tx.ExecContext(ctx, insertSpace0Stmt, "space0-uuid", "space0")
+		if err != nil {
+			return err
+		}
+		insertSpace1Stmt := `INSERT INTO space (uuid, name) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertSpace1Stmt, "space1-uuid", "space1")
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUnitConstraints(c, unitUUID, cons)
+
+}
+
+func (s *unitStateSuite) assertUnitConstraints(c *gc.C, inUnitUUID coreunit.UUID, cons constraints.Constraints) {
+	type applicationSpace struct {
+		SpaceName    string `db:"space"`
+		SpaceExclude bool   `db:"exclude"`
+	}
+	var (
+		unitUUID                                                            string
+		constraintUUID                                                      string
+		constraintSpaces                                                    []applicationSpace
+		constraintTags                                                      []string
+		constraintZones                                                     []string
+		arch, rootDiskSource, instanceRole, instanceType, virtType, imageID string
+		cpuCores, cpuPower, mem, rootDisk                                   int
+		allocatePublicIP                                                    bool
+	)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT unit_uuid, constraint_uuid FROM unit_constraint WHERE unit_uuid=?", inUnitUUID).Scan(&unitUUID, &constraintUUID)
+		if err != nil {
+			return err
+		}
+
+		rows, err := tx.QueryContext(ctx, "SELECT space,exclude FROM constraint_space WHERE constraint_uuid=?", constraintUUID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var space applicationSpace
+			if err := rows.Scan(&space.SpaceName, &space.SpaceExclude); err != nil {
+				return err
+			}
+			constraintSpaces = append(constraintSpaces, space)
+		}
+		if rows.Err() != nil {
+			return rows.Err()
+		}
+
+		rows, err = tx.QueryContext(ctx, "SELECT tag FROM constraint_tag WHERE constraint_uuid=?", constraintUUID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var tag string
+			if err := rows.Scan(&tag); err != nil {
+				return err
+			}
+			constraintTags = append(constraintTags, tag)
+		}
+		if rows.Err() != nil {
+			return rows.Err()
+		}
+
+		rows, err = tx.QueryContext(ctx, "SELECT zone FROM constraint_zone WHERE constraint_uuid=?", constraintUUID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var zone string
+			if err := rows.Scan(&zone); err != nil {
+				return err
+			}
+			constraintZones = append(constraintZones, zone)
+		}
+
+		row := tx.QueryRowContext(ctx, "SELECT arch, cpu_cores, cpu_power, mem, root_disk, root_disk_source, instance_role, instance_type, virt_type, allocate_public_ip, image_id FROM \"constraint\" WHERE uuid=?", constraintUUID)
+		err = row.Err()
+		if err != nil {
+			return err
+		}
+		if err := row.Scan(&arch, &cpuCores, &cpuPower, &mem, &rootDisk, &rootDiskSource, &instanceRole, &instanceType, &virtType, &allocatePublicIP, &imageID); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(constraintUUID, gc.Not(gc.Equals), "")
+	c.Check(unitUUID, gc.Equals, inUnitUUID.String())
+
+	c.Check(arch, gc.Equals, *cons.Arch)
+	c.Check(uint64(cpuCores), gc.Equals, *cons.CpuCores)
+	c.Check(uint64(cpuPower), gc.Equals, *cons.CpuPower)
+	c.Check(uint64(mem), gc.Equals, *cons.Mem)
+	c.Check(uint64(rootDisk), gc.Equals, *cons.RootDisk)
+	c.Check(rootDiskSource, gc.Equals, *cons.RootDiskSource)
+	c.Check(instanceRole, gc.Equals, *cons.InstanceRole)
+	c.Check(instanceType, gc.Equals, *cons.InstanceType)
+	c.Check(virtType, gc.Equals, *cons.VirtType)
+	c.Check(allocatePublicIP, gc.Equals, *cons.AllocatePublicIP)
+	c.Check(imageID, gc.Equals, *cons.ImageID)
+
+	c.Check(constraintSpaces, jc.DeepEquals, []applicationSpace{
+		{SpaceName: "space0", SpaceExclude: false},
+		{SpaceName: "space1", SpaceExclude: true},
+	})
+	c.Check(constraintTags, jc.DeepEquals, []string{"tag0", "tag1"})
+	c.Check(constraintZones, jc.DeepEquals, []string{"zone0", "zone1"})
+}
+
+func (s *unitStateSuite) TestSetConstraintInvalidContainerType(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	appID := s.createApplication(c, "foo", life.Alive)
+	unitUUID := s.addUnit(c, appID, u)
+
+	cons := constraints.Constraints{
+		Container: ptr(instance.ContainerType("invalid-container-type")),
+	}
+	err := s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
+	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidUnitConstraints)
+}
+
+func (s *unitStateSuite) TestSetConstraintInvalidSpace(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	appID := s.createApplication(c, "foo", life.Alive)
+	unitUUID := s.addUnit(c, appID, u)
+
+	cons := constraints.Constraints{
+		Spaces: ptr([]constraints.SpaceConstraint{
+			{SpaceName: "invalid-space", Exclude: false},
+		}),
+	}
+	err := s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
+	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidUnitConstraints)
+}
+
+func (s *unitStateSuite) TestSetConstraintsUnitNotFound(c *gc.C) {
+	err := s.state.SetUnitConstraints(context.Background(), "foo", constraints.Constraints{Mem: ptr(uint64(8))})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *unitStateSuite) addUnit(c *gc.C, appID coreapplication.ID, u application.InsertUnitArg) coreunit.UUID {

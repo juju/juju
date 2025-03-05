@@ -50,6 +50,7 @@ type State interface {
 	ApplicationState
 	CharmState
 	StorageState
+	UnitState
 }
 
 const (
@@ -106,8 +107,13 @@ type AgentVersionGetter interface {
 // Provider defines the interface for interacting with the underlying model
 // provider.
 type Provider interface {
-	environs.SupportedFeatureEnumerator
 	environs.ConstraintsChecker
+}
+
+// SupportedFeatureProvider defines the interface for interacting with the
+// a model provider that satisfies the SupportedFeatureEnumerator interface.
+type SupportedFeatureProvider interface {
+	environs.SupportedFeatureEnumerator
 }
 
 // ProviderService defines a service for interacting with the underlying
@@ -118,6 +124,10 @@ type ProviderService struct {
 	modelID            coremodel.UUID
 	agentVersionGetter AgentVersionGetter
 	provider           providertracker.ProviderGetter[Provider]
+	// This provider is separated from [provider] because the
+	// [SupportedFeatureProvider] interface is only satisfied by the
+	// k8s provider.
+	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider]
 }
 
 // NewProviderService returns a new Service for interacting with a models state.
@@ -128,6 +138,7 @@ func NewProviderService(
 	modelID coremodel.UUID,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
+	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -143,9 +154,10 @@ func NewProviderService(
 			clock,
 			logger,
 		),
-		modelID:            modelID,
-		agentVersionGetter: agentVersionGetter,
-		provider:           provider,
+		modelID:                  modelID,
+		agentVersionGetter:       agentVersionGetter,
+		provider:                 provider,
+		supportedFeatureProvider: supportedFeatureProvider,
 	}
 }
 
@@ -166,14 +178,14 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 		Version:     &agentVersion,
 	})
 
-	provider, err := s.provider(ctx)
+	supportedFeatureProvider, err := s.supportedFeatureProvider(ctx)
 	if errors.Is(err, errors.NotSupported) {
 		return fs, nil
 	} else if err != nil {
 		return fs, err
 	}
 
-	envFs, err := provider.SupportedFeatures()
+	envFs, err := supportedFeatureProvider.SupportedFeatures()
 	if err != nil {
 		return fs, fmt.Errorf("enumerating features supported by environment: %w", err)
 	}
@@ -195,33 +207,42 @@ func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID c
 	if err := appID.Validate(); err != nil {
 		return internalerrors.Errorf("application ID: %w", err)
 	}
-	if err := s.validateConstraints(ctx, appID, cons); err != nil {
+	if err := s.validateConstraints(ctx, cons); err != nil {
 		return err
 	}
 
 	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
 }
 
-func (s *ProviderService) validateConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) error {
+func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstraints.Validator, error) {
 	provider, err := s.provider(ctx)
 	if errors.Is(err, errors.NotSupported) {
 		// Not validating constraints, as the provider doesn't support it.
-		return nil
+		return nil, nil
 	} else if err != nil {
-		return internalerrors.Capture(err)
+		return nil, internalerrors.Capture(err)
 	}
 
 	validator, err := provider.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(ctx))
-	if errors.Is(err, errors.NotImplemented) {
-		return nil
-	} else if err != nil {
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	return validator, nil
+}
+
+func (s *ProviderService) validateConstraints(ctx context.Context, cons coreconstraints.Value) error {
+	validator, err := s.constraintsValidator(ctx)
+	if err != nil {
 		return internalerrors.Capture(err)
+	} else if validator == nil {
+		return nil
 	}
 
 	unsupported, err := validator.Validate(cons)
 	if len(unsupported) > 0 {
 		s.logger.Warningf(ctx,
-			"setting constraints on application %q: unsupported constraints: %v", appID.String(), strings.Join(unsupported, ","))
+			"unsupported constraints: %v", strings.Join(unsupported, ","))
 	} else if err != nil {
 		return internalerrors.Capture(err)
 	}
@@ -245,6 +266,7 @@ func NewWatchableService(
 	watcherFactory WatcherFactory,
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
+	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -258,6 +280,7 @@ func NewWatchableService(
 			modelID,
 			agentVersionGetter,
 			provider,
+			supportedFeatureProvider,
 			charmStore,
 			statusHistory,
 			clock,

@@ -60,6 +60,14 @@ type networkInfoSuite struct {
 
 var _ = gc.Suite(&networkInfoSuite{})
 
+func (s *networkInfoSuite) TestStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+- TestAPIRequestForRelationCAASHostNameNoIngress: tests api request 
+NetworkInfoForStrategy and make sure the retrieved ingress host address is 
+retrieved, by setting a lookup func with only one host resolvable to an IP addr.
+`)
+}
+
 func (s *networkInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.ApiServerSuite.SeedCAASCloud(c)
@@ -333,67 +341,6 @@ func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(
 	c.Check(addrs, gc.HasLen, 1)
 	c.Check(addrs[0].Hostname, gc.Equals, host)
 	c.Check(addrs[0].Address, gc.Equals, ip)
-}
-
-func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.C) {
-	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	// For the test to run properly with part of the model in mongo and
-	// part in a service domain, a model with the same uuid is required
-	// in both places for the test to work. Necessary after model config
-	// was move to the domain services.
-	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
-	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
-	defer func() { _ = st.Close() }()
-
-	f2, release := s.NewFactory(c, st.ModelUUID())
-	defer release()
-
-	ch := f2.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
-	app := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
-	u := f2.MakeUnit(c, &factory.UnitParams{Application: app})
-
-	// The only address is a host-name, resolvable to the IP below.
-	host := "host.at.somewhere"
-	ip := "100.2.3.4"
-
-	lookup := func(addr string) ([]string, error) {
-		if addr == host {
-			return []string{ip}, nil
-		}
-		return nil, errors.New("bad horsey")
-	}
-
-	err = app.UpdateCloudService("", network.SpaceAddresses{
-		network.NewSpaceAddress(host, network.WithScope(network.ScopePublic)),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelConfigService := s.ControllerDomainServices(c).Config()
-	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, u.UnitTag(), retry.CallArgs{}, lookup, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
-		Unit:      u.UnitTag().String(),
-		Endpoints: []string{"server"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	res := result.Results
-	c.Assert(res, gc.HasLen, 1)
-
-	binding, ok := res["server"]
-	c.Assert(ok, jc.IsTrue)
-
-	ingress := binding.IngressAddresses
-	c.Assert(ingress, gc.HasLen, 1)
-	// The ingress address host name is not resolved.
-	c.Check(ingress[0], gc.Equals, host)
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {

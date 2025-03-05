@@ -222,6 +222,12 @@ const (
 	// provided space constraints do not exist or the container type is not
 	// supported.
 	InvalidApplicationConstraints = errors.ConstError("invalid application constraints")
+
+	// InvalidUnitConstraints describes an error that occurs when the
+	// application constraints are not valid. This happens when if the
+	// provided space constraints do not exist or the container type is not
+	// supported.
+	InvalidUnitConstraints = errors.ConstError("invalid unit constraints")
 )
 
 const (

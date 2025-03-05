@@ -2283,6 +2283,7 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 		nil,
 		nil,
 		nil,
+		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		s.clock,
 		loggertesting.WrapCheckLog(c),
@@ -2304,7 +2305,7 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *gc.C) {
 	agentVersion := version.MustParse("4.0.0")
 	s.agentVersionGetter.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
 
-	s.provider.EXPECT().SupportedFeatures().Return(assumes.FeatureSet{}, nil)
+	s.supportedFeaturesProvider.EXPECT().SupportedFeatures().Return(assumes.FeatureSet{}, nil)
 
 	features, err := s.service.GetSupportedFeatures(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -2321,6 +2322,8 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *gc.C) {
 func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, jujuerrors.NotSupported
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, jujuerrors.NotSupported
 	})
 	defer ctrl.Finish()
 
@@ -2356,26 +2359,13 @@ func (s *providerServiceSuite) TestSetApplicationConstraintsInvalidAppID(c *gc.C
 func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, jujuerrors.NotSupported
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, jujuerrors.NotSupported
 	})
 	defer ctrl.Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{}).Return(nil)
-
-	err := s.service.SetApplicationConstraints(context.Background(), id, coreconstraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *providerServiceSuite) TestSetConstraintsValidatorNotImplemented(c *gc.C) {
-	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
-		return s.provider, nil
-	})
-	defer ctrl.Finish()
-
-	id := applicationtesting.GenApplicationUUID(c)
-
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, jujuerrors.NotImplemented)
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, constraints.Constraints{}).Return(nil)
 
 	err := s.service.SetApplicationConstraints(context.Background(), id, coreconstraints.Value{})
@@ -2385,6 +2375,8 @@ func (s *providerServiceSuite) TestSetConstraintsValidatorNotImplemented(c *gc.C
 func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
 	})
 	defer ctrl.Finish()
 
@@ -2399,6 +2391,8 @@ func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *gc.C) {
 func (s *providerServiceSuite) TestSetConstraintsValidateError(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
 	})
 	defer ctrl.Finish()
 
@@ -2415,6 +2409,8 @@ func (s *providerServiceSuite) TestSetConstraintsValidateError(c *gc.C) {
 func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
 	})
 	defer ctrl.Finish()
 
@@ -2433,6 +2429,8 @@ func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *gc.C) {
 func (s *providerServiceSuite) TestSetConstraints(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
 	})
 	defer ctrl.Finish()
 
