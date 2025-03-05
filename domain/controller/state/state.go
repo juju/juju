@@ -95,6 +95,7 @@ WHERE  uuid = $controllerModel.uuid
 	return m.Activated, err
 }
 
+// AllModelActivationStatusQuery returns a SQL statement that will return all model activated status.
 func (st *State) AllModelActivationStatusQuery() string {
 	return "SELECT activated from model"
 }

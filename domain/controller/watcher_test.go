@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/controller/service"
@@ -32,7 +33,7 @@ func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 
-type model struct {
+type dbModel struct {
 	UUID        string `db:"uuid"`
 	Activated   bool   `db:"activated"`
 	ModelTypeID int    `db:"model_type_id"`
@@ -54,77 +55,122 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watcher, gc.NotNil)
 
-	// Create a new model named test-model.
 	modelName := "test-model"
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), modelName)
-	modelUUIDStr := modelUUID.String()
+	var modelUUID model.UUID
+	var modelUUIDStr string
 
-	// Set model activated status to false.
-	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", false, modelUUID)
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	harness.AddTest(func(c *gc.C) {
+		// Create a new model named test-model. This should not trigger a change event as activation status is false.
+		modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), modelName)
+		modelUUIDStr = modelUUID.String()
+
+		// Set model activated status to false. This should not trigger a change event as activation status is false.
+		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", false, modelUUID)
+			c.Assert(err, jc.ErrorIsNil)
+			rowsAffected, err := res.RowsAffected()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(int(rowsAffected), gc.Equals, 1)
+			return nil
+		})
+
+		// Ensure that the initial activated status of model is indeed false.
+		var testModel dbModel
+		row := s.DB().QueryRow(`SELECT activated FROM model WHERE uuid = ?`, modelUUIDStr)
+		err = row.Scan(&testModel.Activated)
 		c.Assert(err, jc.ErrorIsNil)
-		rowsAffected, err := res.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(int(rowsAffected), gc.Equals, 1)
-		return nil
+		c.Check(testModel.Activated, jc.IsFalse)
+
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Get the change.
+		w.AssertNoChange()
 	})
 
-	// Ensure that the initial activated status of model is false.
-	var testModel model
-	row := s.DB().QueryRow(`SELECT activated FROM model WHERE  uuid = ?`, modelUUIDStr)
-	err = row.Scan(&testModel.Activated)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testModel.Activated, jc.IsFalse)
+	harness.AddTest(func(c *gc.C) {
+		// Update model active status.
+		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			// Update activated status of model. This should trigger a change event.
+			res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", true, modelUUIDStr)
+			c.Assert(err, jc.ErrorIsNil)
+			rowsAffected, err := res.RowsAffected()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(int(rowsAffected), gc.Equals, 1)
+			return nil
+		})
 
-	wc := watchertest.NewNotifyWatcherC(c, watcher)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(
+				modelUUIDStr,
+			),
+		)
+	})
 
-	// Tests that the watcher sends a change when any model field is updated.
-	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	harness.AddTest(func(c *gc.C) {
+		// Update model active status.
+		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			// Update name of model. This should trigger a change event.
+			res, err := tx.ExecContext(ctx, "UPDATE model SET name = ? WHERE uuid = ?", "new-test-model", modelUUIDStr)
+			c.Assert(err, jc.ErrorIsNil)
+			rowsAffected, err := res.RowsAffected()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(int(rowsAffected), gc.Equals, 1)
 
-		// Update activated status of model.
-		res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", true, modelUUIDStr)
-		c.Assert(err, jc.ErrorIsNil)
-		rowsAffected, err := res.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
-		// Update name of model.
-		res, err = tx.ExecContext(ctx, "UPDATE model SET name = ? WHERE uuid = ?", "new-test-model", modelUUIDStr)
-		c.Assert(err, jc.ErrorIsNil)
-		rowsAffected, err = res.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
-		selectModelQuery := `
+			// Checks if model activated status is updated to true successfully.
+			selectModelQuery := `
 			SELECT uuid, activated, model_type_id, name, cloud_uuid, life_id, owner_uuid 
 			FROM model 
-			WHERE uuid = ?
-		`
-		row := tx.QueryRow(selectModelQuery, modelUUIDStr)
-		err = row.Scan(&testModel.UUID, &testModel.Activated, &testModel.ModelTypeID, &testModel.Name, &testModel.CloudUUID, &testModel.LifeID, &testModel.OwnerUUID)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(testModel.UUID, gc.Equals, modelUUIDStr)
-		c.Check(testModel.Activated, jc.IsTrue)
+			WHERE uuid = ?`
+			var testModel dbModel
+			row := tx.QueryRow(selectModelQuery, modelUUIDStr)
+			err = row.Scan(&testModel.UUID, &testModel.Activated, &testModel.ModelTypeID, &testModel.Name, &testModel.CloudUUID, &testModel.LifeID, &testModel.OwnerUUID)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(testModel.UUID, gc.Equals, modelUUIDStr)
+			c.Check(testModel.Activated, jc.IsTrue)
+			return nil
+		})
 
-		// Insert into table that is not model. This should not trigger a change event.
-		res, err = tx.ExecContext(ctx, "INSERT into cloud_type (id, type) values (100, 'testing')")
-		c.Assert(err, jc.ErrorIsNil)
-		rowsAffected, err = res.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
-		// Update table that is not model. This should not trigger a change event.
-		res, err = tx.ExecContext(ctx, "UPDATE cloud_type SET type = 'test' WHERE id = 100")
-		c.Assert(err, jc.ErrorIsNil)
-		rowsAffected, err = res.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(int(rowsAffected), gc.Equals, 1)
-
-		return nil
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(
+				modelUUIDStr,
+			),
+		)
 	})
-	wc.AssertNChanges(2)
 
-	// Tests that the watcher sends a change when a model is deleted.
-	modeltesting.DeleteTestModel(c, context.Background(), s.TxnRunnerFactory(), modelUUID)
-	wc.AssertOneChange()
+	harness.AddTest(func(c *gc.C) {
+		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			// Insert into table that is not model. This should not trigger a change event.
+			res, err := tx.ExecContext(ctx, "INSERT into cloud_type (id, type) values (100, 'testing')")
+			c.Assert(err, jc.ErrorIsNil)
+			rowsAffected, err := res.RowsAffected()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(int(rowsAffected), gc.Equals, 1)
+
+			// Update table that is not model. This should not trigger a change event.
+			res, err = tx.ExecContext(ctx, "UPDATE cloud_type SET type = 'test' WHERE id = 100")
+			c.Assert(err, jc.ErrorIsNil)
+			rowsAffected, err = res.RowsAffected()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(int(rowsAffected), gc.Equals, 1)
+			return nil
+		})
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	harness.AddTest(func(c *gc.C) {
+		// Deletes model from table. This should trigger a change event.
+		modeltesting.DeleteTestModel(c, context.Background(), s.TxnRunnerFactory(), modelUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert(
+				modelUUIDStr,
+			),
+		)
+	})
+
+	harness.Run(c, []string(nil))
 }
