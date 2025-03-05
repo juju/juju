@@ -112,7 +112,7 @@ func (i *importOperation) Execute(
 			)
 		}
 
-		modelUUID := coremodel.UUID(model.Tag().Id())
+		modelUUID := coremodel.UUID(model.UUID())
 		if err := modelUUID.Validate(); err != nil {
 			return errors.Errorf(
 				"importing authorized keys for model %q: %w", modelUUID, err,
@@ -196,7 +196,7 @@ func (i *importOperation) executeModelConfigAuthorizedKeys(
 		)
 	}
 
-	modelUUID := coremodel.UUID(model.Tag().Id())
+	modelUUID := coremodel.UUID(model.UUID())
 	if err := modelUUID.Validate(); err != nil {
 		return errors.Errorf(
 			"importing authorized keys for model %q: %w", modelUUID, err,

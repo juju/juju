@@ -42,10 +42,10 @@ func (s *ExternalControllerUpdaterSuite) SetUpTest(c *gc.C) {
 	s.updater = mockExternalControllerUpdaterClient{
 		watcher: newMockStringsWatcher(),
 		info: crossmodel.ControllerInfo{
-			ControllerTag: coretesting.ControllerTag,
-			Alias:         "foo",
-			Addrs:         []string{"bar"},
-			CACert:        "baz",
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			Alias:          "foo",
+			Addrs:          []string{"bar"},
+			CACert:         "baz",
 		},
 	}
 	s.AddCleanup(func(*gc.C) { s.updater.watcher.Stop() })
@@ -132,10 +132,10 @@ func (s *ExternalControllerUpdaterSuite) assertWatchExternalControllersStart(c *
 	}, {
 		FuncName: "SetExternalControllerInfo",
 		Args: []interface{}{crossmodel.ControllerInfo{
-			ControllerTag: s.updater.info.ControllerTag,
-			Alias:         s.updater.info.Alias,
-			Addrs:         s.watcher.info.Addrs, // new addrs
-			CACert:        s.updater.info.CACert,
+			ControllerUUID: s.updater.info.ControllerUUID,
+			Alias:          s.updater.info.Alias,
+			Addrs:          s.watcher.info.Addrs, // new addrs
+			CACert:         s.updater.info.CACert,
 		}},
 	}})
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {

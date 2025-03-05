@@ -190,15 +190,22 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 		return errors.Errorf("importing model during migration %w", coreerrors.NotValid)
 	}
 
-	user, err := i.userService.GetUserByName(ctx, coreuser.NameFromTag(model.Owner()))
+	owner, err := coreuser.NewName(model.Owner())
+	if err != nil {
+		return errors.Errorf(
+			"importing model %q with uuid %q: invalid owner: %w",
+			modelName, modelID, err)
+
+	}
+	user, err := i.userService.GetUserByName(ctx, owner)
 	if errors.Is(err, accesserrors.UserNotFound) {
-		return errors.Errorf("cannot import model %q with uuid %q, %w for name %q",
-			modelName, modelID, accesserrors.UserNotFound, model.Owner().Name(),
+		return errors.Errorf("importing model %q with uuid %q, %w for name %q",
+			modelName, modelID, accesserrors.UserNotFound, model.Owner(),
 		)
 	} else if err != nil {
 		return errors.Errorf(
 			"importing model %q with uuid %q during migration, finding user %q: %w",
-			modelName, modelID, model.Owner().Name(), err,
+			modelName, modelID, model.Owner(), err,
 		)
 	}
 
@@ -210,7 +217,7 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 		cred.Owner, err = coreuser.NewName(model.CloudCredential().Owner())
 		if err != nil {
 			return errors.Errorf(
-				"cannot import model %q with uuid %q: model cloud credential owner: %w",
+				"importing model %q with uuid %q: model cloud credential owner: %w",
 				modelName, modelID, err)
 		}
 	}
@@ -220,13 +227,13 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 	agentVersionStr, ok := model.Config()[config.AgentVersionKey].(string)
 	if !ok {
 		return errors.Errorf(
-			"cannot import model %q with uuid %q: agent-version missing from model config",
+			"importing model %q with uuid %q: agent-version missing from model config",
 			modelName, modelID)
 	}
 	agentVersion, err := version.Parse(agentVersionStr)
 	if err != nil {
 		return errors.Errorf(
-			"cannot import model %q with uuid %q: cannot parse agent-version: %w",
+			"importing model %q with uuid %q: cannot parse agent-version: %w",
 			modelName, modelID, err)
 	}
 
@@ -355,7 +362,7 @@ func (i *importModelConstraintsOperation) Execute(
 		return nil
 	}
 
-	modelUUID := coremodel.UUID(model.Tag().Id())
+	modelUUID := coremodel.UUID(model.UUID())
 	err := i.modelDetailServiceFunc(modelUUID).SetModelConstraints(ctx, cons)
 
 	if err != nil {

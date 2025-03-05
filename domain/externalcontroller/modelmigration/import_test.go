@@ -8,7 +8,6 @@ import (
 	"errors"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -60,7 +59,7 @@ func (s *importSuite) TestExecuteMultipleExternalControllers(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	model.AddExternalController(
 		description.ExternalControllerArgs{
-			Tag:    names.NewControllerTag("ctrl1"),
+			ID:     "ctrl1",
 			Addrs:  []string{"192.168.1.1:8080"},
 			Alias:  "external ctrl1",
 			CACert: "ca-cert-1",
@@ -69,7 +68,7 @@ func (s *importSuite) TestExecuteMultipleExternalControllers(c *gc.C) {
 	)
 	model.AddExternalController(
 		description.ExternalControllerArgs{
-			Tag:    names.NewControllerTag("ctrl2"),
+			ID:     "ctrl2",
 			Addrs:  []string{"192.168.1.1:8080"},
 			Alias:  "external ctrl2",
 			CACert: "ca-cert-2",
@@ -79,18 +78,18 @@ func (s *importSuite) TestExecuteMultipleExternalControllers(c *gc.C) {
 
 	expectedCtrls := []crossmodel.ControllerInfo{
 		{
-			ControllerTag: names.NewControllerTag("ctrl1"),
-			Addrs:         []string{"192.168.1.1:8080"},
-			Alias:         "external ctrl1",
-			CACert:        "ca-cert-1",
-			ModelUUIDs:    []string{"model1", "model2"},
+			ControllerUUID: "ctrl1",
+			Addrs:          []string{"192.168.1.1:8080"},
+			Alias:          "external ctrl1",
+			CACert:         "ca-cert-1",
+			ModelUUIDs:     []string{"model1", "model2"},
 		},
 		{
-			ControllerTag: names.NewControllerTag("ctrl2"),
-			Addrs:         []string{"192.168.1.1:8080"},
-			Alias:         "external ctrl2",
-			CACert:        "ca-cert-2",
-			ModelUUIDs:    []string{"model3", "model4"},
+			ControllerUUID: "ctrl2",
+			Addrs:          []string{"192.168.1.1:8080"},
+			Alias:          "external ctrl2",
+			CACert:         "ca-cert-2",
+			ModelUUIDs:     []string{"model3", "model4"},
 		},
 	}
 	s.service.EXPECT().ImportExternalControllers(gomock.All(), expectedCtrls).Times(1)
@@ -107,7 +106,7 @@ func (s *importSuite) TestExecuteReturnsError(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	model.AddExternalController(
 		description.ExternalControllerArgs{
-			Tag:    names.NewControllerTag("ctrl1"),
+			ID:     "ctrl1",
 			Addrs:  []string{"192.168.1.1:8080"},
 			Alias:  "external ctrl1",
 			CACert: "ca-cert-1",
@@ -117,11 +116,11 @@ func (s *importSuite) TestExecuteReturnsError(c *gc.C) {
 
 	expectedCtrls := []crossmodel.ControllerInfo{
 		{
-			ControllerTag: names.NewControllerTag("ctrl1"),
-			Addrs:         []string{"192.168.1.1:8080"},
-			Alias:         "external ctrl1",
-			CACert:        "ca-cert-1",
-			ModelUUIDs:    []string{"model1", "model2"},
+			ControllerUUID: "ctrl1",
+			Addrs:          []string{"192.168.1.1:8080"},
+			Alias:          "external ctrl1",
+			CACert:         "ca-cert-1",
+			ModelUUIDs:     []string{"model1", "model2"},
 		},
 	}
 	s.service.EXPECT().ImportExternalControllers(gomock.All(), expectedCtrls).

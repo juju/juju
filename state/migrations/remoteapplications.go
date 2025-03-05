@@ -95,10 +95,10 @@ func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSour
 	url, _ := app.URL()
 
 	args := description.RemoteApplicationArgs{
-		Tag:             app.Tag().(names.ApplicationTag),
+		Name:            app.Tag().Id(),
 		OfferUUID:       app.OfferUUID(),
 		URL:             url,
-		SourceModel:     app.SourceModel(),
+		SourceModelUUID: app.SourceModel().Id(),
 		IsConsumerProxy: app.IsConsumerProxy(),
 		Macaroon:        app.Macaroon(),
 		ConsumeVersion:  app.ConsumeVersion(),

@@ -449,11 +449,11 @@ func (api *API) UpdateControllersForModels(ctx context.Context, args params.Upda
 		}
 
 		controller := crossmodel.ControllerInfo{
-			ControllerTag: controllerTag,
-			Alias:         cInfo.Alias,
-			Addrs:         cInfo.Addrs,
-			CACert:        cInfo.CACert,
-			ModelUUIDs:    []string{modelTag.Id()},
+			ControllerUUID: controllerTag.Id(),
+			Alias:          cInfo.Alias,
+			Addrs:          cInfo.Addrs,
+			CACert:         cInfo.CACert,
+			ModelUUIDs:     []string{modelTag.Id()},
 		}
 
 		if err := api.ecService.UpdateExternalController(ctx, controller); err != nil {

@@ -543,8 +543,8 @@ func (b *BundleAPI) bundleDataApplications(
 			} else {
 				numUnits = len(application.Units())
 				for _, unit := range application.Units() {
-					machineID := unit.Machine().Id()
-					unitMachine := unit.Machine()
+					machineID := unit.Machine()
+					unitMachine := names.NewMachineTag(machineID)
 					if names.IsContainerMachine(machineID) {
 						machineIds.Add(unitMachine.Parent().Id())
 						id := unitMachine.ContainerType() + ":" + unitMachine.Parent().Id()
@@ -640,7 +640,7 @@ func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineId
 	usedBases := set.NewStrings()
 	machineData := make(map[string]*charm.MachineSpec)
 	for _, machine := range machines {
-		if !machineIds.Contains(machine.Tag().Id()) {
+		if !machineIds.Contains(machine.Id()) {
 			continue
 		}
 		macBase, err := corebase.ParseBaseFromString(machine.Base())

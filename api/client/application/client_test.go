@@ -551,10 +551,10 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 		ApplicationAlias: "alias",
 		Macaroon:         mac,
 		ControllerInfo: &crossmodel.ControllerInfo{
-			ControllerTag: coretesting.ControllerTag,
-			Alias:         "controller-alias",
-			Addrs:         controllerInfo.Addrs,
-			CACert:        controllerInfo.CACert,
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			Alias:          "controller-alias",
+			Addrs:          controllerInfo.Addrs,
+			CACert:         controllerInfo.CACert,
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

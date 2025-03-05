@@ -8,7 +8,6 @@ import (
 	"errors"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -47,7 +46,7 @@ func (s *exportSuite) TestFailGetInstanceIDForExport(c *gc.C) {
 	dst := description.NewModel(description.ModelArgs{})
 	machineNames := []coremachine.Name{"deadbeef"}
 	dst.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag(string(machineNames[0])),
+		Id: string(machineNames[0]),
 	})
 
 	machineUUIDs := []string{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
@@ -67,7 +66,7 @@ func (s *exportSuite) TestFailGetHardwareCharacteristicsForExport(c *gc.C) {
 	dst := description.NewModel(description.ModelArgs{})
 	machineNames := []coremachine.Name{"deadbeef"}
 	dst.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag(string(machineNames[0])),
+		Id: string(machineNames[0]),
 	})
 
 	machineUUIDs := []string{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}
@@ -89,7 +88,7 @@ func (s *exportSuite) TestExport(c *gc.C) {
 	dst := description.NewModel(description.ModelArgs{})
 	machineNames := []coremachine.Name{"deadbeef"}
 	dst.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag(string(machineNames[0])),
+		Id: string(machineNames[0]),
 	})
 
 	machineUUIDs := []string{"deadbeef-0bad-400d-8000-4b1d0d06f00d"}

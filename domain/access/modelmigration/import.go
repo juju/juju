@@ -73,14 +73,17 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import on the model user permissions contained in the model.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	modelUUID := model.Tag().Id()
+	modelUUID := model.UUID()
 	for _, u := range model.Users() {
-		name := user.NameFromTag(u.Name())
+		name, err := user.NewName(u.Name())
+		if err != nil {
+			return errors.Annotatef(err, "importing access for user %q", u.Name())
+		}
 		access := corepermission.Access(u.Access())
 		if err := access.Validate(); err != nil {
 			return errors.Annotatef(err, "importing access for user %q", name)
 		}
-		_, err := i.service.CreatePermission(ctx, corepermission.UserAccessSpec{
+		_, err = i.service.CreatePermission(ctx, corepermission.UserAccessSpec{
 			AccessSpec: corepermission.AccessSpec{
 				Target: corepermission.ID{
 					ObjectType: corepermission.Model,

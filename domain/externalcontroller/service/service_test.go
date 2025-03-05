@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -32,11 +31,11 @@ func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *gc.C) {
 	m2 := uuid.MustNewUUID().String()
 
 	ec := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
-		Alias:         "that-other-controller",
-		Addrs:         []string{"10.10.10.10"},
-		CACert:        "random-cert-string",
-		ModelUUIDs:    []string{m1, m2},
+		ControllerUUID: uuid.MustNewUUID().String(),
+		Alias:          "that-other-controller",
+		Addrs:          []string{"10.10.10.10"},
+		CACert:         "random-cert-string",
+		ModelUUIDs:     []string{m1, m2},
 	}
 
 	s.state.EXPECT().UpdateExternalController(gomock.Any(), ec).Return(nil)
@@ -49,10 +48,10 @@ func (s *serviceSuite) TestUpdateExternalControllerError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ec := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
-		Alias:         "that-other-controller",
-		Addrs:         []string{"10.10.10.10"},
-		CACert:        "random-cert-string",
+		ControllerUUID: uuid.MustNewUUID().String(),
+		Alias:          "that-other-controller",
+		Addrs:          []string{"10.10.10.10"},
+		CACert:         "random-cert-string",
 	}
 
 	s.state.EXPECT().UpdateExternalController(gomock.Any(), ec).Return(errors.New("boom"))
@@ -66,10 +65,10 @@ func (s *serviceSuite) TestRetrieveExternalControllerSuccess(c *gc.C) {
 
 	ctrlUUID := uuid.MustNewUUID().String()
 	ec := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(ctrlUUID),
-		Alias:         "that-other-controller",
-		Addrs:         []string{"10.10.10.10"},
-		CACert:        "random-cert-string",
+		ControllerUUID: ctrlUUID,
+		Alias:          "that-other-controller",
+		Addrs:          []string{"10.10.10.10"},
+		CACert:         "random-cert-string",
 	}
 
 	s.state.EXPECT().Controller(gomock.Any(), ctrlUUID).Return(&ec, nil)
@@ -95,10 +94,10 @@ func (s *serviceSuite) TestRetrieveExternalControllerForModelSuccess(c *gc.C) {
 	modelUUID := uuid.MustNewUUID().String()
 	ec := []crossmodel.ControllerInfo{
 		{
-			ControllerTag: names.NewControllerTag(modelUUID),
-			Alias:         "that-other-controller",
-			Addrs:         []string{"10.10.10.10"},
-			CACert:        "random-cert-string",
+			ControllerUUID: modelUUID,
+			Alias:          "that-other-controller",
+			Addrs:          []string{"10.10.10.10"},
+			CACert:         "random-cert-string",
 		},
 	}
 

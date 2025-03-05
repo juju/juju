@@ -57,10 +57,10 @@ func (s *ExternalControllerUpdaterSuite) TestExternalControllerInfo(c *gc.C) {
 	info, err := client.ExternalControllerInfo(context.Background(), coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &crossmodel.ControllerInfo{
-		ControllerTag: coretesting.ControllerTag,
-		Alias:         "foo",
-		Addrs:         []string{"bar"},
-		CACert:        "baz",
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		Alias:          "foo",
+		Addrs:          []string{"bar"},
+		CACert:         "baz",
 	})
 }
 
@@ -105,10 +105,10 @@ func (s *ExternalControllerUpdaterSuite) TestSetExternalControllerInfo(c *gc.C) 
 	})
 	client := externalcontrollerupdater.New(apiCaller)
 	err := client.SetExternalControllerInfo(context.Background(), crossmodel.ControllerInfo{
-		ControllerTag: coretesting.ControllerTag,
-		Alias:         "foo",
-		Addrs:         []string{"bar"},
-		CACert:        "baz",
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		Alias:          "foo",
+		Addrs:          []string{"bar"},
+		CACert:         "baz",
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

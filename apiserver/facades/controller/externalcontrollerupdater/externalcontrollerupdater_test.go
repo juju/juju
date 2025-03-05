@@ -42,10 +42,10 @@ func (s *CrossControllerSuite) TestExternalControllerInfo(c *gc.C) {
 	ctrlTag, err := names.ParseControllerTag(coretesting.ControllerTag.String())
 	c.Assert(err, jc.ErrorIsNil)
 	ecService.EXPECT().Controller(gomock.Any(), ctrlTag.Id()).Return(&crossmodel.ControllerInfo{
-		ControllerTag: coretesting.ControllerTag,
-		Alias:         "foo",
-		Addrs:         []string{"bar"},
-		CACert:        "baz",
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		Alias:          "foo",
+		Addrs:          []string{"bar"},
+		CACert:         "baz",
 	}, nil)
 
 	modelTag, err := names.ParseControllerTag("controller-" + coretesting.ModelTag.Id())
@@ -95,16 +95,16 @@ func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ecService.EXPECT().UpdateExternalController(gomock.Any(), crossmodel.ControllerInfo{
-		ControllerTag: firstControllerTagParsed,
-		Alias:         "foo",
-		Addrs:         []string{"bar"},
-		CACert:        "baz",
+		ControllerUUID: firstControllerTagParsed.Id(),
+		Alias:          "foo",
+		Addrs:          []string{"bar"},
+		CACert:         "baz",
 	})
 	ecService.EXPECT().UpdateExternalController(gomock.Any(), crossmodel.ControllerInfo{
-		ControllerTag: secondControllerTagParsed,
-		Alias:         "qux",
-		Addrs:         []string{"quux"},
-		CACert:        "quuz",
+		ControllerUUID: secondControllerTagParsed.Id(),
+		Alias:          "qux",
+		Addrs:          []string{"quux"},
+		CACert:         "quuz",
 	})
 
 	api, err := externalcontrollerupdater.NewAPI(s.resources, ecService)

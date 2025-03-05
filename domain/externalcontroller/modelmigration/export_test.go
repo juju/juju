@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -44,16 +43,16 @@ func (s *exportSuite) TestExportExternalController(c *gc.C) {
 	modelUUID := "model-uuid-1"
 	dst := description.NewModel(description.ModelArgs{})
 	dst.AddRemoteApplication(description.RemoteApplicationArgs{
-		SourceModel: names.NewModelTag(modelUUID),
+		SourceModelUUID: modelUUID,
 	})
 	ctrlUUID := "ctrl-uuid-1"
 	extCtrlModel := []crossmodel.ControllerInfo{
 		{
-			ControllerTag: names.NewControllerTag(ctrlUUID),
-			Addrs:         []string{"192.168.1.1:8080"},
-			Alias:         "external ctrl1",
-			CACert:        "ca-cert-1",
-			ModelUUIDs:    []string{"model1", "model2"},
+			ControllerUUID: ctrlUUID,
+			Addrs:          []string{"192.168.1.1:8080"},
+			Alias:          "external ctrl1",
+			CACert:         "ca-cert-1",
+			ModelUUIDs:     []string{"model1", "model2"},
 		},
 	}
 	s.service.EXPECT().ControllersForModels(gomock.Any(), []string{modelUUID}).
@@ -69,7 +68,7 @@ func (s *exportSuite) TestExportExternalController(c *gc.C) {
 	// Assert that the destination description model has one external
 	// controller after the migration:
 	c.Check(dst.ExternalControllers(), gc.HasLen, 1)
-	c.Assert(dst.ExternalControllers()[0].ID().Id(), gc.Equals, ctrlUUID)
+	c.Assert(dst.ExternalControllers()[0].ID(), gc.Equals, ctrlUUID)
 	c.Assert(dst.ExternalControllers()[0].Addrs(), jc.SameContents, []string{"192.168.1.1:8080"})
 	c.Assert(dst.ExternalControllers()[0].Alias(), gc.Equals, "external ctrl1")
 	c.Assert(dst.ExternalControllers()[0].CACert(), gc.Equals, "ca-cert-1")
@@ -83,19 +82,19 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 	dst := description.NewModel(description.ModelArgs{})
 	// We add two remote applications with the same source model:
 	dst.AddRemoteApplication(description.RemoteApplicationArgs{
-		SourceModel: names.NewModelTag(modelUUID),
+		SourceModelUUID: modelUUID,
 	})
 	dst.AddRemoteApplication(description.RemoteApplicationArgs{
-		SourceModel: names.NewModelTag(modelUUID),
+		SourceModelUUID: modelUUID,
 	})
 	ctrlUUID := "ctrl-uuid-1"
 	extCtrlModel := []crossmodel.ControllerInfo{
 		{
-			ControllerTag: names.NewControllerTag(ctrlUUID),
-			Addrs:         []string{"192.168.1.1:8080"},
-			Alias:         "external ctrl1",
-			CACert:        "ca-cert-1",
-			ModelUUIDs:    []string{"model1", "model2"},
+			ControllerUUID: ctrlUUID,
+			Addrs:          []string{"192.168.1.1:8080"},
+			Alias:          "external ctrl1",
+			CACert:         "ca-cert-1",
+			ModelUUIDs:     []string{"model1", "model2"},
 		},
 	}
 	// But only once controller should be returned since the model is
@@ -113,7 +112,7 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 	// Assert that the destination description model has one external
 	// controller after the migration:
 	c.Assert(dst.ExternalControllers(), gc.HasLen, 1)
-	c.Assert(dst.ExternalControllers()[0].ID().Id(), gc.Equals, ctrlUUID)
+	c.Assert(dst.ExternalControllers()[0].ID(), gc.Equals, ctrlUUID)
 	c.Assert(dst.ExternalControllers()[0].Addrs(), jc.SameContents, []string{"192.168.1.1:8080"})
 	c.Assert(dst.ExternalControllers()[0].Alias(), gc.Equals, "external ctrl1")
 	c.Assert(dst.ExternalControllers()[0].CACert(), gc.Equals, "ca-cert-1")
@@ -128,19 +127,19 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 	dst := description.NewModel(description.ModelArgs{})
 	// We add two remote applications with the same source model:
 	dst.AddRemoteApplication(description.RemoteApplicationArgs{
-		SourceModel: names.NewModelTag(modelUUID1),
+		SourceModelUUID: modelUUID1,
 	})
 	dst.AddRemoteApplication(description.RemoteApplicationArgs{
-		SourceModel: names.NewModelTag(modelUUID2),
+		SourceModelUUID: modelUUID2,
 	})
 	ctrlUUID := "ctrl-uuid-1"
 	extCtrlModel := []crossmodel.ControllerInfo{
 		{
-			ControllerTag: names.NewControllerTag(ctrlUUID),
-			Addrs:         []string{"192.168.1.1:8080"},
-			Alias:         "external ctrl1",
-			CACert:        "ca-cert-1",
-			ModelUUIDs:    []string{"model1", "model2"},
+			ControllerUUID: ctrlUUID,
+			Addrs:          []string{"192.168.1.1:8080"},
+			Alias:          "external ctrl1",
+			CACert:         "ca-cert-1",
+			ModelUUIDs:     []string{"model1", "model2"},
 		},
 	}
 	// But only once controller should be returned since the model is
@@ -158,7 +157,7 @@ func (s *exportSuite) TestExportExternalControllerRequestsExternalControllerOnce
 	// Assert that the destination description model has one external
 	// controller after the migration:
 	c.Assert(dst.ExternalControllers(), gc.HasLen, 1)
-	c.Assert(dst.ExternalControllers()[0].ID().Id(), gc.Equals, ctrlUUID)
+	c.Assert(dst.ExternalControllers()[0].ID(), gc.Equals, ctrlUUID)
 	c.Assert(dst.ExternalControllers()[0].Addrs(), jc.SameContents, []string{"192.168.1.1:8080"})
 	c.Assert(dst.ExternalControllers()[0].Alias(), gc.Equals, "external ctrl1")
 	c.Assert(dst.ExternalControllers()[0].CACert(), gc.Equals, "ca-cert-1")
@@ -171,7 +170,7 @@ func (s *exportSuite) TestExportExternalControllerWithNoControllerNotFound(c *gc
 	modelUUID := "model-uuid-1"
 	dst := description.NewModel(description.ModelArgs{})
 	dst.AddRemoteApplication(description.RemoteApplicationArgs{
-		SourceModel: names.NewModelTag(modelUUID),
+		SourceModelUUID: modelUUID,
 	})
 
 	s.service.EXPECT().ControllersForModels(gomock.Any(), []string{modelUUID}).
@@ -189,7 +188,7 @@ func (s *exportSuite) TestExportExternalControllerFailsGettingExternalController
 	modelUUID := "model-uuid-1"
 	dst := description.NewModel(description.ModelArgs{})
 	dst.AddRemoteApplication(description.RemoteApplicationArgs{
-		SourceModel: names.NewModelTag(modelUUID),
+		SourceModelUUID: modelUUID,
 	})
 
 	s.service.EXPECT().ControllersForModels(gomock.Any(), []string{modelUUID}).

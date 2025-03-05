@@ -8,10 +8,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
-	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/config"
@@ -57,12 +56,12 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	appArgs := description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("prometheus"),
+		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
 	}
 	app := model.AddApplication(appArgs)
 	app.AddUnit(description.UnitArgs{
-		Tag: names.NewUnitTag("prometheus/0"),
+		Name: "prometheus/0",
 	})
 
 	s.expectApplicationStatus()

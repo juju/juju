@@ -162,7 +162,7 @@ func (st *State) updateExternalControllerTx(
 	tx *sqlair.TX,
 	ci crossmodel.ControllerInfo,
 ) error {
-	cID := ci.ControllerTag.Id()
+	cID := ci.ControllerUUID
 	externalController := Controller{
 		ID:     cID,
 		Alias:  sql.NullString{String: ci.Alias, Valid: true},

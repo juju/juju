@@ -7,8 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
-	description "github.com/juju/description/v9"
-	"github.com/juju/names/v6"
+	"github.com/juju/description/v9"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -31,12 +30,12 @@ func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	appArgs := description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("prometheus"),
+		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
 	}
 	app := model.AddApplication(appArgs)
 	app.AddUnit(description.UnitArgs{
-		Tag: names.NewUnitTag("prometheus/0"),
+		Name: "prometheus/0",
 	})
 
 	s.expectMinimalCharm()
@@ -55,7 +54,7 @@ func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 	c.Check(model.Applications(), gc.HasLen, 1)
 
 	app = model.Applications()[0]
-	c.Check(app.Tag(), gc.Equals, appArgs.Tag)
+	c.Check(app.Name(), gc.Equals, appArgs.Name)
 	c.Check(app.CharmURL(), gc.Equals, appArgs.CharmURL)
 
 	metadata := app.CharmMetadata()

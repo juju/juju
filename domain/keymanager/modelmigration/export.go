@@ -36,11 +36,11 @@ type ExportService interface {
 
 // Execute the migration of the model's authorized keys.
 func (e *exportOperation) Execute(ctx context.Context, m description.Model) error {
-	modelUUID := model.UUID(m.Tag().Id())
+	modelUUID := model.UUID(m.UUID())
 	if err := modelUUID.Validate(); err != nil {
 		return errors.Errorf(
 			"exporting authorized keys for model %q: %w",
-			m.Tag(), err,
+			m.UUID(), err,
 		)
 	}
 

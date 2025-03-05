@@ -835,10 +835,10 @@ func (s *BundleDeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 			ApplicationAlias: "mysql",
 			Macaroon:         mac,
 			ControllerInfo: &crossmodel.ControllerInfo{
-				ControllerTag: coretesting.ControllerTag,
-				Alias:         "controller-alias",
-				Addrs:         []string{"192.168.1.0"},
-				CACert:        coretesting.CACert,
+				ControllerUUID: coretesting.ControllerTag.Id(),
+				Alias:          "controller-alias",
+				Addrs:          []string{"192.168.1.0"},
+				CACert:         coretesting.CACert,
 			},
 		},
 	).Returns("mysql", nil)

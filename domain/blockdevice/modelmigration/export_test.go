@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -43,7 +42,7 @@ func (s *exportSuite) TestExport(c *gc.C) {
 
 	dst := description.NewModel(description.ModelArgs{})
 	dst.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag("666"),
+		Id: "666",
 	})
 	m := dst.Machines()
 	c.Assert(m, gc.HasLen, 1)

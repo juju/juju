@@ -102,7 +102,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the export and sets the environ version of the model.
 func (e *exportEnvironVersionOperation) Execute(ctx context.Context, model description.Model) error {
-	modelUUID := coremodel.UUID(model.Tag().Id())
+	modelUUID := coremodel.UUID(model.UUID())
 	exportService := e.serviceGetter(modelUUID)
 	environVersion, err := exportService.GetEnvironVersion(ctx)
 	if err != nil {
@@ -121,7 +121,7 @@ func (e *exportModelConstraintsOperation) Execute(
 	ctx context.Context,
 	model description.Model,
 ) error {
-	modelUUID := coremodel.UUID(model.Tag().Id())
+	modelUUID := coremodel.UUID(model.UUID())
 	exportService := e.serviceGetter(modelUUID)
 	cons, err := exportService.GetModelConstraints(ctx)
 	if err != nil {

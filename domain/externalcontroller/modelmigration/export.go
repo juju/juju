@@ -74,7 +74,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 	// is no extra performance cost.
 	var sourceModelUUIDs []string
 	for _, remoteApp := range model.RemoteApplications() {
-		sourceModelUUIDs = append(sourceModelUUIDs, remoteApp.SourceModelTag().Id())
+		sourceModelUUIDs = append(sourceModelUUIDs, remoteApp.SourceModelUUID())
 	}
 
 	controllers, err := e.service.ControllersForModels(ctx, sourceModelUUIDs...)
@@ -84,7 +84,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 
 	for _, controller := range controllers {
 		_ = model.AddExternalController(description.ExternalControllerArgs{
-			Tag:    controller.ControllerTag,
+			ID:     controller.ControllerUUID,
 			Addrs:  controller.Addrs,
 			Alias:  controller.Alias,
 			CACert: controller.CACert,

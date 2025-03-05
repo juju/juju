@@ -207,7 +207,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Annotatef(err, "unable to get controller config")
 	}
 
-	modelUUID := coremodel.UUID(model.Tag().Id())
+	modelUUID := coremodel.UUID(model.UUID())
 
 	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig)
 	if err != nil {

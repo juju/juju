@@ -51,10 +51,10 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *
 			ApplicationAlias: "applicationname2",
 			Macaroon:         s.mac,
 			ControllerInfo: &crossmodel.ControllerInfo{
-				ControllerTag: testing.ControllerTag,
-				Addrs:         []string{"192.168.1.0"},
-				Alias:         "arthur",
-				CACert:        testing.CACert,
+				ControllerUUID: testing.ControllerTag.Id(),
+				Addrs:          []string{"192.168.1.0"},
+				Alias:          "arthur",
+				CACert:         testing.CACert,
 			},
 		})
 	s.mockAPI.CheckCall(c, 3, "AddRelation", []string{"applicationname", "applicationname2"}, []string(nil))
@@ -72,10 +72,10 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc
 			ApplicationAlias: "applicationname2",
 			Macaroon:         s.mac,
 			ControllerInfo: &crossmodel.ControllerInfo{
-				ControllerTag: testing.ControllerTag,
-				Addrs:         []string{"192.168.1.0"},
-				Alias:         "arthur",
-				CACert:        testing.CACert,
+				ControllerUUID: testing.ControllerTag.Id(),
+				Addrs:          []string{"192.168.1.0"},
+				Alias:          "arthur",
+				CACert:         testing.CACert,
 			},
 		})
 	s.mockAPI.CheckCall(c, 3, "AddRelation", []string{"applicationname2", "applicationname"}, []string(nil))

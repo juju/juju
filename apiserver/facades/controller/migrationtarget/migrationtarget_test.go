@@ -288,11 +288,11 @@ func (s *Suite) TestActivate(c *gc.C) {
 	tag := s.importModel(c, api)
 
 	expectedCI := crossmodel.ControllerInfo{
-		ControllerTag: jujutesting.ControllerTag,
-		Alias:         "mycontroller",
-		Addrs:         []string{"10.6.6.6:17070"},
-		CACert:        jujutesting.CACert,
-		ModelUUIDs:    []string{sourceModel},
+		ControllerUUID: jujutesting.ControllerTag.Id(),
+		Alias:          "mycontroller",
+		Addrs:          []string{"10.6.6.6:17070"},
+		CACert:         jujutesting.CACert,
+		ModelUUIDs:     []string{sourceModel},
 	}
 	s.externalControllerService.EXPECT().UpdateExternalController(
 		gomock.Any(),

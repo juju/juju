@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -45,8 +44,8 @@ func (s *exportSuite) TestExport(c *gc.C) {
 
 	dst := description.NewModel(description.ModelArgs{})
 	dst.SetCloudCredential(description.CloudCredentialArgs{
-		Owner: names.NewUserTag("fred"),
-		Cloud: names.NewCloudTag("cirrus"),
+		Owner: "fred",
+		Cloud: "cirrus",
 		Name:  "foo",
 	})
 
@@ -69,8 +68,8 @@ func (s *exportSuite) TestExportNotFound(c *gc.C) {
 
 	dst := description.NewModel(description.ModelArgs{})
 	dst.SetCloudCredential(description.CloudCredentialArgs{
-		Owner: names.NewUserTag("fred"),
-		Cloud: names.NewCloudTag("cirrus"),
+		Owner: "fred",
+		Cloud: "cirrus",
 		Name:  "foo",
 	})
 

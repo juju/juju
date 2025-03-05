@@ -42,7 +42,7 @@ func (ctrl *Controller) Import(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	modelUUID := model.Tag().Id()
+	modelUUID := model.UUID()
 	logger := internallogger.GetLogger("juju.state.import-model")
 	logger.Debugf(context.TODO(), "import starting for model %s", modelUUID)
 
@@ -76,7 +76,7 @@ func (ctrl *Controller) Import(
 		CloudName:      model.Cloud(),
 		CloudRegion:    model.CloudRegion(),
 		Config:         cfg,
-		Owner:          model.Owner(),
+		Owner:          names.NewUserTag(model.Owner()),
 		MigrationMode:  MigrationModeImporting,
 		EnvironVersion: model.EnvironVersion(),
 		PasswordHash:   model.PasswordHash(),
@@ -361,7 +361,6 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		return nil, errors.Trace(err)
 	}
 
-	machineTag := m.Tag()
 	base, err := corebase.ParseBaseFromString(m.Base())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -379,9 +378,9 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		Tools:                    agentTools,
 		Jobs:                     jobs,
 		PasswordHash:             m.PasswordHash(),
-		Clean:                    !i.machineHasUnits(machineTag),
-		Volumes:                  i.machineVolumes(machineTag),
-		Filesystems:              i.machineFilesystems(machineTag),
+		Clean:                    !i.machineHasUnits(m.Id()),
+		Volumes:                  i.machineVolumes(m.Id()),
+		Filesystems:              i.machineFilesystems(m.Id()),
 		Addresses:                i.makeAddresses(m.ProviderAddresses()),
 		MachineAddresses:         i.makeAddresses(m.MachineAddresses()),
 		PreferredPrivateAddress:  i.makeAddress(m.PreferredPrivateAddress()),
@@ -392,10 +391,10 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 	}, nil
 }
 
-func (i *importer) machineHasUnits(tag names.MachineTag) bool {
+func (i *importer) machineHasUnits(machineId string) bool {
 	for _, app := range i.model.Applications() {
 		for _, unit := range app.Units() {
-			if unit.Machine() == tag {
+			if unit.Machine() == machineId {
 				return true
 			}
 		}
@@ -403,24 +402,26 @@ func (i *importer) machineHasUnits(tag names.MachineTag) bool {
 	return false
 }
 
-func (i *importer) machineVolumes(tag names.MachineTag) []string {
+func (i *importer) machineVolumes(machineId string) []string {
 	var result []string
 	for _, volume := range i.model.Volumes() {
 		for _, attachment := range volume.Attachments() {
-			if attachment.Host() == tag {
-				result = append(result, volume.Tag().Id())
+			hostMachine, ok := attachment.HostMachine()
+			if ok && hostMachine == machineId {
+				result = append(result, volume.ID())
 			}
 		}
 	}
 	return result
 }
 
-func (i *importer) machineFilesystems(tag names.MachineTag) []string {
+func (i *importer) machineFilesystems(machineId string) []string {
 	var result []string
 	for _, filesystem := range i.model.Filesystems() {
 		for _, attachment := range filesystem.Attachments() {
-			if attachment.Host() == tag {
-				result = append(result, filesystem.Tag().Id())
+			hostMachine, ok := attachment.HostMachine()
+			if ok && hostMachine == machineId {
+				result = append(result, filesystem.ID())
 			}
 		}
 	}
@@ -795,11 +796,11 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 		return errors.Trace(err)
 	}
 
-	if i.dbModel.Type() == ModelTypeIAAS && u.Principal().Id() == "" {
+	if i.dbModel.Type() == ModelTypeIAAS && u.Principal() == "" {
 		// If the unit is a principal, add it to its machine.
 		ops = append(ops, txn.Op{
 			C:      machinesC,
-			Id:     u.Machine().Id(),
+			Id:     u.Machine(),
 			Assert: txn.DocExists,
 			Update: bson.M{"$addToSet": bson.M{"principals": u.Name()}},
 		})
@@ -1033,21 +1034,21 @@ func (i *importer) relationCount(application string) int {
 	return count
 }
 
-func (i *importer) getPrincipalMachineID(principal names.UnitTag) string {
+func (i *importer) getPrincipalMachineID(principal string) string {
 	// We know this is a valid unit name, so we don't care about the error.
-	appName, _ := names.UnitApplication(principal.Id())
+	appName, _ := names.UnitApplication(principal)
 	for _, app := range i.model.Applications() {
 		if app.Name() == appName {
 			for _, unit := range app.Units() {
-				if unit.Tag() == principal {
-					return unit.Machine().Id()
+				if unit.Name() == principal {
+					return unit.Machine()
 				}
 			}
 		}
 	}
 	// We should never get here, but if we do, just return an empty
 	// machine ID.
-	i.logger.Warningf(context.TODO(), "unable to find principal %q", principal.Id())
+	i.logger.Warningf(context.TODO(), "unable to find principal %q", principal)
 	return ""
 }
 
@@ -1062,11 +1063,11 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 	var subordinates []string
 	if subs := u.Subordinates(); len(subs) > 0 {
 		for _, s := range subs {
-			subordinates = append(subordinates, s.Id())
+			subordinates = append(subordinates, s)
 		}
 	}
 
-	machineID := u.Machine().Id()
+	machineID := u.Machine()
 	if s.Subordinate() && machineID == "" && i.dbModel.Type() != ModelTypeCAAS {
 		// If we don't have a machine ID and we should, go get the
 		// machine ID from the principal.
@@ -1088,9 +1089,9 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		Application:            s.Name(),
 		Base:                   base,
 		CharmURL:               &charmURL,
-		Principal:              u.Principal().Id(),
+		Principal:              u.Principal(),
 		Subordinates:           subordinates,
-		StorageAttachmentCount: i.unitStorageAttachmentCount(u.Tag()),
+		StorageAttachmentCount: i.unitStorageAttachmentCount(u.Name()),
 		MachineId:              machineID,
 		Tools:                  agentTools,
 		Life:                   Alive,
@@ -1098,11 +1099,11 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 	}, nil
 }
 
-func (i *importer) unitStorageAttachmentCount(unit names.UnitTag) int {
+func (i *importer) unitStorageAttachmentCount(unitName string) int {
 	count := 0
 	for _, storage := range i.model.Storages() {
-		for _, tag := range storage.Attachments() {
-			if tag == unit {
+		for _, host := range storage.Attachments() {
+			if host == unitName {
 				count++
 			}
 		}
@@ -1137,7 +1138,7 @@ func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *
 	doc := &remoteApplicationDoc{
 		Name:            app.Name(),
 		URL:             app.URL(),
-		SourceModelUUID: app.SourceModelTag().Id(),
+		SourceModelUUID: app.SourceModelUUID(),
 		IsConsumerProxy: app.IsConsumerProxy(),
 		Macaroon:        app.Macaroon(),
 		Version:         app.ConsumeVersion(),
@@ -1634,7 +1635,7 @@ func (i *importer) storageInstances() error {
 	for _, storage := range i.model.Storages() {
 		err := i.addStorageInstance(storage)
 		if err != nil {
-			i.logger.Errorf(context.TODO(), "error importing storage %s: %s", storage.Tag(), err)
+			i.logger.Errorf(context.TODO(), "error importing storage %s: %s", storage.ID(), err)
 			return errors.Trace(err)
 		}
 	}
@@ -1647,22 +1648,22 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 	if kind == StorageKindUnknown {
 		return errors.Errorf("storage kind %q is unknown", storage.Kind())
 	}
-	owner, err := storage.Owner()
-	if err != nil {
-		return errors.Annotate(err, "storage owner")
+	unitOwner, ok := storage.UnitOwner()
+	var owner names.Tag
+	if ok {
+		owner = names.NewUnitTag(unitOwner)
 	}
 	var storageOwner string
 	if owner != nil {
 		storageOwner = owner.String()
 	}
 	attachments := storage.Attachments()
-	tag := storage.Tag()
 	var ops []txn.Op
 	for _, unit := range attachments {
-		ops = append(ops, createStorageAttachmentOp(tag, unit))
+		ops = append(ops, createStorageAttachmentOp(names.NewStorageTag(storage.ID()), names.NewUnitTag(unit)))
 	}
 	doc := &storageInstanceDoc{
-		Id:              storage.Tag().Id(),
+		Id:              storage.ID(),
 		Kind:            kind,
 		Owner:           storageOwner,
 		StorageName:     storage.Name(),
@@ -1671,7 +1672,7 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 	}
 	ops = append(ops, txn.Op{
 		C:      storageInstancesC,
-		Id:     tag.Id(),
+		Id:     storage.ID(),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	})
@@ -1708,7 +1709,7 @@ func (i *importer) storageInstanceConstraints(storage description.Storage) stora
 	case StorageKindBlock:
 		defaultPool = string(provider.LoopProviderType)
 		for _, volume := range i.model.Volumes() {
-			if volume.Storage() == storage.Tag() {
+			if volume.Storage() == storage.ID() {
 				cons.Pool = volume.Pool()
 				cons.Size = volume.Size()
 				break
@@ -1717,7 +1718,7 @@ func (i *importer) storageInstanceConstraints(storage description.Storage) stora
 	case StorageKindFilesystem:
 		defaultPool = string(provider.RootfsProviderType)
 		for _, filesystem := range i.model.Filesystems() {
-			if filesystem.Storage() == storage.Tag() {
+			if filesystem.Storage() == storage.ID() {
 				cons.Pool = filesystem.Pool()
 				cons.Size = filesystem.Size()
 				break
@@ -1727,19 +1728,13 @@ func (i *importer) storageInstanceConstraints(storage description.Storage) stora
 	if cons.Pool == "" {
 		cons.Pool = defaultPool
 		cons.Size = 1024
-		if owner, _ := storage.Owner(); owner != nil {
-			var appName string
-			switch owner := owner.(type) {
-			case names.ApplicationTag:
-				appName = owner.Id()
-			case names.UnitTag:
-				appName, _ = names.UnitApplication(owner.Id())
-			}
+		if owner, ok := storage.UnitOwner(); ok {
+			appName, _ := names.UnitApplication(owner)
 			for _, app := range i.model.Applications() {
 				if app.Name() != appName {
 					continue
 				}
-				storageName, _ := names.StorageName(storage.Tag().Id())
+				storageName, _ := names.StorageName(storage.ID())
 				appStorageCons, ok := app.StorageDirectives()[storageName]
 				if ok {
 					cons.Pool = appStorageCons.Pool()
@@ -1750,7 +1745,7 @@ func (i *importer) storageInstanceConstraints(storage description.Storage) stora
 		}
 		logger.Warningf(context.TODO(),
 			"no volume or filesystem found, using application storage constraints for %s",
-			names.ReadableString(storage.Tag()),
+			names.ReadableString(names.NewStorageTag(storage.ID())),
 		)
 	}
 	return cons
@@ -1765,7 +1760,7 @@ func (i *importer) volumes() error {
 	for _, volume := range i.model.Volumes() {
 		err := i.addVolume(volume, sb)
 		if err != nil {
-			i.logger.Errorf(context.TODO(), "error importing volume %s: %s", volume.Tag(), err)
+			i.logger.Errorf(context.TODO(), "error importing volume %s: %s", volume.ID(), err)
 			return errors.Trace(err)
 		}
 	}
@@ -1777,7 +1772,6 @@ func (i *importer) addVolume(volume description.Volume, sb *storageBackend) erro
 	attachments := volume.Attachments()
 	attachmentPlans := volume.AttachmentPlans()
 
-	tag := volume.Tag()
 	var params *VolumeParams
 	var info *VolumeInfo
 	if volume.Provisioned() {
@@ -1796,8 +1790,8 @@ func (i *importer) addVolume(volume description.Volume, sb *storageBackend) erro
 		}
 	}
 	doc := volumeDoc{
-		Name:      tag.Id(),
-		StorageId: volume.Storage().Id(),
+		Name:      volume.ID(),
+		StorageId: volume.Storage(),
 		// Life: ..., // TODO: import life, default is Alive
 		Params:          params,
 		Info:            info,
@@ -1806,18 +1800,22 @@ func (i *importer) addVolume(volume description.Volume, sb *storageBackend) erro
 	if detachable, err := isDetachableVolumePool(sb, volume.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
-		doc.HostId = attachments[0].Host().Id()
+		host, ok := attachments[0].HostUnit()
+		if !ok {
+			host, _ = attachments[0].HostMachine()
+		}
+		doc.HostId = host
 	}
 	status := i.makeStatusDoc(volume.Status())
 	ops := sb.newVolumeOps(doc, status)
 
 	for _, attachment := range attachments {
-		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment, attachment.VolumePlanInfo()))
+		ops = append(ops, i.addVolumeAttachmentOp(volume.ID(), attachment, attachment.VolumePlanInfo()))
 	}
 
 	if len(attachmentPlans) > 0 {
 		for _, val := range attachmentPlans {
-			ops = append(ops, i.addVolumeAttachmentPlanOp(tag.Id(), val))
+			ops = append(ops, i.addVolumeAttachmentPlanOp(volume.ID(), val))
 		}
 	}
 
@@ -1850,7 +1848,7 @@ func (i *importer) addVolumeAttachmentPlanOp(volID string, volumePlan descriptio
 		MountPoint:     descriptionBlockInfo.MountPoint(),
 	}
 
-	machineId := volumePlan.Machine().Id()
+	machineId := volumePlan.Machine()
 	return txn.Op{
 		C:      volumeAttachmentPlanC,
 		Id:     volumeAttachmentId(machineId, volID),
@@ -1897,14 +1895,17 @@ func (i *importer) addVolumeAttachmentOp(volID string, attachment description.Vo
 		}
 	}
 
-	hostId := attachment.Host().Id()
+	host, ok := attachment.HostUnit()
+	if !ok {
+		host, _ = attachment.HostMachine()
+	}
 	return txn.Op{
 		C:      volumeAttachmentsC,
-		Id:     volumeAttachmentId(hostId, volID),
+		Id:     volumeAttachmentId(host, volID),
 		Assert: txn.DocMissing,
 		Insert: &volumeAttachmentDoc{
 			Volume: volID,
-			Host:   hostId,
+			Host:   host,
 			Params: params,
 			Info:   info,
 		},
@@ -1920,7 +1921,7 @@ func (i *importer) filesystems() error {
 	for _, fs := range i.model.Filesystems() {
 		err := i.addFilesystem(fs, sb)
 		if err != nil {
-			i.logger.Errorf(context.TODO(), "error importing filesystem %s: %s", fs.Tag(), err)
+			i.logger.Errorf(context.TODO(), "error importing filesystem %s: %s", fs.ID(), err)
 			return errors.Trace(err)
 		}
 	}
@@ -1931,7 +1932,6 @@ func (i *importer) filesystems() error {
 func (i *importer) addFilesystem(filesystem description.Filesystem, sb *storageBackend) error {
 
 	attachments := filesystem.Attachments()
-	tag := filesystem.Tag()
 	var params *FilesystemParams
 	var info *FilesystemInfo
 	if filesystem.Provisioned() {
@@ -1947,9 +1947,9 @@ func (i *importer) addFilesystem(filesystem description.Filesystem, sb *storageB
 		}
 	}
 	doc := filesystemDoc{
-		FilesystemId: tag.Id(),
-		StorageId:    filesystem.Storage().Id(),
-		VolumeId:     filesystem.Volume().Id(),
+		FilesystemId: filesystem.ID(),
+		StorageId:    filesystem.Storage(),
+		VolumeId:     filesystem.Volume(),
 		// Life: ..., // TODO: import life, default is Alive
 		Params:          params,
 		Info:            info,
@@ -1958,13 +1958,17 @@ func (i *importer) addFilesystem(filesystem description.Filesystem, sb *storageB
 	if detachable, err := isDetachableFilesystemPool(sb, filesystem.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
-		doc.HostId = attachments[0].Host().Id()
+		host, ok := attachments[0].HostUnit()
+		if !ok {
+			host, _ = attachments[0].HostMachine()
+		}
+		doc.HostId = host
 	}
 	status := i.makeStatusDoc(filesystem.Status())
 	ops := sb.newFilesystemOps(doc, status)
 
 	for _, attachment := range attachments {
-		ops = append(ops, i.addFilesystemAttachmentOp(tag.Id(), attachment))
+		ops = append(ops, i.addFilesystemAttachmentOp(filesystem.ID(), attachment))
 	}
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
@@ -1989,14 +1993,17 @@ func (i *importer) addFilesystemAttachmentOp(fsID string, attachment description
 		}
 	}
 
-	hostId := attachment.Host().Id()
+	host, ok := attachment.HostUnit()
+	if !ok {
+		host, _ = attachment.HostMachine()
+	}
 	return txn.Op{
 		C:      filesystemAttachmentsC,
-		Id:     filesystemAttachmentId(hostId, fsID),
+		Id:     filesystemAttachmentId(host, fsID),
 		Assert: txn.DocMissing,
 		Insert: &filesystemAttachmentDoc{
 			Filesystem: fsID,
-			Host:       hostId,
+			Host:       host,
 			// Life: ..., // TODO: import life, default is Alive
 			Params: params,
 			Info:   info,

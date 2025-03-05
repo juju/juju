@@ -66,7 +66,7 @@ func (o *importOperation) Setup(scope modelmigration.Scope) error {
 func (o *importOperation) Execute(ctx context.Context, model description.Model) error {
 	for _, app := range model.Applications() {
 		key := lease.Key{
-			ModelUUID: model.Tag().Id(),
+			ModelUUID: model.UUID(),
 			Namespace: app.Name(),
 			Lease:     lease.ApplicationLeadershipNamespace,
 		}
