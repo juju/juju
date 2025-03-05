@@ -103,78 +103,40 @@ func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 	return m.recorder
 }
 
-// DeleteUnitPresence mocks base method.
-func (m *MockModelService) DeleteUnitPresence(arg0 context.Context, arg1 unit.Name) error {
+// ApplicationService mocks base method.
+func (m *MockModelService) ApplicationService() ApplicationService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteUnitPresence", arg0, arg1)
-	ret0, _ := ret[0].(error)
+	ret := m.ctrl.Call(m, "ApplicationService")
+	ret0, _ := ret[0].(ApplicationService)
 	return ret0
 }
 
-// DeleteUnitPresence indicates an expected call of DeleteUnitPresence.
-func (mr *MockModelServiceMockRecorder) DeleteUnitPresence(arg0, arg1 any) *MockModelServiceDeleteUnitPresenceCall {
+// ApplicationService indicates an expected call of ApplicationService.
+func (mr *MockModelServiceMockRecorder) ApplicationService() *MockModelServiceApplicationServiceCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnitPresence", reflect.TypeOf((*MockModelService)(nil).DeleteUnitPresence), arg0, arg1)
-	return &MockModelServiceDeleteUnitPresenceCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationService", reflect.TypeOf((*MockModelService)(nil).ApplicationService))
+	return &MockModelServiceApplicationServiceCall{Call: call}
 }
 
-// MockModelServiceDeleteUnitPresenceCall wrap *gomock.Call
-type MockModelServiceDeleteUnitPresenceCall struct {
+// MockModelServiceApplicationServiceCall wrap *gomock.Call
+type MockModelServiceApplicationServiceCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceDeleteUnitPresenceCall) Return(arg0 error) *MockModelServiceDeleteUnitPresenceCall {
+func (c *MockModelServiceApplicationServiceCall) Return(arg0 ApplicationService) *MockModelServiceApplicationServiceCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceDeleteUnitPresenceCall) Do(f func(context.Context, unit.Name) error) *MockModelServiceDeleteUnitPresenceCall {
+func (c *MockModelServiceApplicationServiceCall) Do(f func() ApplicationService) *MockModelServiceApplicationServiceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceDeleteUnitPresenceCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockModelServiceDeleteUnitPresenceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetUnitPresence mocks base method.
-func (m *MockModelService) SetUnitPresence(arg0 context.Context, arg1 unit.Name) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUnitPresence", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetUnitPresence indicates an expected call of SetUnitPresence.
-func (mr *MockModelServiceMockRecorder) SetUnitPresence(arg0, arg1 any) *MockModelServiceSetUnitPresenceCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitPresence", reflect.TypeOf((*MockModelService)(nil).SetUnitPresence), arg0, arg1)
-	return &MockModelServiceSetUnitPresenceCall{Call: call}
-}
-
-// MockModelServiceSetUnitPresenceCall wrap *gomock.Call
-type MockModelServiceSetUnitPresenceCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelServiceSetUnitPresenceCall) Return(arg0 error) *MockModelServiceSetUnitPresenceCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelServiceSetUnitPresenceCall) Do(f func(context.Context, unit.Name) error) *MockModelServiceSetUnitPresenceCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceSetUnitPresenceCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockModelServiceSetUnitPresenceCall {
+func (c *MockModelServiceApplicationServiceCall) DoAndReturn(f func() ApplicationService) *MockModelServiceApplicationServiceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

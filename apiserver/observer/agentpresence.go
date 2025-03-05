@@ -32,7 +32,7 @@ type ApplicationService interface {
 
 // ModelService provides methods to interact with the model.
 type ModelService interface {
-	ApplicationService
+	ApplicationService() ApplicationService
 }
 
 // DomainServiceGetter is the service getter to use to get domain services.
@@ -73,7 +73,8 @@ func NewAgentPresence(cfg AgentPresenceConfig) *AgentPresence {
 	}
 }
 
-// Login implements Observer.
+// Login writes the agent presence to the database based on the entity type.
+// Units and machines are the only entities that can have presence.
 func (n *AgentPresence) Login(ctx context.Context, entity names.Tag, modelTag names.ModelTag, modelUUID model.UUID, fromController bool, userData string) {
 	n.BaseObserver.Login(ctx, entity, modelTag, modelUUID, fromController, userData)
 
@@ -91,7 +92,7 @@ func (n *AgentPresence) Login(ctx context.Context, entity names.Tag, modelTag na
 
 	switch t := entity.(type) {
 	case names.UnitTag:
-		err := services.SetUnitPresence(ctx, unit.Name(t.Id()))
+		err := n.modelService.ApplicationService().SetUnitPresence(ctx, unit.Name(t.Id()))
 		if err != nil {
 			n.logger.Infof(ctx, "recording presence for agent %s: unable to set unit presence: %v", entity, err)
 		}
@@ -100,10 +101,8 @@ func (n *AgentPresence) Login(ctx context.Context, entity names.Tag, modelTag na
 	}
 }
 
-// Join implements Observer.
-func (n *AgentPresence) Join(ctx context.Context, req *http.Request, connectionID uint64) {}
-
-// Leave implements Observer.
+// Leave removes the agent presence to the database based on the entity type.
+// Units and machines are the only entities that can have presence.
 func (n *AgentPresence) Leave(ctx context.Context) {
 	if !n.IsAgent() {
 		return
@@ -115,7 +114,7 @@ func (n *AgentPresence) Leave(ctx context.Context) {
 
 	switch t := n.AgentTag().(type) {
 	case names.UnitTag:
-		err := n.modelService.SetUnitPresence(ctx, unit.Name(t.Id()))
+		err := n.modelService.ApplicationService().DeleteUnitPresence(ctx, unit.Name(t.Id()))
 		if err != nil {
 			n.logger.Infof(ctx, "recording presence for agent %s: unable to set unit presence: %v", t, err)
 		}
@@ -123,6 +122,9 @@ func (n *AgentPresence) Leave(ctx context.Context) {
 		// TODO (stickupkid): Handle machine agents.
 	}
 }
+
+// Join implements Observer.
+func (n *AgentPresence) Join(ctx context.Context, req *http.Request, connectionID uint64) {}
 
 // RPCObserver implements Observer.
 func (n *AgentPresence) RPCObserver() rpc.Observer {
