@@ -71,19 +71,22 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
 		Name:      s.cloudName,
 		Type:      "ec2",
-		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
 	})
 
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.credentialName = "test"
-	fn = credentialbootstrap.InsertCredential(credential.Key{
-		Cloud: s.cloudName,
-		Name:  s.credentialName,
-		Owner: coreuser.AdminUserName,
-	},
-		cloud.NewCredential(cloud.EmptyAuthType, nil),
+	fn = credentialbootstrap.InsertCredential(
+		credential.Key{
+			Cloud: s.cloudName,
+			Name:  s.credentialName,
+			Owner: coreuser.AdminUserName,
+		},
+		cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+			"access-key": "val",
+		}),
 	)
 
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
@@ -176,6 +179,61 @@ func (s *modelBootstrapSuite) TestCreateModelDetails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(v["target_version"], gc.DeepEquals, jujuversion.Current.String())
+}
+
+// TestCreateModelUnsupportedCredential is asserting the fact that if we supply
+// an empty credential to the model creation process and this type of credential
+// isn't supported by the cloud then an error satisfying
+// [modelerrors.CredentialNotValid] is returned.
+func (s *modelBootstrapSuite) TestCreateModelUnsupportedCredential(c *gc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
+		Name:      "test-cloud",
+		Type:      "ec2",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
+	})
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := model.GlobalModelCreationArgs{
+		// We assume here that the cloud made behind s.cloudName
+		Cloud:      "test-cloud",
+		Credential: credential.Key{},
+		Name:       "test",
+		Owner:      s.adminUserUUID,
+	}
+
+	// Create a model and then create a read-only model from it.
+	fn = CreateGlobalModelRecord(modelUUID, args)
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	c.Check(err, jc.ErrorIs, modelerrors.CredentialNotValid)
+}
+
+// TestCreateModelWithEmptyCredential is asserting that we can create models
+// with empty cloud credentials when the cloud supports it.
+func (s *modelBootstrapSuite) TestCreateModelWithEmptyCredential(c *gc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
+		Name:      "test-cloud",
+		Type:      "ec2",
+		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
+	})
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := model.GlobalModelCreationArgs{
+		// We assume here that the cloud made behind s.cloudName
+		Cloud:      "test-cloud",
+		Credential: credential.Key{},
+		Name:       "test",
+		Owner:      s.adminUserUUID,
+	}
+
+	fn = CreateGlobalModelRecord(modelUUID, args)
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	c.Check(err, jc.ErrorIsNil)
 }
 
 type dbReadOnlyModel struct {

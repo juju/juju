@@ -194,13 +194,22 @@ type dbModelSummary struct {
 
 	// Access is the access level the supplied user has on this model
 	Access permission.Access `db:"access_type"`
+
 	// UserLastConnection is the last time this user has accessed this model
 	UserLastConnection *time.Time `db:"time"`
+
+	// IsControllerModel provides a boolean indication if we consider this
+	// model to be the one that hosts this Juju controller.
+	IsControllerModel bool `db:"is_controller_model"`
+
+	// ControllerUUID is the UUID of the controller that the model is in. Don't
+	// rely on this value always being set.
+	ControllerUUID sql.NullString `db:"controller_uuid"`
 }
 
 // decodeModelSummary transforms a dbModelSummary into a coremodel.ModelSummary.
-func (m dbModelSummary) decodeUserModelSummary(controllerInfo dbController) (coremodel.UserModelSummary, error) {
-	ms, err := m.decodeModelSummary(controllerInfo)
+func (m dbModelSummary) decodeUserModelSummary() (coremodel.UserModelSummary, error) {
+	ms, err := m.decodeModelSummary()
 	if err != nil {
 		return coremodel.UserModelSummary{}, errors.Trace(err)
 	}
@@ -212,7 +221,7 @@ func (m dbModelSummary) decodeUserModelSummary(controllerInfo dbController) (cor
 }
 
 // decodeModelSummary transforms a dbModelSummary into a coremodel.ModelSummary.
-func (m dbModelSummary) decodeModelSummary(controllerInfo dbController) (coremodel.ModelSummary, error) {
+func (m dbModelSummary) decodeModelSummary() (coremodel.ModelSummary, error) {
 	ownerName, err := user.NewName(m.OwnerName)
 	if err != nil {
 		return coremodel.ModelSummary{}, errors.Trace(err)
@@ -236,17 +245,11 @@ func (m dbModelSummary) decodeModelSummary(controllerInfo dbController) (coremod
 			Owner: credOwnerName,
 			Name:  m.CloudCredentialName,
 		},
-		ControllerUUID: controllerInfo.UUID,
-		IsController:   m.UUID == controllerInfo.ModelUUID,
+		ControllerUUID: m.ControllerUUID.String,
+		IsController:   m.IsControllerModel,
 		OwnerName:      ownerName,
 		Life:           corelife.Value(m.Life),
 	}, nil
-}
-
-// dbController represents a row from the controller table.
-type dbController struct {
-	ModelUUID string `db:"model_uuid"`
-	UUID      string `db:"uuid"`
 }
 
 // dbUserName represents a user name.
@@ -331,11 +334,6 @@ type dbCloudCredential struct {
 	CredentialName      sql.NullString `db:"cloud_credential_name"`
 	CredentialOwnerName sql.NullString `db:"cloud_credential_owner_name"`
 	CredentialCloudName string         `db:"cloud_credential_cloud_name"`
-}
-
-type dbCloudOwner struct {
-	Name      string `db:"name"`
-	OwnerName string `db:"owner_name"`
 }
 
 type dbCloudRegionUUID struct {

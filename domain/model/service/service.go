@@ -5,10 +5,8 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
@@ -20,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/internal/errors"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
@@ -53,7 +52,14 @@ type State interface {
 	// If no model exists for the provided id then a [modelerrors.NotFound] will be
 	// returned. If the model has previously been activated a
 	// [modelerrors.AlreadyActivated] error will be returned.
-	Activate(ctx context.Context, uuid coremodel.UUID) error
+	Activate(context.Context, coremodel.UUID) error
+
+	// CloudSupportsAuthType is a check that allows the caller to find out if a
+	// cloud supports a specific auth type. If the cloud doesn't support the
+	// authtype then false is return with a nil error.
+	// If no cloud exists for the supplied name an error satisfying
+	// [github.com/juju/juju/domain/cloud/errors.NotFound] is returned.
+	CloudSupportsAuthType(context.Context, string, cloud.AuthType) (bool, error)
 
 	// GetModel returns the model associated with the provided uuid.
 	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
@@ -67,7 +73,19 @@ type State interface {
 	GetModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
 
 	// GetControllerModel returns the model the controller is running in.
+	// If no controller model exists then an error satisfying
+	// [modelerrors.NotFound] is returned.
 	GetControllerModel(ctx context.Context) (coremodel.Model, error)
+
+	// GetControllerModelUUID returns the model uuid for the controller model.
+	// If no controller model exists then an error satisfying
+	// [modelerrors.NotFound] is returned.
+	GetControllerModelUUID(context.Context) (coremodel.UUID, error)
+
+	// GetModelCloudNameAndCredential returns the cloud name and credential id
+	// for a model identified by the model uuid. If no model exists for the
+	// provided name and user a [modelerrors.NotFound] error is returned.
+	GetModelCloudNameAndCredential(context.Context, coremodel.UUID) (string, credential.Key, error)
 
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
@@ -87,20 +105,15 @@ type State interface {
 	// GetModelUsers will retrieve basic information about all users with
 	// permissions on the given model UUID.
 	// If the model cannot be found it will return modelerrors.NotFound.
-	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
+	GetModelUsers(context.Context, coremodel.UUID) ([]coremodel.ModelUserInfo, error)
 
 	// ListModelSummariesForUser returns a slice of model summaries for a given
 	// user. If no models are found an empty slice is returned.
-	ListModelSummariesForUser(ctx context.Context, userName coreuser.Name) ([]coremodel.UserModelSummary, error)
+	ListModelSummariesForUser(context.Context, coreuser.Name) ([]coremodel.UserModelSummary, error)
 
 	// ListAllModelSummaries returns a slice of model summaries for all models
 	// known to the controller.
 	ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelSummary, error)
-
-	// ModelCloudNameAndCredential returns the cloud name and credential id for a
-	// model identified by the model name and the owner. If no model exists for
-	// the provided name and user a [modelerrors.NotFound] error is returned.
-	ModelCloudNameAndCredential(context.Context, string, coreuser.Name) (string, credential.Key, error)
 
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
@@ -149,20 +162,25 @@ func NewService(
 func (s *Service) DefaultModelCloudNameAndCredential(
 	ctx context.Context,
 ) (string, credential.Key, error) {
-	cloudName, cred, err := s.st.ModelCloudNameAndCredential(
-		ctx, coremodel.ControllerModelName, coremodel.ControllerModelOwnerUsername,
-	)
+	ctrlUUID, err := s.st.GetControllerModelUUID(ctx)
+	if err != nil {
+		return "", credential.Key{}, errors.Errorf(
+			"getting controller model uuid: %w", err,
+		)
+	}
+	cloudName, cred, err := s.st.GetModelCloudNameAndCredential(ctx, ctrlUUID)
 
 	if err != nil {
-		return "", credential.Key{}, fmt.Errorf("getting default model cloud name and credential: %w", err)
+		return "", credential.Key{}, errors.Errorf(
+			"getting controller model %q cloud name and credential: %w",
+			ctrlUUID, err,
+		)
 	}
 	return cloudName, cred, nil
 }
 
 // CreateModel is responsible for creating a new model from start to finish with
 // its associated metadata. The function will return the created model's id.
-// If the GlobalModelCreationArgs does not have a credential name set then no cloud
-// credential will be associated with model.
 //
 // If the caller has not prescribed a specific agent version to use for the
 // model the current controllers supported agent version will be used.
@@ -183,17 +201,24 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 // cannot be used with this controller.
 // - [secretbackenderrors.NotFound] When the secret backend for the model
 // cannot be found.
+// - [modelerrors.CredentialNotValid]: When the cloud credential for the model
+// is not valid. This means that either the credential is not supported with
+// the cloud or the cloud doesn't support having an empty credential.
 func (s *Service) CreateModel(
 	ctx context.Context,
 	args model.GlobalModelCreationArgs,
 ) (coremodel.UUID, func(context.Context) error, error) {
 	if err := args.Validate(); err != nil {
-		return "", nil, fmt.Errorf("cannot validate model creation args: %w", err)
+		return "", nil, errors.Errorf(
+			"cannot validate model creation args: %w", err,
+		)
 	}
 
 	modelID, err := coremodel.NewUUID()
 	if err != nil {
-		return "", nil, fmt.Errorf("cannot generate id for model %q: %w", args.Name, err)
+		return "", nil, errors.Errorf(
+			"cannot generate id for model %q: %w", args.Name, err,
+		)
 	}
 
 	activator, err := s.createModel(ctx, modelID, args)
@@ -203,8 +228,7 @@ func (s *Service) CreateModel(
 // createModel is responsible for creating a new model from start to finish with
 // its associated metadata. The function takes the model id to be used as part
 // of the creation. This helps serve both new model creation and model
-// importing. If the GlobalModelCreationArgs does not have a credential name set then
-// no cloud credential will be associated with model.
+// importing.
 //
 // If the caller has not prescribed a specific agent version to use for the
 // model the current controllers supported agent version will be used.
@@ -226,6 +250,9 @@ func (s *Service) CreateModel(
 // cannot be used with this controller.
 // - [secretbackenderrors.NotFound] When the secret backend for the model
 // cannot be found.
+// - [modelerrors.CredentialNotValid]: When the cloud credential for the model
+// is not valid. This means that either the credential is not supported with
+// the cloud or the cloud doesn't support having an empty credential.
 func (s *Service) createModel(
 	ctx context.Context,
 	id coremodel.UUID,
@@ -233,7 +260,7 @@ func (s *Service) createModel(
 ) (func(context.Context) error, error) {
 	modelType, err := ModelTypeForCloud(ctx, s.st, args.Cloud)
 	if err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"determining model type when creating model %q: %w",
 			args.Name, err,
 		)
@@ -244,12 +271,29 @@ func (s *Service) createModel(
 	} else if args.SecretBackend == "" && modelType == coremodel.IAAS {
 		args.SecretBackend = jujusecrets.BackendName
 	} else if args.SecretBackend == "" {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"%w for model type %q when creating model with name %q",
 			secretbackenderrors.NotFound,
 			modelType,
 			args.Name,
 		)
+	}
+
+	if args.Credential.IsZero() {
+		supports, err := s.st.CloudSupportsAuthType(ctx, args.Cloud, cloud.EmptyAuthType)
+		if err != nil {
+			return nil, errors.Errorf(
+				"checking if cloud %q support empty authentication for new model %q: %w",
+				args.Cloud, args.Name, err,
+			)
+		}
+
+		if !supports {
+			return nil, errors.Errorf(
+				"new model %q cloud %q does not support empty authentication, a credential needs to be specified",
+				args.Name, args.Cloud,
+			).Add(modelerrors.CredentialNotValid)
+		}
 	}
 
 	activator := ModelActivator(func(ctx context.Context) error {
@@ -282,7 +326,7 @@ func (s *Service) ImportModel(
 	args model.ModelImportArgs,
 ) (func(context.Context) error, error) {
 	if err := args.Validate(); err != nil {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"cannot validate model import args: %w", err,
 		)
 	}
@@ -291,7 +335,7 @@ func (s *Service) ImportModel(
 	// make sure we have tools to support the model and it will work with this
 	// controller.
 	if args.AgentVersion == version.Zero {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"cannot import model with id %q, agent version cannot be zero: %w",
 			args.ID, modelerrors.AgentVersionNotSupported,
 		)
@@ -312,7 +356,7 @@ func (s *Service) ControllerModel(ctx context.Context) (coremodel.Model, error) 
 // - [modelerrors.ModelNotFound]: When the model does not exist.
 func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
 	if err := uuid.Validate(); err != nil {
-		return coremodel.Model{}, fmt.Errorf("model uuid: %w", err)
+		return coremodel.Model{}, errors.Errorf("model uuid: %w", err)
 	}
 
 	return s.st.GetModel(ctx, uuid)
@@ -322,7 +366,7 @@ func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Mod
 // for the model.
 func (s *Service) ModelType(ctx context.Context, uuid coremodel.UUID) (coremodel.ModelType, error) {
 	if err := uuid.Validate(); err != nil {
-		return "", fmt.Errorf("model type uuid: %w", err)
+		return "", errors.Errorf("model type uuid: %w", err)
 	}
 
 	return s.st.GetModelType(ctx, uuid)
@@ -343,13 +387,13 @@ func (s *Service) DeleteModel(
 	}
 
 	if err := uuid.Validate(); err != nil {
-		return fmt.Errorf("delete model, uuid: %w", err)
+		return errors.Errorf("delete model, uuid: %w", err)
 	}
 
 	// Delete common items from the model. This helps to ensure that the
 	// model is cleaned up correctly.
 	if err := s.st.Delete(ctx, uuid); err != nil && !errors.Is(err, modelerrors.NotFound) {
-		return fmt.Errorf("delete model: %w", err)
+		return errors.Errorf("delete model: %w", err)
 	}
 
 	// If the db should not be deleted then we can return early.
@@ -363,7 +407,7 @@ func (s *Service) DeleteModel(
 	// supported in dqlite). For now we do a best effort to remove all items
 	// with in the db.
 	if err := s.modelDeleter.DeleteDB(uuid.String()); err != nil {
-		return fmt.Errorf("delete model: %w", err)
+		return errors.Errorf("delete model: %w", err)
 	}
 
 	return nil
@@ -375,7 +419,7 @@ func (s *Service) DeleteModel(
 func (s *Service) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
 	uuids, err := s.st.ListModelIDs(ctx)
 	if err != nil {
-		return nil, errors.Annotatef(err, "retrieving model list")
+		return nil, errors.Errorf("getting list of model id's: %w", err)
 	}
 	return uuids, nil
 }
@@ -391,7 +435,7 @@ func (s *Service) ListAllModels(ctx context.Context) ([]coremodel.Model, error) 
 // an empty slice of models will be returned.
 func (s *Service) ListModelsForUser(ctx context.Context, userID coreuser.UUID) ([]coremodel.Model, error) {
 	if err := userID.Validate(); err != nil {
-		return nil, fmt.Errorf("listing models owned by user: %w", err)
+		return nil, errors.Errorf("listing models owned by user: %w", err)
 	}
 
 	return s.st.ListModelsForUser(ctx, userID)
@@ -407,7 +451,7 @@ func ModelTypeForCloud(
 ) (coremodel.ModelType, error) {
 	cloudType, err := state.CloudType(ctx, cloudName)
 	if err != nil {
-		return "", fmt.Errorf("determining model type from cloud: %w", err)
+		return "", errors.Errorf("determining model type from cloud: %w", err)
 	}
 
 	if set.NewStrings(caasCloudTypes...).Contains(cloudType) {
@@ -421,11 +465,11 @@ func ModelTypeForCloud(
 // If the model cannot be found it will return [modelerrors.NotFound].
 func (s *Service) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error) {
 	if err := modelUUID.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	modelUserInfo, err := s.st.GetModelUsers(ctx, modelUUID)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting users for model %s", modelUUID)
+		return nil, errors.Errorf("getting users for model %q: %w", modelUUID, err)
 	}
 	return modelUserInfo, nil
 }
@@ -435,14 +479,19 @@ func (s *Service) GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) (
 // If the user cannot be found it will return [modelerrors.UserNotFoundOnModel].
 func (s *Service) GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name coreuser.Name) (coremodel.ModelUserInfo, error) {
 	if name.IsZero() {
-		return coremodel.ModelUserInfo{}, errors.Annotatef(accesserrors.UserNameNotValid, "empty username")
+		return coremodel.ModelUserInfo{}, errors.New(
+			"empty username not allowed",
+		).Add(accesserrors.UserNameNotValid)
 	}
 	if err := modelUUID.Validate(); err != nil {
-		return coremodel.ModelUserInfo{}, errors.Trace(err)
+		return coremodel.ModelUserInfo{}, errors.Capture(err)
 	}
 	modelUserInfo, err := s.st.GetModelUsers(ctx, modelUUID)
 	if err != nil {
-		return coremodel.ModelUserInfo{}, errors.Annotatef(err, "getting info of user %q on model %s", name, modelUUID)
+		return coremodel.ModelUserInfo{}, errors.Errorf(
+			"getting info of user %q on model %q: %w",
+			name, modelUUID, err,
+		)
 	}
 
 	for _, mui := range modelUserInfo {
@@ -450,14 +499,17 @@ func (s *Service) GetModelUser(ctx context.Context, modelUUID coremodel.UUID, na
 			return mui, nil
 		}
 	}
-	return coremodel.ModelUserInfo{}, errors.Annotatef(modelerrors.UserNotFoundOnModel, "getting info of user %q on model %s", name, modelUUID)
+	return coremodel.ModelUserInfo{}, errors.Errorf(
+		"getting info of user %q on model %q: %w",
+		name, modelUUID, err,
+	)
 }
 
 // ListModelSummariesForUser returns a slice of model summaries for a given
 // user. If no models are found an empty slice is returned.
 func (s *Service) ListModelSummariesForUser(ctx context.Context, userName coreuser.Name) ([]coremodel.UserModelSummary, error) {
 	if userName.IsZero() {
-		return nil, errors.Annotatef(accesserrors.UserNameNotValid, "empty username")
+		return nil, errors.New("empty username").Add(accesserrors.UserNameNotValid)
 	}
 	return s.st.ListModelSummariesForUser(ctx, userName)
 }
@@ -482,10 +534,10 @@ func (s *Service) UpdateCredential(
 	key credential.Key,
 ) error {
 	if err := uuid.Validate(); err != nil {
-		return fmt.Errorf("updating cloud credential model uuid: %w", err)
+		return errors.Errorf("updating cloud credential model uuid: %w", err)
 	}
 	if err := key.Validate(); err != nil {
-		return fmt.Errorf("updating cloud credential: %w", err)
+		return errors.Errorf("updating cloud credential: %w", err)
 	}
 
 	return s.st.UpdateCredential(ctx, uuid, key)
