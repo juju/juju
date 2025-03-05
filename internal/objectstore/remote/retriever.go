@@ -23,10 +23,6 @@ const (
 	// available.
 	NoRemoteConnections = errors.ConstError("no remote connections available")
 
-	// NoRemoteConnection is returned when there is no remote connection
-	// available.
-	NoRemoteConnection = errors.ConstError("no remote connection available")
-
 	// BlobNotFound is returned when the requested blob is not found on any of
 	// the remote connections.
 	BlobNotFound = errors.ConstError("blob not found")
@@ -235,14 +231,12 @@ func newRetriever(index int, remote apiremotecaller.RemoteConnection, newObjectC
 	return t
 }
 
-// Retrieve requests a blob from the remote API server, if there is not
-// remote connection, it will retry a number of times before returning an
-// error. This is allow time for the API connection to come up on a new HA node,
-// or after a restart.
-// If the blob isn't found or any other non-retryable error it will return an
-// error right away.
-// If the context is cancelled, it will stop processing the request as soon as
-// possible.
+// Retrieve requests a blob from the remote API server, if there is not a remote
+// connection, it will retry a number of times before returning an error. This
+// is to allow time for the API connection to come up on a new HA node, or after
+// a restart. If the blob isn't found or any other non-retryable error it will
+// return an error right away. If the context is cancelled, it will stop
+// processing the request as soon as possible.
 func (t *retriever) Retrieve(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

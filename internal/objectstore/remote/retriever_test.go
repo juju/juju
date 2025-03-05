@@ -297,6 +297,8 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *gc.C) {
 	c.Check(result, gc.DeepEquals, []byte("hello world"))
 	c.Check(size, gc.Equals, int64(11))
 
+	c.Assert(atomic.LoadInt64(&attempts), gc.Equals, int64(3))
+
 	workertest.CleanKill(c, ret)
 }
 
