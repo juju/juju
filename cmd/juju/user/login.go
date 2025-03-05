@@ -388,10 +388,9 @@ func (c *loginCommand) publicControllerLogin(
 		api.NewSessionTokenLoginProvider(
 			sessionToken,
 			ctx.Stderr,
-			func(t string) error {
+			func(t string) {
 				oidcLogin = true
 				sessionToken = t
-				return nil
 			},
 		),
 		api.NewLegacyLoginProvider(nil, "", "", nil, bclient, cookieURL),

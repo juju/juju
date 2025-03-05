@@ -301,10 +301,9 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 		api.NewSessionTokenLoginProvider(
 			"",
 			ctx.Stderr,
-			func(t string) error {
+			func(t string) {
 				supportsOIDCLogin = true
 				sessionToken = t
-				return nil
 			},
 		),
 		api.NewLegacyLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),

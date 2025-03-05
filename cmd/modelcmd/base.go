@@ -575,9 +575,8 @@ func newAPIConnectionParams(
 		dialOpts.LoginProvider = api.NewSessionTokenLoginProvider(
 			accountDetails.SessionToken,
 			cmdOut,
-			func(sessionToken string) error {
+			func(sessionToken string) {
 				accountDetails.SessionToken = sessionToken
-				return nil
 			},
 		)
 	}
