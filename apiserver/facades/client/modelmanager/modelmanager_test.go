@@ -456,37 +456,6 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 	c.Assert(newModelArgs.CloudName, gc.Equals, "dummy")
 }
 
-func (s *modelManagerSuite) TestModelInfoWithReadAccess(c *gc.C) {
-	args := params.ModelCreateArgs{
-		Name:     "foo",
-		OwnerTag: "user-admin",
-		Config: map[string]interface{}{
-			"bar": "baz",
-		},
-	}
-	modelInfoAdmin, err := s.api.CreateModel(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_true := true
-	expectedModelInfo := modelInfoAdmin
-	expectedModelInfo.Users = []params.ModelUserInfo{}
-	expectedModelInfo.CloudCredentialValidity = &_true
-	expectedModelInfo.Machines = []params.ModelMachineInfo{}
-	expectedModelInfo.SecretBackends = []params.SecretBackendResult{}
-
-	alice := names.NewUserTag("alice")
-	s.setAPIUser(c, alice, apiservertesting.SetTagWithReadAccess(alice))
-	modelInfoReader, err := s.api.ModelInfo(params.Entities{
-		Entities: []params.Entity{{
-			Tag: names.NewModelTag(modelInfoAdmin.UUID).String(),
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelInfoReader.Results, gc.HasLen, 1)
-	c.Assert(modelInfoReader.Results[0].Error, gc.IsNil)
-	c.Assert(modelInfoReader.Results[0].Result, jc.DeepEquals, &expectedModelInfo)
-}
-
 func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
@@ -969,10 +938,6 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 
 	addModelUser := names.NewUserTag("add-model")
 
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(
-		gomock.Any(), user.NameFromTag(addModelUser), gomock.AssignableToTypeOf(permission.ID{}),
-	).Return(permission.AddModelAccess, nil)
-
 	s.setAPIUser(c, addModelUser)
 	nonAdminUser := names.NewUserTag("non-admin")
 	_, err := s.api.CreateModel(context.Background(), createArgs(nonAdminUser))
@@ -1290,12 +1255,7 @@ func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *
 
 	userTag := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, userTag)
-	as := s.accessService.EXPECT()
-	id := permission.ID{
-		ObjectType: permission.Cloud,
-		Key:        "dummy",
-	}
-	as.ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(userTag), id).Return(permission.WriteAccess, nil)
+
 	owner := names.NewUserTag("external@remote")
 	_, err := s.modelmanager.CreateModel(context.Background(), createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -1306,12 +1266,6 @@ func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSelf(c *gc.C) {
 
 	owner := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, owner)
-	as := s.accessService.EXPECT()
-	id := permission.ID{
-		ObjectType: permission.Cloud,
-		Key:        "dummy",
-	}
-	as.ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(owner), id).Return(permission.WriteAccess, nil)
 
 	_, err := s.modelmanager.CreateModel(context.Background(), createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
