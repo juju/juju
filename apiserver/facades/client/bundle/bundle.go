@@ -41,13 +41,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-}
-
 // ApplicationService is an interface for the application domain service.
 type ApplicationService interface {
 	// GetCharm returns the charm by name, source and revision. Calling this method
@@ -59,6 +52,13 @@ type ApplicationService interface {
 	GetCharm(ctx context.Context, locator applicationcharm.CharmLocator) (charm.Charm, applicationcharm.CharmLocator, bool, error)
 }
 
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	// GetAllSpaces returns all spaces for the model.
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+}
+
 // APIv8 provides the Bundle API facade for version 8. It drops IncludeSeries
 // from ExportBundle params, and drops series entirely from ExportBundle output
 type APIv8 struct {
@@ -68,13 +68,21 @@ type APIv8 struct {
 // BundleAPI implements the Bundle interface and is the concrete implementation
 // of the API end point.
 type BundleAPI struct {
-	backend            Backend
-	store              objectstore.ObjectStore
-	authorizer         facade.Authorizer
-	modelTag           names.ModelTag
-	networkService     NetworkService
+
+	// Access control.
+	authorizer facade.Authorizer
+	modelTag   names.ModelTag
+
+	// Legacy state access.
+	backend Backend
+
+	// Services.
 	applicationService ApplicationService
-	logger             corelogger.Logger
+	networkService     NetworkService
+
+	store objectstore.ObjectStore
+
+	logger corelogger.Logger
 }
 
 // NewFacade provides the required signature for facade registration.
@@ -240,7 +248,7 @@ func (b *BundleAPI) ExportBundle(ctx context.Context, arg params.ExportBundlePar
 	}
 
 	// Fill it in charm.BundleData data structure.
-	bundleData, err := b.fillBundleData(ctx, model, arg.IncludeCharmDefaults, b.backend)
+	bundleData, err := b.fillBundleData(ctx, model, arg.IncludeCharmDefaults)
 	if err != nil {
 		return fail(err)
 	}
@@ -315,7 +323,7 @@ func bundleOutputFromBundleData(bd *charm.BundleData) *bundleOutput {
 	}
 }
 
-func (b *BundleAPI) fillBundleData(ctx context.Context, model description.Model, includeCharmDefaults bool, backend Backend) (*charm.BundleData, error) {
+func (b *BundleAPI) fillBundleData(ctx context.Context, model description.Model, includeCharmDefaults bool) (*charm.BundleData, error) {
 	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -350,7 +358,7 @@ func (b *BundleAPI) fillBundleData(ctx context.Context, model description.Model,
 		usedBases  set.Strings
 		machineIds set.Strings
 	)
-	data.Applications, machineIds, usedBases, err = b.bundleDataApplications(ctx, model.Applications(), defaultBase, isCAAS, includeCharmDefaults, backend)
+	data.Applications, machineIds, usedBases, err = b.bundleDataApplications(ctx, model.Applications(), defaultBase, isCAAS, includeCharmDefaults)
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +414,6 @@ func (b *BundleAPI) bundleDataApplications(
 	apps []description.Application,
 	defaultBase corebase.Base,
 	isCAAS, includeCharmDefaults bool,
-	backend Backend,
 ) (map[string]*charm.ApplicationSpec, set.Strings, set.Strings, error) {
 
 	allSpacesInfoLookup, err := b.networkService.GetAllSpaces(ctx)
