@@ -99,8 +99,8 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
 	c.Assert(w, gc.NotNil)
+	workertest.DirtyKill(c, w)
 }
 
 type mockAPICaller struct {
