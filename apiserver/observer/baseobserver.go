@@ -6,8 +6,9 @@ package observer
 import (
 	"context"
 
-	"github.com/juju/juju/core/model"
 	"github.com/juju/names/v6"
+
+	"github.com/juju/juju/core/model"
 )
 
 // BaseObserver provides a common state between different observers.
