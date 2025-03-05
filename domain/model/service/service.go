@@ -398,7 +398,7 @@ func (s *Service) DeleteModel(
 
 	// If the db should not be deleted then we can return early.
 	if !options.DeleteDB() {
-		s.logger.Infof(context.TODO(), "skipping model deletion, model database will still be present")
+		s.logger.Infof(ctx, "skipping model deletion, model database will still be present")
 		return nil
 	}
 

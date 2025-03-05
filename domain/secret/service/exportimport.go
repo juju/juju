@@ -248,7 +248,7 @@ func (s *SecretService) importSecretRevisions(
 		})
 		if err != nil {
 			if err := rollBack(); err != nil {
-				s.logger.Warningf(context.TODO(), "failed to roll back secret reference count: %v", err)
+				s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
 			}
 			return errors.Annotatef(err, "cannot import secret %q revision %d", md.URI.ID, rev.Revision)
 		}
@@ -287,7 +287,7 @@ func (s *SecretService) createImportedSecret(
 	defer func() {
 		if errOut != nil {
 			if err := rollBack(); err != nil {
-				s.logger.Warningf(context.TODO(), "failed to roll back secret reference count: %v", err)
+				s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
 			}
 		}
 	}()

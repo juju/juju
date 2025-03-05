@@ -135,24 +135,24 @@ VALUES ($ProviderNetworkSubnet.*)`, providerNetworkSubnet)
 	}
 	// Add the subnet entity.
 	if err := tx.Query(ctx, insertSubnetStmt, subnet).Run(); err != nil {
-		st.logger.Errorf(context.TODO(), "inserting subnet %q, %v", subnetInfo.CIDR, err)
+		st.logger.Errorf(ctx, "inserting subnet %q, %v", subnetInfo.CIDR, err)
 		return errors.Trace(err)
 	}
 
 	// Add the subnet uuid to the provider ids table.
 	if err := tx.Query(ctx, insertSubnetProviderIDStmt, providerSubnet).Run(); err != nil {
 		if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
-			st.logger.Debugf(context.TODO(), "inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
+			st.logger.Debugf(ctx, "inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
 			return errors.AlreadyExistsf("provider id %q for subnet %q", subnetInfo.ProviderId, subnetUUID)
 		}
-		st.logger.Errorf(context.TODO(), "inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
+		st.logger.Errorf(ctx, "inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
 		return errors.Annotatef(err, "inserting provider id %q for subnet %q", subnetInfo.ProviderId, subnetUUID)
 	}
 
 	var pnUUIDStr string
 	err = tx.Query(ctx, retrieveProviderNetworkUUIDStmt, providerNetwork).Get(&providerNetworkSubnet)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		st.logger.Errorf(context.TODO(), "retrieving provider network ID %q for subnet %q, %v", subnetInfo.ProviderNetworkId, subnetUUID, err)
+		st.logger.Errorf(ctx, "retrieving provider network ID %q for subnet %q, %v", subnetInfo.ProviderNetworkId, subnetUUID, err)
 		return errors.Annotatef(err, "retrieving provider network ID %q for subnet %q", subnetInfo.ProviderNetworkId, subnetUUID)
 	} else if errors.Is(err, sqlair.ErrNoRows) {
 		// If the provider network doesn't exist, insert it.
@@ -169,7 +169,7 @@ VALUES ($ProviderNetworkSubnet.*)`, providerNetworkSubnet)
 		// Add the provider network id and its uuid to the
 		// provider_network table.
 		if err := tx.Query(ctx, insertSubnetProviderNetworkIDStmt, providerNetwork).Run(); err != nil {
-			st.logger.Errorf(context.TODO(), "inserting provider network id %q for subnet %q, %v", subnetInfo.ProviderNetworkId, subnetUUID, err)
+			st.logger.Errorf(ctx, "inserting provider network id %q for subnet %q, %v", subnetInfo.ProviderNetworkId, subnetUUID, err)
 			return errors.Annotatef(err, "inserting provider network id %q for subnet %q", subnetInfo.ProviderNetworkId, subnetUUID)
 		}
 	}
@@ -177,7 +177,7 @@ VALUES ($ProviderNetworkSubnet.*)`, providerNetworkSubnet)
 	// Insert the providerNetworkUUID into provider network to
 	// subnets mapping table.
 	if err := tx.Query(ctx, insertSubnetProviderNetworkSubnetStmt, providerNetworkSubnet).Run(); err != nil {
-		st.logger.Errorf(context.TODO(), "inserting association between provider network id %q and subnet %q, %v", subnetInfo.ProviderNetworkId, subnetUUID, err)
+		st.logger.Errorf(ctx, "inserting association between provider network id %q and subnet %q, %v", subnetInfo.ProviderNetworkId, subnetUUID, err)
 		return errors.Annotatef(err, "inserting association between provider network id (%q) %q and subnet %q", pnUUIDStr, subnetInfo.ProviderNetworkId, subnetUUID)
 	}
 
@@ -217,7 +217,7 @@ VALUES ($AvailabilityZoneSubnet.*)`, availabilityZoneSubnet)
 		// Retrieve the availability zone.
 		err := tx.Query(ctx, retrieveAvailabilityZoneStmt, availabilityZone).Get(&availabilityZone)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			st.logger.Errorf(context.TODO(), "retrieving availability zone %q for subnet %q, %v", az, subnetUUID, err)
+			st.logger.Errorf(ctx, "retrieving availability zone %q for subnet %q, %v", az, subnetUUID, err)
 			return errors.Annotatef(err, "retrieving availability zone %q for subnet %q", az, subnetUUID)
 		}
 
@@ -229,7 +229,7 @@ VALUES ($AvailabilityZoneSubnet.*)`, availabilityZoneSubnet)
 			}
 			availabilityZone.UUID = azUUID.String()
 			if err := tx.Query(ctx, insertAvailabilityZoneStmt, availabilityZone).Run(); err != nil {
-				st.logger.Errorf(context.TODO(), "inserting availability zone %q for subnet %q, %v", az, subnetUUID, err)
+				st.logger.Errorf(ctx, "inserting availability zone %q for subnet %q, %v", az, subnetUUID, err)
 				return errors.Annotatef(err, "inserting availability zone %q for subnet %q", az, subnetUUID)
 			}
 		}
@@ -237,7 +237,7 @@ VALUES ($AvailabilityZoneSubnet.*)`, availabilityZoneSubnet)
 		// Add the subnet id along with the availability zone uuid into the
 		// availability_zone_subnet mapping table.
 		if err := tx.Query(ctx, insertAvailabilityZoneSubnetStmt, availabilityZoneSubnet).Run(); err != nil {
-			st.logger.Errorf(context.TODO(), "inserting availability zone %q association with subnet %q, %v", az, subnetUUID, err)
+			st.logger.Errorf(ctx, "inserting availability zone %q association with subnet %q, %v", az, subnetUUID, err)
 			return errors.Annotatef(err, "inserting availability zone %q association with subnet %q", az, subnetUUID)
 		}
 	}
@@ -287,7 +287,7 @@ FROM   v_space_subnet
 	}); errors.Is(err, sqlair.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
-		st.logger.Errorf(context.TODO(), "querying subnets, %v", err)
+		st.logger.Errorf(ctx, "querying subnets, %v", err)
 		return nil, errors.Annotate(err, "querying subnets")
 	}
 
@@ -395,7 +395,7 @@ WHERE  uuid = $Subnet.uuid;`, subnet)
 	var outcome sqlair.Outcome
 
 	if err = tx.Query(ctx, updateSubnetSpaceIDStmt, subnet).Get(&outcome); err != nil {
-		st.logger.Errorf(context.TODO(), "updating subnet %q space ID %v, %v", subnet.UUID, subnet.SpaceUUID, err)
+		st.logger.Errorf(ctx, "updating subnet %q space ID %v, %v", subnet.UUID, subnet.SpaceUUID, err)
 		return errors.Trace(err)
 	}
 	affected, err := outcome.Result().RowsAffected()
@@ -475,14 +475,14 @@ DELETE FROM availability_zone_subnet WHERE subnet_uuid = $Subnet.uuid;`, subnet)
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, selectProviderNetworkStmt, subnet).Get(&providerNetworkSubnet)
 		if err != nil {
-			st.logger.Errorf(context.TODO(), "retrieving provider network corresponding to subnet %q, %v", uuid, err)
+			st.logger.Errorf(ctx, "retrieving provider network corresponding to subnet %q, %v", uuid, err)
 			return errors.Trace(err)
 		}
 
 		var outcome sqlair.Outcome
 		err = tx.Query(ctx, deleteProviderNetworkSubnetStmt, subnet).Get(&outcome)
 		if err != nil {
-			st.logger.Errorf(context.TODO(), "removing the provider network entry for subnet %q, %v", uuid, err)
+			st.logger.Errorf(ctx, "removing the provider network entry for subnet %q, %v", uuid, err)
 			return errors.Trace(err)
 		}
 		if delProviderNetworkSubnetAffected, err := outcome.Result().RowsAffected(); err != nil {
@@ -493,7 +493,7 @@ DELETE FROM availability_zone_subnet WHERE subnet_uuid = $Subnet.uuid;`, subnet)
 
 		err = tx.Query(ctx, deleteProviderNetworkStmt, providerNetworkSubnet).Get(&outcome)
 		if err != nil {
-			st.logger.Errorf(context.TODO(), "removing the provider network entry %q, %v", providerNetworkSubnet.ProviderNetworkUUID, err)
+			st.logger.Errorf(ctx, "removing the provider network entry %q, %v", providerNetworkSubnet.ProviderNetworkUUID, err)
 			return errors.Trace(err)
 		}
 		if delProviderNetworkAffected, err := outcome.Result().RowsAffected(); err != nil {
@@ -503,12 +503,12 @@ DELETE FROM availability_zone_subnet WHERE subnet_uuid = $Subnet.uuid;`, subnet)
 		}
 
 		if err := tx.Query(ctx, deleteAvailabilityZoneSubnetStmt, subnet).Run(); err != nil {
-			st.logger.Errorf(context.TODO(), "removing the availability zone entry for subnet %q, %v", uuid, err)
+			st.logger.Errorf(ctx, "removing the availability zone entry for subnet %q, %v", uuid, err)
 			return errors.Trace(err)
 		}
 
 		err = tx.Query(ctx, deleteProviderSubnetStmt, subnet).Get(&outcome)
-		st.logger.Errorf(context.TODO(), "removing the provider subnet entry for subnet %q, %v", uuid, err)
+		st.logger.Errorf(ctx, "removing the provider subnet entry for subnet %q, %v", uuid, err)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -520,7 +520,7 @@ DELETE FROM availability_zone_subnet WHERE subnet_uuid = $Subnet.uuid;`, subnet)
 
 		err = tx.Query(ctx, deleteSubnetStmt, subnet).Get(&outcome)
 		if err != nil {
-			st.logger.Errorf(context.TODO(), "removing subnet %q, %v", uuid, err)
+			st.logger.Errorf(ctx, "removing subnet %q, %v", uuid, err)
 			return errors.Trace(err)
 		}
 		if delSubnetAffected, err := outcome.Result().RowsAffected(); err != nil {

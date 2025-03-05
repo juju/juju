@@ -1125,7 +1125,7 @@ WHERE unit_uuid = $cloudContainer.unit_uuid
 		newProviderID := cc.ProviderID
 		if newProviderID != "" &&
 			containerInfo.ProviderID != newProviderID {
-			st.logger.Debugf(context.TODO(), "unit %q has provider id %q which changed to %q",
+			st.logger.Debugf(ctx, "unit %q has provider id %q which changed to %q",
 				unitName, containerInfo.ProviderID, newProviderID)
 		}
 		containerInfo.ProviderID = newProviderID

@@ -93,7 +93,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	for k, v := range attrs {
 		if !defaultAttrs.Contains(k) {
-			i.logger.Debugf(context.TODO(), "model config attribute %s=%v is removed on import", k, v)
+			i.logger.Debugf(ctx, "model config attribute %s=%v is removed on import", k, v)
 			delete(attrs, k)
 		}
 	}

@@ -755,7 +755,7 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 	// Ensure we close the charm reader.
 	defer func() {
 		if err := result.Charm.Close(); err != nil {
-			s.logger.Errorf(context.TODO(), "closing reader: %v", err)
+			s.logger.Errorf(ctx, "closing reader: %v", err)
 		}
 	}()
 
@@ -799,7 +799,7 @@ func (s *Service) resolveLocalUploadedCharm(ctx context.Context, args charm.Reso
 	if err != nil {
 		return charm.CharmLocator{}, errors.Annotate(err, "setting charm")
 	} else if len(warnings) > 0 {
-		s.logger.Infof(context.TODO(), "setting charm: %v", warnings)
+		s.logger.Infof(ctx, "setting charm: %v", warnings)
 	}
 
 	return resolved.Locator, nil
@@ -840,7 +840,7 @@ func (s *Service) resolveMigratingUploadedCharm(ctx context.Context, args charm.
 	// Ensure we close the charm reader.
 	defer func() {
 		if err := result.Charm.Close(); err != nil {
-			s.logger.Errorf(context.TODO(), "closing reader: %v", err)
+			s.logger.Errorf(ctx, "closing reader: %v", err)
 		}
 	}()
 

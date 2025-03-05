@@ -180,7 +180,7 @@ func (s *SecretService) loadBackendInfo(ctx context.Context, activeOnly bool) er
 			if b.ID != s.activeBackendID && cfg.BackendType == kubernetes.BackendType {
 				// TODO(secrets) - on an iaas controller, attempting to get the "model" k8s backend fails
 				// The root cause is not filtering backends to those that are in use.
-				s.logger.Debugf(context.TODO(), "failed to load backend info for id %s (%s): %v", b.ID, cfg.BackendType, err)
+				s.logger.Debugf(ctx, "failed to load backend info for id %s (%s): %v", b.ID, cfg.BackendType, err)
 				continue
 			}
 			return errors.Errorf("acquiring secret backend %s: %w", b.ID, err)
@@ -233,7 +233,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 				if err2 := backend.DeleteContent(ctx, revId); err2 != nil &&
 					!errors.Is(err2, jujuerrors.NotSupported) &&
 					!errors.Is(err2, secreterrors.SecretRevisionNotFound) {
-					s.logger.Warningf(context.TODO(), "failed to delete secret %q: %v", revId, err2)
+					s.logger.Warningf(ctx, "failed to delete secret %q: %v", revId, err2)
 				}
 			}
 		}()
@@ -260,7 +260,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	defer func() {
 		if errOut != nil {
 			if err := rollBack(); err != nil {
-				s.logger.Warningf(context.TODO(), "failed to roll back secret reference count: %v", err)
+				s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
 			}
 		}
 	}()
@@ -322,7 +322,7 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 	defer func() {
 		if errOut != nil {
 			if err := rollBack(); err != nil {
-				s.logger.Warningf(context.TODO(), "failed to roll back secret reference count: %v", err)
+				s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
 			}
 		}
 	}()
@@ -398,7 +398,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 						if err2 := backend.DeleteContent(innerCtx, revId); err2 != nil &&
 							!errors.Is(err2, jujuerrors.NotSupported) &&
 							!errors.Is(err2, secreterrors.SecretRevisionNotFound) {
-							s.logger.Warningf(context.TODO(), "failed to delete secret %q: %v", revId, err2)
+							s.logger.Warningf(ctx, "failed to delete secret %q: %v", revId, err2)
 						}
 					}
 				}()
@@ -429,7 +429,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 			defer func() {
 				if errOut != nil {
 					if err := rollBack(); err != nil {
-						s.logger.Warningf(context.TODO(), "failed to roll back secret reference count: %v", err)
+						s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
 					}
 				}
 			}()
@@ -507,7 +507,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 			defer func() {
 				if errOut != nil {
 					if err := rollBack(); err != nil {
-						s.logger.Warningf(context.TODO(), "failed to roll back secret reference count: %v", err)
+						s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
 					}
 				}
 			}()
@@ -909,7 +909,7 @@ func (s *SecretService) ChangeSecretBackend(
 		defer func() {
 			if errOut != nil {
 				if err := rollBack(); err != nil {
-					s.logger.Warningf(context.TODO(), "failed to roll back secret reference count: %v", err)
+					s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
 				}
 			}
 		}()
@@ -934,7 +934,7 @@ func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, par
 		return errors.Capture(err)
 	}
 	if !info.RotatePolicy.WillRotate() {
-		s.logger.Debugf(context.TODO(), "secret %q was rotated but now is set to not rotate")
+		s.logger.Debugf(ctx, "secret %q was rotated but now is set to not rotate")
 		return nil
 	}
 	lastRotateTime := info.NextRotateTime
@@ -944,20 +944,20 @@ func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, par
 	}
 
 	nextRotateTime := *info.RotatePolicy.NextRotateTime(*lastRotateTime)
-	s.logger.Debugf(context.TODO(), "secret %q was rotated: rev was %d, now %d", uri.ID, params.OriginalRevision, info.LatestRevision)
+	s.logger.Debugf(ctx, "secret %q was rotated: rev was %d, now %d", uri.ID, params.OriginalRevision, info.LatestRevision)
 
 	// If the secret will expire before it is due to be next rotated, rotate sooner to allow
 	// the charm a chance to update it before it expires.
 	willExpire := info.LatestExpireTime != nil && info.LatestExpireTime.Before(nextRotateTime)
 	forcedRotateTime := lastRotateTime.Add(secrets.RotateRetryDelay)
 	if willExpire {
-		s.logger.Warningf(context.TODO(), "secret %q rev %d will expire before next scheduled rotation", uri.ID, info.LatestRevision)
+		s.logger.Warningf(ctx, "secret %q rev %d will expire before next scheduled rotation", uri.ID, info.LatestRevision)
 	}
 
 	if willExpire && forcedRotateTime.Before(*info.LatestExpireTime) || !params.Skip && info.LatestRevision == params.OriginalRevision {
 		nextRotateTime = forcedRotateTime
 	}
-	s.logger.Debugf(context.TODO(), "secret %q next rotate time is now: %s", uri.ID, nextRotateTime.UTC().Format(time.RFC3339))
+	s.logger.Debugf(ctx, "secret %q next rotate time is now: %s", uri.ID, nextRotateTime.UTC().Format(time.RFC3339))
 
 	return withCaveat(ctx, func(innerCtx context.Context) (errOut error) {
 		return s.secretState.SecretRotated(innerCtx, uri, nextRotateTime)
