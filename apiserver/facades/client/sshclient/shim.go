@@ -24,18 +24,18 @@ type Backend interface {
 	Model() (Model, error)
 	CloudSpec() (environscloudspec.CloudSpec, error)
 
-	// SSHServerHostKey returns the host key for the SSH server.
+	// SSHServerHostKey returns the public host key for the SSH server.
 	// This key was set during the controller bootstrap process via
 	// bootstrap-state and is currently a FIXED value.
 	SSHServerHostKey() (string, error)
 
 	// UnitVirtualHostKey calls the underlying UnitVirtualHostKey state method
 	// and encodes the result into a PEM string.
-	UnitVirtualHostKeyPEM(unitID string) (string, error)
+	UnitVirtualPublicHostKeyPEM(unitID string) (string, error)
 
-	// MachineVirtualHostKey calls the underlying MachineVirtualHostKey state method
+	// MachineVirtualPublicHostKey calls the underlying MachineVirtualHostKey state method
 	// and encodes the result into a PEM string.
-	MachineVirtualHostKeyPEM(machineID int) (string, error)
+	MachineVirtualPublicHostKeyPEM(machineID string) (string, error)
 }
 
 // Model defines a point of use interface for the model from state.
@@ -148,16 +148,26 @@ func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
 	}
 }
 
-// UnitVirtualHostKey calls the underlying UnitVirtualHostKey state method
+// UnitVirtualPublicHostKey calls the underlying UnitVirtualHostKey state method
 // and encodes the result into a PEM string.
-func (b *backend) UnitVirtualHostKeyPEM(unitID string) (string, error) {
-	// TODO(ale8k): Plug in state method once merged.
-	return "", errors.NotImplementedf("UnitVirtualHostKeyPEM")
+func (b *backend) UnitVirtualPublicHostKeyPEM(unitID string) (string, error) {
+	// The keys are persisted PEM encoded.
+	vhk, err := b.State.UnitVirtualHostKey(unitID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return string(vhk.HostKey()), nil
 }
 
-// MachineVirtualHostKey calls the underlying MachineVirtualHostKey state method
+// MachineVirtualPublicHostKey calls the underlying MachineVirtualHostKey state method
 // and encodes the result into a PEM string.
-func (b *backend) MachineVirtualHostKeyPEM(machineID int) (string, error) {
-	// TODO(ale8k): Plug in state method once merged.
-	return "", errors.NotImplementedf("MachineVirtualHostKey")
+func (b *backend) MachineVirtualPublicHostKeyPEM(machineID string) (string, error) {
+	// The keys are persisted PEM encoded.
+	vhk, err := b.State.MachineVirtualHostKey(machineID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return string(vhk.HostKey()), nil
 }

@@ -6,6 +6,7 @@ package sshclient
 import (
 	stdcontext "context"
 	"sort"
+	"strconv"
 
 	"github.com/juju/errors"
 
@@ -65,6 +66,21 @@ func (facade *Facade) checkIsModelAdmin() error {
 	}
 
 	return facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
+}
+
+func (facade *Facade) checkIsModelReader() error {
+	// Check if superuser, if it's not a missing perm error, the user may have
+	// a lower level of permission (Write, Read) for the model.
+	err := facade.authorizer.HasPermission(permission.SuperuserAccess, facade.backend.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return errors.Trace(err)
+	}
+
+	if err == nil {
+		return nil
+	}
+
+	return facade.authorizer.HasPermission(permission.ReadAccess, facade.backend.ModelTag())
 }
 
 // PublicAddress reports the preferred public network address for one
@@ -293,15 +309,16 @@ func (facade *Facade) getExecSecretToken(cloudSpec environscloudspec.CloudSpec, 
 	return broker.GetSecretToken(k8sprovider.ExecRBACResourceName)
 }
 
-// HostKeyForTarget returns the host key for the target entity. In addition, it also returns
+// PublicHostKeyForTarget returns the host key for the target entity. In addition, it also returns
 // the jump server's host key.
-func (facade *Facade) HostKeyForTarget(arg params.SSHHostKeyRequestArg) params.SSHHostKeyResult {
-	// Check if model writer? reader? what? Which would be best?
-	// if err := facade.checkIsModelAdmin(); err != nil {
-	// 	return params.SSHHostKeyResult{}, errors.Trace(err)
-	// }
-
+func (facade *Facade) PublicHostKeyForTarget(arg params.SSHHostKeyRequestArg) params.SSHHostKeyResult {
 	var res params.SSHHostKeyResult
+
+	// Check if superuser or at least model reader
+	if err := facade.checkIsModelReader(); err != nil {
+		res.Error = apiservererrors.ServerError(err)
+		return res
+	}
 
 	info, err := virtualhostname.Parse(arg.Hostname)
 	if err != nil {
@@ -313,7 +330,7 @@ func (facade *Facade) HostKeyForTarget(arg params.SSHHostKeyRequestArg) params.S
 	switch info.Target() {
 	case virtualhostname.MachineTarget:
 		machineId, _ := info.Machine()
-		hostkey, err = facade.backend.MachineVirtualHostKeyPEM(machineId)
+		hostkey, err = facade.backend.MachineVirtualPublicHostKeyPEM(strconv.Itoa(machineId))
 		if err != nil {
 			res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get machine host key"))
 			return res
@@ -322,7 +339,7 @@ func (facade *Facade) HostKeyForTarget(arg params.SSHHostKeyRequestArg) params.S
 		fallthrough
 	case virtualhostname.UnitTarget:
 		unitName, _ := info.Unit()
-		hostkey, err = facade.backend.UnitVirtualHostKeyPEM(unitName)
+		hostkey, err = facade.backend.UnitVirtualPublicHostKeyPEM(unitName)
 		if err != nil {
 			res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get unit host key"))
 			return res
