@@ -55,6 +55,13 @@ func convertInfoResponse(info transport.InfoResponse, arch string, risk charm.Ri
 	if err != nil {
 		return ir, errors.Trace(err)
 	}
+
+	if len(ir.Tracks) == 0 && len(ir.Channels) == 0 {
+		if ir.Charm != nil {
+			ir.Charm.Relations = nil
+		}
+	}
+
 	return ir, nil
 }
 
