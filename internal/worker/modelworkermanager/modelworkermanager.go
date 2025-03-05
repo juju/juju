@@ -255,14 +255,6 @@ func (m *modelWorkerManager) modelChanged(modelUUID string) error {
 	}
 	defer release()
 
-	if !isModelActive(model) {
-		// Ignore this model until it's activated - we
-		// never want to run workers for an importing
-		// model.
-		// https://bugs.launchpad.net/juju/+bug/1646310
-		return nil
-	}
-
 	cfg := NewModelConfig{
 		Authority:    m.config.Authority,
 		ModelName:    model.Name(),

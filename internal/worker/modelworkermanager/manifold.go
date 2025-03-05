@@ -160,10 +160,6 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// domainServices, err := domainServicesGetter.ServicesForModel(context, model.UUID(systemState.ControllerModelUUID()))
-	// if err != nil {
-	// 	return nil, errors.Trace(err)
-	// }
 
 	w, err := config.NewWorker(Config{
 		Authority:    authority,

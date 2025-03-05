@@ -46,7 +46,6 @@ func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
 	s.domainServices = NewMockDomainServices(ctrl)
-
 	return ctrl
 }
 
@@ -227,7 +226,7 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	config := modelworkermanager.Config{
 		Authority:              s.authority,
 		Logger:                 loggertesting.WrapCheckLog(c),
-		ModelWatcher:           watcher,
+		SystemState:            &state.State{},
 		Controller:             mockController,
 		NewModelWorker:         s.startModelWorker,
 		ModelMetrics:           dummyModelMetrics{},
