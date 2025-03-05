@@ -75,8 +75,36 @@ func (f *WatcherFactory) NewNamespaceMapperWatcher(
 	), nil
 }
 
+// NewMultiWatcher returns a watcher that combines multiple value
+// watchers into a single watcher.
+func (f *WatcherFactory) NewMultiWatcher(
+	filterOpts ...eventsource.FilterOption,
+) (watcher.NotifyWatcher, error) {
+	base, err := f.newBaseWatcher()
+	if err != nil {
+		return nil, errors.Annotate(err, "creating base watcher")
+	}
+
+	return eventsource.NewMultiValueWatcher(base, filterOpts...), nil
+}
+
+// NewMultiWatcher returns a watcher that combines multiple value
+// watchers into a single watcher.
+func (f *WatcherFactory) NewMultiMapperWatcher(
+	mapper eventsource.Mapper,
+	filterOpts ...eventsource.FilterOption,
+) (watcher.NotifyWatcher, error) {
+	base, err := f.newBaseWatcher()
+	if err != nil {
+		return nil, errors.Annotate(err, "creating base watcher")
+	}
+
+	return eventsource.NewMultiValueMapperWatcher(base, mapper, filterOpts...), nil
+}
+
 // NewNamespaceNotifyWatcher returns a new namespace notify watcher
 // for events based on the input change mask.
+// Deprecated: use NewMultiWatcher instead.
 func (f *WatcherFactory) NewNamespaceNotifyWatcher(
 	namespace string, changeMask changestream.ChangeType,
 ) (watcher.NotifyWatcher, error) {
@@ -90,6 +118,7 @@ func (f *WatcherFactory) NewNamespaceNotifyWatcher(
 
 // NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
 // for events based on the input change mask and mapper.
+// Deprecated: use NewMultiMapperWatcher instead.
 func (f *WatcherFactory) NewNamespaceNotifyMapperWatcher(
 	namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
 ) (watcher.NotifyWatcher, error) {
@@ -103,6 +132,7 @@ func (f *WatcherFactory) NewNamespaceNotifyMapperWatcher(
 
 // NewValueWatcher returns a watcher for a particular change value
 // in a namespace, based on the input change mask.
+// Deprecated: use NewMultiWatcher instead.
 func (f *WatcherFactory) NewValueWatcher(
 	namespace, changeValue string, changeMask changestream.ChangeType,
 ) (watcher.NotifyWatcher, error) {
@@ -116,6 +146,7 @@ func (f *WatcherFactory) NewValueWatcher(
 
 // NewValueMapperWatcher returns a watcher for a particular change value
 // in a namespace, based on the input change mask and mapper.
+// Deprecated: use NewMultiMapperWatcher instead.
 func (f *WatcherFactory) NewValueMapperWatcher(
 	namespace, changeValue string,
 	changeMask changestream.ChangeType,
