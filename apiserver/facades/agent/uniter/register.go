@@ -50,24 +50,22 @@ func newUniterAPIv20(stdCtx context.Context, ctx facade.ModelContext) (*UniterAP
 // newUniterAPI creates a new instance of the core Uniter API.
 func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, error) {
 	domainServices := ctx.DomainServices()
-	modelInfoService := domainServices.ModelInfo()
-
-	secretService := domainServices.Secret()
-	applicationService := domainServices.Application()
 
 	return newUniterAPIWithServices(
 		stdCtx, ctx,
-		domainServices.ControllerConfig(),
-		domainServices.Config(),
-		modelInfoService,
-		secretService,
-		domainServices.Network(),
-		domainServices.Machine(),
-		domainServices.Cloud(),
-		domainServices.Credential(),
-		applicationService,
-		domainServices.UnitState(),
-		domainServices.Port(),
+		Services{
+			ApplicationService:      domainServices.Application(),
+			CloudService:            domainServices.Cloud(),
+			ControllerConfigService: domainServices.ControllerConfig(),
+			CredentialService:       domainServices.Credential(),
+			MachineService:          domainServices.Machine(),
+			ModelConfigService:      domainServices.Config(),
+			ModelInfoService:        domainServices.ModelInfo(),
+			NetworkService:          domainServices.Network(),
+			PortService:             domainServices.Port(),
+			SecretService:           domainServices.Secret(),
+			UnitStateService:        domainServices.UnitState(),
+		},
 	)
 }
 
@@ -75,17 +73,7 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 func newUniterAPIWithServices(
 	stdCtx context.Context,
 	context facade.ModelContext,
-	controllerConfigService ControllerConfigService,
-	modelConfigService ModelConfigService,
-	modelInfoService ModelInfoService,
-	secretService SecretService,
-	networkService NetworkService,
-	machineService MachineService,
-	cloudService CloudService,
-	credentialService CredentialService,
-	applicationService ApplicationService,
-	unitStateService UnitStateService,
-	portService PortService,
+	services Services,
 ) (*UniterAPI, error) {
 	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
@@ -110,6 +98,8 @@ func newUniterAPIWithServices(
 	accessCloudSpec := cloudSpecAccessor(authorizer, st)
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
+	// Do not use m for anything other than a EnvironConfigGetterModel.
+	// This use will disappear once model is fully gone from state.
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -125,62 +115,101 @@ func newUniterAPIWithServices(
 		return nil, errors.Trace(err)
 	}
 
-	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
+	modelInfo, err := services.ModelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	modelTag := names.NewModelTag(modelInfo.UUID.String())
 
 	cloudSpec := cloudspec.NewCloudSpecV2(resources,
-		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService, modelConfigService),
-		cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
+		cloudspec.MakeCloudSpecGetterForModel(st,
+			services.CloudService,
+			services.CredentialService,
+			services.ModelConfigService,
+		),
+		cloudspec.MakeCloudSpecWatcherForModel(st, services.CloudService),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, services.CredentialService),
 		common.AuthFuncForTag(modelTag),
+	)
+	modelConfigWatcher := commonmodel.NewModelConfigWatcher(
+		services.ModelConfigService,
+		context.WatcherRegistry(),
+	)
+	logger := context.Logger().Child("uniter")
+
+	extUnitState := common.NewExternalUnitStateAPI(
+		services.ControllerConfigService,
+		services.UnitStateService,
+		st,
+		resources,
+		authorizer,
+		accessUnit,
+		logger,
+	)
+
+	extLXDProfile := NewExternalLXDProfileAPIv2(
+		st,
+		services.MachineService,
+		context.WatcherRegistry(),
+		authorizer,
+		accessUnit,
+		logger,
+		services.ModelInfoService,
+		services.ApplicationService,
+	)
+
+	statusAPI := NewStatusAPI(
+		st,
+		services.ApplicationService,
+		accessUnitOrApplication,
+		leadershipChecker,
+		aClock,
 	)
 
 	systemState, err := context.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger := context.Logger().Child("uniter")
+
 	return &UniterAPI{
 		APIAddresser:       common.NewAPIAddresser(systemState, resources),
-		ModelConfigWatcher: commonmodel.NewModelConfigWatcher(modelConfigService, context.WatcherRegistry()),
-		RebootRequester:    common.NewRebootRequester(machineService, accessMachine),
-		UnitStateAPI:       common.NewExternalUnitStateAPI(controllerConfigService, unitStateService, st, resources, authorizer, accessUnit, logger),
-		lxdProfileAPI:      NewExternalLXDProfileAPIv2(st, machineService, context.WatcherRegistry(), authorizer, accessUnit, logger, modelInfoService, applicationService),
+		ModelConfigWatcher: modelConfigWatcher,
+		RebootRequester:    common.NewRebootRequester(services.MachineService, accessMachine),
+		UnitStateAPI:       extUnitState,
+		lxdProfileAPI:      extLXDProfile,
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
-		StatusAPI: NewStatusAPI(st, applicationService, accessUnitOrApplication, leadershipChecker, aClock),
+		StatusAPI: statusAPI,
 
-		m:                       m,
-		st:                      st,
-		controllerConfigService: controllerConfigService,
-		modelConfigService:      modelConfigService,
-		modelInfoService:        modelInfoService,
-		machineService:          machineService,
-		secretService:           secretService,
-		networkService:          networkService,
-		cloudService:            cloudService,
-		credentialService:       credentialService,
-		applicationService:      applicationService,
-		unitStateService:        unitStateService,
-		portService:             portService,
-		clock:                   aClock,
-		auth:                    authorizer,
-		resources:               resources,
-		leadershipChecker:       leadershipChecker,
-		leadershipRevoker:       leadershipRevoker,
-		accessUnit:              accessUnit,
-		accessApplication:       accessApplication,
-		accessUnitOrApplication: accessUnitOrApplication,
-		accessMachine:           accessMachine,
-		accessCloudSpec:         accessCloudSpec,
-		cloudSpecer:             cloudSpec,
-		StorageAPI:              storageAPI,
-		logger:                  logger,
-		store:                   context.ObjectStore(),
-		watcherRegistry:         watcherRegistry,
+		environConfigGetterModel: m,
+		st:                       st,
+		clock:                    aClock,
+		auth:                     authorizer,
+		resources:                resources,
+		leadershipChecker:        leadershipChecker,
+		leadershipRevoker:        leadershipRevoker,
+		accessUnit:               accessUnit,
+		accessApplication:        accessApplication,
+		accessUnitOrApplication:  accessUnitOrApplication,
+		accessMachine:            accessMachine,
+		accessCloudSpec:          accessCloudSpec,
+		cloudSpecer:              cloudSpec,
+		StorageAPI:               storageAPI,
+		logger:                   logger,
+		store:                    context.ObjectStore(),
+		watcherRegistry:          watcherRegistry,
+
+		applicationService:      services.ApplicationService,
+		cloudService:            services.CloudService,
+		controllerConfigService: services.ControllerConfigService,
+		credentialService:       services.CredentialService,
+		machineService:          services.MachineService,
+		modelConfigService:      services.ModelConfigService,
+		modelInfoService:        services.ModelInfoService,
+		networkService:          services.NetworkService,
+		portService:             services.PortService,
+		secretService:           services.SecretService,
+		unitStateService:        services.UnitStateService,
 	}, nil
 }

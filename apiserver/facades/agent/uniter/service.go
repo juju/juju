@@ -24,6 +24,21 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
+// Services represents all the services that the uniter facade requires.
+type Services struct {
+	ApplicationService      ApplicationService
+	CloudService            CloudService
+	ControllerConfigService ControllerConfigService
+	CredentialService       CredentialService
+	MachineService          MachineService
+	ModelConfigService      ModelConfigService
+	ModelInfoService        ModelInfoService
+	NetworkService          NetworkService
+	PortService             PortService
+	SecretService           SecretService
+	UnitStateService        UnitStateService
+}
+
 // ControllerConfigService provides the controller configuration for the model.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
