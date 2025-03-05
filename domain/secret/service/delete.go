@@ -19,7 +19,7 @@ func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) e
 	}
 	if err = s.secretBackendState.RemoveSecretBackendReference(ctx, deletedRevisionIDs...); err != nil {
 		// We don't want to error out if we can't remove the backend reference.
-		s.logger.Errorf(context.TODO(), "failed to remove secret backend reference for deleted obsolete user secret revisions: %v", err)
+		s.logger.Errorf(ctx, "failed to remove secret backend reference for deleted obsolete user secret revisions: %v", err)
 	}
 	return nil
 }

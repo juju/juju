@@ -280,7 +280,7 @@ func (rows SecretBackendRotationRows) toChanges(logger logger.Logger) []watcher.
 		if !next.Valid {
 			// This should not happen because it's a NOT NULL field, but log a
 			// warning and skip the row.
-			logger.Warningf(context.TODO(), "secret backend %q has no next rotation time", change.ID)
+			logger.Warningf(context.Background(), "secret backend %q has no next rotation time", change.ID)
 			continue
 		}
 		change.NextTriggerTime = next.Time

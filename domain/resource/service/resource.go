@@ -452,7 +452,7 @@ func (s *Service) storeResource(
 		if err != nil {
 			rErr := store.Remove(ctx, path)
 			if rErr != nil {
-				s.logger.Errorf(context.TODO(), "removing resource %s from store: %w", rErr)
+				s.logger.Errorf(ctx, "removing resource %s from store: %w", rErr)
 			}
 		}
 	}()
@@ -479,7 +479,7 @@ func (s *Service) storeResource(
 	if droppedHash != "" {
 		err = store.Remove(ctx, blobPath(args.ResourceUUID, droppedHash))
 		if err != nil {
-			s.logger.Errorf(context.TODO(), "failed to remove resource with ID %s from the store", droppedHash)
+			s.logger.Errorf(ctx, "failed to remove resource with ID %s from the store", droppedHash)
 		}
 	}
 	return err
@@ -735,7 +735,7 @@ func (s *Service) removeDroppedHashFromStore(
 
 	err = store.Remove(ctx, blobPath(resourceUUID, droppedHash))
 	if err != nil {
-		s.logger.Errorf(context.TODO(), "failed to remove resource with ID %s from the store", resourceUUID)
+		s.logger.Errorf(ctx, "failed to remove resource with ID %s from the store", resourceUUID)
 	}
 	return nil
 }

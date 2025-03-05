@@ -130,10 +130,10 @@ func (s *CharmStore) StoreFromReader(ctx context.Context, reader io.Reader, hash
 			return
 		}
 		if closeErr := file.Close(); closeErr != nil {
-			s.logger.Errorf(context.TODO(), "closing temporary file: %v", closeErr)
+			s.logger.Errorf(ctx, "closing temporary file: %v", closeErr)
 		}
 		if removeErr := os.Remove(file.Name()); removeErr != nil {
-			s.logger.Errorf(context.TODO(), "removing temporary file: %v", removeErr)
+			s.logger.Errorf(ctx, "removing temporary file: %v", removeErr)
 		}
 	}()
 
@@ -247,7 +247,7 @@ func (c *charmReaderCloser) Close() error {
 		// We don't need to log this as error, as the file will be removed
 		// when the process exits or by the OS. It's not a direct action
 		// by the user, hence Info.
-		c.logger.Infof(context.TODO(), "removing temporary file: %v", removeErr)
+		c.logger.Infof(context.Background(), "removing temporary file: %v", removeErr)
 	}
 	return err
 }
