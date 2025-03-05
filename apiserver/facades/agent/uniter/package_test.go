@@ -251,14 +251,6 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAA
 	return u, cm, app, unit
 }
 
-type fakeToken struct {
-	err error
-}
-
-func (t *fakeToken) Check() error {
-	return t.err
-}
-
 type fakeLeadershipChecker struct {
 	isLeader bool
 }
