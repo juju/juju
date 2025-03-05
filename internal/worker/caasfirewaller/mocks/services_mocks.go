@@ -517,10 +517,10 @@ func (c *MockModelDomainServicesMachineCall) DoAndReturn(f func() *service7.Watc
 }
 
 // ModelInfo mocks base method.
-func (m *MockModelDomainServices) ModelInfo() *service8.ModelService {
+func (m *MockModelDomainServices) ModelInfo() *service8.ProviderModelService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelInfo")
-	ret0, _ := ret[0].(*service8.ModelService)
+	ret0, _ := ret[0].(*service8.ProviderModelService)
 	return ret0
 }
 
@@ -537,19 +537,19 @@ type MockModelDomainServicesModelInfoCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDomainServicesModelInfoCall) Return(arg0 *service8.ModelService) *MockModelDomainServicesModelInfoCall {
+func (c *MockModelDomainServicesModelInfoCall) Return(arg0 *service8.ProviderModelService) *MockModelDomainServicesModelInfoCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesModelInfoCall) Do(f func() *service8.ModelService) *MockModelDomainServicesModelInfoCall {
+func (c *MockModelDomainServicesModelInfoCall) Do(f func() *service8.ProviderModelService) *MockModelDomainServicesModelInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesModelInfoCall) DoAndReturn(f func() *service8.ModelService) *MockModelDomainServicesModelInfoCall {
+func (c *MockModelDomainServicesModelInfoCall) DoAndReturn(f func() *service8.ProviderModelService) *MockModelDomainServicesModelInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

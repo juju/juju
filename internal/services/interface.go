@@ -112,7 +112,7 @@ type ModelDomainServices interface {
 	// Note: This should be called model, but we have naming conflicts with
 	// the model service. As this is only for model information, we
 	// can rename it to the more obscure version.
-	ModelInfo() *modelservice.ModelService
+	ModelInfo() *modelservice.ProviderModelService
 	// ModelMigration returns the model's migration service for support
 	// migration operations.
 	ModelMigration() *modelmigrationservice.Service

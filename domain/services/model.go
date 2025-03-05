@@ -297,12 +297,13 @@ func (s *ModelServices) Agent() *modelagentservice.Service {
 }
 
 // ModelInfo returns the model info service.
-func (s *ModelServices) ModelInfo() *modelservice.ModelService {
-	return modelservice.NewModelService(
+func (s *ModelServices) ModelInfo() *modelservice.ProviderModelService {
+	return modelservice.NewProviderModelService(
 		s.modelUUID,
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("modelinfo")),
 		modelservice.EnvironVersionProviderGetter(),
+		providertracker.ProviderRunner[modelservice.ResourceCreationProvider](s.providerFactory, s.modelUUID.String()),
 		modelservice.DefaultAgentBinaryFinder(),
 	)
 }
