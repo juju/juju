@@ -15,13 +15,16 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
+	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 // Services represents all the services that the uniter facade requires.
@@ -35,6 +38,7 @@ type Services struct {
 	ModelInfoService        ModelInfoService
 	NetworkService          NetworkService
 	PortService             PortService
+	RelationService         RelationService
 	SecretService           SecretService
 	UnitStateService        UnitStateService
 }
@@ -218,4 +222,51 @@ type MachineService interface {
 	// AvailabilityZone returns the hardware characteristics of the
 	// specified machine.
 	AvailabilityZone(ctx context.Context, machineUUID string) (string, error)
+}
+
+// RelationService defines the methods that the facade assumes from the
+// Relation service.
+type RelationService interface {
+	// GetRelationApplicationSettings returns the application settings for the
+	// given application and relation identifier combination.
+	GetRelationApplicationSettings(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationID coreapplication.ID,
+	) (map[string]string, error)
+
+	// GetRelationDetails returns the relation details requested by the uniter
+	// for a relation.
+	GetRelationDetails(ctx context.Context, relationID int) (relation.RelationDetails, error)
+
+	// GetRelationDetailsForUnit returns the relation details specific to a unit,
+	// as requested by the uniter for a relation.
+	GetRelationDetailsForUnit(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		unitName string,
+	) (relation.RelationDetails, error)
+
+	// GetRelationEndpoints returns all endpoints for the given relation UUID.
+	GetRelationEndpoints(ctx context.Context, id corerelation.UUID) ([]internalrelation.Endpoint, error)
+
+	// GetRelationUnit returns the relation unit UUID for the given unit within
+	// the given relation.
+	GetRelationUnit(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		unitName string,
+	) (corerelation.UnitUUID, error)
+
+	// GetRelationUnitSettings returns the unit settings for the
+	// given relation unit identifier.
+	GetRelationUnitSettings(
+		ctx context.Context,
+		relationUnitUUID corerelation.UnitUUID,
+	) (map[string]string, error)
+
+	// GetRelationUUIDFromKey returns a relation UUID for the given relation
+	// Key. The relation key is a ordered space separated string of the
+	// endpoint names of a the relation.
+	GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error)
 }
