@@ -153,3 +153,9 @@ func (*unitNameSuite) TestNewNameFromParts(c *gc.C) {
 		c.Check(err, jc.ErrorIs, test.err)
 	}
 }
+
+func (*unitNameSuite) TestApplicationName(c *gc.C) {
+	unitName, err := NewName("app/666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitName.Application(), gc.Equals, "app")
+}

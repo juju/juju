@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
@@ -323,10 +322,7 @@ func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args app
 // satisfying applicationerrors.ApplicationNotAlive if the unit's
 // application is not alive.
 func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params UpdateCAASUnitParams) error {
-	appName, err := names.UnitApplication(unitName.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
+	appName := unitName.Application()
 	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
 	if err != nil {
 		return internalerrors.Errorf("getting application %q life: %w", appName, err)
@@ -383,7 +379,7 @@ func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leader
 	if err != nil {
 		return errors.Annotatef(err, "removing unit %q", unitName)
 	}
-	appName, _ := names.UnitApplication(unitName.String())
+	appName := unitName.Application()
 	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
 		s.logger.Warningf(ctx, "cannot revoke lease for dead unit %q", unitName)
 	}
@@ -424,7 +420,7 @@ func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, le
 	} else if err != nil {
 		return errors.Annotatef(err, "marking unit %q is dead", unitName)
 	}
-	appName, _ := names.UnitApplication(unitName.String())
+	appName := unitName.Application()
 	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
 		s.logger.Warningf(ctx, "cannot revoke lease for dead unit %q", unitName)
 	}

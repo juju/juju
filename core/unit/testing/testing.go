@@ -17,3 +17,11 @@ func GenUnitUUID(c *gc.C) coreunit.UUID {
 	c.Assert(err, jc.ErrorIsNil)
 	return uuid
 }
+
+// GenNewName returns a new unit name object.
+// It asserts that the unit name is valid.
+func GenNewName(c *gc.C, name string) coreunit.Name {
+	un, err := coreunit.NewName(name)
+	c.Assert(err, jc.ErrorIsNil)
+	return un
+}

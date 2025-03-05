@@ -30,7 +30,7 @@ func getApplicationUUID(ctx context.Context, st *State, appName string) (coreapp
 	return uuid, err
 }
 
-func getUnitUUID(ctx context.Context, st *State, unitName string) (coreunit.UUID, error) {
+func getUnitUUID(ctx context.Context, st *State, unitName coreunit.Name) (coreunit.UUID, error) {
 	var uuid coreunit.UUID
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
@@ -96,7 +96,7 @@ func createCharmApplicationSecret(ctx context.Context, st *State, version int, u
 	})
 }
 
-func createCharmUnitSecret(ctx context.Context, st *State, version int, uri *coresecrets.URI, unitName string, secret domainsecret.UpsertSecretParams) error {
+func createCharmUnitSecret(ctx context.Context, st *State, version int, uri *coresecrets.URI, unitName coreunit.Name, secret domainsecret.UpsertSecretParams) error {
 	return st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		unitUUID, err := st.GetUnitUUID(ctx, unitName)
 		if err != nil {

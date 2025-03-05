@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
@@ -218,7 +218,11 @@ func (s *SecretService) getManagementCaveat(
 	}
 	// Units can manage app owned secrets if they are the leader.
 	if accessor.Kind == UnitAccessor {
-		appName, _ := names.UnitApplication(accessor.ID)
+		unitName, err := unit.NewName(accessor.ID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		appName := unitName.Application()
 		if err := s.leaderEnsurer.LeadershipCheck(appName, accessor.ID).Check(); err == nil {
 			hasRole, err = s.getSecretAccess(ctx, uri, SecretAccessor{
 				Kind: ApplicationAccessor,
@@ -258,7 +262,11 @@ func (s *SecretService) canRead(ctx context.Context, uri *secrets.URI, accessor 
 		return notAllowedErr
 	}
 	// All units can read secrets owned by application.
-	appName, _ := names.UnitApplication(accessor.ID)
+	unitName, err := unit.NewName(accessor.ID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	appName := unitName.Application()
 	kind := ApplicationAccessor
 	// Remote apps need a different accessor kind.
 	if strings.HasPrefix(appName, "remote-") {

@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -23,14 +24,14 @@ type SecretTriggers interface {
 
 // SecretsConsumer instances provide secret consumer apis.
 type SecretsConsumer interface {
-	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, error)
-	GetSecretConsumerAndLatest(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
-	GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*secrets.URI, error)
-	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
+	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name) (*secrets.SecretConsumerMetadata, error)
+	GetSecretConsumerAndLatest(ctx context.Context, uri *secrets.URI, unitName unit.Name) (*secrets.SecretConsumerMetadata, int, error)
+	GetURIByConsumerLabel(ctx context.Context, label string, unitName unit.Name) (*secrets.URI, error)
+	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName unit.Name, md *secrets.SecretConsumerMetadata) error
 	GetConsumedRevision(
-		ctx context.Context, uri *secrets.URI, unitName string,
+		ctx context.Context, uri *secrets.URI, unitName unit.Name,
 		refresh, peek bool, labelToUpdate *string) (int, error)
-	WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error)
+	WatchConsumedSecretsChanges(ctx context.Context, unitName unit.Name) (watcher.StringsWatcher, error)
 	GrantSecretAccess(context.Context, *secrets.URI, secretservice.SecretAccessParams) error
 	RevokeSecretAccess(context.Context, *secrets.URI, secretservice.SecretAccessParams) error
 }
@@ -41,7 +42,7 @@ type SecretService interface {
 	GetSecretValue(context.Context, *secrets.URI, int, secretservice.SecretAccessor) (secrets.SecretValue, *secrets.ValueRef, error)
 	ListCharmSecrets(context.Context, ...secretservice.CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	ProcessCharmSecretConsumerLabel(
-		ctx context.Context, unitName string, uri *secrets.URI, label string,
+		ctx context.Context, unitName unit.Name, uri *secrets.URI, label string,
 	) (*secrets.URI, *string, error)
 	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params secretservice.ChangeSecretBackendParams) error
 	GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]secretservice.SecretAccess, error)

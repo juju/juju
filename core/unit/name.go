@@ -65,3 +65,14 @@ func (n Name) Validate() error {
 	}
 	return nil
 }
+
+// Application returns the name of the application that the unit is
+// associated with. The name must be valid.
+func (n Name) Application() string {
+	s := validUnit.FindStringSubmatch(n.String())
+	if s == nil {
+		// Should never happen.
+		return ""
+	}
+	return s[1]
+}

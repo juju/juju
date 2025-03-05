@@ -106,7 +106,7 @@ WHERE name=$application.name`, app)
 
 // GetUnitUUID returns the UUID of the unit with the given name, returning an error satisfying
 // [applicationerrors.UnitNotFound] if the unit does not exist.
-func (st State) GetUnitUUID(ctx domain.AtomicContext, unitName string) (coreunit.UUID, error) {
+func (st State) GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (coreunit.UUID, error) {
 	var unitUUID coreunit.UUID
 	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -116,7 +116,7 @@ func (st State) GetUnitUUID(ctx domain.AtomicContext, unitName string) (coreunit
 	return unitUUID, errors.Trace(err)
 }
 
-func (st State) getUnitUUID(ctx context.Context, tx *sqlair.TX, unitName string) (coreunit.UUID, error) {
+func (st State) getUnitUUID(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (coreunit.UUID, error) {
 	u := unit{Name: unitName}
 
 	selectUnitUUIDStmt, err := st.Prepare(`
@@ -1623,7 +1623,7 @@ WHERE  mso.label = $M.label
 // [secreterrors.SecretNotFound] if there's no corresponding URI.
 // If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound]
 // is returned.
-func (st State) GetURIByConsumerLabel(ctx context.Context, label string, unitName string) (*coresecrets.URI, error) {
+func (st State) GetURIByConsumerLabel(ctx context.Context, label string, unitName coreunit.Name) (*coresecrets.URI, error) {
 	if label == "" {
 		return nil, errors.NotValidf("empty secret label")
 	}
@@ -1838,7 +1838,7 @@ FROM (SELECT * FROM local UNION SELECT * FROM remote)`
 // revision is still returned,along with an error satisfying
 // [secreterrors.SecretConsumerNotFound].
 func (st State) GetSecretConsumer(
-	ctx context.Context, uri *coresecrets.URI, unitName string,
+	ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name,
 ) (*coresecrets.SecretConsumerMetadata, int, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -1933,7 +1933,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 // If the unit does not exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
 func (st State) SaveSecretConsumer(
-	ctx context.Context, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata,
+	ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name, md *coresecrets.SecretConsumerMetadata,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -2062,7 +2062,7 @@ FROM   secret_unit_consumer suc
 // If there's not currently a consumer record for the secret, the latest revision is still returned,
 // along with an error satisfying [secreterrors.SecretConsumerNotFound].
 func (st State) GetSecretRemoteConsumer(
-	ctx context.Context, uri *coresecrets.URI, unitName string,
+	ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name,
 ) (*coresecrets.SecretConsumerMetadata, int, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -2138,7 +2138,7 @@ WHERE  rev.secret_id = $secretInfo.secret_id`
 // SaveSecretRemoteConsumer saves the consumer metadata for the given secret and unit.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
 func (st State) SaveSecretRemoteConsumer(
-	ctx context.Context, uri *coresecrets.URI, unitName string, md *coresecrets.SecretConsumerMetadata,
+	ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name, md *coresecrets.SecretConsumerMetadata,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -2851,7 +2851,7 @@ type dbrevisionUUIDs []revisionUUID
 
 // InitialWatchStatementForConsumedSecretsChange returns the initial watch
 // statement and the table name for watching consumed secrets.
-func (st State) InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery) {
+func (st State) InitialWatchStatementForConsumedSecretsChange(unitName coreunit.Name) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		q := `
 SELECT   DISTINCT sr.uuid AS &revisionUUID.uuid
@@ -2896,7 +2896,7 @@ HAVING   suc.current_revision < MAX(sr.revision)`
 // GetConsumedSecretURIsWithChanges returns the URIs of the secrets
 // consumed by the specified unit that has new revisions.
 func (st State) GetConsumedSecretURIsWithChanges(
-	ctx context.Context, unitName string, revisionIDs ...string,
+	ctx context.Context, unitName coreunit.Name, revisionIDs ...string,
 ) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -2955,7 +2955,7 @@ type remoteSecrets []remoteSecret
 // InitialWatchStatementForConsumedRemoteSecretsChange returns the initial
 // watch statement and the table name for watching consumed secrets hosted
 // in a different model.
-func (st State) InitialWatchStatementForConsumedRemoteSecretsChange(unitName string) (string, eventsource.NamespaceQuery) {
+func (st State) InitialWatchStatementForConsumedRemoteSecretsChange(unitName coreunit.Name) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		q := `
 SELECT   DISTINCT sr.secret_id AS &remoteSecret.secret_id
@@ -3000,7 +3000,7 @@ HAVING   suc.current_revision < sr.latest_revision`
 // consumed by the specified unit that have new revisions and are hosted
 // on a different model.
 func (st State) GetConsumedRemoteSecretURIsWithChanges(
-	ctx context.Context, unitName string, secretIDs ...string,
+	ctx context.Context, unitName coreunit.Name, secretIDs ...string,
 ) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {

@@ -16,6 +16,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 )
@@ -43,7 +44,7 @@ func NewWatchableService(
 
 // WatchConsumedSecretsChanges watches secrets consumed by the specified unit
 // and returns a watcher which notifies of secret URIs that have had a new revision added.
-func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
 	tableLocal, queryLocal := s.secretState.InitialWatchStatementForConsumedSecretsChange(unitName)
 	wLocal, err := s.watcherFactory.NewNamespaceWatcher(
 		// We are only interested in CREATE changes because

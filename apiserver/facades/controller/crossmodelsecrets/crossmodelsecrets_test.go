@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets/mocks"
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -178,7 +179,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 		Kind: secretservice.UnitAccessor,
 		ID:   "remote-app/666",
 	}
-	s.secretService.EXPECT().UpdateRemoteConsumedRevision(gomock.Any(), uri, "remote-app/666", true).Return(667, nil)
+	s.secretService.EXPECT().UpdateRemoteConsumedRevision(gomock.Any(), uri, unittesting.GenNewName(c, "remote-app/666"), true).Return(667, nil)
 	s.secretService.EXPECT().GetSecretValue(gomock.Any(), uri, 667, consumer).Return(
 		nil,
 		&coresecrets.ValueRef{

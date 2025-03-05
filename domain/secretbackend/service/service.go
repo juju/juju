@@ -12,7 +12,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
@@ -20,6 +19,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -204,13 +204,16 @@ func (s *Service) backendConfigInfo(
 	case secretservice.UnitAccessor:
 		// Find secretService owned by the agent
 		// (or its app if the agent is a leader).
-		unitName := accessor.ID
+		unitName, err := unit.NewName(accessor.ID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		coreAccessor = coresecrets.Accessor{
 			Kind: coresecrets.UnitAccessor,
-			ID:   unitName,
+			ID:   unitName.String(),
 		}
 		owners := []secretservice.SecretAccessor{accessor}
-		appName, _ := names.UnitApplication(unitName)
+		appName := unitName.Application()
 		isLeader := false
 		if token != nil {
 			err := token.Check()
@@ -252,7 +255,7 @@ func (s *Service) backendConfigInfo(
 		// We include secretService shared with the app or just the specified unit.
 		consumers := []secretservice.SecretAccessor{{
 			Kind: secretservice.UnitAccessor,
-			ID:   unitName,
+			ID:   unitName.String(),
 		}, {
 			Kind: secretservice.ApplicationAccessor,
 			ID:   appName,
