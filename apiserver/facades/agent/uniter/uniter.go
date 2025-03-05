@@ -753,8 +753,6 @@ func (u *UniterAPI) SetCharmURL(ctx context.Context, args params.EntitiesCharmUR
 			unit, err = u.getUnit(tag)
 			if err == nil {
 				err = unit.SetCharmURL(entity.CharmURL)
-				// TODO(cache) - we'd wait for the model cache to receive the change.
-				// But we're not using the model cache at the moment.
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -863,8 +861,6 @@ func (u *UniterAPI) ConfigSettings(ctx context.Context, args params.Entities) (p
 		}
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
-			// TODO(cache) - we were using the model cache but due to
-			// issues with propagating the charm URL, use the state model.
 			var unit *state.Unit
 			unit, err = u.st.Unit(tag.Id())
 			if errors.Is(err, errors.NotFound) {
