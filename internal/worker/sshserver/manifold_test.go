@@ -16,6 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/sshserver"
@@ -82,12 +83,13 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := workertest.NewErrorWorker(nil)
 	// Setup the manifold
 	manifold := sshserver.Manifold(sshserver.ManifoldConfig{
 		DomainServicesName:     "domain-services",
 		NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
-		NewServerWorker:        func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return w, nil },
+		NewServerWorker: func(sshserver.ServerWorkerConfig) (worker.Worker, error) {
+			return workertest.NewErrorWorker(nil), nil
+		},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (sshserver.ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
@@ -103,8 +105,10 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 		dt.StubGetter(map[string]interface{}{}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	workertest.DirtyKill(c, result)
+
 	c.Assert(result, gc.NotNil)
-	workertest.CleanKill(c, w)
+	workertest.CleanKill(c, result)
 }
 
 func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -112,9 +116,9 @@ func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.controllerConfigService = sshserver.NewMockControllerConfigService(ctrl)
 
-	watcher := watchertest.NewMockStringsWatcher(make(<-chan []string))
-	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(watcher, nil).AnyTimes()
-
+	s.controllerConfigService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
+	}).AnyTimes()
 	return ctrl
 }
 
