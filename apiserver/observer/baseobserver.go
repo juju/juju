@@ -36,9 +36,17 @@ func (n *BaseObserver) IsAgent() bool {
 }
 
 // AgentTag returns the tag of the agent that has logged in.
-// If no agent has logged in, it returns an empty string.
 func (n *BaseObserver) AgentTag() names.Tag {
 	return n.tag
+}
+
+// AgentTagString returns the string representation of the tag of the agent that
+// has logged in. If no agent has logged in, it returns an "<unknown>" string.
+func (n *BaseObserver) AgentTagString() string {
+	if n.tag != nil {
+		return n.tag.String()
+	}
+	return "<unknown>"
 }
 
 // ModelTag returns the model tag of the agent that has logged in.

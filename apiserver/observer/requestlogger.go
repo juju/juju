@@ -80,29 +80,31 @@ func (n *RequestLogger) Join(ctx context.Context, req *http.Request, connectionI
 func (n *RequestLogger) Leave(ctx context.Context) {
 	if n.IsAgent() && !n.FromController() {
 		// Don't log disconnections from the controller to the model.
-		n.connLogger.Infof(ctx, "agent disconnected: %s for %s", n.AgentTag(), n.ModelTag().Id())
+		n.connLogger.Infof(ctx, "agent disconnected: %s for %s", n.AgentTagString(), n.ModelTag().Id())
 	}
+
+	// A leave event can be triggered without a login event, so we need to check
+	// if the entity is an agent before logging.
+
 	n.logger.Debugf(ctx,
 		"[%X] %s API connection terminated after %v",
 		n.id,
-		n.AgentTag().String(),
+		n.AgentTagString(),
 		n.clock.Now().Sub(n.websocketConnected),
 	)
 }
 
 // RPCObserver implements Observer.
 func (n *RequestLogger) RPCObserver() rpc.Observer {
-	var tag string
-	if agentTag := n.AgentTag(); agentTag != nil {
-		tag = agentTag.String()
-	}
+	// A RPCObserver request can be called without a login event, so we need to
+	// check if the entity is an agent before logging.
 
 	return &rpcLogger{
 		clock:      n.clock,
 		logger:     n.logger,
 		pingLogger: n.pingLogger,
 		id:         n.id,
-		tag:        tag,
+		tag:        n.AgentTagString(),
 	}
 }
 

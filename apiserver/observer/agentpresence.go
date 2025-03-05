@@ -104,6 +104,8 @@ func (n *AgentPresence) Login(ctx context.Context, entity names.Tag, modelTag na
 // Leave removes the agent presence to the database based on the entity type.
 // Units and machines are the only entities that can have presence.
 func (n *AgentPresence) Leave(ctx context.Context) {
+	// This guards against the case where the agent has not logged in and
+	// the agent tag is nil.
 	if !n.IsAgent() {
 		return
 	}
