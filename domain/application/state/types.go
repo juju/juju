@@ -660,16 +660,6 @@ type linkResourceApplication struct {
 	ApplicationUUID string `db:"application_uuid"`
 }
 
-// sequenceCharmsLocal is used to get the reference name of a charm.
-type sequenceCharmsLocal struct {
-	ReferenceName string `db:"reference_name"`
-}
-
-// sequence is used to get the sequence of a charm.
-type sequence struct {
-	Sequence int `db:"sequence"`
-}
-
 type revisionUpdaterApplication struct {
 	UUID                   string        `db:"uuid"`
 	Name                   string        `db:"name"`

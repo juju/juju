@@ -211,7 +211,7 @@ func (s *charmStateSuite) TestSetCharmNotAvailable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(locator, gc.DeepEquals, charm.CharmLocator{
 		Name:         "foo",
-		Revision:     1,
+		Revision:     0,
 		Source:       charm.LocalSource,
 		Architecture: architecture.Unknown,
 	})
@@ -1395,7 +1395,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForLocal(c *gc.C) {
 
 	// This requires sequencing, so a new revision is associated with it, even
 	// though -1 was passed in.
-	c.Check(ch.Revision, gc.Equals, 1)
+	c.Check(ch.Revision, gc.Equals, 0)
 }
 
 func (s *charmStateSuite) TestSetCharmCharmSequencingInvalidRevision(c *gc.C) {
@@ -1486,7 +1486,7 @@ func (s *charmStateSuite) TestSetCharmLocalCharmSequencing(c *gc.C) {
 		ch, downloadInfo, err := st.GetCharm(context.Background(), id)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(downloadInfo, gc.IsNil)
-		c.Check(ch.Revision, gc.Equals, i+1)
+		c.Check(ch.Revision, gc.Equals, i)
 	}
 }
 

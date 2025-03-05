@@ -174,7 +174,6 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"charm",
 		"hash_kind",
 		"os",
-		"sequence_charm_local",
 
 		// Resources
 		"application_resource",
@@ -463,7 +462,7 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_model_immutable_update",
 
 		"trg_secret_permission_guard_update",
-		"trg_sequence_charm_local_guard_update",
+		"trg_sequence_guard_update",
 
 		"trg_charm_action_immutable_update",
 		"trg_charm_config_immutable_update",
