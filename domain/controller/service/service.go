@@ -20,6 +20,7 @@ var log = logger.GetLogger("juju.domain.controller.service")
 type State interface {
 	ControllerModelUUID(ctx context.Context) (model.UUID, error)
 	GetModelActivationStatus(ctx context.Context, controllerModelUUID string) (bool, error)
+	AllModelActivationStatusQuery() string
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -29,6 +30,11 @@ type WatcherFactory interface {
 	NewNamespaceNotifyMapperWatcher(
 		namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
 	) (watcher.NotifyWatcher, error)
+
+	NewNamespaceMapperWatcher(
+		namespace string, changeMask changestream.ChangeType,
+		initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper,
+	) (watcher.StringsWatcher, error)
 }
 
 type WatcherFactoryGetter interface {
@@ -55,7 +61,41 @@ func (s *Service) ControllerModelUUID(ctx context.Context) (model.UUID, error) {
 }
 
 // Watch returns a watcher that monitors changes to models.
-func (s *Service) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
+// func (s *Service) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
+// 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+// 		activatedChanges := make([]changestream.ChangeEvent, 0, len(changes))
+// 		for _, change := range changes {
+
+// 			modelUUID := change.Changed()
+
+// 			// Watch all deleted model events.
+// 			if change.Type() == changestream.Deleted {
+// 				activatedChanges = append(activatedChanges, change)
+// 				continue
+// 			}
+
+// 			// Check if the model is activated.
+// 			modelActivationStatus, err := s.st.GetModelActivationStatus(ctx, modelUUID)
+// 			if err != nil {
+// 				log.Errorf(ctx, "failed to get model activation status: %v\n", err)
+// 				continue
+// 			}
+
+// 			// Watch all activated model events.
+// 			if modelActivationStatus {
+// 				activatedChanges = append(activatedChanges, change)
+// 			}
+// 		}
+// 		return activatedChanges, nil
+// 	}
+
+// 	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
+// 		"model", changestream.All,
+// 		mapper,
+// 	)
+// }
+
+func (s *Service) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		activatedChanges := make([]changestream.ChangeEvent, 0, len(changes))
 		for _, change := range changes {
@@ -83,8 +123,10 @@ func (s *Service) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 		return activatedChanges, nil
 	}
 
-	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		"model", changestream.All,
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		"model",
+		changestream.All,
+		eventsource.InitialNamespaceChanges(s.st.AllModelActivationStatusQuery()),
 		mapper,
 	)
 }

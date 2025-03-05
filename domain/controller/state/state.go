@@ -94,3 +94,7 @@ WHERE  uuid = $controllerModel.uuid
 
 	return m.Activated, err
 }
+
+func (st *State) AllModelActivationStatusQuery() string {
+	return "SELECT activated from model"
+}

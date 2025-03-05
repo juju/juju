@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -100,7 +101,8 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 type Config struct {
 	Authority              pki.Authority
 	Logger                 corelogger.Logger
-	ModelWatcher           ModelWatcher
+	SystemState            *state.State
+	SystemStateService     *domain.StateBase
 	ModelMetrics           ModelMetrics
 	Mux                    *apiserverhttp.Mux
 	Controller             Controller
@@ -122,8 +124,8 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if config.ModelWatcher == nil {
-		return errors.NotValidf("nil ModelConfigWatcher")
+	if config.SystemState == nil {
+		return errors.NotValidf("nil SystemState")
 	}
 	if config.ModelMetrics == nil {
 		return errors.NotValidf("nil ModelMetrics")
@@ -203,11 +205,22 @@ func (m *modelWorkerManager) Wait() error {
 }
 
 func (m *modelWorkerManager) loop() error {
-	watcher := m.config.ModelWatcher.WatchModels()
-	if err := m.catacomb.Add(watcher); err != nil {
+	systemState := m.config.SystemState
+	controllerModelUUID := systemState.ControllerModelUUID()
+	domainServicesGetter := m.config.DomainServicesGetter
+	domainServices, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(controllerModelUUID))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	watcher, err := domainServices.Controller().Watch(context.Background())
+	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// watcher = m.config.ModelWatcher.WatchModels()
+	if err := m.catacomb.Add(watcher); err != nil {
+		return errors.Trace(err)
+	}
 	for {
 		select {
 		case <-m.catacomb.Dying():
