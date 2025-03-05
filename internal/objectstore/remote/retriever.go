@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
@@ -246,33 +247,31 @@ func (t *retriever) Retrieve(ctx context.Context, namespace, sha256 string) (io.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	select {
-	case <-t.tomb.Dying():
-		return nil, -1, tomb.ErrDying
-	case <-ctx.Done():
-		return nil, -1, ctx.Err()
-	case conn, ok := <-t.remote.Connection(ctx):
-		if !ok {
-			return nil, -1, NoRemoteConnection
-		}
-
+	var (
+		reader io.ReadCloser
+		size   int64
+	)
+	err := t.remote.Connection(ctx, func(ctx context.Context, conn api.Connection) error {
 		go func() {
 			defer cancel()
 
+			// If the connection is broken, we want to stop processing the
+			// request as soon as possible.
 			select {
 			case <-t.tomb.Dying():
+			case <-ctx.Done():
 			case <-conn.Broken():
 			}
 		}()
 
 		httpClient, err := conn.RootHTTPClient()
 		if err != nil {
-			return nil, -1, err
+			return errors.Errorf("failed to get root HTTP client: %v", err)
 		}
 
 		client, err := t.newObjectClient(httpClient.BaseURL, newHTTPClient(httpClient), t.logger)
 		if err != nil {
-			return nil, -1, err
+			return errors.Errorf("failed to create object client: %v", err)
 		}
 
 		if namespace == database.ControllerNS {
@@ -280,8 +279,10 @@ func (t *retriever) Retrieve(ctx context.Context, namespace, sha256 string) (io.
 			namespace = tag.Id()
 		}
 
-		return client.GetObject(ctx, namespace, sha256)
-	}
+		reader, size, err = client.GetObject(ctx, namespace, sha256)
+		return err
+	})
+	return reader, size, err
 }
 
 func (t *retriever) Kill() {

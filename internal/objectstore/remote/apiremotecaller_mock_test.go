@@ -103,17 +103,17 @@ func (m *MockRemoteConnection) EXPECT() *MockRemoteConnectionMockRecorder {
 }
 
 // Connection mocks base method.
-func (m *MockRemoteConnection) Connection(arg0 context.Context) <-chan api.Connection {
+func (m *MockRemoteConnection) Connection(arg0 context.Context, arg1 func(context.Context, api.Connection) error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Connection", arg0)
-	ret0, _ := ret[0].(<-chan api.Connection)
+	ret := m.ctrl.Call(m, "Connection", arg0, arg1)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Connection indicates an expected call of Connection.
-func (mr *MockRemoteConnectionMockRecorder) Connection(arg0 any) *MockRemoteConnectionConnectionCall {
+func (mr *MockRemoteConnectionMockRecorder) Connection(arg0, arg1 any) *MockRemoteConnectionConnectionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connection", reflect.TypeOf((*MockRemoteConnection)(nil).Connection), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connection", reflect.TypeOf((*MockRemoteConnection)(nil).Connection), arg0, arg1)
 	return &MockRemoteConnectionConnectionCall{Call: call}
 }
 
@@ -123,19 +123,19 @@ type MockRemoteConnectionConnectionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRemoteConnectionConnectionCall) Return(arg0 <-chan api.Connection) *MockRemoteConnectionConnectionCall {
+func (c *MockRemoteConnectionConnectionCall) Return(arg0 error) *MockRemoteConnectionConnectionCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoteConnectionConnectionCall) Do(f func(context.Context) <-chan api.Connection) *MockRemoteConnectionConnectionCall {
+func (c *MockRemoteConnectionConnectionCall) Do(f func(context.Context, func(context.Context, api.Connection) error) error) *MockRemoteConnectionConnectionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteConnectionConnectionCall) DoAndReturn(f func(context.Context) <-chan api.Connection) *MockRemoteConnectionConnectionCall {
+func (c *MockRemoteConnectionConnectionCall) DoAndReturn(f func(context.Context, func(context.Context, api.Connection) error) error) *MockRemoteConnectionConnectionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

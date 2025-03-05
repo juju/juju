@@ -140,17 +140,23 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 	s.remote.EXPECT().UpdateAddresses([]string{addr.Host}).DoAndReturn(func(s []string) {
 		close(done)
 	})
-	s.remote.EXPECT().Connection(gomock.Any()).DoAndReturn(func(ctx context.Context) <-chan api.Connection {
-		conn := make(chan api.Connection, 1)
+	s.remote.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
+		ch := make(chan api.Connection, 1)
 		go func() {
 			select {
-			case conn <- s.connection:
+			case ch <- s.connection:
 			case <-ctx.Done():
 			case <-time.After(testing.LongWait):
 				c.Fatalf("timed out waiting for connection")
 			}
 		}()
-		return conn
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case conn := <-ch:
+			return fn(ctx, conn)
+		}
 	})
 	s.connection.EXPECT().Addr().Return(addr)
 
@@ -187,12 +193,14 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 	remotes := w.GetAPIRemotes()
 	c.Assert(remotes, gc.HasLen, 1)
 
-	select {
-	case conn := <-remotes[0].Connection(context.Background()):
-		c.Check(conn.Addr(), gc.DeepEquals, addr)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for connection")
-	}
+	var conn api.Connection
+	err := remotes[0].Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
+		conn = c
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+	c.Check(conn.Addr(), gc.DeepEquals, addr)
 
 	workertest.CleanKill(c, w)
 }

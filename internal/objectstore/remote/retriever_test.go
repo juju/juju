@@ -94,10 +94,8 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *gc.C) {
 		return make(chan struct{})
 	}).AnyTimes()
 
-	s.remoteConnection.EXPECT().Connection(gomock.Any()).DoAndReturn(func(ctx context.Context) <-chan api.Connection {
-		ch := make(chan api.Connection, 1)
-		ch <- s.apiConnection
-		return ch
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
+		return fn(ctx, s.apiConnection)
 	})
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection})
 
@@ -190,10 +188,8 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *gc.C) {
 		return make(chan struct{})
 	}).AnyTimes()
 
-	s.remoteConnection.EXPECT().Connection(gomock.Any()).DoAndReturn(func(ctx context.Context) <-chan api.Connection {
-		ch := make(chan api.Connection, 1)
-		ch <- s.apiConnection
-		return ch
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
+		return fn(ctx, s.apiConnection)
 	}).Times(2)
 
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
@@ -276,10 +272,8 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *gc.C) {
 		return make(chan struct{})
 	}).AnyTimes()
 
-	s.remoteConnection.EXPECT().Connection(gomock.Any()).DoAndReturn(func(ctx context.Context) <-chan api.Connection {
-		ch := make(chan api.Connection, 1)
-		ch <- s.apiConnection
-		return ch
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
+		return fn(ctx, s.apiConnection)
 	}).Times(3)
 
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
@@ -322,10 +316,8 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *gc.C) {
 		return make(chan struct{})
 	}).AnyTimes()
 
-	s.remoteConnection.EXPECT().Connection(gomock.Any()).DoAndReturn(func(ctx context.Context) <-chan api.Connection {
-		ch := make(chan api.Connection, 1)
-		ch <- s.apiConnection
-		return ch
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
+		return fn(ctx, s.apiConnection)
 	}).Times(3)
 
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
@@ -385,10 +377,8 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *gc.C) {
 		return make(chan struct{})
 	}).AnyTimes()
 
-	s.remoteConnection.EXPECT().Connection(gomock.Any()).DoAndReturn(func(ctx context.Context) <-chan api.Connection {
-		ch := make(chan api.Connection, 1)
-		ch <- s.apiConnection
-		return ch
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
+		return fn(ctx, s.apiConnection)
 	}).Times(3)
 
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{
@@ -413,11 +403,15 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *gc.C) {
 	defer cancel()
 
 	requested := make(chan struct{})
-	s.remoteConnection.EXPECT().Connection(gomock.Any()).DoAndReturn(func(ctx context.Context) <-chan api.Connection {
-		defer close(requested)
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
+		close(requested)
 
-		ch := make(chan api.Connection, 1)
-		return ch
+		select {
+		case <-ctx.Done():
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for context to be done")
+		}
+		return nil
 	})
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection})
 
@@ -437,28 +431,6 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *gc.C) {
 
 	_, _, err := ret.Retrieve(ctx, "foo")
 	c.Assert(err, jc.ErrorIs, context.Canceled)
-
-	workertest.CleanKill(c, ret)
-}
-
-func (s *retrieverSuite) TestRetrieverClosedConnection(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	s.remoteConnection.EXPECT().Connection(gomock.Any()).DoAndReturn(func(ctx context.Context) <-chan api.Connection {
-		ch := make(chan api.Connection)
-		close(ch)
-		return ch
-	})
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection})
-
-	ret := s.newRetriever(c)
-	defer workertest.DirtyKill(c, ret)
-
-	_, _, err := ret.Retrieve(ctx, "foo")
-	c.Assert(err, jc.ErrorIs, NoRemoteConnection)
 
 	workertest.CleanKill(c, ret)
 }
@@ -498,10 +470,8 @@ func (s *retrieverSuite) TestRetrieverWithBrokenConnection(c *gc.C) {
 		return ch
 	})
 
-	s.remoteConnection.EXPECT().Connection(gomock.Any()).DoAndReturn(func(ctx context.Context) <-chan api.Connection {
-		ch := make(chan api.Connection, 1)
-		ch <- s.apiConnection
-		return ch
+	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
+		return fn(ctx, s.apiConnection)
 	})
 	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection})
 

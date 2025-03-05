@@ -6,6 +6,7 @@ package apiremotecaller
 import (
 	"context"
 	"net/url"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -38,12 +40,16 @@ func (s *RemoteSuite) TestNotConnectedConnection(c *gc.C) {
 
 	s.ensureStartup(c)
 
-	ch := w.Connection(context.Background())
-	select {
-	case <-ch:
-		c.Fatalf("expected connection to block")
-	case <-time.After(jujutesting.ShortWait):
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), jujutesting.ShortWait)
+	defer cancel()
+
+	var called bool
+	err := w.Connection(ctx, func(ctx context.Context, c api.Connection) error {
+		called = true
+		return nil
+	})
+	c.Assert(err, jc.ErrorIs, context.DeadlineExceeded)
+	c.Check(called, jc.IsFalse)
 
 	workertest.CleanKill(c, w)
 }
@@ -75,15 +81,15 @@ func (s *RemoteSuite) TestConnect(c *gc.C) {
 
 	s.ensureChanged(c)
 
-	ch := w.Connection(context.Background())
+	var conn api.Connection
+	err := w.Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
+		conn = c
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	select {
-	case conn := <-ch:
-		c.Assert(conn, gc.NotNil)
-		c.Check(conn.Addr().String(), jc.DeepEquals, addr.String())
-	case <-time.After(jujutesting.LongWait):
-		c.Fatalf("timed out waiting for connection")
-	}
+	c.Assert(conn, gc.NotNil)
+	c.Check(conn.Addr().String(), jc.DeepEquals, addr.String())
 
 	workertest.CleanKill(c, w)
 }
@@ -102,13 +108,13 @@ func (s *RemoteSuite) TestConnectWhenAlreadyContextCancelled(c *gc.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	ch := w.Connection(ctx)
-
-	select {
-	case <-ch:
-		c.Fatalf("expected connection to block")
-	case <-time.After(jujutesting.ShortWait):
-	}
+	var called bool
+	err := w.Connection(ctx, func(ctx context.Context, c api.Connection) error {
+		called = true
+		return nil
+	})
+	c.Assert(err, jc.ErrorIs, context.Canceled)
+	c.Check(called, jc.IsFalse)
 
 	workertest.CleanKill(c, w)
 }
@@ -126,13 +132,125 @@ func (s *RemoteSuite) TestConnectWhenAlreadyKilled(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	ch := w.Connection(context.Background())
+	var called bool
+	err := w.Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
+		called = true
+		return nil
+	})
+	c.Assert(err, jc.ErrorIs, tomb.ErrDying)
+	c.Check(called, jc.IsFalse)
+}
+
+func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// This test ensures that when the first connection is cancelled, the second
+	// connection is not stalled.
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s.apiConnectHandler = func(ctx context.Context) error {
+		cancel()
+		close(s.apiConnect)
+		return nil
+	}
+
+	s.expectClock()
+	s.expectClockAfter(make(<-chan time.Time))
+
+	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
+
+	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{}))
+	s.apiConnection.EXPECT().Close().Return(nil)
+
+	w := s.newRemoteServer(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	res := make(chan error)
+	seq := make(chan struct{})
+	go func() {
+		// Force the first connection to be enqueued, so that second connection
+		// will be stalled.
+		go func() {
+			select {
+			case <-time.After(time.Millisecond * 100):
+				close(seq)
+			}
+		}()
+
+		wg.Done()
+
+		var called bool
+		err := w.Connection(ctx, func(ctx context.Context, c api.Connection) error {
+			called = true
+			return nil
+		})
+		c.Assert(err, jc.ErrorIs, context.Canceled)
+		c.Check(called, jc.IsFalse)
+	}()
+	go func() {
+		// Wait for the first connection to be enqueued.
+		select {
+		case <-seq:
+		case <-time.After(jujutesting.LongWait):
+			c.Fatalf("timed out waiting for first connection to be cancelled")
+		}
+
+		wg.Done()
+
+		err := w.Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
+			return nil
+		})
+		select {
+		case res <- err:
+		case <-time.After(jujutesting.LongWait):
+			c.Fatalf("timed out sending result")
+		}
+	}()
+
+	// Ensure both goroutines have started, before we start the test.
+	sync := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(sync)
+	}()
+	select {
+	case <-sync:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for connections to finish")
+	}
 
 	select {
-	case <-ch:
-		c.Fatalf("expected connection to block")
-	case <-time.After(jujutesting.ShortWait):
+	case <-seq:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for first connection to be cancelled")
 	}
+
+	w.UpdateAddresses([]string{addr.String()})
+
+	// This is our sequence point to ensure that we connect.
+	select {
+	case <-s.apiConnect:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for API connect")
+	}
+
+	s.ensureChanged(c)
+
+	select {
+	case err := <-res:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for connection")
+	}
+
+	workertest.CleanKill(c, w)
 }
 
 func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
@@ -183,15 +301,15 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 
 	s.ensureChanged(c)
 
-	ch := w.Connection(context.Background())
+	var conn api.Connection
+	err := w.Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
+		conn = c
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	select {
-	case conn := <-ch:
-		c.Assert(conn, gc.NotNil)
-		c.Check(conn.Addr().String(), jc.DeepEquals, addr1.String())
-	case <-time.After(jujutesting.LongWait):
-		c.Fatalf("timed out waiting for connection")
-	}
+	c.Assert(conn, gc.NotNil)
+	c.Check(conn.Addr().String(), jc.DeepEquals, addr1.String())
 
 	workertest.CleanKill(c, w)
 }

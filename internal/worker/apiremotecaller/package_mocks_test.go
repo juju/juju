@@ -41,17 +41,17 @@ func (m *MockRemoteServer) EXPECT() *MockRemoteServerMockRecorder {
 }
 
 // Connection mocks base method.
-func (m *MockRemoteServer) Connection(arg0 context.Context) <-chan api.Connection {
+func (m *MockRemoteServer) Connection(arg0 context.Context, arg1 func(context.Context, api.Connection) error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Connection", arg0)
-	ret0, _ := ret[0].(<-chan api.Connection)
+	ret := m.ctrl.Call(m, "Connection", arg0, arg1)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Connection indicates an expected call of Connection.
-func (mr *MockRemoteServerMockRecorder) Connection(arg0 any) *MockRemoteServerConnectionCall {
+func (mr *MockRemoteServerMockRecorder) Connection(arg0, arg1 any) *MockRemoteServerConnectionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connection", reflect.TypeOf((*MockRemoteServer)(nil).Connection), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connection", reflect.TypeOf((*MockRemoteServer)(nil).Connection), arg0, arg1)
 	return &MockRemoteServerConnectionCall{Call: call}
 }
 
@@ -61,19 +61,19 @@ type MockRemoteServerConnectionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRemoteServerConnectionCall) Return(arg0 <-chan api.Connection) *MockRemoteServerConnectionCall {
+func (c *MockRemoteServerConnectionCall) Return(arg0 error) *MockRemoteServerConnectionCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoteServerConnectionCall) Do(f func(context.Context) <-chan api.Connection) *MockRemoteServerConnectionCall {
+func (c *MockRemoteServerConnectionCall) Do(f func(context.Context, func(context.Context, api.Connection) error) error) *MockRemoteServerConnectionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteServerConnectionCall) DoAndReturn(f func(context.Context) <-chan api.Connection) *MockRemoteServerConnectionCall {
+func (c *MockRemoteServerConnectionCall) DoAndReturn(f func(context.Context, func(context.Context, api.Connection) error) error) *MockRemoteServerConnectionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -25,7 +25,7 @@ const (
 // API server.
 type RemoteConnection interface {
 	// Connection returns the connection to the remote API server.
-	Connection(context.Context) <-chan api.Connection
+	Connection(context.Context, func(context.Context, api.Connection) error) error
 }
 
 // RemoteServer represents the public interface of the worker
@@ -96,11 +96,9 @@ func newRemoteServer(config RemoteServerConfig, internalStates chan string) Remo
 // No updates about the connection will be sent to the connection channel,
 // instead it's up to the caller to watch for the broken connection and then
 // reconnect if necessary.
-func (w *remoteServer) Connection(ctx context.Context) <-chan api.Connection {
+func (w *remoteServer) Connection(ctx context.Context, fn func(context.Context, api.Connection) error) error {
 	ch := make(chan api.Connection, 1)
 
-	// We don't need to block here, the connection will be send to the channel
-	// once it's available.
 	go func() {
 		select {
 		case <-w.tomb.Dying():
@@ -109,7 +107,14 @@ func (w *remoteServer) Connection(ctx context.Context) <-chan api.Connection {
 		}
 	}()
 
-	return ch
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case <-ctx.Done():
+		return ctx.Err()
+	case conn := <-ch:
+		return fn(ctx, conn)
+	}
 }
 
 // UpdateAddresses will update the addresses held for the target API server.
