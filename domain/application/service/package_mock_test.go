@@ -3361,6 +3361,45 @@ func (c *MockStateUnsetApplicationConfigKeysCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// UpdateApplicationScale mocks base method.
+func (m *MockState) UpdateApplicationScale(ctx context.Context, appUUID application.ID, delta int) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateApplicationScale", ctx, appUUID, delta)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateApplicationScale indicates an expected call of UpdateApplicationScale.
+func (mr *MockStateMockRecorder) UpdateApplicationScale(ctx, appUUID, delta any) *MockStateUpdateApplicationScaleCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationScale", reflect.TypeOf((*MockState)(nil).UpdateApplicationScale), ctx, appUUID, delta)
+	return &MockStateUpdateApplicationScaleCall{Call: call}
+}
+
+// MockStateUpdateApplicationScaleCall wrap *gomock.Call
+type MockStateUpdateApplicationScaleCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateUpdateApplicationScaleCall) Return(arg0 int, arg1 error) *MockStateUpdateApplicationScaleCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateUpdateApplicationScaleCall) Do(f func(context.Context, application.ID, int) (int, error)) *MockStateUpdateApplicationScaleCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateUpdateApplicationScaleCall) DoAndReturn(f func(context.Context, application.ID, int) (int, error)) *MockStateUpdateApplicationScaleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpdateCAASUnit mocks base method.
 func (m *MockState) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 application0.UpdateCAASUnitParams) error {
 	m.ctrl.T.Helper()

@@ -623,6 +623,46 @@ WHERE application_uuid = $applicationScale.application_uuid
 	return jujuerrors.Trace(err)
 }
 
+// UpdateApplicationScale updates the desired scale of an application by a
+// delta.
+// If the resulting scale is less than zero, an error satisfying
+// [applicationerrors.ScaleChangeInvalid] is returned.
+func (st *State) UpdateApplicationScale(ctx context.Context, appUUID coreapplication.ID, delta int) (int, error) {
+	db, err := st.DB()
+	if err != nil {
+		return -1, jujuerrors.Trace(err)
+	}
+
+	upsertApplicationScale := `
+UPDATE application_scale SET scale = $applicationScale.scale
+WHERE application_uuid = $applicationScale.application_uuid
+`
+	upsertStmt, err := st.Prepare(upsertApplicationScale, applicationScale{})
+	if err != nil {
+		return -1, jujuerrors.Trace(err)
+	}
+	var newScale int
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		currentScaleState, err := st.getApplicationScaleState(ctx, tx, appUUID)
+		if err != nil {
+			return jujuerrors.Trace(err)
+		}
+
+		newScale = currentScaleState.Scale + delta
+		if newScale < 0 {
+			return errors.Errorf(
+				"%w: cannot remove more units than currently exist", applicationerrors.ScaleChangeInvalid)
+		}
+
+		scaleDetails := applicationScale{
+			ApplicationID: appUUID,
+			Scale:         newScale,
+		}
+		return tx.Query(ctx, upsertStmt, scaleDetails).Run()
+	})
+	return newScale, jujuerrors.Trace(err)
+}
+
 // SetApplicationScalingState sets the scaling details for the given caas
 // application Scale is optional and is only set if not nil.
 func (st *State) SetApplicationScalingState(ctx context.Context, appUUID coreapplication.ID, scale *int, targetScale int, scaling bool) error {

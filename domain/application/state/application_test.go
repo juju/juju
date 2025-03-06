@@ -992,7 +992,7 @@ func (s *applicationStateSuite) TestGetApplicationScaleState(c *gc.C) {
 
 	scaleState, err := s.state.GetApplicationScaleState(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(scaleState, jc.DeepEquals, application.ScaleState{
+	c.Check(scaleState, jc.DeepEquals, application.ScaleState{
 		Scale: 1,
 	})
 }
@@ -1015,7 +1015,37 @@ func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotScale, jc.DeepEquals, 666)
+	c.Check(gotScale, jc.DeepEquals, 666)
+}
+
+func (s *applicationStateSuite) TestUpdateApplicationScale(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newScale, err := s.state.UpdateApplicationScale(context.Background(), appID, 2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var gotScale int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid=?", appID).
+			Scan(&gotScale)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotScale, jc.DeepEquals, 666+2)
+	c.Check(newScale, jc.DeepEquals, 666+2)
+}
+
+func (s *applicationStateSuite) TestUpdateApplicationScaleInvalidScale(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.UpdateApplicationScale(context.Background(), appID, -667)
+	c.Assert(err, gc.ErrorMatches, `scale change invalid: cannot remove more units than currently exist`)
 }
 
 func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {

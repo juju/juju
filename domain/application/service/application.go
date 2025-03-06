@@ -106,6 +106,12 @@ type ApplicationState interface {
 	// application.
 	SetDesiredApplicationScale(context.Context, coreapplication.ID, int) error
 
+	// UpdateApplicationScale updates the desired scale of an application by a
+	// delta.
+	// If the resulting scale is less than zero, an error satisfying
+	// [applicationerrors.ScaleChangeInvalid] is returned.
+	UpdateApplicationScale(ctx context.Context, appUUID coreapplication.ID, delta int) (int, error)
+
 	// DeleteApplication deletes the specified application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the
 	// application doesn't exist. If the application still has units, as error
@@ -745,18 +751,8 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
-	currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
-	if err != nil {
-		return -1, errors.Annotatef(err, "getting current scale state for %q", appName)
-	}
-	newScale := currentScaleState.Scale + scaleChange
-	s.logger.Tracef(ctx, "ChangeScale DesiredScale %v, scaleChange %v, newScale %v", currentScaleState.Scale, scaleChange, newScale)
-	if newScale < 0 {
-		return -1, internalerrors.Errorf(
-			"%w: cannot remove more units than currently exist", applicationerrors.ScaleChangeInvalid)
-	}
 
-	err = s.st.SetDesiredApplicationScale(ctx, appID, newScale)
+	newScale, err := s.st.UpdateApplicationScale(ctx, appID, scaleChange)
 	if err != nil {
 		return -1, internalerrors.Errorf("changing scaling state for %q: %w", appName, err)
 	}
