@@ -206,11 +206,30 @@ func (s *Service) GetRelationStatus(
 	return corestatus.StatusInfo{}, errors.NotImplemented
 }
 
+// GetRelationsStatusForUnit returns RelationUnitStatus for
+// any relation the unit is part of.
+func (s *Service) GetRelationsStatusForUnit(
+	ctx context.Context,
+	unitUUID unit.UUID,
+) ([]relation.RelationUnitStatus, error) {
+	return []relation.RelationUnitStatus{}, errors.NotImplemented
+}
+
 // GetRelationUnit returns the relation unit UUID for the given unit for the
 // given relation.
 func (s *Service) GetRelationUnit(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
+	unitName string,
+) (corerelation.UnitUUID, error) {
+	return "", errors.NotImplemented
+}
+
+// GetRelationUnitByID returns the relation unit UUID for the given unit for the
+// given relation.
+func (s *Service) GetRelationUnitByID(
+	ctx context.Context,
+	relationID int,
 	unitName string,
 ) (corerelation.UnitUUID, error) {
 	return "", errors.NotImplemented
@@ -223,6 +242,11 @@ func (s *Service) GetRelationUnitSettings(
 	relationUnitUUID corerelation.UnitUUID,
 ) (map[string]string, error) {
 	return nil, errors.NotImplemented
+}
+
+// GetRelationUUIDByID returns the relation uuid based on the relation ID.
+func (s *Service) GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error) {
+	return "", errors.NotImplemented
 }
 
 // GetRelationUUIDFromKey returns a relation UUID for the given Key.
@@ -287,11 +311,19 @@ func (s *Service) RelationUnitValid(ctx context.Context, relationUnitUUID corere
 }
 
 // SetRelationStatus sets the status of the relation to the status provided.
+// Status may only be set by the application leader.
+// Returns NotFound
 func (s *Service) SetRelationStatus(
 	ctx context.Context,
-	relationID int,
+	unitName unit.Name,
+	relationUUID corerelation.UUID,
 	info corestatus.StatusInfo,
 ) error {
+	// TODO: (hml) 6-Mar-2025
+	// Implement leadership checking here: e.g.
+	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
+	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
+	//	})
 	return errors.NotImplemented
 }
 
