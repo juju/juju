@@ -246,18 +246,6 @@ func (t *retriever) Retrieve(ctx context.Context, namespace, sha256 string) (io.
 		size   int64
 	)
 	err := t.remote.Connection(ctx, func(ctx context.Context, conn api.Connection) error {
-		go func() {
-			defer cancel()
-
-			// If the connection is broken, we want to stop processing the
-			// request as soon as possible.
-			select {
-			case <-t.tomb.Dying():
-			case <-ctx.Done():
-			case <-conn.Broken():
-			}
-		}()
-
 		httpClient, err := conn.RootHTTPClient()
 		if err != nil {
 			return errors.Errorf("failed to get root HTTP client: %v", err)

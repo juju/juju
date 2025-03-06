@@ -90,9 +90,6 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotes(c *gc.C) {
 	s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").Return(b, int64(11), nil)
 
 	s.apiConnection.EXPECT().RootHTTPClient().Return(client, nil)
-	s.apiConnection.EXPECT().Broken().DoAndReturn(func() <-chan struct{} {
-		return make(chan struct{})
-	}).AnyTimes()
 
 	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
 		return fn(ctx, s.apiConnection)
@@ -184,9 +181,6 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRace(c *gc.C) {
 		}
 		return client, nil
 	}).Times(2)
-	s.apiConnection.EXPECT().Broken().DoAndReturn(func() <-chan struct{} {
-		return make(chan struct{})
-	}).AnyTimes()
 
 	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
 		return fn(ctx, s.apiConnection)
@@ -268,9 +262,6 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *gc.C) {
 		}
 		return client, nil
 	}).Times(3)
-	s.apiConnection.EXPECT().Broken().DoAndReturn(func() <-chan struct{} {
-		return make(chan struct{})
-	}).AnyTimes()
 
 	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
 		return fn(ctx, s.apiConnection)
@@ -314,9 +305,6 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *gc.C) {
 	s.apiConnection.EXPECT().RootHTTPClient().DoAndReturn(func() (*httprequest.Client, error) {
 		return client, nil
 	}).Times(3)
-	s.apiConnection.EXPECT().Broken().DoAndReturn(func() <-chan struct{} {
-		return make(chan struct{})
-	}).AnyTimes()
 
 	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
 		return fn(ctx, s.apiConnection)
@@ -375,9 +363,6 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *gc.C) {
 		}
 		return client, nil
 	}).Times(3)
-	s.apiConnection.EXPECT().Broken().DoAndReturn(func() <-chan struct{} {
-		return make(chan struct{})
-	}).AnyTimes()
 
 	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
 		return fn(ctx, s.apiConnection)
@@ -430,55 +415,6 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *gc.C) {
 
 		cancel()
 	}()
-
-	_, _, err := ret.Retrieve(ctx, "foo")
-	c.Assert(err, jc.ErrorIs, context.Canceled)
-
-	workertest.CleanKill(c, ret)
-}
-
-func (s *retrieverSuite) TestRetrieverWithBrokenConnection(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	client := &httprequest.Client{
-		BaseURL: "http://example.com",
-	}
-
-	wait := make(chan struct{})
-
-	// Trigger the broken connection, which will cause the GetObject to return
-	// the ctx.Err(), which should be context.Canceled.
-
-	s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").DoAndReturn(func(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
-		return nil, -1, ctx.Err()
-	})
-
-	s.apiConnection.EXPECT().RootHTTPClient().DoAndReturn(func() (*httprequest.Client, error) {
-		select {
-		case <-wait:
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timed out waiting for wait")
-		}
-		return client, nil
-	})
-	s.apiConnection.EXPECT().Broken().DoAndReturn(func() <-chan struct{} {
-		defer close(wait)
-
-		ch := make(chan struct{})
-		close(ch)
-		return ch
-	})
-
-	s.remoteConnection.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
-		return fn(ctx, s.apiConnection)
-	})
-	s.remoteCallers.EXPECT().GetAPIRemotes().Return([]apiremotecaller.RemoteConnection{s.remoteConnection})
-
-	ret := s.newRetriever(c)
-	defer workertest.DirtyKill(c, ret)
 
 	_, _, err := ret.Retrieve(ctx, "foo")
 	c.Assert(err, jc.ErrorIs, context.Canceled)

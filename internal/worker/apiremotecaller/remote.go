@@ -113,7 +113,7 @@ func (w *remoteServer) Connection(ctx context.Context, fn func(context.Context, 
 	case <-ctx.Done():
 		return ctx.Err()
 	case conn := <-ch:
-		return fn(ctx, conn)
+		return w.callFunc(ctx, conn, fn)
 	}
 }
 
@@ -373,6 +373,25 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (api.Con
 	}
 
 	return connection, nil
+}
+
+// callFunc calls the given function with the given connection. It will
+// cancel the context if the connection is broken.
+func (w *remoteServer) callFunc(ctx context.Context, conn api.Connection, fn func(context.Context, api.Connection) error) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	go func() {
+		defer cancel()
+
+		select {
+		case <-w.tomb.Dying():
+		case <-ctx.Done():
+		case <-conn.Broken():
+		}
+	}()
+
+	return fn(ctx, conn)
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.

@@ -62,7 +62,7 @@ func (s *RemoteSuite) TestConnect(c *gc.C) {
 
 	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
 
-	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{}))
+	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{})).MinTimes(1)
 	s.apiConnection.EXPECT().Close().Return(nil)
 	s.apiConnection.EXPECT().Addr().Return(addr)
 
@@ -161,7 +161,7 @@ func (s *RemoteSuite) TestConnectMultipleWithFirstCancelled(c *gc.C) {
 
 	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
 
-	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{}))
+	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{})).MinTimes(1)
 	s.apiConnection.EXPECT().Close().Return(nil)
 
 	w := s.newRemoteServer(c)
@@ -278,7 +278,7 @@ func (s *RemoteSuite) TestConnectWhilstConnecting(c *gc.C) {
 	addr0 := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
 	addr1 := &url.URL{Scheme: "wss", Host: "10.0.0.2"}
 
-	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{}))
+	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{})).MinTimes(1)
 	s.apiConnection.EXPECT().Close().Return(nil)
 	s.apiConnection.EXPECT().Addr().Return(addr1)
 
@@ -362,7 +362,7 @@ func (s *RemoteSuite) TestConnectWithSameAddress(c *gc.C) {
 
 	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1"}
 
-	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{}))
+	s.apiConnection.EXPECT().Broken().Return(make(<-chan struct{})).MinTimes(1)
 	s.apiConnection.EXPECT().Close().Return(nil)
 
 	w := s.newRemoteServer(c)
