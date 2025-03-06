@@ -49,9 +49,9 @@ type WatcherFactory interface {
 	// namespace, based on the input change mask.
 	NewValueWatcher(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error)
 
-	// NewMultiWatcher returns a watcher that combines multiple value
+	// NewFilterWatcher returns a watcher that combines multiple value
 	// watchers into a single watcher.
-	NewMultiWatcher(...eventsource.FilterOption) (watcher.NotifyWatcher, error)
+	NewFilterWatcher(...eventsource.FilterOption) (watcher.NotifyWatcher, error)
 }
 
 // WatchableService is a normal [Service] that can also be watched for updates
@@ -201,7 +201,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 		)
 	}
 
-	return s.watcherFactory.NewMultiWatcher(
+	return s.watcherFactory.NewFilterWatcher(
 		eventsource.ValueFilter(
 			"model_authorized_keys",
 			changestream.All,
