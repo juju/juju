@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -23,6 +24,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/statushistory"
 )
 
@@ -162,12 +164,11 @@ func (s *unitServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 }
 
 func (s *unitServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
-	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
 	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
 		return s.supportedFeaturesProvider, nil
-	})
-	defer ctrl.Finish()
+	}).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -189,7 +190,7 @@ func (s *unitServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 	}}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.expectFullConstraints(c, ctrl, unitUUID, appUUID)
+	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
 	s.state.EXPECT().AddUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args []application.AddUnitArg) error {
@@ -205,24 +206,66 @@ func (s *unitServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 	c.Check(received, jc.DeepEquals, u)
 }
 
-func (s *unitServiceSuite) expectFullConstraints(c *gc.C, ctrl *gomock.Controller, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
-	validator := NewMockValidator(ctrl)
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
-	modelConstraints := constraints.Constraints{
-		CpuCores: ptr(uint64(4)),
+func (s *unitServiceSuite) TestAddUnitsInvalidName(c *gc.C) {
+	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
+	}).Finish()
+
+	a := AddUnitArg{
+		UnitName: "ubuntu/666",
 	}
-	appConstraints := constraints.Constraints{
-		CpuPower: ptr(uint64(75)),
+	err := s.service.AddUnits(context.Background(), "!!!", a)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
+}
+
+func (s *unitServiceSuite) TestAddUnitsNoUnits(c *gc.C) {
+	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
+	}).Finish()
+
+	err := s.service.AddUnits(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitServiceSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
+	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
+	}).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, applicationerrors.ApplicationNotFound)
+
+	a := AddUnitArg{
+		UnitName: "ubuntu/666",
 	}
-	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
-	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
-	unitConstraints := constraints.Constraints{
-		CpuCores: ptr(uint64(4)),
-		CpuPower: ptr(uint64(75)),
+	err := s.service.AddUnits(context.Background(), "ubuntu", a)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *unitServiceSuite) TestAddUnitsGetModelTypeError(c *gc.C) {
+	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
+	}).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", fmt.Errorf("boom"))
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+
+	a := AddUnitArg{
+		UnitName: "ubuntu/666",
 	}
-	validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).Return(constraints.EncodeConstraints(unitConstraints), nil)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("ubuntu/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitConstraints(gomock.Any(), unitUUID, unitConstraints)
+	err := s.service.AddUnits(context.Background(), "ubuntu", a)
+	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
 
 func (s *unitServiceSuite) TestSetWorkloadUnitStatus(c *gc.C) {
@@ -919,6 +962,69 @@ func (s *unitServiceSuite) TestSetUnitAgentStatusInvalidStatus(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
 
+func (s *unitServiceSuite) TestMergeApplicationAndModelConstraintsNotSupported(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, errors.NotSupportedf("not supported"))
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	_, err := s.service.mergeApplicationAndModelConstraints(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+}
+
+func (s *unitServiceSuite) TestMergeApplicationAndModelConstraintsNilValidator(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	cons, err := s.service.mergeApplicationAndModelConstraints(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cons, gc.DeepEquals, coreconstraints.Value{})
+}
+
+func (s *unitServiceSuite) TestMergeApplicationAndModelConstraintsNoApplicationConstraints(c *gc.C) {
+	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
+	}).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
+
+	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(constraints.Constraints{}, errors.Errorf("boom"))
+
+	_, err := s.service.mergeApplicationAndModelConstraints(context.Background(), appUUID)
+	c.Assert(err, gc.ErrorMatches, ".*boom")
+}
+
+func (s *unitServiceSuite) TestMergeApplicationAndModelConstraintsConstraintsNotFound(c *gc.C) {
+	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+		return s.provider, nil
+	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
+		return s.supportedFeaturesProvider, nil
+	}).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
+
+	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(constraints.Constraints{}, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, modelerrors.ConstraintsNotFound)
+
+	s.validator.EXPECT().Merge(
+		constraints.EncodeConstraints(constraints.Constraints{}),
+		constraints.EncodeConstraints(constraints.Constraints{})).
+		Return(coreconstraints.Value{}, nil)
+
+	_, err := s.service.mergeApplicationAndModelConstraints(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *unitServiceSuite) expectEmptyUnitConstraints(c *gc.C, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
 	appConstraints := constraints.Constraints{}
 	modelConstraints := constraints.Constraints{}
@@ -991,6 +1097,28 @@ func (s *unitServiceSuite) expectModelConstraints(c *gc.C, unitUUID coreunit.UUI
 
 	s.validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).Return(constraints.EncodeConstraints(unitConstraints), nil)
 
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("ubuntu/666")).Return(unitUUID, nil)
+	s.state.EXPECT().SetUnitConstraints(gomock.Any(), unitUUID, unitConstraints)
+}
+
+func (s *unitServiceSuite) expectFullConstraints(c *gc.C, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
+	modelConstraints := constraints.Constraints{
+		CpuCores: ptr(uint64(4)),
+	}
+	appConstraints := constraints.Constraints{
+		CpuPower: ptr(uint64(75)),
+	}
+	unitConstraints := constraints.Constraints{
+		CpuCores: ptr(uint64(4)),
+		CpuPower: ptr(uint64(75)),
+	}
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
+
+	s.validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).Return(constraints.EncodeConstraints(unitConstraints), nil)
+
+	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("ubuntu/666")).Return(unitUUID, nil)
 	s.state.EXPECT().SetUnitConstraints(gomock.Any(), unitUUID, unitConstraints)
 }
