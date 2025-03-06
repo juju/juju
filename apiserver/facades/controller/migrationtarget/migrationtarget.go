@@ -348,11 +348,11 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 			)
 		}
 		err = api.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
-			ControllerTag: cTag,
-			Alias:         args.ControllerAlias,
-			Addrs:         args.SourceAPIAddrs,
-			CACert:        args.SourceCACert,
-			ModelUUIDs:    args.CrossModelUUIDs,
+			ControllerUUID: cTag.Id(),
+			Alias:          args.ControllerAlias,
+			Addrs:          args.SourceAPIAddrs,
+			CACert:         args.SourceCACert,
+			ModelUUIDs:     args.CrossModelUUIDs,
 		})
 		if err != nil {
 			return errors.Errorf(
@@ -381,7 +381,7 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 			)
 		}
 		if err == nil {
-			sourceControllerUUID = extInfo.ControllerTag.Id()
+			sourceControllerUUID = extInfo.ControllerUUID
 		}
 		if err := app.SetSourceController(sourceControllerUUID); err != nil {
 			return errors.Errorf(

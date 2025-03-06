@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coreresouces "github.com/juju/juju/core/resource"
@@ -55,11 +54,11 @@ func (s *exportSuite) TestResourceExport(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	appName := "app-name"
 	app := model.AddApplication(description.ApplicationArgs{
-		Tag: names.NewApplicationTag(appName),
+		Name: appName,
 	})
 	unitName := "app-name/0"
 	app.AddUnit(description.UnitArgs{
-		Tag: names.NewUnitTag(unitName),
+		Name: unitName,
 	})
 
 	fp, err := resource.NewFingerprint(fingerprint)

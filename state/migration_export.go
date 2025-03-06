@@ -112,7 +112,7 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 		Type:               string(dbModel.Type()),
 		Cloud:              dbModel.CloudName(),
 		CloudRegion:        dbModel.CloudRegion(),
-		Owner:              dbModel.Owner(),
+		Owner:              dbModel.Owner().Id(),
 		Config:             make(map[string]interface{}, 0),
 		PasswordHash:       dbModel.doc.PasswordHash,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
@@ -125,8 +125,8 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 	credTag, exists := dbModel.CloudCredentialTag()
 	if exists && !cfg.SkipCredentials {
 		export.model.SetCloudCredential(description.CloudCredentialArgs{
-			Owner: credTag.Owner(),
-			Cloud: credTag.Cloud(),
+			Owner: credTag.Owner().Id(),
+			Cloud: credTag.Cloud().Id(),
 			Name:  credTag.Name(),
 		})
 	}
@@ -282,7 +282,7 @@ func (e *exporter) machines() error {
 
 func (e *exporter) newMachine(exParent description.Machine, machine *Machine, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
 	args := description.MachineArgs{
-		Id:            machine.MachineTag(),
+		Id:            machine.Id(),
 		Nonce:         machine.doc.Nonce,
 		PasswordHash:  machine.doc.PasswordHash,
 		Placement:     machine.doc.Placement,
@@ -524,7 +524,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 
 	args := description.ApplicationArgs{
-		Tag:                  application.ApplicationTag(),
+		Name:                 application.Name(),
 		Type:                 e.model.Type(),
 		Subordinate:          application.doc.Subordinate,
 		CharmURL:             *charmURL,
@@ -627,18 +627,18 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			return errors.Trace(err)
 		}
 		args := description.UnitArgs{
-			Tag:             unit.UnitTag(),
+			Name:            unit.Name(),
 			Type:            string(unit.modelType),
-			Machine:         names.NewMachineTag(unit.doc.MachineId),
+			Machine:         unit.doc.MachineId,
 			WorkloadVersion: workloadVersion,
 			PasswordHash:    unit.doc.PasswordHash,
 		}
 		if principalName, isSubordinate := unit.PrincipalName(); isSubordinate {
-			args.Principal = names.NewUnitTag(principalName)
+			args.Principal = principalName
 		}
 		if subs := unit.SubordinateNames(); len(subs) > 0 {
 			for _, subName := range subs {
-				args.Subordinates = append(args.Subordinates, names.NewUnitTag(subName))
+				args.Subordinates = append(args.Subordinates, subName)
 			}
 		}
 		if cloudContainer, found := ctx.cloudContainers[unit.globalKey()]; found {
@@ -1604,11 +1604,11 @@ func (e *exporter) volumes() error {
 
 func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc, attachmentPlans []volumeAttachmentPlanDoc) error {
 	args := description.VolumeArgs{
-		Tag: vol.VolumeTag(),
+		ID: vol.VolumeTag().Id(),
 	}
 	if tag, err := vol.StorageInstance(); err == nil {
 		// only returns an error when no storage tag.
-		args.Storage = tag
+		args.Storage = tag.Id()
 	} else {
 		if !errors.Is(err, errors.NotAssigned) {
 			// This is an unexpected error.
@@ -1647,8 +1647,17 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc, 
 	for _, doc := range volAttachments {
 		va := volumeAttachment{doc}
 		logger.Debugf(context.TODO(), "  attachment %#v", doc)
+		var (
+			hostMachine, hostUnit string
+		)
+		if va.Host().Kind() == names.UnitTagKind {
+			hostUnit = va.Host().Id()
+		} else {
+			hostMachine = va.Host().Id()
+		}
 		args := description.VolumeAttachmentArgs{
-			Host: va.Host(),
+			HostUnit:    hostUnit,
+			HostMachine: hostMachine,
 		}
 		if info, err := va.Info(); err == nil {
 			logger.Debugf(context.TODO(), "    info %#v", info)
@@ -1673,7 +1682,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc, 
 		va := volumeAttachmentPlan{doc}
 		logger.Debugf(context.TODO(), "  attachment plan %#v", doc)
 		args := description.VolumeAttachmentPlanArgs{
-			Machine: va.Machine(),
+			Machine: va.Machine().Id(),
 		}
 		if info, err := va.PlanInfo(); err == nil {
 			logger.Debugf(context.TODO(), "    plan info %#v", info)
@@ -1772,9 +1781,9 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 	storage, _ := fs.Storage()
 	volume, _ := fs.Volume()
 	args := description.FilesystemArgs{
-		Tag:     fs.FilesystemTag(),
-		Storage: storage,
-		Volume:  volume,
+		ID:      fs.FilesystemTag().Id(),
+		Storage: storage.Id(),
+		Volume:  volume.Id(),
 	}
 	logger.Debugf(context.TODO(), "addFilesystem: %#v", fs.doc)
 	if info, err := fs.Info(); err == nil {
@@ -1805,8 +1814,17 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 	for _, doc := range fsAttachments {
 		va := filesystemAttachment{doc}
 		logger.Debugf(context.TODO(), "  attachment %#v", doc)
+		var (
+			hostMachine, hostUnit string
+		)
+		if va.Host().Kind() == names.UnitTagKind {
+			hostUnit = va.Host().Id()
+		} else {
+			hostMachine = va.Host().Id()
+		}
 		args := description.FilesystemAttachmentArgs{
-			Host: va.Host(),
+			HostUnit:    hostUnit,
+			HostMachine: hostMachine,
 		}
 		if info, err := va.Info(); err == nil {
 			logger.Debugf(context.TODO(), "    info %#v", info)
@@ -1871,16 +1889,16 @@ func (e *exporter) storageInstances() error {
 	return nil
 }
 
-func (e *exporter) addStorage(instance *storageInstance, attachments []names.UnitTag) error {
+func (e *exporter) addStorage(instance *storageInstance, attachments []string) error {
 	owner, ok := instance.Owner()
 	if !ok {
 		owner = nil
 	}
 	cons := description.StorageInstanceConstraints(instance.doc.Constraints)
 	args := description.StorageArgs{
-		Tag:         instance.StorageTag(),
+		ID:          instance.StorageTag().Id(),
 		Kind:        instance.Kind().String(),
-		Owner:       owner,
+		UnitOwner:   owner.Id(),
 		Name:        instance.StorageName(),
 		Attachments: attachments,
 		Constraints: &cons,
@@ -1889,18 +1907,17 @@ func (e *exporter) addStorage(instance *storageInstance, attachments []names.Uni
 	return nil
 }
 
-func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) {
+func (e *exporter) readStorageAttachments() (map[string][]string, error) {
 	coll, closer := e.st.db().GetCollection(storageAttachmentsC)
 	defer closer()
 
-	result := make(map[string][]names.UnitTag)
+	result := make(map[string][]string)
 	var doc storageAttachmentDoc
 	var count int
 	iter := coll.Find(nil).Iter()
 	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
-		unit := names.NewUnitTag(doc.Unit)
-		result[doc.StorageInstance] = append(result[doc.StorageInstance], unit)
+		result[doc.StorageInstance] = append(result[doc.StorageInstance], doc.Unit)
 		count++
 	}
 	if err := iter.Close(); err != nil {

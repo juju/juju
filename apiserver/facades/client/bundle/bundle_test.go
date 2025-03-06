@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"
@@ -435,7 +435,7 @@ func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -456,7 +456,7 @@ func (s *bundleSuite) minimalApplicationArgsWithCharmConfig(modelType string, ch
 	s.st.Spaces["1"] = "vlan2"
 	s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
 	result := description.ApplicationArgs{
-		Tag:                  names.NewApplicationTag("ubuntu"),
+		Name:                 "ubuntu",
 		Type:                 modelType,
 		CharmURL:             "ch:ubuntu",
 		Channel:              "stable",
@@ -485,9 +485,9 @@ func (s *bundleSuite) minimalApplicationArgsWithCharmConfig(modelType string, ch
 
 func minimalUnitArgs(modelType string) description.UnitArgs {
 	result := description.UnitArgs{
-		Tag:          names.NewUnitTag("ubuntu/0"),
+		Name:         "ubuntu/0",
 		Type:         modelType,
-		Machine:      names.NewMachineTag("0"),
+		Machine:      "0",
 		PasswordHash: "secure-hash",
 	}
 	if modelType == description.CAAS {
@@ -510,7 +510,7 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -548,7 +548,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -601,7 +601,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -659,7 +659,7 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -703,7 +703,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -735,7 +735,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 
 	// Add second app without an offer
 	app2Args := s.minimalApplicationArgs(description.IAAS)
-	app2Args.Tag = names.NewApplicationTag("foo")
+	app2Args.Name = "foo"
 	app2 := s.st.model.AddApplication(app2Args)
 	app2.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app2.SetStatus(minimalStatusArgs())
@@ -790,7 +790,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationCharmConfig(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -884,7 +884,7 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 
 	// Add second app without an offer
 	app2Args := s.minimalApplicationArgs(description.IAAS)
-	app2Args.Tag = names.NewApplicationTag("foo")
+	app2Args.Name = "foo"
 	app2 := s.st.model.AddApplication(app2Args)
 	app2.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app2.SetStatus(minimalStatusArgs())
@@ -1001,7 +1001,7 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -1010,8 +1010,8 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 	app.SetStatus(minimalStatusArgs())
 
 	remoteApp := s.st.model.AddRemoteApplication(description.RemoteApplicationArgs{
-		Tag: names.NewApplicationTag("awesome"),
-		URL: "test:admin/default.awesome",
+		Name: "awesome",
+		URL:  "test:admin/default.awesome",
 	})
 	remoteApp.SetStatus(minimalStatusArgs())
 
@@ -1060,7 +1060,7 @@ func (s *bundleSuite) addApplicationToModel(model description.Model, name string
 		charmURL = "ch:" + name
 	}
 	application := model.AddApplication(description.ApplicationArgs{
-		Tag:                names.NewApplicationTag(name),
+		Name:               name,
 		CharmURL:           charmURL,
 		Channel:            channel,
 		CharmConfig:        map[string]interface{}{},
@@ -1070,12 +1070,12 @@ func (s *bundleSuite) addApplicationToModel(model description.Model, name string
 	application.SetStatus(minimalStatusArgs())
 	for i := 0; i < numUnits; i++ {
 		machine := model.AddMachine(description.MachineArgs{
-			Id:   names.NewMachineTag(fmt.Sprint(i)),
+			Id:   fmt.Sprint(i),
 			Base: "ubuntu@20.04",
 		})
 		unit := application.AddUnit(description.UnitArgs{
-			Tag:     names.NewUnitTag(fmt.Sprintf("%s/%d", name, i)),
-			Machine: machine.Tag(),
+			Name:    fmt.Sprintf("%s/%d", name, i),
+			Machine: machine.Id(),
 		})
 		unit.SetAgentStatus(minimalStatusArgs())
 	}
@@ -1094,7 +1094,7 @@ func (s *bundleSuite) setEndpointSettings(ep description.Endpoint, units ...stri
 func (s *bundleSuite) newModel(modelType string, app1 string, app2 string) description.Model {
 	s.st.model = description.NewModel(description.ModelArgs{
 		Type:        modelType,
-		Owner:       names.NewUserTag("magic"),
+		Owner:       "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -1169,7 +1169,7 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 
 	model := s.newModel("iaas", "wordpress", "mysql")
 	app := model.AddApplication(description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("mariadb"),
+		Name:     "mariadb",
 		CharmURL: "ch:mariadb",
 		CharmConfig: map[string]interface{}{
 			"mem": 200,
@@ -1328,14 +1328,14 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
 	s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
 	s.st.Spaces["2"] = "some-space"
 	application := s.st.model.AddApplication(description.ApplicationArgs{
-		Tag:                  names.NewApplicationTag("magic"),
+		Name:                 "magic",
 		Subordinate:          true,
 		CharmURL:             "ch:magic",
 		Channel:              "stable",
@@ -1388,7 +1388,7 @@ applications:
 }
 
 func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff string) {
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -1401,7 +1401,7 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 
 	app = s.st.model.AddApplication(description.ApplicationArgs{
-		Tag:                  names.NewApplicationTag("magic"),
+		Name:                 "magic",
 		Subordinate:          true,
 		CharmURL:             "ch:magic",
 		Channel:              "stable",
@@ -1483,12 +1483,12 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
-		Tag:         names.NewApplicationTag("magic"),
+		Name:        "magic",
 		Subordinate: true,
 		CharmURL:    "ch:amd64/zesty/magic",
 		Channel:     "stable",
@@ -1523,7 +1523,7 @@ applications:
 
 func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, id string) {
 	m := model.AddMachine(description.MachineArgs{
-		Id:           names.NewMachineTag(id),
+		Id:           id,
 		Nonce:        "a-nonce",
 		PasswordHash: "some-hash",
 		Base:         "ubuntu@20.04",
@@ -1592,7 +1592,7 @@ relations:
 
 func (s *bundleSuite) addMinimalMachineWithAnnotations(model description.Model, id string) {
 	m := model.AddMachine(description.MachineArgs{
-		Id:           names.NewMachineTag(id),
+		Id:           id,
 		Nonce:        "a-nonce",
 		PasswordHash: "some-hash",
 		Base:         "ubuntu@20.04",
@@ -1653,19 +1653,19 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
 	application0 := s.st.model.AddApplication(description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("wordpress"),
+		Name:     "wordpress",
 		CharmURL: "ch:wordpress",
 	})
 	application0.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application0.SetStatus(minimalStatusArgs())
 
 	m0 := s.st.model.AddMachine(description.MachineArgs{
-		Id:   names.NewMachineTag("0"),
+		Id:   "0",
 		Base: "ubuntu@20.04",
 	})
 	args := description.ConstraintsArgs{
@@ -1675,20 +1675,20 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	}
 	m0.SetConstraints(args)
 	ut0 := application0.AddUnit(description.UnitArgs{
-		Tag:     names.NewUnitTag("wordpress/0"),
-		Machine: names.NewMachineTag("0"),
+		Name:    "wordpress/0",
+		Machine: "0",
 	})
 	ut0.SetAgentStatus(minimalStatusArgs())
 
 	application1 := s.st.model.AddApplication(description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("mysql"),
+		Name:     "mysql",
 		CharmURL: "ch:mysql",
 	})
 	application1.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application1.SetStatus(minimalStatusArgs())
 
 	m1 := s.st.model.AddMachine(description.MachineArgs{
-		Id:   names.NewMachineTag("1"),
+		Id:   "1",
 		Base: "ubuntu@20.04",
 	})
 	args = description.ConstraintsArgs{
@@ -1699,8 +1699,8 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	m1.SetConstraints(args)
 
 	ut := application1.AddUnit(description.UnitArgs{
-		Tag:     names.NewUnitTag("mysql/1"),
-		Machine: names.NewMachineTag("1/lxd/0"),
+		Name:    "mysql/1",
+		Machine: "1/lxd/0",
 	})
 	ut.SetAgentStatus(minimalStatusArgs())
 
@@ -1735,37 +1735,37 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
 			"default-base": "ubuntu@20.04",
 		}),
 		CloudRegion: "some-region"})
 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("magic"),
+		Name:     "magic",
 		CharmURL: "ch:magic",
 	})
 	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application.AddUnit(description.UnitArgs{
-		Tag:     names.NewUnitTag("magic/0"),
-		Machine: names.NewMachineTag("0"),
+		Name:    "magic/0",
+		Machine: "0",
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:   names.NewMachineTag("0"),
+		Id:   "0",
 		Base: "ubuntu@20.04",
 	})
 
 	application = s.st.model.AddApplication(description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("mojo"),
+		Name:     "mojo",
 		CharmURL: "ch:mojo",
 	})
 	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/22.04/stable"})
 	application.AddUnit(description.UnitArgs{
-		Tag:     names.NewUnitTag("mojo/0"),
-		Machine: names.NewMachineTag("1"),
+		Name:    "mojo/0",
+		Machine: "1",
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:   names.NewMachineTag("1"),
+		Id:   "1",
 		Base: "ubuntu@22.04",
 	})
 
@@ -1801,14 +1801,14 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
 			"default-base": "ubuntu@20.04",
 		}),
 		CloudRegion: "some-region"})
 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("magic"),
+		Name:     "magic",
 		CharmURL: "ch:magic",
 	})
 
@@ -1817,25 +1817,25 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 	// is supported
 	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/21.04/stable"})
 	application.AddUnit(description.UnitArgs{
-		Tag:     names.NewUnitTag("magic/0"),
-		Machine: names.NewMachineTag("0"),
+		Name:    "magic/0",
+		Machine: "0",
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:   names.NewMachineTag("0"),
+		Id:   "0",
 		Base: "ubuntu@21.04",
 	})
 
 	application = s.st.model.AddApplication(description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("mojo"),
+		Name:     "mojo",
 		CharmURL: "ch:mojo",
 	})
 	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/22.04/stable"})
 	application.AddUnit(description.UnitArgs{
-		Tag:     names.NewUnitTag("mojo/0"),
-		Machine: names.NewMachineTag("1"),
+		Name:    "mojo/0",
+		Machine: "1",
 	})
 	s.st.model.AddMachine(description.MachineArgs{
-		Id:   names.NewMachineTag("1"),
+		Id:   "1",
 		Base: "ubuntu@22.04",
 	})
 
@@ -2094,7 +2094,7 @@ applications:
 	for i, spec := range specs {
 		c.Logf("%d. %s", i, spec.descr)
 
-		s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
 			Config:      coretesting.FakeConfig(),
 			CloudRegion: "some-region"},
 		)
@@ -2102,7 +2102,7 @@ applications:
 		s.st.Spaces["2"] = "some-space"
 
 		application := s.st.model.AddApplication(description.ApplicationArgs{
-			Tag:                  names.NewApplicationTag("magic"),
+			Name:                 "magic",
 			CharmURL:             "ch:amd64/focal/magic",
 			Channel:              "stable",
 			CharmModifiedVersion: 1,

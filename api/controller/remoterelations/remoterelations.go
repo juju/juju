@@ -300,7 +300,7 @@ func (c *Client) UpdateControllerForModel(ctx context.Context, controller crossm
 	args := params.UpdateControllersForModelsParams{Changes: []params.UpdateControllerForModel{{
 		ModelTag: names.NewModelTag(modelUUID).String(),
 		Info: params.ExternalControllerInfo{
-			ControllerTag: controller.ControllerTag.String(),
+			ControllerTag: names.NewControllerTag(controller.ControllerUUID).String(),
 			Alias:         controller.Alias,
 			Addrs:         controller.Addrs,
 			CACert:        controller.CACert,

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -72,7 +71,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the export, adding the model user permissions to the model.
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	modelUUID := model.Tag().Id()
+	modelUUID := model.UUID()
 	userAccesses, err := e.service.ReadAllUserAccessForTarget(ctx, corepermission.ID{
 		ObjectType: corepermission.Model,
 		Key:        modelUUID,
@@ -85,10 +84,10 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		if err != nil && !errors.Is(err, accesserrors.UserNeverAccessedModel) {
 			return errors.Annotatef(err, "getting user last login on model")
 		}
-		userName := names.NewUserTag(userAccess.UserName.Name())
-		var createdBy names.UserTag
+		userName := userAccess.UserName.Name()
+		var createdBy string
 		if !userAccess.CreatedBy.IsZero() {
-			createdBy = names.NewUserTag(userAccess.CreatedBy.Name())
+			createdBy = userAccess.CreatedBy.Name()
 		}
 		arg := description.UserArgs{
 			Name:           userName,

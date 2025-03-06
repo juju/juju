@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -65,7 +64,7 @@ func (s *importSuite) TestImport(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	app := model.AddApplication(description.ApplicationArgs{
-		Tag: names.NewApplicationTag("app"),
+		Name: "app",
 	})
 	app.AddOpenedPortRange(description.OpenedPortRangeArgs{
 		UnitName:     "unit/1",
@@ -75,7 +74,7 @@ func (s *importSuite) TestImport(c *gc.C) {
 		Protocol:     "udp",
 	})
 	machine := model.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag("1"),
+		Id: "1",
 	})
 	machine.AddOpenedPortRange(description.OpenedPortRangeArgs{
 		UnitName:     "unit/2",
@@ -115,7 +114,7 @@ func (s *importSuite) TestImportUnitNotFound(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	app := model.AddApplication(description.ApplicationArgs{
-		Tag: names.NewApplicationTag("app"),
+		Name: "app",
 	})
 	app.AddOpenedPortRange(description.OpenedPortRangeArgs{
 		UnitName:     "unit/1",

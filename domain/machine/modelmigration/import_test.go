@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -66,7 +65,7 @@ func (s *importSuite) TestImport(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	model.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag("666"),
+		Id: "666",
 	})
 	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("666")).Times(1)
 
@@ -80,7 +79,7 @@ func (s *importSuite) TestFailImportMachineWithoutCloudInstance(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	model.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag("0"),
+		Id: "0",
 	})
 
 	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0")).
@@ -96,7 +95,7 @@ func (s *importSuite) TestImportMachineWithoutCloudInstance(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	model.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag("0"),
+		Id: "0",
 	})
 
 	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0"))
@@ -111,7 +110,7 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	machine0 := model.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag("0"),
+		Id: "0",
 	})
 	cloudInstanceArgs := description.CloudInstanceArgs{
 		InstanceId:       "inst-0",
@@ -160,7 +159,7 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	machine0 := model.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag("0"),
+		Id: "0",
 	})
 	cloudInstanceArgs := description.CloudInstanceArgs{
 		InstanceId:       "inst-0",

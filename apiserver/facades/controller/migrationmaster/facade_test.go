@@ -73,7 +73,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.model = description.NewModel(description.ModelArgs{
 		Type:               "iaas",
 		Config:             map[string]interface{}{"uuid": s.modelUUID},
-		Owner:              names.NewUserTag("admin"),
+		Owner:              "admin",
 		LatestToolsVersion: jujuversion.Current,
 	})
 
@@ -339,7 +339,7 @@ func (s *Suite) TestExportCAAS(c *gc.C) {
 	s.model = description.NewModel(description.ModelArgs{
 		Type:               "caas",
 		Config:             map[string]interface{}{"uuid": s.modelUUID},
-		Owner:              names.NewUserTag("admin"),
+		Owner:              "admin",
 		LatestToolsVersion: jujuversion.Current,
 	})
 	s.assertExport(c, "caas")
@@ -349,13 +349,13 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	defer s.setupMocks(c).Finish()
 
 	app := s.model.AddApplication(description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("foo"),
+		Name:     "foo",
 		CharmURL: "ch:foo-0",
 	})
 
 	const tools0 = "2.0.0-ubuntu-amd64"
 	const tools1 = "2.0.1-ubuntu-amd64"
-	m := s.model.AddMachine(description.MachineArgs{Id: names.NewMachineTag("9")})
+	m := s.model.AddMachine(description.MachineArgs{Id: "9"})
 	m.SetTools(description.AgentToolsArgs{
 		Version: version.MustParseBinary(tools1),
 	})
@@ -372,7 +372,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	})
 
 	unit := app.AddUnit(description.UnitArgs{
-		Tag: names.NewUnitTag("foo/0"),
+		Name: "foo/0",
 	})
 	unit.SetTools(description.AgentToolsArgs{
 		Version: version.MustParseBinary(tools0),

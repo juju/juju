@@ -107,10 +107,10 @@ func (s *ExternalControllerUpdaterAPI) SetExternalControllerInfo(ctx context.Con
 			continue
 		}
 		if err := s.ecService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
-			ControllerTag: controllerTag,
-			Alias:         arg.Info.Alias,
-			Addrs:         arg.Info.Addrs,
-			CACert:        arg.Info.CACert,
+			ControllerUUID: controllerTag.Id(),
+			Alias:          arg.Info.Alias,
+			Addrs:          arg.Info.Addrs,
+			CACert:         arg.Info.CACert,
 		}); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

@@ -61,11 +61,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	var controllers []crossmodel.ControllerInfo
 	for _, entity := range externalControllers {
 		controllers = append(controllers, crossmodel.ControllerInfo{
-			ControllerTag: entity.ID(),
-			Alias:         entity.Alias(),
-			CACert:        entity.CACert(),
-			Addrs:         entity.Addrs(),
-			ModelUUIDs:    entity.Models(),
+			ControllerUUID: entity.ID(),
+			Alias:          entity.Alias(),
+			CACert:         entity.CACert(),
+			Addrs:          entity.Addrs(),
+			ModelUUIDs:     entity.Models(),
 		})
 	}
 

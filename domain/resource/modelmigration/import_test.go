@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -69,7 +68,7 @@ func (s *importSuite) TestImport(c *gc.C) {
 	appName := "app-name"
 	model := description.NewModel(description.ModelArgs{})
 	app := model.AddApplication(description.ApplicationArgs{
-		Tag: names.NewApplicationTag(appName),
+		Name: appName,
 	})
 	res1Name := "resource-1"
 	res1Revision := 1
@@ -98,7 +97,7 @@ func (s *importSuite) TestImport(c *gc.C) {
 	unitName := "app-name/0"
 	unitRes1Time := time.Now().Truncate(time.Second).Add(-time.Hour * 2).UTC()
 	unit := app.AddUnit(description.UnitArgs{
-		Tag: names.NewUnitTag(unitName),
+		Name: unitName,
 	})
 	unit.AddResource(description.UnitResourceArgs{
 		Name: res1Name,
@@ -167,7 +166,7 @@ func (s *importSuite) TestImportRevisionOriginUpload(c *gc.C) {
 	appName := "app-name"
 	model := description.NewModel(description.ModelArgs{})
 	app := model.AddApplication(description.ApplicationArgs{
-		Tag: names.NewApplicationTag(appName),
+		Name: appName,
 	})
 	resName := "resource-1"
 	resRevision := 1
@@ -206,7 +205,7 @@ func (s *importSuite) TestImportRevisionNotValidOriginStore(c *gc.C) {
 	appName := "app-name"
 	model := description.NewModel(description.ModelArgs{})
 	app := model.AddApplication(description.ApplicationArgs{
-		Tag: names.NewApplicationTag(appName),
+		Name: appName,
 	})
 	resName := "resource-1"
 	resRevision := -1
@@ -232,7 +231,7 @@ func (s *importSuite) TestImportOriginNotValid(c *gc.C) {
 	appName := "app-name"
 	model := description.NewModel(description.ModelArgs{})
 	app := model.AddApplication(description.ApplicationArgs{
-		Tag: names.NewApplicationTag(appName),
+		Name: appName,
 	})
 	resName := "resource-1"
 	resTime := time.Now().Truncate(time.Second).UTC()
@@ -255,7 +254,7 @@ func (s *importSuite) TestImportResourceNameNotValid(c *gc.C) {
 	appName := "app-name"
 	model := description.NewModel(description.ModelArgs{})
 	app := model.AddApplication(description.ApplicationArgs{
-		Tag: names.NewApplicationTag(appName),
+		Name: appName,
 	})
 	resTime := time.Now().Truncate(time.Second).UTC()
 	res := app.AddResource(description.ResourceArgs{

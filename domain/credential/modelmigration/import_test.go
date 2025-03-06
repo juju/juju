@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -70,8 +69,8 @@ func (s *importSuite) TestImport(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	model.SetCloudCredential(
 		description.CloudCredentialArgs{
-			Owner:      names.NewUserTag("fred"),
-			Cloud:      names.NewCloudTag("cirrus"),
+			Owner:      "fred",
+			Cloud:      "cirrus",
 			Name:       "foo",
 			AuthType:   string(cloud.UserPassAuthType),
 			Attributes: map[string]string{"hello": "world"},
@@ -94,8 +93,8 @@ func (s *importSuite) TestImportExistingMatches(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	model.SetCloudCredential(
 		description.CloudCredentialArgs{
-			Owner:      names.NewUserTag("fred"),
-			Cloud:      names.NewCloudTag("cirrus"),
+			Owner:      "fred",
+			Cloud:      "cirrus",
 			Name:       "foo",
 			AuthType:   string(cloud.UserPassAuthType),
 			Attributes: map[string]string{"hello": "world"},
@@ -117,8 +116,8 @@ func (s *importSuite) TestImportExistingAuthTypeMisMatch(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	model.SetCloudCredential(
 		description.CloudCredentialArgs{
-			Owner:      names.NewUserTag("fred"),
-			Cloud:      names.NewCloudTag("cirrus"),
+			Owner:      "fred",
+			Cloud:      "cirrus",
 			Name:       "foo",
 			AuthType:   string(cloud.UserPassAuthType),
 			Attributes: map[string]string{"hello": "world"},
@@ -140,8 +139,8 @@ func (s *importSuite) TestImportExistingAttributesMisMatch(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	model.SetCloudCredential(
 		description.CloudCredentialArgs{
-			Owner:      names.NewUserTag("fred"),
-			Cloud:      names.NewCloudTag("cirrus"),
+			Owner:      "fred",
+			Cloud:      "cirrus",
 			Name:       "foo",
 			AuthType:   string(cloud.UserPassAuthType),
 			Attributes: map[string]string{"hello": "world"},

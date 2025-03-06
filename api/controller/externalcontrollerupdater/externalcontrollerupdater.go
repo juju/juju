@@ -79,10 +79,10 @@ func (c *Client) ExternalControllerInfo(ctx context.Context, controllerUUID stri
 		return nil, errors.Trace(err)
 	}
 	return &crossmodel.ControllerInfo{
-		ControllerTag: controllerTag,
-		Alias:         result.Result.Alias,
-		Addrs:         result.Result.Addrs,
-		CACert:        result.Result.CACert,
+		ControllerUUID: controllerTag.Id(),
+		Alias:          result.Result.Alias,
+		Addrs:          result.Result.Addrs,
+		CACert:         result.Result.CACert,
 	}, nil
 }
 
@@ -92,7 +92,7 @@ func (c *Client) SetExternalControllerInfo(ctx context.Context, info crossmodel.
 	args := params.SetExternalControllersInfoParams{
 		Controllers: []params.SetExternalControllerInfoParams{{
 			Info: params.ExternalControllerInfo{
-				ControllerTag: info.ControllerTag.String(),
+				ControllerTag: names.NewControllerTag(info.ControllerUUID).String(),
 				Alias:         info.Alias,
 				Addrs:         info.Addrs,
 				CACert:        info.CACert,

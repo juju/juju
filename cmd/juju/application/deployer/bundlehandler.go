@@ -1461,10 +1461,10 @@ func (h *bundleHandler) consumeOffer(ctx context.Context, change *bundlechanges.
 			return errors.Trace(err)
 		}
 		arg.ControllerInfo = &crossmodel.ControllerInfo{
-			ControllerTag: controllerTag,
-			Alias:         consumeDetails.ControllerInfo.Alias,
-			Addrs:         consumeDetails.ControllerInfo.Addrs,
-			CACert:        consumeDetails.ControllerInfo.CACert,
+			ControllerUUID: controllerTag.Id(),
+			Alias:          consumeDetails.ControllerInfo.Alias,
+			Addrs:          consumeDetails.ControllerInfo.Addrs,
+			CACert:         consumeDetails.ControllerInfo.CACert,
 		}
 	}
 	localName, err := h.deployAPI.Consume(ctx, arg)

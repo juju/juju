@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -64,11 +63,11 @@ func (s *importSuite) TestImport(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	model.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag("666"),
+		Id: "666",
 	})
 	// And also a machine with no block devices.
 	model.AddMachine(description.MachineArgs{
-		Id: names.NewMachineTag("668"),
+		Id: "666",
 	})
 	err := model.AddBlockDevice("666", description.BlockDeviceArgs{
 		Name:           "foo",

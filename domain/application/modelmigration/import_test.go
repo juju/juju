@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -61,7 +60,7 @@ func (s *importSuite) TestRollback(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	appArgs := description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("prometheus"),
+		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
 	}
 	model.AddApplication(appArgs)
@@ -82,13 +81,13 @@ func (s *importSuite) TestRollbackForMultipleApplicationsRollbacksAll(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 	appArgs0 := description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("prometheus"),
+		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
 	}
 	model.AddApplication(appArgs0)
 
 	appArgs1 := description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("grafana"),
+		Name:     "grafana",
 		CharmURL: "ch:grafana-1",
 	}
 	model.AddApplication(appArgs1)
@@ -114,12 +113,12 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 
 	updatedAt := time.Now().UTC()
 	appArgs := description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("prometheus"),
+		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
 	}
 	app := model.AddApplication(appArgs)
 	u := app.AddUnit(description.UnitArgs{
-		Tag:          names.NewUnitTag("prometheus/0"),
+		Name:         "prometheus/0",
 		PasswordHash: "passwordhash",
 		CloudContainer: &description.CloudContainerArgs{
 			ProviderId: "provider-id",
@@ -232,7 +231,7 @@ func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *g
 	model := description.NewModel(description.ModelArgs{})
 
 	appArgs := description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("prometheus"),
+		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
@@ -299,7 +298,7 @@ func (s *importSuite) TestApplicationImportWithApplicationStatusNotSet(c *gc.C) 
 	model := description.NewModel(description.ModelArgs{})
 
 	appArgs := description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("prometheus"),
+		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
@@ -362,7 +361,7 @@ func (s *importSuite) TestApplicationImportWithConstraints(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	appArgs := description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("prometheus"),
+		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
 	}
 	app := model.AddApplication(appArgs)

@@ -1112,7 +1112,7 @@ type mockState struct {
 type fakeModelDescription struct {
 	description.Model `yaml:"-"`
 
-	UUID string `yaml:"model-uuid"`
+	ModelUUID string `yaml:"model-uuid"`
 }
 
 func (st *mockState) ModelUUID() string {
@@ -1132,7 +1132,7 @@ func (st *mockState) ControllerModelTag() names.ModelTag {
 
 func (st *mockState) Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
 	st.MethodCall(st, "Export", leaders)
-	return &fakeModelDescription{UUID: st.model.UUID()}, nil
+	return &fakeModelDescription{ModelUUID: st.model.UUID()}, nil
 }
 
 func (st *mockState) ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
@@ -1140,7 +1140,7 @@ func (st *mockState) ExportPartial(cfg state.ExportConfig, store objectstore.Obj
 	if !cfg.IgnoreIncompleteModel {
 		return nil, errors.New("expected IgnoreIncompleteModel=true")
 	}
-	return &fakeModelDescription{UUID: st.model.UUID()}, nil
+	return &fakeModelDescription{ModelUUID: st.model.UUID()}, nil
 }
 
 func (st *mockState) AllModelUUIDs() ([]string, error) {

@@ -8,7 +8,6 @@ import (
 	"sort"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -42,7 +41,7 @@ func (s *stateSuite) TestRetrieveExternalController(c *gc.C) {
 	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfo.ControllerUUID, gc.Equals, "ctrl1")
 	c.Assert(controllerInfo.Alias, gc.Equals, "my-controller")
 	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
 	c.Assert(controllerInfo.Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1"})
@@ -61,7 +60,7 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAddresses(c *gc.C) {
 	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfo.ControllerUUID, gc.Equals, "ctrl1")
 	c.Assert(controllerInfo.Alias, gc.Equals, "my-controller")
 	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
 	c.Assert(controllerInfo.Addrs, gc.HasLen, 0)
@@ -80,7 +79,7 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAlias(c *gc.C) {
 	controllerInfo, err := st.Controller(ctx.Background(), "ctrl1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfo.ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfo.ControllerUUID, gc.Equals, "ctrl1")
 	// Empty Alias => zero value
 	c.Assert(controllerInfo.Alias, gc.Equals, "")
 	c.Assert(controllerInfo.CACert, gc.Equals, "test-cert")
@@ -118,7 +117,7 @@ func (s *stateSuite) TestRetrieveExternalControllerForModel(c *gc.C) {
 	controllerInfos, err := st.ControllersForModels(ctx.Background(), "model1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfos[0].ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfos[0].ControllerUUID, gc.Equals, "ctrl1")
 	c.Assert(controllerInfos[0].Alias, gc.Equals, "my-controller")
 	c.Assert(controllerInfos[0].CACert, gc.Equals, "test-cert")
 	c.Assert(controllerInfos[0].Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1"})
@@ -142,7 +141,7 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAddresses(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInfos, gc.HasLen, 1)
 
-	c.Assert(controllerInfos[0].ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfos[0].ControllerUUID, gc.Equals, "ctrl1")
 	c.Assert(controllerInfos[0].Alias, gc.Equals, "my-controller")
 	c.Assert(controllerInfos[0].CACert, gc.Equals, "test-cert")
 	c.Assert(controllerInfos[0].Addrs, gc.HasLen, 0)
@@ -165,7 +164,7 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *gc.C)
 	controllerInfos, err := st.ControllersForModels(ctx.Background(), "model1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerInfos[0].ControllerTag.Id(), gc.Equals, "ctrl1")
+	c.Assert(controllerInfos[0].ControllerUUID, gc.Equals, "ctrl1")
 	// Empty Alias => zero value
 	c.Assert(controllerInfos[0].Alias, gc.Equals, "")
 	c.Assert(controllerInfos[0].CACert, gc.Equals, "test-cert")
@@ -178,11 +177,11 @@ func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 	ecUUID := uuid.MustNewUUID().String()
 	m1 := uuid.MustNewUUID().String()
 	ec := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(ecUUID),
-		Alias:         "new-external-controller",
-		Addrs:         []string{"10.10.10.10", "192.168.0.9"},
-		CACert:        "random-cert-string",
-		ModelUUIDs:    []string{m1},
+		ControllerUUID: ecUUID,
+		Alias:          "new-external-controller",
+		Addrs:          []string{"10.10.10.10", "192.168.0.9"},
+		CACert:         "random-cert-string",
+		ModelUUIDs:     []string{m1},
 	}
 
 	err := st.UpdateExternalController(ctx.Background(), ec)
@@ -231,10 +230,10 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 
 	ecUUID := uuid.MustNewUUID().String()
 	ec := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(ecUUID),
-		Alias:         "new-external-controller",
-		Addrs:         []string{"10.10.10.10", "192.168.0.9"},
-		CACert:        "random-cert-string",
+		ControllerUUID: ecUUID,
+		Alias:          "new-external-controller",
+		Addrs:          []string{"10.10.10.10", "192.168.0.9"},
+		CACert:         "random-cert-string",
 	}
 
 	// Initial values.
@@ -282,10 +281,10 @@ func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
 	m1 := uuid.MustNewUUID().String()
 	// This is an existing controller with a model reference.
 	ec := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
-		Alias:         "existing-external-controller",
-		CACert:        "random-cert-string",
-		ModelUUIDs:    []string{m1},
+		ControllerUUID: uuid.MustNewUUID().String(),
+		Alias:          "existing-external-controller",
+		CACert:         "random-cert-string",
+		ModelUUIDs:     []string{m1},
 	}
 
 	err := st.UpdateExternalController(ctx.Background(), ec)
@@ -294,10 +293,10 @@ func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
 	// Now upload a new controller with the same model
 	ecUUID := uuid.MustNewUUID().String()
 	ec = crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(ecUUID),
-		Alias:         "new-external-controller",
-		CACert:        "another-random-cert-string",
-		ModelUUIDs:    []string{m1},
+		ControllerUUID: ecUUID,
+		Alias:          "new-external-controller",
+		CACert:         "another-random-cert-string",
+		ModelUUIDs:     []string{m1},
 	}
 
 	err = st.UpdateExternalController(ctx.Background(), ec)
@@ -385,22 +384,22 @@ func (s *stateSuite) TestControllersForModels(c *gc.C) {
 
 	expectedControllers := []crossmodel.ControllerInfo{
 		{
-			ControllerTag: names.NewControllerTag("ctrl1"),
-			CACert:        "test-cert1",
-			Addrs:         []string{"10.0.0.1", "10.0.0.2", "192.168.1.1"},
-			ModelUUIDs:    []string{"model1"},
+			ControllerUUID: "ctrl1",
+			CACert:         "test-cert1",
+			Addrs:          []string{"10.0.0.1", "10.0.0.2", "192.168.1.1"},
+			ModelUUIDs:     []string{"model1"},
 		},
 		{
-			ControllerTag: names.NewControllerTag("ctrl2"),
-			Alias:         "my-controller2",
-			CACert:        "test-cert2",
-			Addrs:         []string{"10.0.0.1"},
-			ModelUUIDs:    []string{"model2", "model3"},
+			ControllerUUID: "ctrl2",
+			Alias:          "my-controller2",
+			CACert:         "test-cert2",
+			Addrs:          []string{"10.0.0.1"},
+			ModelUUIDs:     []string{"model2", "model3"},
 		},
 	}
 	// Sort the returning controllers which are not order-guaranteed before
 	// deep equals assert
-	sort.Slice(controllers, func(i, j int) bool { return controllers[i].ControllerTag.Id() < controllers[j].ControllerTag.Id() })
+	sort.Slice(controllers, func(i, j int) bool { return controllers[i].ControllerUUID < controllers[j].ControllerUUID })
 	// Also sort addresses.
 	sort.Slice(controllers[0].Addrs, func(i, j int) bool { return controllers[0].Addrs[i] < controllers[0].Addrs[j] })
 	// Also sort models.

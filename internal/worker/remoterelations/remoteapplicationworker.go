@@ -315,10 +315,10 @@ func (w *remoteApplicationWorker) newRemoteRelationsFacadeWithRedirect(ctx conte
 			// We successfully followed the redirect,
 			// so update the controller information for this model.
 			controllerInfo := crossmodel.ControllerInfo{
-				ControllerTag: redirectErr.ControllerTag,
-				Alias:         redirectErr.ControllerAlias,
-				Addrs:         apiInfo.Addrs,
-				CACert:        apiInfo.CACert,
+				ControllerUUID: redirectErr.ControllerTag.Id(),
+				Alias:          redirectErr.ControllerAlias,
+				Addrs:          apiInfo.Addrs,
+				CACert:         apiInfo.CACert,
 			}
 
 			if err = w.localModelFacade.UpdateControllerForModel(ctx, controllerInfo, w.remoteModelUUID); err != nil {

@@ -216,10 +216,10 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *gc.C) {
 		// We expect a redirect error will cause the new details to be saved.
 		{"UpdateControllerForModel", []interface{}{
 			crossmodel.ControllerInfo{
-				ControllerTag: newControllerTag,
-				Alias:         "",
-				Addrs:         []string{"2.3.4.5:2345"},
-				CACert:        "new-controller-cert",
+				ControllerUUID: newControllerTag.Id(),
+				Alias:          "",
+				Addrs:          []string{"2.3.4.5:2345"},
+				CACert:         "new-controller-cert",
 			},
 			"remote-model-uuid"},
 		},
@@ -268,10 +268,10 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirectControllerUpd
 		// But this call returns an error.
 		{"UpdateControllerForModel", []interface{}{
 			crossmodel.ControllerInfo{
-				ControllerTag: newControllerTag,
-				Alias:         "",
-				Addrs:         []string{"2.3.4.5:2345"},
-				CACert:        "new-controller-cert",
+				ControllerUUID: newControllerTag.Id(),
+				Alias:          "",
+				Addrs:          []string{"2.3.4.5:2345"},
+				CACert:         "new-controller-cert",
 			},
 			"remote-model-uuid"},
 		},

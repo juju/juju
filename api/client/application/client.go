@@ -772,7 +772,7 @@ func (c *Client) Consume(ctx context.Context, arg crossmodel.ConsumeApplicationA
 	}
 	if arg.ControllerInfo != nil {
 		args.Args[0].ControllerInfo = &params.ExternalControllerInfo{
-			ControllerTag: arg.ControllerInfo.ControllerTag.String(),
+			ControllerTag: names.NewControllerTag(arg.ControllerInfo.ControllerUUID).String(),
 			Alias:         arg.ControllerInfo.Alias,
 			Addrs:         arg.ControllerInfo.Addrs,
 			CACert:        arg.ControllerInfo.CACert,

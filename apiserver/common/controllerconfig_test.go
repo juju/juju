@@ -143,13 +143,14 @@ func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
 func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 	modelUUID := uuid.MustNewUUID().String()
 	info := crossmodel.ControllerInfo{
-		ControllerTag: testing.ControllerTag,
-		Addrs:         []string{"192.168.1.1:12345"},
-		CACert:        testing.CACert,
-		ModelUUIDs:    []string{modelUUID},
+		ControllerUUID: testing.ControllerTag.Id(),
+		Addrs:          []string{"192.168.1.1:12345"},
+		CACert:         testing.CACert,
+		ModelUUIDs:     []string{modelUUID},
 	}
 	domainServices := s.ControllerDomainServices(c)
-	domainServices.ExternalController().UpdateExternalController(context.Background(), info)
+	err := domainServices.ExternalController().UpdateExternalController(context.Background(), info)
+	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig := common.NewControllerConfigAPI(s.localState, domainServices.ControllerConfig(), domainServices.ExternalController())
 	results, err := controllerConfig.ControllerAPIInfoForModels(context.Background(), params.Entities{

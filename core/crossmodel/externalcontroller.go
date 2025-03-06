@@ -12,8 +12,8 @@ import (
 
 // ControllerInfo holds the details required to connect to a controller.
 type ControllerInfo struct {
-	// ControllerTag holds tag for the controller.
-	ControllerTag names.ControllerTag
+	// ControllerUUID holds the UUID of the controller.
+	ControllerUUID string
 
 	// Alias holds a (human friendly) alias for the controller.
 	Alias string
@@ -31,7 +31,7 @@ type ControllerInfo struct {
 
 // Validate returns an error if the ControllerInfo contains bad data.
 func (info *ControllerInfo) Validate() error {
-	if !names.IsValidController(info.ControllerTag.Id()) {
+	if !names.IsValidController(info.ControllerUUID) {
 		return errors.NotValidf("ControllerTag")
 	}
 

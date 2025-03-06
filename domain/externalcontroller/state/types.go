@@ -6,8 +6,6 @@ package state
 import (
 	"database/sql"
 
-	"github.com/juju/names/v6"
-
 	"github.com/juju/juju/core/crossmodel"
 )
 
@@ -77,9 +75,9 @@ func (e Controllers) ToControllerInfo() []crossmodel.ControllerInfo {
 
 	for _, controller := range e {
 		uniqueControllers[controller.ID] = crossmodel.ControllerInfo{
-			ControllerTag: names.NewControllerTag(controller.ID),
-			CACert:        controller.CACert,
-			Alias:         controller.Alias.String,
+			ControllerUUID: controller.ID,
+			CACert:         controller.CACert,
+			Alias:          controller.Alias.String,
 		}
 
 		// Each row contains only one address, so it's safe

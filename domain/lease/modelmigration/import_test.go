@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -76,7 +75,7 @@ func (s *importSuite) TestExecuteWithApplications(c *gc.C) {
 		},
 	})
 	model.AddApplication(description.ApplicationArgs{
-		Tag:    names.NewApplicationTag("postgresql"),
+		Name:   "postgresql",
 		Leader: "postgresql/0",
 	})
 
@@ -109,11 +108,11 @@ func (s *importSuite) TestExecuteWithMultipleApplications(c *gc.C) {
 		},
 	})
 	model.AddApplication(description.ApplicationArgs{
-		Tag:    names.NewApplicationTag("postgresql"),
+		Name:   "postgresql",
 		Leader: "postgresql/0",
 	})
 	model.AddApplication(description.ApplicationArgs{
-		Tag:    names.NewApplicationTag("wordpress"),
+		Name:   "wordpress",
 		Leader: "wordpress/1",
 	})
 
@@ -158,7 +157,7 @@ func (s *importSuite) TestExecuteWithError(c *gc.C) {
 		},
 	})
 	model.AddApplication(description.ApplicationArgs{
-		Tag:    names.NewApplicationTag("postgresql"),
+		Name:   "postgresql",
 		Leader: "postgresql/0",
 	})
 

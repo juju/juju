@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -16,6 +15,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -65,32 +65,29 @@ func (s *importSuite) TestImport(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
-	modelUUID := model.Tag().Id()
+	modelUUID := model.UUID()
 	modelID := permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelUUID,
 	}
-	creatorTag := names.NewUserTag("creator")
-	bobTag := names.NewUserTag("bob")
-	bobName := user.NameFromTag(bobTag)
+	bobName := usertesting.GenNewName(c, "bob")
 	bobTime := time.Now().Truncate(time.Minute).UTC()
 	bob := description.UserArgs{
-		Name:           bobTag,
+		Name:           "bob",
 		Access:         string(permission.AdminAccess),
-		CreatedBy:      creatorTag,
+		CreatedBy:      "creator",
 		DateCreated:    time.Now(),
-		DisplayName:    bobTag.Name(),
+		DisplayName:    "bob",
 		LastConnection: bobTime,
 	}
-	bazzaTag := names.NewUserTag("bazza")
-	bazzaName := user.NameFromTag(bazzaTag)
+	bazzaName := usertesting.GenNewName(c, "bazza")
 	bazzaTime := time.Now().Truncate(time.Minute).UTC().Add(-time.Minute)
 	bazza := description.UserArgs{
-		Name:           bazzaTag,
+		Name:           "bazza",
 		Access:         string(permission.ReadAccess),
-		CreatedBy:      bobTag,
+		CreatedBy:      "bob",
 		DateCreated:    time.Now(),
-		DisplayName:    bazzaTag.Name(),
+		DisplayName:    "bazza",
 		LastConnection: bazzaTime,
 	}
 
@@ -125,18 +122,17 @@ func (s *importSuite) TestImportPermissionAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
-	modelUUID := model.Tag().Id()
+	modelUUID := model.UUID()
 	modelID := permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelUUID,
 	}
-	adminTag := names.NewUserTag("admin")
 	admin := description.UserArgs{
-		Name:           adminTag,
+		Name:           "admin",
 		Access:         string(permission.AdminAccess),
-		CreatedBy:      adminTag,
+		CreatedBy:      "admin",
 		DateCreated:    time.Now(),
-		DisplayName:    adminTag.Id(),
+		DisplayName:    "admin",
 		LastConnection: time.Time{},
 	}
 	model.AddUser(admin)
@@ -159,18 +155,17 @@ func (s *importSuite) TestImportPermissionUserDisabled(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	model := description.NewModel(description.ModelArgs{})
-	modelUUID := model.Tag().Id()
+	modelUUID := model.UUID()
 	modelID := permission.ID{
 		ObjectType: permission.Model,
 		Key:        modelUUID,
 	}
-	disabledUserTag := names.NewUserTag("disabledUser")
 	disabledUser := description.UserArgs{
-		Name:           disabledUserTag,
+		Name:           "disabledUser",
 		Access:         string(permission.AdminAccess),
-		CreatedBy:      disabledUserTag,
+		CreatedBy:      "disabledUser",
 		DateCreated:    time.Now(),
-		DisplayName:    disabledUserTag.Id(),
+		DisplayName:    "disabledUser",
 		LastConnection: time.Time{},
 	}
 	model.AddUser(disabledUser)
@@ -179,7 +174,7 @@ func (s *importSuite) TestImportPermissionUserDisabled(c *gc.C) {
 			Target: modelID,
 			Access: permission.AdminAccess,
 		},
-		User: user.NameFromTag(disabledUserTag),
+		User: usertesting.GenNewName(c, "disabledUser"),
 	}).Return(permission.UserAccess{}, accesserrors.UserAuthenticationDisabled)
 
 	op := s.newImportOperation()

@@ -522,18 +522,18 @@ func (s *remoteRelationsSuite) TestUpdateControllersForModels(c *gc.C) {
 	c2Tag := names.NewControllerTag(uuid.MustNewUUID().String())
 
 	c1 := crossmodel.ControllerInfo{
-		ControllerTag: c1Tag,
-		Alias:         "alias1",
-		Addrs:         []string{"1.1.1.1:1"},
-		CACert:        "cert1",
-		ModelUUIDs:    []string{mod1},
+		ControllerUUID: c1Tag.Id(),
+		Alias:          "alias1",
+		Addrs:          []string{"1.1.1.1:1"},
+		CACert:         "cert1",
+		ModelUUIDs:     []string{mod1},
 	}
 	c2 := crossmodel.ControllerInfo{
-		ControllerTag: c2Tag,
-		Alias:         "alias2",
-		Addrs:         []string{"2.2.2.2:2"},
-		CACert:        "cert2",
-		ModelUUIDs:    []string{mod2},
+		ControllerUUID: c2Tag.Id(),
+		Alias:          "alias2",
+		Addrs:          []string{"2.2.2.2:2"},
+		CACert:         "cert2",
+		ModelUUIDs:     []string{mod2},
 	}
 
 	s.ecService.EXPECT().UpdateExternalController(

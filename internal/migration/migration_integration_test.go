@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	model "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	corestorage "github.com/juju/juju/core/storage"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -63,7 +63,7 @@ func (s *ExportImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controller.model.Tag().Id(), gc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
+	c.Assert(controller.model.UUID(), gc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
 	c.Assert(gotM, gc.Equals, m)
 	c.Assert(gotSt, gc.Equals, st)
 }

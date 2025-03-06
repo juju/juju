@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
@@ -79,8 +78,8 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Trace(err)
 	}
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner:      names.NewUserTag(key.Owner.Name()),
-		Cloud:      names.NewCloudTag(key.Cloud),
+		Owner:      key.Owner.Name(),
+		Cloud:      key.Cloud,
 		Name:       key.Name,
 		AuthType:   string(cred.AuthType()),
 		Attributes: cred.Attributes(),

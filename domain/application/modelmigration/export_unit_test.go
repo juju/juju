@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	description "github.com/juju/description/v9"
-	"github.com/juju/names/v6"
+	"github.com/juju/description/v9"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -36,12 +35,12 @@ func (s *exportUnitSuite) TestApplicationExportUnitWorkloadStatus(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	appArgs := description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("prometheus"),
+		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
 	}
 	app := model.AddApplication(appArgs)
 	app.AddUnit(description.UnitArgs{
-		Tag: names.NewUnitTag("prometheus/0"),
+		Name: "prometheus/0",
 	})
 
 	s.expectMinimalCharm()
@@ -66,7 +65,7 @@ func (s *exportUnitSuite) TestApplicationExportUnitWorkloadStatus(c *gc.C) {
 	c.Check(model.Applications(), gc.HasLen, 1)
 
 	app = model.Applications()[0]
-	c.Check(app.Tag(), gc.Equals, appArgs.Tag)
+	c.Check(app.Name(), gc.Equals, appArgs.Name)
 	c.Check(app.CharmURL(), gc.Equals, appArgs.CharmURL)
 
 	unit := app.Units()[0]

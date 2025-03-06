@@ -712,19 +712,19 @@ func (s *ImportPrecheckSuite) TestCharmsWithNoManifest(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	// Add an app with a nil slice of bases.
 	model.AddApplication(description.ApplicationArgs{
-		Tag: names.NewApplicationTag("nil-bases-app"),
+		Name: "nil-bases-app",
 	}).SetCharmManifest(description.CharmManifestArgs{})
 
 	// Add an app with an empty slice of bases.
 	model.AddApplication(description.ApplicationArgs{
-		Tag: names.NewApplicationTag("empty-bases-app"),
+		Name: "empty-bases-app",
 	}).SetCharmManifest(description.CharmManifestArgs{
 		Bases: make([]description.CharmManifestBase, 0),
 	})
 
 	// Add an app with valid bases.
 	model.AddApplication(description.ApplicationArgs{
-		Tag: names.NewApplicationTag("valid-manifest-app"),
+		Name: "valid-manifest-app",
 	}).SetCharmManifest(description.CharmManifestArgs{
 		Bases: []description.CharmManifestBase{baseType{
 			name:          "ubuntu",

@@ -265,10 +265,10 @@ func (w *controllerWatcher) loop() error {
 			// and set it to nil, so we'll restart it with the new
 			// addresses.
 			if err := w.setExternalControllerInfo(ctx, crossmodel.ControllerInfo{
-				ControllerTag: w.tag,
-				Alias:         info.Alias,
-				Addrs:         newInfo.Addrs,
-				CACert:        info.CACert,
+				ControllerUUID: w.tag.Id(),
+				Alias:          info.Alias,
+				Addrs:          newInfo.Addrs,
+				CACert:         info.CACert,
 			}); err != nil {
 				return errors.Annotate(err, "caching external controller info")
 			}

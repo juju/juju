@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -114,7 +113,7 @@ func (i *importSuite) TestModelOwnerNoExist(c *gc.C) {
 			config.NameKey: "test-model",
 			config.UUIDKey: modelUUID.String(),
 		},
-		Owner: names.NewUserTag("tlm"),
+		Owner: "tlm",
 	})
 	err := importOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
@@ -136,12 +135,12 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 
 	args := model.ModelImportArgs{
 		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
-			Cloud:       "AWS",
+			Cloud:       "aws",
 			CloudRegion: "region1",
 			Credential: credential.Key{
 				Name:  "my-credential",
 				Owner: usertesting.GenNewName(c, "tlm"),
-				Cloud: "AWS",
+				Cloud: "aws",
 			},
 			Name:  "test-model",
 			Owner: userUUID,
@@ -168,15 +167,15 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 			config.UUIDKey:         modelUUID.String(),
 			config.AgentVersionKey: jujuversion.Current.String(),
 		},
-		Cloud:       "AWS",
+		Cloud:       "aws",
 		CloudRegion: "region1",
-		Owner:       names.NewUserTag("tlm"),
+		Owner:       "tlm",
 		Type:        coremodel.CAAS.String(),
 	})
 
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner: names.NewUserTag("tlm"),
-		Cloud: names.NewCloudTag("AWS"),
+		Owner: "tlm",
+		Cloud: "aws",
 		Name:  "my-credential",
 	})
 
@@ -212,12 +211,12 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 
 	args := model.ModelImportArgs{
 		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
-			Cloud:       "AWS",
+			Cloud:       "aws",
 			CloudRegion: "region1",
 			Credential: credential.Key{
 				Name:  "my-credential",
 				Owner: usertesting.GenNewName(c, "tlm"),
-				Cloud: "AWS",
+				Cloud: "aws",
 			},
 			Name:  "test-model",
 			Owner: userUUID,
@@ -253,15 +252,15 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 			config.UUIDKey:         modelUUID.String(),
 			config.AgentVersionKey: jujuversion.Current.String(),
 		},
-		Cloud:       "AWS",
+		Cloud:       "aws",
 		CloudRegion: "region1",
-		Owner:       names.NewUserTag("tlm"),
+		Owner:       "tlm",
 		Type:        coremodel.CAAS.String(),
 	})
 
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner: names.NewUserTag("tlm"),
-		Cloud: names.NewCloudTag("AWS"),
+		Owner: "tlm",
+		Cloud: "aws",
 		Name:  "my-credential",
 	})
 
@@ -300,12 +299,12 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 
 	args := model.ModelImportArgs{
 		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
-			Cloud:       "AWS",
+			Cloud:       "aws",
 			CloudRegion: "region1",
 			Credential: credential.Key{
 				Name:  "my-credential",
 				Owner: usertesting.GenNewName(c, "tlm"),
-				Cloud: "AWS",
+				Cloud: "aws",
 			},
 			Name:  "test-model",
 			Owner: userUUID,
@@ -334,15 +333,15 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 			config.UUIDKey:         modelUUID.String(),
 			config.AgentVersionKey: jujuversion.Current.String(),
 		},
-		Cloud:       "AWS",
+		Cloud:       "aws",
 		CloudRegion: "region1",
-		Owner:       names.NewUserTag("tlm"),
+		Owner:       "tlm",
 		Type:        coremodel.CAAS.String(),
 	})
 
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner: names.NewUserTag("tlm"),
-		Cloud: names.NewCloudTag("AWS"),
+		Owner: "tlm",
+		Cloud: "aws",
 		Name:  "my-credential",
 	})
 
@@ -387,12 +386,12 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 
 	args := model.ModelImportArgs{
 		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
-			Cloud:       "AWS",
+			Cloud:       "aws",
 			CloudRegion: "region1",
 			Credential: credential.Key{
 				Name:  "my-credential",
 				Owner: usertesting.GenNewName(c, "tlm"),
-				Cloud: "AWS",
+				Cloud: "aws",
 			},
 			Name:  "test-model",
 			Owner: userUUID,
@@ -415,15 +414,15 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 			config.UUIDKey:         modelUUID.String(),
 			config.AgentVersionKey: jujuversion.Current.String(),
 		},
-		Cloud:       "AWS",
+		Cloud:       "aws",
 		CloudRegion: "region1",
-		Owner:       names.NewUserTag("tlm"),
+		Owner:       "tlm",
 		Type:        coremodel.CAAS.String(),
 	})
 
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner: names.NewUserTag("tlm"),
-		Cloud: names.NewCloudTag("AWS"),
+		Owner: "tlm",
+		Cloud: "aws",
 		Name:  "my-credential",
 	})
 

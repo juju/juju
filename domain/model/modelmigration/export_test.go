@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/description/v9"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	constraints "github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/model/testing"
 )
@@ -45,7 +45,7 @@ func (e *exportSuite) TestModelEnvironVersionExport(c *gc.C) {
 			"uuid": newUUID.String(),
 		},
 	})
-	c.Check(model.Tag().Id(), gc.Equals, newUUID.String())
+	c.Check(model.UUID(), gc.Equals, newUUID.String())
 	c.Check(model.EnvironVersion(), gc.Equals, 5)
 
 	e.modelExportService.EXPECT().GetEnvironVersion(gomock.Any()).Return(3, nil)
@@ -70,7 +70,7 @@ func (e *exportSuite) TestModelConstraintsExport(c *gc.C) {
 			"uuid": newUUID.String(),
 		},
 	})
-	c.Check(model.Tag().Id(), gc.Equals, newUUID.String())
+	c.Check(model.UUID(), gc.Equals, newUUID.String())
 	c.Check(model.EnvironVersion(), gc.Equals, 5)
 
 	e.modelExportService.EXPECT().GetModelConstraints(gomock.Any()).Return(
