@@ -288,11 +288,17 @@ func EscapeMarkdown(raw string) string {
 	escaped.Grow(len(raw))
 
 	lines := strings.Split(raw, "\n")
-	for i, line := range lines {
-		if strings.HasPrefix(line, "    ") {
-			// Literal code block - don't escape anything
-			escaped.WriteString(line)
+	inTripleBacktickBlock := false
 
+	for i, line := range lines {
+		// Check if we're entering or leaving a triple backtick code block
+		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+			inTripleBacktickBlock = !inTripleBacktickBlock
+			escaped.WriteString(line)
+		} else if inTripleBacktickBlock || strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
+			// Inside a code block - don't escape anything
+			// Code blocks can be indented with four spaces or a tab
+			escaped.WriteString(line)
 		} else {
 			// Keep track of whether we are inside a code span `...`
 			// If so, don't escape characters

@@ -422,16 +422,16 @@ Use the '--config' option to specify application configuration values. This
 option accepts either a path to a YAML-formatted file or a key=value pair. A
 file should be of this format:
 
-  <charm name>:
-	<option name>: <option value>
-	...
+    <charm name>:
+      <option name>: <option value>
+       ...
 
 For example, to deploy 'mediawiki' with file 'mycfg.yaml' that contains:
 
-  mediawiki:
-	name: my media wiki
-	admins: me:pwdOne
-	debug: true
+    mediawiki:
+      name: my media wiki
+      admins: me:pwdOne
+      debug: true
 
 use
 
