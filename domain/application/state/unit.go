@@ -1374,9 +1374,7 @@ INSERT INTO unit_agent_presence (*) VALUES ($unitPresence.*)
 ON CONFLICT(unit_uuid) DO UPDATE SET
 	last_seen = excluded.last_seen;
 `
-	presence := unitPresence{
-		LastSeen: st.clock.Now(),
-	}
+	var presence unitPresence
 	recordUnitStmt, err := st.Prepare(recordUnit, presence)
 	if err != nil {
 		return errors.Capture(err)
@@ -1389,7 +1387,10 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 			return errors.Capture(err)
 		}
 
-		presence.UnitUUID = uuid.UnitUUID
+		presence := unitPresence{
+			UnitUUID: uuid.UnitUUID,
+			LastSeen: st.clock.Now(),
+		}
 
 		if err := tx.Query(ctx, recordUnitStmt, presence).Run(); err != nil {
 			return errors.Capture(err)
