@@ -1179,7 +1179,7 @@ func (s *applicationServiceSuite) TestGetApplicationStatus(c *gc.C) {
 	})
 }
 
-func (s *applicationServiceSuite) TestGetApplicationStatusFallbacktoUnits(c *gc.C) {
+func (s *applicationServiceSuite) TestGetApplicationStatusFallbackToUnits(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
@@ -1223,7 +1223,7 @@ func (s *applicationServiceSuite) TestGetApplicationStatusFallbacktoUnits(c *gc.
 	})
 }
 
-func (s *applicationServiceSuite) TestGetApplicationStatusFallbacktoUnitsNoUnits(c *gc.C) {
+func (s *applicationServiceSuite) TestGetApplicationStatusFallbackToUnitsNoUnits(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)

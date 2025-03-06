@@ -50,9 +50,11 @@ type UnitState interface {
 	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
 
 	// GetUnitWorkloadStatus returns the workload status of the specified unit,
-	// returning: - an error satisfying [applicationerrors.UnitNotFound] if the
-	// unit doesn't exist or; - an error satisfying
-	// [applicationerrors.UnitStatusNotFound] if the status is not set.
+	// returning:
+	// - an error satisfying [applicationerrors.UnitNotFound] if the unit
+	//   doesn't exist or;
+	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the
+	//   status is not set.
 	GetUnitWorkloadStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.WorkloadStatusType], error)
 
 	// SetUnitWorkloadStatus sets the workload status of the specified unit,
@@ -61,10 +63,11 @@ type UnitState interface {
 	SetUnitWorkloadStatus(context.Context, coreunit.UUID, *application.StatusInfo[application.WorkloadStatusType]) error
 
 	// GetUnitCloudContainerStatus returns the cloud container status of the
-	// specified unit. It returns; - an error satisfying
-	// [applicationerrors.UnitNotFound] if the unit doesn't exist or; - an error
-	// satisfying [applicationerrors.UnitStatusNotFound] if the status is not
-	// set.
+	// specified unit. It returns;
+	// - an error satisfying [applicationerrors.UnitNotFound] if the unit
+	//   doesn't exist or;
+	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the
+	//   status is not set.
 	GetUnitCloudContainerStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.CloudContainerStatusType], error)
 
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses for
@@ -82,6 +85,19 @@ type UnitState interface {
 	//   - an error satisfying [applicationerrors.ApplicationIsDead] if the
 	//     application is dead.
 	GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error)
+
+	// GetUnitAgentStatus returns the workload status of the specified unit,
+	// returning:
+	// - an error satisfying [applicationerrors.UnitNotFound] if the unit
+	//   doesn't exist or;
+	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the
+	//   status is not set.
+	GetUnitAgentStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.UnitAgentStatusType], error)
+
+	// SetUnitAgentStatus sets the workload status of the specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
+	SetUnitAgentStatus(context.Context, coreunit.UUID, *application.StatusInfo[application.UnitAgentStatusType]) error
 
 	// DeleteUnit deletes the specified unit. If the unit's application is Dying
 	// and no other references to it exist, true is returned to indicate the
@@ -206,6 +222,72 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 	return nil
 }
 
+// GetUnitWorkloadStatus returns the workload status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return decodeWorkloadStatus(workloadStatus)
+}
+
+// SetUnitAgentStatus sets the agent status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name, status *corestatus.StatusInfo) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if status == nil {
+		return nil
+	}
+
+	agentStatus, err := encodeUnitAgentStatus(status)
+	if err != nil {
+		return internalerrors.Errorf("encoding agent status: %w", err)
+	}
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := s.st.SetUnitAgentStatus(ctx, unitUUID, agentStatus); err != nil {
+		return internalerrors.Errorf("setting agent status: %w", err)
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName.String()), *status); err != nil {
+		s.logger.Infof(ctx, "failed recording setting agent status for unit %q: %v", unitName, err)
+	}
+	return nil
+}
+
+// GetUnitAgentStatus returns the agent status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (s *Service) GetUnitAgentStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	agentStatus, err := s.st.GetUnitAgentStatus(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return decodeUnitAgentStatus(agentStatus)
+}
+
 // GetUnitWorkloadStatusesForApplication returns the workload statuses of all
 // units in the specified application, indexed by unit name, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application doesn't
@@ -267,24 +349,6 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, p
 		PasswordHash:  password,
 		HashAlgorithm: application.HashAlgorithmSHA256,
 	})
-}
-
-// GetUnitWorkloadStatus returns the workload status of the specified unit,
-// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
-// doesn't exist.
-func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
-	if err := unitName.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return decodeWorkloadStatus(workloadStatus)
 }
 
 // RegisterCAASUnit creates or updates the specified application unit in a caas

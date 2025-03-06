@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -32,12 +33,11 @@ type unitServiceSuite struct {
 var _ = gc.Suite(&unitServiceSuite{})
 
 func (s *unitServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
-	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
 	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
 		return s.supportedFeaturesProvider, nil
-	})
-	defer ctrl.Finish()
+	}).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -59,7 +59,7 @@ func (s *unitServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	}}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.expectEmptyUnitConstraints(c, ctrl, unitUUID, appUUID)
+	s.expectEmptyUnitConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
 	s.state.EXPECT().AddUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args []application.AddUnitArg) error {
@@ -73,25 +73,14 @@ func (s *unitServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	err := s.service.AddUnits(context.Background(), "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, jc.DeepEquals, u)
-}
-
-func (s *unitServiceSuite) expectEmptyUnitConstraints(c *gc.C, ctrl *gomock.Controller, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
-	validator := NewMockValidator(ctrl)
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
-	appConstraints := constraints.Constraints{}
-	modelConstraints := constraints.Constraints{}
-	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
-	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
-	validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).Return(coreconstraints.Value{}, nil)
 }
 
 func (s *unitServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
-	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
 	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
 		return s.supportedFeaturesProvider, nil
-	})
-	defer ctrl.Finish()
+	}).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -113,7 +102,7 @@ func (s *unitServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 	}}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.expectAppConstraints(c, ctrl, unitUUID, appUUID)
+	s.expectAppConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
 	s.state.EXPECT().AddUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args []application.AddUnitArg) error {
@@ -127,44 +116,14 @@ func (s *unitServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 	err := s.service.AddUnits(context.Background(), "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, jc.DeepEquals, u)
-}
-
-func (s *unitServiceSuite) expectAppConstraints(c *gc.C, ctrl *gomock.Controller, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
-	validator := NewMockValidator(ctrl)
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
-	appConstraints := constraints.Constraints{
-		Arch:           ptr("amd64"),
-		Container:      ptr(instance.LXD),
-		CpuCores:       ptr(uint64(4)),
-		Mem:            ptr(uint64(1024)),
-		RootDisk:       ptr(uint64(1024)),
-		RootDiskSource: ptr("root-disk-source"),
-		Tags:           ptr([]string{"tag1", "tag2"}),
-		InstanceRole:   ptr("instance-role"),
-		InstanceType:   ptr("instance-type"),
-		Spaces: ptr([]constraints.SpaceConstraint{
-			{SpaceName: "space1", Exclude: false},
-		}),
-		VirtType:         ptr("virt-type"),
-		Zones:            ptr([]string{"zone1", "zone2"}),
-		AllocatePublicIP: ptr(true),
-	}
-	modelConstraints := constraints.Constraints{}
-	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
-	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
-	unitConstraints := appConstraints
-	validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).Return(constraints.EncodeConstraints(unitConstraints), nil)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("ubuntu/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitConstraints(gomock.Any(), unitUUID, unitConstraints)
 }
 
 func (s *unitServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
-	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
+	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
 	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
 		return s.supportedFeaturesProvider, nil
-	})
-	defer ctrl.Finish()
+	}).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	unitUUID := unittesting.GenUnitUUID(c)
@@ -186,7 +145,7 @@ func (s *unitServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 	}}
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
-	s.expectModelConstraints(c, ctrl, unitUUID, appUUID)
+	s.expectModelConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
 	s.state.EXPECT().AddUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args []application.AddUnitArg) error {
@@ -200,35 +159,6 @@ func (s *unitServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 	err := s.service.AddUnits(context.Background(), "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, jc.DeepEquals, u)
-}
-
-func (s *unitServiceSuite) expectModelConstraints(c *gc.C, ctrl *gomock.Controller, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
-	validator := NewMockValidator(ctrl)
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
-	modelConstraints := constraints.Constraints{
-		Arch:           ptr("amd64"),
-		Container:      ptr(instance.LXD),
-		CpuCores:       ptr(uint64(4)),
-		Mem:            ptr(uint64(1024)),
-		RootDisk:       ptr(uint64(1024)),
-		RootDiskSource: ptr("root-disk-source"),
-		Tags:           ptr([]string{"tag1", "tag2"}),
-		InstanceRole:   ptr("instance-role"),
-		InstanceType:   ptr("instance-type"),
-		Spaces: ptr([]constraints.SpaceConstraint{
-			{SpaceName: "space1", Exclude: false},
-		}),
-		VirtType:         ptr("virt-type"),
-		Zones:            ptr([]string{"zone1", "zone2"}),
-		AllocatePublicIP: ptr(true),
-	}
-	appConstraints := constraints.Constraints{}
-	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
-	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
-	unitConstraints := modelConstraints
-	validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).Return(constraints.EncodeConstraints(unitConstraints), nil)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("ubuntu/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitConstraints(gomock.Any(), unitUUID, unitConstraints)
 }
 
 func (s *unitServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
@@ -713,4 +643,354 @@ func (s *unitServiceSuite) TestDeleteUnitPresenceInvalidName(c *gc.C) {
 
 	err := s.service.DeleteUnitPresence(context.Background(), coreunit.Name("!!!"))
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestGetUnitWorkloadStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
+		&application.StatusInfo[application.WorkloadStatusType]{
+			Status:  application.WorkloadStatusActive,
+			Message: "doink",
+			Data:    []byte(`{"foo":"bar"}`),
+			Since:   &now,
+		}, nil)
+
+	obtained, err := s.service.GetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+}
+
+func (s *unitServiceSuite) TestGetUnitWorkloadStatusUnitInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetUnitWorkloadStatus(context.Background(), coreunit.Name("!!!"))
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestGetUnitWorkloadStatusUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, applicationerrors.UnitNotFound)
+
+	_, err := s.service.GetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitServiceSuite) TestGetUnitWorkloadStatusUnitInvalidWorkloadStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(nil, errors.Errorf("boom"))
+
+	_, err := s.service.GetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *unitServiceSuite) TestSetUnitWorkloadStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	now := time.Now()
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "doink",
+		Data:    []byte(`{"foo":"bar"}`),
+		Since:   &now,
+	})
+
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitServiceSuite) TestSetUnitWorkloadStatusNilStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitServiceSuite) TestSetUnitWorkloadStatusInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("!!!"), &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestSetUnitWorkloadStatusUnitFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	now := time.Now()
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, applicationerrors.UnitNotFound)
+
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitServiceSuite) TestSetUnitWorkloadStatusInvalidStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	now := time.Now()
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "doink",
+		Data:    []byte(`{"foo":"bar"}`),
+		Since:   &now,
+	}).Return(errors.New("boom"))
+
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, gc.ErrorMatches, ".*boom")
+}
+
+func (s *unitServiceSuite) TestGetUnitAgentStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
+		&application.StatusInfo[application.UnitAgentStatusType]{
+			Status:  application.UnitAgentStatusAllocating,
+			Message: "doink",
+			Data:    []byte(`{"foo":"bar"}`),
+			Since:   &now,
+		}, nil)
+
+	obtained, err := s.service.GetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+		Status:  corestatus.Allocating,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+}
+
+func (s *unitServiceSuite) TestGetUnitAgentStatusUnitInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetUnitAgentStatus(context.Background(), coreunit.Name("!!!"))
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestGetUnitAgentStatusUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, applicationerrors.UnitNotFound)
+
+	_, err := s.service.GetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitServiceSuite) TestGetUnitAgentStatusUnitInvalidAgentStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(nil, errors.Errorf("boom"))
+
+	_, err := s.service.GetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *unitServiceSuite) TestSetUnitAgentStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	now := time.Now()
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, &application.StatusInfo[application.UnitAgentStatusType]{
+		Status:  application.UnitAgentStatusAllocating,
+		Message: "doink",
+		Data:    []byte(`{"foo":"bar"}`),
+		Since:   &now,
+	})
+
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+		Status:  corestatus.Allocating,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitServiceSuite) TestSetUnitAgentStatusNilStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitServiceSuite) TestSetUnitAgentStatusInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("!!!"), &corestatus.StatusInfo{
+		Status:  corestatus.Allocating,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestSetUnitAgentStatusUnitFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	now := time.Now()
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, applicationerrors.UnitNotFound)
+
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+		Status:  corestatus.Allocating,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitServiceSuite) TestSetUnitAgentStatusInvalidStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	now := time.Now()
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
+	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, &application.StatusInfo[application.UnitAgentStatusType]{
+		Status:  application.UnitAgentStatusAllocating,
+		Message: "doink",
+		Data:    []byte(`{"foo":"bar"}`),
+		Since:   &now,
+	}).Return(errors.New("boom"))
+
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+		Status:  corestatus.Allocating,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, gc.ErrorMatches, ".*boom")
+}
+
+func (s *unitServiceSuite) expectEmptyUnitConstraints(c *gc.C, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
+	appConstraints := constraints.Constraints{}
+	modelConstraints := constraints.Constraints{}
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
+
+	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
+
+	s.validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).Return(coreconstraints.Value{}, nil)
+}
+
+func (s *unitServiceSuite) expectAppConstraints(c *gc.C, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
+	appConstraints := constraints.Constraints{
+		Arch:           ptr("amd64"),
+		Container:      ptr(instance.LXD),
+		CpuCores:       ptr(uint64(4)),
+		Mem:            ptr(uint64(1024)),
+		RootDisk:       ptr(uint64(1024)),
+		RootDiskSource: ptr("root-disk-source"),
+		Tags:           ptr([]string{"tag1", "tag2"}),
+		InstanceRole:   ptr("instance-role"),
+		InstanceType:   ptr("instance-type"),
+		Spaces: ptr([]constraints.SpaceConstraint{
+			{SpaceName: "space1", Exclude: false},
+		}),
+		VirtType:         ptr("virt-type"),
+		Zones:            ptr([]string{"zone1", "zone2"}),
+		AllocatePublicIP: ptr(true),
+	}
+	modelConstraints := constraints.Constraints{}
+	unitConstraints := appConstraints
+
+	s.validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).
+		Return(constraints.EncodeConstraints(unitConstraints), nil)
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
+
+	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("ubuntu/666")).Return(unitUUID, nil)
+	s.state.EXPECT().SetUnitConstraints(gomock.Any(), unitUUID, unitConstraints)
+}
+
+func (s *unitServiceSuite) expectModelConstraints(c *gc.C, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
+	modelConstraints := constraints.Constraints{
+		Arch:           ptr("amd64"),
+		Container:      ptr(instance.LXD),
+		CpuCores:       ptr(uint64(4)),
+		Mem:            ptr(uint64(1024)),
+		RootDisk:       ptr(uint64(1024)),
+		RootDiskSource: ptr("root-disk-source"),
+		Tags:           ptr([]string{"tag1", "tag2"}),
+		InstanceRole:   ptr("instance-role"),
+		InstanceType:   ptr("instance-type"),
+		Spaces: ptr([]constraints.SpaceConstraint{
+			{SpaceName: "space1", Exclude: false},
+		}),
+		VirtType:         ptr("virt-type"),
+		Zones:            ptr([]string{"zone1", "zone2"}),
+		AllocatePublicIP: ptr(true),
+	}
+	appConstraints := constraints.Constraints{}
+	unitConstraints := modelConstraints
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
+
+	s.state.EXPECT().GetApplicationConstraints(gomock.Any(), appUUID).Return(appConstraints, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(modelConstraints, nil)
+
+	s.validator.EXPECT().Merge(constraints.EncodeConstraints(appConstraints), constraints.EncodeConstraints(modelConstraints)).Return(constraints.EncodeConstraints(unitConstraints), nil)
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("ubuntu/666")).Return(unitUUID, nil)
+	s.state.EXPECT().SetUnitConstraints(gomock.Any(), unitUUID, unitConstraints)
 }

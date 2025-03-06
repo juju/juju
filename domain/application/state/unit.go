@@ -564,6 +564,72 @@ WHERE uuid = $unitPassword.uuid
 	return nil
 }
 
+// GetUnitAgentStatus returns the agent status of the specified unit, returning:
+// - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
+// - an error satisfying [applicationerrors.UnitIsDead] if the unit is dead or;
+// - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
+func (st *State) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.UnitAgentStatusType], error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	unitUUID := unitUUID{UnitUUID: uuid}
+	getUnitStatusStmt, err := st.Prepare(`
+SELECT &statusInfo.* FROM unit_agent_status WHERE unit_uuid = $unitUUID.uuid
+`, statusInfo{}, unitUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var unitStatusInfo statusInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkUnitNotDead(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf("checking unit %q exists: %w", uuid, err)
+		}
+
+		err = tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&unitStatusInfo)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("agent status for unit %q not found%w", unitUUID, jujuerrors.Hide(applicationerrors.UnitStatusNotFound))
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting agent status for unit %q: %w", unitUUID, err)
+	}
+
+	statusID, err := decodeAgentStatus(unitStatusInfo.StatusID)
+	if err != nil {
+		return nil, errors.Errorf("decoding agent status ID for unit %q: %w", unitUUID, err)
+	}
+
+	return &application.StatusInfo[application.UnitAgentStatusType]{
+		Status:  statusID,
+		Message: unitStatusInfo.Message,
+		Data:    unitStatusInfo.Data,
+		Since:   unitStatusInfo.UpdatedAt,
+	}, nil
+}
+
+// SetUnitAgentStatus updates the agent status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (st *State) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID, status *application.StatusInfo[application.UnitAgentStatusType]) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setUnitAgentStatus(ctx, tx, unitUUID, status)
+	})
+	if err != nil {
+		return errors.Errorf("setting agent status for unit %q: %w", unitUUID, err)
+	}
+	return nil
+}
+
 // GetUnitWorkloadStatus returns the workload status of the specified unit, returning:
 // - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [applicationerrors.UnitIsDead] if the unit is dead or;
@@ -612,8 +678,9 @@ SELECT &statusInfo.* FROM unit_workload_status WHERE unit_uuid = $unitUUID.uuid
 	}, nil
 }
 
-// SetUnitWorkloadStatus updates the workload status of the specified unit, returning an error
-// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// SetUnitWorkloadStatus updates the workload status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
 func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status *application.StatusInfo[application.WorkloadStatusType]) error {
 	db, err := st.DB()
 	if err != nil {

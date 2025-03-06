@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
@@ -736,12 +737,74 @@ func (s *unitStateSuite) TestSetUnitAgentStatus(c *gc.C) {
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setUnitAgentStatus(ctx, tx, unitUUID, &status)
-	})
+	err = s.state.SetUnitAgentStatus(context.Background(), unitUUID, &status)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
 		c, "unit_agent", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
+}
+
+func (s *unitStateSuite) TestSetUnitAgentStatusNotFound(c *gc.C) {
+	status := application.StatusInfo[application.UnitAgentStatusType]{
+		Status:  application.UnitAgentStatusExecuting,
+		Message: "it's executing",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	err := s.state.SetUnitAgentStatus(context.Background(), unitUUID, &status)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitAgentStatusUnset(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.GetUnitAgentStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitStatusNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitAgentStatusDead(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Dead, u1)
+
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.GetUnitAgentStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitIsDead)
+}
+
+func (s *unitStateSuite) TestGetUnitAgentStatus(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status := &application.StatusInfo[application.UnitAgentStatusType]{
+		Status:  application.UnitAgentStatusExecuting,
+		Message: "it's executing",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err = s.state.SetUnitAgentStatus(context.Background(), unitUUID, status)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotStatus, err := s.state.GetUnitAgentStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatusInfoEqual(c, gotStatus, status)
 }
 
 func (s *unitStateSuite) TestGetUnitWorkloadStatusUnitNotFound(c *gc.C) {
