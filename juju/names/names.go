@@ -11,6 +11,5 @@ const (
 	ContainerAgent  = "containeragent"
 	JujudVersions   = "jujud-versions.yaml"
 	JujuExec        = "juju-exec"
-	JujuDumpLogs    = "juju-dumplogs"
 	JujuIntrospect  = "juju-introspect"
 )

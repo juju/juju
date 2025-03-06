@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/cmd/containeragent/config"
 	initcommand "github.com/juju/juju/cmd/containeragent/initialize"
 	unitcommand "github.com/juju/juju/cmd/containeragent/unit"
-	"github.com/juju/juju/cmd/internal/dumplogs"
 	"github.com/juju/juju/cmd/internal/run"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/internal/cmd"
@@ -136,8 +135,6 @@ func mainWrapper(f commandFactory, args []string) (code int) {
 		code = f.jujuExec(ctx, args)
 	case names.JujuIntrospect:
 		code = f.jujuIntrospect(ctx, args)
-	case names.JujuDumpLogs:
-		code = f.jujuDumpLogs(ctx, args)
 	default:
 		// This should never happen unless jujuc was missing and hooktools were misconfigured.
 		err = errors.New("containeragent always expects to use jujuc for hook tools")
@@ -185,9 +182,6 @@ func main() {
 		jujuIntrospect: func(ctx *cmd.Context, args []string) int {
 			return cmd.Main(introspect.New(), ctx, args[1:])
 		},
-		jujuDumpLogs: func(ctx *cmd.Context, args []string) int {
-			return cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
-		},
 	}
 	os.Exit(mainWrapper(f, os.Args))
 }
@@ -198,5 +192,4 @@ type commandFactory struct {
 	containerAgentCmd command
 	jujuExec          command
 	jujuIntrospect    command
-	jujuDumpLogs      command
 }
