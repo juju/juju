@@ -25,16 +25,20 @@ type ServerWorkerConfig struct {
 	Logger Logger
 
 	// Listener holds a listener to provide the server. Should you wish to run
-	// the server on a pre-existing listener, you can provide it here. Otherwise,
-	// leave this value nil and a listener will be spawned.
+	// the server on a pre-existing listener, you can provide it here.
+	// Otherwise, leave this value nil and a listener will be spawned.
 	Listener net.Listener
 
 	// JumpHostKey holds the host key for the jump server.
 	JumpHostKey string
 
-	// Port holds the port the server will listen on. If you provide your own listener
-	// this can be left zeroed.
+	// Port holds the port the server will listen on. If you provide your own
+	// listener this can be left zeroed.
 	Port int
+
+	// NewSSHServerListener is a function that returns a listener and a
+	// closeAllowed channel.
+	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
 }
 
 // Validate validates the workers configuration is as expected.
@@ -44,6 +48,9 @@ func (c ServerWorkerConfig) Validate() error {
 	}
 	if c.JumpHostKey == "" {
 		return errors.NotValidf("empty JumpHostKey")
+	}
+	if c.NewSSHServerListener == nil {
+		return errors.NotValidf("missing NewSSHServerListener")
 	}
 	return nil
 }
@@ -92,7 +99,7 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 		s.config.Listener = listener
 	}
 
-	listener, closeAllowed := NewSSHServerListener(s.config.Listener)
+	listener := config.NewSSHServerListener(s.config.Listener, time.Second*10)
 
 	// Start server.
 	s.tomb.Go(func() error {
@@ -105,12 +112,12 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 
 	// Handle server cleanup.
 	s.tomb.Go(func() error {
+		// Keep the listener and the server alive until the tomb is killed.
 		<-s.tomb.Dying()
 
-		select {
-		case <-closeAllowed:
-		case <-time.After(time.Second * 10):
-			config.Logger.Errorf("closeAllowed not received, proceeding to close")
+		// Close the listener, this prevents a race in the test.
+		if err := listener.Close(); err != nil {
+			s.config.Logger.Errorf("failed to close listener: %v", err)
 		}
 
 		if err := s.Server.Close(); err != nil {
@@ -119,7 +126,8 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 			s.config.Logger.Errorf("failed to shutdown server: %v", err)
 			return errors.Trace(err)
 		}
-		return nil
+
+		return tomb.ErrDying
 	})
 
 	return s, nil

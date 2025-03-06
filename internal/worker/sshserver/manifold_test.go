@@ -29,6 +29,7 @@ func newManifoldConfig(l loggo.Logger, modifier func(cfg *sshserver.ManifoldConf
 		NewServerWorker:        func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:                 l,
 		APICallerName:          "api-caller",
+		NewSSHServerListener:   newTestingSSHServerListener,
 	}
 
 	modifier(cfg)
@@ -74,6 +75,12 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 		cfg.APICallerName = ""
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	// Empty NewSSHServerListener.
+	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
+		cfg.NewSSHServerListener = nil
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
@@ -83,8 +90,9 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) {
 			return workertest.NewDeadWorker(nil), nil
 		},
-		NewServerWorker: func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
-		Logger:          loggo.GetLogger("test"),
+		NewServerWorker:      func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
+		Logger:               loggo.GetLogger("test"),
+		NewSSHServerListener: newTestingSSHServerListener,
 	})
 
 	// Check the inputs are as expected

@@ -4,6 +4,9 @@
 package sshserver
 
 import (
+	"net"
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
@@ -11,9 +14,10 @@ import (
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
 type ServerWrapperWorkerConfig struct {
-	NewServerWorker func(ServerWorkerConfig) (worker.Worker, error)
-	Logger          Logger
-	FacadeClient    FacadeClient
+	NewServerWorker      func(ServerWorkerConfig) (worker.Worker, error)
+	Logger               Logger
+	FacadeClient         FacadeClient
+	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
 }
 
 // Validate validates the workers configuration is as expected.
@@ -26,6 +30,9 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	}
 	if c.FacadeClient == nil {
 		return errors.NotValidf("FacadeClient is required")
+	}
+	if c.NewSSHServerListener == nil {
+		return errors.NotValidf("NewSSHServerListener is required")
 	}
 	return nil
 }
@@ -98,9 +105,10 @@ func (ssw *serverWrapperWorker) loop() error {
 	}
 
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
-		Logger:      ssw.config.Logger,
-		JumpHostKey: jumpHostKey,
-		Port:        port,
+		Logger:               ssw.config.Logger,
+		JumpHostKey:          jumpHostKey,
+		Port:                 port,
+		NewSSHServerListener: ssw.config.NewSSHServerListener,
 	})
 	if err != nil {
 		return errors.Trace(err)
