@@ -1412,33 +1412,20 @@ func (st *State) DeleteUnitPresence(ctx context.Context, name coreunit.Name) err
 	}
 
 	unit := unitName{Name: name}
-	var uuid unitUUID
 
-	queryUnit := `SELECT &unitUUID.uuid FROM unit WHERE name = $unitName.name;`
-	queryUnitStmt, err := st.Prepare(queryUnit, unit, uuid)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var presence unitPresence
 	deleteStmt, err := st.Prepare(`
 DELETE FROM unit_agent_presence
-WHERE unit_uuid = $unitPresence.unit_uuid
-`, presence)
+WHERE unit_uuid = (
+	SELECT uuid FROM unit
+	WHERE name = $unitName.name
+);
+`, unit)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, queryUnitStmt, unit).Get(&uuid); errors.Is(err, sql.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		presence.UnitUUID = uuid.UnitUUID
-
-		if err := tx.Query(ctx, deleteStmt, presence).Run(); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Query(ctx, deleteStmt, unit).Run(); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return errors.Capture(err)
 		}
 		return nil

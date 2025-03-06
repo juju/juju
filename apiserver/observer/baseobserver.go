@@ -5,6 +5,7 @@ package observer
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/juju/names/v6"
 
@@ -28,6 +29,9 @@ func (n *BaseObserver) Login(ctx context.Context, entity names.Tag, model names.
 	n.model = model
 	n.modelUUID = modelUUID
 }
+
+// Join implements Observer.
+func (n *BaseObserver) Join(ctx context.Context, req *http.Request, connectionID uint64) {}
 
 // IsAgent returns whether the entity is an agent during the current login.
 // If the entity has not logged in, it returns false.

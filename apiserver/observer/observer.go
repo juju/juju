@@ -103,14 +103,14 @@ func (m *Multiplexer) Login(ctx context.Context, entity names.Tag, model names.M
 // rpc.ObserverMultiplexer by calling all the Observer's RPCObserver
 // methods.
 func (m *Multiplexer) RPCObserver() rpc.Observer {
-	rpcObservers := make([]rpc.Observer, len(m.observers))
-	for i, o := range m.observers {
+	rpcObservers := make([]rpc.Observer, 0, len(m.observers))
+	for _, o := range m.observers {
 		observer := o.RPCObserver()
 		if observer == nil {
 			continue
 		}
 
-		rpcObservers[i] = observer
+		rpcObservers = append(rpcObservers, observer)
 	}
 	return rpc.NewObserverMultiplexer(rpcObservers...)
 }

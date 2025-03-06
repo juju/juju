@@ -16,6 +16,8 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
+var _ Observer = (*AgentPresence)(nil)
+
 type AgentPresenceSuite struct {
 	testing.IsolationSuite
 

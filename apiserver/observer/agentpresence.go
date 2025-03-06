@@ -5,7 +5,6 @@ package observer
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/juju/names/v6"
 
@@ -125,30 +124,8 @@ func (n *AgentPresence) Leave(ctx context.Context) {
 	}
 }
 
-// Join implements Observer.
-func (n *AgentPresence) Join(ctx context.Context, req *http.Request, connectionID uint64) {}
-
 // RPCObserver returns an rpc.Observer for the agent presence that doesn't
 // do anything.
 func (n *AgentPresence) RPCObserver() rpc.Observer {
-	return agentPresenceObserver{}
-}
-
-type agentPresenceObserver struct{}
-
-// ServerRequest informs the Observer of a request made
-// to the Conn. If the request was not recognized or there was
-// an error reading the body, body will be nil.
-//
-// ServerRequest is called just before the server method
-// is invoked.
-func (agentPresenceObserver) ServerRequest(ctx context.Context, hdr *rpc.Header, body interface{}) {}
-
-// ServerReply informs the RequestNotifier of a reply sent to a
-// server request. The given Request gives details of the call
-// that was made; the given Header and body are the header and
-// body sent as reply.
-//
-// ServerReply is called just before the reply is written.
-func (agentPresenceObserver) ServerReply(ctx context.Context, req rpc.Request, hdr *rpc.Header, body interface{}) {
+	return nil
 }
