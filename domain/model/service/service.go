@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/version/v2"
-	"google.golang.org/appengine/log"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -159,6 +158,7 @@ type WatcherFactory interface {
 	) (watcher.StringsWatcher, error)
 }
 
+// WatcherFactoryGetter describes a method for getting a WatcherFactory.
 type WatcherFactoryGetter interface {
 	GetWatcherFactory() WatcherFactory
 }
@@ -570,23 +570,24 @@ func (s *Service) UpdateCredential(
 	return s.st.UpdateCredential(ctx, uuid, key)
 }
 
-// Watch returns a watcher that monitors changes to models,
-// filtering only events related to activated models.
-//
-// This watcher listens to create/update events for all models in the system
-// and selectively processes only those associated with activated models.
-// It maps change events using a filtering function (`mapper`) that:
-//  1. Extracts the model UUID from each change event.
-//  2. Checks whether the model is currently activated.
+// Watch returns a watcher that monitors changes to models.
+// The watcher listens for create and update events for all models but processes
+// only the activated ones. It maps change events using a filtering function that:
+//  1. Extracts the model UUID from each create/update event.
+//  2. Bulking checking whether the models are currently activated.
 //  3. Includes the event in the watcher stream only if the model is activated.
 //
 // Potential concerns:
 //   - If retrieving the activation status fails, the event is skipped, which
-//     might lead to missed updates if errors are frequent.
-//   - The watcher relies on `GetModelActivationStatus`, so its performance
-//     and consistency impact the watcher's reliability.
+//     may lead to missed updates if errors occur frequently.
+//   - The watcher relies on GetModelActivationStatus; its performance and
+//     consistency affect the watcher's reliability.
 //   - This approach assumes that model activation status does not change
 //     frequently; otherwise, a more dynamic filtering mechanism may be needed.
+//
+// Returns:
+//   - watcher.StringsWatcher: A watcher that streams events related to activated models.
+//   - error: An error if the watcher cannot be created.
 func (s *Service) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		activatedChanges := make([]changestream.ChangeEvent, 0, len(changes))
@@ -597,7 +598,7 @@ func (s *Service) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
 			// Check if the model is activated.
 			modelActivationStatus, err := s.st.GetModelActivationStatus(ctx, modelUUID)
 			if err != nil {
-				log.Errorf(ctx, "failed to get model activation status: %v\n", err)
+				s.logger.Errorf(ctx, "failed to get model activation status: %v\n", err)
 				continue
 			}
 

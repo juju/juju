@@ -339,3 +339,12 @@ func (d *dummyState) ListAllModelSummaries(_ context.Context) ([]coremodel.Model
 	}
 	return rval, nil
 }
+
+func (d *dummyState) AllModelActivationStatusQuery() string {
+	return "SELECT activated from model"
+}
+
+// GetModelActivationStatus returns the activation status of a model.
+func (d *dummyState) GetModelActivationStatus(ctx context.Context, controllerUUID string) (bool, error) {
+	return true, nil
+}

@@ -1807,3 +1807,41 @@ AND    ot.type = $dbPermission.object_type
 func (st *State) AllModelActivationStatusQuery() string {
 	return "SELECT activated from model"
 }
+
+// GetModelActivationStatus returns the activation status of a model.
+func (st *State) GetModelActivationStatus(ctx context.Context, controllerUUID string) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	type controllerModel struct {
+		UUID        coremodel.UUID `db:"uuid"`
+		Activated   bool           `db:"activated"`
+		ModelTypeID int            `db:"model_type_id"`
+		Name        string         `db:"name"`
+		CloudUUID   string         `db:"cloud_uuid"`
+		LifeID      int            `db:"life_id"`
+		OwnerUUID   string         `db:"owner_uuid"`
+	}
+
+	m := controllerModel{
+		UUID: coremodel.UUID(controllerUUID),
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &controllerModel.*
+FROM   model
+WHERE  uuid = $controllerModel.uuid
+`, controllerModel{})
+
+	if err != nil {
+		return false, errors.Errorf("preparing select model activated status statement: %w")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, m).Get(&m)
+	})
+
+	return m.Activated, err
+}

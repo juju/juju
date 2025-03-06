@@ -20,7 +20,6 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -34,6 +33,7 @@ import (
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -1871,4 +1871,12 @@ func (s *stateSuite) TestGetControllerModelUUIDNotFound(c *gc.C) {
 	modelSt := NewState(s.TxnRunnerFactory())
 	_, err := modelSt.GetControllerModelUUID(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *stateSuite) TestGetModelActivationStatus(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	uuid := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-controller")
+	activated, err := st.GetModelActivationStatus(context.Background(), uuid.String())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(activated, jc.IsTrue)
 }
