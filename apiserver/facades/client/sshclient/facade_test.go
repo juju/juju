@@ -458,9 +458,9 @@ func (s *facadeSuite) TestHostKeyForTarget(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Set superuser for all calls.
-	ctrlTag := names.NewControllerTag("controller00000000-0000-0000-0000-000000000000")
-	backend.EXPECT().ControllerTag().Return(ctrlTag).AnyTimes()
-	authorizer.EXPECT().HasPermission(permission.SuperuserAccess, ctrlTag).AnyTimes()
+	controllerTag := names.NewControllerTag("controller00000000-0000-0000-0000-000000000000")
+	backend.EXPECT().ControllerTag().Return(controllerTag).AnyTimes()
+	authorizer.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).AnyTimes()
 
 	// Test container target hits correct methods.
 	gomock.InOrder(
@@ -522,9 +522,9 @@ func (s *facadeSuite) TestHostKeyForTargetUnhappyPaths(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Set superuser for all calls.
-	ctrlTag := names.NewControllerTag("controller00000000-0000-0000-0000-000000000000")
-	backend.EXPECT().ControllerTag().Return(ctrlTag).AnyTimes()
-	authorizer.EXPECT().HasPermission(permission.SuperuserAccess, ctrlTag).AnyTimes()
+	controllerTag := names.NewControllerTag("controller00000000-0000-0000-0000-000000000000")
+	backend.EXPECT().ControllerTag().Return(controllerTag).AnyTimes()
+	authorizer.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).AnyTimes()
 
 	// Test failure to parse hostname.
 	res := facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
@@ -577,12 +577,12 @@ func (s *facadeSuite) TestHostKeyForTargetUserAuth(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 
-	ctrlTag := names.NewControllerTag("controll-er00-0000-0000-000000000000")
-	backend.EXPECT().ControllerTag().Return(ctrlTag).AnyTimes()
+	controllerTag := names.NewControllerTag("controll-er00-0000-0000-000000000000")
+	backend.EXPECT().ControllerTag().Return(controllerTag).AnyTimes()
 
 	// Test a none ErrorEntityMissingPermission error on superuser check and is unrelated
 	// to permission errors.
-	authorizer.EXPECT().HasPermission(permission.SuperuserAccess, ctrlTag).Return(errors.New("an-error")).Times(1)
+	authorizer.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).Return(errors.New("an-error")).Times(1)
 	res := facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
 		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
@@ -591,7 +591,7 @@ func (s *facadeSuite) TestHostKeyForTargetUserAuth(c *gc.C) {
 	// Test second has permission for model reader is called and also has no permission/returns error.
 	modelTag := names.NewModelTag("model000-0000-0000-0000-000000000000")
 
-	authorizer.EXPECT().HasPermission(permission.SuperuserAccess, ctrlTag).Return(authentication.ErrorEntityMissingPermission).Times(1)
+	authorizer.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).Return(authentication.ErrorEntityMissingPermission).Times(1)
 	backend.EXPECT().ModelTag().Return(modelTag)
 	authorizer.EXPECT().HasPermission(permission.ReadAccess, modelTag).Return(authentication.ErrorEntityMissingPermission).Times(1)
 
