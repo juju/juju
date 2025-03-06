@@ -59,8 +59,8 @@ func (f filter) ChangePredicate() func(string) bool {
 	return f.changePredicate
 }
 
-// ValueFilter returns a filter option that watches for changes in the
-// namespace that match the change mask and the change value.
+// ValueFilter returns a filter option that watches for changes in the namespace
+// that match the change mask and cause the supplied predicate to return true.
 func ValueFilter(namespace string, changeMask changestream.ChangeType, changePredicate func(string) bool) FilterOption {
 	return filter{
 		namespace:       namespace,
