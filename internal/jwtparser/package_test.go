@@ -1,9 +1,12 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package jwtparser_test
+package jwtparser
 
 import (
+	"io"
+	"net/http"
+	"strings"
 	. "testing"
 	"time"
 
@@ -17,6 +20,21 @@ import (
 
 func TestPackage(t *T) {
 	gc.TestingT(t)
+}
+
+type mockHTTPClient struct {
+	url  string
+	keys string
+}
+
+func (m mockHTTPClient) Get(url string) (*http.Response, error) {
+	if url != m.url {
+		return nil, errors.New("not found")
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(m.keys)),
+	}, nil
 }
 
 // JWTParams are the necessary params to issue a ready-to-go JWT.

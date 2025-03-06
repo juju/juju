@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v2/jwk"
@@ -17,6 +18,7 @@ import (
 type Parser struct {
 	cache      *jwk.Cache
 	httpClient jwk.HTTPClient
+	mu         sync.RWMutex
 	refreshURL string
 }
 
@@ -34,6 +36,9 @@ func NewParserWithHTTPClient(ctx context.Context, client jwk.HTTPClient) *Parser
 // It will return a NotProvisioned error if SetJWKSCache
 // has not been run on the parser.
 func (j *Parser) Parse(ctx context.Context, tok string) (jwt.Token, error) {
+	j.mu.RLock()
+	defer j.mu.RUnlock()
+
 	if j.refreshURL == "" {
 		return nil, errors.NotProvisionedf("no refresh url configured")
 	}
@@ -59,6 +64,8 @@ func (j *Parser) Parse(ctx context.Context, tok string) (jwt.Token, error) {
 
 // SetJWKSCache sets up the token key cache and refreshes the public key.
 func (j *Parser) SetJWKSCache(ctx context.Context, refreshURL string) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	j.refreshURL = refreshURL
 
 	err := j.cache.Register(j.refreshURL, jwk.WithHTTPClient(j.httpClient))

@@ -15,27 +15,31 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/worker/jwtparser/mocks"
 )
 
 type workerSuite struct {
 	testing.IsolationSuite
-	client           *mocks.MockHTTPClient
-	controllerConfig *mocks.MockControllerConfig
+	client           *MockHTTPClient
+	controllerConfig *MockControllerConfig
 }
 
 var _ = gc.Suite(&workerSuite{})
 
+func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.client = NewMockHTTPClient(ctrl)
+	s.controllerConfig = NewMockControllerConfig(ctrl)
+	return ctrl
+}
+
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	ctrl := gomock.NewController(c)
-	s.client = mocks.NewMockHTTPClient(ctrl)
-	s.controllerConfig = mocks.NewMockControllerConfig(ctrl)
+	defer s.setupMocks(c).Finish()
 }
 
 // TestJWTParserWorkerWithNoConfig tests that NewWorker function
-// creates a JWTParserWorker when the login-refresh-url config
-// option is not set.
+// creates a non-nil JWTParser when the login-refresh-url config
+// option is *not* set.
 func (s *workerSuite) TestJWTParserWorkerWithNoConfig(c *gc.C) {
 	s.controllerConfig.EXPECT().ControllerConfig().Return(controller.Config{}, nil)
 
@@ -49,7 +53,7 @@ func (s *workerSuite) TestJWTParserWorkerWithNoConfig(c *gc.C) {
 }
 
 // TestJWTParserWorkerWithLoginRefreshURL tests that NewWorker function
-// creates a JWTParserWorker when the login-refresh-url config option is set.
+// creates a non-nil JWTParser when the login-refresh-url config option is set.
 func (s *workerSuite) TestJWTParserWorkerWithLoginRefreshURL(c *gc.C) {
 	s.client.EXPECT().Get(gomock.Any()).Return(&http.Response{
 		StatusCode: http.StatusOK,

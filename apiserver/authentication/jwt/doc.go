@@ -9,7 +9,7 @@
 // controller with the 'login-token-refresh-url' controller config set to
 // the JAAS JWT refresh endpoint.
 //
-// The JWTs are parsed by a separate object, see [github.com/juju/juju/worker/jwtparser].
+// The JWTs are parsed by a separate object, see [github.com/juju/juju/internal/jwtparser].
 //
 // # Authentication
 //

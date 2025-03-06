@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/worker/apiserver"
-	"github.com/juju/juju/internal/worker/jwtparser"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )

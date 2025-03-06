@@ -12,8 +12,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/internal/jwtparser"
-	"github.com/juju/juju/worker/common"
-	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/internal/worker/common"
+	workerstate "github.com/juju/juju/internal/worker/state"
 )
 
 // ManifoldConfig defines a Manifold's dependencies.

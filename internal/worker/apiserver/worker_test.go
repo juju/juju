@@ -23,8 +23,8 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/worker/apiserver"
-	"github.com/juju/juju/internal/worker/jwtparser"
 	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/state"
 )

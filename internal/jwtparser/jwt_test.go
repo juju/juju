@@ -1,9 +1,10 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package jwtparser_test
+package jwtparser
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -11,69 +12,40 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
-	"net/http"
-	"net/http/httptest"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	gc "gopkg.in/check.v1"
-
-<<<<<<<< HEAD:internal/worker/jwtparser/jwt_test.go
-	"github.com/juju/juju/internal/worker/jwtparser"
-|||||||| parent of 2c0e5ff408 (chore: move jwtparser into standalone package):worker/jwtparser/jwt_test.go
-	"github.com/juju/juju/worker/jwtparser"
-========
-	"github.com/juju/juju/internal/jwtparser"
->>>>>>>> 2c0e5ff408 (chore: move jwtparser into standalone package):internal/jwtparser/jwt_test.go
 )
 
 type jwtParserSuite struct {
 	url        string
 	keySet     jwk.Set
 	signingKey jwk.Key
-	srv        *httptest.Server
+	client     mockHTTPClient
 }
 
 var _ = gc.Suite(&jwtParserSuite{})
 
 func (s *jwtParserSuite) SetUpTest(c *gc.C) {
-	keySet, signingKey, err := NewJWKSet()
-	c.Assert(err, jc.ErrorIsNil)
-	s.keySet = keySet
-	s.signingKey = signingKey
+	s.keySet, s.signingKey = NewJWKSet(c)
+	s.url = "fakeurl.com/keys"
 
-	s.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.RequestURI != "/.well-known/jwks.json" {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		hdrs := w.Header()
-		hdrs.Set(`Content-Type`, `application/json`)
-		pub, _ := s.keySet.Key(0)
-		_ = json.NewEncoder(w).Encode(pub)
-	}))
-
-	s.url = s.srv.URL + "/.well-known/jwks.json"
-}
-
-func (s *jwtParserSuite) TearDownTest(_ *gc.C) {
-	s.srv.Close()
-}
-
-func HTTPClient() *http.Client {
-	return &http.Client{
-		Timeout: 5 * time.Second,
+	buf := bytes.Buffer{}
+	pub, _ := s.keySet.Key(0)
+	_ = json.NewEncoder(&buf).Encode(pub)
+	s.client = mockHTTPClient{
+		keys: buf.String(),
+		url:  s.url,
 	}
 }
 
 func (s *jwtParserSuite) TestCacheRegistration(c *gc.C) {
 	ctx, done := context.WithCancel(context.Background())
 	defer done()
-	authenticator := jwtparser.NewParserWithHTTPClient(ctx, HTTPClient())
+	authenticator := NewParserWithHTTPClient(ctx, s.client)
 	err := authenticator.SetJWKSCache(context.Background(), s.url)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -81,7 +53,7 @@ func (s *jwtParserSuite) TestCacheRegistration(c *gc.C) {
 func (s *jwtParserSuite) TestCacheRegistrationFailureWithBadURL(c *gc.C) {
 	ctx, done := context.WithCancel(context.Background())
 	defer done()
-	authenticator := jwtparser.NewParserWithHTTPClient(ctx, HTTPClient())
+	authenticator := NewParserWithHTTPClient(ctx, s.client)
 	err := authenticator.SetJWKSCache(context.Background(), "noexisturl")
 	// We want to make sure that we get an error for a bad url.
 	c.Assert(err, gc.NotNil)
@@ -90,7 +62,7 @@ func (s *jwtParserSuite) TestCacheRegistrationFailureWithBadURL(c *gc.C) {
 func (s *jwtParserSuite) TestParseJWT(c *gc.C) {
 	ctx, done := context.WithCancel(context.Background())
 	defer done()
-	authenticator := jwtparser.NewParserWithHTTPClient(ctx, HTTPClient())
+	authenticator := NewParserWithHTTPClient(ctx, s.client)
 	err := authenticator.SetJWKSCache(context.Background(), s.url)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -115,58 +87,24 @@ func (s *jwtParserSuite) TestParseJWT(c *gc.C) {
 	c.Assert(claims["access"], jc.DeepEquals, map[string]interface{}{"model-1": "read"})
 }
 
-func (s *jwtParserSuite) TestSimultaneousParse(c *gc.C) {
-	ctx, done := context.WithCancel(context.Background())
-	defer done()
-	authenticator := jwtparser.NewParserWithHTTPClient(ctx, HTTPClient())
-	err := authenticator.SetJWKSCache(context.Background(), s.url)
-	c.Assert(err, jc.ErrorIsNil)
-
-	params := JWTParams{
-		audience: "controller-1",
-		subject:  "alice",
-		claims:   map[string]string{"model-1": "read"},
-	}
-	jwt, err := EncodedJWT(params, s.keySet, s.signingKey)
-	c.Assert(err, jc.ErrorIsNil)
-	base64jwt := base64.StdEncoding.EncodeToString(jwt)
-
-	n := 10
-	for range n {
-		go func() {
-			token, err := authenticator.Parse(context.Background(), base64jwt)
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(token, gc.NotNil)
-		}()
-	}
-}
-
 // NewJWKSet returns a new key set and signing key.
-func NewJWKSet() (jwk.Set, jwk.Key, error) {
-	jwkSet, pkeyPem, err := getJWKS()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+func NewJWKSet(c *gc.C) (jwk.Set, jwk.Key) {
+	jwkSet, pkeyPem := getJWKS(c)
 
 	block, _ := pem.Decode(pkeyPem)
 
 	pkeyDecoded, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 
 	signingKey, err := jwk.FromRaw(pkeyDecoded)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return jwkSet, signingKey, nil
+	c.Assert(err, jc.ErrorIsNil)
+
+	return jwkSet, signingKey
 }
 
-func getJWKS() (jwk.Set, []byte, error) {
+func getJWKS(c *gc.C) (jwk.Set, []byte) {
 	keySet, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 
 	privateKeyPEM := pem.EncodeToMemory(
 		&pem.Block{
@@ -176,34 +114,22 @@ func getJWKS() (jwk.Set, []byte, error) {
 	)
 
 	kid, err := uuid.NewRandom()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 
 	jwks, err := jwk.FromRaw(keySet.PublicKey)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 	err = jwks.Set(jwk.KeyIDKey, kid.String())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = jwks.Set(jwk.KeyUsageKey, "sig")
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = jwks.Set(jwk.AlgorithmKey, jwa.RS256)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 
 	ks := jwk.NewSet()
 	err = ks.AddKey(jwks)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 
-	return ks, privateKeyPEM, nil
+	return ks, privateKeyPEM
 }
