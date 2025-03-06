@@ -1802,3 +1802,8 @@ AND    ot.type = $dbPermission.object_type
 	}
 	return nil
 }
+
+// AllModelActivationStatusQuery returns a SQL statement that will return all model activated status.
+func (st *State) AllModelActivationStatusQuery() string {
+	return "SELECT activated from model"
+}

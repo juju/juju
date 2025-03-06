@@ -8,12 +8,17 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/version/v2"
+	"google.golang.org/appengine/log"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -117,6 +122,12 @@ type State interface {
 
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
+
+	// GetModelActivationStatus gets the activation state of a model.
+	GetModelActivationStatus(ctx context.Context, modelUUID string) (bool, error)
+
+	// AllModelActivationStatusQuery returns the query string to get the activation status of all models.
+	AllModelActivationStatusQuery() string
 }
 
 // ModelDeleter is an interface for deleting models.
@@ -129,25 +140,41 @@ type ModelDeleter interface {
 // Service defines a service for interacting with the underlying state based
 // information of a model.
 type Service struct {
-	st           State
-	modelDeleter ModelDeleter
-	logger       logger.Logger
+	st             State
+	modelDeleter   ModelDeleter
+	logger         logger.Logger
+	watcherFactory WatcherFactory
 }
 
 var (
 	caasCloudTypes = []string{cloud.CloudTypeKubernetes}
 )
 
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNamespaceWatcher returns a new namespace watcher
+	// for events based on the input change mask.
+	NewNamespaceMapperWatcher(
+		namespace string, changeMask changestream.ChangeType, initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper,
+	) (watcher.StringsWatcher, error)
+}
+
+type WatcherFactoryGetter interface {
+	GetWatcherFactory() WatcherFactory
+}
+
 // NewService returns a new Service for interacting with a models state.
 func NewService(
 	st State,
 	modelDeleter ModelDeleter,
 	logger logger.Logger,
+	watcherFactory WatcherFactory,
 ) *Service {
 	return &Service{
-		st:           st,
-		modelDeleter: modelDeleter,
-		logger:       logger,
+		st:             st,
+		modelDeleter:   modelDeleter,
+		logger:         logger,
+		watcherFactory: watcherFactory,
 	}
 }
 
@@ -541,4 +568,50 @@ func (s *Service) UpdateCredential(
 	}
 
 	return s.st.UpdateCredential(ctx, uuid, key)
+}
+
+// Watch returns a watcher that monitors changes to models,
+// filtering only events related to activated models.
+//
+// This watcher listens to create/update events for all models in the system
+// and selectively processes only those associated with activated models.
+// It maps change events using a filtering function (`mapper`) that:
+//  1. Extracts the model UUID from each change event.
+//  2. Checks whether the model is currently activated.
+//  3. Includes the event in the watcher stream only if the model is activated.
+//
+// Potential concerns:
+//   - If retrieving the activation status fails, the event is skipped, which
+//     might lead to missed updates if errors are frequent.
+//   - The watcher relies on `GetModelActivationStatus`, so its performance
+//     and consistency impact the watcher's reliability.
+//   - This approach assumes that model activation status does not change
+//     frequently; otherwise, a more dynamic filtering mechanism may be needed.
+func (s *Service) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
+	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		activatedChanges := make([]changestream.ChangeEvent, 0, len(changes))
+		for _, change := range changes {
+
+			modelUUID := change.Changed()
+
+			// Check if the model is activated.
+			modelActivationStatus, err := s.st.GetModelActivationStatus(ctx, modelUUID)
+			if err != nil {
+				log.Errorf(ctx, "failed to get model activation status: %v\n", err)
+				continue
+			}
+
+			// Watch all activated model events.
+			if modelActivationStatus {
+				activatedChanges = append(activatedChanges, change)
+			}
+		}
+		return activatedChanges, nil
+	}
+
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		"model", changestream.Changed,
+		eventsource.InitialNamespaceChanges(s.st.AllModelActivationStatusQuery()),
+		mapper,
+	)
 }
