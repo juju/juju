@@ -176,17 +176,9 @@ type ConfigSource interface {
 	Config() (*config.Config, error)
 }
 
-func (m *ModelManagerAPI) checkAddModelPermission(ctx context.Context, cloud string, userTag names.UserTag) (bool, error) {
-	target := permission.ID{
-		ObjectType: permission.Cloud,
-		Key:        cloud,
-	}
-	perm, err := m.accessService.ReadUserAccessLevelForTarget(ctx, user.NameFromTag(userTag), target)
-	if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
+func (m *ModelManagerAPI) checkAddModelPermission(ctx context.Context, cloudTag names.CloudTag, userTag names.UserTag) (bool, error) {
+	if err := m.authorizer.HasPermission(ctx, permission.AddModelAccess, cloudTag); !m.isAdmin && err != nil {
 		return false, errors.Trace(err)
-	}
-	if !perm.EqualOrGreaterCloudAccessThan(permission.AddModelAccess) {
-		return false, nil
 	}
 	return true, nil
 }
@@ -235,7 +227,7 @@ func (m *ModelManagerAPI) createModelNew(
 		return "", errors.Trace(err)
 	}
 	if err != nil {
-		canAddModel, err := m.checkAddModelPermission(ctx, cloudTag.Id(), m.apiUser)
+		canAddModel, err := m.checkAddModelPermission(ctx, cloudTag, m.apiUser)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
@@ -358,7 +350,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Trace(err)
 	}
 	if err != nil {
-		canAddModel, err := m.checkAddModelPermission(ctx, cloudTag.Id(), m.apiUser)
+		canAddModel, err := m.checkAddModelPermission(ctx, cloudTag, m.apiUser)
 		if err != nil {
 			return result, errors.Trace(err)
 		}
@@ -473,7 +465,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	}
 	defer st.Close()
 
-	modelInfo, err := m.getModelInfo(ctx, model.ModelTag(), false)
+	modelInfo, err := m.getModelInfo(ctx, model.ModelTag(), false, true)
 	if err != nil {
 		return result, err
 	}
@@ -937,13 +929,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		ok, err := m.checkReadModelPermission(ctx, coremodel.UUID(tag.Id()), user.NameFromTag(m.apiUser))
-		if err != nil {
-			return params.ModelInfo{}, errors.Trace(err)
-		} else if !ok {
-			return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
-		}
-		modelInfo, err := m.getModelInfo(ctx, tag, true)
+		modelInfo, err := m.getModelInfo(ctx, tag, true, false)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
@@ -973,9 +959,25 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 	return results, nil
 }
 
-func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, withSecrets bool) (params.ModelInfo, error) {
+func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, withSecrets bool, modelCreator bool) (params.ModelInfo, error) {
+	// If the user is a controller superuser, they are considered a model
+	// admin.
+	adminAccess := m.isAdmin || modelCreator
+	if !adminAccess {
+		// otherwise we do a check to see if the user has admin access to the model
+		err := m.authorizer.HasPermission(ctx, permission.AdminAccess, tag)
+		adminAccess = err == nil
+	}
+	// Admin users also have write access to the model.
+	writeAccess := adminAccess
+	if !writeAccess {
+		// Otherwise we do a check to see if the user has write access to the model.
+		err := m.authorizer.HasPermission(ctx, permission.WriteAccess, tag)
+		writeAccess = err == nil
+	}
+
 	// If the logged in user does not have at least read permission, we return an error.
-	if err := m.authorizer.HasPermission(ctx, permission.ReadAccess, tag); err != nil {
+	if err := m.authorizer.HasPermission(ctx, permission.ReadAccess, tag); !writeAccess && err != nil {
 		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
 	}
 
@@ -994,14 +996,6 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		return params.ModelInfo{}, errors.Trace(err)
 	}
 
-	modelAdmin := m.isModelAdmin(ctx, tag)
-	// Admin users also have write access to the model.
-	writeAccess := modelAdmin
-	if !writeAccess {
-		// Otherwise we do a check to see if the user has write access to the model.
-		err = m.authorizer.HasPermission(ctx, permission.WriteAccess, model.ModelTag())
-		writeAccess = err == nil
-	}
 	// At this point, if the user does not have write access, they must have
 	// read access otherwise we would've returned on the initial check at the
 	// beginning of this method.
@@ -1080,7 +1074,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 
-	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, tag, user.NameFromTag(m.apiUser), modelAdmin)
+	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, tag, user.NameFromTag(m.apiUser), adminAccess)
 	if shouldErr(err) {
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}
@@ -1403,33 +1397,4 @@ func (m *ModelManagerAPI) ChangeModelCredential(ctx context.Context, args params
 		}
 	}
 	return params.ErrorResults{Results: results}, nil
-}
-
-// isModelAdmin checks if the user is a controller superuser or admin on the
-// model.
-func (m *ModelManagerAPI) isModelAdmin(ctx context.Context, modelTag names.ModelTag) bool {
-	if m.isAdmin {
-		return true
-	}
-	return m.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag) == nil
-}
-
-// checkReadModelPermission checks if the user has controller superuser
-// permissions or at least read permissions on the model.
-func (m *ModelManagerAPI) checkReadModelPermission(ctx context.Context, modelUUID coremodel.UUID, name user.Name) (bool, error) {
-	if m.isAdmin {
-		return true, nil
-	}
-	target := permission.ID{
-		ObjectType: permission.Model,
-		Key:        modelUUID.String(),
-	}
-	perm, err := m.accessService.ReadUserAccessLevelForTarget(ctx, name, target)
-	if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
-		return false, errors.Trace(err)
-	}
-	if !perm.EqualOrGreaterModelAccessThan(permission.ReadAccess) {
-		return false, nil
-	}
-	return true, nil
 }

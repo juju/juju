@@ -22,6 +22,7 @@ type FakeAuthorizer struct {
 	AdminTag      names.UserTag
 	HasConsumeTag names.UserTag
 	HasWriteTag   names.UserTag
+	HasReadTag    names.UserTag
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag names.Tag) bool {
@@ -78,7 +79,11 @@ func (fa FakeAuthorizer) HasPermission(ctx context.Context, operation permission
 		if fa.AdminTag != emptyTag && ut == fa.AdminTag {
 			return nil
 		}
-		if ut == fa.HasWriteTag && (operation == permission.WriteAccess || operation == permission.ReadAccess) {
+		if fa.HasWriteTag != emptyTag && ut == fa.HasWriteTag && (operation == permission.WriteAccess || operation == permission.ReadAccess) {
+			return nil
+		}
+
+		if fa.HasReadTag != emptyTag && ut == fa.HasReadTag && operation == permission.ReadAccess {
 			return nil
 		}
 

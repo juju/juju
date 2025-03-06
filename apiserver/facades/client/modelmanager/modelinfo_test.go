@@ -36,7 +36,6 @@ import (
 	coreusertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
-	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -448,10 +447,6 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	s.mockMachineService = mocks.NewMockMachineService(ctrl)
 	s.mockModelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
 
-	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(maryName), permission.ID{
-		ObjectType: permission.Model,
-		Key:        s.st.model.cfg.UUID(),
-	}).Return(permission.WriteAccess, nil)
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.mockModelService.EXPECT().GetModelUser(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID()), maryName).Return(
 		coremodel.ModelUserInfo{
@@ -486,6 +481,43 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
 	c.Assert(info.Machines, gc.HasLen, 2)
+}
+
+func (s *modelInfoSuite) TestModelInfoReadAccess(c *gc.C) {
+	mary := names.NewUserTag("mary@local")
+	s.authorizer.HasReadTag = mary
+	api, ctrl := s.getAPIWithUser(c, mary)
+	defer ctrl.Finish()
+	maryName := coreusertesting.GenNewName(c, "mary")
+
+	s.mockMachineService = mocks.NewMockMachineService(ctrl)
+	s.mockModelService.EXPECT().GetModelUser(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID()), maryName).Return(
+		coremodel.ModelUserInfo{
+			Name:        maryName,
+			DisplayName: "Mary",
+			Access:      permission.ReadAccess,
+		}, nil,
+	)
+	modelInfoService := mocks.NewMockModelInfoService(ctrl)
+	modelAgentService := mocks.NewMockModelAgentService(ctrl)
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
+	modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(model.StatusInfo{
+		Status: status.Active,
+		Since:  time.Now(),
+	}, nil)
+	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
+		AgentVersion:   version.MustParse("1.99.9"),
+		ControllerUUID: s.controllerUUID,
+		Cloud:          "dummy",
+		CloudType:      "dummy",
+	}, nil)
+	s.mockModelDomainServices.EXPECT().ModelInfo().Return(modelInfoService)
+	s.mockModelDomainServices.EXPECT().Agent().Return(modelAgentService).AnyTimes()
+
+	info := s.getModelInfo(c, api, s.st.model.cfg.UUID())
+	c.Assert(info.Users, gc.HasLen, 1)
+	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
+	c.Assert(info.Machines, gc.HasLen, 0)
 }
 
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
@@ -578,10 +610,7 @@ func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
 	noAccessUser := names.NewUserTag("nemo@local")
 	api, ctrl := s.getAPIWithUser(c, noAccessUser)
 	defer ctrl.Finish()
-	s.mockAccessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(noAccessUser), permission.ID{
-		ObjectType: permission.Model,
-		Key:        coretesting.ModelTag.Id(),
-	}).Return(permission.NoAccess, accesserrors.AccessNotFound)
+
 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
 }
 

@@ -938,10 +938,6 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 
 	addModelUser := names.NewUserTag("add-model")
 
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(
-		gomock.Any(), user.NameFromTag(addModelUser), gomock.AssignableToTypeOf(permission.ID{}),
-	).Return(permission.AddModelAccess, nil)
-
 	s.setAPIUser(c, addModelUser)
 	nonAdminUser := names.NewUserTag("non-admin")
 	_, err := s.api.CreateModel(context.Background(), createArgs(nonAdminUser))
@@ -1259,12 +1255,7 @@ func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *
 
 	userTag := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, userTag)
-	as := s.accessService.EXPECT()
-	id := permission.ID{
-		ObjectType: permission.Cloud,
-		Key:        "dummy",
-	}
-	as.ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(userTag), id).Return(permission.WriteAccess, nil)
+
 	owner := names.NewUserTag("external@remote")
 	_, err := s.modelmanager.CreateModel(context.Background(), createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -1275,12 +1266,6 @@ func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSelf(c *gc.C) {
 
 	owner := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, owner)
-	as := s.accessService.EXPECT()
-	id := permission.ID{
-		ObjectType: permission.Cloud,
-		Key:        "dummy",
-	}
-	as.ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(owner), id).Return(permission.WriteAccess, nil)
 
 	_, err := s.modelmanager.CreateModel(context.Background(), createArgs(owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
