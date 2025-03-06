@@ -14066,17 +14066,6 @@
                         }
                     }
                 },
-                "HostKeyForTarget": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SSHHostKeyRequestArg"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/SSHHostKeyResult"
-                        }
-                    }
-                },
                 "ModelCredentialForSSH": {
                     "type": "object",
                     "properties": {
@@ -14112,6 +14101,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/SSHAddressResults"
+                        }
+                    }
+                },
+                "PublicHostKeyForTarget": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SSHHostKeyRequestArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SSHHostKeyResult"
                         }
                     }
                 },
