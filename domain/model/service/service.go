@@ -599,11 +599,9 @@ func (s *Service) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
 
 		// Retrieve all activate status of all models with associated uuids
 		activatedModelUUIDs, err := s.st.GetActivatedModelUUIDs(ctx, modelUUIDs)
+
+		// There should be no errors returned if there are no activated models found.
 		if err != nil {
-			// Should not return any errors if there are no activated models.
-			if errors.Is(err, modelerrors.NotFound) {
-				return nil, nil
-			}
 			s.logger.Errorf(ctx, "failed to activated model UUIDs: %v\n", err)
 			return nil, err
 		}

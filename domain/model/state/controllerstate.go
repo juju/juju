@@ -1812,7 +1812,7 @@ func (st *State) AllModelActivationStatusQuery() string {
 //
 // Returns:
 //   - []string: A subset of the input UUIDs containing only those of activated models.
-//   - [modelerrors.NotFound]: When no activated model can be found from given uuids.
+//   - error: An error if the retrieval process fails.
 func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -1841,16 +1841,13 @@ AND activated = true
 	var modelUUIDs []modelUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, inputUUIDs).GetAll(&modelUUIDs)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return modelerrors.NotFound
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
 		}
-		return err
+		return nil
 	})
 
 	if err != nil {
-		if errors.Is(err, modelerrors.NotFound) {
-			return nil, modelerrors.NotFound
-		}
 		return nil, errors.Capture(err)
 	}
 
