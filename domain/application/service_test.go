@@ -17,6 +17,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -42,7 +43,7 @@ import (
 type serviceSuite struct {
 	testing.ModelSuite
 
-	svc         *service.Service
+	svc         *service.ProviderService
 	secretState *secretstate.State
 }
 
@@ -56,12 +57,20 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.secretState = secretstate.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, loggertesting.WrapCheckLog(c))
-	s.svc = service.NewService(
+	s.svc = service.NewProviderService(
 		state.NewState(func() (database.TxnRunner, error) { return s.ModelTxnRunner(), nil }, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domaintesting.NoopLeaderEnsurer(),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
+		model.UUID(s.ModelUUID()),
+		nil,
+		func(ctx context.Context) (service.Provider, error) {
+			return serviceProvider{}, nil
+		},
+		func(ctx context.Context) (service.SupportedFeatureProvider, error) {
+			return serviceProvider{}, nil
+		},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
@@ -822,6 +831,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(willRestart, jc.IsFalse)
 }
+
 func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
 	appID, err := s.svc.CreateApplication(context.Background(), name, &stubCharm{}, corecharm.Origin{
 		Source: corecharm.CharmHub,

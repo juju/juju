@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
@@ -17,10 +16,8 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
@@ -35,11 +32,9 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -114,140 +109,6 @@ type Provider interface {
 // a model provider that satisfies the SupportedFeatureEnumerator interface.
 type SupportedFeatureProvider interface {
 	environs.SupportedFeatureEnumerator
-}
-
-// ProviderService defines a service for interacting with the underlying
-// model state.
-type ProviderService struct {
-	*Service
-
-	modelID            coremodel.UUID
-	agentVersionGetter AgentVersionGetter
-	provider           providertracker.ProviderGetter[Provider]
-	// This provider is separated from [provider] because the
-	// [SupportedFeatureProvider] interface is only satisfied by the
-	// k8s provider.
-	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider]
-}
-
-// NewProviderService returns a new Service for interacting with a models state.
-func NewProviderService(
-	st State,
-	leaderEnsurer leadership.Ensurer,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	modelID coremodel.UUID,
-	agentVersionGetter AgentVersionGetter,
-	provider providertracker.ProviderGetter[Provider],
-	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
-	charmStore CharmStore,
-	statusHistory StatusHistory,
-	clock clock.Clock,
-	logger logger.Logger,
-) *ProviderService {
-	return &ProviderService{
-		Service: NewService(
-			st,
-			leaderEnsurer,
-			storageRegistryGetter,
-			charmStore,
-			statusHistory,
-			clock,
-			logger,
-		),
-		modelID:                  modelID,
-		agentVersionGetter:       agentVersionGetter,
-		provider:                 provider,
-		supportedFeatureProvider: supportedFeatureProvider,
-	}
-}
-
-// GetSupportedFeatures returns the set of features that the model makes
-// available for charms to use.
-// If the agent version cannot be found, an error satisfying
-// [modelerrors.NotFound] will be returned.
-func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error) {
-	agentVersion, err := s.agentVersionGetter.GetTargetAgentVersion(ctx)
-	if err != nil {
-		return assumes.FeatureSet{}, err
-	}
-
-	var fs assumes.FeatureSet
-	fs.Add(assumes.Feature{
-		Name:        "juju",
-		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
-		Version:     &agentVersion,
-	})
-
-	supportedFeatureProvider, err := s.supportedFeatureProvider(ctx)
-	if errors.Is(err, errors.NotSupported) {
-		return fs, nil
-	} else if err != nil {
-		return fs, err
-	}
-
-	envFs, err := supportedFeatureProvider.SupportedFeatures()
-	if err != nil {
-		return fs, fmt.Errorf("enumerating features supported by environment: %w", err)
-	}
-
-	fs.Merge(envFs)
-
-	return fs, nil
-}
-
-// SetApplicationConstraints sets the application constraints for the
-// specified application ID.
-// This method overwrites the full constraints on every call.
-// If invalid constraints are provided (e.g. invalid container type or
-// non-existing space), a [applicationerrors.InvalidApplicationConstraints]
-// error is returned.
-// If no application is found, an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned.
-func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) error {
-	if err := appID.Validate(); err != nil {
-		return internalerrors.Errorf("application ID: %w", err)
-	}
-	if err := s.validateConstraints(ctx, cons); err != nil {
-		return err
-	}
-
-	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
-}
-
-func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstraints.Validator, error) {
-	provider, err := s.provider(ctx)
-	if errors.Is(err, errors.NotSupported) {
-		// Not validating constraints, as the provider doesn't support it.
-		return nil, nil
-	} else if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-
-	validator, err := provider.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(ctx))
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-
-	return validator, nil
-}
-
-func (s *ProviderService) validateConstraints(ctx context.Context, cons coreconstraints.Value) error {
-	validator, err := s.constraintsValidator(ctx)
-	if err != nil {
-		return internalerrors.Capture(err)
-	} else if validator == nil {
-		return nil
-	}
-
-	unsupported, err := validator.Validate(cons)
-	if len(unsupported) > 0 {
-		s.logger.Warningf(ctx,
-			"unsupported constraints: %v", strings.Join(unsupported, ","))
-	} else if err != nil {
-		return internalerrors.Capture(err)
-	}
-
-	return nil
 }
 
 // WatchableService provides the API for working with applications and the

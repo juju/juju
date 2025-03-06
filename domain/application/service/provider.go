@@ -1,0 +1,313 @@
+package service
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/juju/clock"
+	"github.com/juju/errors"
+
+	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/assumes"
+	corecharm "github.com/juju/juju/core/charm"
+	coreconstraints "github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/providertracker"
+	corestorage "github.com/juju/juju/core/storage"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/constraints"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/environs/envcontext"
+	internalcharm "github.com/juju/juju/internal/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
+)
+
+// ProviderService defines a service for interacting with the underlying
+// model state.
+type ProviderService struct {
+	*Service
+
+	modelID            coremodel.UUID
+	agentVersionGetter AgentVersionGetter
+	provider           providertracker.ProviderGetter[Provider]
+	// This provider is separated from [provider] because the
+	// [SupportedFeatureProvider] interface is only satisfied by the
+	// k8s provider.
+	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider]
+}
+
+// NewProviderService returns a new Service for interacting with a models state.
+func NewProviderService(
+	st State,
+	leaderEnsurer leadership.Ensurer,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	modelID coremodel.UUID,
+	agentVersionGetter AgentVersionGetter,
+	provider providertracker.ProviderGetter[Provider],
+	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
+	charmStore CharmStore,
+	statusHistory StatusHistory,
+	clock clock.Clock,
+	logger logger.Logger,
+) *ProviderService {
+	return &ProviderService{
+		Service: NewService(
+			st,
+			leaderEnsurer,
+			storageRegistryGetter,
+			charmStore,
+			statusHistory,
+			clock,
+			logger,
+		),
+		modelID:                  modelID,
+		agentVersionGetter:       agentVersionGetter,
+		provider:                 provider,
+		supportedFeatureProvider: supportedFeatureProvider,
+	}
+}
+
+// CreateApplication creates the specified application and units if required,
+// returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
+// if the application already exists.
+func (s *ProviderService) CreateApplication(
+	ctx context.Context,
+	name string,
+	charm internalcharm.Charm,
+	origin corecharm.Origin,
+	args AddApplicationArgs,
+	units ...AddUnitArg,
+) (coreapplication.ID, error) {
+	if err := validateCharmAndApplicationParams(
+		name,
+		args.ReferenceName,
+		charm,
+		origin,
+		args.DownloadInfo,
+	); err != nil {
+		return "", errors.Annotatef(err, "invalid application args")
+	}
+
+	if err := validateCreateApplicationResourceParams(charm, args.ResolvedResources, args.PendingResources); err != nil {
+		return "", errors.Annotatef(err, "create application")
+	}
+
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return "", errors.Annotatef(err, "getting model type")
+	}
+	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, charm, origin, args)
+	if err != nil {
+		return "", errors.Annotatef(err, "creating application args")
+	}
+	// We know that the charm name is valid, so we can use it as the application
+	// name if that is not provided.
+	if name == "" {
+		// Annoyingly this should be the reference name, but that's not
+		// true in the previous code. To keep compatibility, we'll use the
+		// charm name.
+		name = appArg.Charm.Metadata.Name
+	}
+
+	numUnits := len(units)
+	appArg.Scale = numUnits
+
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints))
+	if err != nil {
+		return "", errors.Annotatef(err, "merging application and model constraints")
+	}
+
+	unitArgs, err := s.makeUnitArgs(modelType, units, constraints.DecodeConstraints(cons))
+	if err != nil {
+		return "", errors.Annotatef(err, "making unit args")
+	}
+
+	appID, err := s.st.CreateApplication(ctx, name, appArg, unitArgs)
+	if err != nil {
+		return "", errors.Annotatef(err, "creating application %q", name)
+	}
+
+	s.logger.Infof(ctx, "created application %q with ID %q", name, appID)
+
+	if args.ApplicationStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(appID.String()), *args.ApplicationStatus); err != nil {
+			s.logger.Infof(ctx, "failed recording application status history: %w", err)
+		}
+	}
+
+	return appID, nil
+}
+
+// GetSupportedFeatures returns the set of features that the model makes
+// available for charms to use.
+// If the agent version cannot be found, an error satisfying
+// [modelerrors.NotFound] will be returned.
+func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error) {
+	agentVersion, err := s.agentVersionGetter.GetTargetAgentVersion(ctx)
+	if err != nil {
+		return assumes.FeatureSet{}, err
+	}
+
+	var fs assumes.FeatureSet
+	fs.Add(assumes.Feature{
+		Name:        "juju",
+		Description: assumes.UserFriendlyFeatureDescriptions["juju"],
+		Version:     &agentVersion,
+	})
+
+	supportedFeatureProvider, err := s.supportedFeatureProvider(ctx)
+	if errors.Is(err, errors.NotSupported) {
+		return fs, nil
+	} else if err != nil {
+		return fs, err
+	}
+
+	envFs, err := supportedFeatureProvider.SupportedFeatures()
+	if err != nil {
+		return fs, fmt.Errorf("enumerating features supported by environment: %w", err)
+	}
+
+	fs.Merge(envFs)
+
+	return fs, nil
+}
+
+// SetApplicationConstraints sets the application constraints for the
+// specified application ID.
+// This method overwrites the full constraints on every call.
+// If invalid constraints are provided (e.g. invalid container type or
+// non-existing space), a [applicationerrors.InvalidApplicationConstraints]
+// error is returned.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) error {
+	if err := appID.Validate(); err != nil {
+		return internalerrors.Errorf("application ID: %w", err)
+	}
+	if err := s.validateConstraints(ctx, cons); err != nil {
+		return err
+	}
+
+	return s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(cons))
+}
+
+func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstraints.Validator, error) {
+	provider, err := s.provider(ctx)
+	if errors.Is(err, errors.NotSupported) {
+		// Not validating constraints, as the provider doesn't support it.
+		return nil, nil
+	} else if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	validator, err := provider.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(ctx))
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	return validator, nil
+}
+
+// AddUnits adds the specified units to the application, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application
+// doesn't exist.
+// If no units are provided, it will return nil.
+func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
+	if !isValidApplicationName(appName) {
+		return applicationerrors.ApplicationNameNotValid
+	}
+
+	if len(units) == 0 {
+		return nil
+	}
+
+	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return internalerrors.Errorf("getting application %q id: %w", appName, err)
+	}
+
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return internalerrors.Errorf("getting model type: %w", err)
+	}
+
+	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
+	if err != nil {
+		return internalerrors.Errorf("getting application %q constraints: %w", appName, err)
+	}
+
+	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	args, err := s.makeUnitArgs(modelType, units, constraints.DecodeConstraints(cons))
+	if err != nil {
+		return internalerrors.Errorf("making unit args: %w", err)
+	}
+
+	if err := s.st.AddUnits(ctx, appUUID, args); err != nil {
+		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
+	}
+
+	for _, arg := range args {
+		unitName := arg.UnitName.String()
+
+		if agentStatus, err := decodeUnitAgentStatus(arg.UnitStatusArg.AgentStatus); err == nil && agentStatus != nil {
+			if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName), *agentStatus); err != nil {
+				s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
+			}
+		}
+
+		if workloadStatus, err := decodeWorkloadStatus(arg.UnitStatusArg.WorkloadStatus); err == nil && workloadStatus != nil {
+			if err := s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName), *workloadStatus); err != nil {
+				s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Context, appCons constraints.Constraints) (coreconstraints.Value, error) {
+	// If the provider doesn't support constraints validation, then we can
+	// just return the zero value.
+	validator, err := s.constraintsValidator(ctx)
+	if err != nil || validator == nil {
+		return coreconstraints.Value{}, internalerrors.Capture(err)
+	}
+
+	modelCons, err := s.st.GetModelConstraints(ctx)
+	if err != nil && !errors.Is(err, modelerrors.ConstraintsNotFound) {
+		return coreconstraints.Value{}, internalerrors.Errorf("retrieving model constraints constraints: %w	", err)
+	}
+
+	res, err := validator.Merge(constraints.EncodeConstraints(appCons), constraints.EncodeConstraints(modelCons))
+	if err != nil {
+		return coreconstraints.Value{}, internalerrors.Errorf("merging application and model constraints: %w", err)
+	}
+
+	return res, nil
+}
+
+func (s *ProviderService) validateConstraints(ctx context.Context, cons coreconstraints.Value) error {
+	validator, err := s.constraintsValidator(ctx)
+	if err != nil {
+		return internalerrors.Capture(err)
+	} else if validator == nil {
+		return nil
+	}
+
+	unsupported, err := validator.Validate(cons)
+	if len(unsupported) > 0 {
+		s.logger.Warningf(ctx,
+			"unsupported constraints: %v", strings.Join(unsupported, ","))
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	return nil
+}
