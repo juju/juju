@@ -36,7 +36,7 @@ func createFilesystems(ctx context.Context, deps *dependencies, ops map[names.Fi
 	var filesystems []storage.Filesystem
 	var statuses []params.EntityStatusArgs
 	for sourceName, filesystemParams := range paramsBySource {
-		deps.config.Logger.Debugf(context.TODO(), "creating filesystems: %v", filesystemParams)
+		deps.config.Logger.Debugf(ctx, "creating filesystems: %v", filesystemParams)
 		filesystemSource := filesystemSources[sourceName]
 		validFilesystemParams, validationErrors := validateFilesystemParams(
 			filesystemSource, filesystemParams,
@@ -50,7 +50,7 @@ func createFilesystems(ctx context.Context, deps *dependencies, ops map[names.Fi
 				Status: status.Error.String(),
 				Info:   err.Error(),
 			})
-			deps.config.Logger.Debugf(context.TODO(),
+			deps.config.Logger.Debugf(ctx,
 				"failed to validate parameters for %s: %v",
 				names.ReadableString(filesystemParams[i].Tag), err,
 			)
@@ -79,7 +79,7 @@ func createFilesystems(ctx context.Context, deps *dependencies, ops map[names.Fi
 				// status to "error" for permanent errors.
 				entityStatus.Status = status.Pending.String()
 				entityStatus.Info = result.Error.Error()
-				deps.config.Logger.Debugf(context.TODO(),
+				deps.config.Logger.Debugf(ctx,
 					"failed to create %s: %v",
 					names.ReadableString(filesystemParams[i].Tag),
 					result.Error,
@@ -104,7 +104,7 @@ func createFilesystems(ctx context.Context, deps *dependencies, ops map[names.Fi
 	}
 	for i, result := range errorResults {
 		if result.Error != nil {
-			deps.config.Logger.Errorf(context.TODO(),
+			deps.config.Logger.Errorf(ctx,
 				"publishing filesystem %s to state: %v",
 				filesystems[i].Tag.Id(),
 				result.Error,
@@ -141,7 +141,7 @@ func attachFilesystems(ctx context.Context, deps *dependencies, ops map[params.M
 	var filesystemAttachments []storage.FilesystemAttachment
 	var statuses []params.EntityStatusArgs
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
-		deps.config.Logger.Debugf(context.TODO(), "attaching filesystems: %+v", filesystemAttachmentParams)
+		deps.config.Logger.Debugf(ctx, "attaching filesystems: %+v", filesystemAttachmentParams)
 		filesystemSource := filesystemSources[sourceName]
 		results, err := filesystemSource.AttachFilesystems(deps.config.CloudCallContextFunc(context.Background()), filesystemAttachmentParams)
 		if err != nil {
@@ -168,7 +168,7 @@ func attachFilesystems(ctx context.Context, deps *dependencies, ops map[params.M
 				// set the status to "error" for permanent errors.
 				entityStatus.Status = status.Attaching.String()
 				entityStatus.Info = result.Error.Error()
-				deps.config.Logger.Debugf(context.TODO(),
+				deps.config.Logger.Debugf(ctx,
 					"failed to attach %s to %s: %v",
 					names.ReadableString(p.Filesystem),
 					names.ReadableString(p.Machine),
@@ -246,7 +246,7 @@ func removeFilesystems(ctx context.Context, deps *dependencies, ops map[names.Fi
 		return nil
 	}
 	for sourceName, filesystemParams := range paramsBySource {
-		deps.config.Logger.Debugf(context.TODO(), "removing filesystems from %q: %v", sourceName, filesystemParams)
+		deps.config.Logger.Debugf(ctx, "removing filesystems from %q: %v", sourceName, filesystemParams)
 		filesystemSource := filesystemSources[sourceName]
 		removeTags := make([]names.FilesystemTag, len(filesystemParams))
 		removeParams := make([]params.RemoveFilesystemParams, len(filesystemParams))
@@ -311,7 +311,7 @@ func detachFilesystems(ctx context.Context, deps *dependencies, ops map[params.M
 	var statuses []params.EntityStatusArgs
 	var remove []params.MachineStorageId
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
-		deps.config.Logger.Debugf(context.TODO(), "detaching filesystems: %+v", filesystemAttachmentParams)
+		deps.config.Logger.Debugf(ctx, "detaching filesystems: %+v", filesystemAttachmentParams)
 		filesystemSource, ok := filesystemSources[sourceName]
 		if !ok && deps.isApplicationKind() {
 			continue
@@ -342,7 +342,7 @@ func detachFilesystems(ctx context.Context, deps *dependencies, ops map[params.M
 				reschedule = append(reschedule, ops[id])
 				entityStatus.Status = status.Detaching.String()
 				entityStatus.Info = err.Error()
-				deps.config.Logger.Debugf(context.TODO(),
+				deps.config.Logger.Debugf(ctx,
 					"failed to detach %s from %s: %v",
 					names.ReadableString(p.Filesystem),
 					names.ReadableString(p.Machine),

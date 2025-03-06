@@ -136,13 +136,13 @@ func (w *Pruner) loop() error {
 }
 
 func (w *Pruner) prune() (map[string]int64, error) {
-	traceEnabled := w.cfg.Logger.IsLevelEnabled(logger.TRACE)
-	if traceEnabled {
-		w.cfg.Logger.Tracef(context.TODO(), "Starting pruning change log")
-	}
-
 	ctx, cancel := w.scopedContext()
 	defer cancel()
+
+	traceEnabled := w.cfg.Logger.IsLevelEnabled(logger.TRACE)
+	if traceEnabled {
+		w.cfg.Logger.Tracef(ctx, "Starting pruning change log")
+	}
 
 	db, err := w.cfg.DBGetter.GetDB(coredatabase.ControllerNS)
 	if err != nil {
@@ -190,12 +190,12 @@ func (w *Pruner) prune() (map[string]int64, error) {
 			}
 			// If there is an error, continue on to the next model, as we don't
 			// want to kill the worker.
-			w.cfg.Logger.Infof(context.TODO(), "Error pruning model %q: %v", mn.UUID, err)
+			w.cfg.Logger.Infof(ctx, "Error pruning model %q: %v", mn.UUID, err)
 			continue
 		}
 
 		if traceEnabled {
-			w.cfg.Logger.Tracef(context.TODO(), "Pruned %d change logs for model %q", pruned, mn.UUID)
+			w.cfg.Logger.Tracef(ctx, "Pruned %d change logs for model %q", pruned, mn.UUID)
 		}
 
 		pruned[mn.Namespace] = p
@@ -211,7 +211,7 @@ func (w *Pruner) prune() (map[string]int64, error) {
 	}
 
 	if traceEnabled {
-		w.cfg.Logger.Tracef(context.TODO(), "Finished pruning change log")
+		w.cfg.Logger.Tracef(ctx, "Finished pruning change log")
 	}
 
 	return pruned, nil
@@ -277,7 +277,7 @@ func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, names
 		end:   now,
 	}
 	if !timeView.Contains(watermarkView) && !watermarkView.Equals(w.windows[namespace]) {
-		w.cfg.Logger.Warningf(context.TODO(), "namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up", namespace, sorted[0].ControllerID)
+		w.cfg.Logger.Warningf(ctx, "namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up", namespace, sorted[0].ControllerID)
 	}
 
 	// Save the last window for the next iteration.

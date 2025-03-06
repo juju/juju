@@ -85,7 +85,7 @@ func (config Config) Validate() error {
 			// machine anyway. This is a hack for bug #1866623
 			return errors.NotValidf("Tag of kind %v", config.Tag.Kind())
 		}
-		config.Logger.Debugf(context.TODO(), "asked to start an instance mutator with Tag of kind %q", config.Tag.Kind())
+		config.Logger.Debugf(context.Background(), "asked to start an instance mutator with Tag of kind %q", config.Tag.Kind())
 	}
 	if config.GetMachineWatcher == nil {
 		return errors.NotValidf("nil GetMachineWatcher")
@@ -118,7 +118,7 @@ func NewEnvironWorker(ctx context.Context, config Config) (worker.Worker, error)
 // polls their instance for addition or removal changes.
 func NewContainerWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	if _, ok := config.Tag.(names.MachineTag); !ok {
-		config.Logger.Warningf(context.TODO(), "cannot start a ContainerWorker on a %q, not restarting", config.Tag.Kind())
+		config.Logger.Warningf(ctx, "cannot start a ContainerWorker on a %q, not restarting", config.Tag.Kind())
 		return nil, dependency.ErrUninstall
 	}
 	m, err := config.Facade.Machine(ctx, config.Tag.(names.MachineTag))
@@ -174,6 +174,9 @@ type mutaterWorker struct {
 }
 
 func (w *mutaterWorker) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	m := &mutater{
@@ -195,7 +198,7 @@ func (w *mutaterWorker) loop() error {
 			for i := range ids {
 				tags[i] = names.NewMachineTag(ids[i])
 			}
-			if err := m.startMachines(context.TODO(), tags); err != nil {
+			if err := m.startMachines(ctx, tags); err != nil {
 				return err
 			}
 		case d := <-m.machineDead:
@@ -260,4 +263,8 @@ func (w *mutaterWorker) errDying() error {
 // add is part of the lifetimeContext interface.
 func (w *mutaterWorker) add(new worker.Worker) error {
 	return w.catacomb.Add(new)
+}
+
+func (w *mutaterWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

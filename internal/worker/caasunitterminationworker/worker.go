@@ -79,12 +79,15 @@ func (w *terminationWorker) Wait() error {
 }
 
 func (w *terminationWorker) loop(c <-chan os.Signal) (err error) {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	select {
 	case <-c:
-		w.logger.Infof(context.TODO(), "terminating due to SIGTERM")
-		term, err := w.state.UnitTerminating(context.TODO(), w.agent.CurrentConfig().Tag().(names.UnitTag))
+		w.logger.Infof(ctx, "terminating due to SIGTERM")
+		term, err := w.state.UnitTerminating(ctx, w.agent.CurrentConfig().Tag().(names.UnitTag))
 		if err != nil {
-			w.logger.Errorf(context.TODO(), "error while terminating unit: %v", err)
+			w.logger.Errorf(ctx, "error while terminating unit: %v", err)
 			return err
 		}
 		if !term.WillRestart {
@@ -93,11 +96,15 @@ func (w *terminationWorker) loop(c <-chan os.Signal) (err error) {
 		}
 		err = w.unitTerminator.Terminate()
 		if err != nil {
-			w.logger.Errorf(context.TODO(), "error while terminating unit: %v", err)
+			w.logger.Errorf(ctx, "error while terminating unit: %v", err)
 			return errors.Annotatef(err, "failed to terminate unit agent worker")
 		}
 		return nil
 	case <-w.tomb.Dying():
 		return tomb.ErrDying
 	}
+}
+
+func (w *terminationWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }

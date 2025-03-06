@@ -139,15 +139,15 @@ func (t *tracer) loop() error {
 		defer cancel()
 
 		if err := t.clientProvider.ForceFlush(ctx); err != nil {
-			t.logger.Infof(context.TODO(), "failed to flush client: %v", err)
+			t.logger.Infof(ctx, "failed to flush client: %v", err)
 		}
 
 		if err := t.client.Stop(ctx); err != nil {
-			t.logger.Infof(context.TODO(), "failed to stop client: %v", err)
+			t.logger.Infof(ctx, "failed to stop client: %v", err)
 		}
 
 		if err := t.clientProvider.Shutdown(ctx); err != nil {
-			t.logger.Infof(context.TODO(), "failed to shutdown provider: %v", err)
+			t.logger.Infof(ctx, "failed to shutdown provider: %v", err)
 		}
 	}()
 
@@ -284,7 +284,7 @@ type limitedSpan struct {
 }
 
 func (s *limitedSpan) End(attrs ...coretrace.Attribute) {
-	s.logger.Warningf(context.TODO(), "attempted to end a span that you don't own")
+	s.logger.Warningf(context.Background(), "attempted to end a span that you don't own")
 }
 
 func attributes(attrs []coretrace.Attribute) []attribute.KeyValue {

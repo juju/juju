@@ -90,12 +90,12 @@ func (h *handler) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
 	for _, action := range actions {
 		tag, err := names.ParseActionTag(action.Action.Tag)
 		if err != nil {
-			logger.Infof(context.TODO(), "tried to cancel action %s but failed with error %v", action.Action.Tag, err)
+			logger.Infof(ctx, "tried to cancel action %s but failed with error %v", action.Action.Tag, err)
 			continue
 		}
 		err = h.config.Facade.ActionFinish(ctx, tag, params.ActionFailed, nil, "action cancelled")
 		if err != nil {
-			logger.Infof(context.TODO(), "tried to cancel action %s but failed with error %v", action.Action.Tag, err)
+			logger.Infof(ctx, "tried to cancel action %s but failed with error %v", action.Action.Tag, err)
 		}
 	}
 	return h.config.Facade.WatchActionNotifications(ctx, h.config.MachineTag)
@@ -119,7 +119,7 @@ func (h *handler) Handle(ctx context.Context, actionsSlice []string) error {
 			// requires the action to exist.
 			// TODO (stickupkid) As a follow up, we should have a new method that
 			// allows the removal of a action notification without an action present.
-			logger.Infof(context.TODO(), "unable to retrieve action %s: %v", actionId, err)
+			logger.Infof(ctx, "unable to retrieve action %s: %v", actionId, err)
 			continue
 		}
 
@@ -129,7 +129,7 @@ func (h *handler) Handle(ctx context.Context, actionsSlice []string) error {
 		case <-ctx.Done():
 			// The associated strings watcher has been aborted, so there isn't
 			// anything we can do here but give up.
-			logger.Debugf(context.TODO(), "action %q aborted waiting in queue", actionTag.ID)
+			logger.Debugf(ctx, "action %q aborted waiting in queue", actionTag.ID)
 			return nil
 		}
 		h.wait.Add(1)
@@ -149,11 +149,11 @@ func (h *handler) TearDown() error {
 	// any outstanding actions as failed.
 	inflight := atomic.LoadInt64(&h.inflight)
 	if inflight > 0 {
-		logger.Infof(context.TODO(), "Waiting for %d running actions...", inflight)
+		logger.Infof(context.Background(), "Waiting for %d running actions...", inflight)
 	}
 	h.wait.Wait()
 	if inflight > 0 {
-		logger.Infof(context.TODO(), "Done waiting for actions.")
+		logger.Infof(context.Background(), "Done waiting for actions.")
 	}
 	return nil
 }
@@ -172,14 +172,14 @@ func (h *handler) runAction(ctx context.Context, actionTag names.ActionTag, acti
 		if finishErr != nil &&
 			!params.IsCodeAlreadyExists(finishErr) &&
 			!params.IsCodeNotFoundOrCodeUnauthorized(finishErr) {
-			logger.Errorf(context.TODO(), "could not finish action %s: %v", action.Name(), finishErr)
+			logger.Errorf(ctx, "could not finish action %s: %v", action.Name(), finishErr)
 		}
 
 		// Release concurrency slot.
 		select {
 		case <-h.limiter:
 		case <-ctx.Done():
-			logger.Debugf(context.TODO(), "action %q aborted waiting to enqueue", actionTag)
+			logger.Debugf(ctx, "action %q aborted waiting to enqueue", actionTag)
 		}
 		atomic.AddInt64(&h.inflight, -1)
 		h.wait.Done()

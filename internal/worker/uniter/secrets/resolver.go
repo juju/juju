@@ -65,7 +65,7 @@ func (s *secretsResolver) NextOp(
 	}
 	for uri, info := range remoteState.ConsumedSecretInfo {
 		existing := s.secretsTracker.ConsumedSecretRevision(uri)
-		s.logger.Debugf(context.TODO(), "%s: current=%d, new=%d", uri, existing, info.LatestRevision)
+		s.logger.Debugf(ctx, "%s: current=%d, new=%d", uri, existing, info.LatestRevision)
 		if existing != info.LatestRevision {
 			op, err := opFactory.NewRunHook(hook.Info{
 				Kind:           hooks.SecretChanged,
@@ -87,7 +87,7 @@ func (s *secretsResolver) NextOp(
 		return &secretCompleter{op, opCompleted}, nil
 	}
 	for uri, revs := range remoteState.ObsoleteSecretRevisions {
-		s.logger.Debugf(context.TODO(), "%s: resolving obsolete %v", uri, revs)
+		s.logger.Debugf(ctx, "%s: resolving obsolete %v", uri, revs)
 		alreadyProcessed := set.NewInts(s.secretsTracker.SecretObsoleteRevisions(uri)...)
 		for _, rev := range revs {
 			if alreadyProcessed.Contains(rev) {

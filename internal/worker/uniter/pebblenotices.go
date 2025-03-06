@@ -4,7 +4,7 @@
 package uniter
 
 import (
-	stdcontext "context"
+	"context"
 	"net/http"
 	"time"
 
@@ -70,13 +70,16 @@ func (n *pebbleNoticer) Wait() error {
 }
 
 func (n *pebbleNoticer) run(containerName string) (err error) {
+	ctx, cancel := n.scopeContext()
+	defer cancel()
+
 	const (
 		waitTimeout = 30 * time.Second
 		errorDelay  = time.Second
 	)
 
-	n.logger.Debugf(stdcontext.TODO(), "container %q: pebbleNoticer starting", containerName)
-	defer n.logger.Debugf(stdcontext.TODO(), "container %q: pebbleNoticer stopped, error %v", containerName, err)
+	n.logger.Debugf(ctx, "container %q: pebbleNoticer starting", containerName)
+	defer n.logger.Debugf(ctx, "container %q: pebbleNoticer stopped, error %v", containerName, err)
 
 	config := newPebbleConfig(containerName)
 	pebbleClient, err := n.newPebbleClient(config)
@@ -86,7 +89,6 @@ func (n *pebbleNoticer) run(containerName string) (err error) {
 	defer pebbleClient.CloseIdleConnections()
 
 	var after time.Time
-	ctx := n.tomb.Context(nil)
 	for {
 		// Wait up to a timeout for new notices to arrive (also stop when
 		// tomb's context is cancelled).
@@ -105,10 +107,10 @@ func (n *pebbleNoticer) run(containerName string) (err error) {
 			var socketNotFound *client.SocketNotFoundError
 			if errors.As(err, &socketNotFound) {
 				// Pebble has probably not started yet -- not an error.
-				n.logger.Debugf(stdcontext.TODO(), "container %q: socket %q not found, waiting %s",
+				n.logger.Debugf(ctx, "container %q: socket %q not found, waiting %s",
 					containerName, socketNotFound.Path, errorDelay)
 			} else {
-				n.logger.Errorf(stdcontext.TODO(), "container %q: WaitNotices error, waiting %s: %v",
+				n.logger.Errorf(ctx, "container %q: WaitNotices error, waiting %s: %v",
 					containerName, errorDelay, err)
 			}
 			select {
@@ -121,7 +123,7 @@ func (n *pebbleNoticer) run(containerName string) (err error) {
 
 		// Send any notices as Juju events.
 		for _, notice := range notices {
-			err := n.processNotice(containerName, notice, pebbleClient)
+			err := n.processNotice(ctx, containerName, notice, pebbleClient)
 			if err != nil {
 				// Avoid wrapping or tracing this error, as processNotice can
 				// return tomb.ErrDying, and tomb doesn't use errors.Is yet.
@@ -134,7 +136,7 @@ func (n *pebbleNoticer) run(containerName string) (err error) {
 	}
 }
 
-func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notice, pebbleClient PebbleClient) error {
+func (n *pebbleNoticer) processNotice(ctx context.Context, containerName string, notice *client.Notice, pebbleClient PebbleClient) error {
 	var eventType container.WorkloadEventType
 	var event container.WorkloadEvent
 	switch notice.Type {
@@ -157,7 +159,7 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 		// change kinds reflect changes in the workload state, so are useful to
 		// charms.
 		if kind != "perform-check" && kind != "recover-check" {
-			n.logger.Debugf(stdcontext.TODO(), "container %q: ignoring %s notice, kind %s", containerName, notice.Type, kind)
+			n.logger.Debugf(ctx, "container %q: ignoring %s notice, kind %s", containerName, notice.Type, kind)
 			return nil
 		}
 		// We always look for the final status (Done, Error), because the status
@@ -176,7 +178,7 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 			// check has been in the same state (perform or recover) for a long
 			// time and then changes state. In this case, proceed and assume the
 			// change was completed (Error for perform-check, Done for recover-check).
-			n.logger.Debugf(stdcontext.TODO(), "container %q: %s notice, could not fetch change %q: %v",
+			n.logger.Debugf(ctx, "container %q: %s notice, could not fetch change %q: %v",
 				containerName, notice.Type, notice.Key, err)
 		}
 
@@ -195,7 +197,7 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 			if chg != nil {
 				chgStatus = chg.Status
 			}
-			n.logger.Debugf(stdcontext.TODO(), "container %q: ignoring %s, status %s", containerName, kind, chgStatus)
+			n.logger.Debugf(ctx, "container %q: ignoring %s, status %s", containerName, kind, chgStatus)
 			return nil
 		}
 		event = container.WorkloadEvent{
@@ -204,11 +206,11 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 			CheckName:    data["check-name"],
 		}
 	default:
-		n.logger.Debugf(stdcontext.TODO(), "container %q: ignoring %s notice", containerName, notice.Type)
+		n.logger.Debugf(ctx, "container %q: ignoring %s notice", containerName, notice.Type)
 		return nil
 	}
 
-	n.logger.Debugf(stdcontext.TODO(), "container %q: processing %s notice, key %q", containerName, notice.Type, notice.Key)
+	n.logger.Debugf(ctx, "container %q: processing %s notice, key %q", containerName, notice.Type, notice.Key)
 
 	errChan := make(chan error, 1)
 	eventID := n.workloadEvents.AddWorkloadEvent(event, func(err error) {
@@ -234,4 +236,8 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 	}
 
 	return nil
+}
+
+func (n *pebbleNoticer) scopeContext() (stdctx context.Context, cancel context.CancelFunc) {
+	return context.WithCancel(n.tomb.Context(context.Background()))
 }

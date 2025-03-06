@@ -162,7 +162,7 @@ func (w *Worker) loop() error {
 		return errors.Capture(err)
 	}
 
-	logger.Debugf(context.TODO(), "watching applications referencing charms that have not yet been downloaded")
+	logger.Debugf(ctx, "watching applications referencing charms that have not yet been downloaded")
 
 	for {
 		select {
@@ -177,7 +177,7 @@ func (w *Worker) loop() error {
 				continue
 			}
 
-			logger.Debugf(context.TODO(), "triggering asynchronous download of charms for the following applications: %v", strings.Join(changes, ", "))
+			logger.Debugf(ctx, "triggering asynchronous download of charms for the following applications: %v", strings.Join(changes, ", "))
 
 			// Get a new downloader, this ensures that we've got a fresh
 			// connection to the charm store.
@@ -195,7 +195,7 @@ func (w *Worker) loop() error {
 			for _, change := range changes {
 				appID, err := application.ParseID(change)
 				if err != nil {
-					logger.Errorf(context.TODO(), "failed to parse application ID %q: %v", change, err)
+					logger.Errorf(ctx, "failed to parse application ID %q: %v", change, err)
 					continue
 				}
 

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
 	message "github.com/juju/juju/internal/pubsub/agent"
@@ -22,7 +22,7 @@ type Hub interface {
 }
 
 type manager struct {
-	catacomb catacomb.Catacomb
+	tomb tomb.Tomb
 
 	logger logger.Logger
 	clock  clock.Clock
@@ -53,20 +53,19 @@ func NewWorker(config Config) (worker.Worker, error) {
 		unsubStart()
 		unsubStatus()
 	}
-	err := catacomb.Invoke(catacomb.Plan{
-		Site: &w.catacomb,
-		Work: w.loop,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
+	w.tomb.Go(w.loop)
+
 	return &w, nil
 }
 
 func (w *manager) stopUnitRequest(topic string, data interface{}) {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	units, ok := data.(message.Units)
 	if !ok {
-		w.logger.Errorf(context.TODO(), "data should be a Units structure")
+		w.logger.Errorf(ctx, "data should be a Units structure")
 	}
 	response := message.StartStopResponse{
 		"error": errors.NotSupportedf("stop units for %v", units).Error(),
@@ -75,9 +74,12 @@ func (w *manager) stopUnitRequest(topic string, data interface{}) {
 }
 
 func (w *manager) startUnitRequest(topic string, data interface{}) {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	units, ok := data.(message.Units)
 	if !ok {
-		w.logger.Errorf(context.TODO(), "data should be a Units structure")
+		w.logger.Errorf(ctx, "data should be a Units structure")
 	}
 	response := message.StartStopResponse{
 		"error": errors.NotSupportedf("start units for %v", units).Error(),
@@ -93,15 +95,20 @@ func (w *manager) unitStatusRequest(topic string, _ interface{}) {
 }
 
 func (w *manager) Kill() {
-	w.unsub()
-	w.catacomb.Kill(nil)
+	w.tomb.Kill(nil)
 }
 
 func (w *manager) Wait() error {
-	return w.catacomb.Wait()
+	return w.tomb.Wait()
 }
 
 func (w *manager) loop() error {
-	<-w.catacomb.Dying()
-	return w.catacomb.ErrDying()
+	defer w.unsub()
+
+	<-w.tomb.Dying()
+	return tomb.ErrDying
+}
+
+func (w *manager) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }

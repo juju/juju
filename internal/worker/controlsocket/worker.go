@@ -207,20 +207,20 @@ func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Reques
 	defer req.Body.Close()
 	err := json.NewDecoder(req.Body).Decode(&parsedBody)
 	if errors.Is(err, io.EOF) {
-		w.writeResponse(resp, http.StatusBadRequest, errorf("missing request body"))
+		w.writeResponse(req.Context(), resp, http.StatusBadRequest, errorf("missing request body"))
 		return
 	} else if err != nil {
-		w.writeResponse(resp, http.StatusBadRequest, errorf("request body is not valid JSON: %v", err))
+		w.writeResponse(req.Context(), resp, http.StatusBadRequest, errorf("request body is not valid JSON: %v", err))
 		return
 	}
 
 	code, err := w.addMetricsUser(req.Context(), parsedBody.Username, auth.NewPassword(parsedBody.Password))
 	if err != nil {
-		w.writeResponse(resp, code, errorf("%v", err))
+		w.writeResponse(req.Context(), resp, code, errorf("%v", err))
 		return
 	}
 
-	w.writeResponse(resp, code, infof("created user %q", parsedBody.Username))
+	w.writeResponse(req.Context(), resp, code, infof("created user %q", parsedBody.Username))
 }
 
 func (w *Worker) addMetricsUser(ctx context.Context, username string, password auth.Password) (int, error) {
@@ -288,11 +288,11 @@ func (w *Worker) handleRemoveMetricsUser(resp http.ResponseWriter, req *http.Req
 	username := mux.Vars(req)["username"]
 	code, err := w.removeMetricsUser(req.Context(), username)
 	if err != nil {
-		w.writeResponse(resp, code, errorf("%v", err))
+		w.writeResponse(req.Context(), resp, code, errorf("%v", err))
 		return
 	}
 
-	w.writeResponse(resp, code, infof("deleted user %q", username))
+	w.writeResponse(req.Context(), resp, code, infof("deleted user %q", username))
 }
 
 func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, error) {
@@ -339,14 +339,14 @@ func validateMetricsUsername(username string) (user.Name, error) {
 	return name, nil
 }
 
-func (w *Worker) writeResponse(resp http.ResponseWriter, statusCode int, body any) {
-	w.logger.Debugf(context.TODO(), "operation finished with HTTP status %v", statusCode)
+func (w *Worker) writeResponse(ctx context.Context, resp http.ResponseWriter, statusCode int, body any) {
+	w.logger.Debugf(ctx, "operation finished with HTTP status %v", statusCode)
 	resp.Header().Set("Content-Type", "application/json")
 
 	message, err := json.Marshal(body)
 	if err != nil {
-		w.logger.Errorf(context.TODO(), "error marshalling response body to JSON: %v", err)
-		w.logger.Errorf(context.TODO(), "response body was %#v", body)
+		w.logger.Errorf(ctx, "error marshalling response body to JSON: %v", err)
+		w.logger.Errorf(ctx, "response body was %#v", body)
 
 		// Mark this as an "internal server error"
 		statusCode = http.StatusInternalServerError
@@ -355,10 +355,10 @@ func (w *Worker) writeResponse(resp http.ResponseWriter, statusCode int, body an
 	}
 
 	resp.WriteHeader(statusCode)
-	w.logger.Tracef(context.TODO(), "returning response %q", message)
+	w.logger.Tracef(ctx, "returning response %q", message)
 	_, err = resp.Write(message)
 	if err != nil {
-		w.logger.Warningf(context.TODO(), "error writing HTTP response: %v", err)
+		w.logger.Warningf(ctx, "error writing HTTP response: %v", err)
 	}
 }
 

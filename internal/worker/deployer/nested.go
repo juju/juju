@@ -570,7 +570,7 @@ func (c *nestedContext) AgentConfig() agent.Config {
 func removeOnErr(err *error, logger logger.Logger, path string) {
 	if *err != nil {
 		if err := os.RemoveAll(path); err != nil {
-			logger.Errorf(context.TODO(), "installer: cannot remove %q: %v", path, err)
+			logger.Errorf(context.Background(), "installer: cannot remove %q: %v", path, err)
 		}
 	}
 }

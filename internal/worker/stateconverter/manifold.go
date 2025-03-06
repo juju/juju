@@ -79,7 +79,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 
-	cfg.Logger.Tracef(context.TODO(), "starting NotifyWorker for %s", mTag)
+	cfg.Logger.Tracef(ctx, "starting NotifyWorker for %s", mTag)
 	handlerCfg := config{
 		machineTag: mTag,
 		machiner:   machiner,

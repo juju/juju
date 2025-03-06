@@ -385,14 +385,14 @@ func (s *loggerSink) Info(level int, msg string, keysAndValues ...any) {
 	}
 
 	format, args := s.formatKeysAndValues([]any{level, msg}, keysAndValues)
-	s.Logger.Tracef(context.TODO(), "%d: %s"+format, args...)
+	s.Logger.Tracef(context.Background(), "%d: %s"+format, args...)
 }
 
 // Error logs an error, with the given message and key/value pairs as
 // context.  See Logger.Error for more details.
 func (s *loggerSink) Error(err error, msg string, keysAndValues ...any) {
 	format, args := s.formatKeysAndValues([]any{msg, err}, keysAndValues)
-	s.Logger.Errorf(context.TODO(), "%s: %v"+format, args...)
+	s.Logger.Errorf(context.Background(), "%s: %v"+format, args...)
 }
 
 // WithValues returns a new LogSink with additional key/value pairs.  See

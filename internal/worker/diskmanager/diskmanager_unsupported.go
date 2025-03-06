@@ -6,7 +6,6 @@
 package diskmanager
 
 import (
-	"context"
 	"runtime"
 
 	"github.com/juju/juju/core/blockdevice"
@@ -22,7 +21,7 @@ func listBlockDevices() ([]blockdevice.BlockDevice, error) {
 }
 
 func init() {
-	logger.Infof(context.TODO(),
+	logger.Infof(ctx,
 		"block device support has not been implemented for %s",
 		runtime.GOOS,
 	)

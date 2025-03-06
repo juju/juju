@@ -128,7 +128,7 @@ func (w *remoteServer) loop() error {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 
-	defer w.closeCurrentConnection()
+	defer w.closeCurrentConnection(context.Background())
 
 	ctx, cancel := w.scopedContext()
 	defer cancel()
@@ -204,11 +204,11 @@ func (w *remoteServer) loop() error {
 				rctx      = request.ctx
 			)
 
-			w.logger.Debugf(context.TODO(), "addresses for %q have changed: %v", w.controllerID, addresses)
+			w.logger.Debugf(ctx, "addresses for %q have changed: %v", w.controllerID, addresses)
 
 			// If the addresses already exist, we don't need to do anything.
 			if connected && w.addressesAlreadyExist(addresses) {
-				w.logger.Debugf(context.TODO(), "addresses for %q have not changed", w.controllerID)
+				w.logger.Debugf(ctx, "addresses for %q have not changed", w.controllerID)
 				continue
 			}
 
@@ -227,7 +227,7 @@ func (w *remoteServer) loop() error {
 				}
 			}
 
-			w.logger.Debugf(context.TODO(), "connected to %s with addresses: %v", w.controllerID, addresses)
+			w.logger.Debugf(ctx, "connected to %s with addresses: %v", w.controllerID, addresses)
 
 			// We've successfully connected to the remote server, so update the
 			// addresses.
@@ -264,7 +264,7 @@ func (w *remoteServer) addressesAlreadyExist(addresses []string) bool {
 }
 
 func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan struct{}, error) {
-	w.logger.Debugf(context.TODO(), "connecting to %s with addresses: %v", w.controllerID, addresses)
+	w.logger.Debugf(ctx, "connecting to %s with addresses: %v", w.controllerID, addresses)
 
 	// Use temporary info until we're sure we can connect. If the addresses
 	// are invalid, but the existing connection is still valid, we don't want
@@ -286,7 +286,7 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan 
 		},
 		NotifyFunc: func(err error, attempt int) {
 			// This is normal behavior, so we don't need to log it as an error.
-			w.logger.Debugf(context.TODO(), "failed to connect to %s attempt %d, with addresses %v: %v", w.controllerID, attempt, info.Addrs, err)
+			w.logger.Debugf(ctx, "failed to connect to %s attempt %d, with addresses %v: %v", w.controllerID, attempt, info.Addrs, err)
 		},
 		IsFatalError: func(err error) bool {
 			// This is the only legitimist error that can be returned from the
@@ -307,7 +307,7 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan 
 		return nil, err
 	}
 
-	w.closeCurrentConnection()
+	w.closeCurrentConnection(ctx)
 
 	w.mu.Lock()
 	w.currentConnection = connection
@@ -318,7 +318,7 @@ func (w *remoteServer) connect(ctx context.Context, addresses []string) (<-chan 
 
 // closeCurrentConnection will close the current connection if it exists.
 // This is best effort and will not return an error.
-func (w *remoteServer) closeCurrentConnection() {
+func (w *remoteServer) closeCurrentConnection(ctx context.Context) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -328,7 +328,7 @@ func (w *remoteServer) closeCurrentConnection() {
 
 	err := w.currentConnection.Close()
 	if err != nil {
-		w.logger.Errorf(context.TODO(), "failed to close connection %q: %v", w.controllerID, err)
+		w.logger.Errorf(context.Background(), "failed to close connection %q: %v", w.controllerID, err)
 	}
 
 	w.currentConnection = nil

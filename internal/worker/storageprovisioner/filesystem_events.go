@@ -26,7 +26,7 @@ func filesystemsChanged(ctx context.Context, deps *dependencies, changes []strin
 	if err != nil {
 		return errors.Trace(err)
 	}
-	deps.config.Logger.Debugf(context.TODO(), "filesystems alive: %v, dying: %v, dead: %v", alive, dying, dead)
+	deps.config.Logger.Debugf(ctx, "filesystems alive: %v, dying: %v, dead: %v", alive, dying, dead)
 	if len(alive)+len(dying)+len(dead) == 0 {
 		return nil
 	}
@@ -75,11 +75,11 @@ func filesystemAttachmentsChanged(ctx context.Context, deps *dependencies, watch
 	if err != nil {
 		return errors.Trace(err)
 	}
-	deps.config.Logger.Debugf(context.TODO(), "filesystem attachment alive: %v, dying: %v, dead: %v", alive, dying, dead)
+	deps.config.Logger.Debugf(ctx, "filesystem attachment alive: %v, dying: %v, dead: %v", alive, dying, dead)
 	if len(dead) != 0 {
 		// We should not see dead filesystem attachments;
 		// attachments go directly from Dying to removed.
-		deps.config.Logger.Warningf(context.TODO(), "unexpected dead filesystem attachments: %v", dead)
+		deps.config.Logger.Warningf(ctx, "unexpected dead filesystem attachments: %v", dead)
 	}
 	// Clean up any attachments which have been removed.
 	for _, id := range gone {
@@ -213,7 +213,7 @@ func processDeadFilesystems(ctx context.Context, deps *dependencies, tags []name
 	for i, result := range filesystemResults {
 		tag := tags[i]
 		if result.Error == nil {
-			deps.config.Logger.Debugf(context.TODO(), "filesystem %s is provisioned, queuing for deprovisioning", tag.Id())
+			deps.config.Logger.Debugf(ctx, "filesystem %s is provisioned, queuing for deprovisioning", tag.Id())
 			filesystem, err := filesystemFromParams(result.Result)
 			if err != nil {
 				return errors.Annotate(err, "getting filesystem info")
@@ -223,7 +223,7 @@ func processDeadFilesystems(ctx context.Context, deps *dependencies, tags []name
 			continue
 		}
 		if params.IsCodeNotProvisioned(result.Error) {
-			deps.config.Logger.Debugf(context.TODO(), "filesystem %s is not provisioned, queuing for removal", tag.Id())
+			deps.config.Logger.Debugf(ctx, "filesystem %s is not provisioned, queuing for removal", tag.Id())
 			remove = append(remove, tag)
 			continue
 		}
@@ -293,7 +293,7 @@ func processAliveFilesystems(ctx context.Context, deps *dependencies, tags []nam
 		tag := tags[i]
 		if result.Error == nil {
 			// Filesystem is already provisioned: skip.
-			deps.config.Logger.Debugf(context.TODO(), "filesystem %q is already provisioned, nothing to do", tag.Id())
+			deps.config.Logger.Debugf(ctx, "filesystem %q is already provisioned, nothing to do", tag.Id())
 			filesystem, err := filesystemFromParams(result.Result)
 			if err != nil {
 				return errors.Annotate(err, "getting filesystem info")
@@ -327,7 +327,7 @@ func processAliveFilesystems(ctx context.Context, deps *dependencies, tags []nam
 	}
 	for _, params := range params {
 		if deps.isApplicationKind() {
-			deps.config.Logger.Debugf(context.TODO(), "not queuing filesystem for %v unit", deps.config.Scope.Id())
+			deps.config.Logger.Debugf(ctx, "not queuing filesystem for %v unit", deps.config.Scope.Id())
 			continue
 		}
 		updatePendingFilesystem(deps, params)
@@ -363,7 +363,7 @@ func processAliveFilesystemAttachments(
 				pending = append(pending, ids[i])
 				action = "will reattach"
 			}
-			deps.config.Logger.Debugf(context.TODO(),
+			deps.config.Logger.Debugf(ctx,
 				"%s is already attached to %s, %s",
 				ids[i].AttachmentTag, ids[i].MachineTag, action,
 			)
@@ -388,7 +388,7 @@ func processAliveFilesystemAttachments(
 	}
 	for i, params := range params {
 		if params.Machine != nil && params.Machine.Kind() != names.MachineTagKind {
-			deps.config.Logger.Debugf(context.TODO(), "not queuing filesystem attachment for non-machine %v", params.Machine)
+			deps.config.Logger.Debugf(ctx, "not queuing filesystem attachment for non-machine %v", params.Machine)
 			continue
 		}
 		updatePendingFilesystemAttachment(deps, pending[i], params)

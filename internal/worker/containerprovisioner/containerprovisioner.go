@@ -139,7 +139,6 @@ func NewContainerProvisioner(
 		distributionGroupFinder: distributionGroupFinder,
 		toolsFinder:             toolsFinder,
 	}
-	logger.Tracef(context.TODO(), "Starting %s provisioner for %q", p.containerType, p.agentConfig.Tag())
 
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
@@ -164,6 +163,8 @@ func (p *containerProvisioner) Wait() error {
 func (p *containerProvisioner) loop() error {
 	ctx, cancel := p.scopedContext()
 	defer cancel()
+
+	p.logger.Tracef(ctx, "Starting %s provisioner for %q", p.containerType, p.agentConfig.Tag())
 
 	modelWatcher, err := p.controllerAPI.WatchForModelConfigChanges(ctx)
 	if err != nil {
@@ -217,11 +218,11 @@ func (p *containerProvisioner) getMachine(ctx context.Context) (apiprovisioner.M
 		}
 		result, err := p.machinesAPI.Machines(ctx, machineTag)
 		if err != nil {
-			p.logger.Errorf(context.TODO(), "error retrieving %s from state", machineTag)
+			p.logger.Errorf(ctx, "error retrieving %s from state", machineTag)
 			return nil, err
 		}
 		if result[0].Err != nil {
-			p.logger.Errorf(context.TODO(), "%s is not in state", machineTag)
+			p.logger.Errorf(ctx, "%s is not in state", machineTag)
 			return nil, err
 		}
 		p.machine = result[0].Machine

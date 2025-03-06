@@ -144,6 +144,9 @@ func (v *validator) Check() bool {
 }
 
 func (v *validator) loop() error {
+	ctx, cancel := v.scopedContext()
+	defer cancel()
+
 	var watcherChanges watcher.NotifyChannel
 	if v.credentialWatcher != nil {
 		watcherChanges = v.credentialWatcher.Changes()
@@ -157,7 +160,7 @@ func (v *validator) loop() error {
 			if !ok {
 				return v.catacomb.ErrDying()
 			}
-			updatedCredential, err := modelCredential(context.TODO(), v.validatorFacade)
+			updatedCredential, err := modelCredential(ctx, v.validatorFacade)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -168,7 +171,7 @@ func (v *validator) loop() error {
 			if !ok {
 				return v.catacomb.ErrDying()
 			}
-			updatedCredential, err := modelCredential(context.TODO(), v.validatorFacade)
+			updatedCredential, err := modelCredential(ctx, v.validatorFacade)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -177,6 +180,10 @@ func (v *validator) loop() error {
 			}
 		}
 	}
+}
+
+func (v *validator) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(v.catacomb.Context(context.Background()))
 }
 
 func modelCredential(ctx context.Context, v Facade) (base.StoredCredential, error) {

@@ -123,7 +123,7 @@ func (rl *resignLeadership) Execute(ctx context.Context, state State) (*State, e
 	// I *think* it will stay, because the state-writing behaviour will stay
 	// very different (ie just write `.Leader = false` and don't step on pre-
 	// queued hooks).
-	rl.logger.Warningf(context.TODO(), "we should run a leader-deposed hook here, but we can't yet")
+	rl.logger.Warningf(ctx, "we should run a leader-deposed hook here, but we can't yet")
 	return nil, nil
 }
 

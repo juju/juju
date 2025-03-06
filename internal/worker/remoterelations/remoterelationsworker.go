@@ -69,12 +69,15 @@ func (w *remoteRelationsWorker) Kill() {
 func (w *remoteRelationsWorker) Wait() error {
 	err := w.catacomb.Wait()
 	if err != nil {
-		w.logger.Errorf(context.TODO(), "error in remote relations worker for relation %v: %v", w.relationTag.Id(), err)
+		w.logger.Errorf(context.Background(), "error in remote relations worker for relation %v: %v", w.relationTag.Id(), err)
 	}
 	return err
 }
 
 func (w *remoteRelationsWorker) loop() error {
+	ctx, cancel := w.scopeContext()
+	defer cancel()
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -86,12 +89,12 @@ func (w *remoteRelationsWorker) loop() error {
 				return w.catacomb.ErrDying()
 			}
 			if len(relChanges) == 0 {
-				w.logger.Warningf(context.TODO(), "relation status watcher event with no changes")
+				w.logger.Warningf(ctx, "relation status watcher event with no changes")
 				continue
 			}
 			// We only care about the most recent change.
 			change := relChanges[len(relChanges)-1]
-			w.logger.Debugf(context.TODO(), "relation status changed for %v: %v", w.relationTag, change)
+			w.logger.Debugf(ctx, "relation status changed for %v: %v", w.relationTag, change)
 			suspended := change.Suspended
 			w.mu.Lock()
 			w.mostRecentEvent = RelationUnitChangeEvent{
@@ -129,4 +132,8 @@ func (w *remoteRelationsWorker) Report() map[string]interface{} {
 	}
 
 	return result
+}
+
+func (w *remoteRelationsWorker) scopeContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

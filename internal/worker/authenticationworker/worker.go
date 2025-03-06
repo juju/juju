@@ -66,7 +66,7 @@ func (kw *keyupdaterWorker) SetUp(ctx context.Context) (watcher.NotifyWatcher, e
 	jujuKeys, err := kw.client.AuthorisedKeys(ctx, kw.tag)
 	if err != nil {
 		err = errors.Annotatef(err, "reading Juju ssh keys for %q", kw.tag)
-		logger.Infof(context.TODO(), err.Error())
+		logger.Infof(ctx, err.Error())
 		return nil, err
 	}
 	kw.jujuKeys = set.NewStrings(jujuKeys...)
@@ -75,7 +75,7 @@ func (kw *keyupdaterWorker) SetUp(ctx context.Context) (watcher.NotifyWatcher, e
 	sshKeys, err := ssh.ListKeys(SSHUser, ssh.FullKeys)
 	if err != nil {
 		err = errors.Annotatef(err, "reading ssh authorized keys for %q", kw.tag)
-		logger.Infof(context.TODO(), err.Error())
+		logger.Infof(ctx, err.Error())
 		return nil, err
 	}
 	// Record any keys not added by Juju.
@@ -89,17 +89,17 @@ func (kw *keyupdaterWorker) SetUp(ctx context.Context) (watcher.NotifyWatcher, e
 	// Write out the ssh authorised keys file to match the current state of the world.
 	if err := kw.writeSSHKeys(jujuKeys); err != nil {
 		err = errors.Annotate(err, "adding current Juju keys to ssh authorised keys")
-		logger.Infof(context.TODO(), err.Error())
+		logger.Infof(ctx, err.Error())
 		return nil, err
 	}
 
 	w, err := kw.client.WatchAuthorisedKeys(ctx, kw.tag)
 	if err != nil {
 		err = errors.Annotate(err, "starting key updater worker")
-		logger.Infof(context.TODO(), err.Error())
+		logger.Infof(ctx, err.Error())
 		return nil, err
 	}
-	logger.Infof(context.TODO(), "%q key updater worker started", kw.tag)
+	logger.Infof(ctx, "%q key updater worker started", kw.tag)
 	return w, nil
 }
 
@@ -121,7 +121,7 @@ func (kw *keyupdaterWorker) Handle(ctx context.Context) error {
 	newKeys, err := kw.client.AuthorisedKeys(ctx, kw.tag)
 	if err != nil {
 		err = errors.Annotatef(err, "reading Juju ssh keys for %q", kw.tag)
-		logger.Infof(context.TODO(), err.Error())
+		logger.Infof(ctx, err.Error())
 		return err
 	}
 	// Figure out if any keys have been added or deleted.
@@ -129,11 +129,11 @@ func (kw *keyupdaterWorker) Handle(ctx context.Context) error {
 	deleted := kw.jujuKeys.Difference(newJujuKeys)
 	added := newJujuKeys.Difference(kw.jujuKeys)
 	if added.Size() > 0 || deleted.Size() > 0 {
-		logger.Infof(context.TODO(), "adding ssh keys to authorised keys: %v", added)
-		logger.Infof(context.TODO(), "deleting ssh keys from authorised keys: %v", deleted)
+		logger.Infof(ctx, "adding ssh keys to authorised keys: %v", added)
+		logger.Infof(ctx, "deleting ssh keys from authorised keys: %v", deleted)
 		if err = kw.writeSSHKeys(newKeys); err != nil {
 			err = errors.Annotate(err, "updating ssh keys")
-			logger.Infof(context.TODO(), err.Error())
+			logger.Infof(ctx, err.Error())
 			return err
 		}
 	}

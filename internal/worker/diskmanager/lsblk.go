@@ -36,7 +36,7 @@ func init() {
 	DefaultListBlockDevices = listBlockDevices
 }
 
-func listBlockDevices() ([]blockdevice.BlockDevice, error) {
+func listBlockDevices(ctx context.Context) ([]blockdevice.BlockDevice, error) {
 	columns := []string{
 		"KNAME",      // kernel name
 		"SIZE",       // size
@@ -48,7 +48,7 @@ func listBlockDevices() ([]blockdevice.BlockDevice, error) {
 		"MAJ:MIN",    // major/minor device numbers
 	}
 
-	logger.Tracef(context.TODO(), "executing lsblk")
+	logger.Tracef(ctx, "executing lsblk")
 	output, err := exec.Command(
 		"lsblk",
 		"-b", // output size in bytes
@@ -75,7 +75,7 @@ func listBlockDevices() ([]blockdevice.BlockDevice, error) {
 			case "SIZE":
 				size, err := strconv.ParseUint(pair[2], 10, 64)
 				if err != nil {
-					logger.Errorf(context.TODO(),
+					logger.Errorf(ctx,
 						"invalid size %q from lsblk: %v", pair[2], err,
 					)
 				} else {
@@ -94,7 +94,7 @@ func listBlockDevices() ([]blockdevice.BlockDevice, error) {
 			case "MAJ:MIN":
 				majorMinor = pair[2]
 			default:
-				logger.Debugf(context.TODO(), "unexpected field from lsblk: %q", pair[1])
+				logger.Debugf(ctx, "unexpected field from lsblk: %q", pair[1])
 			}
 		}
 
@@ -108,11 +108,11 @@ func listBlockDevices() ([]blockdevice.BlockDevice, error) {
 			// Floppy disks, which have major device number 2,
 			// should be ignored.
 			if strings.HasPrefix(majorMinor, "2:") {
-				logger.Tracef(context.TODO(), "ignoring flopping disk device: %+v", dev)
+				logger.Tracef(ctx, "ignoring flopping disk device: %+v", dev)
 				continue
 			}
 		default:
-			logger.Tracef(context.TODO(), "ignoring %q type device: %+v", deviceType, dev)
+			logger.Tracef(ctx, "ignoring %q type device: %+v", deviceType, dev)
 			continue
 		}
 
@@ -125,15 +125,15 @@ func listBlockDevices() ([]blockdevice.BlockDevice, error) {
 			// host, but the devices will typically not be present.
 			continue
 		} else if err != nil {
-			logger.Debugf(context.TODO(), "could not check if %q is in use: %v", dev.DeviceName, err)
+			logger.Debugf(ctx, "could not check if %q is in use: %v", dev.DeviceName, err)
 			// We cannot detect, so err on the side of caution and default to
 			// "in use" so the device cannot be used.
 			dev.InUse = true
 		}
 
 		// Add additional information from sysfs.
-		if err := addHardwareInfo(&dev); err != nil {
-			logger.Errorf(context.TODO(),
+		if err := addHardwareInfo(ctx, &dev); err != nil {
+			logger.Errorf(ctx,
 				"error getting hardware info for %q from sysfs: %v",
 				dev.DeviceName, err,
 			)
@@ -174,8 +174,8 @@ var blockDeviceInUse = func(dev blockdevice.BlockDevice) (bool, error) {
 
 // addHardwareInfo adds additional information about the hardware, and how it is
 // attached to the machine, to the given BlockDevice.
-func addHardwareInfo(dev *blockdevice.BlockDevice) error {
-	logger.Tracef(context.TODO(), `executing "udevadm info" for %s`, dev.DeviceName)
+func addHardwareInfo(ctx context.Context, dev *blockdevice.BlockDevice) error {
+	logger.Tracef(ctx, `executing "udevadm info" for %s`, dev.DeviceName)
 	output, err := exec.Command(
 		"udevadm", "info",
 		"-q", "property",
@@ -196,7 +196,7 @@ func addHardwareInfo(dev *blockdevice.BlockDevice) error {
 		line := s.Text()
 		sep := strings.IndexRune(line, '=')
 		if sep == -1 {
-			logger.Debugf(context.TODO(), "unexpected udevadm output line: %q", line)
+			logger.Debugf(ctx, "unexpected udevadm output line: %q", line)
 			continue
 		}
 		key, value := line[:sep], line[sep+1:]
@@ -214,7 +214,7 @@ func addHardwareInfo(dev *blockdevice.BlockDevice) error {
 		case "ID_WWN_WITH_EXTENSION":
 			wwnWithExtension = value
 		default:
-			logger.Tracef(context.TODO(), "ignoring line: %q", line)
+			logger.Tracef(ctx, "ignoring line: %q", line)
 		}
 	}
 	if err := s.Err(); err != nil {
@@ -260,7 +260,7 @@ func addHardwareInfo(dev *blockdevice.BlockDevice) error {
 				submatch[1], submatch[2], submatch[3], submatch[4],
 			)
 		} else {
-			logger.Debugf(context.TODO(),
+			logger.Debugf(ctx,
 				"non matching DEVPATH for %q: %q",
 				dev.DeviceName, devpath,
 			)

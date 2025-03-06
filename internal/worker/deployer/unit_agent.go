@@ -109,7 +109,7 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	// Create a symlink for the unit "agent" binaries.
 	// This is used because the uniter is still using the tools directory
 	// for the unit agent for creating the jujuc symlinks.
-	config.Logger.Tracef(context.TODO(), "creating symlink for %q to tools directory for jujuc", config.Name)
+	config.Logger.Tracef(context.Background(), "creating symlink for %q to tools directory for jujuc", config.Name)
 	current := version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
@@ -126,7 +126,7 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 		return nil, errors.Trace(err)
 	}
 
-	config.Logger.Infof(context.TODO(), "creating new agent config for %q", config.Name)
+	config.Logger.Infof(context.Background(), "creating new agent config for %q", config.Name)
 	conf, err := agent.ReadConfig(agent.ConfigPath(config.DataDir, tag))
 	if err != nil {
 		return nil, errors.Trace(err)

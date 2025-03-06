@@ -35,7 +35,7 @@ func (s *DiskManagerWorkerSuite) TestWorker(c *gc.C) {
 		return nil
 	}
 
-	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]blockdevice.BlockDevice, error) {
+	var listDevices diskmanager.ListBlockDevicesFunc = func(context.Context) ([]blockdevice.BlockDevice, error) {
 		return []blockdevice.BlockDevice{{DeviceName: "whatever"}}, nil
 	}
 
@@ -59,7 +59,7 @@ func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *gc.C) {
 	}
 
 	device := blockdevice.BlockDevice{DeviceName: "sda", DeviceLinks: []string{"a", "b"}}
-	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]blockdevice.BlockDevice, error) {
+	var listDevices diskmanager.ListBlockDevicesFunc = func(context.Context) ([]blockdevice.BlockDevice, error) {
 		return []blockdevice.BlockDevice{device}, nil
 	}
 
@@ -94,7 +94,7 @@ func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *gc.C) {
 		return nil
 	}
 
-	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]blockdevice.BlockDevice, error) {
+	var listDevices diskmanager.ListBlockDevicesFunc = func(context.Context) ([]blockdevice.BlockDevice, error) {
 		return []blockdevice.BlockDevice{{
 			DeviceName: "sdb",
 		}, {

@@ -115,7 +115,7 @@ func (s *storageResolver) NextOp(
 
 	// This message is only interesting for IAAS models.
 	if s.modelType == model.IAAS && !localState.Installed && s.storage.Pending() == 0 {
-		s.logger.Infof(context.TODO(), "initial storage attachments ready")
+		s.logger.Infof(ctx, "initial storage attachments ready")
 	}
 
 	for tag, snap := range remoteState.Storage {
@@ -126,7 +126,7 @@ func (s *storageResolver) NextOp(
 		return op, err
 	}
 	if s.storage.Pending() > 0 {
-		s.logger.Debugf(context.TODO(), "still pending %v", s.storage.pending.SortedValues())
+		s.logger.Debugf(ctx, "still pending %v", s.storage.pending.SortedValues())
 		// For IAAS models, storage hooks are run before install.
 		// If the install hook has not yet run and there's still
 		// pending storage, we wait. We don't wait after the

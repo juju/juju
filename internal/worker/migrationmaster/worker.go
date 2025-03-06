@@ -272,7 +272,7 @@ func (w *Worker) run() error {
 			return w.catacomb.ErrDying()
 		}
 
-		w.logger.Infof(context.TODO(), "setting migration phase to %s", phase)
+		w.logger.Infof(ctx, "setting migration phase to %s", phase)
 		if err := w.config.Facade.SetPhase(ctx, phase); err != nil {
 			return errors.Annotate(err, "failed to set phase")
 		}
@@ -313,7 +313,7 @@ func (w *Worker) setStatusAndLog(ctx context.Context, log func(context.Context, 
 		// Setting status isn't critical. If it fails, just logging
 		// the problem here and not passing it upstream makes things a
 		// lot clearer in the caller.
-		w.logger.Errorf(context.TODO(), "%s", err)
+		w.logger.Errorf(ctx, "%s", err)
 	}
 }
 
@@ -527,7 +527,7 @@ func (w *Worker) checkTargetMachines(ctx context.Context, targetClient *migratio
 	}
 	if len(results) > 0 {
 		for _, resultErr := range results {
-			w.logger.Errorf(context.TODO(), resultErr.Error())
+			w.logger.Errorf(ctx, resultErr.Error())
 		}
 		plural := "s"
 		if len(results) == 1 {
@@ -608,7 +608,7 @@ func (w *Worker) transferLogs(ctx context.Context, targetInfo coremigration.Targ
 	}
 
 	if latestLogTime != utcZero {
-		w.logger.Debugf(context.TODO(), "log transfer was interrupted - restarting from %s", latestLogTime)
+		w.logger.Debugf(ctx, "log transfer was interrupted - restarting from %s", latestLogTime)
 	}
 
 	throwWrench := latestLogTime == utcZero && wrench.IsActive("migrationmaster", "die-after-500-log-messages")
@@ -685,7 +685,7 @@ func (w *Worker) doABORT(ctx context.Context, targetInfo coremigration.TargetInf
 	if err := w.removeImportedModel(ctx, targetInfo, modelUUID); err != nil {
 		// This isn't fatal. Removing the imported model is a best
 		// efforts attempt so just report the error and proceed.
-		w.logger.Warningf(context.TODO(), "failed to remove model from target controller, %v", err)
+		w.logger.Warningf(ctx, "failed to remove model from target controller, %v", err)
 	}
 	return coremigration.ABORTDONE, nil
 }
@@ -758,7 +758,7 @@ func (w *Worker) waitForMinions(
 	timeout := clk.After(w.minionReportTimeout)
 
 	w.setInfoStatus(ctx, "%s, waiting for agents to report back", infoPrefix)
-	w.logger.Infof(context.TODO(), "waiting for agents to report back for migration phase %s (will wait up to %s)",
+	w.logger.Infof(ctx, "waiting for agents to report back for migration phase %s (will wait up to %s)",
 		status.Phase, truncDuration(w.minionReportTimeout))
 
 	watch, err := w.config.Facade.WatchMinionReports(ctx)
@@ -778,7 +778,7 @@ func (w *Worker) waitForMinions(
 			return false, w.catacomb.ErrDying()
 
 		case <-timeout:
-			w.logger.Errorf(context.TODO(), formatMinionTimeout(reports, status, infoPrefix))
+			w.logger.Errorf(ctx, formatMinionTimeout(reports, status, infoPrefix))
 			w.setErrorStatus(ctx, "%s, timed out waiting for agents to report", infoPrefix)
 			return false, nil
 
@@ -791,10 +791,10 @@ func (w *Worker) waitForMinions(
 			if err := validateMinionReports(reports, status); err != nil {
 				return false, errors.Trace(err)
 			}
-			w.logger.Debugf(context.TODO(), "migration minion reports:\n%s", pretty.Sprint(reports))
+			w.logger.Debugf(ctx, "migration minion reports:\n%s", pretty.Sprint(reports))
 			failures := len(reports.FailedMachines) + len(reports.FailedUnits) + len(reports.FailedApplications)
 			if failures > 0 {
-				w.logger.Errorf(context.TODO(), formatMinionFailure(reports, infoPrefix))
+				w.logger.Errorf(ctx, formatMinionFailure(reports, infoPrefix))
 				w.setErrorStatus(ctx, "%s, some agents reported failure", infoPrefix)
 				if waitPolicy == failFast {
 					return false, nil
@@ -803,11 +803,11 @@ func (w *Worker) waitForMinions(
 			if reports.UnknownCount == 0 {
 				msg := formatMinionWaitDone(reports, infoPrefix)
 				if failures > 0 {
-					w.logger.Errorf(context.TODO(), msg)
+					w.logger.Errorf(ctx, msg)
 					w.setErrorStatus(ctx, "%s, some agents reported failure", infoPrefix)
 					return false, nil
 				}
-				w.logger.Infof(context.TODO(), msg)
+				w.logger.Infof(ctx, msg)
 				w.setInfoStatus(ctx, "%s, all agents reported success", infoPrefix)
 				return true, nil
 			}

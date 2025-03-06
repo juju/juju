@@ -121,7 +121,7 @@ func (w *dbReplWorker) loop() (err error) {
 	defer func() {
 		_ = history.Close()
 		if err := os.Remove(history.Name()); err != nil {
-			w.cfg.Logger.Errorf(context.TODO(), "failed to remove history file: %v", err)
+			w.cfg.Logger.Errorf(ctx, "failed to remove history file: %v", err)
 		}
 	}()
 
@@ -237,7 +237,7 @@ func (w *dbReplWorker) loop() (err error) {
 
 		default:
 			if err := w.executeQuery(ctx, w.currentDB, input); err != nil {
-				w.cfg.Logger.Errorf(context.TODO(), "failed to execute query: %v", err)
+				w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
 			}
 		}
 	}
@@ -288,13 +288,13 @@ func (w *dbReplWorker) execSwitch(ctx context.Context, args []string) {
 
 func (w *dbReplWorker) execModels(ctx context.Context) {
 	if err := w.executeQuery(ctx, w.controllerDB, "SELECT uuid, name FROM model"); err != nil {
-		w.cfg.Logger.Errorf(context.TODO(), "failed to execute query: %v", err)
+		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
 	}
 }
 
 func (w *dbReplWorker) execTables(ctx context.Context) {
 	if err := w.executeQuery(ctx, w.currentDB, "SELECT name AS table_name FROM sqlite_master WHERE type='table'"); err != nil {
-		w.cfg.Logger.Errorf(context.TODO(), "failed to execute query: %v", err)
+		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
 	}
 }
 
@@ -313,7 +313,7 @@ func (w *dbReplWorker) execShowDDL(ctx context.Context, args []string) {
 		}
 		return nil
 	}); err != nil {
-		w.cfg.Logger.Errorf(context.TODO(), "failed to execute query: %v\n", err)
+		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v\n", err)
 	}
 
 	fmt.Fprintln(w.cfg.Stdout, ddl)
@@ -321,13 +321,13 @@ func (w *dbReplWorker) execShowDDL(ctx context.Context, args []string) {
 
 func (w *dbReplWorker) execTriggers(ctx context.Context) {
 	if err := w.executeQuery(ctx, w.currentDB, "SELECT name AS trigger_name FROM sqlite_master WHERE type='trigger'"); err != nil {
-		w.cfg.Logger.Errorf(context.TODO(), "failed to execute query: %v", err)
+		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
 	}
 }
 
 func (w *dbReplWorker) execViews(ctx context.Context) {
 	if err := w.executeQuery(ctx, w.currentDB, "SELECT name AS view_name FROM sqlite_master WHERE type='view'"); err != nil {
-		w.cfg.Logger.Errorf(context.TODO(), "failed to execute query: %v", err)
+		w.cfg.Logger.Errorf(ctx, "failed to execute query: %v", err)
 	}
 }
 

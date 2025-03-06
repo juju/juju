@@ -145,7 +145,7 @@ func (u *Upgrader) loop() error {
 	}
 
 	if u.config.UpgradeStepsWaiter == nil {
-		u.config.Logger.Infof(context.TODO(), "no waiter, upgrader is done")
+		u.config.Logger.Infof(ctx, "no waiter, upgrader is done")
 		return nil
 	}
 
@@ -170,7 +170,7 @@ func (u *Upgrader) loop() error {
 		if err != nil {
 			return err
 		}
-		logger.Infof(context.TODO(), "desired agent binary version: %v", wantVersion)
+		logger.Infof(ctx, "desired agent binary version: %v", wantVersion)
 
 		// If we have a desired version of Juju without the build number,
 		// i.e. it is not a user compiled version, reset the build number of
@@ -185,7 +185,7 @@ func (u *Upgrader) loop() error {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !AllowedTargetVersion(haveVersion, wantVersion) {
-			logger.Infof(context.TODO(), "downgrade from %v to %v is not possible", haveVersion, wantVersion)
+			logger.Infof(ctx, "downgrade from %v to %v is not possible", haveVersion, wantVersion)
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		}
@@ -193,7 +193,7 @@ func (u *Upgrader) loop() error {
 		if wantVersion.Compare(haveVersion) == -1 {
 			direction = "downgrade"
 		}
-		logger.Infof(context.TODO(), "%s requested from %v to %v", direction, haveVersion, wantVersion)
+		logger.Infof(ctx, "%s requested from %v to %v", direction, haveVersion, wantVersion)
 
 		// Check if tools have already been downloaded.
 		wantVersionBinary := toBinaryVersion(wantVersion, hostOSType)
@@ -214,16 +214,16 @@ func (u *Upgrader) loop() error {
 		// upgrade the agent.
 		delay := shortDelay
 		for _, wantTools := range wantToolsList {
-			if err := u.checkForSpace(); err != nil {
-				logger.Errorf(context.TODO(), "%s", err.Error())
+			if err := u.checkForSpace(ctx); err != nil {
+				logger.Errorf(ctx, "%s", err.Error())
 				delay = notEnoughSpaceDelay
 				break
 			}
-			err = u.ensureTools(wantTools)
+			err = u.ensureTools(ctx, wantTools)
 			if err == nil {
 				return u.newUpgradeReadyError(haveVersion, wantTools.Version, hostOSType)
 			}
-			logger.Errorf(context.TODO(), "failed to fetch agent binaries from %q: %v", wantTools.URL, err)
+			logger.Errorf(ctx, "failed to fetch agent binaries from %q: %v", wantTools.URL, err)
 		}
 		retry = u.config.Clock.After(delay)
 	}
@@ -252,12 +252,12 @@ func (u *Upgrader) newUpgradeReadyError(haveVersion version.Number, newVersion v
 	}
 }
 
-func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {
-	u.config.Logger.Infof(context.TODO(), "fetching agent binaries from %q", agentTools.URL)
+func (u *Upgrader) ensureTools(ctx context.Context, agentTools *coretools.Tools) error {
+	u.config.Logger.Infof(ctx, "fetching agent binaries from %q", agentTools.URL)
 	// The reader MUST verify the tools' hash, so there is no
 	// need to validate the peer. We cannot anyway: see http://pad.lv/1261780.
 	client := jujuhttp.NewClient(jujuhttp.WithSkipHostnameVerification(true))
-	resp, err := client.Get(context.TODO(), agentTools.URL)
+	resp, err := client.Get(ctx, agentTools.URL)
 	if err != nil {
 		return err
 	}
@@ -269,12 +269,12 @@ func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {
 	if err != nil {
 		return fmt.Errorf("cannot unpack agent binaries: %v", err)
 	}
-	u.config.Logger.Infof(context.TODO(), "unpacked agent binaries %s to %s", agentTools.Version, u.dataDir)
+	u.config.Logger.Infof(ctx, "unpacked agent binaries %s to %s", agentTools.Version, u.dataDir)
 	return nil
 }
 
-func (u *Upgrader) checkForSpace() error {
-	u.config.Logger.Debugf(context.TODO(), "checking available space before downloading")
+func (u *Upgrader) checkForSpace(ctx context.Context) error {
+	u.config.Logger.Debugf(ctx, "checking available space before downloading")
 	err := u.config.CheckDiskSpace(u.dataDir, upgrades.MinDiskSpaceMib)
 	if err != nil {
 		return errors.Trace(err)

@@ -486,6 +486,7 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 
 	s.expectFileNotifyWatcher()
 	s.expectTermAfterAnyTimes()
+	s.expectAnyAfterAnyTimes()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()

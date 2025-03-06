@@ -132,8 +132,8 @@ func (mw *machineWatcher) loop() error {
 	if err := mw.catacomb.Add(w); err != nil {
 		return errors.Trace(err)
 	}
-	mw.logger.Debugf(context.TODO(), "watching machine %s", mw.tag.Id())
-	defer mw.logger.Debugf(context.TODO(), "finished watching machine %s", mw.tag.Id())
+	mw.logger.Debugf(ctx, "watching machine %s", mw.tag.Id())
+	defer mw.logger.Debugf(ctx, "finished watching machine %s", mw.tag.Id())
 	var out chan<- names.MachineTag
 	for {
 		select {

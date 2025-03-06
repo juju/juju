@@ -32,7 +32,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForController(c *gc.C) {
 		dbApp: s.dbApp,
 	}
 
-	err := w.ensureNamespace(database.ControllerNS)
+	err := w.ensureNamespace(context.Background(), database.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -67,7 +67,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
 
-	err := dbw.ensureNamespace("foo")
+	err := dbw.ensureNamespace(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, database.ErrDBNotFound)
 
 	workertest.CleanKill(c, w)
@@ -102,7 +102,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	dbw := s.startWorker(c, ctx)
 	defer workertest.DirtyKill(c, dbw)
 
-	err := dbw.ensureNamespace("foo")
+	err := dbw.ensureNamespace(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
@@ -137,7 +137,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *gc.C) {
 	dbw := s.startWorker(c, ctx)
 	defer workertest.DirtyKill(c, dbw)
 
-	err := dbw.ensureNamespace("foo")
+	err := dbw.ensureNamespace(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
@@ -200,11 +200,11 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
 
-	err = dbw.ensureNamespace("foo")
+	err = dbw.ensureNamespace(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The second query will be cached.
-	err = dbw.ensureNamespace("foo")
+	err = dbw.ensureNamespace(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(attempt, gc.Equals, 1)
@@ -241,7 +241,7 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *gc.C) {
 	dbw := s.startWorker(c, ctx)
 	defer workertest.DirtyKill(c, dbw)
 
-	err := dbw.deleteDatabase(database.ControllerNS)
+	err := dbw.deleteDatabase(context.Background(), database.ControllerNS)
 	c.Assert(err, gc.ErrorMatches, "cannot delete controller database")
 
 	workertest.CleanKill(c, dbw)
@@ -283,7 +283,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *gc.C) {
 	_, err = dbw.GetDB("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = dbw.deleteDatabase("foo")
+	err = dbw.deleteDatabase(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
@@ -325,7 +325,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *gc.C) {
 	_, err = dbw.GetDB("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = dbw.deleteDatabase("foo")
+	err = dbw.deleteDatabase(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
@@ -362,7 +362,7 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
 
-	err := dbw.deleteDatabase("foo")
+	err := dbw.deleteDatabase(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	workertest.CleanKill(c, w)

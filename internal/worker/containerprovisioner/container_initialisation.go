@@ -86,7 +86,7 @@ func NewContainerSetup(params ContainerSetupParams) *ContainerSetup {
 }
 
 func (cs *ContainerSetup) initialiseContainers(ctx context.Context, abort <-chan struct{}) error {
-	cs.logger.Debugf(context.TODO(), "setup for %s containers", cs.containerType)
+	cs.logger.Debugf(ctx, "setup for %s containers", cs.containerType)
 	managerConfig, err := containerManagerConfig(ctx, cs.containerType, cs.provisioner)
 	if err != nil {
 		return errors.Annotate(err, "generating container manager config")
@@ -129,7 +129,7 @@ func (cs *ContainerSetup) initContainerDependencies(ctx context.Context, abort <
 	}
 	if len(observedConfig) > 0 {
 		machineTag := cs.mTag
-		cs.logger.Tracef(context.TODO(), "updating observed network config for %q %s containers to %#v",
+		cs.logger.Tracef(ctx, "updating observed network config for %q %s containers to %#v",
 			machineTag, cs.containerType, observedConfig)
 		if err := cs.provisioner.SetHostMachineNetworkConfig(ctx, machineTag, observedConfig); err != nil {
 			return errors.Trace(err)
@@ -168,7 +168,7 @@ var getContainerInitialiser = func(
 }
 
 func (cs *ContainerSetup) initialiseContainerProvisioner(ctx context.Context) (Provisioner, error) {
-	cs.logger.Debugf(context.TODO(), "setup provisioner for %s containers", cs.containerType)
+	cs.logger.Debugf(ctx, "setup provisioner for %s containers", cs.containerType)
 	if cs.managerConfig == nil {
 		return nil, errors.NotValidf("Programming error, manager config not setup")
 	}

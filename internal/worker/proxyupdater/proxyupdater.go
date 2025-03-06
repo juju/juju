@@ -100,7 +100,7 @@ var NewWorker = func(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
-func (w *proxyWorker) saveProxySettings() error {
+func (w *proxyWorker) saveProxySettings(ctx context.Context) error {
 	// The proxy settings are (usually) stored in three files:
 	// - /etc/juju-proxy.conf - in 'env' format
 	// - /etc/systemd/system.conf.d/juju-proxy.conf
@@ -108,33 +108,33 @@ func (w *proxyWorker) saveProxySettings() error {
 	for _, file := range w.config.EnvFiles {
 		err := stdos.WriteFile(file, []byte(w.proxy.AsScriptEnvironment()), 0644)
 		if err != nil {
-			w.config.Logger.Errorf(context.TODO(), "Error updating environment file %s - %v", file, err)
+			w.config.Logger.Errorf(ctx, "Error updating environment file %s - %v", file, err)
 		}
 	}
 	for _, file := range w.config.SystemdFiles {
 		err := stdos.WriteFile(file, []byte(w.proxy.AsSystemdDefaultEnv()), 0644)
 		if err != nil {
-			w.config.Logger.Errorf(context.TODO(), "Error updating systemd file - %v", err)
+			w.config.Logger.Errorf(ctx, "Error updating systemd file - %v", err)
 		}
 	}
 	return nil
 }
 
-func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings proxy.Settings) {
+func (w *proxyWorker) handleProxyValues(ctx context.Context, legacyProxySettings, jujuProxySettings proxy.Settings) {
 	// Legacy proxy settings update the environment, and also call the
 	// InProcessUpdate, which installs the proxy into the default HTTP
 	// transport. The same occurs for jujuProxySettings.
 	settings := jujuProxySettings
 	if jujuProxySettings.HasProxySet() {
-		w.config.Logger.Debugf(context.TODO(), "applying in-process juju proxy settings %#v", jujuProxySettings)
+		w.config.Logger.Debugf(ctx, "applying in-process juju proxy settings %#v", jujuProxySettings)
 	} else {
 		settings = legacyProxySettings
-		w.config.Logger.Debugf(context.TODO(), "applying in-process legacy proxy settings %#v", legacyProxySettings)
+		w.config.Logger.Debugf(ctx, "applying in-process legacy proxy settings %#v", legacyProxySettings)
 	}
 
 	settings.SetEnvironmentValues()
 	if err := w.config.InProcessUpdate(settings); err != nil {
-		w.config.Logger.Errorf(context.TODO(), "error updating in-process proxy settings: %v", err)
+		w.config.Logger.Errorf(ctx, "error updating in-process proxy settings: %v", err)
 	}
 
 	// If the external update function is passed in, it is to update the LXD
@@ -143,24 +143,24 @@ func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings p
 	if externalFunc := w.config.ExternalUpdate; externalFunc != nil {
 		if err := externalFunc(settings); err != nil {
 			// It isn't really fatal, but we should record it.
-			w.config.Logger.Errorf(context.TODO(), "%v", err)
+			w.config.Logger.Errorf(ctx, "%v", err)
 		}
 	}
 
 	// Here we write files to disk. This is done only for legacyProxySettings.
 	if w.config.SupportLegacyValues && (legacyProxySettings != w.proxy || w.first) {
-		w.config.Logger.Debugf(context.TODO(), "saving new legacy proxy settings %#v", legacyProxySettings)
+		w.config.Logger.Debugf(ctx, "saving new legacy proxy settings %#v", legacyProxySettings)
 		w.proxy = legacyProxySettings
-		if err := w.saveProxySettings(); err != nil {
+		if err := w.saveProxySettings(ctx); err != nil {
 			// It isn't really fatal, but we should record it.
-			w.config.Logger.Errorf(context.TODO(), "error saving proxy settings: %v", err)
+			w.config.Logger.Errorf(ctx, "error saving proxy settings: %v", err)
 		}
 	}
 }
 
-func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, storeAssertions, storeProxyURL string) {
+func (w *proxyWorker) handleSnapProxyValues(ctx context.Context, proxy proxy.Settings, storeID, storeAssertions, storeProxyURL string) {
 	if w.config.RunFunc == nil {
-		w.config.Logger.Tracef(context.TODO(), "snap proxies not updated")
+		w.config.Logger.Tracef(ctx, "snap proxies not updated")
 		return
 	}
 
@@ -180,11 +180,11 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 		if storeProxyURL != "" {
 			var err error
 			if storeAssertions, storeID, err = snap.LookupAssertions(storeProxyURL); err != nil {
-				w.config.Logger.Errorf(context.TODO(), "unable to lookup snap store assertions: %v", err)
+				w.config.Logger.Errorf(ctx, "unable to lookup snap store assertions: %v", err)
 				return
 			} else {
-				w.config.Logger.Infof(context.TODO(), "auto-detected snap store assertions from proxy")
-				w.config.Logger.Infof(context.TODO(), "auto-detected snap store ID as %q", storeID)
+				w.config.Logger.Infof(ctx, "auto-detected snap store assertions from proxy")
+				w.config.Logger.Infof(ctx, "auto-detected snap store ID as %q", storeID)
 			}
 		} else if storeAssertions != "" && storeID != "" {
 			// The proxy URL has been removed. However, if the user
@@ -211,7 +211,7 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 	if storeAssertions != w.snapStoreAssertions && storeAssertions != "" {
 		output, err := w.config.RunFunc(storeAssertions, "snap", "ack", "/dev/stdin")
 		if err != nil {
-			w.config.Logger.Warningf(context.TODO(), "unable to acknowledge assertions: %v, output: %q", err, output)
+			w.config.Logger.Warningf(ctx, "unable to acknowledge assertions: %v, output: %q", err, output)
 			return
 		}
 		w.snapStoreAssertions = storeAssertions
@@ -221,21 +221,21 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 		args := append([]string{"set", "system"}, snapSettings...)
 		output, err := w.config.RunFunc(noStdIn, "snap", args...)
 		if err != nil {
-			w.config.Logger.Warningf(context.TODO(), "unable to set snap core settings %v: %v, output: %q", snapSettings, err, output)
+			w.config.Logger.Warningf(ctx, "unable to set snap core settings %v: %v, output: %q", snapSettings, err, output)
 		} else {
-			w.config.Logger.Debugf(context.TODO(), "snap core settings %v updated, output: %q", snapSettings, output)
+			w.config.Logger.Debugf(ctx, "snap core settings %v updated, output: %q", snapSettings, output)
 			w.snapProxy = proxy
 			w.snapStoreProxy = storeID
 		}
 	}
 }
 
-func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror string) {
+func (w *proxyWorker) handleAptProxyValues(ctx context.Context, aptSettings proxy.Settings, aptMirror string) {
 	mirrorUpdateNeeded := aptMirror != "" && aptMirror != w.aptMirror
 	aptCommander := commands.NewAptPackageCommander()
 
 	if aptSettings != w.aptProxy || w.first {
-		w.config.Logger.Debugf(context.TODO(), "new apt proxy settings %#v", aptSettings)
+		w.config.Logger.Debugf(ctx, "new apt proxy settings %#v", aptSettings)
 		w.aptProxy = aptSettings
 
 		// Always finish with a new line.
@@ -243,15 +243,15 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror
 		err := stdos.WriteFile(config.AptProxyConfigFile, []byte(content), 0644)
 		if err != nil {
 			// It isn't really fatal, but we should record it.
-			w.config.Logger.Errorf(context.TODO(), "error writing apt proxy config file: %v", err)
+			w.config.Logger.Errorf(ctx, "error writing apt proxy config file: %v", err)
 		}
 	}
 	if mirrorUpdateNeeded {
 		if w.config.RunFunc == nil {
-			w.config.Logger.Tracef(context.TODO(), "apt mirrors not updated")
+			w.config.Logger.Tracef(ctx, "apt mirrors not updated")
 			return
 		}
-		w.config.Logger.Debugf(context.TODO(), "new apt mirror value %v", aptMirror)
+		w.config.Logger.Debugf(ctx, "new apt mirror value %v", aptMirror)
 		w.aptMirror = aptMirror
 
 		cmds := aptCommander.SetMirrorCommands(aptMirror, aptMirror)
@@ -259,9 +259,9 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror
 		script = append(script, "(")
 		script = append(script, cmds...)
 		script = append(script, ")")
-		w.config.Logger.Tracef(context.TODO(), strings.Join(script, "\n"))
+		w.config.Logger.Tracef(ctx, strings.Join(script, "\n"))
 		if output, err := w.config.RunFunc(noStdIn, "/bin/bash", "-c", strings.Join(script, "\n")); err != nil {
-			w.config.Logger.Warningf(context.TODO(), "unable to update apt mirrors: %v, output: %q", err, output)
+			w.config.Logger.Warningf(ctx, "unable to update apt mirrors: %v, output: %q", err, output)
 		}
 	}
 	return
@@ -273,9 +273,9 @@ func (w *proxyWorker) onChange(ctx context.Context) error {
 		return err
 	}
 
-	w.handleProxyValues(config.LegacyProxy, config.JujuProxy)
-	w.handleSnapProxyValues(config.SnapProxy, config.SnapStoreProxyId, config.SnapStoreProxyAssertions, config.SnapStoreProxyURL)
-	w.handleAptProxyValues(config.APTProxy, config.AptMirror)
+	w.handleProxyValues(ctx, config.LegacyProxy, config.JujuProxy)
+	w.handleSnapProxyValues(ctx, config.SnapProxy, config.SnapStoreProxyId, config.SnapStoreProxyAssertions, config.SnapStoreProxyURL)
+	w.handleAptProxyValues(ctx, config.APTProxy, config.AptMirror)
 	return nil
 }
 

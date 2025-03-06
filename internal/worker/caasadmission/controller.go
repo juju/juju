@@ -54,25 +54,23 @@ func NewController(
 	return c, nil
 }
 
-func (c *Controller) Kill() {
-	c.catacomb.Kill(nil)
-}
-
 func (c *Controller) makeLoop(
 	admissionCreator AdmissionCreator,
 	handler http.Handler,
 	logger logger.Logger,
 	mux Mux,
 	path string) func() error {
-
 	return func() error {
-		logger.Debugf(context.TODO(), "installing caas admission handler at %s", path)
+		ctx, cancel := c.scopedContext()
+		defer cancel()
+
+		logger.Debugf(ctx, "installing caas admission handler at %s", path)
 		if err := mux.AddHandler(http.MethodPost, path, handler); err != nil {
 			return errors.Trace(err)
 		}
 		defer mux.RemoveHandler(http.MethodPost, path)
 
-		logger.Infof(context.TODO(), "ensuring model k8s webhook configurations")
+		logger.Infof(ctx, "ensuring model k8s webhook configurations")
 		admissionCleanup, err := admissionCreator.EnsureMutatingWebhookConfiguration(context.TODO())
 		if err != nil {
 			return errors.Trace(err)
@@ -86,6 +84,14 @@ func (c *Controller) makeLoop(
 	}
 }
 
+func (c *Controller) Kill() {
+	c.catacomb.Kill(nil)
+}
+
 func (c *Controller) Wait() error {
 	return c.catacomb.Wait()
+}
+
+func (w *Controller) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

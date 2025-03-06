@@ -182,7 +182,7 @@ func (s *workerSuite) TestFilterHostPortsEmptyManagementSpace(c *gc.C) {
 	apiHostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "10.0.0.1"),
 	}
-	filteredHostPorts := w.filterHostPortsForManagementSpace("", apiHostPorts, network.SpaceInfos{})
+	filteredHostPorts := w.filterHostPortsForManagementSpace(context.Background(), "", apiHostPorts, network.SpaceInfos{})
 	c.Check(filteredHostPorts, jc.SameContents, apiHostPorts)
 }
 
@@ -218,7 +218,7 @@ func (s *workerSuite) TestHostPortsNotInSpaceNoFilter(c *gc.C) {
 			},
 		},
 	}
-	filteredHostPorts := w.filterHostPortsForManagementSpace("mgmt-space", apiHostPorts, allSpaces)
+	filteredHostPorts := w.filterHostPortsForManagementSpace(context.Background(), "mgmt-space", apiHostPorts, allSpaces)
 	c.Check(filteredHostPorts, jc.SameContents, apiHostPorts)
 }
 
@@ -281,7 +281,7 @@ func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *gc.C) {
 			},
 		},
 	}
-	filteredHostPorts := w.filterHostPortsForManagementSpace("mgmt-space", apiHostPorts, allSpaces)
+	filteredHostPorts := w.filterHostPortsForManagementSpace(context.Background(), "mgmt-space", apiHostPorts, allSpaces)
 	c.Check(filteredHostPorts, jc.SameContents, expected)
 }
 
