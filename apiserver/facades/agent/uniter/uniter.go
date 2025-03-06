@@ -1150,43 +1150,6 @@ func (u *UniterAPI) RelationsStatus(ctx context.Context, args params.Entities) (
 		return params.RelationUnitStatusResults{}, err
 	}
 
-	oneRelationUnitStatus := func(rel *state.Relation, unit *state.Unit) (params.RelationUnitStatus, error) {
-		rus := params.RelationUnitStatus{
-			RelationTag: rel.Tag().String(),
-			Suspended:   rel.Suspended(),
-		}
-		ru, err := rel.Unit(unit)
-		if err != nil {
-			return params.RelationUnitStatus{}, errors.Trace(err)
-		}
-		inScope, err := ru.InScope()
-		if err != nil {
-			return params.RelationUnitStatus{}, errors.Trace(err)
-		}
-		rus.InScope = inScope
-		return rus, nil
-	}
-
-	relationResults := func(unit *state.Unit) ([]params.RelationUnitStatus, error) {
-		var ruStatus []params.RelationUnitStatus
-		app, err := unit.Application()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		relations, err := app.Relations()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, rel := range relations {
-			rus, err := oneRelationUnitStatus(rel, unit)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ruStatus = append(ruStatus, rus)
-		}
-		return ruStatus, nil
-	}
-
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
@@ -1195,15 +1158,31 @@ func (u *UniterAPI) RelationsStatus(ctx context.Context, args params.Entities) (
 		}
 		err = apiservererrors.ErrPerm
 		if canRead(tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(tag)
-			if err == nil {
-				result.Results[i].RelationResults, err = relationResults(unit)
-			}
+			result.Results[i].RelationResults, err = u.oneUnitRelationStatus(ctx, tag)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) oneUnitRelationStatus(ctx context.Context, unit names.UnitTag) ([]params.RelationUnitStatus, error) {
+	unitUUID, err := u.applicationService.GetUnitUUID(ctx, coreunit.Name(unit.Id()))
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	unitStatuses, err := u.relationService.GetRelationsStatusForUnit(ctx, unitUUID)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	relationUnitStatuses := make([]params.RelationUnitStatus, len(unitStatuses))
+	for i, uStatus := range unitStatuses {
+		relationUnitStatuses[i] = params.RelationUnitStatus{
+			RelationTag: names.NewRelationTag(uStatus.Key.String()).String(),
+			InScope:     uStatus.InScope,
+			Suspended:   uStatus.Suspended,
+		}
+	}
+	return relationUnitStatuses, nil
 }
 
 // Life returns the life status of the specified applications or units.
@@ -1776,82 +1755,63 @@ func (u *UniterAPI) WatchRelationUnits(ctx context.Context, args params.Relation
 // SetRelationStatus updates the status of the specified relations.
 func (u *UniterAPI) SetRelationStatus(ctx context.Context, args params.RelationStatusArgs) (params.ErrorResults, error) {
 	var statusResults params.ErrorResults
-
-	unitCache := make(map[string]*state.Unit)
-	getUnit := func(tag string) (*state.Unit, error) {
-		if unit, ok := unitCache[tag]; ok {
-			return unit, nil
-		}
-		unitTag, err := names.ParseUnitTag(tag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		unit, err := u.st.Unit(unitTag.Id())
-		if errors.Is(err, errors.NotFound) {
-			return nil, apiservererrors.ErrPerm
-		}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		unitCache[tag] = unit
-		return unit, nil
-	}
-
-	checker := u.leadershipChecker
-	changeOne := func(arg params.RelationStatusArg) error {
-		// TODO(wallyworld) - the token should be passed to SetStatus() but the
-		// interface method doesn't allow for that yet.
-		unitTag := arg.UnitTag
-		if unitTag == "" {
-			// Older clients don't pass in the unit tag explicitly.
-			unitTag = u.auth.GetAuthTag().String()
-		}
-		unit, err := getUnit(unitTag)
-		if err != nil {
-			return err
-		}
-		token := checker.LeadershipCheck(unit.ApplicationName(), unit.Name())
-		if err := token.Check(); err != nil {
-			return errors.Trace(err)
-		}
-
-		rel, err := u.st.Relation(arg.RelationId)
-		if errors.Is(err, errors.NotFound) {
-			return apiservererrors.ErrPerm
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		_, err = rel.Unit(unit)
-		if errors.Is(err, errors.NotFound) {
-			return apiservererrors.ErrPerm
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		// If we are transitioning from "suspending" to "suspended",
-		// we retain any existing message so that if the user has
-		// previously specified a reason for suspending, it is retained.
-		message := arg.Message
-		if message == "" && arg.Status == params.Suspended {
-			current, err := rel.Status()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if current.Status == status.Suspending {
-				message = current.Message
-			}
-		}
-		return rel.SetStatus(status.StatusInfo{
-			Status:  status.Status(arg.Status),
-			Message: message,
-		})
-	}
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
-		err := changeOne(arg)
+		unitTag, err := names.ParseUnitTag(arg.UnitTag)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		unitName, err := coreunit.NewName(unitTag.Id())
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		err = u.oneSetRelationStatus(ctx, unitName, arg.RelationId,
+			arg.Status, arg.Message)
 		results[i].Error = apiservererrors.ServerError(err)
 	}
 	statusResults.Results = results
 	return statusResults, nil
+}
+
+func (u *UniterAPI) oneSetRelationStatus(
+	ctx context.Context,
+	unitName coreunit.Name,
+	relID int,
+	relStatus params.RelationStatusValue,
+	message string,
+) error {
+	// Verify the relation exist before continuing.
+	relationUUID, err := u.relationService.GetRelationUUIDByID(ctx, relID)
+	if errors.Is(err, errors.NotFound) {
+		return apiservererrors.ErrPerm
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	// If we are transitioning from "suspending" to "suspended",
+	// we retain any existing message so that if the user has
+	// previously specified a reason for suspending, it is retained.
+	if message == "" && relStatus == params.Suspended {
+		current, err := u.relationService.GetRelationStatus(ctx, relationUUID)
+		if err != nil {
+			return internalerrors.Capture(err)
+		}
+		if current.Status == status.Suspending {
+			message = current.Message
+		}
+	}
+	err = u.relationService.SetRelationStatus(ctx, unitName, relationUUID, status.StatusInfo{
+		Status:  status.Status(relStatus),
+		Message: message,
+	})
+	if errors.Is(err, errors.NotFound) {
+		return apiservererrors.ErrPerm
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	}
+	return nil
 }
 
 func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {

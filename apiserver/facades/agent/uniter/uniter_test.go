@@ -21,7 +21,9 @@ import (
 	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
+	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
@@ -728,6 +730,177 @@ func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplicat
 	})
 }
 
+func (s *uniterRelationSuite) TestRelationStatus(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.expectGetUnitUUID(s.wordpressUnitTag.Id(), unitUUID, nil)
+	relTagOne := names.NewRelationTag("mysql:database wordpress:mysql")
+	relTagTwo := names.NewRelationTag("redis:endpoint wordpress:endpoint")
+	expectedRelationUnitStatus := []params.RelationUnitStatus{
+		{
+			RelationTag: relTagOne.String(),
+			InScope:     true,
+			Suspended:   false,
+		}, {
+			RelationTag: relTagTwo.String(),
+			InScope:     true,
+			Suspended:   true,
+		},
+	}
+	s.expectedGetRelationsStatusForUnit(unitUUID, expectedRelationUnitStatus)
+
+	// act
+	args := params.Entities{Entities: []params.Entity{{Tag: s.wordpressUnitTag.String()}}}
+	result, err := s.uniter.RelationsStatus(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationUnitStatusResults{
+		Results: []params.RelationUnitStatusResult{
+			{RelationResults: expectedRelationUnitStatus},
+		},
+	})
+}
+
+// TestRelationsStatusUnitTagNotUnitNorApplication test that a valid tag not of
+// the type application nor unit fails with unauthorized.
+func (s *uniterRelationSuite) TestRelationsStatusUnitTagNotUnitNorApplication(c *gc.C) {
+	// act
+	args := params.Entities{Entities: []params.Entity{{Tag: "machine-0"}}}
+	result, err := s.uniter.RelationsStatus(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+// TestRelationsStatusUnitTagCannotAccess tests that a valid unit tag which is not
+// the authorized one will fail.
+func (s *uniterRelationSuite) TestRelationsStatusUnitTagCannotAccess(c *gc.C) {
+	// act
+	args := params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}}
+	result, err := s.uniter.RelationsStatus(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+func (s *uniterRelationSuite) TestSetRelationStatus(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relID := 42
+	relationUUID := relationtesting.GenRelationUUID(c)
+	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
+	relStatus := status.StatusInfo{
+		Status: status.Joined,
+	}
+	s.expectSetRelationStatus(s.wordpressUnitTag.Id(), relationUUID, relStatus)
+
+	// act
+	args := params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{
+			{UnitTag: s.wordpressUnitTag.String(), RelationId: relID, Status: params.Joined},
+		},
+	}
+	result, err := s.uniter.SetRelationStatus(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	emptyErrorResults := params.ErrorResults{Results: []params.ErrorResult{{}}}
+	c.Assert(result, gc.DeepEquals, emptyErrorResults)
+}
+
+// TestSetRelationStatusSuspendedMsgOverwrite tests that when setting the
+// relation status to suspended from suspending, and not providing a message,
+// the current status message is kept.
+func (s *uniterRelationSuite) TestSetRelationStatusSuspendedMsgOverwrite(c *gc.C) {
+	s.testSetRelationStatusSuspended(c, "", "message test", "message test")
+}
+
+// TestSetRelationStatusSuspendedNoMsgOverwrite tests that when setting the
+// relation status to suspended from suspending, and providing a message, the
+// current status message is overwritten.
+func (s *uniterRelationSuite) TestSetRelationStatusSuspendedNoMsgOverwrite(c *gc.C) {
+	s.testSetRelationStatusSuspended(c, "overwritten", "message test", "overwritten")
+}
+
+func (s *uniterRelationSuite) testSetRelationStatusSuspended(
+	c *gc.C, argMsg, currentMsg, expectedMsg string,
+) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relID := 42
+	relationUUID := relationtesting.GenRelationUUID(c)
+	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
+	if argMsg == "" {
+		currentStatus := status.StatusInfo{
+			Status:  status.Suspending,
+			Message: currentMsg,
+		}
+		s.expectGetRelationStatus(relationUUID, currentStatus)
+	}
+	relStatus := status.StatusInfo{
+		Status:  status.Suspended,
+		Message: expectedMsg,
+	}
+	s.expectSetRelationStatus(s.wordpressUnitTag.Id(), relationUUID, relStatus)
+
+	// act
+	args := params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{
+			{
+				UnitTag:    s.wordpressUnitTag.String(),
+				RelationId: relID,
+				Status:     params.Suspended,
+				Message:    argMsg,
+			},
+		},
+	}
+	result, err := s.uniter.SetRelationStatus(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	emptyErrorResults := params.ErrorResults{Results: []params.ErrorResult{{}}}
+	c.Assert(result, gc.DeepEquals, emptyErrorResults)
+}
+
+func (s *uniterRelationSuite) TestSetRelationStatusUnitTagNotValid(c *gc.C) {
+	// act
+	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{UnitTag: "foo"}}}
+	result, err := s.uniter.SetRelationStatus(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, gc.ErrorMatches, "\"foo\" is not a valid tag")
+}
+
+func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relID := 42
+	relationUUID := relationtesting.GenRelationUUID(c)
+	s.expectGetRelationUUIDByID(relID, relationUUID, errors.NotFound)
+
+	// act
+	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    s.wordpressUnitTag.String(),
+		RelationId: relID,
+		Status:     params.Joined,
+	}}}
+	result, err := s.uniter.SetRelationStatus(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Check(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
 func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -862,4 +1035,35 @@ func (s *uniterRelationSuite) expectGetRelationUnit(relUUID corerelation.UUID, u
 
 func (s *uniterRelationSuite) expectGetRelationUnitSettings(uuid corerelation.UnitUUID, settings map[string]string) {
 	s.relationService.EXPECT().GetRelationUnitSettings(gomock.Any(), uuid).Return(settings, nil)
+}
+
+func (s *uniterRelationSuite) expectGetUnitUUID(name string, unitUUID coreunit.UUID, err error) {
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name(name)).Return(unitUUID, err)
+}
+
+func (s *uniterRelationSuite) expectedGetRelationsStatusForUnit(uuid coreunit.UUID, input []params.RelationUnitStatus) {
+	expectedStatuses := make([]relation.RelationUnitStatus, len(input))
+	for i, in := range input {
+		// The caller created the tag, programing error if this fails.
+		tag, _ := names.ParseRelationTag(in.RelationTag)
+		expectedStatuses[i] = relation.RelationUnitStatus{
+			Key:       corerelation.Key(tag.Id()),
+			InScope:   in.InScope,
+			Suspended: in.Suspended,
+		}
+	}
+	s.relationService.EXPECT().GetRelationsStatusForUnit(gomock.Any(), uuid).Return(expectedStatuses, nil)
+}
+
+func (s *uniterRelationSuite) expectGetRelationUUIDByID(relID int, relUUID corerelation.UUID, err error) {
+	s.relationService.EXPECT().GetRelationUUIDByID(gomock.Any(), relID).Return(relUUID, err)
+}
+
+func (s *uniterRelationSuite) expectSetRelationStatus(unitName string, relUUID corerelation.UUID, relStatus status.StatusInfo) {
+	name, _ := coreunit.NewName(unitName)
+	s.relationService.EXPECT().SetRelationStatus(gomock.Any(), name, relUUID, relStatus).Return(nil)
+}
+
+func (s *uniterRelationSuite) expectGetRelationStatus(uuid corerelation.UUID, currentStatus status.StatusInfo) {
+	s.relationService.EXPECT().GetRelationStatus(gomock.Any(), uuid).Return(currentStatus, nil)
 }

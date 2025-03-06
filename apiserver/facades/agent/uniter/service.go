@@ -284,6 +284,16 @@ type RelationService interface {
 	// endpoint names of a the relation.
 	GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error)
 
+	// GetRelationByID returns the relation uuid based on the relation ID.
+	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
+
+	// GetRelationStatus returns the status of the given relation.
+	GetRelationStatus(ctx context.Context, relationUUID corerelation.UUID) (corestatus.StatusInfo, error)
+
+	// GetRelationsStatusesForUnit returns RelationUnitStatus for
+	// any relation the unit is part of.
+	GetRelationsStatusForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]relation.RelationUnitStatus, error)
+
 	// GetRemoteRelationApplicationSettings returns the application settings
 	// for the given application and relation identifier combination.
 	// Returns NotFound if the application or relation is not found.
@@ -292,4 +302,13 @@ type RelationService interface {
 		relationUUID corerelation.UUID,
 		applicationID coreapplication.ID,
 	) (map[string]string, error)
+
+	// SetRelationStatus sets the status of the relation to the status provided.
+	// Status may only be set by the application leader.
+	SetRelationStatus(
+		ctx context.Context,
+		unitName coreunit.Name,
+		relationUUID corerelation.UUID,
+		info corestatus.StatusInfo,
+	) error
 }
