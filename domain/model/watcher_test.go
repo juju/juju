@@ -166,7 +166,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 	})
 
 	harness.AddTest(func(c *gc.C) {
-		// Deletes model from table. This should trigger a change event.
+		// Deletes model from table. This should not trigger a change event.
 		modeltesting.DeleteTestModel(c, context.Background(), s.TxnRunnerFactory(), modelUUID)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()

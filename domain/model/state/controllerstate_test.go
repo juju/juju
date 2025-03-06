@@ -20,6 +20,7 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -33,8 +34,6 @@ import (
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-
-	modeltesting "github.com/juju/juju/core/model/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
