@@ -190,6 +190,7 @@ type InsertUnitArg struct {
 	UnitName       coreunit.Name
 	CloudContainer *CloudContainer
 	Password       *PasswordInfo
+	Constraints    constraints.Constraints
 	UnitStatusArg
 }
 

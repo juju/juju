@@ -562,6 +562,7 @@ func (s *unitStateSuite) TestDeleteUnit(c *gc.C) {
 		agentStatusCount          int
 		workloadStatusCount       int
 		cloudContainerStatusCount int
+		unitConstraintCount       int
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", u1.UnitName).Scan(&unitCount); err != nil {
@@ -588,6 +589,9 @@ func (s *unitStateSuite) TestDeleteUnit(c *gc.C) {
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM k8s_pod_status WHERE unit_uuid=?", unitUUID).Scan(&cloudContainerStatusCount); err != nil {
 			return err
 		}
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit_constraint WHERE unit_uuid=?", unitUUID).Scan(&unitConstraintCount); err != nil {
+			return err
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -599,6 +603,7 @@ func (s *unitStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Check(workloadStatusCount, gc.Equals, 0)
 	c.Check(cloudContainerStatusCount, gc.Equals, 0)
 	c.Check(unitCount, gc.Equals, 0)
+	c.Check(unitConstraintCount, gc.Equals, 0)
 }
 
 func (s *unitStateSuite) TestDeleteUnitLastUnitAppAlive(c *gc.C) {
@@ -1187,6 +1192,7 @@ func (s *unitStateSuite) TestAddUnits(c *gc.C) {
 		c, "unit_workload", coreunit.UUID(unitUUID),
 		int(u.UnitStatusArg.WorkloadStatus.Status), u.UnitStatusArg.WorkloadStatus.Message,
 		u.UnitStatusArg.WorkloadStatus.Since, u.UnitStatusArg.WorkloadStatus.Data)
+	s.assertUnitConstraints(c, coreunit.UUID(unitUUID), constraints.Constraints{})
 }
 
 func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *gc.C) {
@@ -1258,8 +1264,14 @@ func (s *unitStateSuite) TestSetConstraintFull(c *gc.C) {
 
 	err = s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUnitConstraints(c, unitUUID, cons)
+	constraintSpaces, constraintTags, constraintZones := s.assertUnitConstraints(c, unitUUID, cons)
 
+	c.Check(constraintSpaces, jc.DeepEquals, []applicationSpace{
+		{SpaceName: "space0", SpaceExclude: false},
+		{SpaceName: "space1", SpaceExclude: true},
+	})
+	c.Check(constraintTags, jc.DeepEquals, []string{"tag0", "tag1"})
+	c.Check(constraintZones, jc.DeepEquals, []string{"zone0", "zone1"})
 }
 
 func (s *unitStateSuite) TestSetConstraintInvalidContainerType(c *gc.C) {
@@ -1382,20 +1394,21 @@ func (s *unitStateSuite) addUnit(c *gc.C, appID coreapplication.ID, u applicatio
 	return coreunit.UUID(unitUUID)
 }
 
-func (s *unitStateSuite) assertUnitConstraints(c *gc.C, inUnitUUID coreunit.UUID, cons constraints.Constraints) {
-	type applicationSpace struct {
-		SpaceName    string `db:"space"`
-		SpaceExclude bool   `db:"exclude"`
-	}
+type applicationSpace struct {
+	SpaceName    string `db:"space"`
+	SpaceExclude bool   `db:"exclude"`
+}
+
+func (s *unitStateSuite) assertUnitConstraints(c *gc.C, inUnitUUID coreunit.UUID, cons constraints.Constraints) ([]applicationSpace, []string, []string) {
 	var (
 		unitUUID                                                            string
 		constraintUUID                                                      string
 		constraintSpaces                                                    []applicationSpace
 		constraintTags                                                      []string
 		constraintZones                                                     []string
-		arch, rootDiskSource, instanceRole, instanceType, virtType, imageID string
-		cpuCores, cpuPower, mem, rootDisk                                   int
-		allocatePublicIP                                                    bool
+		arch, rootDiskSource, instanceRole, instanceType, virtType, imageID sql.NullString
+		cpuCores, cpuPower, mem, rootDisk                                   sql.NullInt64
+		allocatePublicIP                                                    sql.NullBool
 	)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT unit_uuid, constraint_uuid FROM unit_constraint WHERE unit_uuid=?", inUnitUUID).Scan(&unitUUID, &constraintUUID)
@@ -1464,22 +1477,25 @@ func (s *unitStateSuite) assertUnitConstraints(c *gc.C, inUnitUUID coreunit.UUID
 	c.Check(constraintUUID, gc.Not(gc.Equals), "")
 	c.Check(unitUUID, gc.Equals, inUnitUUID.String())
 
-	c.Check(arch, gc.Equals, *cons.Arch)
-	c.Check(uint64(cpuCores), gc.Equals, *cons.CpuCores)
-	c.Check(uint64(cpuPower), gc.Equals, *cons.CpuPower)
-	c.Check(uint64(mem), gc.Equals, *cons.Mem)
-	c.Check(uint64(rootDisk), gc.Equals, *cons.RootDisk)
-	c.Check(rootDiskSource, gc.Equals, *cons.RootDiskSource)
-	c.Check(instanceRole, gc.Equals, *cons.InstanceRole)
-	c.Check(instanceType, gc.Equals, *cons.InstanceType)
-	c.Check(virtType, gc.Equals, *cons.VirtType)
-	c.Check(allocatePublicIP, gc.Equals, *cons.AllocatePublicIP)
-	c.Check(imageID, gc.Equals, *cons.ImageID)
+	c.Check(arch.String, gc.Equals, deptr(cons.Arch))
+	c.Check(uint64(cpuCores.Int64), gc.Equals, deptr(cons.CpuCores))
+	c.Check(uint64(cpuPower.Int64), gc.Equals, deptr(cons.CpuPower))
+	c.Check(uint64(mem.Int64), gc.Equals, deptr(cons.Mem))
+	c.Check(uint64(rootDisk.Int64), gc.Equals, deptr(cons.RootDisk))
+	c.Check(rootDiskSource.String, gc.Equals, deptr(cons.RootDiskSource))
+	c.Check(instanceRole.String, gc.Equals, deptr(cons.InstanceRole))
+	c.Check(instanceType.String, gc.Equals, deptr(cons.InstanceType))
+	c.Check(virtType.String, gc.Equals, deptr(cons.VirtType))
+	c.Check(allocatePublicIP.Bool, gc.Equals, deptr(cons.AllocatePublicIP))
+	c.Check(imageID.String, gc.Equals, deptr(cons.ImageID))
 
-	c.Check(constraintSpaces, jc.DeepEquals, []applicationSpace{
-		{SpaceName: "space0", SpaceExclude: false},
-		{SpaceName: "space1", SpaceExclude: true},
-	})
-	c.Check(constraintTags, jc.DeepEquals, []string{"tag0", "tag1"})
-	c.Check(constraintZones, jc.DeepEquals, []string{"zone0", "zone1"})
+	return constraintSpaces, constraintTags, constraintZones
+}
+
+func deptr[T any](v *T) T {
+	var zero T
+	if v == nil {
+		return zero
+	}
+	return *v
 }
