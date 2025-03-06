@@ -215,30 +215,6 @@ func (c *CommandBase) NewAPIRoot(
 	return c.NewAPIRootWithDialOpts(store, controllerName, modelName, nil)
 }
 
-func processAccountDetails(accountDetails *jujuclient.AccountDetails) *jujuclient.AccountDetails {
-	if accountDetails != nil && accountDetails.Type != "" && accountDetails.Type != jujuclient.UserPassAccountDetailsType {
-		return accountDetails
-	}
-	// If there are no account details or there's no logged-in
-	// user or the user is external, then trigger macaroon authentication
-	// by using a nil AccountDetails.
-	if accountDetails == nil || accountDetails.User == "" {
-		accountDetails = nil
-	} else {
-		u := names.NewUserTag(accountDetails.User)
-		if !u.IsLocal() {
-			// If the account has macaroon set, use those to login
-			// to avoid an unnecessary auth round trip.
-			// Used for embedded commands.
-			accountDetails = &jujuclient.AccountDetails{
-				User:      u.Id(),
-				Macaroons: accountDetails.Macaroons,
-			}
-		}
-	}
-	return accountDetails
-}
-
 // NewAPIRootWithDialOpts returns a new connection to the API server for the
 // given model or controller (the default dial options will be overridden if
 // dialOpts is not nil).
@@ -252,8 +228,6 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
-
-	accountDetails = processAccountDetails(accountDetails)
 
 	param, err := c.NewAPIConnectionParams(
 		store, controllerName, modelName, accountDetails,
@@ -592,14 +566,17 @@ func newAPIConnectionParams(
 		return juju.NewAPIConnectionParams{}, errors.Annotatef(errNotLogged, "controller %q", controllerName)
 	}
 
-	if accountDetails.Type == jujuclient.OAuth2DeviceFlowAccountDetailsType {
+	controllerDetails, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return juju.NewAPIConnectionParams{}, errors.Annotatef(err, "getting controller %q", controllerName)
+	}
+
+	if controllerDetails.OIDCLogin {
 		dialOpts.LoginProvider = api.NewSessionTokenLoginProvider(
 			accountDetails.SessionToken,
 			cmdOut,
-			func(sessionToken string) error {
-				accountDetails.Type = jujuclient.OAuth2DeviceFlowAccountDetailsType
+			func(sessionToken string) {
 				accountDetails.SessionToken = sessionToken
-				return store.UpdateAccount(controllerName, *accountDetails)
 			},
 		)
 	}
@@ -613,12 +590,12 @@ func newAPIConnectionParams(
 	}
 
 	return juju.NewAPIConnectionParams{
-		Store:          store,
-		ControllerName: controllerName,
-		AccountDetails: accountDetails,
-		ModelUUID:      modelUUID,
-		DialOpts:       dialOpts,
-		OpenAPI:        OpenAPIFuncWithMacaroons(apiOpen, store, controllerName),
+		ControllerStore: store,
+		ControllerName:  controllerName,
+		AccountDetails:  accountDetails,
+		ModelUUID:       modelUUID,
+		DialOpts:        dialOpts,
+		OpenAPI:         OpenAPIFuncWithMacaroons(apiOpen, store, controllerName),
 	}, nil
 }
 

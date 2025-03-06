@@ -229,6 +229,45 @@ func (s *BaseCommandSuite) TestNewAPIRootExternalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestNewAPIConnectionParams checks that the connection
+// parameters used to establish a connection are valid,
+// currently only the login provider is verified.
+func (s *BaseCommandSuite) TestNewAPIConnectionParams(c *gc.C) {
+	baseCmd := new(modelcmd.ModelCommandBase)
+	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
+	modelcmd.SetRunStarted(baseCmd)
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar", Password: "hunter2",
+	}
+	account := s.store.Accounts["foo"]
+	params, err := baseCmd.NewAPIConnectionParams(s.store, s.store.CurrentControllerName, "", &account)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(params.DialOpts.LoginProvider, gc.IsNil)
+}
+
+// TestNewAPIConnectionParamsWithOAuthController is similar
+// to TestNewAPIConnectionParams but verifies that when
+// connecting to a controller supporting OIDC, we default
+// to a specific kind of login provider.
+func (s *BaseCommandSuite) TestNewAPIConnectionParamsWithOAuthController(c *gc.C) {
+	newController, err := s.store.ControllerByName(s.store.CurrentControllerName)
+	c.Assert(err, jc.ErrorIsNil)
+	newController.OIDCLogin = true
+	s.store.Controllers["oauth-controller"] = *newController
+
+	baseCmd := new(modelcmd.ModelCommandBase)
+	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
+	modelcmd.SetRunStarted(baseCmd)
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar", Password: "hunter2",
+	}
+	account := s.store.Accounts["foo"]
+	params, err := baseCmd.NewAPIConnectionParams(s.store, "oauth-controller", "", &account)
+	c.Assert(err, jc.ErrorIsNil)
+	sessionTokenLogin := api.NewSessionTokenLoginProvider("", nil, nil)
+	c.Assert(params.DialOpts.LoginProvider, gc.FitsTypeOf, sessionTokenLogin)
+}
+
 type NewGetBootstrapConfigParamsFuncSuite struct {
 	testing.IsolationSuite
 }
@@ -446,68 +485,4 @@ func addCookie(c *gc.C, jar http.CookieJar, mac *macaroon.Macaroon, url *url.URL
 	c.Assert(err, jc.ErrorIsNil)
 	cookie.Expires = time.Now().Add(time.Hour) // only persistent cookies are stored
 	jar.SetCookies(url, []*http.Cookie{cookie})
-}
-
-func (s *BaseCommandSuite) TestProcessAccountDetails(c *gc.C) {
-
-	m, err := macaroon.New([]byte("test-root-key"), []byte("test-id"), "", macaroon.V2)
-	c.Assert(err, gc.IsNil)
-
-	tests := []struct {
-		input          jujuclient.AccountDetails
-		expectedOutput jujuclient.AccountDetails
-	}{{
-		input: jujuclient.AccountDetails{
-			Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
-			SessionToken: "test-session-token",
-		},
-		expectedOutput: jujuclient.AccountDetails{
-			Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
-			SessionToken: "test-session-token",
-		},
-	}, {
-		input: jujuclient.AccountDetails{
-			Type:     "",
-			User:     names.NewUserTag("alice").String(),
-			Password: "test-secret-password",
-		},
-		expectedOutput: jujuclient.AccountDetails{
-			Type:     "",
-			User:     names.NewUserTag("alice").String(),
-			Password: "test-secret-password",
-		},
-	}, {
-		input: jujuclient.AccountDetails{
-			Type:      jujuclient.UserPassAccountDetailsType,
-			User:      names.NewUserTag("alice").String(),
-			Macaroons: []macaroon.Slice{{m}},
-		},
-		expectedOutput: jujuclient.AccountDetails{
-			Type:      jujuclient.UserPassAccountDetailsType,
-			User:      names.NewUserTag("alice").String(),
-			Macaroons: []macaroon.Slice{{m}},
-		},
-	}, {
-		input: jujuclient.AccountDetails{
-			Type:      jujuclient.UserPassAccountDetailsType,
-			User:      names.NewUserTag("alice@wonderland.canonical.com").String(),
-			Macaroons: []macaroon.Slice{{m}},
-		},
-		expectedOutput: jujuclient.AccountDetails{
-			User:      names.NewUserTag("alice@wonderland.canonical.com").String(),
-			Macaroons: []macaroon.Slice{{m}},
-		},
-	}, {
-		input: jujuclient.AccountDetails{
-			User: names.NewUserTag("alice@wonderland.canonical.com").String(),
-		},
-		expectedOutput: jujuclient.AccountDetails{
-			User: names.NewUserTag("alice@wonderland.canonical.com").String(),
-		},
-	}}
-	for i, test := range tests {
-		c.Logf("running test case %d", i)
-		output := modelcmd.ProcessAccountDetails(&test.input)
-		c.Assert(output, gc.DeepEquals, &test.expectedOutput)
-	}
 }

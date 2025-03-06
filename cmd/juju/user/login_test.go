@@ -447,6 +447,40 @@ To login as user "current-user" run 'juju login -u current-user -c ` + existingN
 	}
 }
 
+func (s *LoginCommandSuite) TestLoginErrorSpecifyingUsernameWithOIDC(c *gc.C) {
+	s.store.Controllers["oidc-controller"] = jujuclient.ControllerDetails{
+		APIEndpoints:   []string{"1.1.1.1:12345"},
+		CACert:         testing.CACert,
+		ControllerUUID: testing.ControllerTag.Id(),
+		OIDCLogin:      true,
+	}
+	s.store.CurrentControllerName = "oidc-controller"
+	stdout, stderr, code := runLogin(c, "", "-u", "some-user")
+	c.Assert(code, gc.Equals, 1)
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Matches, `ERROR cannot specify a username during login to a controller with OIDC, remove the username and try again\n`)
+}
+
+func (s *LoginCommandSuite) TestLoginWithOIDCWithNoAccount(c *gc.C) {
+	s.store.Controllers["oidc-controller"] = jujuclient.ControllerDetails{
+		APIEndpoints:   []string{"1.1.1.1:12345"},
+		CACert:         testing.CACert,
+		ControllerUUID: testing.ControllerTag.Id(),
+		OIDCLogin:      true,
+	}
+	s.store.CurrentControllerName = "oidc-controller"
+	var checkPatchFuncCalled bool
+	s.PatchValue(user.NewAPIConnection, func(p juju.NewAPIConnectionParams) (api.Connection, error) {
+		sessionTokenLogin := api.NewSessionTokenLoginProvider("", nil, nil)
+		c.Check(p.DialOpts.LoginProvider, gc.FitsTypeOf, sessionTokenLogin)
+		checkPatchFuncCalled = true
+		return s.apiConnection, nil
+	})
+	_, _, code := runLogin(c, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(checkPatchFuncCalled, gc.Equals, true)
+}
+
 func runLogin(c *gc.C, stdin string, args ...string) (stdout, stderr string, errCode int) {
 	c.Logf("in LoginControllerSuite.run")
 	var stdoutBuf, stderrBuf bytes.Buffer

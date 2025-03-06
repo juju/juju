@@ -87,11 +87,11 @@ func (c *ClientStoreConnector) Connect(dialOptions ...api.DialOption) (api.Conne
 	opts.BakeryClient = bakeryClient
 
 	return juju.NewAPIConnection(juju.NewAPIConnectionParams{
-		ControllerName: c.config.ControllerName,
-		Store:          c.config.ClientStore,
-		OpenAPI:        apiOpen,
-		DialOpts:       opts,
-		AccountDetails: c.config.AccountDetails,
-		ModelUUID:      c.config.ModelUUID,
+		ControllerName:  c.config.ControllerName,
+		ControllerStore: c.config.ClientStore,
+		OpenAPI:         apiOpen,
+		DialOpts:        opts,
+		AccountDetails:  c.config.AccountDetails,
+		ModelUUID:       c.config.ModelUUID,
 	})
 }

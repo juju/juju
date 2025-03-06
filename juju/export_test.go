@@ -4,8 +4,7 @@
 package juju
 
 var (
-	ConnectionInfo        = connectionInfo
-	ProcessAccountDetails = processAccountDetails
+	ConnectionInfo = connectionInfo
 )
 
 type CurrentConnection = currentConnection

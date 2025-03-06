@@ -69,6 +69,10 @@ type ControllerDetails struct {
 	// usage `controllers` does not need to hit the server.
 	MachineCount *int `yaml:"machine-count,omitempty"`
 
+	// OIDCLogin is true when the controller supports OIDC login
+	// via an external identity provider.
+	OIDCLogin bool `yaml:"oidc-login,omitempty"`
+
 	// Proxy is a config wrapper around a real proxier interface that should
 	// be used to connect to this controller
 	Proxy *ProxyConfWrapper `yaml:"proxy-config,omitempty"`
@@ -86,24 +90,8 @@ type ModelDetails struct {
 	ActiveBranch string `yaml:"branch"`
 }
 
-// AccountDetailsType defines the authentication method to be used for the account.
-type AccountDetailsType string
-
-const (
-	// UserPassAccountDetailsType means that username and password (or macaroons) are used
-	// to authenticate with the controller
-	UserPassAccountDetailsType AccountDetailsType = "userpass"
-
-	// OAuth2DeviceFlowAccountDetailsType means that the stored session token is to be used
-	// to authenticate with the controller or, if expired, initiate oauth2 device flow to
-	// obtain a valid session token.
-	OAuth2DeviceFlowAccountDetailsType AccountDetailsType = "oauth2-device"
-)
-
 // AccountDetails holds details of an account.
 type AccountDetails struct {
-	Type AccountDetailsType `yaml:"type,omitempty"`
-
 	// User is the username for the account.
 	User string `yaml:"user"`
 
