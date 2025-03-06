@@ -1199,6 +1199,126 @@ func (s *unitStateSuite) TestSetConstraintFull(c *gc.C) {
 
 }
 
+func (s *unitStateSuite) TestSetConstraintInvalidContainerType(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	appID := s.createApplication(c, "foo", life.Alive)
+	unitUUID := s.addUnit(c, appID, u)
+
+	cons := constraints.Constraints{
+		Container: ptr(instance.ContainerType("invalid-container-type")),
+	}
+	err := s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
+	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidUnitConstraints)
+}
+
+func (s *unitStateSuite) TestSetConstraintInvalidSpace(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	appID := s.createApplication(c, "foo", life.Alive)
+	unitUUID := s.addUnit(c, appID, u)
+
+	cons := constraints.Constraints{
+		Spaces: ptr([]constraints.SpaceConstraint{
+			{SpaceName: "invalid-space", Exclude: false},
+		}),
+	}
+	err := s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
+	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidUnitConstraints)
+}
+
+func (s *unitStateSuite) TestSetConstraintsUnitNotFound(c *gc.C) {
+	err := s.state.SetUnitConstraints(context.Background(), "foo", constraints.Constraints{Mem: ptr(uint64(8))})
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestSetUnitPresence(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.InsertUnitArg{
+		UnitName: "foo/667",
+	}
+	s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	err := s.state.SetUnitPresence(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var lastSeen time.Time
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT last_seen FROM v_unit_agent_presence WHERE name=?", "foo/666").Scan(&lastSeen); err != nil {
+			return err
+		}
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(lastSeen.IsZero(), jc.IsFalse)
+	c.Check(lastSeen.After(time.Now().Add(-time.Minute)), jc.IsTrue)
+}
+
+func (s *unitStateSuite) TestSetUnitPresenceNotFound(c *gc.C) {
+	err := s.state.SetUnitPresence(context.Background(), "foo/665")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestDeleteUnitPresenceNotFound(c *gc.C) {
+	err := s.state.DeleteUnitPresence(context.Background(), "foo/665")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitStateSuite) TestDeleteUnitPresence(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.InsertUnitArg{
+		UnitName: "foo/667",
+	}
+	s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	err := s.state.SetUnitPresence(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var lastSeen time.Time
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT last_seen FROM v_unit_agent_presence WHERE name=?", "foo/666").Scan(&lastSeen); err != nil {
+			return err
+		}
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(lastSeen.IsZero(), jc.IsFalse)
+	c.Check(lastSeen.After(time.Now().Add(-time.Minute)), jc.IsTrue)
+
+	err = s.state.DeleteUnitPresence(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var count int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM v_unit_agent_presence WHERE name=?", "foo/666").Scan(&count); err != nil {
+			return err
+		}
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(count, gc.Equals, 0)
+}
+
+func (s *unitStateSuite) addUnit(c *gc.C, appID coreapplication.ID, u application.InsertUnitArg) coreunit.UUID {
+	err := s.state.InsertUnit(context.Background(), appID, u)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var unitUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return coreunit.UUID(unitUUID)
+}
+
 func (s *unitStateSuite) assertUnitConstraints(c *gc.C, inUnitUUID coreunit.UUID, cons constraints.Constraints) {
 	type applicationSpace struct {
 		SpaceName    string `db:"space"`
@@ -1299,51 +1419,4 @@ func (s *unitStateSuite) assertUnitConstraints(c *gc.C, inUnitUUID coreunit.UUID
 	})
 	c.Check(constraintTags, jc.DeepEquals, []string{"tag0", "tag1"})
 	c.Check(constraintZones, jc.DeepEquals, []string{"zone0", "zone1"})
-}
-
-func (s *unitStateSuite) TestSetConstraintInvalidContainerType(c *gc.C) {
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	appID := s.createApplication(c, "foo", life.Alive)
-	unitUUID := s.addUnit(c, appID, u)
-
-	cons := constraints.Constraints{
-		Container: ptr(instance.ContainerType("invalid-container-type")),
-	}
-	err := s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
-	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidUnitConstraints)
-}
-
-func (s *unitStateSuite) TestSetConstraintInvalidSpace(c *gc.C) {
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	appID := s.createApplication(c, "foo", life.Alive)
-	unitUUID := s.addUnit(c, appID, u)
-
-	cons := constraints.Constraints{
-		Spaces: ptr([]constraints.SpaceConstraint{
-			{SpaceName: "invalid-space", Exclude: false},
-		}),
-	}
-	err := s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
-	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidUnitConstraints)
-}
-
-func (s *unitStateSuite) TestSetConstraintsUnitNotFound(c *gc.C) {
-	err := s.state.SetUnitConstraints(context.Background(), "foo", constraints.Constraints{Mem: ptr(uint64(8))})
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
-}
-
-func (s *unitStateSuite) addUnit(c *gc.C, appID coreapplication.ID, u application.InsertUnitArg) coreunit.UUID {
-	err := s.state.InsertUnit(context.Background(), appID, u)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var unitUUID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return coreunit.UUID(unitUUID)
 }

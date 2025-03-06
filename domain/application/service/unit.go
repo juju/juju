@@ -28,6 +28,89 @@ import (
 // UnitState describes retrieval and persistence methods for
 // units.
 type UnitState interface {
+	// AddUnits adds the specified units to the application.
+	AddUnits(context.Context, coreapplication.ID, []application.AddUnitArg) error
+
+	// InsertCAASUnit inserts the specified CAAS application unit, returning an
+	// error satisfying [applicationerrors.UnitAlreadyExists] if the unit
+	// exists.
+	InsertCAASUnit(context.Context, coreapplication.ID, application.RegisterCAASUnitArg) error
+
+	// UpdateCAASUnit updates the cloud container for specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFoundError]
+	// if the unit doesn't exist.
+	UpdateCAASUnit(context.Context, coreunit.Name, application.UpdateCAASUnitParams) error
+
+	// InsertUnit insert the specified application unit, returning an error
+	// satisfying [applicationerrors.UnitAlreadyExists]
+	// if the unit exists.
+	InsertUnit(context.Context, coreapplication.ID, application.InsertUnitArg) error
+
+	// SetUnitPassword updates the password for the specified unit UUID.
+	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
+
+	// GetUnitWorkloadStatus returns the workload status of the specified unit,
+	// returning: - an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist or; - an error satisfying
+	// [applicationerrors.UnitStatusNotFound] if the status is not set.
+	GetUnitWorkloadStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.WorkloadStatusType], error)
+
+	// SetUnitWorkloadStatus sets the workload status of the specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
+	SetUnitWorkloadStatus(context.Context, coreunit.UUID, *application.StatusInfo[application.WorkloadStatusType]) error
+
+	// GetUnitCloudContainerStatus returns the cloud container status of the
+	// specified unit. It returns; - an error satisfying
+	// [applicationerrors.UnitNotFound] if the unit doesn't exist or; - an error
+	// satisfying [applicationerrors.UnitStatusNotFound] if the status is not
+	// set.
+	GetUnitCloudContainerStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.CloudContainerStatusType], error)
+
+	// GetUnitWorkloadStatusesForApplication returns the workload statuses for
+	// all units of the specified application, returning:
+	//   - an error satisfying [applicationerrors.ApplicationNotFound] if the
+	//     application doesn't exist or;
+	//   - error satisfying [applicationerrors.ApplicationIsDead] if the
+	//     application is dead.
+	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error)
+
+	// GetUnitCloudContainerStatusesForApplication returns the cloud container
+	// statuses for all units of the specified application, returning:
+	//   - an error satisfying [applicationerrors.ApplicationNotFound] if the
+	//     application doesn't exist or;
+	//   - an error satisfying [applicationerrors.ApplicationIsDead] if the
+	//     application is dead.
+	GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error)
+
+	// DeleteUnit deletes the specified unit. If the unit's application is Dying
+	// and no other references to it exist, true is returned to indicate the
+	// application could be safely deleted. It will fail if the unit is not
+	// Dead.
+	DeleteUnit(context.Context, coreunit.Name) (bool, error)
+
+	// GetUnitUUIDByName returns the UUID for the named unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+	// exist.
+	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
+
+	// GetUnitLife looks up the life of the specified unit, returning an error
+	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
+	GetUnitLife(context.Context, coreunit.Name) (life.Life, error)
+
+	// SetUnitLife sets the life of the specified unit.
+	SetUnitLife(context.Context, coreunit.Name, life.Life) error
+
+	// SetUnitPresence marks the presence of the specified unit, returning an error
+	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	// The unit life is not considered when making this query.
+	SetUnitPresence(ctx context.Context, name coreunit.Name) error
+
+	// DeleteUnitPresence removes the presence of the specified unit. If the
+	// unit isn't found it ignores the error.
+	// The unit life is not considered when making this query.
+	DeleteUnitPresence(ctx context.Context, name coreunit.Name) error
+
 	// GetModelConstraints returns the currently set constraints for the model.
 	// The following error types can be expected:
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
@@ -45,94 +128,6 @@ type UnitState interface {
 	// If the unit is dead, an error satisfying [applicationerrors.UnitIsDead]
 	// is returned.
 	SetUnitConstraints(ctx context.Context, inUnitUUID coreunit.UUID, cons constraints.Constraints) error
-}
-
-// AddUnits adds the specified units to the application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application
-// doesn't exist.
-// If no units are provided, it will return nil.
-func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
-	if !isValidApplicationName(appName) {
-		return applicationerrors.ApplicationNameNotValid
-	}
-
-	if len(units) == 0 {
-		return nil
-	}
-
-	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
-	if err != nil {
-		return internalerrors.Errorf("getting application %q id: %w", appName, err)
-	}
-
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return internalerrors.Errorf("getting model type: %w", err)
-	}
-
-	args, err := s.makeUnitArgs(modelType, units)
-	if err != nil {
-		return internalerrors.Errorf("making unit args: %w", err)
-	}
-
-	unitCons, err := s.mergeApplicationAndModelConstraints(ctx, appUUID)
-	if err != nil {
-		return internalerrors.Capture(err)
-	}
-
-	if err := s.setUnitsConstraints(ctx, constraints.DecodeConstraints(unitCons), args); err != nil {
-		return internalerrors.Errorf("setting unit constraints: %w", err)
-	}
-
-	if err := s.st.AddUnits(ctx, appUUID, args); err != nil {
-		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
-	}
-
-	for _, arg := range args {
-		unitName := arg.UnitName.String()
-
-		if agentStatus, err := decodeUnitAgentStatus(arg.UnitStatusArg.AgentStatus); err == nil && agentStatus != nil {
-			if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName), *agentStatus); err != nil {
-				s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
-			}
-		}
-
-		if workloadStatus, err := decodeWorkloadStatus(arg.UnitStatusArg.WorkloadStatus); err == nil && workloadStatus != nil {
-			if err := s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName), *workloadStatus); err != nil {
-				s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Context, appUUID coreapplication.ID) (coreconstraints.Value, error) {
-	validator, err := s.constraintsValidator(ctx)
-	if err != nil {
-		return coreconstraints.Value{}, internalerrors.Capture(err)
-	}
-	// If the provider doesn't support constraints validation, then we can
-	// just return the zero value.
-	if validator == nil {
-		return coreconstraints.Value{}, nil
-	}
-
-	appCons, err := s.GetApplicationConstraints(ctx, appUUID)
-	if err != nil {
-		return coreconstraints.Value{}, internalerrors.Errorf("retrieving application %q constraints for merging with model constraints args: %w", appUUID.String(), err)
-	}
-	modelCons, err := s.st.GetModelConstraints(ctx)
-	if err != nil && !errors.Is(err, modelerrors.ConstraintsNotFound) {
-		return coreconstraints.Value{}, internalerrors.Errorf("retrieving model constraints for merging with application %q constraints: %w	", appUUID.String(), err)
-	}
-
-	res, err := validator.Merge(appCons, constraints.EncodeConstraints(modelCons))
-	if err != nil {
-		return coreconstraints.Value{}, internalerrors.Errorf("merging application %q and model constraints: %w", appUUID.String(), err)
-	}
-
-	return res, nil
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg) ([]application.AddUnitArg, error) {
@@ -181,8 +176,9 @@ func (s *Service) setUnitsConstraints(ctx context.Context, cons constraints.Cons
 	return nil
 }
 
-// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
-// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// SetUnitWorkloadStatus sets the workload status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
 func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name, status *corestatus.StatusInfo) error {
 	if err := unitName.Validate(); err != nil {
 		return errors.Trace(err)
@@ -211,8 +207,9 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 }
 
 // GetUnitWorkloadStatusesForApplication returns the workload statuses of all
-// units in the specified application, indexed by unit name, returning an error satisfying
-// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
+// units in the specified application, indexed by unit name, returning an error
+// satisfying [applicationerrors.ApplicationNotFound] if the application doesn't
+// exist.
 func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error) {
 	if err := appID.Validate(); err != nil {
 		return nil, internalerrors.Errorf("application ID: %w", err)
@@ -272,8 +269,9 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, p
 	})
 }
 
-// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
-// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// GetUnitWorkloadStatus returns the workload status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
 func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
 	if err := unitName.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -289,10 +287,11 @@ func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 	return decodeWorkloadStatus(workloadStatus)
 }
 
-// RegisterCAASUnit creates or updates the specified application unit in a caas model,
-// returning an error satisfying [applicationerrors.ApplicationNotFoundError]
-// if the application doesn't exist. If the unit life is Dead, an error
-// satisfying [applicationerrors.UnitAlreadyExists] is returned.
+// RegisterCAASUnit creates or updates the specified application unit in a caas
+// model, returning an error satisfying
+// [applicationerrors.ApplicationNotFoundError] if the application doesn't
+// exist. If the unit life is Dead, an error satisfying
+// [applicationerrors.UnitAlreadyExists] is returned.
 func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args application.RegisterCAASUnitArg) error {
 	if args.PasswordHash == "" {
 		return errors.NotValidf("password hash")
@@ -318,9 +317,9 @@ func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args app
 	return nil
 }
 
-// UpdateCAASUnit updates the specified CAAS unit, returning an error
-// satisfying applicationerrors.ApplicationNotAlive if the unit's
-// application is not alive.
+// UpdateCAASUnit updates the specified CAAS unit, returning an error satisfying
+// [applicationerrors.ApplicationNotAlive] if the unit's application is not
+// alive.
 func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params UpdateCAASUnitParams) error {
 	appName := unitName.Application()
 	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
@@ -359,14 +358,14 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	return nil
 }
 
-// RemoveUnit is called by the deployer worker and caas application provisioner worker to
-// remove from the model units which have transitioned to dead.
-// TODO(units): revisit his existing logic ported from mongo
-// Note: the callers of this method only do so after the unit has become dead, so
-// there's strictly no need to set the life to Dead before removing.
-// If the unit is still alive, an error satisfying [applicationerrors.UnitIsAlive]
-// is returned. If the unit is not found, an error satisfying
-// [applicationerrors.UnitNotFound] is returned.
+// RemoveUnit is called by the deployer worker and caas application provisioner
+// worker to remove from the model units which have transitioned to dead.
+// TODO(units): revisit his existing logic ported from mongo Note: the callers
+// of this method only do so after the unit has become dead, so there's strictly
+// no need to set the life to Dead before removing. If the unit is still alive,
+// an error satisfying [applicationerrors.UnitIsAlive] is returned. If the unit
+// is not found, an error satisfying [applicationerrors.UnitNotFound] is
+// returned.
 func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
 	unitLife, err := s.st.GetUnitLife(ctx, unitName)
 	if err != nil {
@@ -467,10 +466,11 @@ func (s *Service) DeleteUnit(ctx context.Context, unitName coreunit.Name) error 
 }
 
 // CAASUnitTerminating should be called by the CAASUnitTerminationWorker when
-// the agent receives a signal to exit. UnitTerminating will return how
-// the agent should shutdown.
-// We pass in a CAAS broker to get app details from the k8s cluster - we will probably
-// make it a service attribute once more use cases emerge.
+// the agent receives a signal to exit. UnitTerminating will return how the
+// agent should shutdown.
+//
+// We pass in a CAAS broker to get app details from the k8s cluster - we will
+// probably make it a service attribute once more use cases emerge.
 func (s *Service) CAASUnitTerminating(ctx context.Context, appName string, unitNum int, broker Broker) (bool, error) {
 	// TODO(sidecar): handle deployment other than statefulset
 	deploymentType := caas.DeploymentStateful
@@ -501,4 +501,113 @@ func (s *Service) CAASUnitTerminating(ctx context.Context, appName string, unitN
 		return false, errors.NotSupportedf("unknown deployment type")
 	}
 	return restart, nil
+}
+
+// SetUnitPresence marks the presence of the unit in the model. It is called by
+// the unit agent accesses the API server. If the unit is not found, an error
+// satisfying [applicationerrors.UnitNotFound] is returned. The unit life is not
+// considered when setting the presence.
+func (s *Service) SetUnitPresence(ctx context.Context, unitName coreunit.Name) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return s.st.SetUnitPresence(ctx, unitName)
+}
+
+// DeleteUnitPresence removes the presence of the unit in the model. If the unit
+// is not found, it ignores the error. The unit life is not considered when
+// deleting the presence.
+func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return s.st.DeleteUnitPresence(ctx, unitName)
+}
+
+// AddUnits adds the specified units to the application, returning an error
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application
+// doesn't exist.
+// If no units are provided, it will return nil.
+func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
+	if !isValidApplicationName(appName) {
+		return applicationerrors.ApplicationNameNotValid
+	}
+
+	if len(units) == 0 {
+		return nil
+	}
+
+	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return internalerrors.Errorf("getting application %q id: %w", appName, err)
+	}
+
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return internalerrors.Errorf("getting model type: %w", err)
+	}
+
+	args, err := s.makeUnitArgs(modelType, units)
+	if err != nil {
+		return internalerrors.Errorf("making unit args: %w", err)
+	}
+
+	unitCons, err := s.mergeApplicationAndModelConstraints(ctx, appUUID)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	if err := s.setUnitsConstraints(ctx, constraints.DecodeConstraints(unitCons), args); err != nil {
+		return internalerrors.Errorf("setting unit constraints: %w", err)
+	}
+
+	if err := s.st.AddUnits(ctx, appUUID, args); err != nil {
+		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
+	}
+
+	for _, arg := range args {
+		unitName := arg.UnitName.String()
+
+		if agentStatus, err := decodeUnitAgentStatus(arg.UnitStatusArg.AgentStatus); err == nil && agentStatus != nil {
+			if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName), *agentStatus); err != nil {
+				s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
+			}
+		}
+
+		if workloadStatus, err := decodeWorkloadStatus(arg.UnitStatusArg.WorkloadStatus); err == nil && workloadStatus != nil {
+			if err := s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName), *workloadStatus); err != nil {
+				s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Context, appUUID coreapplication.ID) (coreconstraints.Value, error) {
+	validator, err := s.constraintsValidator(ctx)
+	if err != nil {
+		return coreconstraints.Value{}, internalerrors.Capture(err)
+	}
+	// If the provider doesn't support constraints validation, then we can
+	// just return the zero value.
+	if validator == nil {
+		return coreconstraints.Value{}, nil
+	}
+
+	appCons, err := s.GetApplicationConstraints(ctx, appUUID)
+	if err != nil {
+		return coreconstraints.Value{}, internalerrors.Errorf("retrieving application %q constraints for merging with model constraints args: %w", appUUID.String(), err)
+	}
+	modelCons, err := s.st.GetModelConstraints(ctx)
+	if err != nil && !errors.Is(err, modelerrors.ConstraintsNotFound) {
+		return coreconstraints.Value{}, internalerrors.Errorf("retrieving model constraints for merging with application %q constraints: %w	", appUUID.String(), err)
+	}
+
+	res, err := validator.Merge(appCons, constraints.EncodeConstraints(modelCons))
+	if err != nil {
+		return coreconstraints.Value{}, internalerrors.Errorf("merging application %q and model constraints: %w", appUUID.String(), err)
+	}
+
+	return res, nil
 }

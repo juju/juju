@@ -4,6 +4,7 @@
 package metricobserver
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc"
 )
 
@@ -43,9 +45,6 @@ type SummaryVec interface {
 
 // MetricsCollector represents a bundle of metrics that is used by the observer
 // factory.
-//
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/observer/metricobserver MetricsCollector,SummaryVec
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Summary
 type MetricsCollector interface {
 	// APIRequestDuration returns a SummaryVec for updating the duration of
 	// api request duration.
@@ -105,13 +104,13 @@ type metrics struct {
 }
 
 // Login is part of the observer.Observer interface.
-func (*Observer) Login(entity names.Tag, _ names.ModelTag, _ bool, _ string) {}
+func (*Observer) Login(context.Context, names.Tag, names.ModelTag, model.UUID, bool, string) {}
 
 // Join is part of the observer.Observer interface.
-func (*Observer) Join(req *http.Request, connectionID uint64) {}
+func (*Observer) Join(context.Context, *http.Request, uint64) {}
 
 // Leave is part of the observer.Observer interface.
-func (*Observer) Leave() {}
+func (*Observer) Leave(context.Context) {}
 
 // RPCObserver is part of the observer.Observer interface.
 func (o *Observer) RPCObserver() rpc.Observer {
@@ -128,12 +127,12 @@ type rpcObserver struct {
 }
 
 // ServerRequest is part of the rpc.Observer interface.
-func (o *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
+func (o *rpcObserver) ServerRequest(ctx context.Context, hdr *rpc.Header, body interface{}) {
 	o.requestStart = o.clock.Now()
 }
 
 // ServerReply is part of the rpc.Observer interface.
-func (o *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (o *rpcObserver) ServerReply(ctx context.Context, req rpc.Request, hdr *rpc.Header, body interface{}) {
 	// The following reduces the number permutations around the cardinality.
 	// All errors will be reported as "error" to remove this issue of exploding
 	// out of quantiles.

@@ -4,6 +4,7 @@
 package observer
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 
@@ -51,7 +52,7 @@ type combinedRecorder struct {
 
 // HandleRequest implements rpc.Recorder.
 func (cr *combinedRecorder) HandleRequest(hdr *rpc.Header, body interface{}) error {
-	cr.observer.ServerRequest(hdr, body)
+	cr.observer.ServerRequest(context.Background(), hdr, body)
 	if cr.recorder == nil {
 		return nil
 	}
@@ -74,7 +75,7 @@ func (cr *combinedRecorder) HandleRequest(hdr *rpc.Header, body interface{}) err
 
 // HandleReply implements rpc.Recorder.
 func (cr *combinedRecorder) HandleReply(req rpc.Request, replyHdr *rpc.Header, body interface{}) error {
-	cr.observer.ServerReply(req, replyHdr, body)
+	cr.observer.ServerReply(context.Background(), req, replyHdr, body)
 	if cr.recorder == nil {
 		return nil
 	}

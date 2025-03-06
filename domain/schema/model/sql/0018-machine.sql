@@ -172,3 +172,11 @@ CREATE TABLE container_type (
 INSERT INTO container_type VALUES
 (0, 'none'),
 (1, 'lxd');
+
+CREATE TABLE machine_agent_presence (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    last_seen DATETIME,
+    CONSTRAINT fk_machine_agent_presence_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
+);

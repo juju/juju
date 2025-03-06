@@ -154,8 +154,8 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 
 	observerFactory, err := newObserverFn(
 		config.AgentConfig,
+		config.DomainServicesGetter,
 		config.Clock,
-		config.Hub,
 		config.MetricsCollector,
 	)
 	if err != nil {

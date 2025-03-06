@@ -60,64 +60,6 @@ type ApplicationState interface {
 	// if the charm for the application is not found.
 	CreateApplication(context.Context, string, application.AddApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
 
-	// AddUnits adds the specified units to the application.
-	AddUnits(context.Context, coreapplication.ID, []application.AddUnitArg) error
-
-	// InsertCAASUnit inserts the specified CAAS application unit, returning an
-	// error satisfying [applicationerrors.UnitAlreadyExists] if the unit exists.
-	InsertCAASUnit(context.Context, coreapplication.ID, application.RegisterCAASUnitArg) error
-
-	// UpdateCAASUnit updates the cloud container for specified unit,
-	// returning an error satisfying [applicationerrors.UnitNotFoundError]
-	// if the unit doesn't exist.
-	UpdateCAASUnit(context.Context, coreunit.Name, application.UpdateCAASUnitParams) error
-
-	// InsertUnit insert the specified application unit, returning an error
-	// satisfying [applicationerrors.UnitAlreadyExists]
-	// if the unit exists.
-	InsertUnit(context.Context, coreapplication.ID, application.InsertUnitArg) error
-
-	// SetUnitPassword updates the password for the specified unit UUID.
-	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
-
-	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning:
-	// - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
-	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
-	GetUnitWorkloadStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.WorkloadStatusType], error)
-
-	// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetUnitWorkloadStatus(context.Context, coreunit.UUID, *application.StatusInfo[application.WorkloadStatusType]) error
-
-	// GetUnitCloudContainerStatus returns the cloud container status of the specified
-	// unit. It returns;
-	// - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
-	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
-	GetUnitCloudContainerStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.CloudContainerStatusType], error)
-
-	// GetUnitWorkloadStatusesForApplication returns the workload statuses for all units
-	// of the specified application, returning:
-	//   - an error satisfying [applicationerrors.ApplicationNotFound] if the application
-	//     doesn't exist or;
-	//   - error satisfying [applicationerrors.ApplicationIsDead] if the application
-	//     is dead.
-	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error)
-
-	// GetUnitCloudContainerStatusesForApplication returns the cloud container
-	// statuses for all units of the specified application, returning:
-	//   - an error satisfying [applicationerrors.ApplicationNotFound] if the application
-	//     doesn't exist or;
-	//   - an error satisfying [applicationerrors.ApplicationIsDead] if the application
-	//     is dead.
-	GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error)
-
-	// DeleteUnit deletes the specified unit.
-	// If the unit's application is Dying and no
-	// other references to it exist, true is returned to
-	// indicate the application could be safely deleted.
-	// It will fail if the unit is not Dead.
-	DeleteUnit(context.Context, coreunit.Name) (bool, error)
-
 	// GetModelType returns the model type for the underlying model. If the
 	// model does not exist then an error satisfying [modelerrors.NotFound] will
 	// be returned.
@@ -130,11 +72,6 @@ type ApplicationState interface {
 	// returning an error satisfying [storageerrors.PoolNotFoundError] if it
 	// doesn't exist.
 	GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error)
-
-	// GetUnitUUIDByName returns the UUID for the named unit, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
-	// exist.
-	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 
 	// UpsertCloudService updates the cloud service for the specified
 	// application, returning an error satisfying
@@ -268,13 +205,6 @@ type ApplicationState interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error
-
-	// GetUnitLife looks up the life of the specified unit, returning an error
-	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
-	GetUnitLife(context.Context, coreunit.Name) (life.Life, error)
-
-	// SetUnitLife sets the life of the specified unit.
-	SetUnitLife(context.Context, coreunit.Name, life.Life) error
 
 	// GetApplicationConfigHash returns the SHA256 hash of the application config
 	// for the specified application ID.

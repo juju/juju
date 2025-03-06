@@ -4,6 +4,7 @@
 package fakeobserver
 
 import (
+	"context"
 	"net/http"
 	"runtime"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc"
 )
 
@@ -20,18 +22,18 @@ type Instance struct {
 }
 
 // Join implements Observer.
-func (f *Instance) Join(req *http.Request, connectionID uint64) {
+func (f *Instance) Join(ctx context.Context, req *http.Request, connectionID uint64) {
 	f.AddCall(funcName(), req, connectionID)
 }
 
 // Leave implements Observer.
-func (f *Instance) Leave() {
+func (f *Instance) Leave(ctx context.Context) {
 	f.AddCall(funcName())
 }
 
 // Login implements Observer.
-func (f *Instance) Login(entity names.Tag, model names.ModelTag, fromController bool, userData string) {
-	f.AddCall(funcName(), entity, model, fromController, userData)
+func (f *Instance) Login(ctx context.Context, entity names.Tag, model names.ModelTag, modelUUID model.UUID, fromController bool, userData string) {
+	f.AddCall(funcName(), entity, model, modelUUID, fromController, userData)
 }
 
 // RPCObserver implements Observer.
@@ -43,18 +45,29 @@ func (f *Instance) RPCObserver() rpc.Observer {
 	return result
 }
 
+// NoRPCInstance is a fake Observer used for testing that does not
+// implement RPCObserver.
+type NoRPCInstance struct {
+	Instance
+}
+
+// RPCObserver implements Observer.
+func (f *NoRPCInstance) RPCObserver() rpc.Observer {
+	return nil
+}
+
 // RPCInstance is a fake RPCObserver used for testing.
 type RPCInstance struct {
 	testing.Stub
 }
 
 // ServerReply implements Observer.
-func (f *RPCInstance) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (f *RPCInstance) ServerReply(ctx context.Context, req rpc.Request, hdr *rpc.Header, body interface{}) {
 	f.AddCall(funcName(), req, hdr, body)
 }
 
 // ServerRequest implements Observer.
-func (f *RPCInstance) ServerRequest(hdr *rpc.Header, body interface{}) {
+func (f *RPCInstance) ServerRequest(ctx context.Context, hdr *rpc.Header, body interface{}) {
 	f.AddCall(funcName(), hdr, body)
 }
 

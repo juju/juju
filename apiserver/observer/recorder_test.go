@@ -37,7 +37,7 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 	recorder := factory()
 	hdr := &rpc.Header{
 		RequestId: 123,
-		Request:   rpc.Request{"Type", 5, "", "Action"},
+		Request:   rpc.Request{Type: "Type", Version: 5, Id: "", Action: "Action"},
 	}
 	err = recorder.HandleRequest(hdr, "the args")
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,7 +76,7 @@ func (s *recorderSuite) TestServerRequestNoArgs(c *gc.C) {
 	recorder := factory()
 	hdr := &rpc.Header{
 		RequestId: 123,
-		Request:   rpc.Request{"Type", 5, "", "Action"},
+		Request:   rpc.Request{Type: "Type", Version: 5, Id: "", Action: "Action"},
 	}
 	err = recorder.HandleRequest(hdr, "the args")
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +108,7 @@ func (s *recorderSuite) TestServerReply(c *gc.C) {
 	factory := observer.NewRecorderFactory(fake, auditRecorder, observer.CaptureArgs)
 	recorder := factory()
 
-	req := rpc.Request{"Type", 5, "", "Action"}
+	req := rpc.Request{Type: "Type", Version: 5, Id: "", Action: "Action"}
 	hdr := &rpc.Header{RequestId: 123}
 	err = recorder.HandleReply(req, hdr, "the response")
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,7 +212,7 @@ func (s *recorderSuite) checkServerReplyErrors(c *gc.C, result interface{}, expe
 	factory := observer.NewRecorderFactory(fake, auditRecorder, observer.CaptureArgs)
 	recorder := factory()
 
-	req := rpc.Request{"Type", 5, "", "Action"}
+	req := rpc.Request{Type: "Type", Version: 5, Id: "", Action: "Action"}
 	hdr := &rpc.Header{RequestId: 123}
 	err = recorder.HandleReply(req, hdr, result)
 	c.Assert(err, jc.ErrorIsNil)
@@ -236,7 +236,7 @@ func (s *recorderSuite) TestNoAuditRequest(c *gc.C) {
 	recorder := factory()
 	hdr := &rpc.Header{
 		RequestId: 123,
-		Request:   rpc.Request{"Type", 0, "", "Action"},
+		Request:   rpc.Request{Type: "Type", Version: 0, Id: "", Action: "Action"},
 	}
 	err := recorder.HandleRequest(hdr, "the body")
 	c.Assert(err, jc.ErrorIsNil)
@@ -246,7 +246,7 @@ func (s *recorderSuite) TestNoAuditReply(c *gc.C) {
 	fake := &fakeobserver.Instance{}
 	factory := observer.NewRecorderFactory(fake, nil, observer.NoCaptureArgs)
 	recorder := factory()
-	req := rpc.Request{"Type", 0, "", "Action"}
+	req := rpc.Request{Type: "Type", Version: 0, Id: "", Action: "Action"}
 	hdr := &rpc.Header{RequestId: 123}
 	err := recorder.HandleReply(req, hdr, "the body")
 	c.Assert(err, jc.ErrorIsNil)

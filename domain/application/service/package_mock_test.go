@@ -326,6 +326,44 @@ func (c *MockStateDeleteUnitCall) DoAndReturn(f func(context.Context, unit.Name)
 	return c
 }
 
+// DeleteUnitPresence mocks base method.
+func (m *MockState) DeleteUnitPresence(ctx context.Context, name unit.Name) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteUnitPresence", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteUnitPresence indicates an expected call of DeleteUnitPresence.
+func (mr *MockStateMockRecorder) DeleteUnitPresence(ctx, name any) *MockStateDeleteUnitPresenceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnitPresence", reflect.TypeOf((*MockState)(nil).DeleteUnitPresence), ctx, name)
+	return &MockStateDeleteUnitPresenceCall{Call: call}
+}
+
+// MockStateDeleteUnitPresenceCall wrap *gomock.Call
+type MockStateDeleteUnitPresenceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteUnitPresenceCall) Return(arg0 error) *MockStateDeleteUnitPresenceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteUnitPresenceCall) Do(f func(context.Context, unit.Name) error) *MockStateDeleteUnitPresenceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteUnitPresenceCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockStateDeleteUnitPresenceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DetachStorage mocks base method.
 func (m *MockState) DetachStorage(ctx context.Context, storageUUID storage.UUID) error {
 	m.ctrl.T.Helper()
@@ -3050,6 +3088,44 @@ func (c *MockStateSetUnitPasswordCall) Do(f func(context.Context, unit.UUID, app
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetUnitPasswordCall) DoAndReturn(f func(context.Context, unit.UUID, application0.PasswordInfo) error) *MockStateSetUnitPasswordCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetUnitPresence mocks base method.
+func (m *MockState) SetUnitPresence(ctx context.Context, name unit.Name) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetUnitPresence", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetUnitPresence indicates an expected call of SetUnitPresence.
+func (mr *MockStateMockRecorder) SetUnitPresence(ctx, name any) *MockStateSetUnitPresenceCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitPresence", reflect.TypeOf((*MockState)(nil).SetUnitPresence), ctx, name)
+	return &MockStateSetUnitPresenceCall{Call: call}
+}
+
+// MockStateSetUnitPresenceCall wrap *gomock.Call
+type MockStateSetUnitPresenceCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetUnitPresenceCall) Return(arg0 error) *MockStateSetUnitPresenceCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetUnitPresenceCall) Do(f func(context.Context, unit.Name) error) *MockStateSetUnitPresenceCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetUnitPresenceCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockStateSetUnitPresenceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
