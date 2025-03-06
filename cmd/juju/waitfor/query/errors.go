@@ -84,7 +84,7 @@ func (e *RuntimeSyntaxError) Error() string {
 // ErrRuntimeSyntax defines a sentinel error for runtime syntax error.
 func ErrRuntimeSyntax(msg, name string, options []string) error {
 	return &RuntimeSyntaxError{
-		err:     errors.Errorf(msg),
+		err:     errors.New(msg),
 		Name:    name,
 		Options: options,
 	}

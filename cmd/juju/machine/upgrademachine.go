@@ -501,7 +501,7 @@ func (c *upgradeMachineCommand) handleUpgradeChange(ctx *cmd.Context, wid string
 	if len(messages) == 0 {
 		return nil
 	}
-	ctx.Infof(strings.Join(messages, "\n"))
+	ctx.Infof("%s", strings.Join(messages, "\n"))
 	return nil
 }
 

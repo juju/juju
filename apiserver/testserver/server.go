@@ -88,7 +88,7 @@ func NewServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.Serv
 	c.Assert(err, jc.ErrorIsNil)
 	certPool, err := api.CreateCertPool(coretesting.CACert)
 	if err != nil {
-		c.Fatalf(err.Error())
+		c.Fatal(err.Error())
 	}
 	tlsConfig := api.NewTLSConfig(certPool)
 	tlsConfig.ServerName = "juju-apiserver"

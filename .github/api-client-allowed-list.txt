@@ -68,3 +68,4 @@ unicode
 unique
 unsafe
 vendor/golang.org/x
+weak

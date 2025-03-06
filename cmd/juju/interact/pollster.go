@@ -166,7 +166,7 @@ func (p *Pollster) EnterPasswordWithSuffix(valueName string, suffix string) (str
 	}
 	if f, ok := p.in.(*os.File); ok && terminal.IsTerminal(int(f.Fd())) {
 		defer fmt.Fprint(p.out, "\n\n")
-		if _, err := fmt.Fprintf(p.out, display); err != nil {
+		if _, err := fmt.Fprint(p.out, display); err != nil {
 			return "", errors.Trace(err)
 		}
 		value, err := terminal.ReadPassword(int(f.Fd()))

@@ -134,7 +134,7 @@ func (s *dashboardSuite) TestDashboardSuccessNoBrowser(c *gc.C) {
 	// There is no need to patch the browser open function here.
 	out, err := s.run(c, "--hide-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.Contains, fmt.Sprintf(`
+	c.Assert(out, jc.Contains, fmt.Sprint(`
 Dashboard for controller "kontroll" is enabled at:
   http://10.1.1.1:6767`[1:]))
 }

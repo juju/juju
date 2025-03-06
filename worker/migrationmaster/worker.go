@@ -316,7 +316,7 @@ func (w *Worker) doQUIESCE(status coremigration.MigrationStatus) (coremigration.
 	// short-circuits the long timeout in the case of an agent being
 	// down.
 	if err := w.prechecks(status); err != nil {
-		w.setErrorStatus(err.Error())
+		w.setErrorStatus("%s", err.Error())
 		return coremigration.ABORT, nil
 	}
 
@@ -330,7 +330,7 @@ func (w *Worker) doQUIESCE(status coremigration.MigrationStatus) (coremigration.
 
 	// Now that the model is stable, run the prechecks again.
 	if err := w.prechecks(status); err != nil {
-		w.setErrorStatus(err.Error())
+		w.setErrorStatus("%s", err.Error())
 		return coremigration.ABORT, nil
 	}
 
@@ -373,7 +373,7 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 			return errors.Annotate(err, "cannot get local model info")
 		}
 		if len(localRelatedModels) > 0 {
-			return errors.Errorf(incompatibleTargetMessage)
+			return errors.New(incompatibleTargetMessage)
 		}
 	}
 	err = targetClient.Prechecks(model)
@@ -835,7 +835,7 @@ func formatMinionTimeout(
 	infoPrefix string,
 ) string {
 	if reports.IsZero() {
-		return fmt.Sprintf("no agents reported in time")
+		return "no agents reported in time"
 	}
 
 	var fails []string

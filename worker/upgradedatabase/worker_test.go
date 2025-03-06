@@ -32,7 +32,7 @@ var (
 	statusUpgrading = "upgrading database for " + jujuversion.Current.String()
 	statusWaiting   = "waiting on primary database upgrade for " + jujuversion.Current.String()
 	statusCompleted = fmt.Sprintf("database upgrade for %v completed", jujuversion.Current)
-	statusConfirmed = fmt.Sprintf("confirmed primary database upgrade for " + jujuversion.Current.String())
+	statusConfirmed = fmt.Sprintf("confirmed primary database upgrade for %s", jujuversion.Current.String())
 
 	logRunning = "running database upgrade for %v on mongodb primary"
 	logWaiting = "waiting for database upgrade on mongodb primary"
