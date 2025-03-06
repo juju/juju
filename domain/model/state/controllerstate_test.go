@@ -33,7 +33,8 @@ import (
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modeltesting "github.com/juju/juju/domain/model/state/testing"
+
+	modeltesting "github.com/juju/juju/core/model/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -1873,10 +1874,10 @@ func (s *stateSuite) TestGetControllerModelUUIDNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
-func (s *stateSuite) TestGetModelActivationStatus(c *gc.C) {
+func (s *stateSuite) TestGetActivatedModelUUIDs(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	uuid := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-controller")
-	activated, err := st.GetModelActivationStatus(context.Background(), uuid.String())
+	activatedModelUUIDs, err := st.GetActivatedModelUUIDs(context.Background(), []string{s.uuid.String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activated, jc.IsTrue)
+	c.Check(activatedModelUUIDs, gc.HasLen, 1)
+	c.Check(activatedModelUUIDs[0], gc.Equals, s.uuid.String())
 }

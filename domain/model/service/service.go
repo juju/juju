@@ -122,8 +122,8 @@ type State interface {
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
 
-	// GetModelActivationStatus gets the activation state of a model.
-	GetModelActivationStatus(ctx context.Context, modelUUID string) (bool, error)
+	// GetActivatedModelUUIDs returns the UUIDs of all activated models from the given list of UUIDs.
+	GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]string, error)
 
 	// AllModelActivationStatusQuery returns the query string to get the activation status of all models.
 	AllModelActivationStatusQuery() string
@@ -574,40 +574,44 @@ func (s *Service) UpdateCredential(
 // The watcher listens for create and update events for all models but processes
 // only the activated ones. It maps change events using a filtering function that:
 //  1. Extracts the model UUID from each create/update event.
-//  2. Bulking checking whether the models are currently activated.
-//  3. Includes the event in the watcher stream only if the model is activated.
+//  2. Retrieve and filter UUIDs of activated models from all the extracted UUIDs.
+//  3. Includes the event in the watcher stream associated with each filtered UUID.
 //
 // Potential concerns:
-//   - If retrieving the activation status fails, the event is skipped, which
-//     may lead to missed updates if errors occur frequently.
-//   - The watcher relies on GetModelActivationStatus; its performance and
-//     consistency affect the watcher's reliability.
-//   - This approach assumes that model activation status does not change
-//     frequently; otherwise, a more dynamic filtering mechanism may be needed.
+//   - If retrieving the UUIDs of all activated models from the input list of UUIDs fails,
+//     these events would be skipped, which may lead to missed updates if errors occur frequently.
+//   - This approach may also include change events of already activated models, eg. updating the model name.
 //
 // Returns:
 //   - watcher.StringsWatcher: A watcher that streams events related to activated models.
 //   - error: An error if the watcher cannot be created.
 func (s *Service) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-		activatedChanges := make([]changestream.ChangeEvent, 0, len(changes))
+		activatedModelChangeEvents := make([]changestream.ChangeEvent, 0, len(changes))
+		uuidToChangeEventMap := make(map[string]changestream.ChangeEvent)
+		modelUUIDs := make([]string, 0, len(changes))
+
 		for _, change := range changes {
-
 			modelUUID := change.Changed()
+			modelUUIDs = append(modelUUIDs, modelUUID)
+			uuidToChangeEventMap[modelUUID] = change
+		}
 
-			// Check if the model is activated.
-			modelActivationStatus, err := s.st.GetModelActivationStatus(ctx, modelUUID)
-			if err != nil {
-				s.logger.Errorf(ctx, "failed to get model activation status: %v\n", err)
-				continue
-			}
+		// Retrieve all activate status of all models with associated uuids
+		activatedModelUUIDs, err := s.st.GetActivatedModelUUIDs(ctx, modelUUIDs)
+		if err != nil {
+			s.logger.Errorf(ctx, "failed to get model activation status: %v\n", err)
+			return nil, err
+		}
 
-			// Watch all activated model events.
-			if modelActivationStatus {
-				activatedChanges = append(activatedChanges, change)
+		// Add all events associated with activated model UUIDs
+		for _, activatedModelUUID := range activatedModelUUIDs {
+			if changeEvent, exists := uuidToChangeEventMap[activatedModelUUID]; exists {
+				activatedModelChangeEvents = append(activatedModelChangeEvents, changeEvent)
 			}
 		}
-		return activatedChanges, nil
+
+		return activatedModelChangeEvents, nil
 	}
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(

@@ -344,7 +344,6 @@ func (d *dummyState) AllModelActivationStatusQuery() string {
 	return "SELECT activated from model"
 }
 
-// GetModelActivationStatus returns the activation status of a model.
-func (d *dummyState) GetModelActivationStatus(ctx context.Context, controllerUUID string) (bool, error) {
-	return true, nil
+func (d *dummyState) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]string, error) {
+	return nil, nil
 }

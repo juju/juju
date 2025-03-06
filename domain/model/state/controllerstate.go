@@ -1808,40 +1808,49 @@ func (st *State) AllModelActivationStatusQuery() string {
 	return "SELECT activated from model"
 }
 
-// GetModelActivationStatus returns the activation status of a model.
-func (st *State) GetModelActivationStatus(ctx context.Context, controllerUUID string) (bool, error) {
+// GetActivatedModelUUIDs returns the UUIDs of all activated models from the given list of UUIDs.
+//
+// Returns:
+//   - []string: A subset of the input UUIDs containing only those of activated models.
+//   - error: An error if the retrieval process fails.
+func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
-		return false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	type controllerModel struct {
-		UUID        coremodel.UUID `db:"uuid"`
-		Activated   bool           `db:"activated"`
-		ModelTypeID int            `db:"model_type_id"`
-		Name        string         `db:"name"`
-		CloudUUID   string         `db:"cloud_uuid"`
-		LifeID      int            `db:"life_id"`
-		OwnerUUID   string         `db:"owner_uuid"`
+	type modelUUID struct {
+		UUID coremodel.UUID `db:"uuid"`
 	}
 
-	m := controllerModel{
-		UUID: coremodel.UUID(controllerUUID),
-	}
+	type UUIDs []string
+	inputUUIDs := UUIDs(uuids)
 
 	stmt, err := st.Prepare(`
-SELECT &controllerModel.*
+SELECT 
+uuid AS &modelUUID.uuid
 FROM   model
-WHERE  uuid = $controllerModel.uuid
-`, controllerModel{})
+WHERE uuid IN ($UUIDs[:])
+AND activated = true
+`, UUIDs{}, modelUUID{})
 
 	if err != nil {
-		return false, errors.Errorf("preparing select model activated status statement: %w")
+		return nil, errors.Errorf("preparing select model activated status statement: %w", err)
 	}
 
+	var modelUUIDs []modelUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, m).Get(&m)
+		return tx.Query(ctx, stmt, inputUUIDs).GetAll(&modelUUIDs)
 	})
 
-	return m.Activated, err
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	res := make([]string, 0, len(modelUUIDs))
+	for _, modelUUID := range modelUUIDs {
+		res = append(res, modelUUID.UUID.String())
+	}
+
+	return res, nil
 }
