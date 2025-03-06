@@ -458,7 +458,7 @@ func (s *facadeSuite) TestHostKeyForTarget(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Set superuser for all calls.
-	controllerTag := names.NewControllerTag("controller00000000-0000-0000-0000-000000000000")
+	controllerTag := names.NewControllerTag("controller00-0000-0000-000000000000")
 	backend.EXPECT().ControllerTag().Return(controllerTag).AnyTimes()
 	authorizer.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).AnyTimes()
 
@@ -522,7 +522,7 @@ func (s *facadeSuite) TestHostKeyForTargetUnhappyPaths(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Set superuser for all calls.
-	controllerTag := names.NewControllerTag("controller00000000-0000-0000-0000-000000000000")
+	controllerTag := names.NewControllerTag("controller00-0000-0000-000000000000")
 	backend.EXPECT().ControllerTag().Return(controllerTag).AnyTimes()
 	authorizer.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).AnyTimes()
 
@@ -577,7 +577,7 @@ func (s *facadeSuite) TestHostKeyForTargetUserAuth(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 
-	controllerTag := names.NewControllerTag("controll-er00-0000-0000-000000000000")
+	controllerTag := names.NewControllerTag("controller00-0000-0000-000000000000")
 	backend.EXPECT().ControllerTag().Return(controllerTag).AnyTimes()
 
 	// Test a none ErrorEntityMissingPermission error on superuser check and is unrelated
