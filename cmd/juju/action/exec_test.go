@@ -173,12 +173,6 @@ func (*ExecSuite) TestTargetArgParsing(c *gc.C) {
 		applications: []string{"mysql"},
 		units:        []string{"wordpress/0", "wordpress/1", "consul/leader"},
 		modeType:     model.IAAS,
-	}, {
-		message:  "command to unit operator",
-		args:     []string{"--operator", "--unit", "mysql/0", "echo hello"},
-		commands: "echo hello",
-		units:    []string{"mysql/0"},
-		modeType: model.CAAS,
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		runCmd, execCmd := newTestExecCommand(testClock(), test.modeType)
@@ -638,122 +632,6 @@ func (s *ExecSuite) TestCAASCantTargetMachine(c *gc.C) {
 
 	expErr := "unable to target machines with a k8s controller"
 	c.Assert(err, gc.ErrorMatches, expErr)
-}
-
-func (s *ExecSuite) TestIAASCantTargetOperator(c *gc.C) {
-	fakeClient := &fakeAPIClient{}
-	restore := s.patchAPIClient(fakeClient)
-	defer restore()
-
-	runCmd, _ := newTestExecCommand(testClock(), model.IAAS)
-	_, err := cmdtesting.RunCommand(c, runCmd,
-		"--unit", "unit/0", "--operator", "echo hello",
-	)
-
-	expErr := "only k8s models support the --operator flag"
-	c.Assert(err, gc.ErrorMatches, expErr)
-}
-
-func (s *ExecSuite) TestCAASExecOnOperator(c *gc.C) {
-	fakeClient := &fakeAPIClient{}
-	restore := s.patchAPIClient(fakeClient)
-	defer restore()
-
-	fakeClient.actionResults = []actionapi.ActionResult{{
-		Action: &actionapi.Action{
-			ID:       validActionId,
-			Receiver: "unit-mysql-0",
-		},
-		Output: map[string]interface{}{
-			"stdout": "bumblebee",
-		},
-		Status:    "completed",
-		Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-		Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
-		Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
-	}}
-
-	runCmd, _ := newTestExecCommand(testClock(), model.CAAS)
-	context, err := cmdtesting.RunCommand(c, runCmd,
-		"--format=yaml", "--unit=mysql/0", "--operator", "hostname", "--utc",
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	parallel := true
-	group := ""
-	c.Assert(fakeClient.execParams, jc.DeepEquals, &actionapi.RunParams{
-		Commands:        "hostname",
-		Timeout:         300 * time.Second,
-		Units:           []string{"mysql/0"},
-		WorkloadContext: false,
-		Parallel:        &parallel,
-		ExecutionGroup:  &group,
-	})
-
-	expectedOutput := `
-mysql/0:
-  id: "1"
-  results:
-    stdout: bumblebee
-  status: completed
-  timing:
-    completed: 2015-02-14 08:17:00 +0000 UTC
-    enqueued: 2015-02-14 08:13:00 +0000 UTC
-    started: 2015-02-14 08:15:00 +0000 UTC
-  unit: mysql/0
-`[1:]
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOutput)
-}
-
-func (s *ExecSuite) TestCAASExecOnWorkload(c *gc.C) {
-	fakeClient := &fakeAPIClient{}
-	restore := s.patchAPIClient(fakeClient)
-	defer restore()
-
-	fakeClient.actionResults = []actionapi.ActionResult{{
-		Action: &actionapi.Action{
-			ID:       validActionId,
-			Receiver: "unit-mysql-0",
-		},
-		Output: map[string]interface{}{
-			"stdout": "bumblebee",
-		},
-		Status:    "completed",
-		Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
-		Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
-		Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
-	}}
-
-	runCmd, _ := newTestExecCommand(testClock(), model.CAAS)
-	context, err := cmdtesting.RunCommand(c, runCmd,
-		"--format=yaml", "--unit=mysql/0", "hostname", "--utc", "--execution-group", "group",
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	parallel := true
-	group := "group"
-	c.Check(fakeClient.execParams, jc.DeepEquals, &actionapi.RunParams{
-		Commands:        "hostname",
-		Timeout:         300 * time.Second,
-		Units:           []string{"mysql/0"},
-		WorkloadContext: true,
-		Parallel:        &parallel,
-		ExecutionGroup:  &group,
-	})
-
-	expectedOutput := `
-mysql/0:
-  id: "1"
-  results:
-    stdout: bumblebee
-  status: completed
-  timing:
-    completed: 2015-02-14 08:17:00 +0000 UTC
-    enqueued: 2015-02-14 08:13:00 +0000 UTC
-    started: 2015-02-14 08:15:00 +0000 UTC
-  unit: mysql/0
-`[1:]
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOutput)
 }
 
 func testClock() testclock.AdvanceableClock {

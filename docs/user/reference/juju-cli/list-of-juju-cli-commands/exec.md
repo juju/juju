@@ -22,7 +22,6 @@ Run the commands on the remote targets specified.
 | `--machine` |  | One or more machine ids |
 | `--no-color` | false | Disable ANSI color codes in output |
 | `-o`, `--output` |  | Specify an output file |
-| `--operator` | false | Run the commands on the operator (k8s-only) |
 | `--parallel` | true | Run the commands in parallel without first acquiring a lock |
 | `-u`, `--unit` |  | One or more unit ids |
 | `--utc` | false | Show times in UTC |
@@ -60,7 +59,7 @@ Some options are shortened for usabilty purpose in CLI
 --application can also be specified as --app and -a
 --unit can also be specified as -u
 
-Valid unit identifiers are: 
+Valid unit identifiers are:
   a standard unit ID, such as mysql/0 or;
   leader syntax of the form &lt;application&gt;/leader, such as mysql/leader.
 
@@ -70,9 +69,6 @@ had two units, "mysql/0" and "mysql/1", then
   --application mysql
 is equivalent to
   --unit mysql/0,mysql/1
-
-If --operator is provided on k8s models, commands are executed on the operator
-instead of the workload. On IAAS models, --operator has no effect.
 
 Commands run for applications or units are executed in a 'hook context' for
 the unit.
@@ -92,7 +88,7 @@ in the model.  If you specify --all you cannot provide additional
 targets.
 
 Since juju exec creates tasks, you can query for the status of commands
-started with juju run by calling 
+started with juju run by calling
 "juju operations --machines &lt;id&gt;,... --actions juju-exec".
 
 If you need to pass options to the command being run, you must precede the
