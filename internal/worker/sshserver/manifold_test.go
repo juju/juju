@@ -16,7 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	watcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/sshserver"
@@ -105,9 +105,9 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 		dt.StubGetter(map[string]interface{}{}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	workertest.DirtyKill(c, result)
+	defer workertest.DirtyKill(c, result)
 
-	c.Assert(result, gc.NotNil)
+	c.Check(result, gc.NotNil)
 	workertest.CleanKill(c, result)
 }
 

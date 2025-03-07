@@ -112,7 +112,7 @@ func (c ResourceGetCmd) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "could not download resource")
 	}
 
-	if _, err := fmt.Fprintf(ctx.Stdout, "%s", filePath); err != nil {
+	if _, err := fmt.Fprint(ctx.Stdout, filePath); err != nil {
 		return errors.Annotate(err, "could not write resource path to stdout")
 	}
 	return nil

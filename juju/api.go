@@ -30,9 +30,9 @@ type NewAPIConnectionParams struct {
 	// ControllerName is the name of the controller to connect to.
 	ControllerName string
 
-	// Store is the jujuclient.ClientStore from which the controller's
+	// ControllerStore is the jujuclient.ControllerStore from which the controller's
 	// details will be fetched, and updated on address changes.
-	Store jujuclient.ClientStore
+	ControllerStore jujuclient.ControllerStore
 
 	// OpenAPI is the function that will be used to open API connections.
 	OpenAPI api.OpenFunc
@@ -44,6 +44,7 @@ type NewAPIConnectionParams struct {
 	// in to the Juju API. If this is nil, then no login will take
 	// place. If AccountDetails.Password and AccountDetails.Macaroon
 	// are zero, the login will be as an external user.
+	// Updates to this value will be saved to the client store after login.
 	AccountDetails *jujuclient.AccountDetails
 
 	// ModelUUID is an optional model UUID. If specified, the API connection
@@ -126,7 +127,13 @@ func NewAPIConnection(ctx context.Context, args NewAPIConnectionParams) (_ api.C
 
 	// If the account details are set, ensure that the user we've logged in as
 	// matches the user we expected to log in as.
-	if args.AccountDetails != nil && st.AuthTag() != nil && args.AccountDetails.User != st.AuthTag().Id() {
+	// This only applies if the user was explicitly set.
+	// Logging in via an external auth provider is allowed with specifying a
+	// user in the args - that comes from the provider.
+	if args.AccountDetails != nil &&
+		st.AuthTag() != nil &&
+		args.AccountDetails.User != "" &&
+		args.AccountDetails.User != st.AuthTag().Id() {
 		return nil, errors.Unauthorizedf("attempted login as %q for user %q", st.AuthTag().Id(), args.AccountDetails.User)
 	}
 
@@ -155,61 +162,12 @@ func NewAPIConnection(ctx context.Context, args NewAPIConnectionParams) (_ api.C
 	if host := st.PublicDNSName(); host != "" {
 		params.PublicDNSName = &host
 	}
-	err = updateControllerDetailsFromLogin(args.Store, args.ControllerName, controller, params)
+	err = updateControllerDetailsFromLogin(args.ControllerStore, args.ControllerName, controller, params)
 	if err != nil {
 		logger.Errorf(context.TODO(), "cannot cache API addresses: %v", err)
 	}
 
-	// Process the account details obtained from login.
-	processAccountDetails(
-		st.AuthTag(),
-		apiInfo.Tag,
-		args.ControllerName,
-		st.ControllerAccess(),
-		args.Store, apiInfo.SkipLogin,
-	)
-
 	return st, nil
-}
-
-func processAccountDetails(authTag names.Tag, apiInfoTag names.Tag, controllerName string, controllerAccess string, store jujuclient.ClientStore, skipLogin bool) {
-	var accountDetails *jujuclient.AccountDetails
-	var err error
-
-	user, ok := authTag.(names.UserTag)
-	if !skipLogin {
-		if ok {
-			if accountDetails, err = store.AccountDetails(controllerName); err != nil {
-				if !errors.Is(err, errors.NotFound) {
-					logger.Errorf(context.TODO(), "cannot load local account information: %v", err)
-				}
-			} else {
-				accountDetails.LastKnownAccess = controllerAccess
-			}
-		}
-		accountType := jujuclient.UserPassAccountDetailsType
-		if accountDetails != nil {
-			accountType = accountDetails.Type
-		}
-		if accountType == "" || accountType == jujuclient.UserPassAccountDetailsType {
-			if ok && !user.IsLocal() && apiInfoTag == nil {
-				// We used macaroon auth to login; save the username
-				// that we've logged in as.
-				accountDetails = &jujuclient.AccountDetails{
-					Type:            jujuclient.UserPassAccountDetailsType,
-					User:            user.Id(),
-					LastKnownAccess: controllerAccess,
-				}
-			} else if apiInfoTag == nil {
-				logger.Errorf(context.TODO(), "unexpected logged-in username %v", authTag)
-			}
-		}
-	}
-	if accountDetails != nil {
-		if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
-			logger.Errorf(context.TODO(), "cannot update account information: %v", err)
-		}
-	}
 }
 
 // connectionInfo returns connection information suitable for
@@ -218,9 +176,12 @@ func processAccountDetails(authTag names.Tag, apiInfoTag names.Tag, controllerNa
 // it may return a *api.Info with no APIEndpoints, but all other
 // information will be populated.
 func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.ControllerDetails, error) {
-	controller, err := args.Store.ControllerByName(args.ControllerName)
+	controller, err := args.ControllerStore.ControllerByName(args.ControllerName)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot get controller details")
+	}
+	if args.AccountDetails == nil {
+		return nil, nil, errors.New("empty account details")
 	}
 	apiInfo := &api.Info{
 		Addrs:          controller.APIEndpoints,
@@ -238,10 +199,6 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 	}
 	if controller.PublicDNSName != "" {
 		apiInfo.SNIHostName = controller.PublicDNSName
-	}
-	if args.AccountDetails == nil {
-		apiInfo.SkipLogin = true
-		return apiInfo, controller, nil
 	}
 	account := args.AccountDetails
 	if account.User != "" {

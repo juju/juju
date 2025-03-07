@@ -71,7 +71,7 @@ func Test(t *stdtesting.T) {
 		var testData liveTestData
 		liveURLs, err := getLiveURLs()
 		if err != nil {
-			t.Fatalf("%s", err.Error())
+			t.Fatal(err.Error())
 		}
 		if testData, ok = liveURLs[*vendor]; !ok {
 			keys := reflect.ValueOf(liveURLs).MapKeys()
@@ -83,7 +83,7 @@ func Test(t *stdtesting.T) {
 			Arches:    []string{"amd64"},
 		})
 		if err != nil {
-			t.Fatalf("%s", err.Error())
+			t.Fatal(err.Error())
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL, cons, testData.requireSigned)
 	}
@@ -101,7 +101,7 @@ func registerSimpleStreamsTests(t *stdtesting.T) {
 		Arches:   []string{"amd64", "arm"},
 	})
 	if err != nil {
-		t.Fatalf("%s", err.Error())
+		t.Fatal(err.Error())
 	}
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{

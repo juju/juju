@@ -111,7 +111,7 @@ html_context = {
     # Assumes the current directory is .sphinx.
     'product_tag': '_static/logos/juju-logo-no-text.png',
     # Your Discourse instance URL
-    "discourse": "https://discourse.charmhub.com",
+    "discourse": "https://discourse.charmhub.io",
     # Your Mattermost channel URL
     "mattermost": "",
     # Your Matrix channel URL

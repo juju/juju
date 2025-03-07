@@ -789,7 +789,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 			if usedModelDefaultBase {
 				msg += " Used the default-base."
 			}
-			return corecharm.ResolvedDataForDeploy{}, errors.Errorf("%s", msg)
+			return corecharm.ResolvedDataForDeploy{}, errors.New(msg)
 		}
 	} else if resolveErr != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(resolveErr)
@@ -849,7 +849,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 		if usedModelDefaultBase {
 			msg += " Used the default-base."
 		}
-		return corecharm.ResolvedDataForDeploy{}, errors.Errorf("%s", msg)
+		return corecharm.ResolvedDataForDeploy{}, errors.New(msg)
 	} else if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}

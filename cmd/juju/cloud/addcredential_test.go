@@ -860,7 +860,7 @@ Enter path to the credential file:
 	stderr := `
 Using cloud "somecloud" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" for cloud "somecloud" on controller "controller" added.
-For more information, see ‘juju show-credential somecloud blah’.
+For more information, see 'juju show-credential somecloud blah'.
 `[1:]
 
 	s.assertAddedCredentialForCloudWithArgs(c, "somecloud", stdout, "", stderr, true, false, "--c", "controller")
@@ -924,7 +924,7 @@ Path:
 	stderr := `
 Using cloud "remote" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" for cloud "remote" on controller "controller" added.
-For more information, see ‘juju show-credential remote blah’.
+For more information, see 'juju show-credential remote blah'.
 `[1:]
 	s.assertAddedCredentialForCloudWithArgs(c, "remote", stdout, "", stderr, true, false, "--c", "controller")
 }
@@ -982,7 +982,7 @@ Credential "blah" added locally for cloud "remote".
 This operation can be applied to both a copy on this client and to the one on a controller.
 Using cloud "remote" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" for cloud "remote" on controller "controller" added.
-For more information, see ‘juju show-credential remote blah’.
+For more information, see 'juju show-credential remote blah'.
 `[1:]
 	s.assertAddedCredentialForCloudWithArgs(c, "remote", stdout, "3\n", stderr, true, true)
 }
@@ -1007,7 +1007,7 @@ Path:
 	stderr := `
 Using cloud "remote" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" for cloud "remote" on controller "controller" added.
-For more information, see ‘juju show-credential remote blah’.
+For more information, see 'juju show-credential remote blah'.
 `[1:]
 	s.assertAddedCredentialForCloudWithArgs(c, "remote", stdout, "", stderr, true, false, "-c", "controller")
 }

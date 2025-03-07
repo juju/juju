@@ -211,6 +211,12 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 		err                     error
 	)
 	if controllerDetails != nil {
+		// On controllers with OIDC, providing a username is incorrect.
+		// The username is returned by the OIDC server.
+		if controllerDetails.OIDCLogin && c.username != "" {
+			return errors.Errorf("cannot specify a username during login to a controller with OIDC, remove the username and try again")
+		}
+
 		// Fetch current details for the specified controller name so we
 		// can tell if the logged in user has changed.
 		d, err := store.AccountDetails(c.controllerName)
@@ -219,6 +225,7 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 		}
 		oldAccountDetails = d
 	}
+
 	switch {
 	case c.domain != "":
 		// Check if user is trying to login to a registered controller
@@ -264,34 +271,25 @@ use "juju unregister %s" to remove the existing controller.`[1:], c.domain, c.co
 		}
 	}
 
-	// During the login process account details might have been updated so
-	// we fetch them from the store.
-	updatedAccountDetails, err := store.AccountDetails(c.controllerName)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
+	if accountDetails == nil {
+		return errors.Trace(errors.New("failed to receive new account details"))
 	}
-	if updatedAccountDetails == nil {
-		updatedAccountDetails = accountDetails
-	} else {
-		updatedAccountDetails.User = accountDetails.User
-		updatedAccountDetails.Password = accountDetails.Password
-	}
-	updatedAccountDetails.LastKnownAccess = conn.ControllerAccess()
+	accountDetails.LastKnownAccess = conn.ControllerAccess()
 
-	if err := store.UpdateAccount(c.controllerName, *updatedAccountDetails); err != nil {
+	if err := store.UpdateAccount(c.controllerName, *accountDetails); err != nil {
 		return errors.Annotatef(err, "cannot update account information: %v", err)
 	}
 	if err := store.SetCurrentController(c.controllerName); err != nil {
 		return errors.Annotatef(err, "cannot switch")
 	}
-	if controllerDetails != nil && oldAccountDetails != nil && oldAccountDetails.User == updatedAccountDetails.User {
+	if controllerDetails != nil && oldAccountDetails != nil && oldAccountDetails.User == accountDetails.User {
 		// We're still using the same controller and the same user name,
 		// so no need to list models or set the current controller
 		return nil
 	}
 	// Now list the models available so we can show them and store their
 	// details locally.
-	models, err := listModels(ctx, conn, updatedAccountDetails.User)
+	models, err := listModels(ctx, conn, accountDetails.User)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -300,9 +298,9 @@ use "juju unregister %s" to remove the existing controller.`[1:], c.domain, c.co
 	}
 	fmt.Fprintf(
 		ctx.Stderr, "Welcome, %s. You are now logged into %q.\n",
-		friendlyUserName(updatedAccountDetails.User), c.controllerName,
+		friendlyUserName(accountDetails.User), c.controllerName,
 	)
-	return c.maybeSetCurrentModel(ctx, store, c.controllerName, updatedAccountDetails.User, models)
+	return c.maybeSetCurrentModel(ctx, store, c.controllerName, accountDetails.User, models)
 }
 
 func (c *loginCommand) existingControllerLogin(ctx *cmd.Context, store jujuclient.ClientStore, controllerName string, currentAccountDetails *jujuclient.AccountDetails) (api.Connection, *jujuclient.AccountDetails, error) {
@@ -385,17 +383,15 @@ func (c *loginCommand) publicControllerLogin(
 		sessionToken = currentAccountDetails.SessionToken
 	}
 
+	var oidcLogin bool
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
 		internallogger.GetLogger("juju.cmd.loginprovider"),
 		api.NewSessionTokenLoginProvider(
 			sessionToken,
 			ctx.Stderr,
-			func(sessionToken string) error {
-				return c.ClientStore().UpdateAccount(controllerName, jujuclient.AccountDetails{
-					Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
-					User:         "user",
-					SessionToken: sessionToken,
-				})
+			func(t string) {
+				oidcLogin = true
+				sessionToken = t
 			},
 		),
 		api.NewLegacyLoginProvider(nil, "", "", nil, bclient, cookieURL),
@@ -461,6 +457,8 @@ func (c *loginCommand) publicControllerLogin(
 	}
 
 	ctrlDetails.ControllerUUID = conn.ControllerTag().Id()
+	ctrlDetails.OIDCLogin = oidcLogin
+	accountDetails.SessionToken = sessionToken
 	return conn, ctrlDetails, accountDetails, nil
 }
 
@@ -513,8 +511,9 @@ Run "juju logout" first before attempting to log in as a different user.`,
 			return nil, nil, errors.Trace(err)
 		}
 	}
+
 	if c.username == "" {
-		// No username specified, so try external-user login first.
+		// No username specified, so try external-user login.
 		conn, err := safeDial(&jujuclient.AccountDetails{})
 		if err == nil {
 			user, ok := conn.AuthTag().(names.UserTag)

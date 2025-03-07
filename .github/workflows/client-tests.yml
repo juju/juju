@@ -3,9 +3,6 @@ on:
   workflow_dispatch:
   workflow_call:
 
-permissions:
-  contents: read
-
 jobs:
   test-client-ubuntu:
     name: "Client Tests"

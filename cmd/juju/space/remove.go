@@ -157,7 +157,7 @@ func (c *RemoveCommand) handleForceOption(api SpaceAPI, currentModel string, ctx
 
 	errorList := buildRemoveErrorList(result, currentModel)
 	if len(errorList) == 0 {
-		fmt.Fprintf(ctx.Stderr, "%s", removeSpaceMsgNoBounds)
+		fmt.Fprint(ctx.Stderr, removeSpaceMsgNoBounds)
 	} else {
 		fmt.Fprintf(ctx.Stderr, removeSpaceMsgBounds, strings.Join(errorList, "\n"))
 	}

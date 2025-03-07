@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -15,7 +16,9 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/sshserver"
 )
 
@@ -40,9 +43,41 @@ func (s *sshServerSuite) SetUpSuite(c *gc.C) {
 	s.userSigner = userSigner
 }
 
+func newServerWorkerConfig(
+	l logger.Logger,
+	j string,
+	modifier func(*sshserver.ServerWorkerConfig),
+) *sshserver.ServerWorkerConfig {
+	cfg := &sshserver.ServerWorkerConfig{
+		Logger:      l,
+		JumpHostKey: j,
+	}
+
+	modifier(cfg)
+
+	return cfg
+}
+
 func (s *sshServerSuite) TestValidate(c *gc.C) {
-	cfg := sshserver.ServerWorkerConfig{}
-	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+	cfg := &sshserver.ServerWorkerConfig{}
+	l := loggertesting.WrapCheckLog(c)
+
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Test no Logger.
+	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *sshserver.ServerWorkerConfig) {
+		cfg.Logger = nil
+	})
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	// Test no JumpHostKey.
+	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *sshserver.ServerWorkerConfig) {
+		cfg.JumpHostKey = ""
+	})
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *sshServerSuite) TestSSHServer(c *gc.C) {
@@ -53,8 +88,9 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	listener := bufconn.Listen(8 * 1024)
 
 	server, err := sshserver.NewServerWorker(sshserver.ServerWorkerConfig{
-		Logger:   loggertesting.WrapCheckLog(c),
-		Listener: listener,
+		Logger:      loggertesting.WrapCheckLog(c),
+		Listener:    listener,
+		JumpHostKey: jujutesting.SSHServerHostKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)

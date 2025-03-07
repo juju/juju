@@ -384,7 +384,7 @@ func (w *Worker) prechecks(ctx context.Context, status coremigration.MigrationSt
 			return errors.Annotate(err, "cannot get local model info")
 		}
 		if len(localRelatedModels) > 0 {
-			return errors.Errorf("%s", incompatibleTargetMessage)
+			return errors.New(incompatibleTargetMessage)
 		}
 	}
 	err = targetClient.Prechecks(ctx, model)
@@ -845,7 +845,7 @@ func formatMinionTimeout(
 	infoPrefix string,
 ) string {
 	if reports.IsZero() {
-		return fmt.Sprintf("no agents reported in time")
+		return "no agents reported in time"
 	}
 
 	var fails []string
