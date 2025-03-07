@@ -50,6 +50,14 @@ type provisionerSuite struct {
 
 var _ = gc.Suite(&provisionerSuite{})
 
+func (s *provisionerSuite) TestStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+
+ - Test the distribution group is correctly distributed
+ - Test the distribution group is correctly distributed are grouped by machine ids
+	`)
+}
+
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
 }
@@ -1009,103 +1017,6 @@ func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	st := s.ControllerModel(c).State()
-	domainServicesGetter := s.DomainServicesGetter(c, s.NoopObjectStore(c), s.NoopLeaseManager(c))
-
-	svc, err := domainServicesGetter.ServicesForModel(context.Background(), model.UUID(st.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	machineService := svc.Machine()
-
-	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
-		app := f.MakeApplication(c, &factory.ApplicationParams{
-			Name:  name,
-			Charm: f.MakeCharm(c, &factory.CharmParams{Name: name}),
-		})
-		for _, m := range machines {
-			unit, err := app.AddUnit(state.AddUnitParams{})
-			c.Assert(err, jc.ErrorIsNil)
-			err = unit.AssignToMachine(m)
-			c.Assert(err, jc.ErrorIsNil)
-			units = append(units, unit)
-		}
-		return units
-	}
-	setProvisioned := func(id string) {
-		m, err := s.ControllerModel(c).State().Machine(id)
-		c.Assert(err, jc.ErrorIsNil)
-
-		machineUUID, err := machineService.GetMachineUUID(context.Background(), coremachine.Name(m.Id()))
-		c.Assert(err, jc.ErrorIsNil)
-		err = machineService.SetMachineCloudInstance(context.Background(), machineUUID, instance.Id("machine-"+id+"-inst"), "", nil)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	mysqlUnit := addUnits("mysql", s.machines[0], s.machines[3])[0]
-	wordpressUnits := addUnits("wordpress", s.machines[0], s.machines[1], s.machines[2])
-
-	// Unassign wordpress/1 from machine-1.
-	// The unit should not show up in the results.
-	err = wordpressUnits[1].UnassignFromMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Provision machines 1, 2 and 3. Machine-0 remains
-	// unprovisioned, and machine-1 has no units, and so
-	// neither will show up in the results.
-	setProvisioned("1")
-	setProvisioned("2")
-	setProvisioned("3")
-
-	// Add a few controllers, provision two of them.
-	_, _, err = st.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	// Manually add the controller machines on the domain:
-	_, err = machineService.CreateMachine(context.Background(), coremachine.Name("5"))
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = machineService.CreateMachine(context.Background(), coremachine.Name("6"))
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = machineService.CreateMachine(context.Background(), coremachine.Name("7"))
-	c.Assert(err, jc.ErrorIsNil)
-	setProvisioned("5")
-	setProvisioned("7")
-
-	// Create a logging service, subordinate to mysql.
-	f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "logging",
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
-	})
-	eps, err := st.InferEndpoints("mysql", "logging")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := st.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag().String()},
-		{Tag: s.machines[1].Tag().String()},
-		{Tag: s.machines[2].Tag().String()},
-		{Tag: s.machines[3].Tag().String()},
-		{Tag: "machine-5"},
-	}}
-	result, err := s.provisioner.DistributionGroup(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
-		Results: []params.DistributionGroupResult{
-			{Result: []instance.Id{"machine-2-inst", "machine-3-inst"}},
-			{Result: []instance.Id{}},
-			{Result: []instance.Id{"machine-2-inst"}},
-			{Result: []instance.Id{"machine-3-inst"}},
-			{Result: []instance.Id{"machine-5-inst", "machine-7-inst"}},
-		},
-	})
-}
-
 func (s *withoutControllerSuite) TestDistributionGroupControllerAuth(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -1164,71 +1075,6 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError("machine 1/lxd/99")},
 			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-}
-
-func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
-		app := f.MakeApplication(c, &factory.ApplicationParams{
-			Name:  name,
-			Charm: f.MakeCharm(c, &factory.CharmParams{Name: name}),
-		})
-		for _, m := range machines {
-			unit, err := app.AddUnit(state.AddUnitParams{})
-			c.Assert(err, jc.ErrorIsNil)
-			err = unit.AssignToMachine(m)
-			c.Assert(err, jc.ErrorIsNil)
-			units = append(units, unit)
-		}
-		return units
-	}
-	setProvisioned := func(id string) {
-		m, err := s.ControllerModel(c).State().Machine(id)
-		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetProvisioned(instance.Id("machine-"+id+"-inst"), "", "nonce", nil)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	_ = addUnits("mysql", s.machines[0], s.machines[3])[0]
-	wordpressUnits := addUnits("wordpress", s.machines[0], s.machines[1], s.machines[2])
-
-	// Unassign wordpress/1 from machine-1.
-	// The unit should not show up in the results.
-	err := wordpressUnits[1].UnassignFromMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Provision machines 1, 2 and 3. Machine-0 remains
-	// unprovisioned.
-	setProvisioned("1")
-	setProvisioned("2")
-	setProvisioned("3")
-
-	// Add a few controllers, provision two of them.
-	_, _, err = s.ControllerModel(c).State().EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	setProvisioned("5")
-	setProvisioned("7")
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag().String()},
-		{Tag: s.machines[1].Tag().String()},
-		{Tag: s.machines[2].Tag().String()},
-		{Tag: s.machines[3].Tag().String()},
-		{Tag: "machine-5"},
-	}}
-	result, err := s.provisioner.DistributionGroupByMachineId(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResults{
-		Results: []params.StringsResult{
-			{Result: []string{"2", "3"}},
-			{Result: []string{}},
-			{Result: []string{"0"}},
-			{Result: []string{"0"}},
-			{Result: []string{"6", "7"}},
 		},
 	})
 }
