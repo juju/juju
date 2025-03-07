@@ -409,3 +409,46 @@ func (s *FacadeSuite) TestModelCredentialForSSH(c *gc.C) {
 	}
 	c.Assert(spec, gc.DeepEquals, cloudSpec)
 }
+
+func (s *FacadeSuite) TestVirtualHostname(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expectedArg := params.VirtualHostnameTargetArg{
+		Tag: names.NewUnitTag("foo/0").String(),
+	}
+
+	res := new(params.SSHAddressResult)
+	ress1 := params.SSHAddressResult{
+		Address: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "VirtualHostname", expectedArg, res).SetArg(3, ress1).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
+
+	virtualHostname, err := facade.VirtualHostname(context.Background(), "foo/0", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(virtualHostname, gc.Equals, "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local")
+}
+
+func (s *FacadeSuite) TestVirtualHostnameError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expectedArg := params.VirtualHostnameTargetArg{
+		Tag: names.NewUnitTag("foo/0").String(),
+	}
+
+	res := new(params.SSHAddressResult)
+	ress1 := params.SSHAddressResult{
+		Error: apiservererrors.ServerError(errors.New("boom")),
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "VirtualHostname", expectedArg, res).SetArg(3, ress1).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
+
+	_, err := facade.VirtualHostname(context.Background(), "foo/0", nil)
+	c.Check(err, gc.ErrorMatches, "boom")
+}

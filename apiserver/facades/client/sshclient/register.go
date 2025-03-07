@@ -18,11 +18,30 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SSHClient", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newFacade(ctx)
-	}, reflect.TypeOf((*Facade)(nil)))
+		return newFacadeV4(ctx)
+	}, reflect.TypeOf((*FacadeV4)(nil)))
+	registry.MustRegister("SSHClient", 5, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newFacadeV5(ctx)
+	}, reflect.TypeOf((*FacadeV5)(nil)))
 }
 
-func newFacade(ctx facade.ModelContext) (*Facade, error) {
+func newFacadeV5(ctx facade.ModelContext) (*FacadeV5, error) {
+	facade, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &FacadeV5{facade}, nil
+}
+
+func newFacadeV4(ctx facade.ModelContext) (*FacadeV4, error) {
+	facade, err := newFacadeV5(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &FacadeV4{facade}, nil
+}
+
+func newFacadeBase(ctx facade.ModelContext) (*Facade, error) {
 	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {

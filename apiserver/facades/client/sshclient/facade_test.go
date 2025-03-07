@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -650,4 +651,69 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C) {
 		CACertificates: []string{testing.CACert},
 		SkipTLSVerify:  true,
 	})
+}
+
+func (s *facadeSuite) TestGetVirtualHostnameForEntity(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	facade, err := sshclient.InternalFacade(
+		s.backend,
+		s.modelConfigService,
+		s.controllerUUID,
+		nil,
+		s.authorizer,
+		func(ctx context.Context, arg environs.OpenParams, _ environs.CredentialInvalidator) (sshclient.Broker, error) {
+			c.Assert(arg.ControllerUUID, gc.Equals, testing.ControllerTag.Id())
+			return s.broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	container := "container"
+	tests := []struct {
+		name          string
+		tag           string
+		container     *string
+		expected      string
+		expectedError string
+	}{
+		{
+			name:     "test with machine tag",
+			tag:      names.NewMachineTag("0").String(),
+			expected: fmt.Sprintf("0.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
+		},
+		{
+			name:     "test with unit tag",
+			tag:      names.NewUnitTag("unit/0").String(),
+			expected: fmt.Sprintf("0.unit.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
+		},
+		{
+			name:      "test with unit tag and container",
+			tag:       names.NewUnitTag("unit/0").String(),
+			container: &container,
+			expected:  fmt.Sprintf("container.0.unit.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
+		},
+		{
+			name:          "test with error",
+			tag:           "error-tag",
+			expectedError: "\"error-tag\" is not a valid tag",
+		},
+	}
+	for _, t := range tests {
+		ctx := context.Background()
+		s.authorizer.EXPECT().HasPermission(ctx, permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission).Times(1)
+		s.authorizer.EXPECT().HasPermission(ctx, permission.AdminAccess, testing.ModelTag).Return(nil).Times(1)
+		c.Log(t.name)
+		res, err := facade.VirtualHostname(ctx, params.VirtualHostnameTargetArg{
+			Tag:       t.tag,
+			Container: t.container,
+		})
+		if t.expectedError != "" {
+			c.Assert(err, gc.ErrorMatches, t.expectedError)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(res.Address, gc.Equals, t.expected)
+		}
+
+	}
 }
