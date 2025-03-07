@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/agent/introspect"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/internal/dumplogs"
 	"github.com/juju/juju/cmd/internal/run"
 	agentcmd "github.com/juju/juju/cmd/jujud-controller/agent"
 	jujudagentcmd "github.com/juju/juju/cmd/jujud/agent"
@@ -335,8 +334,6 @@ func Main(args []string) int {
 			run := &run.RunCommand{MachineLock: lock}
 			code = cmd.Main(run, ctx, args[1:])
 		}
-	case jujunames.JujuDumpLogs:
-		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
 	case jujunames.JujuIntrospect:
 		code = cmd.Main(&introspect.IntrospectCommand{}, ctx, args[1:])
 	default:
