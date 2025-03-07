@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
@@ -35,6 +37,17 @@ type Facade struct {
 
 	modelConfigService ModelConfigService
 	controllerUUID     string
+}
+
+// FacadeV5 provides the SSH Client API facade version 5
+// which adds VirtualHostname.
+type FacadeV5 struct {
+	*Facade
+}
+
+// FacadeV4 provides the SSH Client API facade version 4.
+type FacadeV4 struct {
+	*FacadeV5
 }
 
 func internalFacade(
@@ -66,6 +79,26 @@ func (facade *Facade) checkIsModelAdmin(ctx context.Context) error {
 	}
 
 	return facade.authorizer.HasPermission(ctx, permission.AdminAccess, facade.backend.ModelTag())
+}
+
+// VirtualHostname is not implemented in v4.
+func (f *FacadeV4) VirtualHostname(_, _, _ struct{}) {}
+
+// VirtualHostname returns the virtual hostname for the given entity.
+func (facade *Facade) VirtualHostname(ctx context.Context, arg params.VirtualHostnameTargetArg) (params.SSHAddressResult, error) {
+	if err := facade.checkIsModelAdmin(ctx); err != nil {
+		return params.SSHAddressResult{}, errors.Trace(err)
+	}
+	modelUUID := facade.backend.ModelTag().Id()
+	virtualHostname, err := getVirtualHostnameForEntity(modelUUID, arg.Tag, arg.Container)
+	if err != nil {
+		return params.SSHAddressResult{
+			Error: apiservererrors.ServerError(err),
+		}, errors.Trace(err)
+	}
+	return params.SSHAddressResult{
+		Address: virtualHostname,
+	}, nil
 }
 
 // PublicAddress reports the preferred public network address for one
@@ -292,4 +325,39 @@ func (facade *Facade) getExecSecretToken(ctx context.Context, cloudSpec environs
 		return "", errors.Annotate(err, "failed to open kubernetes client")
 	}
 	return broker.GetSecretToken(ctx, k8sprovider.ExecRBACResourceName)
+}
+
+// getVirtualHostnameForEntity returns the virtual hostname for the given entity. It parses the tag string to
+// evaluate if the entity is a machine or a unit. If the entity is a unit, it also takes an optional container
+// name which is used to construct the virtual hostname.
+func getVirtualHostnameForEntity(modelUUID string, tagString string, container *string) (string, error) {
+	tag, err := names.ParseTag(tagString)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var info virtualhostname.Info
+	switch tag.Kind() {
+	case names.MachineTagKind:
+		tag := tag.(names.MachineTag)
+		info, err = virtualhostname.NewInfoMachineTarget(modelUUID, tag.Id())
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	case names.UnitTagKind:
+		tag := tag.(names.UnitTag)
+		if container != nil {
+			info, err = virtualhostname.NewInfoContainerTarget(modelUUID, tag.Id(), *container)
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+		} else {
+			info, err = virtualhostname.NewInfoUnitTarget(modelUUID, tag.Id())
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+		}
+	default:
+		return "", errors.Errorf("unsupported entity: %q", tagString)
+	}
+	return info.String(), nil
 }
