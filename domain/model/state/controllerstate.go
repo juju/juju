@@ -9,8 +9,8 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
-
 	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
