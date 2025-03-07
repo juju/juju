@@ -68,7 +68,11 @@ CREATE TABLE charm (
 
     -- Ensure we have an architecture if the source is charmhub.
     CONSTRAINT chk_charm_architecture
-    CHECK (source_id = 0 OR source_id = 1 AND architecture_id >= 0)
+    CHECK (source_id = 0 OR source_id = 1 AND architecture_id >= 0),
+
+    -- Ensure we don't have an empty reference
+    CONSTRAINT chk_charm_reference_name
+    CHECK (reference_name <> '')
 );
 
 -- This ensures that the reference name and revision are unique. This is to

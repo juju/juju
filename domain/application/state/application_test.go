@@ -302,11 +302,12 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 		Platform: platform,
 		Channel:  channel,
 		Charm: charm.Charm{
-			Metadata:     s.minimalMetadata(c, "foo"),
-			Manifest:     s.minimalManifest(c),
-			Source:       charm.LocalSource,
-			Revision:     42,
-			Architecture: architecture.ARM64,
+			Metadata:      s.minimalMetadata(c, "foo"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.LocalSource,
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+			ReferenceName: "foo",
 		},
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -315,11 +316,12 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 		Platform: platform,
 		Channel:  channel,
 		Charm: charm.Charm{
-			Metadata:     s.minimalMetadata(c, "foo"),
-			Manifest:     s.minimalManifest(c),
-			Source:       charm.LocalSource,
-			Revision:     42,
-			Architecture: architecture.ARM64,
+			Metadata:      s.minimalMetadata(c, "foo"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.LocalSource,
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+			ReferenceName: "foo",
 		},
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -367,10 +369,11 @@ func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *gc.C) {
 	_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
 		Platform: platform,
 		Charm: charm.Charm{
-			Metadata: s.minimalMetadata(c, "666"),
-			Manifest: s.minimalManifest(c),
-			Source:   charm.LocalSource,
-			Revision: 42,
+			Metadata:      s.minimalMetadata(c, "666"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.LocalSource,
+			Revision:      42,
+			ReferenceName: "666",
 		},
 		Scale: 1,
 	}, nil)
@@ -391,12 +394,13 @@ func (s *applicationStateSuite) TestCreateApplicationWithCharmStoragePath(c *gc.
 	_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
 		Platform: platform,
 		Charm: charm.Charm{
-			Metadata:    s.minimalMetadata(c, "666"),
-			Manifest:    s.minimalManifest(c),
-			Source:      charm.LocalSource,
-			Revision:    42,
-			ArchivePath: "/some/path",
-			Available:   true,
+			Metadata:      s.minimalMetadata(c, "666"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.LocalSource,
+			Revision:      42,
+			ArchivePath:   "/some/path",
+			Available:     true,
+			ReferenceName: "666",
 		},
 		Scale: 1,
 	}, nil)
@@ -1390,14 +1394,15 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *gc.C) {
 
 	appID, err := s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
 		Charm: charm.Charm{
-			Metadata:     expectedMetadata,
-			Manifest:     expectedManifest,
-			Actions:      expectedActions,
-			Config:       expectedConfig,
-			LXDProfile:   expectedLXDProfile,
-			Source:       charm.LocalSource,
-			Revision:     42,
-			Architecture: architecture.AMD64,
+			Metadata:      expectedMetadata,
+			Manifest:      expectedManifest,
+			Actions:       expectedActions,
+			Config:        expectedConfig,
+			LXDProfile:    expectedLXDProfile,
+			Source:        charm.LocalSource,
+			Revision:      42,
+			Architecture:  architecture.AMD64,
+			ReferenceName: "ubuntu",
 		},
 		Channel: &application.Channel{
 			Track:  "track",
@@ -1411,14 +1416,15 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *gc.C) {
 	ch, err := s.state.GetCharmByApplicationID(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ch, gc.DeepEquals, charm.Charm{
-		Metadata:     expectedMetadata,
-		Manifest:     expectedManifest,
-		Actions:      expectedActions,
-		Config:       expectedConfig,
-		LXDProfile:   expectedLXDProfile,
-		Source:       charm.LocalSource,
-		Revision:     42,
-		Architecture: architecture.AMD64,
+		Metadata:      expectedMetadata,
+		Manifest:      expectedManifest,
+		Actions:       expectedActions,
+		Config:        expectedConfig,
+		LXDProfile:    expectedLXDProfile,
+		Source:        charm.LocalSource,
+		Revision:      42,
+		Architecture:  architecture.AMD64,
+		ReferenceName: "ubuntu",
 	})
 
 	// Ensure that the charm platform is also set AND it's the same as the
@@ -1482,13 +1488,14 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 
 	appID, err := s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
 		Charm: charm.Charm{
-			Metadata:     expectedMetadata,
-			Manifest:     expectedManifest,
-			Actions:      expectedActions,
-			Config:       expectedConfig,
-			Revision:     42,
-			Source:       charm.LocalSource,
-			Architecture: architecture.AMD64,
+			Metadata:      expectedMetadata,
+			Manifest:      expectedManifest,
+			Actions:       expectedActions,
+			Config:        expectedConfig,
+			Revision:      42,
+			Source:        charm.LocalSource,
+			Architecture:  architecture.AMD64,
+			ReferenceName: "ubuntu",
 		},
 		Platform: application.Platform{
 			OSType:       application.Ubuntu,
@@ -1501,13 +1508,14 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 	ch, err := s.state.GetCharmByApplicationID(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ch, gc.DeepEquals, charm.Charm{
-		Metadata:     expectedMetadata,
-		Manifest:     expectedManifest,
-		Actions:      expectedActions,
-		Config:       expectedConfig,
-		Revision:     42,
-		Source:       charm.LocalSource,
-		Architecture: architecture.AMD64,
+		Metadata:      expectedMetadata,
+		Manifest:      expectedManifest,
+		Actions:       expectedActions,
+		Config:        expectedConfig,
+		Revision:      42,
+		Source:        charm.LocalSource,
+		Architecture:  architecture.AMD64,
+		ReferenceName: "ubuntu",
 	})
 }
 
@@ -1525,9 +1533,10 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 
 	_, err := s.state.CreateApplication(ctx, "foo", application.AddApplicationArg{
 		Charm: charm.Charm{
-			Metadata: expectedMetadata,
-			Manifest: s.minimalManifest(c),
-			Source:   charm.LocalSource,
+			Metadata:      expectedMetadata,
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.LocalSource,
+			ReferenceName: "ubuntu",
 		},
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)

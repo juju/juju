@@ -1032,7 +1032,7 @@ func decodeCharmLocator(c charmLocator) (charm.CharmLocator, error) {
 	}
 
 	return charm.CharmLocator{
-		Name:         c.Name,
+		Name:         c.ReferenceName,
 		Revision:     c.Revision,
 		Source:       source,
 		Architecture: architecture,
