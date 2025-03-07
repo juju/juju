@@ -12,6 +12,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -20,13 +21,11 @@ import (
 // UnitStateService describes the ability to retrieve and persist
 // remote state for informing hook reconciliation.
 type UnitStateService interface {
-	// GetUnitUUIDForName returns the UUID corresponding to the input unit name.
-	GetUnitUUIDForName(ctx context.Context, name string) (string, error)
 	// SetState persists the input unit state.
 	SetState(context.Context, unitstate.UnitState) error
 	// GetState returns the internal state of the unit. The return data will be
 	// empty if no hook has been run for this unit.
-	GetState(ctx context.Context, uuid string) (unitstate.RetrievedUnitState, error)
+	GetState(ctx context.Context, name coreunit.Name) (unitstate.RetrievedUnitState, error)
 }
 
 type UnitStateAPI struct {
@@ -94,13 +93,13 @@ func (u *UnitStateAPI) State(ctx context.Context, args params.Entities) (params.
 			res[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unitUUID, err := u.unitStateService.GetUnitUUIDForName(ctx, unitTag.Id())
+		unitName, err := coreunit.NewName(unitTag.Id())
 		if err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		unitState, err := u.unitStateService.GetState(ctx, unitUUID)
+		unitState, err := u.unitStateService.GetState(ctx, unitName)
 		if err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -151,8 +150,14 @@ func (u *UnitStateAPI) SetState(ctx context.Context, args params.SetUnitStateArg
 			continue
 		}
 
+		unitName, err := coreunit.NewName(unitTag.Id())
+		if err != nil {
+			res[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		if err := u.unitStateService.SetState(ctx, unitstate.UnitState{
-			Name:          unitTag.Id(),
+			Name:          unitName,
 			CharmState:    arg.CharmState,
 			UniterState:   arg.UniterState,
 			RelationState: arg.RelationState,

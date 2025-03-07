@@ -2776,6 +2776,11 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 			return apiservererrors.ErrPerm
 		}
 
+		unitName, err := coreunit.NewName(unitTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		// TODO (manadart 2024-10-12): Only charm state is ever set here.
 		// The full state is set in the call to SetState (apiserver/common).
 		// Integrate this into a transaction with other setters once we are also
@@ -2783,7 +2788,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		// We also need to factor ctrlCfg.MaxCharmStateSize() into the service
 		// call.
 		if err := u.unitStateService.SetState(ctx, unitstate.UnitState{
-			Name:       unitTag.Id(),
+			Name:       unitName,
 			CharmState: changes.SetUnitState.CharmState,
 		}); err != nil {
 			return errors.Trace(err)

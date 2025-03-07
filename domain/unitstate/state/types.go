@@ -3,17 +3,19 @@
 
 package state
 
+import "github.com/juju/juju/core/unit"
+
 // unitUUID identifies a unit.
 type unitUUID struct {
 	// UUID is the universally unique identifier for a unit.
-	UUID string `db:"uuid"`
+	UUID unit.UUID `db:"uuid"`
 }
 
 // unitName identifies a unit.
 type unitName struct {
 	// Name uniquely identifies a unit and indicates its application.
 	// For example, postgresql/3.
-	Name string `db:"name"`
+	Name unit.Name `db:"name"`
 }
 
 // unitState contains a YAML string representing the
@@ -30,15 +32,15 @@ type unitState struct {
 // unitStateVal is a type for holding a key/value pair that is
 // a constituent in unit state for charm and relation.
 type unitStateKeyVal[T comparable] struct {
-	UUID  string `db:"unit_uuid"`
-	Key   T      `db:"key"`
-	Value string `db:"value"`
+	UUID  unit.UUID `db:"unit_uuid"`
+	Key   T         `db:"key"`
+	Value string    `db:"value"`
 }
 
 type unitCharmStateKeyVal unitStateKeyVal[string]
 type unitRelationStateKeyVal unitStateKeyVal[int]
 
-func makeUnitCharmStateKeyVals(unitUUID string, kv map[string]string) []unitCharmStateKeyVal {
+func makeUnitCharmStateKeyVals(unitUUID unit.UUID, kv map[string]string) []unitCharmStateKeyVal {
 	keyVals := make([]unitCharmStateKeyVal, 0, len(kv))
 	for k, v := range kv {
 		keyVals = append(keyVals, unitCharmStateKeyVal{
@@ -50,7 +52,7 @@ func makeUnitCharmStateKeyVals(unitUUID string, kv map[string]string) []unitChar
 	return keyVals
 }
 
-func makeUnitRelationStateKeyVals(unitUUID string, kv map[int]string) []unitRelationStateKeyVal {
+func makeUnitRelationStateKeyVals(unitUUID unit.UUID, kv map[int]string) []unitRelationStateKeyVal {
 	keyVals := make([]unitRelationStateKeyVal, 0, len(kv))
 	for k, v := range kv {
 		keyVals = append(keyVals, unitRelationStateKeyVal{
@@ -76,9 +78,4 @@ func makeMapFromRelationUnitStateKeyVals(us []unitRelationStateKeyVal) map[int]s
 		m[kv.Key] = kv.Value
 	}
 	return m
-}
-
-// count stores the count of rows in the DB.
-type count struct {
-	Count int `db:"count"`
 }

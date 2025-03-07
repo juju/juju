@@ -3,11 +3,13 @@
 
 package unitstate
 
+import "github.com/juju/juju/core/unit"
+
 // UnitState represents the state of the world according to a unit agent at
 // hook commit time.
 type UnitState struct {
 	// Name is the unit name.
-	Name string
+	Name unit.Name
 
 	// CharmState is key/value pairs for charm attributes.
 	CharmState *map[string]string

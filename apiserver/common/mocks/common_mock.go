@@ -1450,7 +1450,7 @@ func (m *MockUnitStateService) EXPECT() *MockUnitStateServiceMockRecorder {
 }
 
 // GetState mocks base method.
-func (m *MockUnitStateService) GetState(arg0 context.Context, arg1 string) (unitstate.RetrievedUnitState, error) {
+func (m *MockUnitStateService) GetState(arg0 context.Context, arg1 unit.Name) (unitstate.RetrievedUnitState, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetState", arg0, arg1)
 	ret0, _ := ret[0].(unitstate.RetrievedUnitState)
@@ -1477,52 +1477,13 @@ func (c *MockUnitStateServiceGetStateCall) Return(arg0 unitstate.RetrievedUnitSt
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitStateServiceGetStateCall) Do(f func(context.Context, string) (unitstate.RetrievedUnitState, error)) *MockUnitStateServiceGetStateCall {
+func (c *MockUnitStateServiceGetStateCall) Do(f func(context.Context, unit.Name) (unitstate.RetrievedUnitState, error)) *MockUnitStateServiceGetStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitStateServiceGetStateCall) DoAndReturn(f func(context.Context, string) (unitstate.RetrievedUnitState, error)) *MockUnitStateServiceGetStateCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetUnitUUIDForName mocks base method.
-func (m *MockUnitStateService) GetUnitUUIDForName(arg0 context.Context, arg1 string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitUUIDForName", arg0, arg1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUnitUUIDForName indicates an expected call of GetUnitUUIDForName.
-func (mr *MockUnitStateServiceMockRecorder) GetUnitUUIDForName(arg0, arg1 any) *MockUnitStateServiceGetUnitUUIDForNameCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUIDForName", reflect.TypeOf((*MockUnitStateService)(nil).GetUnitUUIDForName), arg0, arg1)
-	return &MockUnitStateServiceGetUnitUUIDForNameCall{Call: call}
-}
-
-// MockUnitStateServiceGetUnitUUIDForNameCall wrap *gomock.Call
-type MockUnitStateServiceGetUnitUUIDForNameCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUnitStateServiceGetUnitUUIDForNameCall) Return(arg0 string, arg1 error) *MockUnitStateServiceGetUnitUUIDForNameCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUnitStateServiceGetUnitUUIDForNameCall) Do(f func(context.Context, string) (string, error)) *MockUnitStateServiceGetUnitUUIDForNameCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitStateServiceGetUnitUUIDForNameCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockUnitStateServiceGetUnitUUIDForNameCall {
+func (c *MockUnitStateServiceGetStateCall) DoAndReturn(f func(context.Context, unit.Name) (unitstate.RetrievedUnitState, error)) *MockUnitStateServiceGetStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
