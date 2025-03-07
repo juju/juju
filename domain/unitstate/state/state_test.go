@@ -7,13 +7,13 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -69,26 +69,63 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestGetUUIDForName(c *gc.C) {
+func (s *stateSuite) TestSetUnitState(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
 
-	var uuid coreunit.UUID
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		var err error
-		uuid, err = st.GetUnitUUIDForName(ctx, "app/0")
-		return err
-	})
+	agentState := unitstate.UnitState{
+		Name:          s.unitName,
+		CharmState:    ptr(map[string]string{"one-key": "one-value"}),
+		UniterState:   ptr("some-uniter-state-yaml"),
+		RelationState: ptr(map[int]string{1: "one-value"}),
+		StorageState:  ptr("some-storage-state-yaml"),
+		SecretState:   ptr("some-secret-state-yaml"),
+	}
+	st.SetUnitState(context.Background(), agentState)
+
+	expectedAgentState := unitstate.RetrievedUnitState{
+		CharmState:    *agentState.CharmState,
+		UniterState:   *agentState.UniterState,
+		RelationState: *agentState.RelationState,
+		StorageState:  *agentState.StorageState,
+		SecretState:   *agentState.SecretState,
+	}
+
+	state, err := st.GetUnitState(context.Background(), s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(uuid, gc.Equals, s.unitUUID)
+	c.Assert(state, gc.DeepEquals, expectedAgentState)
+}
+
+func (s *stateSuite) TestSetUnitStateJustUniterState(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	agentState := unitstate.UnitState{
+		Name:        s.unitName,
+		UniterState: ptr("some-uniter-state-yaml"),
+	}
+	st.SetUnitState(context.Background(), agentState)
+
+	expectedAgentState := unitstate.RetrievedUnitState{
+		UniterState: *agentState.UniterState,
+	}
+
+	state, err := st.GetUnitState(context.Background(), s.unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state, gc.DeepEquals, expectedAgentState)
+}
+
+func (s *stateSuite) TestGetUnitStateUnitNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetUnitState(context.Background(), "bad-uuid")
+	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestEnsureUnitStateRecord(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.EnsureUnitStateRecord(ctx, s.unitUUID)
+	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -100,8 +137,8 @@ func (s *stateSuite) TestEnsureUnitStateRecord(c *gc.C) {
 	c.Assert(uuid, gc.Equals, s.unitUUID)
 
 	// Running again makes no change.
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.EnsureUnitStateRecord(ctx, s.unitUUID)
+	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -117,11 +154,11 @@ func (s *stateSuite) TestUpdateUnitStateUniter(c *gc.C) {
 	ctx := context.Background()
 	expState := "some uniter state YAML"
 
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		if err := st.EnsureUnitStateRecord(ctx, s.unitUUID); err != nil {
+	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID}); err != nil {
 			return err
 		}
-		return st.UpdateUnitStateUniter(ctx, s.unitUUID, expState)
+		return st.updateUnitStateUniter(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -139,11 +176,11 @@ func (s *stateSuite) TestUpdateUnitStateStorage(c *gc.C) {
 	ctx := context.Background()
 	expState := "some storage state YAML"
 
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		if err := st.EnsureUnitStateRecord(ctx, s.unitUUID); err != nil {
+	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID}); err != nil {
 			return err
 		}
-		return st.UpdateUnitStateStorage(ctx, s.unitUUID, expState)
+		return st.updateUnitStateStorage(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -161,11 +198,11 @@ func (s *stateSuite) TestUpdateUnitStateSecret(c *gc.C) {
 	ctx := context.Background()
 	expState := "some secret state YAML"
 
-	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		if err := st.EnsureUnitStateRecord(ctx, s.unitUUID); err != nil {
+	err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.ensureUnitStateRecord(ctx, tx, unitUUID{UUID: s.unitUUID}); err != nil {
 			return err
 		}
-		return st.UpdateUnitStateSecret(ctx, s.unitUUID, expState)
+		return st.updateUnitStateSecret(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -195,8 +232,8 @@ func (s *stateSuite) TestUpdateUnitStateCharm(c *gc.C) {
 		"three-key": "three-val",
 	}
 
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.SetUnitStateCharm(ctx, s.unitUUID, expState)
+	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setUnitStateCharm(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -240,8 +277,8 @@ func (s *stateSuite) TestUpdateUnitStateRelation(c *gc.C) {
 		3: "three-val",
 	}
 
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.SetUnitStateRelation(ctx, s.unitUUID, expState)
+	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setUnitStateRelation(ctx, tx, unitUUID{UUID: s.unitUUID}, expState)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -281,8 +318,8 @@ func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		return st.SetUnitStateRelation(ctx, s.unitUUID, map[int]string{})
+	err = s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setUnitStateRelation(ctx, tx, unitUUID{UUID: s.unitUUID}, map[int]string{})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -303,96 +340,6 @@ func (s *stateSuite) TestUpdateUnitStateRelationEmptyMap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(rowCount, gc.DeepEquals, 0)
-}
-
-func (s *stateSuite) TestGetUnitState(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	agentState := unitstate.UnitState{
-		CharmState:    ptr(map[string]string{"one-key": "one-value"}),
-		UniterState:   ptr("some-uniter-state-yaml"),
-		RelationState: ptr(map[int]string{1: "one-value"}),
-		StorageState:  ptr("some-storage-state-yaml"),
-		SecretState:   ptr("some-secret-state-yaml"),
-	}
-	s.setUnitState(c, st, s.unitUUID, agentState)
-
-	expectedAgentState := unitstate.RetrievedUnitState{
-		CharmState:    *agentState.CharmState,
-		UniterState:   *agentState.UniterState,
-		RelationState: *agentState.RelationState,
-		StorageState:  *agentState.StorageState,
-		SecretState:   *agentState.SecretState,
-	}
-
-	state, err := st.GetUnitState(context.Background(), s.unitName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.DeepEquals, expectedAgentState)
-}
-
-func (s *stateSuite) TestGetUnitStateJustUniterState(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	agentState := unitstate.UnitState{
-		UniterState: ptr("some-uniter-state-yaml"),
-	}
-	s.setUnitState(c, st, s.unitUUID, agentState)
-
-	expectedAgentState := unitstate.RetrievedUnitState{
-		UniterState: *agentState.UniterState,
-	}
-
-	state, err := st.GetUnitState(context.Background(), s.unitName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state, gc.DeepEquals, expectedAgentState)
-}
-
-func (s *stateSuite) TestGetUnitStateUnitNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	_, err := st.GetUnitState(context.Background(), "bad-uuid")
-	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
-}
-
-func (s *stateSuite) setUnitState(c *gc.C, st *State, uuid coreunit.UUID, unitState unitstate.UnitState) {
-	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
-		err := st.EnsureUnitStateRecord(ctx, uuid)
-		if err != nil {
-			return err
-		}
-		if unitState.UniterState != nil {
-			err = st.UpdateUnitStateUniter(ctx, uuid, *unitState.UniterState)
-			if err != nil {
-				return err
-			}
-		}
-		if unitState.StorageState != nil {
-			err = st.UpdateUnitStateStorage(ctx, uuid, *unitState.StorageState)
-			if err != nil {
-				return err
-			}
-		}
-		if unitState.SecretState != nil {
-			err = st.UpdateUnitStateSecret(ctx, uuid, *unitState.SecretState)
-			if err != nil {
-				return err
-			}
-		}
-		if unitState.CharmState != nil {
-			err = st.SetUnitStateCharm(ctx, uuid, *unitState.CharmState)
-			if err != nil {
-				return err
-			}
-		}
-		if unitState.RelationState != nil {
-			err = st.SetUnitStateRelation(ctx, uuid, *unitState.RelationState)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func ptr[T any](v T) *T {
