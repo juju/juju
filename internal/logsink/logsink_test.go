@@ -8,9 +8,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
@@ -30,9 +29,7 @@ type logSinkSuite struct {
 var _ = gc.Suite(&logSinkSuite{})
 
 func (s *logSinkSuite) TestWriteWithNoBatching(c *gc.C) {
-	dir := c.MkDir()
-
-	sink := s.newLogSink(c, 1, dir)
+	sink, buffer := s.newLogSink(c, 1)
 	defer workertest.DirtyKill(c, sink)
 
 	sink.Write(loggo.Entry{
@@ -42,8 +39,7 @@ func (s *logSinkSuite) TestWriteWithNoBatching(c *gc.C) {
 
 	s.expectFlush(c)
 
-	log := s.readLog(c, dir)
-	lines := parseLog(c, log)
+	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
 	c.Check(lines, gc.DeepEquals, []LogRecord{{
 		Level:   loggo.INFO,
@@ -54,9 +50,7 @@ func (s *logSinkSuite) TestWriteWithNoBatching(c *gc.C) {
 }
 
 func (s *logSinkSuite) TestWriteWithMultiline(c *gc.C) {
-	dir := c.MkDir()
-
-	sink := s.newLogSink(c, 1, dir)
+	sink, buffer := s.newLogSink(c, 1)
 	defer workertest.DirtyKill(c, sink)
 
 	sink.Write(loggo.Entry{
@@ -73,8 +67,7 @@ rld
 
 	s.expectFlush(c)
 
-	log := s.readLog(c, dir)
-	lines := parseLog(c, log)
+	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
 	c.Check(lines, gc.DeepEquals, []LogRecord{{
 		Level:   loggo.INFO,
@@ -85,11 +78,9 @@ rld
 }
 
 func (s *logSinkSuite) TestWriteWithLargeBatching(c *gc.C) {
-	dir := c.MkDir()
-
 	// This forces the ticker to flush the batch.
 
-	sink := s.newLogSink(c, 100, dir)
+	sink, buffer := s.newLogSink(c, 100)
 	defer workertest.DirtyKill(c, sink)
 
 	sink.Write(loggo.Entry{
@@ -100,8 +91,7 @@ func (s *logSinkSuite) TestWriteWithLargeBatching(c *gc.C) {
 	s.expectTick(c)
 	s.expectFlush(c)
 
-	log := s.readLog(c, dir)
-	lines := parseLog(c, log)
+	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
 	c.Check(lines, gc.DeepEquals, []LogRecord{{
 		Level:   loggo.INFO,
@@ -112,12 +102,10 @@ func (s *logSinkSuite) TestWriteWithLargeBatching(c *gc.C) {
 }
 
 func (s *logSinkSuite) TestWriteWithLogsBatching(c *gc.C) {
-	dir := c.MkDir()
-
 	// Send more than two batches of logs, but less than the batch size.
 	// This will force two flushes and an additional tick and a flush.
 
-	sink := s.newLogSink(c, 50, dir)
+	sink, buffer := s.newLogSink(c, 50)
 	defer workertest.DirtyKill(c, sink)
 
 	total := (rand.Intn(48) + 1) + 100
@@ -148,8 +136,7 @@ func (s *logSinkSuite) TestWriteWithLogsBatching(c *gc.C) {
 	s.expectTick(c)
 	s.expectFlush(c)
 
-	log := s.readLog(c, dir)
-	lines := parseLog(c, log)
+	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
 	expected := make([]LogRecord, total)
@@ -172,11 +159,9 @@ func (s *logSinkSuite) TestWriteWithLogsBatching(c *gc.C) {
 }
 
 func (s *logSinkSuite) TestWriteWithLogsUnderBatchSize(c *gc.C) {
-	dir := c.MkDir()
-
 	// This leans on the timer to send all the logs.
 
-	sink := s.newLogSink(c, 1000, dir)
+	sink, buffer := s.newLogSink(c, 1000)
 	defer workertest.DirtyKill(c, sink)
 
 	total := rand.Intn(100) + 100
@@ -205,8 +190,7 @@ func (s *logSinkSuite) TestWriteWithLogsUnderBatchSize(c *gc.C) {
 	s.expectTick(c)
 	s.expectFlush(c)
 
-	log := s.readLog(c, dir)
-	lines := parseLog(c, log)
+	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
 	expected := make([]LogRecord, total)
@@ -229,13 +213,11 @@ func (s *logSinkSuite) TestWriteWithLogsUnderBatchSize(c *gc.C) {
 }
 
 func (s *logSinkSuite) TestWriteLogsConcurrently(c *gc.C) {
-	dir := c.MkDir()
-
 	// Flood the sink with logs from multiple goroutines. We don't care about
 	// the order of the logs, just that they all get written. All logs will be
 	// localised to the original goroutine.
 
-	sink := s.newLogSink(c, 100, dir)
+	sink, buffer := s.newLogSink(c, 100)
 	defer workertest.DirtyKill(c, sink)
 
 	total := 10000
@@ -270,8 +252,7 @@ func (s *logSinkSuite) TestWriteLogsConcurrently(c *gc.C) {
 	// Wait for all the flushes to complete.
 	s.expectNumOfFlushes(c, division)
 
-	log := s.readLog(c, dir)
-	lines := parseLog(c, log)
+	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
 	expected := make([]LogRecord, total)
@@ -300,11 +281,13 @@ func (s *logSinkSuite) TestWriteLogsConcurrently(c *gc.C) {
 	workertest.CleanKill(c, sink)
 }
 
-func (s *logSinkSuite) newLogSink(c *gc.C, batchSize int, dir string) *LogSink {
+func (s *logSinkSuite) newLogSink(c *gc.C, batchSize int) (*LogSink, *bytes.Buffer) {
 	s.states = make(chan string, 1)
 
-	sink := newLogSink(dir, "logsink.log", batchSize, time.Millisecond*100, s.states)
-	return sink
+	buffer := new(bytes.Buffer)
+
+	sink := newLogSink(buffer, batchSize, time.Millisecond*100, s.states)
+	return sink, buffer
 }
 
 func (s *logSinkSuite) expectFlush(c *gc.C) {
@@ -341,17 +324,10 @@ func (s *logSinkSuite) expectTick(c *gc.C) {
 	}
 }
 
-func (s *logSinkSuite) readLog(c *gc.C, dir string) string {
-	logFile := filepath.Join(dir, "logsink.log")
-	content, err := os.ReadFile(logFile)
-	c.Assert(err, gc.IsNil)
-	return string(content)
-}
-
-func parseLog(c *gc.C, log string) []LogRecord {
+func parseLog(c *gc.C, reader io.Reader) []LogRecord {
 	var records []LogRecord
 
-	scanner := bufio.NewScanner(bytes.NewBufferString(log))
+	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		var record LogRecord
 		err := json.Unmarshal(scanner.Bytes(), &record)

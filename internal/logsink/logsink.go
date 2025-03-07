@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -25,13 +25,15 @@ var (
 	zeroTime = time.Time{}
 )
 
+// NewWriterFunc is a function that creates a new writer.
+type NewWriterFunc func() (io.WriteCloser, error)
+
 // LogSink is a loggo.Writer that writes log messages to a file.
 type LogSink struct {
 	tomb           tomb.Tomb
 	internalStates chan string
 
-	dir  string
-	name string
+	writer io.Writer
 
 	batchSize     int
 	flushInterval time.Duration
@@ -47,17 +49,16 @@ type LogSink struct {
 // will be written to the file in an interleaved manner (junk data).
 // LogSink writer will write log messages as JSON objects, one per line, even
 // if the log message is multiline.
-func NewLogSink(dir string, name string, batchSize int, flushInterval time.Duration) *LogSink {
-	return newLogSink(dir, name, batchSize, flushInterval, nil)
+func NewLogSink(writer io.Writer, batchSize int, flushInterval time.Duration) *LogSink {
+	return newLogSink(writer, batchSize, flushInterval, nil)
 }
 
 // newLogSink creates a new log sink that writes log messages to a file.
-func newLogSink(dir string, name string, batchSize int, flushInterval time.Duration, internalStates chan string) *LogSink {
+func newLogSink(writer io.Writer, batchSize int, flushInterval time.Duration, internalStates chan string) *LogSink {
 	w := &LogSink{
 		internalStates: internalStates,
 
-		dir:  dir,
-		name: name,
+		writer: writer,
 
 		batchSize:     batchSize,
 		flushInterval: flushInterval,
@@ -96,13 +97,6 @@ func (w *LogSink) Wait() error {
 }
 
 func (w *LogSink) loop() error {
-	// Open file for writing.
-	file, err := w.openFile()
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
 	buffer := new(bytes.Buffer)
 	encoder := json.NewEncoder(buffer)
 
@@ -130,7 +124,7 @@ func (w *LogSink) loop() error {
 				default:
 				}
 
-				if _, err := file.Write(buffer.Bytes()); err != nil {
+				if _, err := w.writer.Write(buffer.Bytes()); err != nil {
 					fmt.Fprintf(os.Stderr, "failed to write log message: %v", err)
 				}
 
@@ -195,10 +189,6 @@ func (w *LogSink) loop() error {
 			entries = entries[:0]
 		}
 	}
-}
-
-func (w *LogSink) openFile() (*os.File, error) {
-	return os.OpenFile(filepath.Join(w.dir, w.name), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 }
 
 func (w *LogSink) records(entries []loggo.Entry) []LogRecord {
