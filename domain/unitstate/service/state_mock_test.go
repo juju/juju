@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	unit "github.com/juju/juju/core/unit"
 	domain "github.com/juju/juju/domain"
 	unitstate "github.com/juju/juju/domain/unitstate"
 	gomock "go.uber.org/mock/gomock"
@@ -42,7 +43,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // EnsureUnitStateRecord mocks base method.
-func (m *MockState) EnsureUnitStateRecord(arg0 domain.AtomicContext, arg1 string) error {
+func (m *MockState) EnsureUnitStateRecord(arg0 domain.AtomicContext, arg1 unit.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureUnitStateRecord", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -68,19 +69,19 @@ func (c *MockStateEnsureUnitStateRecordCall) Return(arg0 error) *MockStateEnsure
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateEnsureUnitStateRecordCall) Do(f func(domain.AtomicContext, string) error) *MockStateEnsureUnitStateRecordCall {
+func (c *MockStateEnsureUnitStateRecordCall) Do(f func(domain.AtomicContext, unit.UUID) error) *MockStateEnsureUnitStateRecordCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateEnsureUnitStateRecordCall) DoAndReturn(f func(domain.AtomicContext, string) error) *MockStateEnsureUnitStateRecordCall {
+func (c *MockStateEnsureUnitStateRecordCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID) error) *MockStateEnsureUnitStateRecordCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitState mocks base method.
-func (m *MockState) GetUnitState(arg0 context.Context, arg1 string) (unitstate.RetrievedUnitState, error) {
+func (m *MockState) GetUnitState(arg0 context.Context, arg1 unit.Name) (unitstate.RetrievedUnitState, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitState", arg0, arg1)
 	ret0, _ := ret[0].(unitstate.RetrievedUnitState)
@@ -107,22 +108,22 @@ func (c *MockStateGetUnitStateCall) Return(arg0 unitstate.RetrievedUnitState, ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitStateCall) Do(f func(context.Context, string) (unitstate.RetrievedUnitState, error)) *MockStateGetUnitStateCall {
+func (c *MockStateGetUnitStateCall) Do(f func(context.Context, unit.Name) (unitstate.RetrievedUnitState, error)) *MockStateGetUnitStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitStateCall) DoAndReturn(f func(context.Context, string) (unitstate.RetrievedUnitState, error)) *MockStateGetUnitStateCall {
+func (c *MockStateGetUnitStateCall) DoAndReturn(f func(context.Context, unit.Name) (unitstate.RetrievedUnitState, error)) *MockStateGetUnitStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitUUIDForName mocks base method.
-func (m *MockState) GetUnitUUIDForName(arg0 domain.AtomicContext, arg1 string) (string, error) {
+func (m *MockState) GetUnitUUIDForName(arg0 domain.AtomicContext, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitUUIDForName", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(unit.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -140,19 +141,19 @@ type MockStateGetUnitUUIDForNameCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitUUIDForNameCall) Return(arg0 string, arg1 error) *MockStateGetUnitUUIDForNameCall {
+func (c *MockStateGetUnitUUIDForNameCall) Return(arg0 unit.UUID, arg1 error) *MockStateGetUnitUUIDForNameCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitUUIDForNameCall) Do(f func(domain.AtomicContext, string) (string, error)) *MockStateGetUnitUUIDForNameCall {
+func (c *MockStateGetUnitUUIDForNameCall) Do(f func(domain.AtomicContext, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDForNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitUUIDForNameCall) DoAndReturn(f func(domain.AtomicContext, string) (string, error)) *MockStateGetUnitUUIDForNameCall {
+func (c *MockStateGetUnitUUIDForNameCall) DoAndReturn(f func(domain.AtomicContext, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDForNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -196,7 +197,7 @@ func (c *MockStateRunAtomicCall) DoAndReturn(f func(context.Context, func(domain
 }
 
 // SetUnitStateCharm mocks base method.
-func (m *MockState) SetUnitStateCharm(arg0 domain.AtomicContext, arg1 string, arg2 map[string]string) error {
+func (m *MockState) SetUnitStateCharm(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 map[string]string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitStateCharm", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -222,19 +223,19 @@ func (c *MockStateSetUnitStateCharmCall) Return(arg0 error) *MockStateSetUnitSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitStateCharmCall) Do(f func(domain.AtomicContext, string, map[string]string) error) *MockStateSetUnitStateCharmCall {
+func (c *MockStateSetUnitStateCharmCall) Do(f func(domain.AtomicContext, unit.UUID, map[string]string) error) *MockStateSetUnitStateCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitStateCharmCall) DoAndReturn(f func(domain.AtomicContext, string, map[string]string) error) *MockStateSetUnitStateCharmCall {
+func (c *MockStateSetUnitStateCharmCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, map[string]string) error) *MockStateSetUnitStateCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetUnitStateRelation mocks base method.
-func (m *MockState) SetUnitStateRelation(arg0 domain.AtomicContext, arg1 string, arg2 map[int]string) error {
+func (m *MockState) SetUnitStateRelation(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 map[int]string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitStateRelation", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -260,19 +261,19 @@ func (c *MockStateSetUnitStateRelationCall) Return(arg0 error) *MockStateSetUnit
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitStateRelationCall) Do(f func(domain.AtomicContext, string, map[int]string) error) *MockStateSetUnitStateRelationCall {
+func (c *MockStateSetUnitStateRelationCall) Do(f func(domain.AtomicContext, unit.UUID, map[int]string) error) *MockStateSetUnitStateRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitStateRelationCall) DoAndReturn(f func(domain.AtomicContext, string, map[int]string) error) *MockStateSetUnitStateRelationCall {
+func (c *MockStateSetUnitStateRelationCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, map[int]string) error) *MockStateSetUnitStateRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UpdateUnitStateSecret mocks base method.
-func (m *MockState) UpdateUnitStateSecret(arg0 domain.AtomicContext, arg1, arg2 string) error {
+func (m *MockState) UpdateUnitStateSecret(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateUnitStateSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -298,19 +299,19 @@ func (c *MockStateUpdateUnitStateSecretCall) Return(arg0 error) *MockStateUpdate
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateUnitStateSecretCall) Do(f func(domain.AtomicContext, string, string) error) *MockStateUpdateUnitStateSecretCall {
+func (c *MockStateUpdateUnitStateSecretCall) Do(f func(domain.AtomicContext, unit.UUID, string) error) *MockStateUpdateUnitStateSecretCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateUnitStateSecretCall) DoAndReturn(f func(domain.AtomicContext, string, string) error) *MockStateUpdateUnitStateSecretCall {
+func (c *MockStateUpdateUnitStateSecretCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, string) error) *MockStateUpdateUnitStateSecretCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UpdateUnitStateStorage mocks base method.
-func (m *MockState) UpdateUnitStateStorage(arg0 domain.AtomicContext, arg1, arg2 string) error {
+func (m *MockState) UpdateUnitStateStorage(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateUnitStateStorage", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -336,19 +337,19 @@ func (c *MockStateUpdateUnitStateStorageCall) Return(arg0 error) *MockStateUpdat
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateUnitStateStorageCall) Do(f func(domain.AtomicContext, string, string) error) *MockStateUpdateUnitStateStorageCall {
+func (c *MockStateUpdateUnitStateStorageCall) Do(f func(domain.AtomicContext, unit.UUID, string) error) *MockStateUpdateUnitStateStorageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateUnitStateStorageCall) DoAndReturn(f func(domain.AtomicContext, string, string) error) *MockStateUpdateUnitStateStorageCall {
+func (c *MockStateUpdateUnitStateStorageCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, string) error) *MockStateUpdateUnitStateStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UpdateUnitStateUniter mocks base method.
-func (m *MockState) UpdateUnitStateUniter(arg0 domain.AtomicContext, arg1, arg2 string) error {
+func (m *MockState) UpdateUnitStateUniter(arg0 domain.AtomicContext, arg1 unit.UUID, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateUnitStateUniter", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -374,13 +375,13 @@ func (c *MockStateUpdateUnitStateUniterCall) Return(arg0 error) *MockStateUpdate
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateUnitStateUniterCall) Do(f func(domain.AtomicContext, string, string) error) *MockStateUpdateUnitStateUniterCall {
+func (c *MockStateUpdateUnitStateUniterCall) Do(f func(domain.AtomicContext, unit.UUID, string) error) *MockStateUpdateUnitStateUniterCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateUnitStateUniterCall) DoAndReturn(f func(domain.AtomicContext, string, string) error) *MockStateUpdateUnitStateUniterCall {
+func (c *MockStateUpdateUnitStateUniterCall) DoAndReturn(f func(domain.AtomicContext, unit.UUID, string) error) *MockStateUpdateUnitStateUniterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

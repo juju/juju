@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/unitstate"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
@@ -66,7 +67,7 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *unitStateSuite) expectGetState(name string) (map[string]string, string, map[int]string, string, string) {
+func (s *unitStateSuite) expectGetState(c *gc.C, name string) (map[string]string, string, map[int]string, string, string) {
 	expCharmState := map[string]string{
 		"foo.bar":  "baz",
 		"payload$": "enc0d3d",
@@ -79,9 +80,9 @@ func (s *unitStateSuite) expectGetState(name string) (map[string]string, string,
 	expStorageState := "storage testing"
 	expSecretState := "secret testing"
 
-	uuid := "some-unit-uuid"
-	s.unitStateService.EXPECT().GetUnitUUIDForName(gomock.Any(), name).Return(uuid, nil)
-	s.unitStateService.EXPECT().GetState(gomock.Any(), uuid).Return(unitstate.RetrievedUnitState{
+	unitName := unittesting.GenNewName(c, name)
+
+	s.unitStateService.EXPECT().GetState(gomock.Any(), unitName).Return(unitstate.RetrievedUnitState{
 		CharmState:    expCharmState,
 		UniterState:   expUniterState,
 		RelationState: expRelationState,
@@ -94,7 +95,7 @@ func (s *unitStateSuite) expectGetState(name string) (map[string]string, string,
 
 func (s *unitStateSuite) TestState(c *gc.C) {
 	defer s.assertBackendApi(c).Finish()
-	expCharmState, expUniterState, expRelationState, expStorageState, expSecretState := s.expectGetState("wordpress/0")
+	expCharmState, expUniterState, expRelationState, expStorageState, expSecretState := s.expectGetState(c, "wordpress/0")
 
 	args := params.Entities{
 		Entities: []params.Entity{

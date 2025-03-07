@@ -11,6 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -25,7 +27,8 @@ import (
 type stateSuite struct {
 	testing.ModelSuite
 
-	unitUUID string
+	unitUUID coreunit.UUID
+	unitName coreunit.Name
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -53,7 +56,8 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	unitArgs := []application.AddUnitArg{{UnitName: "app/0"}}
+	s.unitName = unittesting.GenNewName(c, "app/0")
+	unitArgs := []application.AddUnitArg{{UnitName: s.unitName}}
 
 	ctx := context.Background()
 	_, err := appState.CreateApplication(ctx, "app", appArg, unitArgs)
@@ -69,7 +73,7 @@ func (s *stateSuite) TestGetUUIDForName(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 
-	var uuid string
+	var uuid coreunit.UUID
 	err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
 		var err error
 		uuid, err = st.GetUnitUUIDForName(ctx, "app/0")
@@ -88,7 +92,7 @@ func (s *stateSuite) TestEnsureUnitStateRecord(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var uuid string
+	var uuid coreunit.UUID
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit").Scan(&uuid)
 	})
@@ -321,7 +325,7 @@ func (s *stateSuite) TestGetUnitState(c *gc.C) {
 		SecretState:   *agentState.SecretState,
 	}
 
-	state, err := st.GetUnitState(context.Background(), s.unitUUID)
+	state, err := st.GetUnitState(context.Background(), s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(state, gc.DeepEquals, expectedAgentState)
 }
@@ -338,7 +342,7 @@ func (s *stateSuite) TestGetUnitStateJustUniterState(c *gc.C) {
 		UniterState: *agentState.UniterState,
 	}
 
-	state, err := st.GetUnitState(context.Background(), s.unitUUID)
+	state, err := st.GetUnitState(context.Background(), s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(state, gc.DeepEquals, expectedAgentState)
 }
@@ -350,7 +354,7 @@ func (s *stateSuite) TestGetUnitStateUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, unitstateerrors.UnitNotFound)
 }
 
-func (s *stateSuite) setUnitState(c *gc.C, st *State, uuid string, unitState unitstate.UnitState) {
+func (s *stateSuite) setUnitState(c *gc.C, st *State, uuid coreunit.UUID, unitState unitstate.UnitState) {
 	err := st.RunAtomic(context.Background(), func(ctx domain.AtomicContext) error {
 		err := st.EnsureUnitStateRecord(ctx, uuid)
 		if err != nil {

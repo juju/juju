@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/errors"
@@ -17,38 +18,38 @@ type State interface {
 
 	// GetUnitUUIDForName returns the UUID for
 	// the unit identified by the input name.
-	GetUnitUUIDForName(domain.AtomicContext, string) (string, error)
+	GetUnitUUIDForName(domain.AtomicContext, coreunit.Name) (coreunit.UUID, error)
 
 	// EnsureUnitStateRecord ensures that there is a record
 	// for the agent state for the unit with the input UUID.
-	EnsureUnitStateRecord(domain.AtomicContext, string) error
+	EnsureUnitStateRecord(domain.AtomicContext, coreunit.UUID) error
 
 	// UpdateUnitStateUniter updates the agent uniter
 	// state for the unit with the input UUID.
-	UpdateUnitStateUniter(domain.AtomicContext, string, string) error
+	UpdateUnitStateUniter(domain.AtomicContext, coreunit.UUID, string) error
 
 	// UpdateUnitStateStorage updates the agent storage
 	// state for the unit with the input UUID.
-	UpdateUnitStateStorage(domain.AtomicContext, string, string) error
+	UpdateUnitStateStorage(domain.AtomicContext, coreunit.UUID, string) error
 
 	// UpdateUnitStateSecret updates the agent secret
 	// state for the unit with the input UUID.
-	UpdateUnitStateSecret(domain.AtomicContext, string, string) error
+	UpdateUnitStateSecret(domain.AtomicContext, coreunit.UUID, string) error
 
 	// SetUnitStateCharm replaces the agent charm
 	// state for the unit with the input UUID.
-	SetUnitStateCharm(domain.AtomicContext, string, map[string]string) error
+	SetUnitStateCharm(domain.AtomicContext, coreunit.UUID, map[string]string) error
 
 	// SetUnitStateRelation replaces the agent relation
 	// state for the unit with the input UUID.
-	SetUnitStateRelation(domain.AtomicContext, string, map[int]string) error
+	SetUnitStateRelation(domain.AtomicContext, coreunit.UUID, map[int]string) error
 
 	// GetUnitState returns the full unit agent state.
 	// If no unit with the uuid exists, a [unitstateerrors.UnitNotFound] error
 	// is returned.
 	// If the units state is empty [unitstateerrors.EmptyUnitState] error is
 	// returned.
-	GetUnitState(ctx context.Context, uuid string) (unitstate.RetrievedUnitState, error)
+	GetUnitState(ctx context.Context, name coreunit.Name) (unitstate.RetrievedUnitState, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -61,19 +62,6 @@ func NewService(st State) *Service {
 	return &Service{
 		st: st,
 	}
-}
-
-// GetUnitUUIDForName returns the UUID corresponding to the input unit name.
-// If no unit with the name exists, a [unitstateerrors.UnitNotFound] error is
-// returned.
-func (s *Service) GetUnitUUIDForName(ctx context.Context, name string) (string, error) {
-	var uuid string
-	err := s.st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
-		var err error
-		uuid, err = s.st.GetUnitUUIDForName(ctx, name)
-		return err
-	})
-	return uuid, err
 }
 
 // SetState persists the input unit state selectively,
@@ -124,8 +112,8 @@ func (s *Service) SetState(ctx context.Context, as unitstate.UnitState) error {
 }
 
 // GetState returns the full unit state. The state may be empty.
-func (s *Service) GetState(ctx context.Context, uuid string) (unitstate.RetrievedUnitState, error) {
-	state, err := s.st.GetUnitState(ctx, uuid)
+func (s *Service) GetState(ctx context.Context, name coreunit.Name) (unitstate.RetrievedUnitState, error) {
+	state, err := s.st.GetUnitState(ctx, name)
 	if err != nil {
 		return unitstate.RetrievedUnitState{}, err
 	}
