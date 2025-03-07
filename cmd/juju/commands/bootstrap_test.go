@@ -1859,7 +1859,7 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
-You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
+You can bootstrap on these clouds. See '--regions <cloud>' for all regions.
 Cloud                            Credentials  Default Region
 aws                              fred         us-west-1
                                  mary         
@@ -1878,8 +1878,8 @@ dummy-cloud-without-regions
 many-credentials-no-auth-types                
 
 You will need to have a credential if you want to bootstrap on a cloud, see
-‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
-listed is the default. Add more clouds with ‘juju add-cloud’.
+'juju autoload-credentials' and 'juju add-credential'. The first credential
+listed is the default. Add more clouds with 'juju add-cloud'.
 `[1:])
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
@@ -1917,7 +1917,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(&command), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
-You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
+You can bootstrap on these clouds. See '--regions <cloud>' for all regions.
 Cloud                            Credentials  Default Region
 aws                              fred         us-west-1
                                  mary         
@@ -1935,8 +1935,8 @@ dummy-cloud-without-regions
 many-credentials-no-auth-types                
 
 You will need to have a credential if you want to bootstrap on a cloud, see
-‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
-listed is the default. Add more clouds with ‘juju add-cloud’.
+'juju autoload-credentials' and 'juju add-credential'. The first credential
+listed is the default. Add more clouds with 'juju add-cloud'.
 `[1:])
 
 	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{

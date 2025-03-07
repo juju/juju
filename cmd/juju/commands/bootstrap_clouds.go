@@ -92,7 +92,7 @@ func printClouds(ctx *cmd.Context, credStore jujuclient.CredentialStore) error {
 		return err
 	}
 
-	fmt.Fprintln(ctx.Stdout, "You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.")
+	fmt.Fprintln(ctx.Stdout, "You can bootstrap on these clouds. See '--regions <cloud>' for all regions.")
 	clouds := cloudList{}
 	for name := range publicClouds {
 		clouds.public = append(clouds.public, name)
@@ -115,10 +115,10 @@ func printClouds(ctx *cmd.Context, credStore jujuclient.CredentialStore) error {
 	fmt.Fprintln(ctx.Stdout, string(out))
 	credHelpText := `
 You will need to have a credential if you want to bootstrap on a cloud, see
-‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
-listed is the default. Add more clouds with ‘juju add-cloud’.
+'juju autoload-credentials' and 'juju add-credential'. The first credential
+listed is the default. Add more clouds with 'juju add-cloud'.
 `
-	fmt.Fprintf(ctx.Stdout, "%s", credHelpText[1:])
+	fmt.Fprint(ctx.Stdout, credHelpText[1:])
 	return nil
 }
 

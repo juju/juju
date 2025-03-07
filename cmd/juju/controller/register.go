@@ -291,6 +291,9 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bclient
 
+	var supportsOIDCLogin bool
+	var sessionToken string
+
 	// we set up a login provider that will first try to log in using
 	// oauth device flow, failing that it will try to log in using
 	// user-pass or macaroons.
@@ -299,11 +302,9 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 		api.NewSessionTokenLoginProvider(
 			"",
 			ctx.Stderr,
-			func(sessionToken string) error {
-				return c.store.UpdateAccount(controllerName, jujuclient.AccountDetails{
-					Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
-					SessionToken: sessionToken,
-				})
+			func(t string) {
+				supportsOIDCLogin = true
+				sessionToken = t
 			},
 		),
 		api.NewLegacyLoginProvider(names.UserTag{}, "", "", nil, bclient, cookieURL),
@@ -330,9 +331,11 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	return jujuclient.ControllerDetails{
 			APIEndpoints:   []string{apiAddr},
 			ControllerUUID: conn.ControllerTag().Id(),
+			OIDCLogin:      supportsOIDCLogin,
 		}, jujuclient.AccountDetails{
 			User:            user.Id(),
 			LastKnownAccess: conn.ControllerAccess(),
+			SessionToken:    sessionToken,
 		}, nil
 }
 
@@ -713,7 +716,7 @@ func (c *registerCommand) promptControllerName(suggestedName string, stderr io.W
 			}
 			setMsg = fmt.Sprintf("Enter a name for this controller [%s%s]: ", replace, suggestedName)
 		}
-		fmt.Fprintf(stderr, "%s", setMsg)
+		fmt.Fprint(stderr, setMsg)
 		name, err := c.readLine(stdin)
 		if err != nil {
 			return "", errors.Trace(err)

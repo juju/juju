@@ -62,7 +62,7 @@ The '--include-module' and '--exclude-module' options filter by (dotted)
 logging module name. The module name can be truncated such that all loggers
 with the prefix will match.
 
-The '--include-labels' and '--exclude-labels' options filter by logging labels. 
+The '--include-labels' and '--exclude-labels' options filter by logging labels.
 
 The filtering options combine as follows:
 * All --include options are logically ORed together.
@@ -609,7 +609,7 @@ func (c *debugLogCommand) writeText(w io.Writer, v interface{}) error {
 		fmt.Fprintf(w, "%s: ", r.ModelUUID)
 	}
 	fmt.Fprintf(w, "%s: %s ", r.Entity, ts)
-	SeverityColor[r.Level].Fprintf(c.tw, "%s", r.Level.String())
+	SeverityColor[r.Level].Fprint(c.tw, r.Level.String())
 	fmt.Fprintf(w, " %s ", r.Module)
 	if c.location {
 		loggocolor.LocationColor.Fprintf(c.tw, "%s ", r.Location)

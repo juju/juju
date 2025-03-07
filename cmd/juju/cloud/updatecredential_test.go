@@ -405,7 +405,7 @@ func (s *updateCredentialSuite) TestUpdateRemote(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, ``)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `
 Controller credential "my-credential" for user "admin@local" for cloud "aws" on controller "controller" updated.
-For more information, see ‘juju show-credential aws my-credential’.
+For more information, see 'juju show-credential aws my-credential'.
 `[1:])
 }
 
@@ -520,7 +520,7 @@ Credential invalid for:
   model-b:
     one failure
 Failed models may require a different credential.
-Use ‘juju set-credential’ to change credential for these models before repeating this update.
+Use 'juju set-credential' to change credential for these models before repeating this update.
 `[1:])
 }
 
@@ -565,7 +565,7 @@ Credential invalid for:
   model-b:
     one failure
 Failed models may require a different credential.
-Use ‘juju set-credential’ to change credential for these models before repeating this update.
+Use 'juju set-credential' to change credential for these models before repeating this update.
 `[1:])
 }
 
@@ -611,7 +611,7 @@ Credential invalid for:
   model-b:
     one failure
 Failed models may require a different credential.
-Use ‘juju set-credential’ to change credential for these models.
+Use 'juju set-credential' to change credential for these models.
 `[1:])
 	c.Assert(c.GetTestLog(), jc.Contains, `Controller credential "my-credential" for user "admin@local" for cloud "aws" on controller "controller" not updated: update error`)
 }

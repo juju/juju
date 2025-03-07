@@ -129,9 +129,8 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *gc.C) 
 	lp := api.NewSessionTokenLoginProvider(
 		"expired-token",
 		&output,
-		func(sessionToken string) error {
+		func(sessionToken string) {
 			obtainedSessionToken = sessionToken
-			return nil
 		})
 	apiState, err := api.Open(context.Background(), &api.Info{
 		Addrs:          info.Addrs,
@@ -168,9 +167,7 @@ func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c 
 		LoginProvider: api.NewSessionTokenLoginProvider(
 			"random-token",
 			&output,
-			func(sessionToken string) error {
-				return nil
-			},
+			func(sessionToken string) {},
 		),
 	})
 	c.Assert(err, jc.ErrorIs, expectedErr)

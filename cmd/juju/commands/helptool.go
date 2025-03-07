@@ -120,7 +120,7 @@ func (t *helpToolCommand) Init(args []string) error {
 
 func (c *helpToolCommand) Run(ctx *cmd.Context) error {
 	if c.tool == "" {
-		fmt.Fprintf(ctx.Stdout, "%s", listHookTools())
+		fmt.Fprint(ctx.Stdout, listHookTools())
 	} else {
 		c, err := jujuc.NewCommand(dummyHookContext{}, c.tool)
 		if err != nil {

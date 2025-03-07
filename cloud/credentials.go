@@ -421,6 +421,12 @@ type CredentialAttr struct {
 
 	// Options, if set, define the allowed values for this field.
 	Options []interface{}
+
+	// ShortSuffix is a human-readable suffix that we add to the name of
+	// the attribute when prompting. This replaces the (optional) suffix
+	// to prompt users about why this is optional.
+	// Requires setting Optional: true
+	ShortSuffix string
 }
 
 type cloudCredentialChecker struct{}

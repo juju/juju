@@ -29,11 +29,15 @@ func ValidateModelDetails(details ModelDetails) error {
 
 // ValidateModelDetails ensures that given account details are valid.
 func ValidateAccountDetails(details AccountDetails) error {
-	if err := validateUser(details.User); err != nil {
-		return errors.Trace(err)
+	// If a session token is provided, it is valid for the user field to
+	// be empty. Only validate the user when no session token is provided.
+	if details.SessionToken == "" {
+		if err := validateUser(details.User); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	// It is valid for a password to be blank, because the client
-	// may use macaroons instead.
+	// may use macaroons or OIDC login instead.
 	return nil
 }
 

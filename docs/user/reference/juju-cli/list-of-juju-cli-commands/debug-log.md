@@ -107,7 +107,7 @@ The '--include-module' and '--exclude-module' options filter by (dotted)
 logging module name. The module name can be truncated such that all loggers
 with the prefix will match.
 
-The '--include-labels' and '--exclude-labels' options filter by logging labels. 
+The '--include-labels' and '--exclude-labels' options filter by logging labels.
 
 The filtering options combine as follows:
 * All --include options are logically ORed together.

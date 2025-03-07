@@ -55,14 +55,9 @@ func (ctrl *Controller) Import(
 		return nil, nil, errors.AlreadyExistsf("model %s", modelUUID)
 	}
 
-	// Unfortunately a version was released that exports v4 models
-	// with the Type field blank. Treat this as IAAS.
-	modelType := ModelTypeIAAS
-	if model.Type() != "" {
-		modelType, err = ParseModelType(model.Type())
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
+	modelType, err := ParseModelType(model.Type())
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Create the model.
