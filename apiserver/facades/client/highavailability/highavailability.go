@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	coreunit "github.com/juju/juju/core/unit"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/blockcommand"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -48,7 +49,7 @@ type MachineService interface {
 
 // ApplicationService instances add units to an application in dqlite state.
 type ApplicationService interface {
-	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitArg) error
+	AddUnits(ctx context.Context, storageParentDir, name string, units ...applicationservice.AddUnitArg) error
 }
 
 // ControllerConfigService instances read the controller config.
@@ -202,7 +203,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 			}
 			addUnitArgs[i].UnitName = unitName
 		}
-		if err := api.applicationService.AddUnits(ctx, application.ControllerApplicationName, addUnitArgs...); err != nil {
+		if err := api.applicationService.AddUnits(ctx, domainapplication.StorageParentDir, application.ControllerApplicationName, addUnitArgs...); err != nil {
 			return params.ControllersChanges{}, err
 		}
 	}

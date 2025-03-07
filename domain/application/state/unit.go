@@ -1047,11 +1047,20 @@ func (st *State) insertCAASUnit(
 // InsertUnit insert the specified application unit, returning an error
 // satisfying [applicationerrors.UnitAlreadyExists] if the unit exists.
 func (st *State) InsertUnit(
-	ctx context.Context, modelType model.ModelType, appUUID coreapplication.ID, args application.InsertUnitArg,
+	ctx context.Context, appUUID coreapplication.ID, args application.InsertUnitArg,
 ) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	// TODO(storage) - refactor this.
+	//  We should have separate logic for IAAS and CAAS units.
+	//  InsertUnit can also be called in a loop so we are looking
+	//  up the model type each time.
+	modelType, err := st.GetModelType(ctx)
+	if err != nil {
+		return errors.Errorf("getting model type: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {

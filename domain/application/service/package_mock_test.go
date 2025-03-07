@@ -2402,17 +2402,17 @@ func (c *MockStateInsertCAASUnitCall) DoAndReturn(f func(context.Context, applic
 }
 
 // InsertUnit mocks base method.
-func (m *MockState) InsertUnit(arg0 context.Context, arg1 model.ModelType, arg2 application.ID, arg3 application0.InsertUnitArg) error {
+func (m *MockState) InsertUnit(arg0 context.Context, arg1 application.ID, arg2 application0.InsertUnitArg) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InsertUnit", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "InsertUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // InsertUnit indicates an expected call of InsertUnit.
-func (mr *MockStateMockRecorder) InsertUnit(arg0, arg1, arg2, arg3 any) *MockStateInsertUnitCall {
+func (mr *MockStateMockRecorder) InsertUnit(arg0, arg1, arg2 any) *MockStateInsertUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertUnit", reflect.TypeOf((*MockState)(nil).InsertUnit), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertUnit", reflect.TypeOf((*MockState)(nil).InsertUnit), arg0, arg1, arg2)
 	return &MockStateInsertUnitCall{Call: call}
 }
 
@@ -2428,13 +2428,13 @@ func (c *MockStateInsertUnitCall) Return(arg0 error) *MockStateInsertUnitCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInsertUnitCall) Do(f func(context.Context, model.ModelType, application.ID, application0.InsertUnitArg) error) *MockStateInsertUnitCall {
+func (c *MockStateInsertUnitCall) Do(f func(context.Context, application.ID, application0.InsertUnitArg) error) *MockStateInsertUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInsertUnitCall) DoAndReturn(f func(context.Context, model.ModelType, application.ID, application0.InsertUnitArg) error) *MockStateInsertUnitCall {
+func (c *MockStateInsertUnitCall) DoAndReturn(f func(context.Context, application.ID, application0.InsertUnitArg) error) *MockStateInsertUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

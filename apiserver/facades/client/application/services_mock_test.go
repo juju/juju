@@ -803,10 +803,10 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // AddUnits mocks base method.
-func (m *MockApplicationService) AddUnits(arg0 context.Context, arg1 string, arg2 ...service.AddUnitArg) error {
+func (m *MockApplicationService) AddUnits(arg0 context.Context, arg1, arg2 string, arg3 ...service.AddUnitArg) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "AddUnits", varargs...)
@@ -815,9 +815,9 @@ func (m *MockApplicationService) AddUnits(arg0 context.Context, arg1 string, arg
 }
 
 // AddUnits indicates an expected call of AddUnits.
-func (mr *MockApplicationServiceMockRecorder) AddUnits(arg0, arg1 any, arg2 ...any) *MockApplicationServiceAddUnitsCall {
+func (mr *MockApplicationServiceMockRecorder) AddUnits(arg0, arg1, arg2 any, arg3 ...any) *MockApplicationServiceAddUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUnits", reflect.TypeOf((*MockApplicationService)(nil).AddUnits), varargs...)
 	return &MockApplicationServiceAddUnitsCall{Call: call}
 }
@@ -834,13 +834,13 @@ func (c *MockApplicationServiceAddUnitsCall) Return(arg0 error) *MockApplication
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceAddUnitsCall) Do(f func(context.Context, string, ...service.AddUnitArg) error) *MockApplicationServiceAddUnitsCall {
+func (c *MockApplicationServiceAddUnitsCall) Do(f func(context.Context, string, string, ...service.AddUnitArg) error) *MockApplicationServiceAddUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceAddUnitsCall) DoAndReturn(f func(context.Context, string, ...service.AddUnitArg) error) *MockApplicationServiceAddUnitsCall {
+func (c *MockApplicationServiceAddUnitsCall) DoAndReturn(f func(context.Context, string, string, ...service.AddUnitArg) error) *MockApplicationServiceAddUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

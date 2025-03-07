@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/domain/application"
@@ -245,7 +244,7 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, u := range units {
-		err := state.InsertUnit(ctx, coremodel.IAAS, appID, u)
+		err := state.InsertUnit(ctx, appID, u)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

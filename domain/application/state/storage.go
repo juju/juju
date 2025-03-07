@@ -148,8 +148,12 @@ type storageTemplate struct {
 // - related attachment records
 // TODO(storage) - support attaching existing storage when adding a unit
 func (st *State) insertUnitStorage(
-	ctx context.Context, tx *sqlair.TX, modelType model.ModelType, storageParentDir string,
-	appUUID coreapplication.ID, unitUUID coreunit.UUID, netNodeUUID string,
+	ctx context.Context, tx *sqlair.TX,
+	modelType model.ModelType,
+	storageParentDir string,
+	appUUID coreapplication.ID,
+	unitUUID coreunit.UUID,
+	netNodeUUID string,
 	args []application.ApplicationStorageArg, poolKinds map[string]storage.StorageKind,
 ) error {
 
@@ -161,7 +165,7 @@ func (st *State) insertUnitStorage(
 	templates := make([]storageTemplate, 0, len(args))
 	for _, arg := range args {
 		storageMeta, err := st.getApplicationCharmStorageByName(ctx, tx, appUUID, arg.Name)
-		if errors.Is(err, sqlair.ErrNoRows) {
+		if errors.Is(err, charmStorageNotFound) {
 			return errors.Errorf(
 				"charm for application %q has no storage called %q",
 				appUUID, arg.Name,
@@ -186,6 +190,11 @@ func (st *State) insertUnitStorage(
 	if err != nil {
 		return errors.Capture(err)
 	}
+	var appCharm applicationCharmUUID
+	err = tx.Query(ctx, selectCharmStmt, app).Get(&appCharm)
+	if err != nil {
+		return errors.Errorf("getting application charm for %q: %w", appUUID, err)
+	}
 
 	// Storage is either a storage type or a pool name.
 	// Get a mapping of pool name to pool UUID for any
@@ -203,7 +212,7 @@ func (st *State) insertUnitStorage(
 		if err := ensureCharmStorageCountChange(t.meta, 0, t.params.Count); err != nil {
 			return err
 		}
-		for i := uint64(0); i < t.params.Count; i++ {
+		for range t.params.Count {
 			// First create the storage instance records.
 			instUUID, err := corestorage.NewUUID()
 			if err != nil {
@@ -214,12 +223,6 @@ func (st *State) insertUnitStorage(
 				return errors.Errorf("generating next storage ID: %w", err)
 			}
 			storageID := corestorage.MakeID(t.params.Name, id)
-
-			var appCharm applicationCharmUUID
-			err = tx.Query(ctx, selectCharmStmt, app).Get(&appCharm)
-			if err != nil {
-				return errors.Errorf("getting application charm for %q: %w", appUUID, err)
-			}
 
 			inst := storageInstance{
 				StorageUUID:      instUUID,
@@ -243,6 +246,8 @@ func (st *State) insertUnitStorage(
 
 			// TODO(storage) - insert data for the unit's assigned machine when that is implemented
 
+			// TODO(storage) - refactor this.
+			//  We don't want to make this decision here.
 			// For CAAS models, we create the storage with the unit
 			// as there's no machine for the unit to be assigned to.
 			if modelType != model.CAAS {
@@ -288,14 +293,19 @@ func (st *State) insertUnitStorage(
 func (st *State) createUnitStorageInstance(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, inst storageInstance) error {
 	insertStorageStmt, err := st.Prepare(`
 INSERT INTO storage_instance (*) VALUES ($storageInstance.*)
-`, storageInstance{})
+`, inst)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
+	storageUnit := storageUnit{
+		StorageUUID: inst.StorageUUID,
+		UnitUUID:    unitUUID,
+	}
+
 	insertStorageUnitStmt, err := st.Prepare(`
 INSERT INTO storage_unit_owner (*) VALUES ($storageUnit.*)
-	`, storageUnit{})
+	`, storageUnit)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -304,10 +314,6 @@ INSERT INTO storage_unit_owner (*) VALUES ($storageUnit.*)
 		return errors.Errorf("creating storage instance %q for unit %q: %w", inst.StorageUUID, unitUUID, err)
 	}
 
-	storageUnit := storageUnit{
-		StorageUUID: inst.StorageUUID,
-		UnitUUID:    unitUUID,
-	}
 	err = tx.Query(ctx, insertStorageUnitStmt, storageUnit).Run()
 	if err != nil {
 		return errors.Errorf("creating storage unit owner for storage %q and unit %q: %w", inst.StorageUUID, unitUUID, err)
@@ -506,6 +512,8 @@ WHERE  uuid = $storageInstance.uuid
 	return inst, nil
 }
 
+const charmStorageNotFound = errors.ConstError("charm storage not found")
+
 func (st *State) getApplicationCharmStorageByName(ctx context.Context, tx *sqlair.TX, uuid coreapplication.ID, name corestorage.Name) (charmStorage, error) {
 	storageSpec := appCharmStorage{
 		ApplicationUUID: uuid,
@@ -523,7 +531,11 @@ AND    cs.name = $appCharmStorage.name
 		return result, errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, stmt, storageSpec).Get(&result); err != nil {
+	err = tx.Query(ctx, stmt, storageSpec).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return result, charmStorageNotFound
+	}
+	if err != nil {
 		return result, fmt.Errorf("failed to select charm storage: %w", err)
 	}
 

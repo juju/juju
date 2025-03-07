@@ -21,7 +21,7 @@ func FilesystemMountPoint(
 	storageID corestorage.ID,
 ) (string, error) {
 	if parentDir == "" {
-		return "", errors.Errorf("empty parent directory not valid")
+		return "", errors.New("empty parent directory not valid")
 	}
 	if strings.HasPrefix(location, parentDir) {
 		return "", errors.Errorf(
@@ -35,7 +35,7 @@ func FilesystemMountPoint(
 		return location, nil
 	}
 	// If the location is unspecified then we use
-	// <storage-dir>/<storage-id> as the location.
+	// <parentDir>/<storage-id> as the location.
 	// Otherwise, we use <location>/<storage-id>.
 	if location != "" {
 		parentDir = location

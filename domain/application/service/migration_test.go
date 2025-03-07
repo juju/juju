@@ -17,7 +17,6 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -403,7 +402,7 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 
 	var receivedUnitArgs application.InsertUnitArg
-	s.state.EXPECT().InsertUnit(gomock.Any(), coremodel.IAAS, id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coremodel.ModelType, _ coreapplication.ID, args application.InsertUnitArg) error {
+	s.state.EXPECT().InsertUnit(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args application.InsertUnitArg) error {
 		receivedUnitArgs = args
 		return nil
 	})
