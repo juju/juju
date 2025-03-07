@@ -55,7 +55,7 @@ type ControllerDomainServices interface {
 	// ControllerNode returns the controller node service.
 	ControllerNode() *controllernodeservice.Service
 	// Model returns the model service.
-	Model() *modelservice.Service
+	Model() *modelservice.WatchableService
 	//ModelDefaults returns the modeldefaults service.
 	ModelDefaults() *modeldefaultsservice.Service
 	// ExternalController returns the external controller service.

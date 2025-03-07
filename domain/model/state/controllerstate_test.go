@@ -1729,30 +1729,14 @@ func (s *stateSuite) createModelUser(
 }
 
 func (m *stateSuite) createTestModel(c *gc.C, modelSt *State, name string, creatorUUID user.UUID) coremodel.UUID {
-	modelUUID := modeltesting.GenModelUUID(c)
-	err := modelSt.Create(
-		context.Background(),
-		modelUUID,
-		coremodel.IAAS,
-		model.GlobalModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "my-region",
-			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: usertesting.GenNewName(c, "test-user"),
-				Name:  "foobar",
-			},
-			Name:          name,
-			Owner:         creatorUUID,
-			SecretBackend: juju.BackendName,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	modelUUID := m.createTestModelWithoutActivation(c, modelSt, name, creatorUUID)
 	c.Assert(modelSt.Activate(context.Background(), modelUUID), jc.ErrorIsNil)
 	return modelUUID
 }
 
-func (m *stateSuite) createTestModelWithoutActivation(c *gc.C, modelSt *State, name string, creatorUUID user.UUID) coremodel.UUID {
+func (m *stateSuite) createTestModelWithoutActivation(
+	c *gc.C, modelSt *State, name string, creatorUUID user.UUID) coremodel.UUID {
+
 	modelUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
@@ -1896,6 +1880,10 @@ func (s *stateSuite) TestGetControllerModelUUIDNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
+// TestGetActivatedModelUUIDs asserts the behavior of
+// [State.GetActivatedModelUUIDs] to ensure that only activated model UUIDs
+// are returned. It verifies cases for activated, non-activated, and
+// non-existent model UUIDs.
 func (s *stateSuite) TestGetActivatedModelUUIDs(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

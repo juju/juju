@@ -127,7 +127,8 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 			WHERE uuid = ?`
 			var testModel dbModel
 			row := tx.QueryRow(selectModelQuery, modelUUIDStr)
-			err = row.Scan(&testModel.UUID, &testModel.Activated, &testModel.ModelTypeID, &testModel.Name, &testModel.CloudUUID, &testModel.LifeID, &testModel.OwnerUUID)
+			err = row.Scan(&testModel.UUID, &testModel.Activated, &testModel.ModelTypeID,
+				&testModel.Name, &testModel.CloudUUID, &testModel.LifeID, &testModel.OwnerUUID)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Check(testModel.UUID, gc.Equals, modelUUIDStr)
 			c.Check(testModel.Activated, jc.IsTrue)

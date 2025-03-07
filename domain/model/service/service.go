@@ -173,30 +173,27 @@ type WatcherFactory interface {
 	) (watcher.StringsWatcher, error)
 }
 
-// WatcherFactoryGetter describes a method for getting a WatcherFactory.
-type WatcherFactoryGetter interface {
-	GetWatcherFactory() WatcherFactory
-}
-
-// WatchableService provides the API for working with the models
-// and the ability to create watchers.
+// WatchableService extends Service to provide interactions with model state
+// and integrates a watcher factory for monitoring changes.
 type WatchableService struct {
-	st             State
-	modelDeleter   ModelDeleter
-	logger         logger.Logger
+	// Service is the inherited model service to extend upon.
+	Service
 	watcherFactory WatcherFactory
 }
 
-// NewWatchableService returns a new service reference wrapping the input state.
+// NewWatchableService provides a new Service for interacting with the underlying
+// state and the ability to create watchers.
 func NewWatchableService(st State,
 	modelDeleter ModelDeleter,
 	logger logger.Logger,
 	watcherFactory WatcherFactory,
 ) *WatchableService {
 	return &WatchableService{
-		st:             st,
-		modelDeleter:   modelDeleter,
-		logger:         logger,
+		Service: Service{
+			st:           st,
+			modelDeleter: modelDeleter,
+			logger:       logger,
+		},
 		watcherFactory: watcherFactory,
 	}
 }
@@ -597,7 +594,8 @@ func (s *Service) UpdateCredential(
 // The watcher outputs events for when an activated model receives an update.
 // Deletion of activated models are not reported.
 func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error) {
-	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	mapper := func(ctx context.Context, db database.TxnRunner,
+		changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		uuidToChangeEventMap := make(map[string]changestream.ChangeEvent)
 		modelUUIDs := make([]string, len(changes))
 
