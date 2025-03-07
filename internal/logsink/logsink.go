@@ -16,13 +16,25 @@ import (
 	"gopkg.in/tomb.v2"
 )
 
+const (
+	stateFlushed = "flushed"
+	stateTicked  = "ticked"
+)
+
+var (
+	zeroTime = time.Time{}
+)
+
 // LogSink is a loggo.Writer that writes log messages to a file.
 type LogSink struct {
-	tomb tomb.Tomb
+	tomb           tomb.Tomb
+	internalStates chan string
 
-	dir       string
-	name      string
-	batchSize int
+	dir  string
+	name string
+
+	batchSize     int
+	flushInterval time.Duration
 
 	in  chan loggo.Entry
 	out chan []LogRecord
@@ -30,15 +42,28 @@ type LogSink struct {
 	pool sync.Pool
 }
 
-// NewLogSink creates a new log sink that writes log messages to a file.
-func NewLogSink(dir string, name string, batchSize int) *LogSink {
-	w := &LogSink{
-		dir:       dir,
-		name:      name,
-		batchSize: batchSize,
+// NewLogSink creates a new log sink that writes log messages to a file. There
+// can only be one writer writing to the same file at a time, otherwise bytes
+// will be written to the file in an interleaved manner (junk data).
+// LogSink writer will write log messages as JSON objects, one per line, even
+// if the log message is multiline.
+func NewLogSink(dir string, name string, batchSize int, flushInterval time.Duration) *LogSink {
+	return newLogSink(dir, name, batchSize, flushInterval, nil)
+}
 
-		in:  make(chan loggo.Entry),
-		out: make(chan []LogRecord),
+// newLogSink creates a new log sink that writes log messages to a file.
+func newLogSink(dir string, name string, batchSize int, flushInterval time.Duration, internalStates chan string) *LogSink {
+	w := &LogSink{
+		internalStates: internalStates,
+
+		dir:  dir,
+		name: name,
+
+		batchSize:     batchSize,
+		flushInterval: flushInterval,
+
+		in:  make(chan loggo.Entry, batchSize),
+		out: make(chan []LogRecord, batchSize),
 
 		pool: sync.Pool{
 			New: func() any {
@@ -81,12 +106,7 @@ func (w *LogSink) loop() error {
 	buffer := new(bytes.Buffer)
 	encoder := json.NewEncoder(buffer)
 
-	ticker := time.NewTicker(time.Second * 30)
-
 	entries := make([]loggo.Entry, 0, w.batchSize)
-
-	in := w.in
-	var out chan []LogRecord
 
 	w.tomb.Go(func() error {
 		for {
@@ -104,6 +124,12 @@ func (w *LogSink) loop() error {
 					}
 				}
 
+				select {
+				case <-w.tomb.Dying():
+					return tomb.ErrDying
+				default:
+				}
+
 				if _, err := file.Write(buffer.Bytes()); err != nil {
 					fmt.Fprintf(os.Stderr, "failed to write log message: %v", err)
 				}
@@ -111,11 +137,28 @@ func (w *LogSink) loop() error {
 				buffer.Reset()
 
 				for i := range records {
+					// Remove any information from the pooled LogRecord, this
+					// mimics a fresh record.
+					records[i].Time = zeroTime
+					records[i].Module = ""
+					records[i].Location = ""
+					records[i].Level = loggo.Level(0)
+					records[i].Message = ""
+					records[i].Labels = nil
+					records[i].ModelUUID = ""
+
 					w.pool.Put(records[i])
 				}
+
+				w.reportInternalState(stateFlushed)
 			}
 		}
 	})
+
+	timer := time.NewTimer(w.flushInterval)
+
+	in := w.in
+	var out chan []LogRecord
 
 	for {
 		select {
@@ -125,25 +168,26 @@ func (w *LogSink) loop() error {
 		case entry := <-in:
 			// Consume log entries until we have a full batch.
 			entries = append(entries, entry)
-
-			// If we have a full batch, send it to the output channel and
-			// force the in channel to nil to avoid reading from it. This
-			// will allow the out channel to be read from. This allows us to
-			// write the batch to the file and reset the entries slice.
-			if len(entries) >= w.batchSize {
-				in = nil
-				out = w.out
+			if len(entries) < w.batchSize {
+				continue
 			}
 
-		case <-ticker.C:
-			// If we have entries, send them to the output channel and force
-			// the in channel to nil to avoid reading from it. This will allow
-			// the out channel to be read from. This allows us to write the
-			// batch to the file and reset the entries slice.
-			if len(entries) > 0 {
-				in = nil
-				out = w.out
+			in = nil
+			out = w.out
+
+			timer.Reset(w.flushInterval)
+
+		case <-timer.C:
+			if len(entries) == 0 {
+				continue
 			}
+
+			in = nil
+			out = w.out
+
+			timer.Reset(w.flushInterval)
+
+			w.reportInternalState(stateTicked)
 
 		case out <- w.records(entries):
 			in = w.in
@@ -160,22 +204,44 @@ func (w *LogSink) openFile() (*os.File, error) {
 func (w *LogSink) records(entries []loggo.Entry) []LogRecord {
 	records := make([]LogRecord, len(entries))
 	for i, entry := range entries {
+		var location string
+		if entry.Filename != "" {
+			location = fmt.Sprintf("%s:%d", entry.Filename, entry.Line)
+		}
+
 		records[i] = w.pool.Get().(LogRecord)
 		records[i].Time = entry.Timestamp
 		records[i].Module = entry.Module
-		records[i].Location = fmt.Sprintf("%s:%d", filepath.Base(entry.Filename), entry.Line)
+		records[i].Location = location
 		records[i].Level = entry.Level
 		records[i].Message = entry.Message
+
+		if entry.Labels == nil {
+			continue
+		}
+
 		records[i].Labels = entry.Labels
+		records[i].ModelUUID = entry.Labels["model-uuid"]
 	}
 	return records
 }
 
+func (w *LogSink) reportInternalState(state string) {
+	if w.internalStates == nil {
+		return
+	}
+	select {
+	case <-w.tomb.Dying():
+	case w.internalStates <- state:
+	}
+}
+
 type LogRecord struct {
-	Time     time.Time         `json:"time"`
-	Module   string            `json:"module"`
-	Location string            `json:"location"`
-	Level    loggo.Level       `json:"level"`
-	Message  string            `json:"message"`
-	Labels   map[string]string `json:"labels"`
+	Time      time.Time         `json:"time"`
+	Module    string            `json:"module"`
+	Location  string            `json:"location,omitempty"`
+	Level     loggo.Level       `json:"level"`
+	Message   string            `json:"message"`
+	Labels    map[string]string `json:"labels,omitempty"`
+	ModelUUID string            `json:"model-uuid,omitempty"`
 }
