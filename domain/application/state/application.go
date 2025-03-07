@@ -229,7 +229,8 @@ func (st *State) CreateApplication(
 
 		for _, unit := range units {
 			insertArg := application.InsertUnitArg{
-				UnitName: unit.UnitName,
+				UnitName:    unit.UnitName,
+				Constraints: unit.Constraints,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    unit.UnitStatusArg.AgentStatus,
 					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,

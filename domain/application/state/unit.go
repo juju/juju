@@ -151,6 +151,9 @@ DELETE FROM net_node WHERE uuid = (
 		return errors.Errorf("deleting port ranges for unit %q: %w", unitName, err)
 	}
 
+	if err := st.deleteConstraints(ctx, tx, unit.UUID); err != nil {
+		return errors.Errorf("deleting constraints for unit %q: %w", unitName, err)
+	}
 	// TODO(units) - delete storage, annotations
 
 	if err := st.deleteSimpleUnitReferences(ctx, tx, unit.UUID); err != nil {
@@ -426,7 +429,8 @@ func (st *State) AddUnits(ctx context.Context, appUUID coreapplication.ID, args 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for _, arg := range args {
 			insertArg := application.InsertUnitArg{
-				UnitName: arg.UnitName,
+				UnitName:    arg.UnitName,
+				Constraints: arg.Constraints,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
 					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
@@ -564,6 +568,72 @@ WHERE uuid = $unitPassword.uuid
 	return nil
 }
 
+// GetUnitAgentStatus returns the agent status of the specified unit, returning:
+// - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
+// - an error satisfying [applicationerrors.UnitIsDead] if the unit is dead or;
+// - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
+func (st *State) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.UnitAgentStatusType], error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	unitUUID := unitUUID{UnitUUID: uuid}
+	getUnitStatusStmt, err := st.Prepare(`
+SELECT &statusInfo.* FROM unit_agent_status WHERE unit_uuid = $unitUUID.uuid
+`, statusInfo{}, unitUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var unitStatusInfo statusInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkUnitNotDead(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf("checking unit %q exists: %w", uuid, err)
+		}
+
+		err = tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&unitStatusInfo)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("agent status for unit %q not found%w", unitUUID, jujuerrors.Hide(applicationerrors.UnitStatusNotFound))
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting agent status for unit %q: %w", unitUUID, err)
+	}
+
+	statusID, err := decodeAgentStatus(unitStatusInfo.StatusID)
+	if err != nil {
+		return nil, errors.Errorf("decoding agent status ID for unit %q: %w", unitUUID, err)
+	}
+
+	return &application.StatusInfo[application.UnitAgentStatusType]{
+		Status:  statusID,
+		Message: unitStatusInfo.Message,
+		Data:    unitStatusInfo.Data,
+		Since:   unitStatusInfo.UpdatedAt,
+	}, nil
+}
+
+// SetUnitAgentStatus updates the agent status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (st *State) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID, status *application.StatusInfo[application.UnitAgentStatusType]) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setUnitAgentStatus(ctx, tx, unitUUID, status)
+	})
+	if err != nil {
+		return errors.Errorf("setting agent status for unit %q: %w", unitUUID, err)
+	}
+	return nil
+}
+
 // GetUnitWorkloadStatus returns the workload status of the specified unit, returning:
 // - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [applicationerrors.UnitIsDead] if the unit is dead or;
@@ -612,8 +682,9 @@ SELECT &statusInfo.* FROM unit_workload_status WHERE unit_uuid = $unitUUID.uuid
 	}, nil
 }
 
-// SetUnitWorkloadStatus updates the workload status of the specified unit, returning an error
-// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+// SetUnitWorkloadStatus updates the workload status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
 func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status *application.StatusInfo[application.WorkloadStatusType]) error {
 	db, err := st.DB()
 	if err != nil {
@@ -1018,6 +1089,10 @@ func (st *State) insertUnit(
 		}
 	}
 
+	if err := st.setUnitConstraints(ctx, tx, unitUUID, args.Constraints); err != nil {
+		return "", errors.Errorf("setting constraints for unit %q: %w", args.UnitName, err)
+	}
+
 	if err := st.setUnitAgentStatus(ctx, tx, unitUUID, args.AgentStatus); err != nil {
 		return "", errors.Errorf("saving agent status for unit %q: %w", args.UnitName, err)
 	}
@@ -1164,6 +1239,12 @@ func (st *State) SetUnitConstraints(ctx context.Context, inUnitUUID coreunit.UUI
 		return errors.Capture(err)
 	}
 
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setUnitConstraints(ctx, tx, inUnitUUID, cons)
+	})
+}
+
+func (st *State) setUnitConstraints(ctx context.Context, tx *sqlair.TX, inUnitUUID coreunit.UUID, cons constraints.Constraints) error {
 	cUUID, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Capture(err)
@@ -1260,95 +1341,93 @@ ON CONFLICT (unit_uuid) DO NOTHING
 		return errors.Errorf("preparing insert unit constraints query: %w", err)
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkUnitNotDead(ctx, tx, unitUUID{UnitUUID: inUnitUUID}); err != nil {
+	if err := st.checkUnitNotDead(ctx, tx, unitUUID{UnitUUID: inUnitUUID}); err != nil {
+		return errors.Capture(err)
+	}
+
+	var containerTypeID containerTypeID
+	if cons.Container != nil {
+		err = tx.Query(ctx, selectContainerTypeIDStmt, containerTypeVal{Value: string(*cons.Container)}).Get(&containerTypeID)
+		if errors.Is(err, sql.ErrNoRows) {
+			st.logger.Warningf(ctx, "cannot set constraints, container type %q does not exist", *cons.Container)
+			return applicationerrors.InvalidUnitConstraints
+		}
+		if err != nil {
 			return errors.Capture(err)
 		}
+	}
 
-		var containerTypeID containerTypeID
-		if cons.Container != nil {
-			err = tx.Query(ctx, selectContainerTypeIDStmt, containerTypeVal{Value: string(*cons.Container)}).Get(&containerTypeID)
+	// First check if the constraint already exists, in that case
+	// we need to update it, unsetting the nil values.
+	var retrievedConstraintUUID constraintUUID
+	err = tx.Query(ctx, selectConstraintUUIDStmt, unitConstraintUUID{UnitUUID: inUnitUUID.String()}).Get(&retrievedConstraintUUID)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Capture(err)
+	} else if err == nil {
+		cUUIDStr = retrievedConstraintUUID.ConstraintUUID
+	}
+
+	// Cleanup tags, spaces and zones from their join tables.
+	if err := tx.Query(ctx, deleteConstraintTagsStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteConstraintSpacesStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteConstraintZonesStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
+		return errors.Capture(err)
+	}
+
+	constraints := encodeConstraints(cUUIDStr, cons, containerTypeID.ID)
+
+	if err := tx.Query(ctx, insertConstraintsStmt, constraints).Run(); err != nil {
+		return errors.Capture(err)
+	}
+
+	if cons.Tags != nil {
+		for _, tag := range *cons.Tags {
+			constraintTag := setConstraintTag{ConstraintUUID: cUUIDStr, Tag: tag}
+			if err := tx.Query(ctx, insertConstraintTagsStmt, constraintTag).Run(); err != nil {
+				return errors.Capture(err)
+			}
+		}
+	}
+
+	if cons.Spaces != nil {
+		for _, space := range *cons.Spaces {
+			// Make sure the space actually exists.
+			var spaceUUID spaceUUID
+			err := tx.Query(ctx, selectSpaceStmt, spaceName{Name: space.SpaceName}).Get(&spaceUUID)
 			if errors.Is(err, sql.ErrNoRows) {
-				st.logger.Warningf(ctx, "cannot set constraints, container type %q does not exist", *cons.Container)
+				st.logger.Warningf(ctx, "cannot set constraints, space %q does not exist", space)
 				return applicationerrors.InvalidUnitConstraints
 			}
 			if err != nil {
 				return errors.Capture(err)
 			}
-		}
 
-		// First check if the constraint already exists, in that case
-		// we need to update it, unsetting the nil values.
-		var retrievedConstraintUUID constraintUUID
-		err := tx.Query(ctx, selectConstraintUUIDStmt, unitConstraintUUID{UnitUUID: inUnitUUID.String()}).Get(&retrievedConstraintUUID)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		} else if err == nil {
-			cUUIDStr = retrievedConstraintUUID.ConstraintUUID
-		}
-
-		// Cleanup tags, spaces and zones from their join tables.
-		if err := tx.Query(ctx, deleteConstraintTagsStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
-			return errors.Capture(err)
-		}
-		if err := tx.Query(ctx, deleteConstraintSpacesStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
-			return errors.Capture(err)
-		}
-		if err := tx.Query(ctx, deleteConstraintZonesStmt, constraintUUID{ConstraintUUID: cUUIDStr}).Run(); err != nil {
-			return errors.Capture(err)
-		}
-
-		constraints := encodeConstraints(cUUIDStr, cons, containerTypeID.ID)
-
-		if err := tx.Query(ctx, insertConstraintsStmt, constraints).Run(); err != nil {
-			return errors.Capture(err)
-		}
-
-		if cons.Tags != nil {
-			for _, tag := range *cons.Tags {
-				constraintTag := setConstraintTag{ConstraintUUID: cUUIDStr, Tag: tag}
-				if err := tx.Query(ctx, insertConstraintTagsStmt, constraintTag).Run(); err != nil {
-					return errors.Capture(err)
-				}
+			constraintSpace := setConstraintSpace{ConstraintUUID: cUUIDStr, Space: space.SpaceName, Exclude: space.Exclude}
+			if err := tx.Query(ctx, insertConstraintSpacesStmt, constraintSpace).Run(); err != nil {
+				return errors.Capture(err)
 			}
 		}
+	}
 
-		if cons.Spaces != nil {
-			for _, space := range *cons.Spaces {
-				// Make sure the space actually exists.
-				var spaceUUID spaceUUID
-				err := tx.Query(ctx, selectSpaceStmt, spaceName{Name: space.SpaceName}).Get(&spaceUUID)
-				if errors.Is(err, sql.ErrNoRows) {
-					st.logger.Warningf(ctx, "cannot set constraints, space %q does not exist", space)
-					return applicationerrors.InvalidUnitConstraints
-				}
-				if err != nil {
-					return errors.Capture(err)
-				}
-
-				constraintSpace := setConstraintSpace{ConstraintUUID: cUUIDStr, Space: space.SpaceName, Exclude: space.Exclude}
-				if err := tx.Query(ctx, insertConstraintSpacesStmt, constraintSpace).Run(); err != nil {
-					return errors.Capture(err)
-				}
+	if cons.Zones != nil {
+		for _, zone := range *cons.Zones {
+			constraintZone := setConstraintZone{ConstraintUUID: cUUIDStr, Zone: zone}
+			if err := tx.Query(ctx, insertConstraintZonesStmt, constraintZone).Run(); err != nil {
+				return errors.Capture(err)
 			}
 		}
+	}
 
-		if cons.Zones != nil {
-			for _, zone := range *cons.Zones {
-				constraintZone := setConstraintZone{ConstraintUUID: cUUIDStr, Zone: zone}
-				if err := tx.Query(ctx, insertConstraintZonesStmt, constraintZone).Run(); err != nil {
-					return errors.Capture(err)
-				}
-			}
-		}
-
-		return errors.Capture(
-			tx.Query(ctx, insertUnitConstraintsStmt, setUnitConstraint{
-				UnitUUID:       inUnitUUID.String(),
-				ConstraintUUID: cUUIDStr,
-			}).Run(),
-		)
-	})
+	return errors.Capture(
+		tx.Query(ctx, insertUnitConstraintsStmt, setUnitConstraint{
+			UnitUUID:       inUnitUUID.String(),
+			ConstraintUUID: cUUIDStr,
+		}).Run(),
+	)
 }
 
 // SetUnitPresence marks the presence of the specified unit, returning an error
@@ -1729,6 +1808,24 @@ WHERE unit_uuid = $minimalUnit.uuid
 		return errors.Errorf("cannot delete port range records: %w", err)
 	}
 
+	return nil
+}
+
+func (st *State) deleteConstraints(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID) error {
+	unit := minimalUnit{UUID: unitUUID}
+
+	deleteUnitConstraint := `
+DELETE FROM unit_constraint
+WHERE unit_uuid = $minimalUnit.uuid
+`
+	deleteUnitConstraintStmt, err := st.Prepare(deleteUnitConstraint, unit)
+	if err != nil {
+		return jujuerrors.Trace(err)
+	}
+
+	if err := tx.Query(ctx, deleteUnitConstraintStmt, unit).Run(); err != nil {
+		return errors.Errorf("cannot delete unit constraint records: %w", err)
+	}
 	return nil
 }
 

@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
 	domaintesting "github.com/juju/juju/domain/testing"
+	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -122,12 +124,20 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 		return s.ModelTxnRunner(c, s.modelUUID.String()), nil
 	}, clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	appService := applicationservice.NewService(
+	appService := applicationservice.NewProviderService(
 		st,
 		domaintesting.NoopLeaderEnsurer(),
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return storage.NotImplementedProviderRegistry{}
 		}),
+		s.modelUUID,
+		nil,
+		func(ctx context.Context) (applicationservice.Provider, error) {
+			return serviceProvider{}, nil
+		},
+		func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
+			return serviceProvider{}, nil
+		},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
@@ -162,4 +172,13 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return uri
+}
+
+type serviceProvider struct {
+	applicationservice.Provider
+	applicationservice.SupportedFeatureProvider
+}
+
+func (serviceProvider) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
+	return nil, nil
 }

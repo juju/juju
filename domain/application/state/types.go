@@ -860,6 +860,27 @@ func encodeAgentStatus(s application.UnitAgentStatusType) (int, error) {
 	}
 }
 
+func decodeAgentStatus(s int) (application.UnitAgentStatusType, error) {
+	switch s {
+	case 0:
+		return application.UnitAgentStatusAllocating, nil
+	case 1:
+		return application.UnitAgentStatusExecuting, nil
+	case 2:
+		return application.UnitAgentStatusIdle, nil
+	case 3:
+		return application.UnitAgentStatusError, nil
+	case 4:
+		return application.UnitAgentStatusFailed, nil
+	case 5:
+		return application.UnitAgentStatusLost, nil
+	case 6:
+		return application.UnitAgentStatusRebooting, nil
+	default:
+		return -1, errors.Errorf("unknown status %d", s)
+	}
+}
+
 func encodeWorkloadStatus(s application.WorkloadStatusType) (int, error) {
 	switch s {
 	case application.WorkloadStatusUnset:

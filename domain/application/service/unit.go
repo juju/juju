@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
-	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -21,7 +20,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
@@ -50,9 +48,11 @@ type UnitState interface {
 	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
 
 	// GetUnitWorkloadStatus returns the workload status of the specified unit,
-	// returning: - an error satisfying [applicationerrors.UnitNotFound] if the
-	// unit doesn't exist or; - an error satisfying
-	// [applicationerrors.UnitStatusNotFound] if the status is not set.
+	// returning:
+	// - an error satisfying [applicationerrors.UnitNotFound] if the unit
+	//   doesn't exist or;
+	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the
+	//   status is not set.
 	GetUnitWorkloadStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.WorkloadStatusType], error)
 
 	// SetUnitWorkloadStatus sets the workload status of the specified unit,
@@ -61,10 +61,11 @@ type UnitState interface {
 	SetUnitWorkloadStatus(context.Context, coreunit.UUID, *application.StatusInfo[application.WorkloadStatusType]) error
 
 	// GetUnitCloudContainerStatus returns the cloud container status of the
-	// specified unit. It returns; - an error satisfying
-	// [applicationerrors.UnitNotFound] if the unit doesn't exist or; - an error
-	// satisfying [applicationerrors.UnitStatusNotFound] if the status is not
-	// set.
+	// specified unit. It returns;
+	// - an error satisfying [applicationerrors.UnitNotFound] if the unit
+	//   doesn't exist or;
+	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the
+	//   status is not set.
 	GetUnitCloudContainerStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.CloudContainerStatusType], error)
 
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses for
@@ -82,6 +83,19 @@ type UnitState interface {
 	//   - an error satisfying [applicationerrors.ApplicationIsDead] if the
 	//     application is dead.
 	GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error)
+
+	// GetUnitAgentStatus returns the workload status of the specified unit,
+	// returning:
+	// - an error satisfying [applicationerrors.UnitNotFound] if the unit
+	//   doesn't exist or;
+	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the
+	//   status is not set.
+	GetUnitAgentStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.UnitAgentStatusType], error)
+
+	// SetUnitAgentStatus sets the workload status of the specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
+	SetUnitAgentStatus(context.Context, coreunit.UUID, *application.StatusInfo[application.UnitAgentStatusType]) error
 
 	// DeleteUnit deletes the specified unit. If the unit's application is Dying
 	// and no other references to it exist, true is returned to indicate the
@@ -130,7 +144,7 @@ type UnitState interface {
 	SetUnitConstraints(ctx context.Context, inUnitUUID coreunit.UUID, cons constraints.Constraints) error
 }
 
-func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg) ([]application.AddUnitArg, error) {
+func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
 	now := ptr(s.clock.Now())
 	workloadMessage := corestatus.MessageInstallingAgent
 	if modelType == coremodel.IAAS {
@@ -140,7 +154,8 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 	args := make([]application.AddUnitArg, len(units))
 	for i, u := range units {
 		arg := application.AddUnitArg{
-			UnitName: u.UnitName,
+			UnitName:    u.UnitName,
+			Constraints: constraints,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
 					Status: application.UnitAgentStatusAllocating,
@@ -157,23 +172,6 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 	}
 
 	return args, nil
-}
-
-func (s *Service) setUnitsConstraints(ctx context.Context, cons constraints.Constraints, units []application.AddUnitArg) error {
-	// Check for empty constraints and return early.
-	if (constraints.Constraints{}) == cons {
-		return nil
-	}
-	for _, u := range units {
-		unitUUID, err := s.st.GetUnitUUIDByName(ctx, u.UnitName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := s.st.SetUnitConstraints(ctx, unitUUID, cons); err != nil {
-			return internalerrors.Errorf("setting unit %q constraints: %w", u.UnitName, err)
-		}
-	}
-	return nil
 }
 
 // SetUnitWorkloadStatus sets the workload status of the specified unit,
@@ -204,6 +202,72 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 		s.logger.Infof(ctx, "failed recording setting workload status for unit %q: %v", unitName, err)
 	}
 	return nil
+}
+
+// GetUnitWorkloadStatus returns the workload status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return decodeWorkloadStatus(workloadStatus)
+}
+
+// SetUnitAgentStatus sets the agent status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name, status *corestatus.StatusInfo) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if status == nil {
+		return nil
+	}
+
+	agentStatus, err := encodeUnitAgentStatus(status)
+	if err != nil {
+		return internalerrors.Errorf("encoding agent status: %w", err)
+	}
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := s.st.SetUnitAgentStatus(ctx, unitUUID, agentStatus); err != nil {
+		return internalerrors.Errorf("setting agent status: %w", err)
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName.String()), *status); err != nil {
+		s.logger.Infof(ctx, "failed recording setting agent status for unit %q: %v", unitName, err)
+	}
+	return nil
+}
+
+// GetUnitAgentStatus returns the agent status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (s *Service) GetUnitAgentStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	agentStatus, err := s.st.GetUnitAgentStatus(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return decodeUnitAgentStatus(agentStatus)
 }
 
 // GetUnitWorkloadStatusesForApplication returns the workload statuses of all
@@ -267,24 +331,6 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, p
 		PasswordHash:  password,
 		HashAlgorithm: application.HashAlgorithmSHA256,
 	})
-}
-
-// GetUnitWorkloadStatus returns the workload status of the specified unit,
-// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
-// doesn't exist.
-func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
-	if err := unitName.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return decodeWorkloadStatus(workloadStatus)
 }
 
 // RegisterCAASUnit creates or updates the specified application unit in a caas
@@ -522,92 +568,4 @@ func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name
 		return errors.Trace(err)
 	}
 	return s.st.DeleteUnitPresence(ctx, unitName)
-}
-
-// AddUnits adds the specified units to the application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application
-// doesn't exist.
-// If no units are provided, it will return nil.
-func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
-	if !isValidApplicationName(appName) {
-		return applicationerrors.ApplicationNameNotValid
-	}
-
-	if len(units) == 0 {
-		return nil
-	}
-
-	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
-	if err != nil {
-		return internalerrors.Errorf("getting application %q id: %w", appName, err)
-	}
-
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return internalerrors.Errorf("getting model type: %w", err)
-	}
-
-	args, err := s.makeUnitArgs(modelType, units)
-	if err != nil {
-		return internalerrors.Errorf("making unit args: %w", err)
-	}
-
-	unitCons, err := s.mergeApplicationAndModelConstraints(ctx, appUUID)
-	if err != nil {
-		return internalerrors.Capture(err)
-	}
-
-	if err := s.setUnitsConstraints(ctx, constraints.DecodeConstraints(unitCons), args); err != nil {
-		return internalerrors.Errorf("setting unit constraints: %w", err)
-	}
-
-	if err := s.st.AddUnits(ctx, appUUID, args); err != nil {
-		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
-	}
-
-	for _, arg := range args {
-		unitName := arg.UnitName.String()
-
-		if agentStatus, err := decodeUnitAgentStatus(arg.UnitStatusArg.AgentStatus); err == nil && agentStatus != nil {
-			if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName), *agentStatus); err != nil {
-				s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
-			}
-		}
-
-		if workloadStatus, err := decodeWorkloadStatus(arg.UnitStatusArg.WorkloadStatus); err == nil && workloadStatus != nil {
-			if err := s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName), *workloadStatus); err != nil {
-				s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Context, appUUID coreapplication.ID) (coreconstraints.Value, error) {
-	validator, err := s.constraintsValidator(ctx)
-	if err != nil {
-		return coreconstraints.Value{}, internalerrors.Capture(err)
-	}
-	// If the provider doesn't support constraints validation, then we can
-	// just return the zero value.
-	if validator == nil {
-		return coreconstraints.Value{}, nil
-	}
-
-	appCons, err := s.GetApplicationConstraints(ctx, appUUID)
-	if err != nil {
-		return coreconstraints.Value{}, internalerrors.Errorf("retrieving application %q constraints for merging with model constraints args: %w", appUUID.String(), err)
-	}
-	modelCons, err := s.st.GetModelConstraints(ctx)
-	if err != nil && !errors.Is(err, modelerrors.ConstraintsNotFound) {
-		return coreconstraints.Value{}, internalerrors.Errorf("retrieving model constraints for merging with application %q constraints: %w	", appUUID.String(), err)
-	}
-
-	res, err := validator.Merge(appCons, constraints.EncodeConstraints(modelCons))
-	if err != nil {
-		return coreconstraints.Value{}, internalerrors.Errorf("merging application %q and model constraints: %w", appUUID.String(), err)
-	}
-
-	return res, nil
 }

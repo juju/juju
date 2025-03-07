@@ -15,8 +15,10 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/testing"
@@ -25,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/environs/envcontext"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -150,12 +153,12 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *gc.C
 	c.Assert(err, jc.ErrorIs, context.Canceled)
 }
 
-func (s *leadershipSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.Service {
+func (s *leadershipSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.ProviderService {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 
-	return service.NewService(
+	return service.NewProviderService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewLeaseService(leaseGetter{
 			Checker: s.leadership,
@@ -163,6 +166,14 @@ func (s *leadershipSuite) setupService(c *gc.C, factory domain.WatchableDBFactor
 		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 			return provider.CommonStorageProviders()
 		}),
+		model.UUID(s.ModelUUID()),
+		nil,
+		func(ctx context.Context) (service.Provider, error) {
+			return serviceProvider{}, nil
+		},
+		func(ctx context.Context) (service.SupportedFeatureProvider, error) {
+			return serviceProvider{}, nil
+		},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
 		clock.WallClock,
@@ -180,7 +191,7 @@ func (s *leadershipSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *leadershipSuite) createApplication(c *gc.C, svc *service.Service, name string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *leadershipSuite) createApplication(c *gc.C, svc *service.ProviderService, name string, units ...service.AddUnitArg) coreapplication.ID {
 	ctx := context.Background()
 	appID, err := svc.CreateApplication(ctx, name, &stubCharm{}, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -214,4 +225,13 @@ type leaseToken struct {
 
 func (l leaseToken) Check() error {
 	return l.error
+}
+
+type serviceProvider struct {
+	service.Provider
+	service.SupportedFeatureProvider
+}
+
+func (serviceProvider) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
+	return nil, nil
 }

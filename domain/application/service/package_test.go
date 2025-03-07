@@ -49,6 +49,7 @@ type baseSuite struct {
 	provider                  *MockProvider
 	supportedFeaturesProvider *MockSupportedFeatureProvider
 	leadership                *MockEnsurer
+	validator                 *MockValidator
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	clock                 *testclock.Clock
@@ -73,6 +74,7 @@ func (s *baseSuite) setupMocksWithProvider(
 	s.state = NewMockState(ctrl)
 	s.charm = NewMockCharm(ctrl)
 	s.charmStore = NewMockCharmStore(ctrl)
+	s.validator = NewMockValidator(ctrl)
 
 	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 		return storage.ChainedProviderRegistry{
@@ -117,6 +119,7 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHis
 	s.state = NewMockState(ctrl)
 	s.charm = NewMockCharm(ctrl)
 	s.charmStore = NewMockCharmStore(ctrl)
+	s.validator = NewMockValidator(ctrl)
 
 	s.storageRegistryGetter = corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
 		return storage.ChainedProviderRegistry{

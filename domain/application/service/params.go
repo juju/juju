@@ -65,6 +65,9 @@ type AddApplicationArgs struct {
 	// ApplicationStatus contains the application status. It's optional
 	// and if not provided, the application will be started with no status.
 	ApplicationStatus *status.StatusInfo
+
+	// Constraints contains the application constraints.
+	Constraints constraints.Value
 }
 
 // AddressParams contains parameters for a unit/cloud container address.

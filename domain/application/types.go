@@ -11,6 +11,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/linklayerdevice"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -178,8 +179,9 @@ type ContainerAddress struct {
 
 // AddUnitArg contains parameters for adding a unit to state.
 type AddUnitArg struct {
-	UnitName coreunit.Name
 	UnitStatusArg
+	UnitName    coreunit.Name
+	Constraints constraints.Constraints
 }
 
 // InsertUnitArg is used to insert a fully populated unit.
@@ -188,6 +190,7 @@ type InsertUnitArg struct {
 	UnitName       coreunit.Name
 	CloudContainer *CloudContainer
 	Password       *PasswordInfo
+	Constraints    constraints.Constraints
 	UnitStatusArg
 }
 
