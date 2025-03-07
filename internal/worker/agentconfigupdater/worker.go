@@ -104,9 +104,12 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 }
 
 func (w *agentConfigUpdater) loop(started chan struct{}) error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	unsubscribe, err := w.config.Hub.Subscribe(controllermsg.ConfigChanged, w.onConfigChanged)
 	if err != nil {
-		w.config.Logger.Criticalf(context.TODO(), "programming error in subscribe function: %v", err)
+		w.config.Logger.Criticalf(ctx, "programming error in subscribe function: %v", err)
 		return errors.Trace(err)
 	}
 	defer unsubscribe()
@@ -114,13 +117,16 @@ func (w *agentConfigUpdater) loop(started chan struct{}) error {
 	close(started)
 	// Don't exit until we are told to. Exiting unsubscribes.
 	<-w.tomb.Dying()
-	w.config.Logger.Tracef(context.TODO(), "agentConfigUpdater loop finished")
+	w.config.Logger.Tracef(ctx, "agentConfigUpdater loop finished")
 	return nil
 }
 
 func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.ConfigChangedMessage, err error) {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	if err != nil {
-		w.config.Logger.Criticalf(context.TODO(), "programming error in %s message data: %v", topic, err)
+		w.config.Logger.Criticalf(ctx, "programming error in %s message data: %v", topic, err)
 		return
 	}
 
@@ -177,47 +183,47 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 
 	err = w.config.Agent.ChangeConfig(func(setter coreagent.ConfigSetter) error {
 		if mongoProfileChanged {
-			w.config.Logger.Debugf(context.TODO(), "setting agent config mongo memory profile: %q => %q", w.mongoProfile, mongoProfile)
+			w.config.Logger.Debugf(ctx, "setting agent config mongo memory profile: %q => %q", w.mongoProfile, mongoProfile)
 			setter.SetMongoMemoryProfile(mongoProfile)
 		}
 		if jujuDBSnapChannelChanged {
-			w.config.Logger.Debugf(context.TODO(), "setting agent config mongo snap channel: %q => %q", w.jujuDBSnapChannel, jujuDBSnapChannel)
+			w.config.Logger.Debugf(ctx, "setting agent config mongo snap channel: %q => %q", w.jujuDBSnapChannel, jujuDBSnapChannel)
 			setter.SetJujuDBSnapChannel(jujuDBSnapChannel)
 		}
 		if queryTracingEnabledChanged {
-			w.config.Logger.Debugf(context.TODO(), "setting agent config query tracing enabled: %v => %v", w.queryTracingEnabled, queryTracingEnabled)
+			w.config.Logger.Debugf(ctx, "setting agent config query tracing enabled: %v => %v", w.queryTracingEnabled, queryTracingEnabled)
 			setter.SetQueryTracingEnabled(queryTracingEnabled)
 		}
 		if queryTracingThresholdChanged {
-			w.config.Logger.Debugf(context.TODO(), "setting agent config query tracing threshold: %v => %v", w.queryTracingThreshold, queryTracingThreshold)
+			w.config.Logger.Debugf(ctx, "setting agent config query tracing threshold: %v => %v", w.queryTracingThreshold, queryTracingThreshold)
 			setter.SetQueryTracingThreshold(queryTracingThreshold)
 		}
 		if openTelemetryEnabledChanged {
-			w.config.Logger.Debugf(context.TODO(), "setting agent config open telemetry enabled: %v => %v", w.openTelemetryEnabled, openTelemetryEnabled)
+			w.config.Logger.Debugf(ctx, "setting agent config open telemetry enabled: %v => %v", w.openTelemetryEnabled, openTelemetryEnabled)
 			setter.SetOpenTelemetryEnabled(openTelemetryEnabled)
 		}
 		if openTelemetryEndpointChanged {
-			w.config.Logger.Debugf(context.TODO(), "setting agent config open telemetry endpoint: %v => %v", w.openTelemetryEndpoint, openTelemetryEndpoint)
+			w.config.Logger.Debugf(ctx, "setting agent config open telemetry endpoint: %v => %v", w.openTelemetryEndpoint, openTelemetryEndpoint)
 			setter.SetOpenTelemetryEndpoint(openTelemetryEndpoint)
 		}
 		if openTelemetryInsecureChanged {
-			w.config.Logger.Debugf(context.TODO(), "setting agent config open telemetry insecure: %v => %v", w.openTelemetryInsecure, openTelemetryInsecure)
+			w.config.Logger.Debugf(ctx, "setting agent config open telemetry insecure: %v => %v", w.openTelemetryInsecure, openTelemetryInsecure)
 			setter.SetOpenTelemetryInsecure(openTelemetryInsecure)
 		}
 		if openTelemetryStackTracesChanged {
-			w.config.Logger.Debugf(context.TODO(), "setting agent config open telemetry stack traces: %v => %v", w.openTelemetryStackTraces, openTelemetryStackTraces)
+			w.config.Logger.Debugf(ctx, "setting agent config open telemetry stack traces: %v => %v", w.openTelemetryStackTraces, openTelemetryStackTraces)
 			setter.SetOpenTelemetryStackTraces(openTelemetryStackTraces)
 		}
 		if openTelemetrySampleRatioChanged {
-			w.config.Logger.Debugf(context.TODO(), "setting agent config open telemetry sample ratio: %v => %v", w.openTelemetrySampleRatio, openTelemetrySampleRatio)
+			w.config.Logger.Debugf(ctx, "setting agent config open telemetry sample ratio: %v => %v", w.openTelemetrySampleRatio, openTelemetrySampleRatio)
 			setter.SetOpenTelemetrySampleRatio(openTelemetrySampleRatio)
 		}
 		if openTelemetryTailSamplingThresholdChanged {
-			w.config.Logger.Debugf(context.TODO(), "setting agent config open telemetry tail sampling threshold: %v => %v", w.openTelemetryTailSamplingThreshold, openTelemetryTailSamplingThreshold)
+			w.config.Logger.Debugf(ctx, "setting agent config open telemetry tail sampling threshold: %v => %v", w.openTelemetryTailSamplingThreshold, openTelemetryTailSamplingThreshold)
 			setter.SetOpenTelemetryTailSamplingThreshold(openTelemetryTailSamplingThreshold)
 		}
 		if objectStoreTypeChanged {
-			w.config.Logger.Debugf(context.TODO(), "setting agent config object store type: %v => %v", w.objectStoreType, objectStoreType)
+			w.config.Logger.Debugf(ctx, "setting agent config object store type: %v => %v", w.objectStoreType, objectStoreType)
 			setter.SetObjectStoreType(objectStoreType)
 		}
 		return nil
@@ -231,7 +237,7 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	// config also needs to be set.
 	if objectStoreType == objectstore.S3Backend {
 		if err := controller.HasCompleteS3ControllerConfig(data.Config); err != nil {
-			w.config.Logger.Warningf(context.TODO(), "object store type is set to s3 but config not set: %v", err)
+			w.config.Logger.Warningf(ctx, "object store type is set to s3 but config not set: %v", err)
 		}
 	}
 
@@ -246,4 +252,8 @@ func (w *agentConfigUpdater) Kill() {
 // Wait implements Worker.Wait().
 func (w *agentConfigUpdater) Wait() error {
 	return w.tomb.Wait()
+}
+
+func (w *agentConfigUpdater) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }

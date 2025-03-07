@@ -26,7 +26,7 @@ type StorageGetCommand struct {
 
 func NewStorageGetCommand(cmdCtx Context) (cmd.Command, error) {
 	c := &StorageGetCommand{ctx: cmdCtx}
-	sV, err := newStorageIdValue(context.TODO(), cmdCtx, &c.storageTag)
+	sV, err := newStorageIdValue(context.Background(), cmdCtx, &c.storageTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

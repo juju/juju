@@ -80,7 +80,7 @@ func (w *stateWorker) processModelLifeChange(modelUUID string) error {
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			// Model has been removed from state.
-			logger.Debugf(context.TODO(), "model %q removed from state", modelUUID)
+			logger.Debugf(context.Background(), "model %q removed from state", modelUUID)
 			w.remove(modelUUID)
 			return nil
 		}
@@ -90,7 +90,7 @@ func (w *stateWorker) processModelLifeChange(modelUUID string) error {
 
 	if model.Life() == state.Dead {
 		// Model is Dead, and will soon be removed from state.
-		logger.Debugf(context.TODO(), "model %q is dead", modelUUID)
+		logger.Debugf(context.Background(), "model %q is dead", modelUUID)
 		w.remove(modelUUID)
 		return nil
 	}
@@ -123,7 +123,7 @@ func (w *stateWorker) Wait() error {
 	w.cleanupOnce.Do(func() {
 		// Make sure the worker has exited before closing state.
 		if err := w.stTracker.Done(); err != nil {
-			logger.Warningf(context.TODO(), "error releasing state: %v", err)
+			logger.Warningf(context.Background(), "error releasing state: %v", err)
 		}
 	})
 	return err

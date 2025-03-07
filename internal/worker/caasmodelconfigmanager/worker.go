@@ -193,9 +193,9 @@ func (w *manager) loop() (err error) {
 			}
 		case <-refresh:
 			refresh = nil
-			next, err := w.ensureImageRepoSecret(context.TODO(), reg, first)
+			next, err := w.ensureImageRepoSecret(ctx, reg, first)
 			if err != nil {
-				w.logger.Errorf(context.TODO(), "failed to update repository secret: %s", err.Error())
+				w.logger.Errorf(ctx, "failed to update repository secret: %s", err.Error())
 				next = retryDuration
 			} else {
 				first = false
@@ -217,12 +217,12 @@ func (w *manager) ensureImageRepoSecret(ctx context.Context, reg registry.Regist
 		return nextRefresh, nil
 	}
 
-	w.logger.Debugf(context.TODO(), "refreshing auth token for %q", w.name)
+	w.logger.Debugf(ctx, "refreshing auth token for %q", w.name)
 	if err := reg.RefreshAuth(); err != nil {
 		return time.Duration(0), errors.Annotatef(err, "refreshing registry auth token for %q", w.name)
 	}
 
-	w.logger.Debugf(context.TODO(), "applying refreshed auth token for %q", w.name)
+	w.logger.Debugf(ctx, "applying refreshed auth token for %q", w.name)
 	err := w.config.Broker.EnsureImageRepoSecret(ctx, reg.ImageRepoDetails())
 	if err != nil {
 		return time.Duration(0), errors.Annotatef(err, "ensuring image repository secret for %q", w.name)

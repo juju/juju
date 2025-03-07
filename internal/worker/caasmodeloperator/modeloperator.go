@@ -92,7 +92,7 @@ func (m *ModelOperatorManager) scopedContext() (context.Context, context.CancelF
 }
 
 func (m *ModelOperatorManager) update(ctx context.Context) error {
-	m.logger.Debugf(context.TODO(), "gathering model operator provisioning information for model %s", m.modelUUID)
+	m.logger.Debugf(ctx, "gathering model operator provisioning information for model %s", m.modelUUID)
 	info, err := m.api.ModelOperatorProvisioningInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -142,7 +142,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 
-	m.logger.Debugf(context.TODO(), "ensuring model operator deployment in kubernetes for model %s", m.modelUUID)
+	m.logger.Debugf(ctx, "ensuring model operator deployment in kubernetes for model %s", m.modelUUID)
 	err = m.broker.EnsureModelOperator(
 		ctx,
 		m.modelUUID,

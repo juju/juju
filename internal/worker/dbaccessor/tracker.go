@@ -309,6 +309,9 @@ func (w *trackedDBWorker) Report() map[string]any {
 }
 
 func (w *trackedDBWorker) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	defer func() {
 		w.mutex.Lock()
 		defer w.mutex.Unlock()
@@ -318,7 +321,7 @@ func (w *trackedDBWorker) loop() error {
 		}
 		err := w.db.PlainDB().Close()
 		if err != nil {
-			w.logger.Debugf(context.TODO(), "Closed database connection: %v", err)
+			w.logger.Debugf(ctx, "Closed database connection: %v", err)
 		}
 	}()
 
@@ -340,7 +343,6 @@ func (w *trackedDBWorker) loop() error {
 			currentDB := w.db.PlainDB()
 			w.mutex.RUnlock()
 
-			ctx := w.tomb.Context(context.Background())
 			newDB, err := w.ensureDBAliveAndOpenIfRequired(ctx, currentDB)
 			if errors.Is(err, context.Canceled) {
 				select {
@@ -354,7 +356,7 @@ func (w *trackedDBWorker) loop() error {
 				// If we get an error, ensure we close the underlying db and
 				// mark the tracked db in an error state.
 				if err := currentDB.Close(); err != nil {
-					w.logger.Errorf(context.TODO(), "error closing database: %v", err)
+					w.logger.Errorf(ctx, "error closing database: %v", err)
 				}
 
 				// As we failed attempting to verify the db, we're in a fatal
@@ -368,7 +370,7 @@ func (w *trackedDBWorker) loop() error {
 			if newDB != currentDB {
 				w.mutex.Lock()
 				if err := currentDB.Close(); err != nil {
-					w.logger.Errorf(context.TODO(), "error closing database: %v", err)
+					w.logger.Errorf(ctx, "error closing database: %v", err)
 				}
 				w.db = sqlair.NewDB(newDB)
 				w.report.Set(func(r *report) {
@@ -396,7 +398,7 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(ctx context.Context, db
 	defer cancel()
 
 	if w.logger.IsLevelEnabled(logger.TRACE) {
-		w.logger.Tracef(context.TODO(), "ensuring database %q is alive", w.namespace)
+		w.logger.Tracef(ctx, "ensuring database %q is alive", w.namespace)
 	}
 
 	// There are multiple levels of retries here.
@@ -416,7 +418,7 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(ctx context.Context, db
 		var pingAttempts uint32 = 0
 		err := database.Retry(ctx, func() error {
 			if w.logger.IsLevelEnabled(logger.TRACE) {
-				w.logger.Tracef(context.TODO(), "pinging database %q", w.namespace)
+				w.logger.Tracef(ctx, "pinging database %q", w.namespace)
 			}
 			pingAttempts++
 			return w.pingDBFunc(ctx, db)
@@ -446,7 +448,7 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(ctx context.Context, db
 
 		// We got an error that is non-retryable, attempt to open a new database
 		// connection and see if that works.
-		w.logger.Warningf(context.TODO(), "unable to ping database %q: attempting to reopen the database before trying again: %v",
+		w.logger.Warningf(ctx, "unable to ping database %q: attempting to reopen the database before trying again: %v",
 			w.namespace, err)
 
 		// Attempt to open a new database. If there is an error, just crash
@@ -468,6 +470,10 @@ func (w *trackedDBWorker) reportInternalState(state string) {
 	case w.internalStates <- state:
 	default:
 	}
+}
+
+func (w *trackedDBWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }
 
 func defaultPingDBFunc(ctx context.Context, db *sql.DB) error {

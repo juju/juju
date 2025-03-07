@@ -130,23 +130,23 @@ func (w *Worker) loop() (err error) {
 			if !ok {
 				return errors.New("secret revision expiry change channel closed")
 			}
-			w.handleSecretRevisionExpiryChanges(ch)
+			w.handleSecretRevisionExpiryChanges(ctx, ch)
 		case now := <-timeout:
-			w.expire(now)
+			w.expire(ctx, now)
 		}
 	}
 }
 
-func (w *Worker) expire(now time.Time) {
-	w.config.Logger.Debugf(context.TODO(), "processing secret expiry for %q at %s", w.config.SecretOwners, now)
+func (w *Worker) expire(ctx context.Context, now time.Time) {
+	w.config.Logger.Debugf(ctx, "processing secret expiry for %q at %s", w.config.SecretOwners, now)
 
 	var toExpire []string
 	for id, info := range w.secretRevisions {
-		w.config.Logger.Debugf(context.TODO(), "expire %s at %s... time diff %s", id, info.expireTime, info.expireTime.Sub(now))
+		w.config.Logger.Debugf(ctx, "expire %s at %s... time diff %s", id, info.expireTime, info.expireTime.Sub(now))
 		// A one minute granularity is acceptable for secret expiry.
 		if info.expireTime.Truncate(time.Minute).Before(now) {
 			if info.retryCount > 0 {
-				w.config.Logger.Warningf(context.TODO(), "retry attempt %d to expire secret %q revision %d", info.retryCount, info.uri, info.revision)
+				w.config.Logger.Warningf(ctx, "retry attempt %d to expire secret %q revision %d", info.retryCount, info.uri, info.revision)
 			}
 			toExpire = append(toExpire, expiryKey(info.uri, info.revision))
 			// Once secret revision has been queued for expiry, requeue it
@@ -166,15 +166,15 @@ func (w *Worker) expire(now time.Time) {
 		case w.config.ExpireRevisions <- toExpire:
 		}
 	}
-	w.computeNextExpireTime()
+	w.computeNextExpireTime(ctx)
 }
 
 func expiryKey(uri *secrets.URI, revision int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, revision)
 }
 
-func (w *Worker) handleSecretRevisionExpiryChanges(changes []watcher.SecretTriggerChange) {
-	w.config.Logger.Debugf(context.TODO(), "got revision expiry secret changes: %#v", changes)
+func (w *Worker) handleSecretRevisionExpiryChanges(ctx context.Context, changes []watcher.SecretTriggerChange) {
+	w.config.Logger.Debugf(ctx, "got revision expiry secret changes: %#v", changes)
 	if len(changes) == 0 {
 		return
 	}
@@ -182,7 +182,7 @@ func (w *Worker) handleSecretRevisionExpiryChanges(changes []watcher.SecretTrigg
 	for _, ch := range changes {
 		// Next trigger time of 0 means the expiry has been deleted.
 		if ch.NextTriggerTime.IsZero() {
-			w.config.Logger.Debugf(context.TODO(), "secret revision %d no longer expires: %v", ch.URI.ID, ch.Revision)
+			w.config.Logger.Debugf(ctx, "secret revision %d no longer expires: %v", ch.URI.ID, ch.Revision)
 			delete(w.secretRevisions, expiryKey(ch.URI, ch.Revision))
 			continue
 		}
@@ -192,11 +192,11 @@ func (w *Worker) handleSecretRevisionExpiryChanges(changes []watcher.SecretTrigg
 			expireTime: ch.NextTriggerTime,
 		}
 	}
-	w.computeNextExpireTime()
+	w.computeNextExpireTime(ctx)
 }
 
-func (w *Worker) computeNextExpireTime() {
-	w.config.Logger.Debugf(context.TODO(), "computing next expire time for secret revisions %#v", w.secretRevisions)
+func (w *Worker) computeNextExpireTime(ctx context.Context) {
+	w.config.Logger.Debugf(ctx, "computing next expire time for secret revisions %#v", w.secretRevisions)
 
 	if len(w.secretRevisions) == 0 {
 		w.alarm = nil
@@ -223,7 +223,7 @@ func (w *Worker) computeNextExpireTime() {
 		return
 	}
 
-	w.config.Logger.Debugf(context.TODO(), "next secret revision for %q will expire at %s", w.config.SecretOwners, soonestExpireTime)
+	w.config.Logger.Debugf(ctx, "next secret revision for %q will expire at %s", w.config.SecretOwners, soonestExpireTime)
 
 	w.nextTrigger = soonestExpireTime
 	if w.alarm == nil {

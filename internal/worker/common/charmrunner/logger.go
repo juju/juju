@@ -48,7 +48,7 @@ func (l *HookLogger) Run() {
 		line, isPrefix, err := br.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				logger.Errorf(context.TODO(), "cannot read hook output: %v", err)
+				logger.Errorf(context.Background(), "cannot read hook output: %v", err)
 			}
 			break
 		}

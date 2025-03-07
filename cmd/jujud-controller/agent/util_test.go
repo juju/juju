@@ -90,7 +90,7 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
 	s.PatchValue(&authenticationworker.SSHUser, "")
-	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]blockdevice.BlockDevice, error) {
+	s.PatchValue(&diskmanager.DefaultListBlockDevices, func(context.Context) ([]blockdevice.BlockDevice, error) {
 		return nil, nil
 	})
 	s.PatchValue(&machiner.GetObservedNetworkConfig, func(_ network.ConfigSource) (network.InterfaceInfos, error) {

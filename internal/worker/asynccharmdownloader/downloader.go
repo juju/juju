@@ -72,7 +72,7 @@ func (w *asyncDownloadWorker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	w.logger.Infof(context.TODO(), "downloading charm for application %q", w.appID)
+	w.logger.Infof(ctx, "downloading charm for application %q", w.appID)
 
 	info, err := w.applicationService.GetAsyncCharmDownloadInfo(ctx, w.appID)
 	if errors.Is(err, applicationerrors.CharmAlreadyAvailable) {
@@ -103,7 +103,7 @@ func (w *asyncDownloadWorker) loop() error {
 		Delay:    retryDelay,
 		Clock:    w.clock,
 		NotifyFunc: func(err error, i int) {
-			w.logger.Warningf(context.TODO(), "failed to download charm for application %q, attempt %d: %v", w.appID, i, err)
+			w.logger.Warningf(ctx, "failed to download charm for application %q, attempt %d: %v", w.appID, i, err)
 		},
 		Stop: w.tomb.Dying(),
 	}); err != nil {
@@ -113,7 +113,7 @@ func (w *asyncDownloadWorker) loop() error {
 	// Ensure the charm is removed after the worker has finished.
 	defer func() {
 		if err := os.Remove(result.Path); err != nil && !os.IsNotExist(err) {
-			w.logger.Warningf(context.TODO(), "failed to remove temporary file %q: %v", result.Path, err)
+			w.logger.Warningf(ctx, "failed to remove temporary file %q: %v", result.Path, err)
 		}
 	}()
 

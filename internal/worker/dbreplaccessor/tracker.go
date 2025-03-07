@@ -162,13 +162,20 @@ func (w *trackedDBWorker) Wait() error {
 }
 
 func (w *trackedDBWorker) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	defer func() {
 		err := w.rawDB.Close()
 		if err != nil {
-			w.logger.Errorf(context.TODO(), "failed to close database: %v", err)
+			w.logger.Errorf(ctx, "failed to close database: %v", err)
 		}
 	}()
 
 	<-w.tomb.Dying()
 	return tomb.ErrDying
+}
+
+func (w *trackedDBWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }

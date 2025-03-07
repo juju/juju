@@ -36,7 +36,7 @@ type BlockDeviceSetter interface {
 
 // ListBlockDevicesFunc is the type of a function that is supplied to
 // NewWorker for listing block devices available on the local host.
-type ListBlockDevicesFunc func() ([]blockdevice.BlockDevice, error)
+type ListBlockDevicesFunc func(context.Context) ([]blockdevice.BlockDevice, error)
 
 // DefaultListBlockDevices is the default function for listing block
 // devices for the operating system of the local host.
@@ -53,7 +53,7 @@ var NewWorker = func(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker 
 }
 
 func doWork(ctx context.Context, listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]blockdevice.BlockDevice) error {
-	blockDevices, err := listf()
+	blockDevices, err := listf(ctx)
 	if err != nil {
 		return err
 	}
@@ -62,10 +62,10 @@ func doWork(ctx context.Context, listf ListBlockDevicesFunc, b BlockDeviceSetter
 		sort.Strings(blockDevice.DeviceLinks)
 	}
 	if reflect.DeepEqual(blockDevices, *old) {
-		logger.Tracef(context.TODO(), "no changes to block devices detected")
+		logger.Tracef(ctx, "no changes to block devices detected")
 		return nil
 	}
-	logger.Tracef(context.TODO(), "block devices changed: %#v", blockDevices)
+	logger.Tracef(ctx, "block devices changed: %#v", blockDevices)
 	if err := b.SetMachineBlockDevices(ctx, blockDevices); err != nil {
 		return err
 	}

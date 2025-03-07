@@ -137,7 +137,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			tracer, err := tracerGetter.GetTracer(stdcontext.TODO(), coretrace.Namespace("uniter", agentConfig.Model().Id()))
+			tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("uniter", agentConfig.Model().Id()))
 			if err != nil {
 				tracer = coretrace.NoopTracer{}
 			}

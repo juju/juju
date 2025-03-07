@@ -118,7 +118,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to listen on unix socket")
 	}
-	logger.Debugf(context.TODO(), "introspection worker listening on %q", config.SocketName)
+	logger.Debugf(context.Background(), "introspection worker listening on %q", config.SocketName)
 
 	w := &socketListener{
 		listener:           l,
@@ -132,26 +132,34 @@ func NewWorker(config Config) (worker.Worker, error) {
 		centralHub:         config.CentralHub,
 		done:               make(chan struct{}),
 	}
-	go w.serve()
+	w.tomb.Go(w.serve)
 	w.tomb.Go(w.run)
 	return w, nil
 }
 
-func (w *socketListener) serve() {
+func (w *socketListener) serve() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	mux := http.NewServeMux()
 	w.RegisterHTTPHandlers(mux.Handle)
 
 	srv := http.Server{Handler: mux}
-	logger.Debugf(context.TODO(), "stats worker now serving")
-	defer logger.Debugf(context.TODO(), "stats worker serving finished")
+	logger.Debugf(ctx, "stats worker now serving")
+	defer logger.Debugf(ctx, "stats worker serving finished")
 	defer close(w.done)
 	_ = srv.Serve(w.listener)
+
+	return nil
 }
 
 func (w *socketListener) run() error {
-	defer logger.Debugf(context.TODO(), "stats worker finished")
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	defer logger.Debugf(ctx, "stats worker finished")
 	<-w.tomb.Dying()
-	logger.Debugf(context.TODO(), "stats worker closing listener")
+	logger.Debugf(ctx, "stats worker closing listener")
 	w.listener.Close()
 	// Don't mark the worker as done until the serve goroutine has finished.
 	<-w.done
@@ -166,6 +174,10 @@ func (w *socketListener) Kill() {
 // Wait implements worker.Worker.
 func (w *socketListener) Wait() error {
 	return w.tomb.Wait()
+}
+
+func (w *socketListener) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }
 
 // RegisterHTTPHandlers calls the given function with http.Handlers

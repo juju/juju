@@ -114,13 +114,13 @@ func (u *Upgrader) loop() error {
 	if err != nil {
 		return errors.Annotate(err, "getting upgrader facade watch api version client")
 	}
-	logger.Infof(context.TODO(), "abort check blocked until version event received")
+	logger.Infof(ctx, "abort check blocked until version event received")
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	mustProceed := time.After(time.Minute)
 	var dying <-chan struct{}
 	allowDying := func() {
 		if dying == nil {
-			logger.Infof(context.TODO(), "unblocking abort check")
+			logger.Infof(ctx, "unblocking abort check")
 			mustProceed = nil
 			dying = u.catacomb.Dying()
 			if err := u.catacomb.Add(versionWatcher); err != nil {
@@ -129,7 +129,7 @@ func (u *Upgrader) loop() error {
 		}
 	}
 
-	logger.Debugf(context.TODO(), "current agent binary version: %v", jujuversion.Current)
+	logger.Debugf(ctx, "current agent binary version: %v", jujuversion.Current)
 	for {
 		select {
 		// NOTE: dying starts out nil, so it can't be chosen
@@ -139,7 +139,7 @@ func (u *Upgrader) loop() error {
 		// ...*every* other case *must* allowDying(), before doing anything
 		// else, lest an error cause us to leak versionWatcher.
 		case <-mustProceed:
-			logger.Infof(context.TODO(), "version event not received after one minute")
+			logger.Infof(ctx, "version event not received after one minute")
 			allowDying()
 		case _, ok := <-versionWatcher.Changes():
 			allowDying()
@@ -157,7 +157,7 @@ func (u *Upgrader) loop() error {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !upgrader.AllowedTargetVersion(jujuversion.Current, wantVersion) {
-			logger.Warningf(context.TODO(), "desired agent binary version: %s is older than current %s, refusing to downgrade",
+			logger.Warningf(ctx, "desired agent binary version: %s is older than current %s, refusing to downgrade",
 				wantVersion, jujuversion.Current)
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
@@ -166,8 +166,8 @@ func (u *Upgrader) loop() error {
 		if wantVersion.Compare(jujuversion.Current) == -1 {
 			direction = "downgrade"
 		}
-		logger.Debugf(context.TODO(), "%s requested for %v from %v to %v", direction, u.tag, jujuversion.Current, wantVersion)
-		err = u.operatorUpgrader.Upgrade(context.TODO(), u.tag.String(), wantVersion)
+		logger.Debugf(ctx, "%s requested for %v from %v to %v", direction, u.tag, jujuversion.Current, wantVersion)
+		err = u.operatorUpgrader.Upgrade(ctx, u.tag.String(), wantVersion)
 		if err != nil {
 			return errors.Annotatef(
 				err, "requesting upgrade for %v from %v to %v", u.tag.String(), jujuversion.Current, wantVersion)

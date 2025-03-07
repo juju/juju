@@ -185,7 +185,7 @@ func (p *provisioner) loop() error {
 					return errors.Trace(err)
 				}
 				if errors.Is(err, errors.NotFound) {
-					p.logger.Debugf(context.TODO(), "application %q not found, ignoring", appName)
+					p.logger.Debugf(ctx, "application %q not found, ignoring", appName)
 					continue
 				}
 
@@ -216,7 +216,7 @@ func (p *provisioner) loop() error {
 					StatusOnly: unmanagedApps.Contains(appName),
 				}
 				startFunc := p.newAppWorker(config)
-				p.logger.Debugf(context.TODO(), "starting app worker %q", appName)
+				p.logger.Debugf(ctx, "starting app worker %q", appName)
 				err = p.runner.StartWorker(appName, startFunc)
 				if err != nil {
 					return errors.Trace(err)

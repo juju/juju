@@ -94,6 +94,9 @@ func (w *stateConfigWatcher) isStateServer() bool {
 }
 
 func (w *stateConfigWatcher) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	watch := w.agentConfigChanged.Watch()
 	defer watch.Close()
 
@@ -119,7 +122,7 @@ func (w *stateConfigWatcher) loop() error {
 	for {
 		select {
 		case <-w.tomb.Dying():
-			logger.Infof(context.TODO(), "tomb dying")
+			logger.Infof(ctx, "tomb dying")
 			return tomb.ErrDying
 		case _, ok := <-watchCh:
 			if !ok {
@@ -129,7 +132,7 @@ func (w *stateConfigWatcher) loop() error {
 				// State serving info has been set or unset so restart
 				// so that dependents get notified. ErrBounce ensures
 				// that the manifold is restarted quickly.
-				logger.Debugf(context.TODO(), "state serving info change in agent config")
+				logger.Debugf(ctx, "state serving info change in agent config")
 				return dependency.ErrBounce
 			}
 		}
@@ -144,4 +147,8 @@ func (w *stateConfigWatcher) Kill() {
 // Wait implements worker.Worker.
 func (w *stateConfigWatcher) Wait() error {
 	return w.tomb.Wait()
+}
+
+func (w *stateConfigWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }

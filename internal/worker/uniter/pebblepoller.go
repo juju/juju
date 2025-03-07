@@ -89,6 +89,9 @@ func (p *pebblePoller) Wait() error {
 }
 
 func (p *pebblePoller) run(containerName string) error {
+	ctx, cancel := p.scopeContext()
+	defer cancel()
+
 	timer := p.clock.NewTimer(pebblePollInterval)
 	defer timer.Stop()
 	for {
@@ -100,9 +103,9 @@ func (p *pebblePoller) run(containerName string) error {
 			err := p.poll(containerName)
 			var socketNotFound *client.SocketNotFoundError
 			if errors.As(err, &socketNotFound) {
-				p.logger.Debugf(context.TODO(), "pebble still starting up on container %q: %v", containerName, socketNotFound)
+				p.logger.Debugf(ctx, "pebble still starting up on container %q: %v", containerName, socketNotFound)
 			} else if err != nil && err != tomb.ErrDying {
-				p.logger.Errorf(context.TODO(), "pebble poll failed for container %q: %v", containerName, err)
+				p.logger.Errorf(ctx, "pebble poll failed for container %q: %v", containerName, err)
 			}
 		}
 	}
@@ -165,4 +168,8 @@ func (p *pebblePoller) poll(containerName string) error {
 	p.mut.Unlock()
 
 	return nil
+}
+
+func (n *pebblePoller) scopeContext() (stdctx context.Context, cancel context.CancelFunc) {
+	return context.WithCancel(n.tomb.Context(context.Background()))
 }

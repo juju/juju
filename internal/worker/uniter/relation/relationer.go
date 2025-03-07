@@ -126,7 +126,7 @@ func (r *relationer) PrepareHook(hi hook.Info) (string, error) {
 	if r.IsImplicit() {
 		// Implicit relations always return ErrNoOperation from
 		// NextOp.  Something broken if we reach here.
-		r.logger.Errorf(stdcontext.TODO(), "implicit relations must not run hooks")
+		r.logger.Errorf(stdcontext.Background(), "implicit relations must not run hooks")
 		return "", dependency.ErrBounce
 	}
 	st, err := r.stateMgr.Relation(hi.RelationId)

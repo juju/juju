@@ -55,16 +55,16 @@ func (r *actionsResolver) NextOp(
 		return nil, err
 	}
 	if nextActionId == "" {
-		r.logger.Debugf(context.TODO(), "no next action from pending=%v; completed=%v", remoteState.ActionsPending, localState.CompletedActions)
+		r.logger.Debugf(ctx, "no next action from pending=%v; completed=%v", remoteState.ActionsPending, localState.CompletedActions)
 	}
 
 	defer func() {
 		if errors.Cause(err) == charmrunner.ErrActionNotAvailable {
 			if localState.Step == operation.Pending && localState.ActionId != nil {
-				r.logger.Infof(context.TODO(), "found missing not yet started action %v; running fail action", *localState.ActionId)
+				r.logger.Infof(ctx, "found missing not yet started action %v; running fail action", *localState.ActionId)
 				op, err = opFactory.NewFailAction(*localState.ActionId)
 			} else if nextActionId != "" {
-				r.logger.Infof(context.TODO(), "found missing incomplete action %v; running fail action", nextActionId)
+				r.logger.Infof(ctx, "found missing incomplete action %v; running fail action", nextActionId)
 				op, err = opFactory.NewFailAction(nextActionId)
 			} else {
 				err = resolver.ErrNoOperation
@@ -80,12 +80,12 @@ func (r *actionsResolver) NextOp(
 		}
 	case operation.RunAction:
 		if localState.Hook != nil {
-			r.logger.Infof(context.TODO(), "found incomplete action %v; ignoring", localState.ActionId)
-			r.logger.Infof(context.TODO(), "recommitting prior %q hook", localState.Hook.Kind)
+			r.logger.Infof(ctx, "found incomplete action %v; ignoring", localState.ActionId)
+			r.logger.Infof(ctx, "recommitting prior %q hook", localState.Hook.Kind)
 			return opFactory.NewSkipHook(*localState.Hook)
 		}
 
-		r.logger.Infof(context.TODO(), "%q hook is nil, so running action %v", operation.RunAction, nextActionId)
+		r.logger.Infof(ctx, "%q hook is nil, so running action %v", operation.RunAction, nextActionId)
 		// If the next action is the same as what the uniter is
 		// currently running then this means that the uniter was
 		// some how interrupted (killed) when running the action
@@ -94,7 +94,7 @@ func (r *actionsResolver) NextOp(
 		// is fail the action, since rerunning an arbitrary
 		// command can potentially be hazardous.
 		if nextActionId == *localState.ActionId {
-			r.logger.Debugf(context.TODO(), "unit agent was interrupted while running action %v", *localState.ActionId)
+			r.logger.Debugf(ctx, "unit agent was interrupted while running action %v", *localState.ActionId)
 			return opFactory.NewFailAction(*localState.ActionId)
 		}
 

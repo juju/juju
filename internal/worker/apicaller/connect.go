@@ -118,7 +118,7 @@ func connectFallback(
 	// passwords if necessary; and update info, and remember
 	// which password we used.
 	if !didFallback {
-		logger.Debugf(context.TODO(), "connecting with current password")
+		logger.Debugf(ctx, "connecting with current password")
 		tryConnect()
 		if params.IsCodeUnauthorized(err) || errors.Cause(err) == apiservererrors.ErrUnauthorized {
 			didFallback = true
@@ -131,7 +131,7 @@ func connectFallback(
 		infoCopy := *info
 		info = &infoCopy
 		info.Password = fallbackPassword
-		logger.Debugf(context.TODO(), "connecting with old password")
+		logger.Debugf(ctx, "connecting with old password")
 		tryConnect()
 	}
 
@@ -162,10 +162,10 @@ func connectFallback(
 	// At this point we've run out of reasons to retry connecting,
 	// and just go with whatever error we last saw (if any).
 	if err != nil {
-		logger.Debugf(context.TODO(), "[%s] failed to connect", shortModelUUID(info.ModelTag))
+		logger.Debugf(ctx, "[%s] failed to connect", shortModelUUID(info.ModelTag))
 		return nil, false, errors.Trace(err)
 	}
-	logger.Infof(context.TODO(), "[%s] %q successfully connected to %q",
+	logger.Infof(ctx, "[%s] %q successfully connected to %q",
 		shortModelUUID(info.ModelTag),
 		info.Tag.String(),
 		conn.Addr())
@@ -211,7 +211,7 @@ func ScaryConnect(ctx context.Context, a agent.Agent, apiOpen api.OpenFunc, logg
 		default:
 			return
 		}
-		logger.Errorf(context.TODO(), "Failed to connect to controller: %v", err)
+		logger.Errorf(ctx, "Failed to connect to controller: %v", err)
 		err = ErrConnectImpossible
 	}()
 
@@ -225,7 +225,7 @@ func ScaryConnect(ctx context.Context, a agent.Agent, apiOpen api.OpenFunc, logg
 	defer func() {
 		if err != nil {
 			if err := conn.Close(); err != nil {
-				logger.Errorf(context.TODO(), "while closing API connection: %v", err)
+				logger.Errorf(ctx, "while closing API connection: %v", err)
 			}
 		}
 	}()
@@ -257,12 +257,12 @@ func ScaryConnect(ctx context.Context, a agent.Agent, apiOpen api.OpenFunc, logg
 	// for expeditious retry than it is to mess around with those
 	// responsibilities in here.
 	if usedOldPassword {
-		logger.Debugf(context.TODO(), "changing password...")
+		logger.Debugf(ctx, "changing password...")
 		err := changePassword(ctx, oldPassword, a, facade)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		logger.Infof(context.TODO(), "[%s] password changed for %q",
+		logger.Infof(ctx, "[%s] password changed for %q",
 			shortModelUUID(agentConfig.Model()), entity.String())
 		return nil, ErrChangedPassword
 	}

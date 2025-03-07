@@ -81,7 +81,7 @@ func (d *BundlesDir) download(ctx context.Context, info BundleInfo, target strin
 		Verify:        downloader.NewSha256Verifier(expectedSha256),
 		Abort:         abort,
 	}
-	d.logger.Infof(context.TODO(), "downloading %s from API server", info.URL())
+	d.logger.Infof(ctx, "downloading %s from API server", info.URL())
 	filename, err := d.downloader.Download(req)
 	if err != nil {
 		return errors.Annotatef(err, "failed to download charm %q from API server", info.URL())

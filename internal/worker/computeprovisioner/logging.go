@@ -18,7 +18,7 @@ import (
 // is also the return value of this function.
 func loggedErrorStack(logger logger.Logger, err error) error {
 	if featureflag.Enabled(featureflag.LogErrorStack) {
-		logger.Errorf(context.TODO(), "error stack:\n%s", errors.ErrorStack(err))
+		logger.Errorf(context.Background(), "error stack:\n%s", errors.ErrorStack(err))
 	}
 	return err
 }

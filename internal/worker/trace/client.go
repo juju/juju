@@ -227,7 +227,7 @@ func (p *tailSamplingProcessor) OnEnd(s sdktrace.ReadOnlySpan) {
 		return
 	}
 
-	p.logger.Tracef(context.TODO(), "Dropping span %s due to duration %s less than threshold %s", s.SpanContext().SpanID().String(), spanDuration, p.threshold)
+	p.logger.Tracef(context.Background(), "Dropping span %s due to duration %s less than threshold %s", s.SpanContext().SpanID().String(), spanDuration, p.threshold)
 }
 
 // Shutdown is called when the SDK shuts down. Any cleanup or release of

@@ -262,6 +262,9 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 }
 
 func (w *dbWorker) loop() (err error) {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	// The context here should not be tied to the catacomb, as such a context
 	// would be cancelled when the worker is stopped, and we want to give a
 	// chance for the Dqlite app to shut down gracefully.
@@ -287,7 +290,7 @@ func (w *dbWorker) loop() (err error) {
 	// Otherwise, this host is entering a HA cluster, and we need cluster
 	// configuration from disk.
 	if extant {
-		if err := w.startExistingDqliteNode(); err != nil {
+		if err := w.startExistingDqliteNode(ctx); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -306,7 +309,7 @@ func (w *dbWorker) loop() (err error) {
 			if req.op == getOp {
 				// Ensure the namespace exists or is allowed to open a new one
 				// before we attempt to open the database.
-				if err := w.ensureNamespace(req.namespace); err != nil {
+				if err := w.ensureNamespace(ctx, req.namespace); err != nil {
 					select {
 					case req.done <- errors.Annotatef(err, "ensuring namespace %q", req.namespace):
 					case <-w.catacomb.Dying():
@@ -314,7 +317,7 @@ func (w *dbWorker) loop() (err error) {
 					}
 					continue
 				}
-				if err := w.openDatabase(req.namespace); err != nil {
+				if err := w.openDatabase(ctx, req.namespace); err != nil {
 					select {
 					case req.done <- errors.Annotatef(err, "opening database for namespace %q", req.namespace):
 					case <-w.catacomb.Dying():
@@ -323,8 +326,8 @@ func (w *dbWorker) loop() (err error) {
 					continue
 				}
 			} else if req.op == delOp {
-				w.cfg.Logger.Infof(context.TODO(), "deleting database for namespace %q", req.namespace)
-				if err := w.deleteDatabase(req.namespace); err != nil {
+				w.cfg.Logger.Infof(ctx, "deleting database for namespace %q", req.namespace)
+				if err := w.deleteDatabase(ctx, req.namespace); err != nil {
 					select {
 					case req.done <- errors.Annotatef(err, "deleting database for namespace %q", req.namespace):
 					case <-w.catacomb.Dying():
@@ -344,7 +347,7 @@ func (w *dbWorker) loop() (err error) {
 			req.done <- nil
 
 		case <-w.cfg.ControllerConfigWatcher.Changes():
-			w.cfg.Logger.Infof(context.TODO(), "controller configuration changed on disk")
+			w.cfg.Logger.Infof(ctx, "controller configuration changed on disk")
 			if err := w.handleClusterConfigChange(true); err != nil {
 				return errors.Trace(err)
 			}
@@ -516,18 +519,15 @@ func (w *dbWorker) DeleteDB(namespace string) error {
 
 // startExistingDqliteNode takes care of starting Dqlite
 // when this host has run a node previously.
-func (w *dbWorker) startExistingDqliteNode() error {
+func (w *dbWorker) startExistingDqliteNode(ctx context.Context) error {
 	mgr := w.cfg.NodeManager
 	if mgr.IsLoopbackPreferred() {
-		w.cfg.Logger.Infof(context.TODO(), "Dqlite node is configured to bind to the loopback address")
+		w.cfg.Logger.Infof(ctx, "Dqlite node is configured to bind to the loopback address")
 
-		return errors.Trace(w.initialiseDqlite())
+		return errors.Trace(w.initialiseDqlite(ctx))
 	}
 
-	w.cfg.Logger.Infof(context.TODO(), "Dqlite node is configured to bind to a cloud-local address")
-
-	ctx, cancel := w.scopedContext()
-	defer cancel()
+	w.cfg.Logger.Infof(ctx, "Dqlite node is configured to bind to a cloud-local address")
 
 	asBootstrapped, err := mgr.IsLoopbackBound(ctx)
 	if err != nil {
@@ -547,16 +547,13 @@ func (w *dbWorker) startExistingDqliteNode() error {
 		options = append(options, withTLS)
 	}
 
-	return errors.Trace(w.initialiseDqlite(options...))
+	return errors.Trace(w.initialiseDqlite(ctx, options...))
 }
 
 // initialiseDqlite starts the local Dqlite app node,
 // opens and caches the controller database worker,
 // then updates the Dqlite info for this node.
-func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
+func (w *dbWorker) initialiseDqlite(ctx context.Context, options ...app.Option) error {
 	if err := w.startDqliteNode(ctx, options...); err != nil {
 		if errors.Is(err, errNotReady) {
 			return nil
@@ -568,7 +565,7 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 	// Other database namespaces are opened lazily via GetDB calls.
 	// We don't need to apply the database schema here as the
 	// controller database is created during bootstrap.
-	if err := w.openDatabase(database.ControllerNS); err != nil {
+	if err := w.openDatabase(ctx, database.ControllerNS); err != nil {
 		return errors.Annotate(err, "opening controller database")
 	}
 
@@ -629,11 +626,11 @@ func (w *dbWorker) startDqliteNode(ctx context.Context, options ...app.Option) e
 		return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
 	}
 
-	w.cfg.Logger.Infof(context.TODO(), "serving Dqlite application (ID: %v)", w.dbApp.ID())
+	w.cfg.Logger.Infof(ctx, "serving Dqlite application (ID: %v)", w.dbApp.ID())
 
 	if c, err := w.dbApp.Client(ctx); err == nil {
 		if info, err := c.Cluster(ctx); err == nil {
-			w.cfg.Logger.Infof(context.TODO(), "current cluster: %#v", info)
+			w.cfg.Logger.Infof(ctx, "current cluster: %#v", info)
 		}
 	}
 
@@ -652,7 +649,7 @@ func (w *dbWorker) startDqliteNode(ctx context.Context, options ...app.Option) e
 // it is safe to return ErrDying if the catacomb is dying when we detect a nil
 // database or ErrTryAgain to force the runner to retry starting the worker
 // again.
-func (w *dbWorker) openDatabase(namespace string) error {
+func (w *dbWorker) openDatabase(ctx context.Context, namespace string) error {
 	// Note: Do not be tempted to create the worker outside of the StartWorker
 	// function. This will create potential data race if openDatabase is called
 	// multiple times for the same namespace.
@@ -673,9 +670,6 @@ func (w *dbWorker) openDatabase(namespace string) error {
 			}
 		}
 
-		ctx, cancel := w.scopedContext()
-		defer cancel()
-
 		return w.cfg.NewDBWorker(ctx,
 			w.dbApp, namespace,
 			WithClock(w.cfg.Clock),
@@ -694,15 +688,12 @@ type killableWorker interface {
 	KillWithReason(error)
 }
 
-func (w *dbWorker) deleteDatabase(namespace string) error {
+func (w *dbWorker) deleteDatabase(ctx context.Context, namespace string) error {
 	// There will be no runner for the database, so we can't rely on the worker
 	// to remove and delete the database. We'll have to do that ourselves.
 	if namespace == database.ControllerNS {
 		return errors.Forbiddenf("cannot delete controller database")
 	}
-
-	ctx, cancel := w.scopedContext()
-	defer cancel()
 
 	worker, err := w.workerFromCache(namespace)
 	if err != nil {
@@ -753,6 +744,9 @@ func (w *dbWorker) deleteDatabase(namespace string) error {
 // The input argument determines whether the inability to read the config
 // should be considered an error condition.
 func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	log := w.cfg.Logger
 
 	clusterConf, err := w.cfg.ClusterConfig.DBBindAddresses()
@@ -765,19 +759,16 @@ func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
 		// fatal, it means we were checking it explicitly just in case it was
 		// written when we couldn't be notified.
 		// Having checked, we can rely hereafter on the charm notifying us.
-		log.Infof(context.TODO(), "unable to read cluster config at start-up; will await changes: %v", err)
+		log.Infof(ctx, "unable to read cluster config at start-up; will await changes: %v", err)
 		return nil
 	}
-	log.Infof(context.TODO(), "read cluster config: %+v", clusterConf)
+	log.Infof(ctx, "read cluster config: %+v", clusterConf)
 
 	mgr := w.cfg.NodeManager
 	extant, err := mgr.IsExistingNode()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	ctx, cancel := w.scopedContext()
-	defer cancel()
 
 	// If we prefer the loopback address, we shouldn't need to do anything.
 	// We double-check that we are bound to the loopback address. if not,
@@ -795,7 +786,7 @@ func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
 			}
 
 			// This should never happen, but we want to be conservative.
-			w.cfg.Logger.Warningf(context.TODO(), "existing Dqlite node is not bound to loopback, but should be; restarting worker")
+			w.cfg.Logger.Warningf(ctx, "existing Dqlite node is not bound to loopback, but should be; restarting worker")
 		}
 
 		// We don't have a Dqlite node, but somehow we got here, we should just
@@ -825,7 +816,7 @@ func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
 
 			addr, ok := clusterConf[w.cfg.ControllerID]
 			if !ok {
-				log.Infof(context.TODO(), "address for this Dqlite node to bind to not found")
+				log.Infof(ctx, "address for this Dqlite node to bind to not found")
 				return nil
 			}
 
@@ -833,7 +824,7 @@ func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
 				return errors.Trace(err)
 			}
 
-			log.Infof(context.TODO(), "successfully reconfigured Dqlite; restarting worker")
+			log.Infof(ctx, "successfully reconfigured Dqlite; restarting worker")
 			return dependency.ErrBounce
 		}
 
@@ -849,25 +840,25 @@ func (w *dbWorker) handleClusterConfigChange(noConfigIsFatal bool) error {
 		// Make absolutely sure. We only reconfigure the cluster if the details
 		// indicate exactly one controller machine, and that machine is us.
 		if _, ok := clusterConf[w.cfg.ControllerID]; ok && serverCount == 1 {
-			log.Warningf(context.TODO(), "reconfiguring Dqlite cluster with this node as the only member")
+			log.Warningf(ctx, "reconfiguring Dqlite cluster with this node as the only member")
 			if err := w.cfg.NodeManager.SetClusterToLocalNode(ctx); err != nil {
 				return errors.Annotatef(err, "reconfiguring Dqlite cluster")
 			}
 
-			log.Infof(context.TODO(), "successfully reconfigured Dqlite; restarting worker")
+			log.Infof(ctx, "successfully reconfigured Dqlite; restarting worker")
 			return dependency.ErrBounce
 		}
 
 		// Otherwise there is no deterministic course of action.
 		// We don't want to throw an error here, because it can result in churn
 		// when entering HA. Just try again to start.
-		log.Infof(context.TODO(), "unable to reconcile current controller and Dqlite cluster status; reattempting node start-up")
-		return errors.Trace(w.startExistingDqliteNode())
+		log.Infof(ctx, "unable to reconcile current controller and Dqlite cluster status; reattempting node start-up")
+		return errors.Trace(w.startExistingDqliteNode(ctx))
 	}
 
 	// Otherwise this is a node added by enabling HA,
 	// and we need to join to an existing cluster.
-	return errors.Trace(w.joinNodeToCluster(clusterConf))
+	return errors.Trace(w.joinNodeToCluster(ctx, clusterConf))
 }
 
 // rebindAddress stops the current node, reconfigures the cluster so that
@@ -890,7 +881,7 @@ func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
 	// NodeManager.IsLoopbackBound, but we want to guard very
 	// conservatively against breaking established clusters.
 	if len(servers) != 1 {
-		w.cfg.Logger.Debugf(context.TODO(), "not a singular server; skipping address rebind")
+		w.cfg.Logger.Debugf(ctx, "not a singular server; skipping address rebind")
 		return nil
 	}
 
@@ -901,7 +892,7 @@ func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
 	}
 	servers[0].Address = net.JoinHostPort(addr, port)
 
-	w.cfg.Logger.Infof(context.TODO(), "rebinding Dqlite node to %s", addr)
+	w.cfg.Logger.Infof(ctx, "rebinding Dqlite node to %s", addr)
 	if err := mgr.SetClusterServers(ctx, servers); err != nil {
 		return errors.Trace(err)
 	}
@@ -914,10 +905,10 @@ func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
 // It then uses these to initialise Dqlite.
 // If either bind or cluster addresses can not be determined,
 // we just return nil and keep waiting for further server detail messages.
-func (w *dbWorker) joinNodeToCluster(clusterConf map[string]string) error {
+func (w *dbWorker) joinNodeToCluster(ctx context.Context, clusterConf map[string]string) error {
 	localAddr, ok := clusterConf[w.cfg.ControllerID]
 	if !ok {
-		w.cfg.Logger.Infof(context.TODO(), "address for this Dqlite node to bind to not found")
+		w.cfg.Logger.Infof(ctx, "address for this Dqlite node to bind to not found")
 		return nil
 	}
 
@@ -930,11 +921,11 @@ func (w *dbWorker) joinNodeToCluster(clusterConf map[string]string) error {
 		}
 	}
 	if len(clusterAddrs) == 0 {
-		w.cfg.Logger.Infof(context.TODO(), "no addresses available for this Dqlite node to join cluster")
+		w.cfg.Logger.Infof(ctx, "no addresses available for this Dqlite node to join cluster")
 		return nil
 	}
 
-	w.cfg.Logger.Infof(context.TODO(), "joining Dqlite cluster")
+	w.cfg.Logger.Infof(ctx, "joining Dqlite cluster")
 	mgr := w.cfg.NodeManager
 
 	withTLS, err := mgr.WithTLSOption()
@@ -942,7 +933,7 @@ func (w *dbWorker) joinNodeToCluster(clusterConf map[string]string) error {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(w.initialiseDqlite(
+	return errors.Trace(w.initialiseDqlite(ctx,
 		mgr.WithAddressOption(localAddr), mgr.WithClusterOption(clusterAddrs), withTLS))
 }
 
@@ -952,7 +943,7 @@ func (w *dbWorker) joinNodeToCluster(clusterConf map[string]string) error {
 // reinitialised either directly or by bouncing the agent reasonably
 // soon after calling this method.
 func (w *dbWorker) shutdownDqlite(ctx context.Context, handover bool) {
-	w.cfg.Logger.Infof(context.TODO(), "shutting down Dqlite node")
+	w.cfg.Logger.Infof(ctx, "shutting down Dqlite node")
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -967,14 +958,14 @@ func (w *dbWorker) shutdownDqlite(ctx context.Context, handover bool) {
 		defer cancel()
 
 		if err := w.dbApp.Handover(ctx); err != nil {
-			w.cfg.Logger.Errorf(context.TODO(), "handing off Dqlite responsibilities: %v", err)
+			w.cfg.Logger.Errorf(ctx, "handing off Dqlite responsibilities: %v", err)
 		}
 	} else {
-		w.cfg.Logger.Infof(context.TODO(), "skipping Dqlite handover")
+		w.cfg.Logger.Infof(ctx, "skipping Dqlite handover")
 	}
 
 	if err := w.dbApp.Close(); err != nil {
-		w.cfg.Logger.Errorf(context.TODO(), "closing Dqlite application: %v", err)
+		w.cfg.Logger.Errorf(ctx, "closing Dqlite application: %v", err)
 	}
 
 	w.dbApp = nil
@@ -992,7 +983,7 @@ func (w *dbWorker) scopedContext() (context.Context, context.CancelFunc) {
 // the database. If the namespace is not within the allowed namespaces, it
 // will return a not found error. For any other error it will return the
 // underlying error. If it is allowed, then it will return nil.
-func (w *dbWorker) ensureNamespace(namespace string) error {
+func (w *dbWorker) ensureNamespace(ctx context.Context, namespace string) error {
 	// If the namespace is the controller namespace, we don't need to
 	// validate it. It exists by the very nature of the controller.
 	if namespace == database.ControllerNS {
@@ -1000,9 +991,6 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	}
 
 	// Otherwise, we need to validate that the namespace exists.
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
 	known, err := w.nodeService().IsKnownDatabaseNamespace(ctx, namespace)
 	if err != nil {
 		return errors.Trace(err)

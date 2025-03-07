@@ -238,7 +238,7 @@ func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *
 	// The provider reports an instance status of "running"; the machine
 	// reports it's machine status as "started".
 	entry, _ := updWorker.lookupPolledMachine(machineTag)
-	updWorker.maybeSwitchPollGroup(shortPollGroup, entry, status.Running, status.Started, 1)
+	updWorker.maybeSwitchPollGroup(context.Background(), shortPollGroup, entry, status.Running, status.Started, 1)
 
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0)
 	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 1)
@@ -261,7 +261,7 @@ func (s *workerSuite) TestNonStartedMachinesGetBumpedPollInterval(c *gc.C) {
 		updWorker.appendToShortPollGroup(machineTag, machine)
 		entry, _ := updWorker.lookupPolledMachine(machineTag)
 
-		updWorker.maybeSwitchPollGroup(shortPollGroup, entry, spec, status.Pending, 0)
+		updWorker.maybeSwitchPollGroup(context.Background(), shortPollGroup, entry, spec, status.Pending, 0)
 		c.Assert(entry.shortPollInterval, gc.Equals, time.Duration(float64(ShortPoll)*ShortPollBackoff))
 	}
 }
@@ -282,13 +282,13 @@ func (s *workerSuite) TestMoveMachineWithUnknownStatusBackToShortPollGroup(c *gc
 	// Move the machine to the long poll group.
 	updWorker.appendToShortPollGroup(machineTag, machine)
 	entry, _ := updWorker.lookupPolledMachine(machineTag)
-	updWorker.maybeSwitchPollGroup(shortPollGroup, entry, status.Running, status.Started, 1)
+	updWorker.maybeSwitchPollGroup(context.Background(), shortPollGroup, entry, status.Running, status.Started, 1)
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0)
 	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 1)
 
 	// If we get unknown status from the provider we expect the machine to
 	// be moved back to the short poll group.
-	updWorker.maybeSwitchPollGroup(longPollGroup, entry, status.Unknown, status.Started, 1)
+	updWorker.maybeSwitchPollGroup(context.Background(), longPollGroup, entry, status.Unknown, status.Started, 1)
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
 	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 0)
 	c.Assert(entry.shortPollInterval, gc.Equals, ShortPoll)

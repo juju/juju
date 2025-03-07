@@ -135,7 +135,7 @@ func (t *Tracker) loop() error {
 		ok                  bool
 	)
 	if cloudSpecSetter, ok = t.broker.(environs.CloudSpecSetter); !ok {
-		logger.Warningf(context.TODO(), "cloud type %v doesn't support dynamic changing of cloud spec", t.broker.Config().Type())
+		logger.Warningf(ctx, "cloud type %v doesn't support dynamic changing of cloud spec", t.broker.Config().Type())
 	} else {
 		cloudWatcher, err := t.config.ConfigAPI.WatchCloudSpecChanges(ctx)
 		if err != nil {
@@ -148,7 +148,7 @@ func (t *Tracker) loop() error {
 	}
 
 	for {
-		logger.Debugf(context.TODO(), "waiting for config and credential notifications")
+		logger.Debugf(ctx, "waiting for config and credential notifications")
 		select {
 		case <-t.catacomb.Dying():
 			return t.catacomb.ErrDying()
@@ -156,12 +156,12 @@ func (t *Tracker) loop() error {
 			if !ok {
 				return errors.New("model config watch closed")
 			}
-			logger.Debugf(context.TODO(), "reloading model config")
+			logger.Debugf(ctx, "reloading model config")
 			modelConfig, err := t.config.ConfigAPI.ModelConfig(context.TODO())
 			if err != nil {
 				return errors.Annotate(err, "cannot read model config")
 			}
-			if err = t.broker.SetConfig(context.TODO(), modelConfig); err != nil {
+			if err = t.broker.SetConfig(ctx, modelConfig); err != nil {
 				return errors.Annotate(err, "cannot update model config")
 			}
 		case _, ok := <-cloudWatcherChanges:
@@ -175,8 +175,8 @@ func (t *Tracker) loop() error {
 			if reflect.DeepEqual(cloudSpec, t.currentCloudSpec) {
 				continue
 			}
-			logger.Debugf(context.TODO(), "reloading cloud config")
-			if err = cloudSpecSetter.SetCloudSpec(context.TODO(), cloudSpec); err != nil {
+			logger.Debugf(ctx, "reloading cloud config")
+			if err = cloudSpecSetter.SetCloudSpec(ctx, cloudSpec); err != nil {
 				return errors.Annotate(err, "cannot update broker cloud spec")
 			}
 			t.currentCloudSpec = cloudSpec

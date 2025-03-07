@@ -49,13 +49,13 @@ func aggregateSNIGetter(logger logger.Logger, getters ...SNIGetterFunc) SNIGette
 		for _, getter := range getters {
 			cert, err := getter(hello)
 			if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, errors.NotImplemented) {
-				logger.Errorf(context.TODO(), "finding certificate with SNI getter: %v", err)
+				logger.Errorf(context.Background(), "finding certificate with SNI getter: %v", err)
 			}
 			if cert != nil {
 				return cert, nil
 			}
 		}
-		logger.Warningf(context.TODO(), "unable to find certificate for server name %q", hello.ServerName)
+		logger.Warningf(context.Background(), "unable to find certificate for server name %q", hello.ServerName)
 		return nil, fmt.Errorf("%w certificate for server name %q", errors.NotFound, hello.ServerName)
 	}
 }
@@ -96,7 +96,7 @@ func newTLSConfig(
 		}
 	}
 	certLogger := SNIGetterFunc(func(h *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		logger.Debugf(context.TODO(), "getting certificate for server name %q", h.ServerName)
+		logger.Debugf(context.Background(), "getting certificate for server name %q", h.ServerName)
 		return nil, errors.NotImplemented
 	})
 

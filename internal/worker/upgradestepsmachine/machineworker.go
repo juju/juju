@@ -102,7 +102,7 @@ func (w *machineWorker) run() error {
 	}
 
 	// Upgrade succeeded - signal that the upgrade is complete.
-	w.logger.Infof(context.TODO(), "upgrade to %v completed successfully.", w.base.ToVersion)
+	w.logger.Infof(ctx, "upgrade to %v completed successfully.", w.base.ToVersion)
 	_ = w.base.StatusSetter.SetStatus(ctx, status.Started, "", nil)
 	w.base.UpgradeCompleteLock.Unlock()
 	return nil
@@ -112,12 +112,12 @@ func (w *machineWorker) run() error {
 // updates the updatedToVersion on success.
 func (w *machineWorker) runUpgrades(ctx context.Context) error {
 	// Every upgrade needs to prepare the environment for the upgrade.
-	w.logger.Infof(context.TODO(), "checking that upgrade can proceed")
+	w.logger.Infof(ctx, "checking that upgrade can proceed")
 	if err := w.base.PreUpgradeSteps(w.base.Agent.CurrentConfig(), false); err != nil {
 		return errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.base.Tag))
 	}
 
-	w.logger.Infof(context.TODO(), "running upgrade steps for %q", w.base.Tag)
+	w.logger.Infof(ctx, "running upgrade steps for %q", w.base.Tag)
 	if err := w.base.Agent.ChangeConfig(w.base.RunUpgradeSteps(ctx, []upgrades.Target{
 		upgrades.HostMachine,
 	})); err != nil {
