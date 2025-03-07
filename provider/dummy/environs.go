@@ -64,6 +64,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/lease"
+	"github.com/juju/juju/internal/worker/modelcache"
+	"github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/pubsub/centralhub"
@@ -72,10 +76,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/lease"
-	"github.com/juju/juju/worker/modelcache"
-	"github.com/juju/juju/worker/multiwatcher"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")

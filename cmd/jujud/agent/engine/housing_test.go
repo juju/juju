@@ -9,15 +9,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
+	worker "github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/internal/worker/fortress"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/fortress"
 )
 
 type HousingSuite struct {

@@ -34,6 +34,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/authenticationworker"
+	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/logsender"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo/mongometrics"
 	"github.com/juju/juju/mongo/mongotest"
@@ -42,10 +46,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/authenticationworker"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/logsender"
 )
 
 const (

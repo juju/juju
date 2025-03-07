@@ -20,8 +20,8 @@ import (
 
 	"github.com/juju/juju/agent/addons"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
+	"github.com/juju/juju/internal/worker/introspection"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/introspection"
 )
 
 type introspectionSuite struct {

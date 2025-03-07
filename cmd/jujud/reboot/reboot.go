@@ -22,7 +22,9 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.reboot")
+
 var timeout = 10 * time.Minute
+
 var rebootAfter = 15
 
 func runCommand(args []string) error {

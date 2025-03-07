@@ -14,8 +14,8 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // These commands are deprecated, we don't want to document them.

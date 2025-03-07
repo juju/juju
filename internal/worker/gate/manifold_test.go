@@ -1,0 +1,179 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package gate_test
+
+import (
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v3/workertest"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/worker/gate"
+)
+
+type ManifoldSuite struct {
+	testing.IsolationSuite
+	manifold dependency.Manifold
+	worker   worker.Worker
+}
+
+var _ = gc.Suite(&ManifoldSuite{})
+
+func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.manifold = gate.Manifold()
+	w, err := s.manifold.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.worker = w
+}
+
+func (s *ManifoldSuite) TearDownTest(c *gc.C) {
+	if s.worker != nil {
+		checkStop(c, s.worker)
+	}
+	s.IsolationSuite.TearDownTest(c)
+}
+
+func (s *ManifoldSuite) TestLocked(c *gc.C) {
+	w := waiter(c, s.manifold, s.worker)
+	assertLocked(c, w)
+}
+
+func (s *ManifoldSuite) TestUnlock(c *gc.C) {
+	u := unlocker(c, s.manifold, s.worker)
+	w := waiter(c, s.manifold, s.worker)
+
+	u.Unlock()
+	assertUnlocked(c, w)
+}
+
+func (s *ManifoldSuite) TestUnlockAgain(c *gc.C) {
+	u := unlocker(c, s.manifold, s.worker)
+	w := waiter(c, s.manifold, s.worker)
+
+	u.Unlock()
+	u.Unlock()
+	assertUnlocked(c, w)
+}
+
+func (s *ManifoldSuite) TestRestartLocks(c *gc.C) {
+	u := unlocker(c, s.manifold, s.worker)
+	u.Unlock()
+
+	workertest.CleanKill(c, s.worker)
+	worker, err := s.manifold.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
+
+	w := waiter(c, s.manifold, worker)
+	assertLocked(c, w)
+}
+
+func (s *ManifoldSuite) TestManifoldWithLockWorkersConnected(c *gc.C) {
+	lock := gate.NewLock()
+	manifold := gate.ManifoldEx(lock)
+	worker, err := manifold.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
+
+	worker2, err := manifold.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker2)
+
+	u := unlocker(c, manifold, worker)
+	w := waiter(c, manifold, worker2)
+
+	u.Unlock()
+	assertUnlocked(c, w)
+}
+
+func (s *ManifoldSuite) TestLockOutput(c *gc.C) {
+	var lock gate.Lock
+	err := s.manifold.Output(s.worker, &lock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := waiter(c, s.manifold, s.worker)
+	assertLocked(c, w)
+	lock.Unlock()
+	assertUnlocked(c, w)
+}
+
+func (s *ManifoldSuite) TestDifferentManifoldWorkersUnconnected(c *gc.C) {
+	manifold2 := gate.Manifold()
+	worker2, err := manifold2.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer checkStop(c, worker2)
+
+	u := unlocker(c, s.manifold, s.worker)
+	w := waiter(c, manifold2, worker2)
+
+	u.Unlock()
+	assertLocked(c, w)
+}
+
+func (s *ManifoldSuite) TestAlreadyUnlockedIsUnlocked(c *gc.C) {
+	w := gate.AlreadyUnlocked{}
+	assertUnlocked(c, w)
+}
+
+func (s *ManifoldSuite) TestManifoldEx(c *gc.C) {
+	lock := gate.NewLock()
+
+	manifold := gate.ManifoldEx(lock)
+	var waiter1 gate.Waiter = lock
+	var unlocker1 gate.Unlocker = lock
+
+	worker, err := manifold.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer checkStop(c, worker)
+	waiter2 := waiter(c, manifold, worker)
+
+	assertLocked(c, waiter1)
+	assertLocked(c, waiter2)
+
+	unlocker1.Unlock()
+	assertUnlocked(c, waiter1)
+	assertUnlocked(c, waiter2)
+}
+
+func unlocker(c *gc.C, m dependency.Manifold, w worker.Worker) gate.Unlocker {
+	var unlocker gate.Unlocker
+	err := m.Output(w, &unlocker)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unlocker, gc.NotNil)
+	return unlocker
+}
+
+func waiter(c *gc.C, m dependency.Manifold, w worker.Worker) gate.Waiter {
+	var waiter gate.Waiter
+	err := m.Output(w, &waiter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(waiter, gc.NotNil)
+	return waiter
+}
+
+func assertLocked(c *gc.C, waiter gate.Waiter) {
+	c.Assert(waiter.IsUnlocked(), jc.IsFalse)
+	select {
+	case <-waiter.Unlocked():
+		c.Fatalf("expected gate to be locked")
+	default:
+	}
+}
+
+func assertUnlocked(c *gc.C, waiter gate.Waiter) {
+	c.Assert(waiter.IsUnlocked(), jc.IsTrue)
+	select {
+	case <-waiter.Unlocked():
+	default:
+		c.Fatalf("expected gate to be unlocked")
+	}
+}
+
+func checkStop(c *gc.C, w worker.Worker) {
+	err := worker.Stop(w)
+	c.Check(err, jc.ErrorIsNil)
+}

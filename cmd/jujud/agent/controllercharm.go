@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm/v12"
+	charm "github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/juju/environschema.v1"
+	environschema "gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

@@ -19,11 +19,11 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/modelcache"
+	"github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/modelcache"
-	"github.com/juju/juju/worker/multiwatcher"
 )
 
 type baseSuite struct {

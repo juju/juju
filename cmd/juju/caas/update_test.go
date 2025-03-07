@@ -24,7 +24,6 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/jujuclient"
-	// To allow a maas cloud type to be parsed in the test data.
 	_ "github.com/juju/juju/provider/maas"
 	"github.com/juju/juju/rpc/params"
 )
