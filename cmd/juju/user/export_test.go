@@ -124,3 +124,11 @@ func NewWhoAmICommandForTest(store jujuclient.ClientStore) cmd.Command {
 	c := &whoAmICommand{store: store}
 	return c
 }
+
+func NewLoginCommandWithSessionLoginFactory(factory modelcmd.SessionLoginFactory) cmd.Command {
+	var c loginCommand
+	c.SetClientStore(loginClientStore)
+	c.CanClearCurrentModel = true
+	c.SetSessionLoginFactory(factory)
+	return modelcmd.WrapController(&c, modelcmd.WrapControllerSkipControllerFlags)
+}

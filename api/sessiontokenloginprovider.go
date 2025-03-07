@@ -28,6 +28,16 @@ var (
 	}
 )
 
+// SessionTokenLoginFactory provides a
+// level of indirection for generating
+// a session token login provider.
+type SessionTokenLoginFactory struct{}
+
+// NewLoginProvider provides a real session token login provider.
+func (s SessionTokenLoginFactory) NewLoginProvider(token string, output io.Writer, tokenCallback func(token string)) LoginProvider {
+	return NewSessionTokenLoginProvider(token, output, tokenCallback)
+}
+
 // NewSessionTokenLoginProvider returns a LoginProvider implementation that
 // authenticates the entity with the session token.
 func NewSessionTokenLoginProvider(
