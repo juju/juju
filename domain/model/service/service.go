@@ -122,11 +122,12 @@ type State interface {
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
 
-	// GetActivatedModelUUIDs returns the UUIDs of all activated models from the given list of UUIDs.
-	GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]string, error)
+	// GetActivatedModelUUIDs returns the subset of model uuids from the supplied list that are activated.
+	// If no model uuids are activated then an empty slice is returned.
+	GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]coremodel.UUID, error)
 
-	// AllModelActivationStatusQuery returns the query string to get the activation status of all models.
-	AllModelActivationStatusQuery() string
+	// GetAllActivatedModelsUUIDQuery returns the query string to get the activation status of all models.
+	GetAllActivatedModelsUUIDQuery() string
 }
 
 // ModelDeleter is an interface for deleting models.
@@ -139,22 +140,36 @@ type ModelDeleter interface {
 // Service defines a service for interacting with the underlying state based
 // information of a model.
 type Service struct {
-	st             State
-	modelDeleter   ModelDeleter
-	logger         logger.Logger
-	watcherFactory WatcherFactory
+	st           State
+	modelDeleter ModelDeleter
+	logger       logger.Logger
 }
 
 var (
 	caasCloudTypes = []string{cloud.CloudTypeKubernetes}
 )
 
+// NewService returns a new Service for interacting with a models state.
+func NewService(
+	st State,
+	modelDeleter ModelDeleter,
+	logger logger.Logger,
+) *Service {
+	return &Service{
+		st:           st,
+		modelDeleter: modelDeleter,
+		logger:       logger,
+	}
+}
+
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewNamespaceWatcher returns a new namespace watcher
-	// for events based on the input change mask.
+	// NewNamespaceWatcher returns a new namespace watcher for events based on the input change mask.
+	// The initialStateQuery ensures the watcher starts with the current state of the table,
+	// preventing data loss from prior events.
 	NewNamespaceMapperWatcher(
-		namespace string, changeMask changestream.ChangeType, initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper,
+		namespace string, changeMask changestream.ChangeType,
+		initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper,
 	) (watcher.StringsWatcher, error)
 }
 
@@ -163,14 +178,22 @@ type WatcherFactoryGetter interface {
 	GetWatcherFactory() WatcherFactory
 }
 
-// NewService returns a new Service for interacting with a models state.
-func NewService(
-	st State,
+// WatchableService provides the API for working with the models
+// and the ability to create watchers.
+type WatchableService struct {
+	st             State
+	modelDeleter   ModelDeleter
+	logger         logger.Logger
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new service reference wrapping the input state.
+func NewWatchableService(st State,
 	modelDeleter ModelDeleter,
 	logger logger.Logger,
 	watcherFactory WatcherFactory,
-) *Service {
-	return &Service{
+) *WatchableService {
+	return &WatchableService{
 		st:             st,
 		modelDeleter:   modelDeleter,
 		logger:         logger,
@@ -570,30 +593,17 @@ func (s *Service) UpdateCredential(
 	return s.st.UpdateCredential(ctx, uuid, key)
 }
 
-// Watch returns a watcher that monitors changes to models.
-// The watcher listens for create and update events for all models but processes
-// only the activated ones. It maps change events using a filtering function that:
-//  1. Extracts the model UUID from each create/update event.
-//  2. Retrieve and filter UUIDs of activated models from all the extracted UUIDs.
-//  3. Includes the event in the watcher stream associated with each filtered UUID.
-//
-// Potential concerns:
-//   - If retrieving the UUIDs of all activated models from the input list of UUIDs fails,
-//     these events would be skipped, which may lead to missed updates if errors occur frequently.
-//   - This approach may also include change events of already activated models, eg. updating the model name.
-//
-// Returns:
-//   - watcher.StringsWatcher: A watcher that streams events related to activated models.
-//   - error: An error if the watcher cannot be created.
-func (s *Service) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
+// WatchActivatedModels returns a watcher that reports all activated models in the controller.
+// The watcher outputs events for when an activated model receives an update.
+// Deletion of activated models are not reported.
+func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error) {
 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-		activatedModelChangeEvents := make([]changestream.ChangeEvent, 0, len(changes))
 		uuidToChangeEventMap := make(map[string]changestream.ChangeEvent)
-		modelUUIDs := make([]string, 0, len(changes))
+		modelUUIDs := make([]string, len(changes))
 
-		for _, change := range changes {
+		for i, change := range changes {
 			modelUUID := change.Changed()
-			modelUUIDs = append(modelUUIDs, modelUUID)
+			modelUUIDs[i] = modelUUID
 			uuidToChangeEventMap[modelUUID] = change
 		}
 
@@ -606,9 +616,10 @@ func (s *Service) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
 			return nil, err
 		}
 
+		activatedModelChangeEvents := make([]changestream.ChangeEvent, 0, len(changes))
 		// Add all events associated with activated model UUIDs
 		for _, activatedModelUUID := range activatedModelUUIDs {
-			if changeEvent, exists := uuidToChangeEventMap[activatedModelUUID]; exists {
+			if changeEvent, exists := uuidToChangeEventMap[activatedModelUUID.String()]; exists {
 				activatedModelChangeEvents = append(activatedModelChangeEvents, changeEvent)
 			}
 		}
@@ -618,7 +629,7 @@ func (s *Service) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		"model", changestream.Changed,
-		eventsource.InitialNamespaceChanges(s.st.AllModelActivationStatusQuery()),
+		eventsource.InitialNamespaceChanges(s.st.GetAllActivatedModelsUUIDQuery()),
 		mapper,
 	)
 }

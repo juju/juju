@@ -160,7 +160,6 @@ func (i *importModelOperation) Setup(scope modelmigration.Scope) error {
 		modelstate.NewState(scope.ControllerDB()),
 		scope.ModelDeleter(),
 		i.logger,
-		nil,
 	)
 
 	i.modelDetailServiceFunc = modelDetailServiceGetter(scope, i.logger)

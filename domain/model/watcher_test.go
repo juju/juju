@@ -50,11 +50,10 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
 	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, logger)
 	st := state.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
-	modelSvc := service.NewService(st, nil,
-		loggertesting.WrapCheckLog(c), watcherFactory)
+	modelSvc := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
 
 	// Create a controller service watcher.
-	watcher, err := modelSvc.Watch(context.Background())
+	watcher, err := modelSvc.WatchActivatedModels(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watcher, gc.NotNil)
 
@@ -65,8 +64,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *gc.C) {
-		// Create a new model named test-model. This should not trigger a change event as activation status is false.
-
+		// Create a new model named test-model and activate it.
 		modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), modelName)
 		modelUUIDStr = modelUUID.String()
 

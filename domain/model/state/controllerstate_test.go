@@ -1752,6 +1752,29 @@ func (m *stateSuite) createTestModel(c *gc.C, modelSt *State, name string, creat
 	return modelUUID
 }
 
+func (m *stateSuite) createTestModelWithoutActivation(c *gc.C, modelSt *State, name string, creatorUUID user.UUID) coremodel.UUID {
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := modelSt.Create(
+		context.Background(),
+		modelUUID,
+		coremodel.IAAS,
+		model.GlobalModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: usertesting.GenNewName(c, "test-user"),
+				Name:  "foobar",
+			},
+			Name:          name,
+			Owner:         creatorUUID,
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	return modelUUID
+}
+
 // TestCloudSupportsAuthTypeTrue is asserting the happy path that for a valid
 // cloud and supported auth type we get back true with no errors.
 func (s *stateSuite) TestCloudSupportsAuthTypeTrue(c *gc.C) {
@@ -1875,8 +1898,30 @@ func (s *stateSuite) TestGetControllerModelUUIDNotFound(c *gc.C) {
 
 func (s *stateSuite) TestGetActivatedModelUUIDs(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
+
+	// Test activated model UUID.
 	activatedModelUUIDs, err := st.GetActivatedModelUUIDs(context.Background(), []string{s.uuid.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(activatedModelUUIDs, gc.HasLen, 1)
-	c.Check(activatedModelUUIDs[0], gc.Equals, s.uuid.String())
+	c.Check(activatedModelUUIDs[0], gc.Equals, s.uuid)
+
+	// Test non-activated model UUID.
+	unactivatedModelUUID := s.createTestModelWithoutActivation(c, st, "my-unactivated-model", s.userUUID)
+	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []string{unactivatedModelUUID.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(activatedModelUUIDs, gc.HasLen, 0)
+
+	// Test non-existent model UUID.
+	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []string{"non-existent-uuid"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(activatedModelUUIDs, gc.HasLen, 0)
+
+	// Test activated, non-activated and non-existent model UUIDs.
+	activatedModelUUID := s.createTestModel(c, st, "my-activated-model", s.userUUID)
+	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(),
+		[]string{s.uuid.String(), activatedModelUUID.String(), unactivatedModelUUID.String(), "non-existent-uuid"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(activatedModelUUIDs, gc.HasLen, 2)
+	c.Check(activatedModelUUIDs[0], gc.Equals, s.uuid)
+	c.Check(activatedModelUUIDs[1], gc.Equals, activatedModelUUID)
 }

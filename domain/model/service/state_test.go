@@ -340,10 +340,10 @@ func (d *dummyState) ListAllModelSummaries(_ context.Context) ([]coremodel.Model
 	return rval, nil
 }
 
-func (d *dummyState) AllModelActivationStatusQuery() string {
+func (d *dummyState) GetAllActivatedModelsUUIDQuery() string {
 	return "SELECT activated from model"
 }
 
-func (d *dummyState) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]string, error) {
+func (d *dummyState) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]coremodel.UUID, error) {
 	return nil, nil
 }

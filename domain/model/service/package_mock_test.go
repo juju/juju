@@ -604,44 +604,6 @@ func (c *MockStateActivateCall) DoAndReturn(f func(context.Context, model.UUID) 
 	return c
 }
 
-// AllModelActivationStatusQuery mocks base method.
-func (m *MockState) AllModelActivationStatusQuery() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllModelActivationStatusQuery")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// AllModelActivationStatusQuery indicates an expected call of AllModelActivationStatusQuery.
-func (mr *MockStateMockRecorder) AllModelActivationStatusQuery() *MockStateAllModelActivationStatusQueryCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelActivationStatusQuery", reflect.TypeOf((*MockState)(nil).AllModelActivationStatusQuery))
-	return &MockStateAllModelActivationStatusQueryCall{Call: call}
-}
-
-// MockStateAllModelActivationStatusQueryCall wrap *gomock.Call
-type MockStateAllModelActivationStatusQueryCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateAllModelActivationStatusQueryCall) Return(arg0 string) *MockStateAllModelActivationStatusQueryCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateAllModelActivationStatusQueryCall) Do(f func() string) *MockStateAllModelActivationStatusQueryCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAllModelActivationStatusQueryCall) DoAndReturn(f func() string) *MockStateAllModelActivationStatusQueryCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CloudSupportsAuthType mocks base method.
 func (m *MockState) CloudSupportsAuthType(arg0 context.Context, arg1 string, arg2 cloud.AuthType) (bool, error) {
 	m.ctrl.T.Helper()
@@ -797,10 +759,10 @@ func (c *MockStateDeleteCall) DoAndReturn(f func(context.Context, model.UUID) er
 }
 
 // GetActivatedModelUUIDs mocks base method.
-func (m *MockState) GetActivatedModelUUIDs(arg0 context.Context, arg1 []string) ([]string, error) {
+func (m *MockState) GetActivatedModelUUIDs(arg0 context.Context, arg1 []string) ([]model.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetActivatedModelUUIDs", arg0, arg1)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].([]model.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -818,19 +780,57 @@ type MockStateGetActivatedModelUUIDsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetActivatedModelUUIDsCall) Return(arg0 []string, arg1 error) *MockStateGetActivatedModelUUIDsCall {
+func (c *MockStateGetActivatedModelUUIDsCall) Return(arg0 []model.UUID, arg1 error) *MockStateGetActivatedModelUUIDsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetActivatedModelUUIDsCall) Do(f func(context.Context, []string) ([]string, error)) *MockStateGetActivatedModelUUIDsCall {
+func (c *MockStateGetActivatedModelUUIDsCall) Do(f func(context.Context, []string) ([]model.UUID, error)) *MockStateGetActivatedModelUUIDsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetActivatedModelUUIDsCall) DoAndReturn(f func(context.Context, []string) ([]string, error)) *MockStateGetActivatedModelUUIDsCall {
+func (c *MockStateGetActivatedModelUUIDsCall) DoAndReturn(f func(context.Context, []string) ([]model.UUID, error)) *MockStateGetActivatedModelUUIDsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetAllActivatedModelsUUIDQuery mocks base method.
+func (m *MockState) GetAllActivatedModelsUUIDQuery() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllActivatedModelsUUIDQuery")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetAllActivatedModelsUUIDQuery indicates an expected call of GetAllActivatedModelsUUIDQuery.
+func (mr *MockStateMockRecorder) GetAllActivatedModelsUUIDQuery() *MockStateGetAllActivatedModelsUUIDQueryCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllActivatedModelsUUIDQuery", reflect.TypeOf((*MockState)(nil).GetAllActivatedModelsUUIDQuery))
+	return &MockStateGetAllActivatedModelsUUIDQueryCall{Call: call}
+}
+
+// MockStateGetAllActivatedModelsUUIDQueryCall wrap *gomock.Call
+type MockStateGetAllActivatedModelsUUIDQueryCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllActivatedModelsUUIDQueryCall) Return(arg0 string) *MockStateGetAllActivatedModelsUUIDQueryCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllActivatedModelsUUIDQueryCall) Do(f func() string) *MockStateGetAllActivatedModelsUUIDQueryCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllActivatedModelsUUIDQueryCall) DoAndReturn(f func() string) *MockStateGetAllActivatedModelsUUIDQueryCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
@@ -1803,17 +1804,19 @@ AND    ot.type = $dbPermission.object_type
 	return nil
 }
 
-// AllModelActivationStatusQuery returns a SQL statement that will return all model activated status.
-func (st *State) AllModelActivationStatusQuery() string {
-	return "SELECT activated from model"
+// GetAllActivatedModelsUUIDQuery returns a SQL statement that will return all activated models uuids.
+func (st *State) GetAllActivatedModelsUUIDQuery() string {
+	return "SELECT uuid from model WHERE activated = true"
 }
 
-// GetActivatedModelUUIDs returns the UUIDs of all activated models from the given list of UUIDs.
+// GetActivatedModelUUIDs returns the subset of model uuids from the supplied list that are activated.
+// If no models associated with the uuids are activated then an empty slice is returned.
 //
 // Returns:
-//   - []string: A subset of the input UUIDs containing only those of activated models.
+//   - []coremodel.UUID: A subset of the input UUIDs containing
+//     only those of activated models or nil if there is an error.
 //   - error: An error if the retrieval process fails.
-func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]string, error) {
+func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]coremodel.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1823,37 +1826,29 @@ func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]
 		UUID coremodel.UUID `db:"uuid"`
 	}
 
-	type UUIDs []string
-	inputUUIDs := UUIDs(uuids)
-
 	stmt, err := st.Prepare(`
-SELECT 
-uuid AS &modelUUID.uuid
-FROM   model
-WHERE uuid IN ($UUIDs[:])
-AND activated = true
-`, UUIDs{}, modelUUID{})
+SELECT uuid AS &modelUUID.uuid
+FROM   v_model
+WHERE uuid IN ($S[:])
+`, sqlair.S{}, modelUUID{})
 
 	if err != nil {
 		return nil, errors.Errorf("preparing select model activated status statement: %w", err)
 	}
 
-	var modelUUIDs []modelUUID
+	args := sqlair.S(transform.Slice(uuids, func(s string) any { return any(s) }))
+	modelUUIDs := []modelUUID{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, inputUUIDs).GetAll(&modelUUIDs)
+		err := tx.Query(ctx, stmt, args).GetAll(&modelUUIDs)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return err
 		}
 		return nil
 	})
 
+	res := transform.Slice(modelUUIDs, func(m modelUUID) coremodel.UUID { return m.UUID })
 	if err != nil {
 		return nil, errors.Capture(err)
-	}
-
-	res := make([]string, 0, len(modelUUIDs))
-	for _, modelUUID := range modelUUIDs {
-		res = append(res, modelUUID.UUID.String())
 	}
 
 	return res, nil
