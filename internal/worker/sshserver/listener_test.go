@@ -15,34 +15,14 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-// sshServerListener is required to prevent a race condition
-// that can occur in tests.
+// testingSSHServerListener is required to prevent a race condition that can
+// occur in tests.
 //
-// The SSH server tracks the listeners in use
-// but if the server's close() method executes
-// before we reach a safe point in the Serve() method
-// then the server's map of listeners will be empty.
-// A safe point to indicate the server is ready is
-// right before we start accepting connections.
-// Accept() will return with error if the underlying
-// listener is already closed.
-//
-// As such, we ensure accept has been called at least once
-// before allowing a close to take effect. The corresponding
-// piece to this is to receive from the closeAllowed channel
-// within your cleanup routine.
-//
-// Example:
-//
-//	listener, closeAllowed := newSSHServerListener(s.config.Listener)
-//
-//	s.tomb.Go(func() error {
-//		<-s.tomb.Dying()
-//		<-closeAllowed // Not until accept has been called once, will this be allowed to continue.
-//		if err := s.Server.Close(); err != nil {
-//			...
-//		}
-//	})
+// The SSH server tracks the listeners in use but if the server's close() method
+// executes before we reach a safe point in the Serve() method then the server's
+// map of listeners will be empty. A safe point to indicate the server is ready
+// is right before we start accepting connections. Accept() will return with
+// error if the underlying listener is already closed.
 type testingSSHServerListener struct {
 	net.Listener
 	// closeAllowed indicates when the server has reached
@@ -53,9 +33,7 @@ type testingSSHServerListener struct {
 	timeout time.Duration
 }
 
-// newTestingSSHServerListener returns a listener and a closedAllowed channel.
-// You are expected to receive from the closeAllowed channel within your Close()
-// function. The channel is closed once an accept has occurred at least once.
+// newTestingSSHServerListener returns a listener.
 func newTestingSSHServerListener(l net.Listener, timeout time.Duration) net.Listener {
 	return testingSSHServerListener{
 		Listener:     l,
