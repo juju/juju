@@ -31,7 +31,6 @@ import (
 type MockControllerState struct {
 	ctrl     *gomock.Controller
 	recorder *MockControllerStateMockRecorder
-	isgomock struct{}
 }
 
 // MockControllerStateMockRecorder is the mock recorder for MockControllerState.
@@ -133,7 +132,6 @@ func (c *MockControllerStateGetModelStateCall) DoAndReturn(f func(context.Contex
 type MockEnvironVersionProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockEnvironVersionProviderMockRecorder
-	isgomock struct{}
 }
 
 // MockEnvironVersionProviderMockRecorder is the mock recorder for MockEnvironVersionProvider.
@@ -195,7 +193,6 @@ func (c *MockEnvironVersionProviderVersionCall) DoAndReturn(f func() int) *MockE
 type MockModelDeleter struct {
 	ctrl     *gomock.Controller
 	recorder *MockModelDeleterMockRecorder
-	isgomock struct{}
 }
 
 // MockModelDeleterMockRecorder is the mock recorder for MockModelDeleter.
@@ -257,7 +254,6 @@ func (c *MockModelDeleterDeleteDBCall) DoAndReturn(f func(string) error) *MockMo
 type MockModelState struct {
 	ctrl     *gomock.Controller
 	recorder *MockModelStateMockRecorder
-	isgomock struct{}
 }
 
 // MockModelStateMockRecorder is the mock recorder for MockModelState.
@@ -551,7 +547,6 @@ func (c *MockModelStateSetModelConstraintsCall) DoAndReturn(f func(context.Conte
 type MockState struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateMockRecorder
-	isgomock struct{}
 }
 
 // MockStateMockRecorder is the mock recorder for MockState.
@@ -802,18 +797,18 @@ func (c *MockStateDeleteCall) DoAndReturn(f func(context.Context, model.UUID) er
 }
 
 // GetActivatedModelUUIDs mocks base method.
-func (m *MockState) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]string, error) {
+func (m *MockState) GetActivatedModelUUIDs(arg0 context.Context, arg1 []string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetActivatedModelUUIDs", ctx, uuids)
+	ret := m.ctrl.Call(m, "GetActivatedModelUUIDs", arg0, arg1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetActivatedModelUUIDs indicates an expected call of GetActivatedModelUUIDs.
-func (mr *MockStateMockRecorder) GetActivatedModelUUIDs(ctx, uuids any) *MockStateGetActivatedModelUUIDsCall {
+func (mr *MockStateMockRecorder) GetActivatedModelUUIDs(arg0, arg1 any) *MockStateGetActivatedModelUUIDsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActivatedModelUUIDs", reflect.TypeOf((*MockState)(nil).GetActivatedModelUUIDs), ctx, uuids)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActivatedModelUUIDs", reflect.TypeOf((*MockState)(nil).GetActivatedModelUUIDs), arg0, arg1)
 	return &MockStateGetActivatedModelUUIDsCall{Call: call}
 }
 
@@ -841,18 +836,18 @@ func (c *MockStateGetActivatedModelUUIDsCall) DoAndReturn(f func(context.Context
 }
 
 // GetControllerModel mocks base method.
-func (m *MockState) GetControllerModel(ctx context.Context) (model.Model, error) {
+func (m *MockState) GetControllerModel(arg0 context.Context) (model.Model, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetControllerModel", ctx)
+	ret := m.ctrl.Call(m, "GetControllerModel", arg0)
 	ret0, _ := ret[0].(model.Model)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetControllerModel indicates an expected call of GetControllerModel.
-func (mr *MockStateMockRecorder) GetControllerModel(ctx any) *MockStateGetControllerModelCall {
+func (mr *MockStateMockRecorder) GetControllerModel(arg0 any) *MockStateGetControllerModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerModel", reflect.TypeOf((*MockState)(nil).GetControllerModel), ctx)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerModel", reflect.TypeOf((*MockState)(nil).GetControllerModel), arg0)
 	return &MockStateGetControllerModelCall{Call: call}
 }
 
@@ -1115,18 +1110,18 @@ func (c *MockStateGetModelUsersCall) DoAndReturn(f func(context.Context, model.U
 }
 
 // ListAllModelSummaries mocks base method.
-func (m *MockState) ListAllModelSummaries(ctx context.Context) ([]model.ModelSummary, error) {
+func (m *MockState) ListAllModelSummaries(arg0 context.Context) ([]model.ModelSummary, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListAllModelSummaries", ctx)
+	ret := m.ctrl.Call(m, "ListAllModelSummaries", arg0)
 	ret0, _ := ret[0].([]model.ModelSummary)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListAllModelSummaries indicates an expected call of ListAllModelSummaries.
-func (mr *MockStateMockRecorder) ListAllModelSummaries(ctx any) *MockStateListAllModelSummariesCall {
+func (mr *MockStateMockRecorder) ListAllModelSummaries(arg0 any) *MockStateListAllModelSummariesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAllModelSummaries", reflect.TypeOf((*MockState)(nil).ListAllModelSummaries), ctx)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAllModelSummaries", reflect.TypeOf((*MockState)(nil).ListAllModelSummaries), arg0)
 	return &MockStateListAllModelSummariesCall{Call: call}
 }
 
@@ -1351,7 +1346,6 @@ func (c *MockStateUpdateCredentialCall) DoAndReturn(f func(context.Context, mode
 type MockResourceCreationProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockResourceCreationProviderMockRecorder
-	isgomock struct{}
 }
 
 // MockResourceCreationProviderMockRecorder is the mock recorder for MockResourceCreationProvider.
@@ -1413,7 +1407,6 @@ func (c *MockResourceCreationProviderCreateCall) DoAndReturn(f func(envcontext.P
 type MockWatcherFactoryGetter struct {
 	ctrl     *gomock.Controller
 	recorder *MockWatcherFactoryGetterMockRecorder
-	isgomock struct{}
 }
 
 // MockWatcherFactoryGetterMockRecorder is the mock recorder for MockWatcherFactoryGetter.
@@ -1475,7 +1468,6 @@ func (c *MockWatcherFactoryGetterGetWatcherFactoryCall) DoAndReturn(f func() Wat
 type MockWatcherFactory struct {
 	ctrl     *gomock.Controller
 	recorder *MockWatcherFactoryMockRecorder
-	isgomock struct{}
 }
 
 // MockWatcherFactoryMockRecorder is the mock recorder for MockWatcherFactory.
@@ -1496,18 +1488,18 @@ func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 }
 
 // NewNamespaceMapperWatcher mocks base method.
-func (m *MockWatcherFactory) NewNamespaceMapperWatcher(namespace string, changeMask changestream.ChangeType, initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper) (watcher.Watcher[[]string], error) {
+func (m *MockWatcherFactory) NewNamespaceMapperWatcher(arg0 string, arg1 changestream.ChangeType, arg2 eventsource.NamespaceQuery, arg3 eventsource.Mapper) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewNamespaceMapperWatcher", namespace, changeMask, initialStateQuery, mapper)
+	ret := m.ctrl.Call(m, "NewNamespaceMapperWatcher", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewNamespaceMapperWatcher indicates an expected call of NewNamespaceMapperWatcher.
-func (mr *MockWatcherFactoryMockRecorder) NewNamespaceMapperWatcher(namespace, changeMask, initialStateQuery, mapper any) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
+func (mr *MockWatcherFactoryMockRecorder) NewNamespaceMapperWatcher(arg0, arg1, arg2, arg3 any) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNamespaceMapperWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNamespaceMapperWatcher), namespace, changeMask, initialStateQuery, mapper)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNamespaceMapperWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNamespaceMapperWatcher), arg0, arg1, arg2, arg3)
 	return &MockWatcherFactoryNewNamespaceMapperWatcherCall{Call: call}
 }
 
