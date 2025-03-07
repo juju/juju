@@ -15,6 +15,7 @@ import (
 const (
 	// ErrNoMatch indicates that the hostname could not be parsed.
 	ErrNoMatch = errors.ConstError("could not parse hostname")
+	Domain     = "juju.local"
 )
 
 // HostnameTarget defines what kind of infrastructure the user is targeting.
@@ -33,22 +34,104 @@ const (
 	ContainerTarget
 )
 
+// NewInfoMachineTarget returns a new Info struct for a machine target.
+func NewInfoMachineTarget(modelUUID string, machine string) (Info, error) {
+	if !names.IsValidModel(modelUUID) {
+		return Info{}, errors.Errorf("invalid model UUID: %q", modelUUID)
+	}
+	if !names.IsValidMachine(machine) {
+		return Info{}, errors.Errorf("invalid machine number: %s", machine)
+	}
+	if names.IsContainerMachine(machine) {
+		return Info{}, errors.Errorf("container machine not supported")
+	}
+	machineNumber, err := strconv.Atoi(machine)
+	if err != nil {
+		return Info{}, errors.Errorf("failed to parse machine number.")
+	}
+	return newInfo(MachineTarget, modelUUID, machineNumber, 0, "", "")
+}
+
+// NewInfoUnitTarget returns a new Info struct for a unit target.
+func NewInfoUnitTarget(modelUUID string, unit string) (Info, error) {
+	if !names.IsValidModel(modelUUID) {
+		return Info{}, errors.Errorf("invalid model UUID: %q", modelUUID)
+	}
+	if !names.IsValidUnit(unit) {
+		return Info{}, errors.Errorf("invalid unit name: %s", unit)
+	}
+	unitNumber, err := names.UnitNumber(unit)
+	if err != nil {
+		return Info{}, errors.Trace(err)
+	}
+	applicationName, err := names.UnitApplication(unit)
+	if err != nil {
+		return Info{}, errors.Trace(err)
+	}
+	return newInfo(UnitTarget, modelUUID, 0, unitNumber, applicationName, "")
+}
+
+// NewInfoContainerTarget returns a new Info struct for a container target.
+func NewInfoContainerTarget(modelUUID string, unit string, container string) (Info, error) {
+	if !names.IsValidModel(modelUUID) {
+		return Info{}, errors.Errorf("invalid model UUID: %q", modelUUID)
+	}
+	if !names.IsValidUnit(unit) {
+		return Info{}, errors.Errorf("invalid unit name: %s", unit)
+	}
+	unitNumber, err := names.UnitNumber(unit)
+	if err != nil {
+		return Info{}, errors.Trace(err)
+	}
+	applicationName, err := names.UnitApplication(unit)
+	if err != nil {
+		return Info{}, errors.Trace(err)
+	}
+	return newInfo(ContainerTarget, modelUUID, 0, unitNumber, applicationName, container)
+}
+
+// newInfo returns a new Info struct for the given target.
+func newInfo(target HostnameTarget, modelUUID string, machine int, unitNumber int, applicationName string, container string) (Info, error) {
+	info := Info{}
+	switch target {
+	case MachineTarget:
+		info.target = MachineTarget
+		info.modelUUID = modelUUID
+		info.machine = machine
+	case UnitTarget:
+		info.target = UnitTarget
+		info.modelUUID = modelUUID
+		info.unitNumber = unitNumber
+		info.applicationName = applicationName
+	case ContainerTarget:
+		info.target = ContainerTarget
+		info.modelUUID = modelUUID
+		info.unitNumber = unitNumber
+		info.applicationName = applicationName
+		info.container = container
+	default:
+		return Info{}, errors.Errorf("unknown target: %d", target)
+	}
+	return info, nil
+}
+
 // Info returns a breakdown of a virtual
 // hostname into its constituent parts.
 // The target field indicates what kind of
 // hostname was parsed which will indicate
 // that some fields are empty.
 type Info struct {
-	target    HostnameTarget
-	modelUUID string
-	machine   int
-	unit      string
-	container string
+	target          HostnameTarget
+	modelUUID       string
+	machine         int
+	applicationName string
+	unitNumber      int
+	container       string
 }
 
 // Unit returns the unit name.
 func (i Info) Unit() (string, bool) {
-	return i.unit, i.target != MachineTarget
+	return fmt.Sprintf("%s/%d", i.applicationName, i.unitNumber), i.target != MachineTarget
 }
 
 // Container returns the container name
@@ -72,6 +155,20 @@ func (i Info) Machine() (int, bool) {
 // target of the hostname e.g. container, machine, etc.
 func (i Info) Target() HostnameTarget {
 	return i.target
+}
+
+// String returns the virtual hostname stringified.
+func (i Info) String() string {
+	switch i.target {
+	case MachineTarget:
+		return fmt.Sprintf("%d.%s.%s", i.machine, i.modelUUID, Domain)
+	case UnitTarget:
+		return fmt.Sprintf("%d.%s.%s.%s", i.unitNumber, i.applicationName, i.modelUUID, Domain)
+	case ContainerTarget:
+		return fmt.Sprintf("%s.%d.%s.%s.%s", i.container, i.unitNumber, i.applicationName, i.modelUUID, Domain)
+	default:
+		return "unknown"
+	}
 }
 
 var (
@@ -117,16 +214,17 @@ func Parse(hostname string) (Info, error) {
 	appName := result["appname"]
 	res.modelUUID = result["modeluuid"]
 	res.container = result["containername"]
-	res.unit = fmt.Sprintf("%s/%d", appName, unitNumber)
-
 	if res.container != "" {
 		res.target = ContainerTarget
+		res.unitNumber = unitNumber
+		res.applicationName = appName
 	} else if appName != "" {
 		res.target = UnitTarget
+		res.unitNumber = unitNumber
+		res.applicationName = appName
 	} else {
 		res.target = MachineTarget
 		res.machine = unitNumber
-		res.unit = ""
 	}
 
 	return res, nil

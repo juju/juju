@@ -5,6 +5,7 @@ package sshclient_test
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -439,6 +441,71 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mo
 		CACertificates: []string{testing.CACert},
 		SkipTLSVerify:  true,
 	})
+}
+
+func (s *facadeSuite) TestGetVirtualHostnameForEntity(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	backend := mocks.NewMockBackend(ctrl)
+	authorizer := mocks.NewMockAuthorizer(ctrl)
+	broker := mocks.NewMockBroker(ctrl)
+
+	backend.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
+	backend.EXPECT().ControllerTag().Return(testing.ControllerTag).AnyTimes()
+	authorizer.EXPECT().AuthClient().Return(true).Times(1)
+
+	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return broker, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	container := "container"
+	tests := []struct {
+		name          string
+		tag           string
+		container     *string
+		expected      string
+		expectedError string
+	}{
+		{
+			name:     "test with machine tag",
+			tag:      names.NewMachineTag("0").String(),
+			expected: fmt.Sprintf("0.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
+		},
+		{
+			name:     "test with unit tag",
+			tag:      names.NewUnitTag("unit/0").String(),
+			expected: fmt.Sprintf("0.unit.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
+		},
+		{
+			name:      "test with unit tag and container",
+			tag:       names.NewUnitTag("unit/0").String(),
+			container: &container,
+			expected:  fmt.Sprintf("container.0.unit.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
+		},
+		{
+			name:          "test with error",
+			tag:           "error-tag",
+			expectedError: "\"error-tag\" is not a valid tag",
+		},
+	}
+	for _, t := range tests {
+		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission).Times(1)
+		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil).Times(1)
+		c.Log(t.name)
+		res, err := facade.VirtualHostname(params.VirtualHostnameTargetArg{
+			Tag:       t.tag,
+			Container: t.container,
+		})
+		if t.expectedError != "" {
+			c.Assert(err, gc.ErrorMatches, t.expectedError)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(res.Address, gc.Equals, t.expected)
+		}
+
+	}
 }
 
 type mockBackend struct {

@@ -63,6 +63,27 @@ func (facade *Facade) AllAddresses(target string) ([]string, error) {
 	return out.Results[0].Addresses, nil
 }
 
+// VirtualHostname returns the virtual hostname for the SSH target provided.
+func (facade *Facade) VirtualHostname(target string, container *string) (string, error) {
+	tag, err := targetToTag(target)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	in := params.VirtualHostnameTargetArg{
+		Tag:       tag.String(),
+		Container: container,
+	}
+	var out params.SSHAddressResult
+	err = facade.caller.FacadeCall("VirtualHostname", in, &out)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if err := out.Error; err != nil {
+		return "", errors.Trace(err)
+	}
+	return out.Address, nil
+}
+
 func (facade *Facade) addressCall(callName, target string) (string, error) {
 	entities, err := targetToEntities(target)
 	if err != nil {
