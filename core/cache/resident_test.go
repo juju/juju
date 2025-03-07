@@ -14,8 +14,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/worker/mocks"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/mocks"
 )
 
 type residentSuite struct {

@@ -17,7 +17,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
-	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/internal/worker/apicaller"
 )
 
 // ConnectFunc connects to the API as the given agent.

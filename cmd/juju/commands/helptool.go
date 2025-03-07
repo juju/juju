@@ -14,8 +14,8 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // dummyHookContext implements hooks.Context,
@@ -131,7 +131,7 @@ func (t *helpToolCommand) Init(args []string) error {
 
 func (c *helpToolCommand) Run(ctx *cmd.Context) error {
 	if c.tool == "" {
-		fmt.Fprintf(ctx.Stdout, listHookTools())
+		fmt.Fprint(ctx.Stdout, listHookTools())
 	} else {
 		c, err := jujuc.NewCommand(dummyHookContext{}, c.tool)
 		if err != nil {

@@ -134,7 +134,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 			if changed, err := settingsChanged(); err != nil {
 				return nil, errors.Trace(err)
 			} else if changed {
-				return nil, fmt.Errorf(prefix + "concurrent settings change detected")
+				return nil, fmt.Errorf("%s concurrent settings change detected", prefix)
 			}
 		}
 

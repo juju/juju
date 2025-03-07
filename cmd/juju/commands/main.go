@@ -270,7 +270,7 @@ func NewJujuCommandWithStore(
 		FlagKnownAs:         "option",
 		NotifyRun: func(string) {
 			if jujuMsg != "" {
-				ctx.Infof(jujuMsg)
+				ctx.Infof("%s", jujuMsg)
 			}
 		},
 	})

@@ -28,7 +28,7 @@ import (
 // NewExecCommand returns an exec command.
 func NewExecCommand(store jujuclient.ClientStore) cmd.Command {
 	logMessageHandler := func(ctx *cmd.Context, msg string) {
-		ctx.Infof(msg)
+		ctx.Infof("%s", msg)
 	}
 	return newExecCommand(store, logMessageHandler, clock.WallClock)
 }

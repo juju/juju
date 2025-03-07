@@ -11,8 +11,7 @@ import (
 )
 
 var (
-	NewAPIContext         = newAPIContext
-	ProcessAccountDetails = processAccountDetails
+	NewAPIContext = newAPIContext
 )
 
 func Interactor(ctx *apiContext) httpbakery.Interactor {

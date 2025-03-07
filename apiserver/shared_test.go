@@ -18,14 +18,14 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/lease"
+	"github.com/juju/juju/internal/worker/modelcache"
+	"github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/lease"
-	"github.com/juju/juju/worker/modelcache"
-	"github.com/juju/juju/worker/multiwatcher"
 )
 
 type sharedServerContextSuite struct {

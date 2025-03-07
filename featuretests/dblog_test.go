@@ -30,11 +30,11 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/database"
+	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/logsender"
 )
 
 // dblogSuite tests that logs flow correctly from the machine and unit

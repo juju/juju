@@ -79,6 +79,9 @@ func (*importSuite) TestImports(c *gc.C) {
 		"environs/context",
 		"environs/tags",
 		"feature",
+		"internal/worker/apicaller",
+		"internal/worker/introspection",
+		"internal/worker/introspection/pprof",
 		"juju/osenv",
 		"juju/sockets",
 		"logfwd",
@@ -107,9 +110,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"utils/proxy",
 		"utils/scriptrunner",
 		"version",
-		"worker/apicaller",
-		"worker/introspection",
-		"worker/introspection/pprof",
 		"utils/stringcompare",
 	)
 

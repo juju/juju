@@ -56,7 +56,10 @@ type mockAPIConn struct {
 
 type noOpLogger struct{}
 
-func (noOpLogger) Warningf(string, ...interface{})  {}
+func (noOpLogger) Warningf(string, ...interface{}) {}
+
 func (noOpLogger) Criticalf(string, ...interface{}) {}
-func (noOpLogger) Debugf(string, ...interface{})    {}
-func (noOpLogger) Tracef(string, ...interface{})    {}
+
+func (noOpLogger) Debugf(string, ...interface{}) {}
+
+func (noOpLogger) Tracef(string, ...interface{}) {}

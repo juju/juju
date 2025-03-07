@@ -28,10 +28,10 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
+	"github.com/juju/juju/internal/worker/apicaller"
+	"github.com/juju/juju/internal/worker/introspection"
 	pebbleidentity "github.com/juju/juju/service/pebble/identity"
 	pebbleplan "github.com/juju/juju/service/pebble/plan"
-	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/introspection"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/application_mock.go github.com/juju/juju/cmd/containeragent/initialize ApplicationAPI

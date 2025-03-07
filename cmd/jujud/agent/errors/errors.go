@@ -11,7 +11,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/tools"
-	jworker "github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/internal/worker"
 )
 
 // Logger represents the logging methods used by this package.

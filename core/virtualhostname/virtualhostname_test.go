@@ -28,19 +28,21 @@ func (s *HostnameSuite) TestParseHostname(c *gc.C) {
 			desc:     "Container hostname",
 			hostname: "charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 			result: Info{
-				container: "charm",
-				unit:      "postgresql/1",
-				modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
-				target:    ContainerTarget,
+				container:       "charm",
+				unitNumber:      1,
+				applicationName: "postgresql",
+				modelUUID:       "8419cd78-4993-4c3a-928e-c646226beeee",
+				target:          ContainerTarget,
 			},
 		},
 		{
 			desc:     "Unit hostname",
 			hostname: "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 			result: Info{
-				unit:      "postgresql/1",
-				modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
-				target:    UnitTarget,
+				unitNumber:      1,
+				applicationName: "postgresql",
+				modelUUID:       "8419cd78-4993-4c3a-928e-c646226beeee",
+				target:          UnitTarget,
 			},
 		},
 		{
@@ -54,23 +56,14 @@ func (s *HostnameSuite) TestParseHostname(c *gc.C) {
 			},
 		},
 		{
-			desc:     "Hostname with long domain",
-			hostname: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.myfavoritecontroller.local",
-			result: Info{
-				// Machine and unit are both set and disambiguated by the target type.
-				machine:   1,
-				modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
-				target:    MachineTarget,
-			},
-		},
-		{
 			desc:     "Hostname with dashes in names",
 			hostname: "my-charm-container.20.postgresql-k8s.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 			result: Info{
-				container: "my-charm-container",
-				unit:      "postgresql-k8s/20",
-				modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
-				target:    ContainerTarget,
+				container:       "my-charm-container",
+				applicationName: "postgresql-k8s",
+				unitNumber:      20,
+				modelUUID:       "8419cd78-4993-4c3a-928e-c646226beeee",
+				target:          ContainerTarget,
 			},
 		},
 		{
@@ -100,8 +93,160 @@ func (s *HostnameSuite) TestParseHostname(c *gc.C) {
 		if tC.expectedErr == "" {
 			c.Assert(err, gc.IsNil)
 			c.Assert(res, gc.DeepEquals, tC.result)
+			c.Assert(res.String(), gc.Equals, tC.hostname)
 		} else {
 			c.Assert(err, gc.ErrorMatches, tC.expectedErr)
 		}
 	}
+}
+
+func (s *HostnameSuite) TestNewInfoMachineTarget(c *gc.C) {
+	testCases := []struct {
+		desc        string
+		modelUUID   string
+		machine     string
+		expected    Info
+		expectedErr string
+	}{
+		{
+			desc:      "Valid machine target",
+			modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
+			machine:   "1",
+			expected: Info{
+				target:    MachineTarget,
+				modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
+				machine:   1,
+			},
+		},
+		{
+			desc:        "Invalid model UUID",
+			modelUUID:   "invalid-uuid",
+			machine:     "1",
+			expectedErr: ".*invalid model UUID.*",
+		},
+		{
+			desc:        "Invalid machine number",
+			modelUUID:   "8419cd78-4993-4c3a-928e-c646226beeee",
+			machine:     "-1",
+			expectedErr: "invalid machine number: -1",
+		},
+		{
+			desc:        "Invalid machine number: nested container",
+			modelUUID:   "8419cd78-4993-4c3a-928e-c646226beeee",
+			machine:     "0/lxd/0",
+			expectedErr: "container machine not supported",
+		},
+	}
+
+	for i, tC := range testCases {
+		c.Logf("test %d: %s", i, tC.desc)
+		res, err := NewInfoMachineTarget(tC.modelUUID, tC.machine)
+		if tC.expectedErr == "" {
+			c.Assert(err, gc.IsNil)
+			c.Assert(res, gc.DeepEquals, tC.expected)
+		} else {
+			c.Assert(err, gc.ErrorMatches, tC.expectedErr)
+		}
+	}
+}
+
+func (s *HostnameSuite) TestNewInfoUnitTarget(c *gc.C) {
+	testCases := []struct {
+		desc        string
+		modelUUID   string
+		unit        string
+		expected    Info
+		expectedErr string
+	}{
+		{
+			desc:      "Valid unit target",
+			modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
+			unit:      "postgresql/1",
+			expected: Info{
+				target:          UnitTarget,
+				modelUUID:       "8419cd78-4993-4c3a-928e-c646226beeee",
+				unitNumber:      1,
+				applicationName: "postgresql",
+			},
+		},
+		{
+			desc:        "Invalid model UUID",
+			modelUUID:   "invalid-uuid",
+			unit:        "postgresql/1",
+			expectedErr: ".*invalid model UUID.*",
+		},
+		{
+			desc:        "Invalid unit name",
+			modelUUID:   "8419cd78-4993-4c3a-928e-c646226beeee",
+			unit:        "invalid-unit",
+			expectedErr: ".*invalid unit name.*",
+		},
+	}
+
+	for i, tC := range testCases {
+		c.Logf("test %d: %s", i, tC.desc)
+		res, err := NewInfoUnitTarget(tC.modelUUID, tC.unit)
+		if tC.expectedErr == "" {
+			c.Assert(err, gc.IsNil)
+			c.Assert(res, gc.DeepEquals, tC.expected)
+		} else {
+			c.Assert(err, gc.ErrorMatches, tC.expectedErr)
+		}
+	}
+}
+
+func (s *HostnameSuite) TestNewInfoContainerTarget(c *gc.C) {
+	testCases := []struct {
+		desc        string
+		modelUUID   string
+		unit        string
+		container   string
+		expected    Info
+		expectedErr string
+	}{
+		{
+			desc:      "Valid container target",
+			modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
+			unit:      "postgresql/1",
+			container: "charm",
+			expected: Info{
+				target:          ContainerTarget,
+				modelUUID:       "8419cd78-4993-4c3a-928e-c646226beeee",
+				unitNumber:      1,
+				applicationName: "postgresql",
+				container:       "charm",
+			},
+		},
+		{
+			desc:        "Invalid model UUID",
+			modelUUID:   "invalid-uuid",
+			unit:        "postgresql/1",
+			container:   "charm",
+			expectedErr: ".*invalid model UUID.*",
+		},
+		{
+			desc:        "Invalid unit name",
+			modelUUID:   "8419cd78-4993-4c3a-928e-c646226beeee",
+			unit:        "invalid-unit",
+			container:   "charm",
+			expectedErr: ".*invalid unit name.*",
+		},
+	}
+
+	for i, tC := range testCases {
+		c.Logf("test %d: %s", i, tC.desc)
+		res, err := NewInfoContainerTarget(tC.modelUUID, tC.unit, tC.container)
+		if tC.expectedErr == "" {
+			if c.Check(err, gc.IsNil) {
+				c.Check(res, gc.DeepEquals, tC.expected)
+			}
+		} else {
+			c.Check(err, gc.ErrorMatches, tC.expectedErr)
+		}
+	}
+}
+
+func (s *HostnameSuite) TestnewInfoInvalidTarget(c *gc.C) {
+	_, err := newInfo(100, "8419cd78-4993-4c3a-928e-c646226beeee", 1, 1, "1", "charm")
+	c.Assert(err, gc.ErrorMatches, "unknown target: 100")
 }

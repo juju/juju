@@ -4,7 +4,7 @@
 package enginetest
 
 import (
-	"github.com/juju/worker/v3"
+	worker "github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 

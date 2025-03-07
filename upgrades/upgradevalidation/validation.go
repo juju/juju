@@ -357,7 +357,7 @@ func getCheckForLXDVersion(cloudspec environscloudspec.CloudSpec) Validator {
 		}
 		err = lxd.ValidateAPIVersion(server.ServerVersion())
 		if errors.Is(err, errors.NotSupported) {
-			return NewBlocker(err.Error()), nil
+			return NewBlocker("%s", err.Error()), nil
 		}
 		return nil, errors.Trace(err)
 	}

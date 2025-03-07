@@ -13,9 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
+	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
 )
 
 var (

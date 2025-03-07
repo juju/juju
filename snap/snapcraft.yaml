@@ -1,5 +1,5 @@
 name: juju
-version: 3.6.4
+version: 3.6.5
 summary: Juju - a model-driven operator lifecycle manager for K8s and machines
 license: AGPL-3.0
 description: |
@@ -255,7 +255,7 @@ parts:
     plugin: nil
     source: .
     build-snaps:
-      - go/1.23/stable
+      - go/1.24/stable
     build-packages:
       - musl-tools
     override-build: |
@@ -280,7 +280,7 @@ parts:
     plugin: nil
     source: .
     build-snaps:
-      - go/1.23/stable
+      - go/1.24/stable
     override-build: |
       set -ex
 

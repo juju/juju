@@ -14045,7 +14045,7 @@
     {
         "Name": "SSHClient",
         "Description": "",
-        "Version": 4,
+        "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -14123,6 +14123,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/SSHPublicKeysResults"
+                        }
+                    }
+                },
+                "VirtualHostname": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/VirtualHostnameTargetArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SSHAddressResult"
                         }
                     }
                 }
@@ -14392,6 +14403,21 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "VirtualHostnameTargetArg": {
+                    "type": "object",
+                    "properties": {
+                        "container": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
                     ]
                 }
             }

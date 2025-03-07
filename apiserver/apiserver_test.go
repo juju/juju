@@ -39,6 +39,9 @@ import (
 	"github.com/juju/juju/core/cache"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/modelcache"
+	"github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/jujuclient"
 	psapiserver "github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
@@ -47,9 +50,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/modelcache"
-	"github.com/juju/juju/worker/multiwatcher"
 )
 
 const (
