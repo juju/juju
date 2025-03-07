@@ -23,8 +23,8 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	unitdebug "github.com/juju/juju/internal/worker/uniter/runner/debug"
 	"github.com/juju/juju/network/ssh"
-	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
 const usageDebugHooksExamples = `

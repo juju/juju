@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/core/network"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	"github.com/juju/juju/worker/proxyupdater"
+	"github.com/juju/juju/internal/worker/proxyupdater"
 )
 
 type acCreator func() (cmd.Command, agentconf.AgentConf)

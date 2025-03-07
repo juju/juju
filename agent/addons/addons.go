@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/worker/introspection"
+	"github.com/juju/juju/internal/worker/introspection"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.agent.addons")

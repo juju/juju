@@ -28,11 +28,11 @@ import (
 	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/cmd/jujud/run"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/utils/proxy"
-	"github.com/juju/juju/worker/logsender"
 )
 
 var logger = loggo.GetLogger("juju.cmd.containeragent")

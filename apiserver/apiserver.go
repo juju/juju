@@ -50,13 +50,13 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/syslogger"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")

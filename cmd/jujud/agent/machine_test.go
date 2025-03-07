@@ -65,6 +65,14 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/authenticationworker"
+	"github.com/juju/juju/internal/worker/charmrevision"
+	"github.com/juju/juju/internal/worker/diskmanager"
+	"github.com/juju/juju/internal/worker/instancepoller"
+	"github.com/juju/juju/internal/worker/machiner"
+	"github.com/juju/juju/internal/worker/migrationmaster"
+	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -76,14 +84,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/authenticationworker"
-	"github.com/juju/juju/worker/charmrevision"
-	"github.com/juju/juju/worker/diskmanager"
-	"github.com/juju/juju/worker/instancepoller"
-	"github.com/juju/juju/worker/machiner"
-	"github.com/juju/juju/worker/migrationmaster"
-	"github.com/juju/juju/worker/storageprovisioner"
 )
 
 const (
@@ -543,10 +543,13 @@ func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
 
 type noOpLogger struct{}
 
-func (noOpLogger) Warningf(string, ...interface{})  {}
+func (noOpLogger) Warningf(string, ...interface{}) {}
+
 func (noOpLogger) Criticalf(string, ...interface{}) {}
-func (noOpLogger) Debugf(string, ...interface{})    {}
-func (noOpLogger) Tracef(string, ...interface{})    {}
+
+func (noOpLogger) Debugf(string, ...interface{}) {}
+
+func (noOpLogger) Tracef(string, ...interface{}) {}
 
 func (s *MachineSuite) TestIAASControllerPatchUpdateManagerFile(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel,

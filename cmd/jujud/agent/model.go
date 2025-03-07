@@ -26,11 +26,11 @@ import (
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/upgradesteps"
 	jujuversion "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // ModelCommand is a cmd.Command responsible for running a model agent.

@@ -34,13 +34,13 @@ import (
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/introspection"
+	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/upgradesteps"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/introspection"
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/upgradesteps"
 )
 
 var (

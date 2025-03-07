@@ -9,7 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
+	worker "github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	gc "gopkg.in/check.v1"
 
@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/controller"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/apicaller"
+	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/testing"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/gate"
 )
 
 type ManifoldsSuite struct {

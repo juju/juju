@@ -7,8 +7,8 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"gopkg.in/tomb.v2"
+	worker "github.com/juju/worker/v3"
+	tomb "gopkg.in/tomb.v2"
 )
 
 // NewValueWorker returns a degenerate worker that exposes the supplied value

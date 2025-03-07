@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/mongo"
 	pkissh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/state"
@@ -51,7 +52,6 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/peergrouper"
 )
 
 var (

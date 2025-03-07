@@ -23,9 +23,9 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
+	jujuworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/logsender"
 	coretesting "github.com/juju/juju/testing"
-	jujuworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/logsender"
 )
 
 type CAASOperatorSuite struct {

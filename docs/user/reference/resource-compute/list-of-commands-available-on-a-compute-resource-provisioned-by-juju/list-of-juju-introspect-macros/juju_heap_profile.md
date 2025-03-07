@@ -35,8 +35,8 @@ heap profile: 31: 694464 [33638: 106713992] @ heap/1048576
 
 1: 196608 [1: 196608] @ 0x2ffcec5 0x2ffce0e 0x2ffd07c 0x778495 0x468fc1
 #       0x2ffcec4       github.com/juju/juju/core/logger.NewBufferedLogger+0x264                                        /home/heather/work-test/src/github.com/juju/juju/core/logger/buf.go:43
-#       0x2ffce0d       github.com/juju/juju/worker/modelworkermanager.newModelLogger+0x1ad                             /home/heather/work-test/src/github.com/juju/juju/worker/modelworkermanager/recordlogger.go:28
-#       0x2ffd07b       github.com/juju/juju/worker/modelworkermanager.(*modelWorkerManager).starter.func1+0x41b        /home/heather/work-test/src/github.com/juju/juju/worker/modelworkermanager/modelworkermanager.go:261
+#       0x2ffce0d       github.com/juju/juju/internal/worker/modelworkermanager.newModelLogger+0x1ad                             /home/heather/work-test/src/github.com/juju/juju/internal/worker/modelworkermanager/recordlogger.go:28
+#       0x2ffd07b       github.com/juju/juju/internal/worker/modelworkermanager.(*modelWorkerManager).starter.func1+0x41b        /home/heather/work-test/src/github.com/juju/juju/internal/worker/modelworkermanager/modelworkermanager.go:261
 #       0x778494        github.com/juju/worker/v3.(*Runner).runWorker+0x2d4                                             /home/heather/work-test/pkg/mod/github.com/juju/worker/v3@v3.0.0-20220204100750-e23db69a42d2/runner.go:580
 
 # and many more
