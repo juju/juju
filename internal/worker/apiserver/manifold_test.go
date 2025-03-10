@@ -31,6 +31,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/lease"
@@ -61,6 +62,7 @@ type ManifoldSuite struct {
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubDBGetter
+	jwtParser            *jwtparser.Parser
 
 	stub testing.Stub
 }
@@ -87,6 +89,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.leaseManager = &lease.Manager{}
 	s.sysLogger = &mockSysLogger{}
 	s.charmhubHTTPClient = &http.Client{}
+	s.jwtParser = &jwtparser.Parser{}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -104,6 +107,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		SyslogName:                        "syslog",
 		CharmhubHTTPClientName:            "charmhub-http-client",
 		DBAccessorName:                    "db-accessor",
+		JWTParserName:                     "jwt-parser",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -128,6 +132,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"syslog":               s.sysLogger,
 		"charmhub-http-client": s.charmhubHTTPClient,
 		"db-accessor":          s.dbGetter,
+		"jwt-parser":           s.jwtParser,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -158,7 +163,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "modelcache", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
-	"syslog", "charmhub-http-client", "db-accessor",
+	"syslog", "charmhub-http-client", "db-accessor", "jwt-parser",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -228,6 +233,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		SysLogger:                  s.sysLogger,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
+		JWTParser:                  s.jwtParser,
 	})
 }
 

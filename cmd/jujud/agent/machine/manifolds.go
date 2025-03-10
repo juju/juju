@@ -66,6 +66,7 @@ import (
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/internal/worker/identityfilewriter"
 	"github.com/juju/juju/internal/worker/instancemutater"
+	"github.com/juju/juju/internal/worker/jwtparser"
 	leasemanager "github.com/juju/juju/internal/worker/lease/manifold"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 	"github.com/juju/juju/internal/worker/logger"
@@ -657,6 +658,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuditConfigUpdaterName: auditConfigUpdaterName,
 			CharmhubHTTPClientName: charmhubHTTPClientName,
 			DBAccessorName:         dbAccessorName,
+			JWTParserName:          jwtParserName,
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
@@ -791,6 +793,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
 			NewServerWorker:        sshserver.NewServerWorker,
 			NewSSHServerListener:   sshserver.NewSSHServerListener,
+		})),
+
+		// The jwtParser worker runs on the controller machine.
+		jwtParserName: ifController(jwtparser.Manifold(jwtparser.ManifoldConfig{
+			StateName: stateName,
 		})),
 	}
 
@@ -1205,4 +1212,6 @@ const (
 	controlSocketName = "control-socket"
 
 	sshServerName = "ssh-server"
+
+	jwtParserName = "jwt-parser"
 )

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	workerstate "github.com/juju/juju/internal/worker/state"
@@ -46,6 +47,7 @@ type ManifoldConfig struct {
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
+	JWTParserName          string
 	SyslogName             string
 	CharmhubHTTPClientName string
 	DBAccessorName         string
@@ -106,6 +108,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessorName")
 	}
+	if config.JWTParserName == "" {
+		return errors.NotValidf("empty JWTParserName")
+	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -140,6 +145,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.SyslogName,
 			config.CharmhubHTTPClientName,
 			config.DBAccessorName,
+			config.JWTParserName,
 		},
 		Start: config.start,
 	}
@@ -216,6 +222,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var jwtParser *jwtparser.Parser
+	if err := context.Get(config.JWTParserName, &jwtParser); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
@@ -247,6 +258,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Hub:                               config.Hub,
 		Presence:                          config.Presence,
 		LocalMacaroonAuthenticator:        macaroonAuthenticator,
+		JWTParser:                         jwtParser,
 		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,

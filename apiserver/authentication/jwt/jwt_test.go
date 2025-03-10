@@ -6,76 +6,24 @@ package jwt_test
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/testing"
 )
 
-type loginTokenSuite struct {
-	url        string
-	keySet     jwk.Set
-	signingKey jwk.Key
-	srv        *httptest.Server
-}
+type loginTokenSuite struct{}
 
 var _ = gc.Suite(&loginTokenSuite{})
-
-func (s *loginTokenSuite) SetUpTest(c *gc.C) {
-	keySet, signingKey, err := apitesting.NewJWKSet()
-	c.Assert(err, jc.ErrorIsNil)
-	s.keySet = keySet
-	s.signingKey = signingKey
-
-	s.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.RequestURI != "/.well-known/jwks.json" {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		hdrs := w.Header()
-		hdrs.Set(`Content-Type`, `application/json`)
-		pub, _ := s.keySet.Key(0)
-		_ = json.NewEncoder(w).Encode(pub)
-	}))
-
-	s.url = s.srv.URL + "/.well-known/jwks.json"
-}
-
-func (s *loginTokenSuite) TearDownTest(_ *gc.C) {
-	s.srv.Close()
-}
-
-func (s *loginTokenSuite) TestCacheRegistration(c *gc.C) {
-	authenticator := jwt.NewAuthenticator(s.url)
-	err := authenticator.RegisterJWKSCache(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *loginTokenSuite) TestCacheRegistrationFailureWithBadURL(c *gc.C) {
-	authenticator := jwt.NewAuthenticator("noexisturl")
-	err := authenticator.RegisterJWKSCache(context.Background())
-	// We want to make sure that we get an error for a bad url.
-	c.Assert(err, gc.NotNil)
-}
-
-func (s *loginTokenSuite) TestAuthenticateLoginRequestNotSupported(c *gc.C) {
-	authenticator := jwt.NewAuthenticator(s.url)
-	_, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", authentication.AuthParams{Token: ""})
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
 
 func (s *loginTokenSuite) TestAuthenticate(c *gc.C) {
 	modelTag := names.NewModelTag("test")
@@ -88,16 +36,14 @@ func (s *loginTokenSuite) TestAuthenticate(c *gc.C) {
 			modelTag.String():              "write",
 			applicationOfferTag.String():   "consume",
 		},
-	}, s.keySet, s.signingKey)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := authentication.AuthParams{
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(s.url)
-	err = authenticator.RegisterJWKSCache(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	req, err := http.NewRequest("", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,7 +66,7 @@ func (s *loginTokenSuite) TestAuthenticate(c *gc.C) {
 }
 
 func (s *loginTokenSuite) TestAuthenticateInvalidHeader(c *gc.C) {
-	authenticator := jwt.NewAuthenticator(s.url)
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 	req, err := http.NewRequest("", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authenticator.Authenticate(req)
@@ -150,16 +96,14 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 			modelTag.String():              "write",
 			applicationOfferTag.String():   "consume",
 		},
-	}, s.keySet, s.signingKey)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := authentication.AuthParams{
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(s.url)
-	err = authenticator.RegisterJWKSCache(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,16 +136,14 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *gc.C) {
 			testing.ControllerTag.String(): "login",
 			modelTag.String():              "write",
 		},
-	}, s.keySet, s.signingKey)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := authentication.AuthParams{
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(s.url)
-	err = authenticator.RegisterJWKSCache(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -229,16 +171,14 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *gc.C) {
 		Access: map[string]string{
 			testing.ControllerTag.String(): "superuser",
 		},
-	}, s.keySet, s.signingKey)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := authentication.AuthParams{
 		Token: base64.StdEncoding.EncodeToString(tok),
 	}
 
-	authenticator := jwt.NewAuthenticator(s.url)
-	err = authenticator.RegisterJWKSCache(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 
 	authInfo, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -248,4 +188,18 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *gc.C) {
 	perm, err := authInfo.SubjectPermissions(testing.ControllerTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.SuperuserAccess)
+}
+
+func (s *loginTokenSuite) TestNotAvailableJWTParser(c *gc.C) {
+	authenticator := jwt.NewAuthenticator(&testJWTParser{notReady: true})
+
+	params := authentication.AuthParams{Token: "token"}
+	_, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", params)
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+
+	req, err := http.NewRequest("", "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	req.Header.Add("Authorization", "Bearer aaaaa")
+	_, err = authenticator.Authenticate(req)
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }

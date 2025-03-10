@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"runtime"
@@ -64,6 +65,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/modelcache"
@@ -1066,15 +1068,21 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 // if this controller has been provisioned to trust external jwt tokens.
 func gatherJWTAuthenticator(controllerConfig jujucontroller.Config) (jwt.Authenticator, error) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	ctx := stdcontext.Background()
+	parser := jwtparser.NewParserWithHTTPClient(ctx, client)
 	jwtRefreshURL := controllerConfig.LoginTokenRefreshURL()
-	if jwtRefreshURL == "" {
-		return nil, nil
+	if jwtRefreshURL != "" {
+		if err := parser.SetJWKSCache(ctx, jwtRefreshURL); err != nil {
+			return nil, err
+		}
 	}
-	jwtAuthenticator := jwt.NewAuthenticator(jwtRefreshURL)
-	if err := jwtAuthenticator.RegisterJWKSCache(stdcontext.Background()); err != nil {
-		return nil, err
-	}
-	return jwtAuthenticator, nil
+	return jwt.NewAuthenticator(parser), nil
 }
 
 type noopSysLogger struct{}
