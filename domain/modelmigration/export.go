@@ -24,6 +24,7 @@ import (
 	resource "github.com/juju/juju/domain/resource/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
 	storage "github.com/juju/juju/domain/storage/modelmigration"
+	unitstate "github.com/juju/juju/domain/unitstate/modelmigration"
 )
 
 // Exporter defines the instance of the coordinator on which we'll register
@@ -74,4 +75,5 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	resource.RegisterExport(e.coordinator, e.clock, e.logger.Child("resource"))
 	cloudimagemetadata.RegisterExport(e.coordinator, e.logger.Child("cloudimagemetadata"), e.clock)
 	model.RegisterExport(e.coordinator, e.logger.Child("model"))
+	unitstate.RegisterExport(e.coordinator)
 }

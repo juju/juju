@@ -28,6 +28,7 @@ import (
 	resource "github.com/juju/juju/domain/resource/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
 	storage "github.com/juju/juju/domain/storage/modelmigration"
+	unitstate "github.com/juju/juju/domain/unitstate/modelmigration"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -76,6 +77,7 @@ func ImportOperations(
 	storage.RegisterImport(coordinator, storageRegistryGetter, logger.Child("storage"))
 	secret.RegisterImport(coordinator, logger.Child("secret"))
 	cloudimagemetadata.RegisterImport(coordinator, logger.Child("cloudimagemetadata"), clock)
+	unitstate.RegisterImport(coordinator)
 
 	// Block command is probably best processed last, is that will prevent
 	// any block commands from being executed before all the other operations
