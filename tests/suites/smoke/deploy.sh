@@ -34,9 +34,21 @@ run_charmhub_deploy() {
 
 	ensure "${model_name}" "${file}"
 
-	charm="juju-qa-test"
-	juju deploy "$charm" --revision 22 --channel stable "$charm"
-	wait_for "$charm" "$(idle_condition "$charm")"
+	juju deploy "juju-qa-test" --revision 22 --channel stable "juju-qa-test"
+	# TODO(nvinuesa): Ideally, we want to deploy the next 2 charms with a
+	# placement directive, both to make the test faster and also to test
+	# the placement directives. However, until machines are not fully
+	# migrated to dqlite, placement directives are broken.
+	juju deploy "juju-qa-dummy-source"
+	juju deploy "juju-qa-dummy-sink"
+
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test" 2)"
+	wait_for "dummy-source" "$(idle_condition "dummy-source" 1)"
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0)"
+	# TODO(nvinuesa): When relations are finished implementing in 4.0, we
+	# should integrate dummy-source with dummy-sink.
+	# juju integrate dummy-source dummy-sink
+	# juju expose dummy-sink
 
 	# Refresh is removed, add it back in when we support refresh.
 	# juju refresh "$charm" --revision 23
