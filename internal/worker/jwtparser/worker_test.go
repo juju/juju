@@ -20,7 +20,7 @@ import (
 type workerSuite struct {
 	testing.IsolationSuite
 	client           *MockHTTPClient
-	controllerConfig *MockControllerConfig
+	controllerConfig *MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -28,7 +28,7 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = NewMockHTTPClient(ctrl)
-	s.controllerConfig = NewMockControllerConfig(ctrl)
+	s.controllerConfig = NewMockControllerConfigGetter(ctrl)
 	return ctrl
 }
 

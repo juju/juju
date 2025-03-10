@@ -48,7 +48,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 	// The statePool is only needed for worker creation
 	// currently but should be improved to watch for changes.
-	w, err := NewWorker(systemState, DefaultHTTPClient())
+	w, err := NewWorker(systemState, defaultHTTPClient())
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)
@@ -78,9 +78,9 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	return nil
 }
 
-// DefaultHTTPClient returns a defaulthttp client
+// defaultHTTPClient returns a defaulthttp client
 // that follows redirects with a sensible timeout.
-func DefaultHTTPClient() HTTPClient {
+func defaultHTTPClient() HTTPClient {
 	return &http.Client{
 		Timeout: 30 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {

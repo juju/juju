@@ -20,8 +20,8 @@ type jwtParserWorker struct {
 	jwtParser *jwtparser.Parser
 }
 
-// ControllerConfig defines an interface to retrieve controller config.
-type ControllerConfig interface {
+// ControllerConfigGetter defines an interface to retrieve controller config.
+type ControllerConfigGetter interface {
 	ControllerConfig() (controller.Config, error)
 }
 
@@ -32,7 +32,7 @@ type HTTPClient interface {
 }
 
 // NewWorker returns a worker that provides a JWTParser.
-func NewWorker(configGetter ControllerConfig, httpClient HTTPClient) (worker.Worker, error) {
+func NewWorker(configGetter ControllerConfigGetter, httpClient HTTPClient) (worker.Worker, error) {
 	controllerConfig, err := configGetter.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
@@ -42,7 +42,7 @@ func NewWorker(configGetter ControllerConfig, httpClient HTTPClient) (worker.Wor
 	ctx, done := context.WithCancel(context.Background())
 	jwtParser := jwtparser.NewParserWithHTTPClient(ctx, httpClient)
 	if jwtRefreshURL != "" {
-		if err := jwtParser.SetJWKSCache(context.Background(), jwtRefreshURL); err != nil {
+		if err := jwtParser.SetJWKSCache(ctx, jwtRefreshURL); err != nil {
 			done()
 			return nil, errors.Annotate(err, "cannot register JWKS cache")
 		}

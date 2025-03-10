@@ -66,15 +66,17 @@ func (j *Parser) Parse(ctx context.Context, tok string) (jwt.Token, error) {
 func (j *Parser) SetJWKSCache(ctx context.Context, refreshURL string) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
+	if j.refreshURL == refreshURL {
+		return nil
+	}
+	err := j.cache.Register(refreshURL, jwk.WithHTTPClient(j.httpClient))
+	if err != nil {
+		return fmt.Errorf("registering jwk cache with url %q: %w", refreshURL, err)
+	}
+	_, err = j.cache.Refresh(ctx, refreshURL)
+	if err != nil {
+		return fmt.Errorf("refreshing jwk cache at %q: %w", refreshURL, err)
+	}
 	j.refreshURL = refreshURL
-
-	err := j.cache.Register(j.refreshURL, jwk.WithHTTPClient(j.httpClient))
-	if err != nil {
-		return fmt.Errorf("registering jwk cache with url %q: %w", j.refreshURL, err)
-	}
-	_, err = j.cache.Refresh(ctx, j.refreshURL)
-	if err != nil {
-		return fmt.Errorf("refreshing jwk cache at %q: %w", j.refreshURL, err)
-	}
 	return nil
 }

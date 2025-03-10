@@ -38,9 +38,7 @@ type JWTAuthenticator struct {
 	parser TokenParser
 }
 
-// NewAuthenticator creates a new JWT authenticator with the supplied parser getter.
-// Use of a getter allows the token parser to change dynamically and delays binding
-// the parser to the time of authentication.
+// NewAuthenticator creates a new JWT authenticator with the supplied parser.
 func NewAuthenticator(parser TokenParser) *JWTAuthenticator {
 	return &JWTAuthenticator{
 		parser: parser,
@@ -66,7 +64,7 @@ type TokenEntity struct {
 func (j *JWTAuthenticator) Parse(ctx context.Context, tok string) (jwt.Token, TokenEntity, error) {
 	token, err := j.parser.Parse(ctx, tok)
 	if err != nil {
-		// Return a not implemented error if we cannot parse tokens
+		// Return a not implemented error if the parser is not configured.
 		// so that other authenticators are tried by the API server.
 		if errors.Is(err, errors.NotProvisioned) {
 			return nil, TokenEntity{}, errors.Trace(errors.NotImplemented)
