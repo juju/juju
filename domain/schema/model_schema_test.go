@@ -113,6 +113,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"unit_agent_status_value",
 		"unit_agent_status",
 		"unit_agent_presence",
+		"unit_agent_version",
 		"unit_constraint",
 		"unit_principal",
 		"unit_resolve_kind",
