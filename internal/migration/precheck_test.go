@@ -72,8 +72,11 @@ func (s *SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("foo/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/1", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/1", status.StatusInfo{Status: status.Idle})
 
 	backend := newHappyBackend()
 	backend.controllerBackend = newHappyBackend()
@@ -105,7 +108,9 @@ func (s *SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
 
 	s.expectApplicationLife("spanner", life.Alive)
 	s.expectUnitWorkloadStatus("spanner/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("spanner/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("spanner/1", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("spanner/1", status.StatusInfo{Status: status.Idle})
 
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
@@ -350,8 +355,11 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *gc.C) {
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("foo/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/1", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/1", status.StatusInfo{Status: status.Idle})
 
 	backend := &fakeBackend{
 		model: fakeModel{modelType: state.ModelTypeIAAS},
@@ -379,6 +387,7 @@ func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *gc.C) {
 	s.expectIsUpgrade(false)
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("foo/0", status.StatusInfo{Status: status.Idle})
 
 	backend := &fakeBackend{
 		model: fakeModel{modelType: state.ModelTypeCAAS},
@@ -418,13 +427,14 @@ func (s *SourcePrecheckSuite) TestUnitExecuting(c *gc.C) {
 	s.expectIsUpgrade(false)
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("foo/0", status.StatusInfo{Status: status.Executing})
 
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
 			&fakeApp{
 				name: "foo",
 				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "foo/0", agentStatus: status.Executing},
+					&fakeUnit{name: "foo/0"},
 				},
 			},
 		},
@@ -437,13 +447,14 @@ func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectApplicationLife("foo", life.Alive)
+	s.expectUnitAgentStatus("foo/0", status.StatusInfo{Status: status.Failed})
 
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
 			&fakeApp{
 				name: "foo",
 				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "foo/0", agentStatus: status.Failed},
+					&fakeUnit{name: "foo/0"},
 				},
 			},
 		},
@@ -457,13 +468,14 @@ func (s *SourcePrecheckSuite) TestUnitInErrorState(c *gc.C) {
 
 	s.expectAgentVersion(2)
 	s.expectApplicationLife("foo", life.Alive)
+	s.expectUnitAgentStatus("foo/0", status.StatusInfo{Status: status.Error})
 
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
 			&fakeApp{
 				name: "foo",
 				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "foo/0", agentStatus: status.Error},
+					&fakeUnit{name: "foo/0"},
 				},
 			},
 		},
@@ -488,6 +500,7 @@ func (s *SourcePrecheckSuite) TestUnitWorkloadInErrorState(c *gc.C) {
 	s.expectAgentVersion(2)
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Error})
+	s.expectUnitAgentStatus("foo/0", status.StatusInfo{Status: status.Idle})
 
 	backend := newHappyBackend()
 	err := migration.SourcePrecheck(
@@ -593,8 +606,11 @@ func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *gc.C) {
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("foo/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/1", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/1", status.StatusInfo{Status: status.Idle})
 
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
@@ -619,8 +635,11 @@ func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("foo/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/1", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/1", status.StatusInfo{Status: status.Idle})
 
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
@@ -647,8 +666,11 @@ func (s *SourcePrecheckSuite) TestSubordinatesInvalidUnitsNotYetInScope(c *gc.C)
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("foo/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/1", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/1", status.StatusInfo{Status: status.Idle})
 
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
@@ -674,8 +696,11 @@ func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *gc.C) {
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 	s.expectUnitWorkloadStatus("foo/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("foo/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/0", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/0", status.StatusInfo{Status: status.Idle})
 	s.expectUnitWorkloadStatus("bar/1", status.StatusInfo{Status: status.Active})
+	s.expectUnitAgentStatus("bar/1", status.StatusInfo{Status: status.Idle})
 
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
@@ -1424,12 +1449,11 @@ func (a *fakeApp) AllUnits() ([]migration.PrecheckUnit, error) {
 }
 
 type fakeUnit struct {
-	name        string
-	version     version.Binary
-	noTools     bool
-	life        state.Life
-	charmURL    string
-	agentStatus status.Status
+	name     string
+	version  version.Binary
+	noTools  bool
+	life     state.Life
+	charmURL string
 }
 
 func (u *fakeUnit) Name() string {
@@ -1465,15 +1489,6 @@ func (u *fakeUnit) CharmURL() *string {
 		url = "ch:foo-1"
 	}
 	return &url
-}
-
-func (u *fakeUnit) AgentStatus() (status.StatusInfo, error) {
-	s := u.agentStatus
-	if s == "" {
-		// Avoid the need to specify this everywhere.
-		s = status.Idle
-	}
-	return status.StatusInfo{Status: s}, nil
 }
 
 func (u *fakeUnit) Status() (status.StatusInfo, error) {
