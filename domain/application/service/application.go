@@ -100,7 +100,7 @@ type ApplicationState interface {
 
 	// SetApplicationScalingState sets the scaling details for the given caas
 	// application Scale is optional and is only set if not nil.
-	SetApplicationScalingState(ctx context.Context, appID coreapplication.ID, scale *int, targetScale int, scaling bool) error
+	SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error
 
 	// SetDesiredApplicationScale updates the desired scale of the specified
 	// application.
@@ -763,31 +763,7 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 // This is used on CAAS models.
 func (s *Service) SetApplicationScalingState(ctx context.Context, appName string, scaleTarget int, scaling bool) error {
-	appID, appLife, err := s.st.GetApplicationLife(ctx, appName)
-	if err != nil {
-		return errors.Annotatef(err, "getting life for %q", appName)
-	}
-	currentScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
-	if err != nil {
-		return errors.Annotatef(err, "getting current scale state for %q", appName)
-	}
-
-	var scale *int
-	if scaling {
-		switch appLife {
-		case life.Alive:
-			// if starting a scale, ensure we are scaling to the same target.
-			if !currentScaleState.Scaling && currentScaleState.Scale != scaleTarget {
-				return applicationerrors.ScalingStateInconsistent
-			}
-		case life.Dying, life.Dead:
-			// force scale to the scale target when dying/dead.
-			scale = &scaleTarget
-		}
-	}
-
-	err = s.st.SetApplicationScalingState(ctx, appID, scale, scaleTarget, scaling)
-	if err != nil {
+	if err := s.st.SetApplicationScalingState(ctx, appName, scaleTarget, scaling); err != nil {
 		return internalerrors.Errorf("updating scaling state for %q: %w", appName, err)
 	}
 	return nil

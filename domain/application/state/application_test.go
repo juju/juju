@@ -1048,7 +1048,124 @@ func (s *applicationStateSuite) TestUpdateApplicationScaleInvalidScale(c *gc.C) 
 	c.Assert(err, gc.ErrorMatches, `scale change invalid: cannot remove more units than currently exist`)
 }
 
-func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
+func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	appID := s.createApplication(c, "foo", life.Dead, u)
+
+	// Set up the initial scale value.
+	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkResult := func(want application.ScaleState) {
+		var got application.ScaleState
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appID).
+				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
+			return err
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(got, jc.DeepEquals, want)
+	}
+
+	err = s.state.SetApplicationScalingState(context.Background(), "foo", 42, true)
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(application.ScaleState{
+		Scale:       42,
+		ScaleTarget: 42,
+		Scaling:     true,
+	})
+
+	// Set scaling state but use the same target value as current scale.
+	err = s.state.SetApplicationScalingState(context.Background(), "foo", 42, true)
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(application.ScaleState{
+		Scale:       42,
+		ScaleTarget: 42,
+		Scaling:     true,
+	})
+}
+
+func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	appID := s.createApplication(c, "foo", life.Alive, u)
+
+	// Set up the initial scale value.
+	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set scaling state but use a target value different than the current
+	// scale.
+	err = s.state.SetApplicationScalingState(context.Background(), "foo", 42, true)
+	c.Assert(err, gc.ErrorMatches, "scaling state is inconsistent")
+}
+
+func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	appID := s.createApplication(c, "foo", life.Dying, u)
+
+	// Set up the initial scale value.
+	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkResult := func(want application.ScaleState) {
+		var got application.ScaleState
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appID).
+				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
+			return err
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(got, jc.DeepEquals, want)
+	}
+
+	err = s.state.SetApplicationScalingState(context.Background(), "foo", 42, true)
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(application.ScaleState{
+		Scale:       42,
+		ScaleTarget: 42,
+		Scaling:     true,
+	})
+}
+
+// This test is exactly like TestSetApplicationScalingStateAppDying but the app
+// is dead instead of dying.
+func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	appID := s.createApplication(c, "foo", life.Dead, u)
+
+	// Set up the initial scale value.
+	err := s.state.SetDesiredApplicationScale(context.Background(), appID, 666)
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkResult := func(want application.ScaleState) {
+		var got application.ScaleState
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appID).
+				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
+			return err
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(got, jc.DeepEquals, want)
+	}
+
+	err = s.state.SetApplicationScalingState(context.Background(), "foo", 42, true)
+	c.Assert(err, jc.ErrorIsNil)
+	checkResult(application.ScaleState{
+		Scale:       42,
+		ScaleTarget: 42,
+		Scaling:     true,
+	})
+}
+
+func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
@@ -1069,20 +1186,12 @@ func (s *applicationStateSuite) TestSetApplicationScalingState(c *gc.C) {
 		c.Assert(got, jc.DeepEquals, want)
 	}
 
-	err = s.state.SetApplicationScalingState(context.Background(), appID, nil, 668, true)
+	err = s.state.SetApplicationScalingState(context.Background(), "foo", 668, false)
 	c.Assert(err, jc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:       666,
 		ScaleTarget: 668,
-		Scaling:     true,
-	})
-
-	err = s.state.SetApplicationScalingState(context.Background(), appID, ptr(667), 668, true)
-	c.Assert(err, jc.ErrorIsNil)
-	checkResult(application.ScaleState{
-		Scale:       667,
-		ScaleTarget: 668,
-		Scaling:     true,
+		Scaling:     false,
 	})
 }
 

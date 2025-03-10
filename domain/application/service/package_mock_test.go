@@ -2826,17 +2826,17 @@ func (c *MockStateSetApplicationLifeCall) DoAndReturn(f func(context.Context, ap
 }
 
 // SetApplicationScalingState mocks base method.
-func (m *MockState) SetApplicationScalingState(ctx context.Context, appID application.ID, scale *int, targetScale int, scaling bool) error {
+func (m *MockState) SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetApplicationScalingState", ctx, appID, scale, targetScale, scaling)
+	ret := m.ctrl.Call(m, "SetApplicationScalingState", ctx, appName, targetScale, scaling)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetApplicationScalingState indicates an expected call of SetApplicationScalingState.
-func (mr *MockStateMockRecorder) SetApplicationScalingState(ctx, appID, scale, targetScale, scaling any) *MockStateSetApplicationScalingStateCall {
+func (mr *MockStateMockRecorder) SetApplicationScalingState(ctx, appName, targetScale, scaling any) *MockStateSetApplicationScalingStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationScalingState", reflect.TypeOf((*MockState)(nil).SetApplicationScalingState), ctx, appID, scale, targetScale, scaling)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationScalingState", reflect.TypeOf((*MockState)(nil).SetApplicationScalingState), ctx, appName, targetScale, scaling)
 	return &MockStateSetApplicationScalingStateCall{Call: call}
 }
 
@@ -2852,13 +2852,13 @@ func (c *MockStateSetApplicationScalingStateCall) Return(arg0 error) *MockStateS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetApplicationScalingStateCall) Do(f func(context.Context, application.ID, *int, int, bool) error) *MockStateSetApplicationScalingStateCall {
+func (c *MockStateSetApplicationScalingStateCall) Do(f func(context.Context, string, int, bool) error) *MockStateSetApplicationScalingStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetApplicationScalingStateCall) DoAndReturn(f func(context.Context, application.ID, *int, int, bool) error) *MockStateSetApplicationScalingStateCall {
+func (c *MockStateSetApplicationScalingStateCall) DoAndReturn(f func(context.Context, string, int, bool) error) *MockStateSetApplicationScalingStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
