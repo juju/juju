@@ -1612,45 +1612,6 @@ func (m *MockUnit) EXPECT() *MockUnitMockRecorder {
 	return m.recorder
 }
 
-// AgentStatus mocks base method.
-func (m *MockUnit) AgentStatus() (status.StatusInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AgentStatus")
-	ret0, _ := ret[0].(status.StatusInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AgentStatus indicates an expected call of AgentStatus.
-func (mr *MockUnitMockRecorder) AgentStatus() *MockUnitAgentStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentStatus", reflect.TypeOf((*MockUnit)(nil).AgentStatus))
-	return &MockUnitAgentStatusCall{Call: call}
-}
-
-// MockUnitAgentStatusCall wrap *gomock.Call
-type MockUnitAgentStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUnitAgentStatusCall) Return(arg0 status.StatusInfo, arg1 error) *MockUnitAgentStatusCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUnitAgentStatusCall) Do(f func() (status.StatusInfo, error)) *MockUnitAgentStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitAgentStatusCall) DoAndReturn(f func() (status.StatusInfo, error)) *MockUnitAgentStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Name mocks base method.
 func (m *MockUnit) Name() string {
 	m.ctrl.T.Helper()
