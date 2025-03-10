@@ -133,32 +133,14 @@ func (ssw *serverWrapperWorker) loop() error {
 		case <-ssw.catacomb.Dying():
 			return ssw.catacomb.ErrDying()
 		case <-changesChan:
-			// Restart the server worker.
-			srv.Kill()
-			if err := srv.Wait(); err != nil {
-				return errors.Trace(err)
-			}
-
-			// Get latest controller configuration.
-			port, _, err := ssw.getLatestControllerConfig()
+			newPort, _, err := ssw.getLatestControllerConfig()
 			if err != nil {
-				return errors.Trace(err)
+				continue
 			}
-
-			// Start the server again.
-			srv, err = ssw.config.NewServerWorker(ServerWorkerConfig{
-				Logger:      ssw.config.Logger,
-				JumpHostKey: jumpHostKey,
-				Port:        port,
-			})
-			if err != nil {
-				return errors.Trace(err)
+			if port == newPort {
+				continue
 			}
-
-			// Re-add it to the catacomb with the newly updated configuration.
-			if err := ssw.catacomb.Add(srv); err != nil {
-				return errors.Trace(err)
-			}
+			return errors.New("changes detected, stopping SSH server worker")
 		}
 	}
 }

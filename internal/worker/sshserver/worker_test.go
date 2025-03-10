@@ -161,7 +161,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	// Expect WatchControllerConfig call
 	mockFacadeClient.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
-	// Expect first call to have port of 22 and called once.
+	// Expect first call to have port of 22 and called once on worker startup.
 	mockFacadeClient.EXPECT().
 		ControllerConfig().
 		Return(
@@ -172,7 +172,19 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 			nil,
 		).
 		Times(1)
-	// The second call, we're updating the port and should see it changes in our NewServerWorker call.
+	// The second call will be made if the worker receives changes on the watcher
+	// and should should show no change and avoid restarting the worker.
+	mockFacadeClient.EXPECT().
+		ControllerConfig().
+		Return(
+			controller.Config{
+				controller.SSHServerPort:               22,
+				controller.SSHMaxConcurrentConnections: 10,
+			},
+			nil,
+		).
+		Times(1)
+	// On the third call, we're updating the port and should see it restart the worker.
 	mockFacadeClient.EXPECT().
 		ControllerConfig().
 		Return(
@@ -184,18 +196,13 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 		).
 		Times(1)
 
-	startCounter := 0
+	serverStarted := false
 	cfg := sshserver.ServerWrapperWorkerConfig{
 		FacadeClient: mockFacadeClient,
 		Logger:       loggo.GetLogger("test"),
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
-			startCounter++
-			if startCounter == 1 {
-				c.Assert(swc.Port, gc.Equals, 22)
-			}
-			if startCounter == 2 {
-				c.Assert(swc.Port, gc.Equals, 2222)
-			}
+			serverStarted = true
+			c.Check(swc.Port, gc.Equals, 22)
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
@@ -209,21 +216,23 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	workertest.CheckAlive(c, serverWorker)
 	workertest.CheckAlive(c, controllerConfigWatcher)
 
-	// Send some changes to restart the server.
+	c.Check(serverStarted, gc.Equals, true)
+
+	// Send some changes to restart the server (expect no changes).
 	watcherChan <- struct{}{}
 
-	// Kill wrapper worker.
-	workertest.CleanKill(c, w)
+	workertest.CheckAlive(c, w)
+
+	// Send some changes to restart the server (expect the worker to restart).
+	watcherChan <- struct{}{}
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "changes detected, stopping SSH server worker")
 
 	// Check all workers killed.
-	c.Check(workertest.CheckKilled(c, w), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, w), gc.ErrorMatches, "changes detected, stopping SSH server worker")
 	c.Check(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
 	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
-
-	// Expect start counter.
-	// 1 for the initial start.
-	// 1 for the restart.
-	c.Assert(startCounter, gc.Equals, 2)
 }
 
 func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) {
