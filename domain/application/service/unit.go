@@ -277,6 +277,14 @@ func (s *Service) GetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	switch agentStatus.Status {
+	case application.UnitAgentStatusError:
+		agentStatus.Message = ""
+		agentStatus.Data = nil
+	default:
+	}
+
 	return decodeUnitAgentStatus(agentStatus)
 }
 

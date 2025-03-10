@@ -51,10 +51,15 @@ type ModelService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	// GetApplicationLife returns the life value of the application with the given name.
+	// GetApplicationLife returns the life value of the application with the
+	// given name.
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
 	// GetUnitWorkloadStatus returns the workload status of the specified unit.
+	// Returns [applicationerrors.UnitNotFound] if the unit does not exist.
 	GetUnitWorkloadStatus(context.Context, unit.Name) (*status.StatusInfo, error)
+	// GetUnitAgentStatus returns the agent status of the specified unit.
+	// Returns [applicationerrors.UnitNotFound] if the unit does not exist.
+	GetUnitAgentStatus(context.Context, unit.Name) (*status.StatusInfo, error)
 }
 
 // ModelAgentService provides access to the Juju agent version for the model.

@@ -15,6 +15,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -28,7 +29,6 @@ type StatusAPI struct {
 
 	applicationService ApplicationService
 
-	agentSetter       *common.StatusSetter
 	unitSetter        *common.UnitStatusSetter
 	unitGetter        *common.UnitStatusGetter
 	applicationSetter *common.ApplicationStatusSetter
@@ -42,11 +42,9 @@ func NewStatusAPI(st *state.State, applicationService ApplicationService, getCan
 	unitSetter := common.NewUnitStatusSetter(applicationService, clock, getCanModify)
 	unitGetter := common.NewUnitStatusGetter(applicationService, clock, getCanModify)
 	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
-	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, getCanModify, clock)
 	return &StatusAPI{
 		leadershipChecker:  leadershipChecker,
 		applicationService: applicationService,
-		agentSetter:        agentSetter,
 		unitSetter:         unitSetter,
 		unitGetter:         unitGetter,
 		applicationSetter:  applicationSetter,
@@ -64,7 +62,38 @@ func (s *StatusAPI) SetStatus(ctx context.Context, args params.SetStatus) (param
 // SetAgentStatus will set status for agents of Units passed in args, if one
 // of the args is not an Unit it will fail.
 func (s *StatusAPI) SetAgentStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	return s.agentSetter.SetStatus(ctx, args)
+	canModify, err := s.getCanModify()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		tag, err := names.ParseUnitTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if !canModify(tag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		if err := s.applicationService.SetUnitAgentStatus(ctx, unit.Name(tag.Id()), &status.StatusInfo{
+			Status:  status.Status(arg.Status),
+			Message: arg.Info,
+			Data:    arg.Data,
+		}); errors.Is(err, applicationerrors.UnitNotFound) {
+			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return results, nil
 }
 
 // SetUnitStatus sets status for all elements passed in args, the difference

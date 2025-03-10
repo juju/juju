@@ -6,6 +6,7 @@ package unitassigner
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -13,7 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -29,11 +32,9 @@ type assignerState interface {
 	AssignedMachineId(unit string) (string, error)
 }
 
-type statusSetter interface {
-	SetStatus(context.Context, params.SetStatus) (params.ErrorResults, error)
-}
-
-type machineService interface {
+// MachineService is the interface that is used to interact with the machine
+// domain.
+type MachineService interface {
 	CreateMachine(context.Context, machine.Name) (string, error)
 }
 
@@ -59,14 +60,22 @@ type StubService interface {
 	AssignUnitsToMachines(context.Context, map[string][]unit.Name) error
 }
 
+// ApplicationService is the interface that is used to interact with the
+// application domain.
+type ApplicationService interface {
+	// SetUnitAgentStatus sets the status of the agent of the given unit.
+	SetUnitAgentStatus(ctx context.Context, name unit.Name, status *status.StatusInfo) error
+}
+
 // API implements the functionality for assigning units to machines.
 type API struct {
-	st             assignerState
-	machineService machineService
-	networkService NetworkService
-	stubService    StubService
-	res            facade.Resources
-	statusSetter   statusSetter
+	st                 assignerState
+	machineService     MachineService
+	networkService     NetworkService
+	applicationService ApplicationService
+	stubService        StubService
+	clock              clock.Clock
+	res                facade.Resources
 }
 
 // AssignUnits assigns the units with the given ids to the correct machine. The
@@ -171,7 +180,30 @@ func (a *API) WatchUnitAssignments(ctx context.Context) (params.StringsWatchResu
 }
 
 // SetAgentStatus will set status for agents of Units passed in args, if one
-// of the args is not an Unit it will fail.
+// of the args is not an Unit it will add the error to the result and continue,
+// until all the args are processed.
 func (a *API) SetAgentStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	return a.statusSetter.SetStatus(ctx, args)
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+
+	for i, arg := range args.Entities {
+		tag, err := names.ParseUnitTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if err := a.applicationService.SetUnitAgentStatus(ctx, unit.Name(tag.Id()), &status.StatusInfo{
+			Status:  status.Status(arg.Status),
+			Message: arg.Info,
+			Data:    arg.Data,
+		}); errors.Is(err, applicationerrors.UnitNotFound) {
+			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+		}
+	}
+
+	return results, nil
 }

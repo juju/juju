@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -88,28 +87,4 @@ func (s *StatusSetter) SetStatus(ctx context.Context, args params.SetStatus) (pa
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-// UnitAgentFinder is a state.EntityFinder that finds unit agents.
-type UnitAgentFinder struct {
-	state.EntityFinder
-}
-
-// FindEntity implements state.EntityFinder and returns unit agents.
-func (ua *UnitAgentFinder) FindEntity(tag names.Tag) (state.Entity, error) {
-	_, ok := tag.(names.UnitTag)
-	if !ok {
-		return nil, errors.Errorf("unsupported tag %T", tag)
-	}
-	entity, err := ua.EntityFinder.FindEntity(tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// this returns a state.Unit, but for testing we just cast to the minimal
-	// interface we need.
-	return entity.(hasAgent).Agent(), nil
-}
-
-type hasAgent interface {
-	Agent() *state.UnitAgent
 }

@@ -146,7 +146,6 @@ func (m machineShim) Units() ([]Unit, error) {
 type Unit interface {
 	UnitTag() names.UnitTag
 	Name() string
-	AgentStatus() (status.StatusInfo, error)
 }
 
 type StorageInterface interface {

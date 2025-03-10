@@ -14,6 +14,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state.go github.com/juju/juju/state ModelMigration,NotifyWatcher
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/objectstore.go github.com/juju/juju/core/objectstore ObjectStore
 
-func Test(t *testing.T) {
+func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
