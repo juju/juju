@@ -597,13 +597,11 @@ func getWatchActivatedModelsMapper(st State) func(ctx context.Context, db databa
 
 	return func(ctx context.Context, db database.TxnRunner,
 		changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-		uuidToChangeEventMap := make(map[string]changestream.ChangeEvent)
 		modelUUIDs := make([]string, len(changes))
 
 		for i, change := range changes {
 			modelUUID := change.Changed()
 			modelUUIDs[i] = modelUUID
-			uuidToChangeEventMap[modelUUID] = change
 		}
 
 		// Retrieve all activate status of all models with associated uuids
@@ -614,11 +612,18 @@ func getWatchActivatedModelsMapper(st State) func(ctx context.Context, db databa
 			return nil, err
 		}
 
-		activatedModelChangeEvents := make([]changestream.ChangeEvent, 0, len(activatedModelUUIDs))
-		// Add all events associated with activated model UUIDs
+		activatedModelUUIDToChangeEventMap := make(map[string]struct{})
 		for _, activatedModelUUID := range activatedModelUUIDs {
-			if changeEvent, exists := uuidToChangeEventMap[activatedModelUUID.String()]; exists {
-				activatedModelChangeEvents = append(activatedModelChangeEvents, changeEvent)
+			activatedModelUUIDToChangeEventMap[activatedModelUUID.String()] = struct{}{}
+		}
+
+		activatedModelChangeEvents := make([]changestream.ChangeEvent, 0, len(changes))
+
+		// Add all events associated with activated model UUIDs
+		for i, change := range changes {
+			uuid := modelUUIDs[i]
+			if _, exists := activatedModelUUIDToChangeEventMap[uuid]; exists {
+				activatedModelChangeEvents = append(activatedModelChangeEvents, change)
 			}
 		}
 
