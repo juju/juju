@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
@@ -93,7 +94,7 @@ func (s *baseSuite) setupMocksWithProvider(
 		providerGetter,
 		supportFeaturesProviderGetter,
 		s.charmStore,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -103,7 +104,7 @@ func (s *baseSuite) setupMocksWithProvider(
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
-	return s.setupMocksWithStatusHistory(c, domain.NewStatusHistory(loggertesting.WrapCheckLog(c)))
+	return s.setupMocksWithStatusHistory(c, domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock))
 }
 
 func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHistory) *gomock.Controller {

@@ -873,7 +873,7 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 			return serviceProvider{}, nil
 		},
 		nil,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		logger,
 	)

@@ -126,7 +126,7 @@ func (s *charmSuite) setupService(c *gc.C) *service.Service {
 			return provider.CommonStorageProviders()
 		}),
 		nil,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

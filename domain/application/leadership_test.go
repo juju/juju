@@ -175,7 +175,7 @@ func (s *leadershipSuite) setupService(c *gc.C, factory domain.WatchableDBFactor
 			return serviceProvider{}, nil
 		},
 		nil,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

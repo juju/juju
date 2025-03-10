@@ -139,7 +139,7 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 			return serviceProvider{}, nil
 		},
 		nil,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

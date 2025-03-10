@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -53,7 +54,7 @@ func (s *statusHistorySuite) TestRecordStatus(c *gc.C) {
 		},
 	}).Return(nil)
 
-	statusHistory := NewStatusHistory(s.recorder)
+	statusHistory := NewStatusHistory(s.recorder, clock.WallClock)
 	err := statusHistory.RecordStatus(context.Background(), ns, status.StatusInfo{
 		Status:  status.Active,
 		Message: "foo",
@@ -82,7 +83,7 @@ func (s *statusHistorySuite) TestRecordStatusWithError(c *gc.C) {
 		},
 	}).Return(errors.Errorf("failed to record"))
 
-	statusHistory := NewStatusHistory(s.recorder)
+	statusHistory := NewStatusHistory(s.recorder, clock.WallClock)
 	err := statusHistory.RecordStatus(context.Background(), ns, status.StatusInfo{
 		Status:  status.Active,
 		Message: "foo",
@@ -110,7 +111,7 @@ func (s *statusHistorySuite) TestRecordStatusNoID(c *gc.C) {
 		},
 	}).Return(nil)
 
-	statusHistory := NewStatusHistory(s.recorder)
+	statusHistory := NewStatusHistory(s.recorder, clock.WallClock)
 	err := statusHistory.RecordStatus(context.Background(), ns, status.StatusInfo{
 		Status:  status.Active,
 		Message: "foo",
@@ -136,13 +137,33 @@ func (s *statusHistorySuite) TestRecordStatusNoData(c *gc.C) {
 		Time:    now.Format(time.RFC3339),
 	}).Return(nil)
 
-	statusHistory := NewStatusHistory(s.recorder)
+	statusHistory := NewStatusHistory(s.recorder, clock.WallClock)
 	err := statusHistory.RecordStatus(context.Background(), ns, status.StatusInfo{
 		Status:  status.Active,
 		Message: "foo",
 		Since:   &now,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *statusHistorySuite) TestRecordStatusNoSince(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ns := Namespace{Name: "foo"}.WithID("123")
+
+	var record Record
+	s.recorder.EXPECT().Record(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, r Record) error {
+		record = r
+		return nil
+	})
+
+	statusHistory := NewStatusHistory(s.recorder, clock.WallClock)
+	err := statusHistory.RecordStatus(context.Background(), ns, status.StatusInfo{
+		Status:  status.Active,
+		Message: "foo",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(record.Time, gc.Not(gc.Equals), "")
 }
 
 func (s *statusHistorySuite) setupMocks(c *gc.C) *gomock.Controller {

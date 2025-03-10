@@ -186,6 +186,12 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 		return nil
 	}
 
+	// Ensure we have a valid timestamp. It's optional at the API server level.
+	// but it is a requirement for the database.
+	if status.Since == nil {
+		status.Since = ptr(s.clock.Now())
+	}
+
 	workloadStatus, err := encodeWorkloadStatus(status)
 	if err != nil {
 		return internalerrors.Errorf("encoding workload status: %w", err)
@@ -232,6 +238,12 @@ func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 
 	if status == nil {
 		return nil
+	}
+
+	// Ensure we have a valid timestamp. It's optional at the API server level.
+	// but it is a requirement for the database.
+	if status.Since == nil {
+		status.Since = ptr(s.clock.Now())
 	}
 
 	// Encoding the status will handle invalid status values.
