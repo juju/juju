@@ -65,8 +65,8 @@ type ExportService interface {
 	// is set for the application, an empty config is returned.
 	GetApplicationConfigAndSettings(ctx context.Context, name string) (config.ConfigAttributes, application.ApplicationSettings, error)
 
-	// GetApplicationStatus returns the status of the specified application.
-	// If the application does not exist, a [applicationerrors.ApplicationNotFound]
+	// GetApplicationStatus returns the status of the specified application. If
+	// the application does not exist, a [applicationerrors.ApplicationNotFound]
 	// error is returned.
 	GetApplicationStatus(ctx context.Context, name string) (*corestatus.StatusInfo, error)
 
@@ -78,9 +78,20 @@ type ExportService interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(ctx context.Context, name string) (constraints.Value, error)
 
-	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	GetUnitWorkloadStatus(ctx context.Context, name coreunit.Name) (*corestatus.StatusInfo, error)
+	// GetUnitUUIDByName returns the unit UUID for the specified unit name.
+	// If the unit does not exist, an error satisfying
+	// [applicationerrors.UnitNotFound] is returned.
+	GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error)
+
+	// GetUnitWorkloadStatus returns the workload status of the specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
+	GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (*corestatus.StatusInfo, error)
+
+	// GetUnitAgentStatus returns the agent status of the specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
+	GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (*corestatus.StatusInfo, error)
 }
 
 // exportOperation describes a way to execute a migration for
