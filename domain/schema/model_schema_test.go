@@ -26,6 +26,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 	expected := set.NewStrings(
 		// Application
 		"application",
+		"application_agent_version",
 		"application_channel",
 		"application_config_hash",
 		"application_config",
