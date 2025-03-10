@@ -23,9 +23,11 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/envcontext"
 	internalcharm "github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/storage"
 )
 
 // ProviderService defines a service for interacting with the underlying
@@ -71,6 +73,34 @@ func NewProviderService(
 		provider:                 provider,
 		supportedFeatureProvider: supportedFeatureProvider,
 	}
+}
+
+func (s *Service) poolStorageProvider(
+	ctx context.Context,
+	registry storage.ProviderRegistry,
+	poolNameOrType string,
+) (storage.Provider, error) {
+	pool, err := s.st.GetStoragePoolByName(ctx, poolNameOrType)
+	if errors.Is(err, storageerrors.PoolNotFoundError) {
+		// If there's no pool called poolNameOrType, maybe a provider type
+		// has been specified directly.
+		providerType := storage.ProviderType(poolNameOrType)
+		aProvider, registryErr := registry.StorageProvider(providerType)
+		if registryErr != nil {
+			// The name can't be resolved as a storage provider type,
+			// so return the original "pool not found" error.
+			return nil, errors.Trace(err)
+		}
+		return aProvider, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	providerType := storage.ProviderType(pool.Provider)
+	aProvider, err := registry.StorageProvider(providerType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return aProvider, nil
 }
 
 // CreateApplication creates the specified application and units if required,
@@ -123,11 +153,34 @@ func (s *ProviderService) CreateApplication(
 		return "", errors.Annotatef(err, "merging application and model constraints")
 	}
 
+	// Adding units with storage needs to know the kind of storage supported
+	// by the underlying provider so gather that here as it needs to be
+	// done outside a transaction.
+	registry, err := s.storageRegistryGetter.GetStorageRegistry(ctx)
+	if err != nil {
+		return "", err
+	}
+
 	unitArgs, err := s.makeUnitArgs(modelType, units, constraints.DecodeConstraints(cons))
 	if err != nil {
 		return "", errors.Annotatef(err, "making unit args")
 	}
 
+	if len(appArg.Storage) > 0 {
+		appArg.StoragePoolKind = make(map[string]storage.StorageKind)
+	}
+	for _, arg := range appArg.Storage {
+		p, err := s.poolStorageProvider(ctx, registry, arg.PoolNameOrType)
+		if err != nil {
+			return "", err
+		}
+		if p.Supports(storage.StorageKindFilesystem) {
+			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindFilesystem
+		}
+		if p.Supports(storage.StorageKindBlock) {
+			appArg.StoragePoolKind[arg.PoolNameOrType] = storage.StorageKindBlock
+		}
+	}
 	appID, err := s.st.CreateApplication(ctx, name, appArg, unitArgs)
 	if err != nil {
 		return "", errors.Annotatef(err, "creating application %q", name)
@@ -218,7 +271,7 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application
 // doesn't exist.
 // If no units are provided, it will return nil.
-func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ...AddUnitArg) error {
+func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appName string, units ...AddUnitArg) error {
 	if !isValidApplicationName(appName) {
 		return applicationerrors.ApplicationNameNotValid
 	}
@@ -252,7 +305,7 @@ func (s *ProviderService) AddUnits(ctx context.Context, appName string, units ..
 		return internalerrors.Errorf("making unit args: %w", err)
 	}
 
-	if err := s.st.AddUnits(ctx, appUUID, args); err != nil {
+	if err := s.st.AddUnits(ctx, storageParentDir, appUUID, args); err != nil {
 		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
 	}
 
