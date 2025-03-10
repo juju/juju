@@ -534,7 +534,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		PasswordHash:         application.doc.PasswordHash,
 		Placement:            application.doc.Placement,
 		HasResources:         application.doc.HasResources,
-		DesiredScale:         application.doc.DesiredScale,
 		EndpointBindings:     map[string]string(ctx.endpointBindings[globalKey]),
 		ApplicationConfig:    applicationConfig,
 		CharmConfig:          charmConfig,
@@ -546,13 +545,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 	if constraints, found := e.modelStorageConstraints[storageConstraintsKey]; found {
 		args.StorageDirectives = e.storageDirectives(constraints)
-	}
-
-	if ps := application.ProvisioningState(); ps != nil {
-		args.ProvisioningState = &description.ProvisioningStateArgs{
-			Scaling:     ps.Scaling,
-			ScaleTarget: ps.ScaleTarget,
-		}
 	}
 
 	// Include exposed endpoint details

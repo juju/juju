@@ -1231,7 +1231,12 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		} else {
 			logger.Debugf(ctx, "no service details for %v: %v", application.Name(), err)
 		}
-		processedStatus.Scale = application.GetScale()
+		appScale, err := context.applicationService.GetApplicationScale(ctx, application.Name())
+		if err == nil {
+			processedStatus.Scale = appScale
+		} else {
+			logger.Debugf(ctx, "no application scale for %v: %v", application.Name(), err)
+		}
 	}
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]
 	return processedStatus
