@@ -150,10 +150,16 @@ func (s *relationResolverSuite) setupRelations(c *gc.C) relation.RelationStateTr
 		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("State", unitEntity, unitStateResults, nil),
-		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
+		// Note: The uniter API is not making a RelationsStatus facade
+		// call at this time to keep the uniter running while relation
+		// domain work is in progress, JUJU-4856. Once this test starts
+		// failing, enable this check. Remove Skips related to RelationsStatus
+		// at the same time.
+		//uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
 	r := s.newRelationStateTracker(c, apiCaller, unitTag)
-	assertNumCalls(c, &numCalls, 4)
+	assertNumCalls(c, &numCalls, 3)
+	//assertNumCalls(c, &numCalls, 4)
 	return r
 }
 
@@ -230,10 +236,12 @@ func (s *relationResolverSuite) assertNewRelationsWithExistingRelations(c *gc.C,
 }
 
 func (s *relationResolverSuite) TestNewRelationsWithExistingRelationsLeader(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	s.assertNewRelationsWithExistingRelations(c, true)
 }
 
 func (s *relationResolverSuite) TestNewRelationsWithExistingRelationsNotLeader(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	s.assertNewRelationsWithExistingRelations(c, false)
 }
 
@@ -251,10 +259,16 @@ func (s *relationResolverSuite) TestNextOpNothing(c *gc.C) {
 		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("State", unitEntity, unitStateResults, nil),
-		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
+		// Note: The uniter API is not making a RelationsStatus facade
+		// call at this time to keep the uniter running while relation
+		// domain work is in progress, JUJU-4856. Once this test starts
+		// failing, enable this check. Remove Skips related to RelationsStatus
+		// at the same time.
+		//uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
 	r := s.newRelationStateTracker(c, apiCaller, unitTag)
-	assertNumCalls(c, &numCalls, 4)
+	assertNumCalls(c, &numCalls, 3)
+	//assertNumCalls(c, &numCalls, 4)
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -415,6 +429,7 @@ func (s *relationResolverSuite) assertHookRelationJoined(c *gc.C, numCalls *int3
 }
 
 func (s *relationResolverSuite) TestHookRelationJoined(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	var numCalls int32
 	s.assertHookRelationJoined(c, &numCalls, relationJoinedAPICalls()...)
 }
@@ -449,6 +464,7 @@ func (s *relationResolverSuite) assertHookRelationChanged(
 }
 
 func (s *relationResolverSuite) TestHookRelationChanged(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 	unitSetStateArgs := params.SetUnitStateArgs{
@@ -502,6 +518,7 @@ func (s *relationResolverSuite) TestHookRelationChanged(c *gc.C) {
 }
 
 func (s *relationResolverSuite) TestHookRelationChangedApplication(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls()
 	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
@@ -546,6 +563,7 @@ func (s *relationResolverSuite) TestHookRelationChangedApplication(c *gc.C) {
 }
 
 func (s *relationResolverSuite) TestHookRelationChangedSuspended(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	var numCalls int32
 	apiCalls := relationJoinedAndDepartedAPICalls()
 	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
@@ -620,6 +638,7 @@ func (s *relationResolverSuite) assertHookRelationDeparted(c *gc.C, numCalls *in
 }
 
 func (s *relationResolverSuite) TestHookRelationDeparted(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	var numCalls int32
 	apiCalls := relationJoinedAndDepartedAPICalls()
 
@@ -627,6 +646,7 @@ func (s *relationResolverSuite) TestHookRelationDeparted(c *gc.C) {
 }
 
 func (s *relationResolverSuite) TestHookRelationBroken(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	var numCalls int32
 	apiCalls := relationJoinedAndDepartedAPICalls()
 
@@ -652,6 +672,7 @@ func (s *relationResolverSuite) TestHookRelationBroken(c *gc.C) {
 }
 
 func (s *relationResolverSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	var numCalls int32
 	apiCalls := relationJoinedAndDepartedAPICalls()
 
@@ -678,6 +699,7 @@ func (s *relationResolverSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
 }
 
 func (s *relationResolverSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	var numCalls int32
 	apiCalls := relationJoinedAndDepartedAPICallsNoState()
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -729,6 +751,7 @@ func (s *relationResolverSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 }
 
 func (s *relationResolverSuite) TestCommitHook(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	var numCalls int32
 	apiCalls := relationJoinedAPICalls2SetState()
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -815,7 +838,12 @@ func (s *relationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 		uniterAPICall("Refresh", unitEntitySingleton, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntitySingleton, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("State", unitEntitySingleton, unitStateResults, nil),
-		uniterAPICall("RelationsStatus", unitEntitySingleton, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
+		// Note: The uniter API is not making a RelationsStatus facade
+		// call at this time to keep the uniter running while relation
+		// domain work is in progress, JUJU-4856. Once this test starts
+		// failing, enable this check. Remove Skips related to RelationsStatus
+		// at the same time.
+		//uniterAPICall("RelationsStatus", unitEntitySingleton, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 		uniterAPICall("RelationById", params.RelationIds{RelationIds: []int{1}}, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
 		uniterAPICall("Relation", relationUnits, relationResults, nil),
@@ -958,6 +986,7 @@ func subSubRelationAPICalls() []apiCall {
 }
 
 func (s *relationResolverSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	// When two subordinate units are related on a principal unit's
 	// machine, the sub-sub relation shouldn't keep them alive if the
 	// relation to the principal dies.
@@ -1018,6 +1047,7 @@ func (s *relationResolverSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *
 }
 
 func (s *relationResolverSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	var numCalls int32
 	apiCalls := subSubRelationAPICalls()
 	// Sanity check: there shouldn't be a destroy at the end.
@@ -1137,6 +1167,7 @@ func principalWithSubordinateAPICalls() []apiCall {
 }
 
 func (s *relationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *gc.C) {
+	c.Skip("RelationsStatus is not being called by the API during initial part of JUJU-4856")
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
