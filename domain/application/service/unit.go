@@ -234,6 +234,16 @@ func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 		return nil
 	}
 
+	// Encoding the status will handle invalid status values.
+	switch status.Status {
+	case corestatus.Error:
+		if status.Message == "" {
+			return errors.Errorf("setting status %q without message", status.Status)
+		}
+	case corestatus.Lost, corestatus.Allocating:
+		return errors.Errorf("setting status %q is not allowed", status.Status)
+	}
+
 	agentStatus, err := encodeUnitAgentStatus(status)
 	if err != nil {
 		return internalerrors.Errorf("encoding agent status: %w", err)
