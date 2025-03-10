@@ -112,7 +112,6 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"k8s_pod",
 		"unit_agent_status_value",
 		"unit_agent_status",
-		"unit_agent",
 		"unit_agent_presence",
 		"unit_constraint",
 		"unit_principal",
