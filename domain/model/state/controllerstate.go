@@ -1812,6 +1812,9 @@ func (st *State) GetAllActivatedModelsUUIDQuery() string {
 // GetActivatedModelUUIDs returns the subset of model uuids from the supplied list that are activated.
 // If no models associated with the uuids are activated then an empty slice is returned.
 func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]coremodel.UUID, error) {
+	if len(uuids) == 0 {
+		return nil, nil
+	}
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)

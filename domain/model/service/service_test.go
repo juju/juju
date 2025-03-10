@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,6 +17,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	changestream "github.com/juju/juju/core/changestream"
+	changestreammock "github.com/juju/juju/core/changestream/mocks"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -24,10 +27,14 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	watcher "github.com/juju/juju/core/watcher"
+	eventsource "github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/core/watcher/watchertest"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
@@ -44,6 +51,7 @@ type serviceSuite struct {
 	mockModelDeleter   *MockModelDeleter
 	mockState          *MockState
 	mockWatcherFactory *MockWatcherFactory
+	changestreamtesting.ControllerSuite
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -1113,4 +1121,75 @@ func (s *serviceSuite) TestDefaultModelCloudNameAndCredential(c *gc.C) {
 		Owner: usertesting.GenNewName(c, "admin"),
 		Name:  "test-cred",
 	})
+}
+
+// TestWatchActivatedModels verifies that WatchActivatedModels correctly sets up a watcher
+// that emits events for activated models when the watcher receives change events.
+func (s *serviceSuite) TestWatchActivatedModels(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	ctx := context.Background()
+	svc := NewWatchableService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+		s.mockWatcherFactory,
+	)
+
+	activatedModelUUID1 := modeltesting.GenModelUUID(c)
+	activatedModelUUID2 := modeltesting.GenModelUUID(c)
+	activatedModelUUIDs := []coremodel.UUID{activatedModelUUID1, activatedModelUUID2}
+	activatedModelUUIDStrs := transform.Slice(activatedModelUUIDs, func(uuid coremodel.UUID) string {
+		return uuid.String()
+	})
+
+	// Set up necessary state function return values.
+	s.mockState.EXPECT().GetAllActivatedModelsUUIDQuery().Return(
+		"SELECT uuid from model WHERE activated = true",
+	)
+	s.mockState.EXPECT().GetActivatedModelUUIDs(gomock.Any(), gomock.Any()).Return(
+		activatedModelUUIDs, nil,
+	)
+
+	// Create change events for watcher mapper.
+	chEvent1 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
+	chEvent1.EXPECT().Changed().Return(
+		activatedModelUUID1.String(),
+	)
+
+	chEvent2 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
+	chEvent2.EXPECT().Changed().Return(
+		activatedModelUUID2.String(),
+	)
+
+	chEvent3 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
+	chEvent3.EXPECT().Changed().Return(
+		"unactivated model UUID",
+	)
+
+	// Change events received by the watcher mapper.
+	receivedChangeEvents := []changestream.ChangeEvent{chEvent1, chEvent2, chEvent3}
+	// Change events containing model UUIDs of activated models retrieved from the database.
+	expectedChangeEvents := []changestream.ChangeEvent{chEvent1, chEvent2}
+
+	changes := make(chan []string, 1)
+	changes <- activatedModelUUIDStrs
+
+	w := watchertest.NewMockStringsWatcher(changes)
+
+	mapper := getWatchActivatedModelsMapper(s.mockState)
+	s.mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher("model", changestream.Changed,
+		gomock.Any(), gomock.Any()).DoAndReturn(
+		func(string, changestream.ChangeType, eventsource.NamespaceQuery, eventsource.Mapper) (watcher.Watcher[[]string], error) {
+			// Use service mapper to retrieve change events containing only model UUIDs of activated models.
+			changes, err := mapper(ctx, s.ControllerTxnRunner(), receivedChangeEvents)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(changes, gc.DeepEquals, expectedChangeEvents)
+			return w, nil
+		},
+	)
+
+	// Verifies that the service returns the correct activate model UUIDs string.
+	watcher, err := svc.WatchActivatedModels(ctx)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(<-watcher.Changes(), gc.DeepEquals, activatedModelUUIDStrs)
 }

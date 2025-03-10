@@ -1887,8 +1887,13 @@ func (s *stateSuite) TestGetControllerModelUUIDNotFound(c *gc.C) {
 func (s *stateSuite) TestGetActivatedModelUUIDs(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
+	// Test no input model UUIDs.
+	activatedModelUUIDs, err := st.GetActivatedModelUUIDs(context.Background(), []string{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(activatedModelUUIDs, gc.HasLen, 0)
+
 	// Test activated model UUID.
-	activatedModelUUIDs, err := st.GetActivatedModelUUIDs(context.Background(), []string{s.uuid.String()})
+	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []string{s.uuid.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(activatedModelUUIDs, gc.HasLen, 1)
 	c.Check(activatedModelUUIDs[0], gc.Equals, s.uuid)

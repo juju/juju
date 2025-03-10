@@ -590,11 +590,12 @@ func (s *Service) UpdateCredential(
 	return s.st.UpdateCredential(ctx, uuid, key)
 }
 
-// WatchActivatedModels returns a watcher that reports all activated models in the controller.
-// The watcher outputs events for when an activated model receives an update.
-// Deletion of activated models are not reported.
-func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error) {
-	mapper := func(ctx context.Context, db database.TxnRunner,
+// getWatchActivatedModelsMapper returns a mapper function that filters change events to
+// include only those associated with activated models.
+func getWatchActivatedModelsMapper(st State) func(ctx context.Context, db database.TxnRunner,
+	changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+
+	return func(ctx context.Context, db database.TxnRunner,
 		changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		uuidToChangeEventMap := make(map[string]changestream.ChangeEvent)
 		modelUUIDs := make([]string, len(changes))
@@ -606,15 +607,14 @@ func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.St
 		}
 
 		// Retrieve all activate status of all models with associated uuids
-		activatedModelUUIDs, err := s.st.GetActivatedModelUUIDs(ctx, modelUUIDs)
+		activatedModelUUIDs, err := st.GetActivatedModelUUIDs(ctx, modelUUIDs)
 
 		// There should be no errors returned if there are no activated models found.
 		if err != nil {
-			s.logger.Errorf(ctx, "failed to activated model UUIDs: %v\n", err)
 			return nil, err
 		}
 
-		activatedModelChangeEvents := make([]changestream.ChangeEvent, 0, len(changes))
+		activatedModelChangeEvents := make([]changestream.ChangeEvent, 0, len(activatedModelUUIDs))
 		// Add all events associated with activated model UUIDs
 		for _, activatedModelUUID := range activatedModelUUIDs {
 			if changeEvent, exists := uuidToChangeEventMap[activatedModelUUID.String()]; exists {
@@ -624,6 +624,15 @@ func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.St
 
 		return activatedModelChangeEvents, nil
 	}
+
+}
+
+// WatchActivatedModels returns a watcher emits an event containing the model UUID
+// when a model becomes activated or an activated model receives an update.
+// Newly created models will not be reported since they are not activated at creation.
+// Deletion of activated models is also not reported.
+func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error) {
+	mapper := getWatchActivatedModelsMapper(s.st)
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		"model", changestream.Changed,
