@@ -39,7 +39,7 @@ type LogSink struct {
 	flushInterval time.Duration
 
 	in  chan loggo.Entry
-	out chan []LogRecord
+	out chan []logRecord
 
 	pool sync.Pool
 }
@@ -64,11 +64,11 @@ func newLogSink(writer io.Writer, batchSize int, flushInterval time.Duration, in
 		flushInterval: flushInterval,
 
 		in:  make(chan loggo.Entry, batchSize),
-		out: make(chan []LogRecord, batchSize),
+		out: make(chan []logRecord, batchSize),
 
 		pool: sync.Pool{
 			New: func() any {
-				return LogRecord{}
+				return logRecord{}
 			},
 		},
 	}
@@ -97,66 +97,42 @@ func (w *LogSink) Wait() error {
 }
 
 func (w *LogSink) loop() error {
-	buffer := new(bytes.Buffer)
-	encoder := json.NewEncoder(buffer)
-
-	entries := make([]loggo.Entry, 0, w.batchSize)
-
 	w.tomb.Go(func() error {
+		buffer := new(bytes.Buffer)
+		encoder := json.NewEncoder(buffer)
+
 		for {
 			select {
 			case <-w.tomb.Dying():
 				return tomb.ErrDying
 			case records := <-w.out:
-				if len(records) == 0 {
-					continue
+				if err := w.write(buffer, encoder, records); err != nil {
+					return err
 				}
-
-				for _, record := range records {
-					if err := encoder.Encode(record); err != nil {
-						fmt.Fprintf(os.Stderr, "failed to encode log message: %v", err)
-					}
-				}
-
-				select {
-				case <-w.tomb.Dying():
-					return tomb.ErrDying
-				default:
-				}
-
-				if _, err := w.writer.Write(buffer.Bytes()); err != nil {
-					fmt.Fprintf(os.Stderr, "failed to write log message: %v", err)
-				}
-
-				buffer.Reset()
-
-				for i := range records {
-					// Remove any information from the pooled LogRecord, this
-					// mimics a fresh record.
-					records[i].Time = zeroTime
-					records[i].Module = ""
-					records[i].Location = ""
-					records[i].Level = loggo.Level(0)
-					records[i].Message = ""
-					records[i].Labels = nil
-					records[i].ModelUUID = ""
-
-					w.pool.Put(records[i])
-				}
-
-				w.reportInternalState(stateFlushed)
 			}
 		}
 	})
 
 	timer := time.NewTimer(w.flushInterval)
+	entries := make([]loggo.Entry, 0, w.batchSize)
 
+	// Tick-toc the in and out channels, to ensure that we can send the batch
+	// of log messages to the underlying writer.
 	in := w.in
-	var out chan []LogRecord
+	var out chan []logRecord
 
 	for {
 		select {
 		case <-w.tomb.Dying():
+			if len(entries) > 0 {
+				// To prevent a race, we need our own buffer and encoder to
+				// write the remaining log messages that weren't written yet.
+				buffer := new(bytes.Buffer)
+				encoder := json.NewEncoder(buffer)
+				if err := w.write(buffer, encoder, w.records(entries)); err != nil {
+					return err
+				}
+			}
 			return tomb.ErrDying
 
 		case entry := <-in:
@@ -191,15 +167,19 @@ func (w *LogSink) loop() error {
 	}
 }
 
-func (w *LogSink) records(entries []loggo.Entry) []LogRecord {
-	records := make([]LogRecord, len(entries))
+func (w *LogSink) records(entries []loggo.Entry) []logRecord {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	records := make([]logRecord, len(entries))
 	for i, entry := range entries {
 		var location string
 		if entry.Filename != "" {
 			location = fmt.Sprintf("%s:%d", entry.Filename, entry.Line)
 		}
 
-		records[i] = w.pool.Get().(LogRecord)
+		records[i] = w.pool.Get().(logRecord)
 		records[i].Time = entry.Timestamp
 		records[i].Module = entry.Module
 		records[i].Location = location
@@ -216,6 +196,52 @@ func (w *LogSink) records(entries []loggo.Entry) []LogRecord {
 	return records
 }
 
+func (w *LogSink) write(buffer *bytes.Buffer, encoder *json.Encoder, records []logRecord) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	// Encode all log messages in the batch. In theory it's possible
+	// to encode all the records in one go, but that would then
+	// require the dropping of the first and last characters of the
+	// buffer, to remove the leading and trailing square brackets.
+	// This is a simpler approach for now, and the overhead of
+	// encoding overhead beats the complexity of the alternative.
+	for _, record := range records {
+		if err := encoder.Encode(record); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to encode log message: %v", err)
+		}
+	}
+
+	// Write the encoded log messages to the underlying writer.
+	if _, err := w.writer.Write(buffer.Bytes()); err != nil {
+		// We can't logout to loggo here, as we are the loggo writer. This
+		// creates log message loops. Write to stderr instead.
+		fmt.Fprintf(os.Stderr, "failed to write log message: %v", err)
+	}
+
+	// Reset the buffer for the next batch of log messages.
+	buffer.Reset()
+
+	for i := range records {
+		// Remove any information from the pooled logRecord, this
+		// mimics a fresh record.
+		records[i].Time = zeroTime
+		records[i].Module = ""
+		records[i].Location = ""
+		records[i].Level = loggo.Level(0)
+		records[i].Message = ""
+		records[i].Labels = nil
+		records[i].ModelUUID = ""
+
+		w.pool.Put(records[i])
+	}
+
+	w.reportInternalState(stateFlushed)
+
+	return nil
+}
+
 func (w *LogSink) reportInternalState(state string) {
 	if w.internalStates == nil {
 		return
@@ -226,7 +252,7 @@ func (w *LogSink) reportInternalState(state string) {
 	}
 }
 
-type LogRecord struct {
+type logRecord struct {
 	Time      time.Time         `json:"time"`
 	Module    string            `json:"module"`
 	Location  string            `json:"location,omitempty"`

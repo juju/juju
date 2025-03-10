@@ -41,7 +41,7 @@ func (s *logSinkSuite) TestWriteWithNoBatching(c *gc.C) {
 
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []LogRecord{{
+	c.Check(lines, gc.DeepEquals, []logRecord{{
 		Level:   loggo.INFO,
 		Message: "hello",
 	}})
@@ -69,7 +69,7 @@ rld
 
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []LogRecord{{
+	c.Check(lines, gc.DeepEquals, []logRecord{{
 		Level:   loggo.INFO,
 		Message: "h\n\t\t\nello\n\nwo\n\nrld\n",
 	}})
@@ -93,7 +93,7 @@ func (s *logSinkSuite) TestWriteWithLargeBatching(c *gc.C) {
 
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []LogRecord{{
+	c.Check(lines, gc.DeepEquals, []logRecord{{
 		Level:   loggo.INFO,
 		Message: "hello",
 	}})
@@ -139,9 +139,9 @@ func (s *logSinkSuite) TestWriteWithLogsBatching(c *gc.C) {
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
-	expected := make([]LogRecord, total)
+	expected := make([]logRecord, total)
 	for k, entry := range entries {
-		expected[k] = LogRecord{
+		expected[k] = logRecord{
 			Time:     entry.Timestamp,
 			Level:    entry.Level,
 			Message:  entry.Message,
@@ -164,7 +164,7 @@ func (s *logSinkSuite) TestWriteWithLogsUnderBatchSize(c *gc.C) {
 	sink, buffer := s.newLogSink(c, 1000)
 	defer workertest.DirtyKill(c, sink)
 
-	total := rand.Intn(100) + 100
+	total := (rand.Intn(100) + 1) + 100
 
 	now := time.Now().UTC()
 
@@ -188,14 +188,14 @@ func (s *logSinkSuite) TestWriteWithLogsUnderBatchSize(c *gc.C) {
 	}
 
 	s.expectTick(c)
-	s.expectFlush(c)
+	s.expectMinNumOfFlushes(c, 1)
 
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
-	expected := make([]LogRecord, total)
+	expected := make([]logRecord, total)
 	for k, entry := range entries {
-		expected[k] = LogRecord{
+		expected[k] = logRecord{
 			Time:     entry.Timestamp,
 			Level:    entry.Level,
 			Message:  entry.Message,
@@ -255,9 +255,9 @@ func (s *logSinkSuite) TestWriteLogsConcurrently(c *gc.C) {
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
-	expected := make([]LogRecord, total)
+	expected := make([]logRecord, total)
 	for k, entry := range entries {
-		expected[k] = LogRecord{
+		expected[k] = logRecord{
 			Time:     entry.Timestamp,
 			Level:    entry.Level,
 			Message:  entry.Message,
@@ -315,6 +315,22 @@ func (s *logSinkSuite) expectNumOfFlushes(c *gc.C, flushes int) {
 	}
 }
 
+func (s *logSinkSuite) expectMinNumOfFlushes(c *gc.C, expected int) {
+	var flushes int
+LOOP:
+	for {
+		select {
+		case state := <-s.states:
+			if state == stateFlushed {
+				flushes++
+			}
+		case <-time.After(time.Second):
+			break LOOP
+		}
+	}
+	c.Assert(flushes >= expected, jc.IsTrue, gc.Commentf("expected more than 1 flush, got %d", flushes))
+}
+
 func (s *logSinkSuite) expectTick(c *gc.C) {
 	select {
 	case state := <-s.states:
@@ -324,12 +340,12 @@ func (s *logSinkSuite) expectTick(c *gc.C) {
 	}
 }
 
-func parseLog(c *gc.C, reader io.Reader) []LogRecord {
-	var records []LogRecord
+func parseLog(c *gc.C, reader io.Reader) []logRecord {
+	var records []logRecord
 
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
-		var record LogRecord
+		var record logRecord
 		err := json.Unmarshal(scanner.Bytes(), &record)
 		c.Assert(err, jc.ErrorIsNil)
 		records = append(records, record)
