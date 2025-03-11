@@ -342,6 +342,29 @@ func decodeWorkloadStatus(s *application.UnitStatusInfo[application.WorkloadStat
 	}, nil
 }
 
+func decodeUnitAgentWorkloadStatus(
+	agent *application.UnitStatusInfo[application.UnitAgentStatusType],
+	workload *application.UnitStatusInfo[application.WorkloadStatusType],
+	containerStatus *application.StatusInfo[application.CloudContainerStatusType],
+) (*status.StatusInfo, *status.StatusInfo, error) {
+	// If the unit agent is allocating, then it won't be present in the model.
+	// In this case, we'll falsify the agent presence status.
+	if agent.Status == application.UnitAgentStatusAllocating {
+		agent.Present = true
+		workload.Present = true
+	}
+
+	agentStatus, err := decodeUnitAgentStatus(agent)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+	workloadStatus, err := unitDisplayStatus(workload, containerStatus)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+	return agentStatus, workloadStatus, nil
+}
+
 // reduceWorkloadStatuses reduces a list of workload statuses to a single status.
 // We do this by taking the highest priority status from the list.
 func reduceWorkloadStatuses(statuses []application.UnitStatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {

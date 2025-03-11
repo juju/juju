@@ -17,7 +17,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
@@ -836,7 +835,7 @@ func (s *unitStateSuite) TestGetUnitAgentStatusPresent(c *gc.C) {
 	err = s.state.SetUnitAgentStatus(context.Background(), unitUUID, status)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetUnitPresence(context.Background(), unit.Name("foo/666"))
+	err = s.state.SetUnitPresence(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	gotStatus, err := s.state.GetUnitAgentStatus(context.Background(), unitUUID)
@@ -845,7 +844,8 @@ func (s *unitStateSuite) TestGetUnitAgentStatusPresent(c *gc.C) {
 	c.Check(gotStatus.Present, jc.IsTrue)
 	assertStatusInfoEqual(c, &gotStatus.StatusInfo, status)
 
-	err = s.state.DeleteUnitPresence(context.Background(), unit.Name("foo/666"))
+	err = s.state.DeleteUnitPresence(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIsNil)
 
 	gotStatus, err = s.state.GetUnitAgentStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -946,7 +946,7 @@ func (s *unitStateSuite) TestSetWorkloadStatusPresent(c *gc.C) {
 	err = s.state.SetUnitWorkloadStatus(context.Background(), unitUUID, status)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetUnitPresence(context.Background(), unit.Name("foo/666"))
+	err = s.state.SetUnitPresence(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	gotStatus, err := s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
@@ -1151,7 +1151,7 @@ func (s *unitStateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsP
 	}
 	err = s.state.SetUnitWorkloadStatus(context.Background(), unitUUID2, status2)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.state.SetUnitPresence(context.Background(), unit.Name("foo/667"))
+	err = s.state.SetUnitPresence(context.Background(), coreunit.Name("foo/667"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), appId)
