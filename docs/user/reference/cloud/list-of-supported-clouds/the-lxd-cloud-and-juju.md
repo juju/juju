@@ -61,7 +61,10 @@ Attributes:
 
 #### `interactive`
 Attributes:
-- trust-password: the LXD server trust password (required)
+- trust-token: the LXD server trust token (optional, required if trust-password is not set).
+<br>This is the recommended method for authenticating with a remote LXD server (see [LXD \| Adding client certificates using tokens](https://documentation.ubuntu.com/lxd/en/stable-5.0/authentication/#adding-client-certificates-using-tokens)).
+<br>(Added in Juju 3.6.4)
+- trust-password: the LXD server trust password (optional, required if trust-token is not set)
 
 <!--
 ## Notes on `juju bootstrap`
