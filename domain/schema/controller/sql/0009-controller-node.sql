@@ -9,3 +9,15 @@ ON controller_node (dqlite_node_id);
 
 CREATE UNIQUE INDEX idx_controller_node_bind_address
 ON controller_node (bind_address);
+
+-- controller_node_agent_version tracks the reported agent version running for
+-- each controller in the cluster.
+CREATE TABLE controller_node_agent_version (
+    controller_id TEXT NOT NULL PRIMARY KEY,
+    version TEXT NOT NULL,
+    architecture TEXT NOT NULL,
+    release TEXT NOT NULL,
+    CONSTRAINT fk_controller_node_agent_version_controller_node
+    FOREIGN KEY (controller_id)
+    REFERENCES controller_node (controller_id)
+);
