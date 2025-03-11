@@ -64,6 +64,7 @@ type DomainServicesGetterFn func(
 type ControllerDomainServicesFn func(
 	changestream.WatchableDBGetter,
 	coredatabase.DBDeleter,
+	objectstore.ModelObjectStoreGetter,
 	clock.Clock,
 	logger.Logger,
 ) services.ControllerDomainServices
@@ -241,12 +242,14 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 func NewControllerDomainServices(
 	dbGetter changestream.WatchableDBGetter,
 	dbDeleter coredatabase.DBDeleter,
+	objectStoreGetter objectstore.ModelObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ControllerDomainServices {
 	return domainservices.NewControllerServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		dbDeleter,
+		objectStoreGetter,
 		clock,
 		logger,
 	)

@@ -117,7 +117,15 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	ctrlFactory := config.NewControllerDomainServices(config.DBGetter, config.DBDeleter, config.Clock, config.Logger)
+	ctrlFactory := config.NewControllerDomainServices(
+		config.DBGetter,
+		config.DBDeleter,
+		controllerObjectStoreGetter{
+			objectStoreGetter: config.ObjectStoreGetter,
+		},
+		config.Clock,
+		config.Logger,
+	)
 	w := &domainServicesWorker{
 		ctrlFactory: ctrlFactory,
 		servicesGetter: config.NewDomainServicesGetter(
@@ -240,6 +248,18 @@ type modelObjectStoreGetter struct {
 // GetObjectStore returns a singular object store for the given namespace.
 func (s modelObjectStoreGetter) GetObjectStore(ctx context.Context) (objectstore.ObjectStore, error) {
 	return s.objectStoreGetter.GetObjectStore(ctx, s.modelUUID.String())
+}
+
+// controllerObjectStoreGetter is an object store getter that returns a singular
+// object store for the given controller namespace. This is to ensure that
+// service factories can't access object stores for other models.
+type controllerObjectStoreGetter struct {
+	objectStoreGetter objectstore.ObjectStoreGetter
+}
+
+// GetObjectStore returns a singular object store for the given namespace.
+func (s controllerObjectStoreGetter) GetObjectStore(ctx context.Context) (objectstore.ObjectStore, error) {
+	return s.objectStoreGetter.GetObjectStore(ctx, coredatabase.ControllerNS)
 }
 
 // modelStorageRegistryGetter is a storage registry getter that returns a

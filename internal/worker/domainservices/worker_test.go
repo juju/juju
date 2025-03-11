@@ -117,6 +117,7 @@ func (s *workerSuite) getConfig() Config {
 		NewControllerDomainServices: func(
 			changestream.WatchableDBGetter,
 			coredatabase.DBDeleter,
+			objectstore.ModelObjectStoreGetter,
 			clock.Clock,
 			logger.Logger,
 		) services.ControllerDomainServices {
