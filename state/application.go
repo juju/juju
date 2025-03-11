@@ -102,9 +102,7 @@ type applicationDoc struct {
 	ExposedEndpoints map[string]ExposedEndpoint `bson:"exposed-endpoints,omitempty"`
 
 	// CAAS related attributes.
-	DesiredScale      int                           `bson:"scale"`
-	PasswordHash      string                        `bson:"passwordhash"`
-	ProvisioningState *ApplicationProvisioningState `bson:"provisioning-state"`
+	PasswordHash string `bson:"passwordhash"`
 
 	// Placement is the placement directive that should be used allocating units/pods.
 	Placement string `bson:"placement,omitempty"`
@@ -112,13 +110,6 @@ type applicationDoc struct {
 	// and any k8s cluster resources have been fully cleaned up.
 	// Until then, the application must not be removed from the Juju model.
 	HasResources bool `bson:"has-resources,omitempty"`
-}
-
-// ApplicationProvisioningState is the CAAS application provisioning state for an
-// application.
-type ApplicationProvisioningState struct {
-	Scaling     bool `bson:"scaling"`
-	ScaleTarget int  `bson:"scale-target"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -254,60 +245,6 @@ func (a *Application) SetAgentVersion(v version.Binary) (err error) {
 	}
 	a.doc.Tools = versionedTool
 	return nil
-}
-
-// SetProvisioningState sets the provisioning state for the application.
-func (a *Application) SetProvisioningState(ps ApplicationProvisioningState) error {
-	// TODO: Treat dying/dead scale to 0 as a separate call.
-	life := a.Life()
-	assertions := bson.D{
-		{"life", life},
-		{"provisioning-state", a.doc.ProvisioningState},
-	}
-	sets := bson.D{{"provisioning-state", ps}}
-	if ps.Scaling {
-		switch life {
-		case Alive:
-			alreadyScaling := false
-			if a.doc.ProvisioningState != nil && a.doc.ProvisioningState.Scaling {
-				alreadyScaling = true
-			}
-			if !alreadyScaling && ps.Scaling {
-				// if starting a scale, ensure we are scaling to the same target.
-				assertions = append(assertions, bson.DocElem{
-					"scale", ps.ScaleTarget,
-				})
-			}
-		case Dying, Dead:
-			// force scale to the scale target when dying/dead.
-			sets = append(sets, bson.DocElem{
-				"scale", ps.ScaleTarget,
-			})
-		}
-	}
-
-	ops := []txn.Op{{
-		C:      applicationsC,
-		Id:     a.doc.DocID,
-		Assert: assertions,
-		Update: bson.D{{"$set", sets}},
-	}}
-	if err := a.st.db().RunTransaction(ops); errors.Is(err, txn.ErrAborted) {
-		return stateerrors.ProvisioningStateInconsistent
-	} else if err != nil {
-		return errors.Annotatef(err, "failed to set provisioning-state for application %q", a)
-	}
-	a.doc.ProvisioningState = &ps
-	return nil
-}
-
-// ProvisioningState returns the provisioning state for the application.
-func (a *Application) ProvisioningState() *ApplicationProvisioningState {
-	if a.doc.ProvisioningState == nil {
-		return nil
-	}
-	ps := *a.doc.ProvisioningState
-	return &ps
 }
 
 var errRefresh = stderrors.New("state seems inconsistent, refresh and try again")
@@ -1734,137 +1671,6 @@ func (a *Application) GetPlacement() string {
 	return a.doc.Placement
 }
 
-// GetScale returns the application's desired scale value.
-// This is used on CAAS models.
-func (a *Application) GetScale() int {
-	return a.doc.DesiredScale
-}
-
-// ChangeScale alters the existing scale by the provided change amount, returning the new amount.
-// This is used on CAAS models.
-func (a *Application) ChangeScale(scaleChange int) (int, error) {
-	newScale := a.doc.DesiredScale + scaleChange
-	logger.Tracef(context.TODO(), "ChangeScale DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
-	if newScale < 0 {
-		return a.doc.DesiredScale, errors.NotValidf("cannot remove more units than currently exist")
-	}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := a.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
-			if err != nil {
-				return nil, errors.Trace(err)
-			} else if !alive {
-				return nil, applicationNotAliveErr
-			}
-			newScale = a.doc.DesiredScale + scaleChange
-			if newScale < 0 {
-				return nil, errors.NotValidf("cannot remove more units than currently exist")
-			}
-		}
-		ops := []txn.Op{{
-			C:  applicationsC,
-			Id: a.doc.DocID,
-			Assert: bson.D{
-				{"life", Alive},
-				{"charmurl", a.doc.CharmURL},
-				{"unitcount", a.doc.UnitCount},
-				{"scale", a.doc.DesiredScale},
-			},
-			Update: bson.D{{"$set", bson.D{{"scale", newScale}}}},
-		}}
-
-		cloudSvcDoc := cloudServiceDoc{
-			DocID:                 a.globalKey(),
-			DesiredScaleProtected: true,
-		}
-		cloudSvcOp, err := buildCloudServiceOps(a.st, cloudSvcDoc)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, cloudSvcOp...)
-		return ops, nil
-	}
-	if err := a.st.db().Run(buildTxn); err != nil {
-		return a.doc.DesiredScale, errors.Errorf("cannot set scale for application %q to %v: %v", a, newScale, onAbort(err, applicationNotAliveErr))
-	}
-	a.doc.DesiredScale = newScale
-	return newScale, nil
-}
-
-// SetScale sets the application's desired scale value.
-// This is used on CAAS models.
-func (a *Application) SetScale(scale int, generation int64, force bool) error {
-	if scale < 0 {
-		return errors.NotValidf("application scale %d", scale)
-	}
-	svcInfo, err := a.ServiceInfo()
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Trace(err)
-	}
-	if err == nil {
-		logger.Tracef(context.TODO(),
-			"SetScale DesiredScaleProtected %v, DesiredScale %v -> %v, Generation %v -> %v",
-			svcInfo.DesiredScaleProtected(), a.doc.DesiredScale, scale, svcInfo.Generation(), generation,
-		)
-		if svcInfo.DesiredScaleProtected() && !force && scale != a.doc.DesiredScale {
-			return errors.Forbiddenf("SetScale(%d) without force while desired scale %d is not applied yet", scale, a.doc.DesiredScale)
-		}
-		if !force && generation < svcInfo.Generation() {
-			return errors.Forbiddenf(
-				"application generation %d can not be reverted to %d", svcInfo.Generation(), generation,
-			)
-		}
-	}
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := a.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
-			if err != nil {
-				return nil, errors.Trace(err)
-			} else if !alive {
-				return nil, applicationNotAliveErr
-			}
-		}
-		ops := []txn.Op{{
-			C:  applicationsC,
-			Id: a.doc.DocID,
-			Assert: bson.D{
-				{"life", Alive},
-				{"charmurl", a.doc.CharmURL},
-				{"unitcount", a.doc.UnitCount},
-			},
-			Update: bson.D{{"$set", bson.D{{"scale", scale}}}},
-		}}
-		cloudSvcDoc := cloudServiceDoc{
-			DocID: a.globalKey(),
-		}
-		if force {
-			// scale from cli.
-			cloudSvcDoc.DesiredScaleProtected = true
-		} else {
-			// scale from cluster always has a valid generation (>= current generation).
-			cloudSvcDoc.Generation = generation
-		}
-		cloudSvcOp, err := buildCloudServiceOps(a.st, cloudSvcDoc)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, cloudSvcOp...)
-		return ops, nil
-	}
-	if err := a.st.db().Run(buildTxn); err != nil {
-		return errors.Errorf("cannot set scale for application %q to %v: %v", a, scale, onAbort(err, applicationNotAliveErr))
-	}
-	a.doc.DesiredScale = scale
-	return nil
-}
-
 // newUnitName returns the next unit name.
 func (a *Application) newUnitName() (string, error) {
 	unitSeq, err := sequence(a.st, a.Tag().String())
@@ -2440,8 +2246,6 @@ func (a *Application) insertCAASUnitOps(
 		Id: a.doc.DocID,
 		Assert: bson.D{
 			{"life", Alive},
-			{"scale", a.GetScale()},
-			{"provisioning-state", a.ProvisioningState()},
 		},
 	}}
 	ops = append(ops, addOps...)

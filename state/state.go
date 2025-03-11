@@ -1031,7 +1031,6 @@ func (st *State) AddApplication(
 
 	// Perform model specific arg processing.
 	var (
-		scale             int
 		placement         string
 		hasResources      bool
 		operatorStatusDoc *statusDoc
@@ -1047,7 +1046,6 @@ func (st *State) AddApplication(
 		if err := st.processCAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
 		}
-		scale = args.NumUnits
 		if len(args.Placement) == 1 {
 			placement = args.Placement[0].Directive
 		}
@@ -1079,7 +1077,6 @@ func (st *State) AddApplication(
 		UnitCount:     args.NumUnits,
 
 		// CAAS
-		DesiredScale: scale,
 		Placement:    placement,
 		HasResources: hasResources,
 	}

@@ -455,33 +455,6 @@ func (a *Application) WatchUnits() StringsWatcher {
 	return newLifecycleWatcher(a.st, unitsC, members, filter, nil)
 }
 
-// WatchScale returns a new NotifyWatcher watching for
-// changes to the specified application's scale value.
-func (a *Application) WatchScale() NotifyWatcher {
-	currentScale := -1
-	filter := func(id interface{}) bool {
-		k, err := a.st.strictLocalID(id.(string))
-		if err != nil {
-			return false
-		}
-		if k != a.doc.Name {
-			return false
-		}
-		applications, closer := a.st.db().GetCollection(applicationsC)
-		defer closer()
-
-		var scaleField = bson.D{{"scale", 1}}
-		var doc *applicationDoc
-		if err := applications.FindId(k).Select(scaleField).One(&doc); err != nil {
-			return false
-		}
-		match := doc.DesiredScale != currentScale
-		currentScale = doc.DesiredScale
-		return match
-	}
-	return newNotifyCollWatcher(a.st, applicationsC, filter)
-}
-
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving a.
 func (a *Application) WatchRelations() StringsWatcher {

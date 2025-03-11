@@ -900,16 +900,8 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		Exposed:              a.Exposed(),
 		ExposedEndpoints:     exposedEndpoints,
 		Tools:                agentTools,
-		DesiredScale:         a.DesiredScale(),
 		Placement:            a.Placement(),
 		HasResources:         a.HasResources(),
-	}
-
-	if ps := a.ProvisioningState(); ps != nil {
-		appDoc.ProvisioningState = &ApplicationProvisioningState{
-			Scaling:     ps.Scaling(),
-			ScaleTarget: ps.ScaleTarget(),
-		}
 	}
 
 	return appDoc, nil

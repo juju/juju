@@ -56,6 +56,11 @@ type ApplicationService interface {
 	// returns an error satisfying [applicationerrors.UnitNotFound] if the unit
 	// doesn't exist.
 	GetUnitAgentStatus(context.Context, unit.Name) (*status.StatusInfo, error)
+
+	// GetApplicationScale returns the desired scale of an application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	// This is used on CAAS models.
+	GetApplicationScale(ctx context.Context, appName string) (int, error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.
