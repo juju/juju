@@ -543,6 +543,18 @@ func (st *State) GetApplicationLife(ctx context.Context, appName string) (coreap
 		return "", -1, jujuerrors.Trace(err)
 	}
 
+	var app applicationDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		app, err = st.getApplicationDetails(ctx, tx, appName)
+		if err != nil {
+			return errors.Errorf("querying life for application %q: %w", appName, err)
+		}
+		return nil
+	})
+	return app.UUID, app.LifeID, jujuerrors.Trace(err)
+}
+
+func (st *State) getApplicationDetails(ctx context.Context, tx *sqlair.TX, appName string) (applicationDetails, error) {
 	app := applicationDetails{Name: appName}
 	query := `
 SELECT &applicationDetails.*
@@ -551,19 +563,17 @@ WHERE name = $applicationDetails.name
 `
 	stmt, err := st.Prepare(query, app)
 	if err != nil {
-		return "", -1, jujuerrors.Trace(err)
+		return applicationDetails{}, jujuerrors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, app).Get(&app); err != nil {
-			if !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("querying life for application %q: %w", appName, err)
-			}
-			return fmt.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appName)
+	err = tx.Query(ctx, stmt, app).Get(&app)
+	if err != nil {
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return applicationDetails{}, errors.Errorf("querying application details for application %q: %w", appName, err)
 		}
-		return nil
-	})
-	return app.UUID, app.LifeID, jujuerrors.Trace(err)
+		return applicationDetails{}, errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appName)
+	}
+	return app, nil
 }
 
 // SetApplicationLife sets the life of the specified application.
@@ -623,38 +633,101 @@ WHERE application_uuid = $applicationScale.application_uuid
 	return jujuerrors.Trace(err)
 }
 
+// UpdateApplicationScale updates the desired scale of an application by a
+// delta.
+// If the resulting scale is less than zero, an error satisfying
+// [applicationerrors.ScaleChangeInvalid] is returned.
+func (st *State) UpdateApplicationScale(ctx context.Context, appUUID coreapplication.ID, delta int) (int, error) {
+	db, err := st.DB()
+	if err != nil {
+		return -1, jujuerrors.Trace(err)
+	}
+
+	upsertApplicationScale := `
+UPDATE application_scale SET scale = $applicationScale.scale
+WHERE application_uuid = $applicationScale.application_uuid
+`
+	upsertStmt, err := st.Prepare(upsertApplicationScale, applicationScale{})
+	if err != nil {
+		return -1, jujuerrors.Trace(err)
+	}
+	var newScale int
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		currentScaleState, err := st.getApplicationScaleState(ctx, tx, appUUID)
+		if err != nil {
+			return jujuerrors.Trace(err)
+		}
+
+		newScale = currentScaleState.Scale + delta
+		if newScale < 0 {
+			return errors.Errorf(
+				"%w: cannot remove more units than currently exist", applicationerrors.ScaleChangeInvalid)
+		}
+
+		scaleDetails := applicationScale{
+			ApplicationID: appUUID,
+			Scale:         newScale,
+		}
+		return tx.Query(ctx, upsertStmt, scaleDetails).Run()
+	})
+	return newScale, jujuerrors.Trace(err)
+}
+
 // SetApplicationScalingState sets the scaling details for the given caas
 // application Scale is optional and is only set if not nil.
-func (st *State) SetApplicationScalingState(ctx context.Context, appUUID coreapplication.ID, scale *int, targetScale int, scaling bool) error {
+func (st *State) SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error {
 	db, err := st.DB()
 	if err != nil {
 		return jujuerrors.Trace(err)
 	}
 
 	scaleDetails := applicationScale{
-		ApplicationID: appUUID,
-		Scaling:       scaling,
-		ScaleTarget:   targetScale,
-	}
-	var setScaleTerm string
-	if scale != nil {
-		scaleDetails.Scale = *scale
-		setScaleTerm = "scale = $applicationScale.scale,"
+		Scaling:     scaling,
+		ScaleTarget: targetScale,
 	}
 
 	upsertApplicationScale := fmt.Sprintf(`
 UPDATE application_scale SET
-    %s
+    scale = $applicationScale.scale,
     scaling = $applicationScale.scaling,
     scale_target = $applicationScale.scale_target
 WHERE application_uuid = $applicationScale.application_uuid
-`, setScaleTerm)
+`)
 
 	upsertStmt, err := st.Prepare(upsertApplicationScale, scaleDetails)
 	if err != nil {
 		return jujuerrors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
+		if err != nil {
+			return jujuerrors.Trace(err)
+		}
+		scaleDetails.ApplicationID = appDetails.UUID
+
+		currentScaleState, err := st.getApplicationScaleState(ctx, tx, appDetails.UUID)
+		if err != nil {
+			return jujuerrors.Trace(err)
+		}
+
+		if scaling {
+			switch appDetails.LifeID {
+			case life.Alive:
+				// if starting a scale, ensure we are scaling to the same target.
+				if !currentScaleState.Scaling && currentScaleState.Scale != targetScale {
+					return applicationerrors.ScalingStateInconsistent
+				}
+				// Make sure to leave the scale value unchanged.
+				scaleDetails.Scale = currentScaleState.Scale
+			case life.Dying, life.Dead:
+				// force scale to the scale target when dying/dead.
+				scaleDetails.Scale = targetScale
+			}
+		} else {
+			// Make sure to leave the scale value unchanged.
+			scaleDetails.Scale = currentScaleState.Scale
+		}
+
 		return tx.Query(ctx, upsertStmt, scaleDetails).Run()
 	})
 	return jujuerrors.Trace(err)
