@@ -32,8 +32,8 @@ type FilterOption interface {
 	// ChangeMask is the type of change to watch for.
 	ChangeMask() changestream.ChangeType
 
-	// ChangePredicate is a function that returns true if the change event is
-	// for the desired value.
+	// ChangePredicate returns a function that returns true if the change event
+	// is selected for emission.
 	ChangePredicate() func(string) bool
 }
 
@@ -53,8 +53,8 @@ func (f filter) ChangeMask() changestream.ChangeType {
 	return f.changeMask
 }
 
-// ChangePredicate is a function that returns true if the change event is
-// for the desired value.
+// ChangePredicate returns a function that returns true if the change event is
+// selected for emission.
 func (f filter) ChangePredicate() func(string) bool {
 	return f.changePredicate
 }
@@ -120,6 +120,10 @@ func (w *ValueWatcher) Changes() <-chan struct{} {
 }
 
 func (w *ValueWatcher) loop() error {
+	// Cache the context, so we don't have to call it on every iteration.
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	defer close(w.out)
 
 	subscription, err := w.watchableDB.Subscribe(w.filterOpts...)
@@ -137,10 +141,7 @@ func (w *ValueWatcher) loop() error {
 	in := subscription.Changes()
 	out := w.out
 
-	w.drainInitialEvent(in)
-
-	// Cache the context, so we don't have to call it on every iteration.
-	ctx := w.tomb.Context(context.Background())
+	w.drainInitialEvent(ctx, in)
 
 	for {
 		select {
@@ -174,7 +175,7 @@ func (w *ValueWatcher) loop() error {
 	}
 }
 
-func (w *ValueWatcher) drainInitialEvent(in <-chan []changestream.ChangeEvent) {
+func (w *ValueWatcher) drainInitialEvent(ctx context.Context, in <-chan []changestream.ChangeEvent) {
 	select {
 	case _, ok := <-in:
 		if !ok {
@@ -185,9 +186,13 @@ func (w *ValueWatcher) drainInitialEvent(in <-chan []changestream.ChangeEvent) {
 	}
 }
 
+func (w *ValueWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
+}
+
 // NewValueWatcher returns a new watcher that receives changes from the input
-// base watcher's db/queue when change-log events occur for a specific
-// changeValue from the input namespace.
+// base watcher's changes, that occur for a specific changeValue from the input
+// namespace.
 // Deprecated: Use NewFilterWatcher instead.
 func NewValueWatcher(
 	base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType,
@@ -196,8 +201,9 @@ func NewValueWatcher(
 }
 
 // NewValueMapperWatcher returns a new watcher that receives changes from the
-// input base watcher's db/queue when mapper accepts the change-log events for a
-// specific changeValue from the input namespace.
+// input base watcher changes, that occur for a specific changeValue from the
+// input namespace. The mapper is used to filter or modify the events before
+// being emitted.
 // Deprecated: Use NewFilterMapperWatcher instead.
 func NewValueMapperWatcher(
 	base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType, mapper Mapper,

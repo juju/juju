@@ -75,8 +75,9 @@ func (f *WatcherFactory) NewNamespaceMapperWatcher(
 	), nil
 }
 
-// NewFilterWatcher returns a watcher that combines multiple value
-// watchers into a single watcher.
+// NewFilterWatcher returns a watcher that filters events based on the input
+// filter options. The watcher will only emit events that match the filter in
+// a single term.
 func (f *WatcherFactory) NewFilterWatcher(
 	filterOpts ...eventsource.FilterOption,
 ) (watcher.NotifyWatcher, error) {
@@ -88,8 +89,10 @@ func (f *WatcherFactory) NewFilterWatcher(
 	return eventsource.NewFilterWatcher(base, filterOpts...), nil
 }
 
-// NewFilterWatcher returns a watcher that combines multiple value
-// watchers into a single watcher.
+// NewFilterWatcher returns a watcher that filters events based on the input
+// filter options. The watcher will only emit events that match the filter in
+// a single term. The mapper is used to transform the events before they are
+// emitted, either by changing the event or by filtering them out.
 func (f *WatcherFactory) NewFilterMapperWatcher(
 	mapper eventsource.Mapper,
 	filterOpts ...eventsource.FilterOption,
