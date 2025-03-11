@@ -87,7 +87,7 @@ Add a storage instance from the (AWS-specific) ebs-ssd storage pool for "brick" 
 
 Further reading:
 
-https://juju.is/docs/storage
+https://canonical-juju.readthedocs-hosted.com/en/latest/user/reference/storage/
 `
 
 	addCommandAgs = `<unit> <storage-directive>`

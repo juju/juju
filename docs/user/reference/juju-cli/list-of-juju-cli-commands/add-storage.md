@@ -31,7 +31,7 @@ Add a storage instance from the (AWS-specific) ebs-ssd storage pool for "brick" 
 
 Further reading:
 
-https://juju.is/docs/storage
+https://canonical-juju.readthedocs-hosted.com/en/latest/user/reference/storage/
 
 
 ## Details
@@ -41,7 +41,7 @@ a storage pool, using parameters provided within a "storage directive". (Use
 'juju deploy --storage=&lt;storage-name&gt;=&lt;storage-directive&gt;' to provision storage during the 
 deployment process).
 
-	juju add-storage &lt;unit&gt; &lt;storage-name&gt;=&lt;storage-directive&gt;
+	juju add-storage <unit> <storage-name>=<storage-directive>
 
 &lt;unit&gt; is the ID of a unit that is already in the model. 
 
