@@ -323,9 +323,11 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_space_subnet",
 		"v_storage_instance",
 		"v_unit_agent_presence",
+		"v_unit_agent_status",
 		"v_unit_constraint",
 		"v_unit_resource",
 		"v_unit_storage_directive",
+		"v_unit_workload_status",
 	)
 	got := readEntityNames(c, s.DB(), "view")
 	c.Assert(got, jc.SameContents, expected.SortedValues(), gc.Commentf(

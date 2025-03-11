@@ -604,7 +604,7 @@ WHERE uuid = $unitPassword.uuid
 // - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [applicationerrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
-func (st *State) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.UnitAgentStatusType], error) {
+func (st *State) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (*application.UnitStatusInfo[application.UnitAgentStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -612,13 +612,13 @@ func (st *State) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (*a
 
 	unitUUID := unitUUID{UnitUUID: uuid}
 	getUnitStatusStmt, err := st.Prepare(`
-SELECT &statusInfo.* FROM unit_agent_status WHERE unit_uuid = $unitUUID.uuid
-`, statusInfo{}, unitUUID)
+SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unitUUID.uuid
+`, unitPresentStatusInfo{}, unitUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var unitStatusInfo statusInfo
+	var unitStatusInfo unitPresentStatusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.checkUnitNotDead(ctx, tx, unitUUID)
 		if err != nil {
@@ -640,11 +640,14 @@ SELECT &statusInfo.* FROM unit_agent_status WHERE unit_uuid = $unitUUID.uuid
 		return nil, errors.Errorf("decoding agent status ID for unit %q: %w", unitUUID, err)
 	}
 
-	return &application.StatusInfo[application.UnitAgentStatusType]{
-		Status:  statusID,
-		Message: unitStatusInfo.Message,
-		Data:    unitStatusInfo.Data,
-		Since:   unitStatusInfo.UpdatedAt,
+	return &application.UnitStatusInfo[application.UnitAgentStatusType]{
+		StatusInfo: application.StatusInfo[application.UnitAgentStatusType]{
+			Status:  statusID,
+			Message: unitStatusInfo.Message,
+			Data:    unitStatusInfo.Data,
+			Since:   unitStatusInfo.UpdatedAt,
+		},
+		Present: unitStatusInfo.Present,
 	}, nil
 }
 
@@ -670,7 +673,7 @@ func (st *State) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID,
 // - an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [applicationerrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [applicationerrors.UnitStatusNotFound] if the status is not set.
-func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (*application.StatusInfo[application.WorkloadStatusType], error) {
+func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (*application.UnitStatusInfo[application.WorkloadStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -678,13 +681,13 @@ func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) 
 
 	unitUUID := unitUUID{UnitUUID: uuid}
 	getUnitStatusStmt, err := st.Prepare(`
-SELECT &statusInfo.* FROM unit_workload_status WHERE unit_uuid = $unitUUID.uuid
-`, statusInfo{}, unitUUID)
+SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $unitUUID.uuid
+`, unitPresentStatusInfo{}, unitUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var unitStatusInfo statusInfo
+	var unitStatusInfo unitPresentStatusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.checkUnitNotDead(ctx, tx, unitUUID)
 		if err != nil {
@@ -706,11 +709,14 @@ SELECT &statusInfo.* FROM unit_workload_status WHERE unit_uuid = $unitUUID.uuid
 		return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitUUID, err)
 	}
 
-	return &application.StatusInfo[application.WorkloadStatusType]{
-		Status:  statusID,
-		Message: unitStatusInfo.Message,
-		Data:    unitStatusInfo.Data,
-		Since:   unitStatusInfo.UpdatedAt,
+	return &application.UnitStatusInfo[application.WorkloadStatusType]{
+		StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+			Status:  statusID,
+			Message: unitStatusInfo.Message,
+			Data:    unitStatusInfo.Data,
+			Since:   unitStatusInfo.UpdatedAt,
+		},
+		Present: unitStatusInfo.Present,
 	}, nil
 }
 
@@ -790,9 +796,7 @@ WHERE  unit_uuid = $unitUUID.uuid
 //     is dead.
 func (st *State) GetUnitWorkloadStatusesForApplication(
 	ctx context.Context, appID coreapplication.ID,
-) (
-	application.UnitWorkloadStatuses, error,
-) {
+) (application.UnitWorkloadStatuses, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -851,21 +855,11 @@ func (st *State) GetUnitWorkloadAndCloudContainerStatusesForApplication(
 
 func (st *State) getUnitWorkloadStatusesForApplication(
 	ctx context.Context, tx *sqlair.TX, ident applicationID,
-) (
-	application.UnitWorkloadStatuses, error,
-) {
-	type statusInfoAndUnitName struct {
-		UnitName  coreunit.Name `db:"name"`
-		StatusID  int           `db:"status_id"`
-		Message   string        `db:"message"`
-		Data      []byte        `db:"data"`
-		UpdatedAt *time.Time    `db:"updated_at"`
-	}
-
+) (application.UnitWorkloadStatuses, error) {
 	getUnitStatusesStmt, err := st.Prepare(`
 SELECT &statusInfoAndUnitName.*
-FROM unit_workload_status
-JOIN unit ON unit.uuid = unit_workload_status.unit_uuid
+FROM v_unit_workload_status
+JOIN unit ON unit.uuid = v_unit_workload_status.unit_uuid
 WHERE unit.application_uuid = $applicationID.uuid
 `, statusInfoAndUnitName{}, ident)
 	if err != nil {
@@ -890,11 +884,14 @@ WHERE unit.application_uuid = $applicationID.uuid
 		if err != nil {
 			return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitStatus.UnitName, err)
 		}
-		statuses[unitStatus.UnitName] = application.StatusInfo[application.WorkloadStatusType]{
-			Status:  statusID,
-			Message: unitStatus.Message,
-			Data:    unitStatus.Data,
-			Since:   unitStatus.UpdatedAt,
+		statuses[unitStatus.UnitName] = application.UnitStatusInfo[application.WorkloadStatusType]{
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status:  statusID,
+				Message: unitStatus.Message,
+				Data:    unitStatus.Data,
+				Since:   unitStatus.UpdatedAt,
+			},
+			Present: unitStatus.Present,
 		}
 	}
 
@@ -1142,6 +1139,7 @@ func (st *State) insertUnit(
 	createParams := unitDetails{
 		ApplicationID: appUUID,
 		UnitUUID:      unitUUID,
+		Name:          args.UnitName,
 		NetNodeID:     nodeUUID.String(),
 		LifeID:        life.Alive,
 	}
@@ -1161,8 +1159,6 @@ func (st *State) insertUnit(
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-
-	createParams.Name = args.UnitName
 
 	if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
 		return "", errors.Errorf("creating net node for unit %q: %w", args.UnitName, err)

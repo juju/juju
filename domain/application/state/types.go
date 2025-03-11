@@ -154,6 +154,14 @@ type statusInfo struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
+type unitPresentStatusInfo struct {
+	StatusID  int        `db:"status_id"`
+	Message   string     `db:"message"`
+	Data      []byte     `db:"data"`
+	UpdatedAt *time.Time `db:"updated_at"`
+	Present   bool       `db:"present"`
+}
+
 type cloudContainer struct {
 	UnitUUID   coreunit.UUID `db:"unit_uuid"`
 	ProviderID string        `db:"provider_id"`
@@ -1150,4 +1158,13 @@ type dbConstraintZone struct {
 // dbUUID represents a UUID.
 type dbUUID struct {
 	UUID string `db:"uuid"`
+}
+
+type statusInfoAndUnitName struct {
+	UnitName  coreunit.Name `db:"name"`
+	StatusID  int           `db:"status_id"`
+	Message   string        `db:"message"`
+	Data      []byte        `db:"data"`
+	UpdatedAt *time.Time    `db:"updated_at"`
+	Present   bool          `db:"present"`
 }
