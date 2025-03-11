@@ -53,7 +53,7 @@ type UnitState interface {
 	//   doesn't exist or;
 	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the
 	//   status is not set.
-	GetUnitWorkloadStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.WorkloadStatusType], error)
+	GetUnitWorkloadStatus(context.Context, coreunit.UUID) (*application.UnitStatusInfo[application.WorkloadStatusType], error)
 
 	// SetUnitWorkloadStatus sets the workload status of the specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the
@@ -74,11 +74,7 @@ type UnitState interface {
 	//     application doesn't exist or;
 	//   - error satisfying [applicationerrors.ApplicationIsDead] if the
 	//     application is dead.
-	GetUnitWorkloadStatusesForApplication(
-		context.Context, coreapplication.ID,
-	) (
-		application.UnitWorkloadStatuses, error,
-	)
+	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (application.UnitWorkloadStatuses, error)
 
 	// GetUnitWorkloadAndCloudContainerStatusesForApplication returns the workload statuses
 	// and the cloud container statuses for all units of the specified application, returning:
@@ -87,10 +83,8 @@ type UnitState interface {
 	//   - an error satisfying [applicationerrors.ApplicationIsDead] if the application
 	//     is dead.
 	GetUnitWorkloadAndCloudContainerStatusesForApplication(
-		ctx context.Context, appID coreapplication.ID,
-	) (
-		application.UnitWorkloadStatuses, application.UnitCloudContainerStatuses, error,
-	)
+		context.Context, coreapplication.ID,
+	) (application.UnitWorkloadStatuses, application.UnitCloudContainerStatuses, error)
 
 	// GetUnitAgentStatus returns the workload status of the specified unit,
 	// returning:
@@ -98,7 +92,7 @@ type UnitState interface {
 	//   doesn't exist or;
 	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the
 	//   status is not set.
-	GetUnitAgentStatus(context.Context, coreunit.UUID) (*application.StatusInfo[application.UnitAgentStatusType], error)
+	GetUnitAgentStatus(context.Context, coreunit.UUID) (*application.UnitStatusInfo[application.UnitAgentStatusType], error)
 
 	// SetUnitAgentStatus sets the workload status of the specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the
@@ -233,6 +227,7 @@ func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return decodeWorkloadStatus(workloadStatus)
 }
 
@@ -298,13 +293,6 @@ func (s *Service) GetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 		return nil, errors.Trace(err)
 	}
 
-	switch agentStatus.Status {
-	case application.UnitAgentStatusError:
-		agentStatus.Message = ""
-		agentStatus.Data = nil
-	default:
-	}
-
 	return decodeUnitAgentStatus(agentStatus)
 }
 
@@ -349,6 +337,7 @@ func (s *Service) GetUnitDisplayStatus(ctx context.Context, unitName coreunit.Na
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	containerStatus, err := s.st.GetUnitCloudContainerStatus(ctx, unitUUID)
 	if errors.Is(err, applicationerrors.UnitStatusNotFound) {
 		return unitDisplayStatus(workloadStatus, nil)

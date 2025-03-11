@@ -84,18 +84,24 @@ func (s *unitServiceSuite) TestGetUnitWorkloadStatusesForApplication(c *gc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appUUID).Return(
-		map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
+		map[coreunit.Name]application.UnitStatusInfo[application.WorkloadStatusType]{
 			"unit-1": {
-				Status:  application.WorkloadStatusActive,
-				Message: "doink",
-				Data:    []byte(`{"foo":"bar"}`),
-				Since:   &now,
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status:  application.WorkloadStatusActive,
+					Message: "doink",
+					Data:    []byte(`{"foo":"bar"}`),
+					Since:   &now,
+				},
+				Present: true,
 			},
 			"unit-2": {
-				Status:  application.WorkloadStatusMaintenance,
-				Message: "boink",
-				Data:    []byte(`{"foo":"baz"}`),
-				Since:   &now,
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status:  application.WorkloadStatusMaintenance,
+					Message: "boink",
+					Data:    []byte(`{"foo":"baz"}`),
+					Since:   &now,
+				},
+				Present: true,
 			},
 		}, nil,
 	)
@@ -126,11 +132,14 @@ func (s *unitServiceSuite) TestGetUnitDisplayStatusNoContainer(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&application.StatusInfo[application.WorkloadStatusType]{
-			Status:  application.WorkloadStatusActive,
-			Message: "doink",
-			Data:    []byte(`{"foo":"bar"}`),
-			Since:   &now,
+		&application.UnitStatusInfo[application.WorkloadStatusType]{
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusActive,
+				Message: "doink",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   &now,
+			},
+			Present: true,
 		}, nil)
 
 	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(nil, applicationerrors.UnitStatusNotFound)
@@ -153,11 +162,14 @@ func (s *unitServiceSuite) TestGetUnitDisplayStatusWithPrecedentContainer(c *gc.
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&application.StatusInfo[application.WorkloadStatusType]{
-			Status:  application.WorkloadStatusActive,
-			Message: "doink",
-			Data:    []byte(`{"foo":"bar"}`),
-			Since:   &now,
+		&application.UnitStatusInfo[application.WorkloadStatusType]{
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusActive,
+				Message: "doink",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   &now,
+			},
+			Present: true,
 		}, nil)
 
 	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(
@@ -186,11 +198,14 @@ func (s *unitServiceSuite) TestGetUnitDisplayStatusWithPrecedentWorkload(c *gc.C
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&application.StatusInfo[application.WorkloadStatusType]{
-			Status:  application.WorkloadStatusMaintenance,
-			Message: "doink",
-			Data:    []byte(`{"foo":"bar"}`),
-			Since:   &now,
+		&application.UnitStatusInfo[application.WorkloadStatusType]{
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusMaintenance,
+				Message: "doink",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   &now,
+			},
+			Present: true,
 		}, nil)
 
 	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(
@@ -401,11 +416,14 @@ func (s *unitServiceSuite) TestGetWorkloadUnitStatus(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&application.StatusInfo[application.WorkloadStatusType]{
-			Status:  application.WorkloadStatusActive,
-			Message: "doink",
-			Data:    []byte(`{"foo":"bar"}`),
-			Since:   &now,
+		&application.UnitStatusInfo[application.WorkloadStatusType]{
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusActive,
+				Message: "doink",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   &now,
+			},
+			Present: true,
 		}, nil)
 
 	obtained, err := s.service.GetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"))
@@ -458,11 +476,14 @@ func (s *unitServiceSuite) TestGetUnitWorkloadStatus(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&application.StatusInfo[application.WorkloadStatusType]{
-			Status:  application.WorkloadStatusActive,
-			Message: "doink",
-			Data:    []byte(`{"foo":"bar"}`),
-			Since:   &now,
+		&application.UnitStatusInfo[application.WorkloadStatusType]{
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status:  application.WorkloadStatusActive,
+				Message: "doink",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   &now,
+			},
+			Present: true,
 		}, nil)
 
 	obtained, err := s.service.GetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"))
@@ -595,11 +616,14 @@ func (s *unitServiceSuite) TestGetUnitAgentStatus(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
-		&application.StatusInfo[application.UnitAgentStatusType]{
-			Status:  application.UnitAgentStatusAllocating,
-			Message: "doink",
-			Data:    []byte(`{"foo":"bar"}`),
-			Since:   &now,
+		&application.UnitStatusInfo[application.UnitAgentStatusType]{
+			StatusInfo: application.StatusInfo[application.UnitAgentStatusType]{
+				Status:  application.UnitAgentStatusAllocating,
+				Message: "doink",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   &now,
+			},
+			Present: true,
 		}, nil)
 
 	obtained, err := s.service.GetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"))

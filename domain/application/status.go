@@ -20,6 +20,19 @@ type StatusInfo[T StatusID] struct {
 	Since   *time.Time
 }
 
+// UnitStatusID represents the status of a unit.
+type UnitStatusID interface {
+	UnitAgentStatusType | WorkloadStatusType
+}
+
+// UnitAgentStatusInfo holds details about the status of a unit agent. This
+// indicates if the unit agent is present and currently active in the model.
+type UnitStatusInfo[T UnitStatusID] struct {
+	StatusInfo[T]
+	// Present is true if the unit agent logged into the API server.
+	Present bool
+}
+
 // UnsetStatusType represents the status of an entity that has not been set.
 type UnsetStatusType int
 
@@ -63,4 +76,5 @@ const (
 	WorkloadStatusBlocked
 	WorkloadStatusActive
 	WorkloadStatusTerminated
+	WorkloadStatusError
 )
