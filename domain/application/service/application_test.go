@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/testing"
@@ -1177,7 +1178,7 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 		nil,
 		nil,
 		nil,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)

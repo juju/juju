@@ -102,25 +102,6 @@ func (m *ModelStatus) UnitWorkloadVersion(unitName string) (string, error) {
 	return info.Message, nil
 }
 
-// UnitAgent returns the status of the Unit's agent.
-func (m *ModelStatus) UnitAgent(unitName string) (status.StatusInfo, error) {
-	// We do horrible things with unit status.
-	// See notes in unitagent.go.
-	info, err := m.getStatus(unitAgentGlobalKey(unitName), "agent")
-	if err != nil {
-		return info, err
-	}
-	if info.Status == status.Error {
-		return status.StatusInfo{
-			Status:  status.Idle,
-			Message: "",
-			Data:    map[string]interface{}{},
-			Since:   info.Since,
-		}, nil
-	}
-	return info, nil
-}
-
 type statusDocWithID struct {
 	ID         string                 `bson:"_id"`
 	ModelUUID  string                 `bson:"model-uuid"`

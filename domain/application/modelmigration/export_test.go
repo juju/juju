@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -65,7 +66,7 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 	})
 
 	s.expectApplicationStatus()
-	s.expectApplicationUnitStatus()
+	s.expectApplicationUnitStatus(c)
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()
 	cons := constraints.Value{
@@ -156,9 +157,16 @@ func (s *exportSuite) expectApplicationStatus() {
 	}, nil)
 }
 
-func (s *exportSuite) expectApplicationUnitStatus() {
-	s.exportService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("prometheus/0")).Return(&corestatus.StatusInfo{
+func (s *exportSuite) expectApplicationUnitStatus(c *gc.C) {
+	uuid := unittesting.GenUnitUUID(c)
+
+	exp := s.exportService.EXPECT()
+	exp.GetUnitUUIDByName(gomock.Any(), coreunit.Name("prometheus/0")).Return(uuid, nil)
+	exp.GetUnitWorkloadStatus(gomock.Any(), uuid).Return(&corestatus.StatusInfo{
 		Status: corestatus.Active,
+	}, nil)
+	exp.GetUnitAgentStatus(gomock.Any(), uuid).Return(&corestatus.StatusInfo{
+		Status: corestatus.Idle,
 	}, nil)
 }
 

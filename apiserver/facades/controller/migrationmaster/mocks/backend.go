@@ -842,6 +842,45 @@ func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(contex
 	return c
 }
 
+// GetUnitAgentStatus mocks base method.
+func (m *MockApplicationService) GetUnitAgentStatus(arg0 context.Context, arg1 unit.Name) (*status.StatusInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitAgentStatus", arg0, arg1)
+	ret0, _ := ret[0].(*status.StatusInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitAgentStatus indicates an expected call of GetUnitAgentStatus.
+func (mr *MockApplicationServiceMockRecorder) GetUnitAgentStatus(arg0, arg1 any) *MockApplicationServiceGetUnitAgentStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAgentStatus", reflect.TypeOf((*MockApplicationService)(nil).GetUnitAgentStatus), arg0, arg1)
+	return &MockApplicationServiceGetUnitAgentStatusCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitAgentStatusCall wrap *gomock.Call
+type MockApplicationServiceGetUnitAgentStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitAgentStatusCall) Return(arg0 *status.StatusInfo, arg1 error) *MockApplicationServiceGetUnitAgentStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitAgentStatusCall) Do(f func(context.Context, unit.Name) (*status.StatusInfo, error)) *MockApplicationServiceGetUnitAgentStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitAgentStatusCall) DoAndReturn(f func(context.Context, unit.Name) (*status.StatusInfo, error)) *MockApplicationServiceGetUnitAgentStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitWorkloadStatus mocks base method.
 func (m *MockApplicationService) GetUnitWorkloadStatus(arg0 context.Context, arg1 unit.Name) (*status.StatusInfo, error) {
 	m.ctrl.T.Helper()

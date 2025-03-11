@@ -330,10 +330,12 @@ func (c *precheckContext) checkUnitAgentStatus(ctx context.Context, unit Prechec
 		return internalerrors.Errorf("parsing unit name %q: %w", unit.Name(), err)
 	}
 
-	agentStatus, err := unit.AgentStatus()
-	if err != nil {
+	agentStatus, err := c.applicationService.GetUnitAgentStatus(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.NotFoundf("unit %s", unit.Name())
+	} else if err != nil {
 		return internalerrors.Errorf("retrieving unit %s agent status: %w", unit.Name(), err)
-	} else if !status.IsAgentPresent(agentStatus) {
+	} else if !status.IsAgentPresent(*agentStatus) {
 		return newStatusError("unit %s not idle or executing", unit.Name(), agentStatus.Status)
 	}
 

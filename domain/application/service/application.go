@@ -1137,6 +1137,12 @@ func (s *Service) SetApplicationStatus(
 		return nil
 	}
 
+	// Ensure we have a valid timestamp. It's optional at the API server level.
+	// but it is a requirement for the database.
+	if status.Since == nil {
+		status.Since = ptr(s.clock.Now())
+	}
+
 	// This will implicitly verify that the status is valid.
 	encodedStatus, err := encodeWorkloadStatus(status)
 	if err != nil {
@@ -1166,6 +1172,16 @@ func (s *Service) SetApplicationStatusForUnitLeader(
 ) error {
 	if err := unitName.Validate(); err != nil {
 		return internalerrors.Errorf("unit name: %w", err)
+	}
+
+	if status == nil {
+		return nil
+	}
+
+	// Ensure we have a valid timestamp. It's optional at the API server level.
+	// but it is a requirement for the database.
+	if status.Since == nil {
+		status.Since = ptr(s.clock.Now())
 	}
 
 	// This will implicitly verify that the status is valid.

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 )
 
 type exportUnitSuite struct {
@@ -53,11 +54,21 @@ func (s *exportUnitSuite) TestApplicationExportUnitWorkloadStatus(c *gc.C) {
 		clock:   s.clock,
 	}
 
-	s.exportService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("prometheus/0")).Return(&corestatus.StatusInfo{
+	unitName := coreunit.Name("prometheus/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.exportService.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
+
+	s.exportService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(&corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Since:   &now,
 		Data:    map[string]interface{}{"foo": "bar"},
 		Message: "it's active!",
+	}, nil)
+	s.exportService.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(&corestatus.StatusInfo{
+		Status:  corestatus.Idle,
+		Since:   &now,
+		Data:    map[string]interface{}{"foo": "baz"},
+		Message: "it's idle!",
 	}, nil)
 
 	err := exportOp.Execute(context.Background(), model)
@@ -70,8 +81,16 @@ func (s *exportUnitSuite) TestApplicationExportUnitWorkloadStatus(c *gc.C) {
 
 	unit := app.Units()[0]
 	c.Check(unit.Name(), gc.Equals, "prometheus/0")
-	c.Check(unit.WorkloadStatus().Value(), gc.Equals, "active")
-	c.Check(unit.WorkloadStatus().Message(), gc.Equals, "it's active!")
-	c.Check(unit.WorkloadStatus().Data(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
-	c.Check(unit.WorkloadStatus().Updated(), gc.Equals, now)
+
+	ws := unit.WorkloadStatus()
+	c.Check(ws.Value(), gc.Equals, "active")
+	c.Check(ws.Message(), gc.Equals, "it's active!")
+	c.Check(ws.Data(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Check(ws.Updated(), gc.Equals, now)
+
+	as := unit.AgentStatus()
+	c.Check(as.Value(), gc.Equals, "idle")
+	c.Check(as.Message(), gc.Equals, "it's idle!")
+	c.Check(as.Data(), gc.DeepEquals, map[string]interface{}{"foo": "baz"})
+	c.Check(as.Updated(), gc.Equals, now)
 }

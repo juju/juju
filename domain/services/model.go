@@ -190,7 +190,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.SupportedFeatureProvider](s.providerFactory, s.modelUUID.String()),
 		charmstore.NewCharmStore(s.objectstore, logger.Child("charmstore")),
-		domain.NewStatusHistory(logger),
+		domain.NewStatusHistory(logger, s.clock),
 		s.clock,
 		logger,
 	)

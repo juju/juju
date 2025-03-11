@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/status"
 )
 
@@ -50,12 +52,14 @@ func (n Namespace) String() string {
 // StatusHistory records status information into a generalized way.
 type StatusHistory struct {
 	recorder Recorder
+	clock    clock.Clock
 }
 
 // NewStatusHistory creates a new StatusHistory.
-func NewStatusHistory(recorder Recorder) *StatusHistory {
+func NewStatusHistory(recorder Recorder, clock clock.Clock) *StatusHistory {
 	return &StatusHistory{
 		recorder: recorder,
+		clock:    clock,
 	}
 }
 
@@ -63,12 +67,19 @@ func NewStatusHistory(recorder Recorder) *StatusHistory {
 // If the status data cannot be marshalled, it will not be recorded, instead
 // the error will be logged under the data_error key.
 func (s *StatusHistory) RecordStatus(ctx context.Context, ns Namespace, status status.StatusInfo) error {
+	var now time.Time
+	if since := status.Since; since != nil && !since.IsZero() {
+		now = *since
+	} else {
+		now = s.clock.Now()
+	}
+
 	return s.recorder.Record(ctx, Record{
 		Name:    ns.Name,
 		ID:      ns.ID,
 		Message: status.Message,
 		Status:  status.Status.String(),
-		Time:    status.Since.Format(time.RFC3339),
+		Time:    now.Format(time.RFC3339),
 		Data:    status.Data,
 	})
 }

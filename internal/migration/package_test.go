@@ -81,6 +81,10 @@ func (s *precheckBaseSuite) expectUnitWorkloadStatus(unitName string, status sta
 	s.applicationService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name(unitName)).Return(&status, nil)
 }
 
+func (s *precheckBaseSuite) expectUnitAgentStatus(unitName string, status status.StatusInfo) {
+	s.applicationService.EXPECT().GetUnitAgentStatus(gomock.Any(), coreunit.Name(unitName)).Return(&status, nil)
+}
+
 func (s *precheckBaseSuite) expectIsUpgrade(upgrading bool) {
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(upgrading, nil)
 }

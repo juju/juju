@@ -646,14 +646,14 @@ func (s *unitServiceSuite) TestSetUnitAgentStatus(c *gc.C) {
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, &application.StatusInfo[application.UnitAgentStatusType]{
-		Status:  application.UnitAgentStatusAllocating,
+		Status:  application.UnitAgentStatusIdle,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	})
 
 	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
-		Status:  corestatus.Allocating,
+		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
@@ -668,13 +668,49 @@ func (s *unitServiceSuite) TestSetUnitAgentStatusNilStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *unitServiceSuite) TestSetUnitAgentStatusErrorWithNoMessage(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+		Status:  corestatus.Error,
+		Message: "",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, gc.ErrorMatches, `setting status "error" without message`)
+}
+
+func (s *unitServiceSuite) TestSetUnitAgentStatusLost(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+		Status:  corestatus.Lost,
+		Message: "are you lost?",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, gc.ErrorMatches, `setting status "lost" is not allowed`)
+}
+
+func (s *unitServiceSuite) TestSetUnitAgentStatusAllocating(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+		Status:  corestatus.Allocating,
+		Message: "help me help you",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Assert(err, gc.ErrorMatches, `setting status "allocating" is not allowed`)
+}
+
 func (s *unitServiceSuite) TestSetUnitAgentStatusInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
 
 	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("!!!"), &corestatus.StatusInfo{
-		Status:  corestatus.Allocating,
+		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
@@ -691,7 +727,7 @@ func (s *unitServiceSuite) TestSetUnitAgentStatusUnitFound(c *gc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, applicationerrors.UnitNotFound)
 
 	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
-		Status:  corestatus.Allocating,
+		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
@@ -707,14 +743,14 @@ func (s *unitServiceSuite) TestSetUnitAgentStatusInvalidStatus(c *gc.C) {
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, &application.StatusInfo[application.UnitAgentStatusType]{
-		Status:  application.UnitAgentStatusAllocating,
+		Status:  application.UnitAgentStatusIdle,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	}).Return(errors.New("boom"))
 
 	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
-		Status:  corestatus.Allocating,
+		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,

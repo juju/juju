@@ -186,6 +186,12 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 		return nil
 	}
 
+	// Ensure we have a valid timestamp. It's optional at the API server level.
+	// but it is a requirement for the database.
+	if status.Since == nil {
+		status.Since = ptr(s.clock.Now())
+	}
+
 	workloadStatus, err := encodeWorkloadStatus(status)
 	if err != nil {
 		return internalerrors.Errorf("encoding workload status: %w", err)
@@ -234,6 +240,22 @@ func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 		return nil
 	}
 
+	// Ensure we have a valid timestamp. It's optional at the API server level.
+	// but it is a requirement for the database.
+	if status.Since == nil {
+		status.Since = ptr(s.clock.Now())
+	}
+
+	// Encoding the status will handle invalid status values.
+	switch status.Status {
+	case corestatus.Error:
+		if status.Message == "" {
+			return errors.Errorf("setting status %q without message", status.Status)
+		}
+	case corestatus.Lost, corestatus.Allocating:
+		return errors.Errorf("setting status %q is not allowed", status.Status)
+	}
+
 	agentStatus, err := encodeUnitAgentStatus(status)
 	if err != nil {
 		return internalerrors.Errorf("encoding agent status: %w", err)
@@ -267,6 +289,14 @@ func (s *Service) GetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	switch agentStatus.Status {
+	case application.UnitAgentStatusError:
+		agentStatus.Message = ""
+		agentStatus.Data = nil
+	default:
+	}
+
 	return decodeUnitAgentStatus(agentStatus)
 }
 

@@ -103,37 +103,51 @@ type ApplicationService interface {
 
 	// GetApplicationIDByName returns an application ID by application name.
 	//
-	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
+	// Returns [applicationerrors.ApplicationNotFound] if the application is not
+	// found.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
 
-	// GetApplicationDisplayStatus returns the display status of the specified application.
-	// The display status is equal to the application status if it is set, otherwise it is
-	// derived from the unit display statuses.
-	// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
-	// is returned.
+	// GetApplicationDisplayStatus returns the display status of the specified
+	// application. The display status is equal to the application status if it
+	// is set, otherwise it is derived from the unit display statuses.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationDisplayStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error)
 
-	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	// GetUnitWorkloadStatus returns the workload status of the specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
 	GetUnitWorkloadStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
 
-	// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	// SetUnitWorkloadStatus sets the workload status of the specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
 	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
+
+	// GetUnitAgentStatus returns the agent status of the specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
+	GetUnitAgentStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
+
+	// SetUnitAgentStatus sets the agent status of the specified unit, returning
+	// an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+	// exist.
+	SetUnitAgentStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
 
 	// GetCharmModifiedVersion looks up the charm modified version of the given
 	// application.
 	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
 
-	// GetUnitWorkloadStatusesForApplication returns the workload statuses of all
-	// units in the specified application, indexed by unit name, returning an error
-	// satisfying [applicationerrors.ApplicationNotFound] if the application doesn't
-	// exist.
+	// GetUnitWorkloadStatusesForApplication returns the workload statuses of
+	// all units in the specified application, indexed by unit name, returning
+	// an error satisfying [applicationerrors.ApplicationNotFound] if the
+	// application doesn't exist.
 	GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error)
 
-	// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm archive
-	// for the given charm name, source and revision. If the charm is not available,
-	// [applicationerrors.CharmNotResolved] is returned.
+	// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm
+	// archive for the given charm name, source and revision. If the charm is
+	// not available, [applicationerrors.CharmNotResolved] is returned.
 	GetAvailableCharmArchiveSHA256(ctx context.Context, locator charm.CharmLocator) (string, error)
 
 	// GetCharmLXDProfile returns the LXD profile along with the revision of the

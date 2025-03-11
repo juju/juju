@@ -35,6 +35,14 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
+// unitAgentGlobalKey returns the global database key for the named unit.
+func unitAgentGlobalKey(name string) string {
+	return unitAgentGlobalKeyPrefix + name
+}
+
+// unitAgentGlobalKeyPrefix is the string we use to denote unit agent kind.
+const unitAgentGlobalKeyPrefix = "u#"
+
 var unitLogger = internallogger.GetLogger("juju.state.unit")
 
 // ResolvedMode describes the way state transition errors
@@ -1286,33 +1294,6 @@ func (u *Unit) Refresh() error {
 		return errors.Annotatef(err, "cannot refresh unit %q", u)
 	}
 	return nil
-}
-
-// Agent Returns an agent by its unit's name.
-func (u *Unit) Agent() *UnitAgent {
-	return newUnitAgent(u.st, u.Tag(), u.Name())
-}
-
-// SetAgentStatus calls SetStatus for this unit's agent, this call
-// is equivalent to the former call to SetStatus when Agent and Unit
-// were not separate entities.
-func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
-	agent := newUnitAgent(u.st, u.Tag(), u.Name())
-	s := status.StatusInfo{
-		Status:  agentStatus.Status,
-		Message: agentStatus.Message,
-		Data:    agentStatus.Data,
-		Since:   agentStatus.Since,
-	}
-	return agent.SetStatus(s)
-}
-
-// AgentStatus calls Status for this unit's agent, this call
-// is equivalent to the former call to Status when Agent and Unit
-// were not separate entities.
-func (u *Unit) AgentStatus() (status.StatusInfo, error) {
-	agent := newUnitAgent(u.st, u.Tag(), u.Name())
-	return agent.Status()
 }
 
 // ContainerStatus returns the container status for a unit.

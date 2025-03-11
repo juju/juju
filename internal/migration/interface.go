@@ -49,15 +49,21 @@ type UpgradeService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
-	// GetApplicationLife looks up the life of the specified application, returning
-	// an error satisfying [applicationerrors.ApplicationNotFoundError] if the
-	// application is not found.
+	// GetApplicationLife looks up the life of the specified application,
+	// returning an error satisfying
+	// [applicationerrors.ApplicationNotFoundError] if the application is not
+	// found.
 	GetApplicationLife(context.Context, string) (life.Value, error)
 
 	// GetUnitWorkloadStatus returns the workload status of the specified unit,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
-	// doesn't exist.
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
 	GetUnitWorkloadStatus(context.Context, unit.Name) (*status.StatusInfo, error)
+
+	// GetUnitAgentStatus returns the agent status of the specified unit,
+	// returning an error satisfying [applicationerrors.UnitNotFound] if the
+	// unit doesn't exist.
+	GetUnitAgentStatus(context.Context, unit.Name) (*status.StatusInfo, error)
 }
 
 // ControllerConfigService describes the method needed to get the
@@ -111,7 +117,6 @@ type PrecheckUnit interface {
 	AgentTools() (*tools.Tools, error)
 	Life() state.Life
 	CharmURL() *string
-	AgentStatus() (status.StatusInfo, error)
 	ShouldBeAssigned() bool
 }
 

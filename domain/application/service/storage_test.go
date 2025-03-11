@@ -43,7 +43,7 @@ func (s *storageSuite) setupMocks(c *gc.C) *gomock.Controller {
 			return provider.CommonStorageProviders()
 		}),
 		nil,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c)),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)

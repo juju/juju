@@ -160,11 +160,15 @@ func (c *Client) unitMatchUnitName(ctx context.Context, u *state.Unit, patterns 
 }
 
 func (c *Client) unitMatchAgentStatus(ctx context.Context, u *state.Unit, patterns []string) (bool, bool, error) {
-	statusInfo, err := u.AgentStatus()
+	unitName, err := coreunit.NewName(u.Name())
 	if err != nil {
 		return false, false, err
 	}
-	return matchAgentStatus(patterns, statusInfo.Status)
+	agentStatusInfo, err := c.applicationService.GetUnitAgentStatus(ctx, unitName)
+	if err != nil {
+		return false, false, err
+	}
+	return matchAgentStatus(patterns, agentStatusInfo.Status)
 }
 
 func (c *Client) unitMatchWorkloadStatus(ctx context.Context, u *state.Unit, patterns []string) (bool, bool, error) {
@@ -176,7 +180,7 @@ func (c *Client) unitMatchWorkloadStatus(ctx context.Context, u *state.Unit, pat
 	if err != nil {
 		return false, false, err
 	}
-	agentStatusInfo, err := u.AgentStatus()
+	agentStatusInfo, err := c.applicationService.GetUnitAgentStatus(ctx, unitName)
 	if err != nil {
 		return false, false, err
 	}

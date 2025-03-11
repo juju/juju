@@ -3127,27 +3127,6 @@ func (op *AddUnitOperation) Done(err error) error {
 	if op.props.AgentStatus == nil && op.props.CloudContainerStatus == nil {
 		return nil
 	}
-	// We do a separate status update here because we require all units to be
-	// created as "allocating". If the add operation specifies a status,
-	// that status is used to update the initial "allocating" status. We then
-	// get the expected 2 status entries in history. This is done in a separate
-	// transaction; a failure here will effectively be retried because the worker
-	// which has made the API call will restart and then perform the necessary update..
-	u, err := op.application.st.Unit(op.unitName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if op.props.AgentStatus != nil {
-		now := op.application.st.clock().Now()
-		if err := u.Agent().SetStatus(status.StatusInfo{
-			Status:  op.props.AgentStatus.Status,
-			Message: op.props.AgentStatus.Message,
-			Data:    op.props.AgentStatus.Data,
-			Since:   &now,
-		}); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	return nil
 }
 

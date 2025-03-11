@@ -215,21 +215,44 @@ func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name s
 	return constraints.EncodeConstraints(cons), internalerrors.Capture(err)
 }
 
-// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
-// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (s *MigrationService) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name) (*corestatus.StatusInfo, error) {
-	if err := unitName.Validate(); err != nil {
+// GetUnitUUIDByName returns the unit UUID for the specified unit name.
+// If the unit does not exist, an error satisfying
+// [applicationerrors.UnitNotFound] is returned.
+func (s *MigrationService) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
+	if err := name.Validate(); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return s.st.GetUnitUUIDByName(ctx, name)
+}
+
+// GetUnitWorkloadStatus returns the workload status of the specified unit,
+// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
+// doesn't exist.
+func (s *MigrationService) GetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID) (*corestatus.StatusInfo, error) {
+	if err := unitUUID.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
 	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return decodeWorkloadStatus(workloadStatus)
+}
+
+// GetUnitAgentStatus returns the agent status of the specified unit, returning
+// an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+// exist.
+func (s *MigrationService) GetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID) (*corestatus.StatusInfo, error) {
+	if err := unitUUID.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	agentStatus, err := s.st.GetUnitAgentStatus(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return decodeUnitAgentStatus(agentStatus)
 }
 
 // ImportApplication imports the specified application and units if required,
