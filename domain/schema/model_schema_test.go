@@ -131,6 +131,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Machine
 		"machine",
+		"machine_agent_version",
 		"machine_parent",
 		"machine_constraint",
 		"machine_agent_presence",

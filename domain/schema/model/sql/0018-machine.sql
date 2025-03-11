@@ -41,6 +41,18 @@ CREATE TABLE machine_parent (
     REFERENCES machine (uuid)
 );
 
+-- machine_agent_version tracks the reported agent version running for each
+-- machine.
+CREATE TABLE machine_agent_version (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    version TEXT NOT NULL,
+    architecture TEXT NOT NULL,
+    release TEXT NOT NULL,
+    CONSTRAINT fk_machine_agent_version_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
+);
+
 CREATE TABLE machine_constraint (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     constraint_uuid TEXT NOT NULL,
