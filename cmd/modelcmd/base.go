@@ -129,6 +129,9 @@ type CommandBase struct {
 	authOpts      AuthOpts
 	runStarted    bool
 	refreshModels func(jujuclient.ClientStore, string) error
+	// sessionLoginFactory provides an session token based
+	// login provider used to mock out oauth based login.
+	sessionLoginFactory SessionLoginFactory
 
 	// StdContext is the Go context.
 	StdContext context.Context
@@ -193,6 +196,11 @@ func (c *CommandBase) SetModelRefresh(refresh func(jujuclient.ClientStore, strin
 	c.refreshModels = refresh
 }
 
+// SetSessionLoginFactory sets the sessionLoginFactory used for oauth login.
+func (c *CommandBase) SetSessionLoginFactory(loginFactory SessionLoginFactory) {
+	c.sessionLoginFactory = loginFactory
+}
+
 func (c *CommandBase) modelAPI(store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
 	c.assertRunStarted()
 	if c.modelAPI_ != nil {
@@ -241,6 +249,15 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 	conn, err := juju.NewAPIConnection(param)
 	if modelName != "" && params.ErrCode(err) == params.CodeModelNotFound {
 		return nil, c.missingModelError(store, controllerName, modelName)
+	}
+	// Update the account details after each successful login.
+	// Some login providers, for example, refresh a user's token.
+	if err == nil && param.AccountDetails != nil {
+		param.AccountDetails.LastKnownAccess = conn.ControllerAccess()
+		err := store.UpdateAccount(controllerName, *param.AccountDetails)
+		if err != nil {
+			logger.Errorf("cannot update account information: %v", err)
+		}
 	}
 	if redirErr, ok := errors.Cause(err).(*api.RedirectError); ok {
 		return nil, newModelMigratedError(store, modelName, redirErr)
@@ -327,6 +344,7 @@ func (c *CommandBase) NewAPIConnectionParams(
 		c.apiOpen,
 		getPassword,
 		cmdOut,
+		c.sessionTokenLoginFactory(),
 	)
 }
 
@@ -370,6 +388,20 @@ func (c *CommandBase) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection
 		return c.apiOpenFunc(info, opts)
 	}
 	return api.Open(info, opts)
+}
+
+// sessionTokenLoginFactory returns a session token based login
+// object that is used for tests to enable mocking out OAuth login flows.
+func (c *CommandBase) SessionTokenLoginFactory() SessionLoginFactory {
+	c.assertRunStarted()
+	return c.sessionTokenLoginFactory()
+}
+
+func (c *CommandBase) sessionTokenLoginFactory() SessionLoginFactory {
+	if c.sessionLoginFactory != nil {
+		return c.sessionLoginFactory
+	}
+	return api.SessionTokenLoginFactory{}
 }
 
 // RefreshModels refreshes the local models cache for the current user
@@ -537,6 +569,10 @@ func (w *baseCommandWrapper) Run(ctx *cmd.Context) error {
 	return w.Command.Run(ctx)
 }
 
+type SessionLoginFactory interface {
+	NewLoginProvider(token string, output io.Writer, tokenCallback func(token string)) api.LoginProvider
+}
+
 func newAPIConnectionParams(
 	store jujuclient.ClientStore,
 	controllerName,
@@ -547,6 +583,7 @@ func newAPIConnectionParams(
 	apiOpen api.OpenFunc,
 	getPassword func(string) (string, error),
 	cmdOut io.Writer,
+	sessionLoginFactory SessionLoginFactory,
 ) (juju.NewAPIConnectionParams, error) {
 	if controllerName == "" {
 		return juju.NewAPIConnectionParams{}, errors.Trace(errNoNameSpecified)
@@ -572,7 +609,7 @@ func newAPIConnectionParams(
 	}
 
 	if controllerDetails.OIDCLogin {
-		dialOpts.LoginProvider = api.NewSessionTokenLoginProvider(
+		dialOpts.LoginProvider = sessionLoginFactory.NewLoginProvider(
 			accountDetails.SessionToken,
 			cmdOut,
 			func(sessionToken string) {
