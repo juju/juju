@@ -178,7 +178,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.appState.AddUnits(context.Background(), c.MkDir(), appID, []application.AddUnitArg{{UnitName: "foo/1"}})
+	err = s.appState.AddIAASUnits(context.Background(), c.MkDir(), appID, application.AddUnitArg{UnitName: "foo/1"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{

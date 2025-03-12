@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/config"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
@@ -347,10 +348,13 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 	if err != nil {
 		return errors.Annotatef(err, "creating application %q", name)
 	}
-	for _, arg := range unitArgs {
-		if err := s.st.InsertUnit(ctx, appID, arg); err != nil {
-			return errors.Annotatef(err, "inserting unit %q", arg.UnitName)
-		}
+	if modelType == model.IAAS {
+		err = s.st.InsertIAASUnits(ctx, appID, unitArgs...)
+	} else {
+		err = s.st.InsertCAASUnits(ctx, appID, unitArgs...)
+	}
+	if err != nil {
+		return errors.Annotatef(err, "inserting units for application %q", name)
 	}
 
 	if err := s.st.SetDesiredApplicationScale(ctx, appID, args.ScaleState.Scale); err != nil {
