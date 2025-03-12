@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"gopkg.in/tomb.v2"
 
@@ -20,9 +20,10 @@ type jwtParserWorker struct {
 	jwtParser *jwtparser.Parser
 }
 
-// ControllerConfigGetter defines an interface to retrieve controller config.
-type ControllerConfigGetter interface {
-	ControllerConfig() (controller.Config, error)
+// ControllerConfigService defines an interface to retrieve controller config.
+type ControllerConfigService interface {
+	// ControllerConfig returns the current controller configuration.
+	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // HTTPClient defines an interface for an HTTP client
@@ -32,8 +33,8 @@ type HTTPClient interface {
 }
 
 // NewWorker returns a worker that provides a JWTParser.
-func NewWorker(configGetter ControllerConfigGetter, httpClient HTTPClient) (worker.Worker, error) {
-	controllerConfig, err := configGetter.ControllerConfig()
+func NewWorker(configService ControllerConfigService, httpClient HTTPClient) (worker.Worker, error) {
+	controllerConfig, err := configService.ControllerConfig(context.Background())
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
 	}

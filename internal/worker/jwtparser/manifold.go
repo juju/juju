@@ -4,66 +4,62 @@
 package jwtparser
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
+	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/internal/jwtparser"
-	"github.com/juju/juju/internal/worker/common"
-	workerstate "github.com/juju/juju/internal/worker/state"
+	"github.com/juju/juju/internal/services"
 )
+
+// GetControllerConfigServiceFunc is a helper function that gets
+// a controller config service from the manifold.
+type GetControllerConfigServiceFunc = func(getter dependency.Getter, name string) (ControllerConfigService, error)
+
+// GetControllerConfigService is a helper function that gets a service from the
+// manifold.
+func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) ControllerConfigService {
+		return factory.ControllerConfig()
+	})
+}
 
 // ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
-	StateName string
+	// DomainServicesName is the name of the domain services worker.
+	DomainServicesName string
+	// GetControllerConfigService is used to get a service from the manifold.
+	GetControllerConfigService GetControllerConfigServiceFunc
 }
 
 // Manifold returns a manifold whose worker wraps a JWT parser.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	inputs := []string{config.StateName}
 	return dependency.Manifold{
-		Inputs: inputs,
+		Inputs: []string{
+			config.DomainServicesName,
+		},
 		Output: outputFunc,
 		Start:  config.start,
 	}
 }
 
-func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
-	var stTracker workerstate.StateTracker
-	if err := context.Get(config.StateName, &stTracker); err != nil {
+func (config ManifoldConfig) start(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
+	controllerConfigService, err := config.GetControllerConfigService(getter, config.DomainServicesName)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	statePool, err := stTracker.Use()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	systemState, err := statePool.SystemState()
-	if err != nil {
-		_ = stTracker.Done()
-		return nil, errors.Trace(err)
-	}
-	// The statePool is only needed for worker creation
-	// currently but should be improved to watch for changes.
-	w, err := NewWorker(systemState, defaultHTTPClient())
-	if err != nil {
-		_ = stTracker.Done()
-		return nil, errors.Trace(err)
-	}
-	return common.NewCleanupWorker(w, func() {
-		_ = stTracker.Done()
-	}), nil
+	return NewWorker(controllerConfigService, defaultHTTPClient())
 }
 
 // outputFunc extracts a jwtparser.Parser from a
 // jwtParserWorker contained within a CleanupWorker.
 func outputFunc(in worker.Worker, out interface{}) error {
-	if w, ok := in.(*common.CleanupWorker); ok {
-		in = w.Worker
-	}
 	inWorker, _ := in.(*jwtParserWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got %T", inWorker, in)

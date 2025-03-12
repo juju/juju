@@ -291,7 +291,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	var jwtParser *jwtparser.Parser
-	if err := context.Get(config.JWTParserName, &jwtParser); err != nil {
+	if err := getter.Get(config.JWTParserName, &jwtParser); err != nil {
 		return nil, errors.Trace(err)
 	}
 
