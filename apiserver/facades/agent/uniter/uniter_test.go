@@ -17,16 +17,15 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
-	internalrelation "github.com/juju/juju/internal/relation"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -269,10 +268,9 @@ func (s *uniterv20Suite) SetUpTest(c *gc.C) {
 type uniterRelationSuite struct {
 	testing.IsolationSuite
 
-	wordpressAppTag   names.ApplicationTag
-	authTag           names.Tag
-	leadershipChecker *fakeLeadershipChecker
-	wordpressUnitTag  names.UnitTag
+	wordpressAppTag  names.ApplicationTag
+	authTag          names.Tag
+	wordpressUnitTag names.UnitTag
 
 	applicationService *MockApplicationService
 	modelInfoService   *MockModelInfoService
@@ -287,11 +285,6 @@ func (s *uniterRelationSuite) SetUpSuite(_ *gc.C) {
 	s.wordpressAppTag = names.NewApplicationTag("wordpress")
 	s.wordpressUnitTag = names.NewUnitTag("wordpress/0")
 	s.authTag = s.wordpressUnitTag
-}
-
-func (s *uniterRelationSuite) SetUpTest(_ *gc.C) {
-	// Ensure each test starts without the auth unit being the leader.
-	s.leadershipChecker = &fakeLeadershipChecker{}
 }
 
 func (s *uniterRelationSuite) TestRelation(c *gc.C) {
@@ -454,16 +447,14 @@ func (s *uniterRelationSuite) TestRelationById(c *gc.C) {
 func (s *uniterRelationSuite) TestReadSettingsApplication(c *gc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
-	s.leadershipChecker.isLeader = true
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
 	appID := applicationtesting.GenApplicationUUID(c)
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
-	s.expectRelationEndpoints(relUUID, []internalrelation.Endpoint{})
 	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
-	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
+	s.expectGetLocalRelationApplicationSettings(coreunit.Name(s.wordpressUnitTag.Id()), relUUID, appID, settings)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -541,13 +532,6 @@ func (s *uniterRelationSuite) TestReadSettingsErrUnauthorized(c *gc.C) {
 			arrange: func() {
 				s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
 			},
-		}, {
-			description: "read application settings when not the leader",
-			arg:         params.RelationUnit{Relation: relTag.String(), Unit: "application-wordpress"},
-			arrange: func() {
-				s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
-				s.expectRelationEndpoints(relUUID, []internalrelation.Endpoint{})
-			},
 		},
 	}
 
@@ -565,21 +549,17 @@ func (s *uniterRelationSuite) TestReadSettingsErrUnauthorized(c *gc.C) {
 	}
 }
 
-func (s *uniterRelationSuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
+func (s *uniterRelationSuite) TestReadSettingsForLocalApplication(c *gc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
-	s.leadershipChecker.isLeader = true
 	relTag := names.NewRelationTag("wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
 	appID := applicationtesting.GenApplicationUUID(c)
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
-	s.expectRelationEndpoints(relUUID, []internalrelation.Endpoint{
-		{ApplicationName: "wordpress", Relation: charm.Relation{Role: charm.RolePeer}},
-	})
 	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
-	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
+	s.expectGetLocalRelationApplicationSettings(coreunit.Name(s.wordpressUnitTag.Id()), relUUID, appID, settings)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -594,30 +574,6 @@ func (s *uniterRelationSuite) TestReadSettingsForApplicationInPeerRelation(c *gc
 			{Settings: params.Settings{
 				"wanda": "firebaugh",
 			}},
-		},
-	})
-}
-
-func (s *uniterRelationSuite) TestReadLocalApplicationSettingsWhenNotLeader(c *gc.C) {
-	// arrange
-	defer s.setupMocks(c).Finish()
-	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
-	relUUID := relationtesting.GenRelationUUID(c)
-
-	s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
-	s.expectRelationEndpoints(relUUID, []internalrelation.Endpoint{})
-
-	// act
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: relTag.String(), Unit: s.wordpressAppTag.String()},
-	}}
-	result, err := s.uniter.ReadSettings(context.Background(), args)
-
-	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
@@ -720,7 +676,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 
 	s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
 	s.expectGetApplicationIDByName(remoteAppTag.Id(), appID)
-	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
+	s.expectGetRemoteRelationApplicationSettings(relUUID, appID, settings)
 
 	// act
 	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
@@ -753,7 +709,7 @@ func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplicat
 
 	s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
 	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
-	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
+	s.expectGetRemoteRelationApplicationSettings(relUUID, appID, settings)
 
 	// act
 	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
@@ -800,7 +756,6 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 		accessApplication: appAuthFunc,
 		accessUnit:        unitAuthFunc,
 		auth:              authorizer,
-		leadershipChecker: s.leadershipChecker,
 
 		applicationService: s.applicationService,
 		modelInfoService:   s.modelInfoService,
@@ -889,16 +844,16 @@ func (s *uniterRelationSuite) expectGetRelationDetailsUnexpectedAppName(c *gc.C,
 	}, nil)
 }
 
-func (s *uniterRelationSuite) expectRelationEndpoints(uuid corerelation.UUID, eps []internalrelation.Endpoint) {
-	s.relationService.EXPECT().GetRelationEndpoints(gomock.Any(), uuid).Return(eps, nil)
-}
-
 func (s *uniterRelationSuite) expectGetApplicationIDByName(appName string, id coreapplication.ID) {
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(id, nil)
 }
 
-func (s *uniterRelationSuite) expectGetRelationApplicationSettings(uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
-	s.relationService.EXPECT().GetRelationApplicationSettings(gomock.Any(), uuid, id).Return(settings, nil)
+func (s *uniterRelationSuite) expectGetLocalRelationApplicationSettings(unitName coreunit.Name, uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
+	s.relationService.EXPECT().GetLocalRelationApplicationSettings(gomock.Any(), unitName, uuid, id).Return(settings, nil)
+}
+
+func (s *uniterRelationSuite) expectGetRemoteRelationApplicationSettings(uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
+	s.relationService.EXPECT().GetRemoteRelationApplicationSettings(gomock.Any(), uuid, id).Return(settings, nil)
 }
 
 func (s *uniterRelationSuite) expectGetRelationUnit(relUUID corerelation.UUID, uuid corerelation.UnitUUID, unitTagID string) {
@@ -907,26 +862,4 @@ func (s *uniterRelationSuite) expectGetRelationUnit(relUUID corerelation.UUID, u
 
 func (s *uniterRelationSuite) expectGetRelationUnitSettings(uuid corerelation.UnitUUID, settings map[string]string) {
 	s.relationService.EXPECT().GetRelationUnitSettings(gomock.Any(), uuid).Return(settings, nil)
-}
-
-type fakeLeadershipChecker struct {
-	isLeader bool
-}
-
-// Temporarily make the static analysis happy until the tests are finished
-// and using leadership.
-type token struct {
-	isLeader          bool
-	unit, application string
-}
-
-func (t *token) Check() error {
-	if !t.isLeader {
-		return leadership.NewNotLeaderError(t.unit, t.application)
-	}
-	return nil
-}
-
-func (f *fakeLeadershipChecker) LeadershipCheck(applicationName, unitName string) leadership.Token {
-	return &token{isLeader: f.isLeader, unit: unitName, application: applicationName}
 }

@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
-	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 // Services represents all the services that the uniter facade requires.
@@ -227,10 +226,14 @@ type MachineService interface {
 // RelationService defines the methods that the facade assumes from the
 // Relation service.
 type RelationService interface {
-	// GetRelationApplicationSettings returns the application settings for the
-	// given application and relation identifier combination.
-	GetRelationApplicationSettings(
+	// GetLocalRelationApplicationSettings returns the application settings
+	// for the given application and relation identifier combination.
+	// ApplicationSettings may only be read by the application leader.
+	// Returns NotFound if this unit is not the leader, if the application or
+	// relation is not found.
+	GetLocalRelationApplicationSettings(
 		ctx context.Context,
+		unitName coreunit.Name,
 		relationUUID corerelation.UUID,
 		applicationID coreapplication.ID,
 	) (map[string]string, error)
@@ -246,9 +249,6 @@ type RelationService interface {
 		relationUUID corerelation.UUID,
 		unitName string,
 	) (relation.RelationDetails, error)
-
-	// GetRelationEndpoints returns all endpoints for the given relation UUID.
-	GetRelationEndpoints(ctx context.Context, id corerelation.UUID) ([]internalrelation.Endpoint, error)
 
 	// GetRelationUnit returns the relation unit UUID for the given unit within
 	// the given relation.
@@ -269,4 +269,13 @@ type RelationService interface {
 	// Key. The relation key is a ordered space separated string of the
 	// endpoint names of a the relation.
 	GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error)
+
+	// GetRemoteRelationApplicationSettings returns the application settings
+	// for the given application and relation identifier combination.
+	// Returns NotFound if the application or relation is not found.
+	GetRemoteRelationApplicationSettings(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationID coreapplication.ID,
+	) (map[string]string, error)
 }
