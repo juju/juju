@@ -23,6 +23,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
@@ -52,6 +53,7 @@ type workerFixture struct {
 	domainServicesGetter    services.DomainServicesGetter
 	controllerUUID          string
 	controllerModelUUID     model.UUID
+	jwtParser               *jwtparser.Parser
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -75,6 +77,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.controllerUUID = coretesting.ControllerTag.Id()
 	s.controllerModelUUID = modeltesting.GenModelUUID(c)
 	s.stub.ResetCalls()
+	s.jwtParser = &jwtparser.Parser{}
 
 	s.config = apiserver.Config{
 		AgentConfig:                       &s.agentConfig,
@@ -97,6 +100,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		DomainServicesGetter:              s.domainServicesGetter,
 		TracerGetter:                      s.tracerGetter,
 		ObjectStoreGetter:                 s.objectStoreGetter,
+		JWTParser:                         s.jwtParser,
 	}
 }
 
@@ -175,6 +179,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.ModelService = nil },
 		"nil ModelService not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.JWTParser = nil },
+		"nil JWTParser not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

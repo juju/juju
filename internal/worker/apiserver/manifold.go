@@ -29,6 +29,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/cmd"
+	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
@@ -80,6 +81,7 @@ type ManifoldConfig struct {
 	DomainServicesName string
 	TraceName          string
 	ObjectStoreName    string
+	JWTParserName      string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -144,6 +146,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.ObjectStoreName == "" {
 		return errors.NotValidf("empty ObjectStoreName")
 	}
+	if config.JWTParserName == "" {
+		return errors.NotValidf("empty JWTParserName")
+	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -183,6 +188,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.TraceName,
 			config.ObjectStoreName,
 			config.LogSinkName,
+			config.JWTParserName,
 		},
 		Start: config.start,
 	}
@@ -284,6 +290,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var jwtParser *jwtparser.Parser
+	if err := context.Get(config.JWTParserName, &jwtParser); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
@@ -312,6 +323,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		UpgradeComplete:                   upgradeLock.IsUnlocked,
 		Hub:                               config.Hub,
 		LocalMacaroonAuthenticator:        macaroonAuthenticator,
+		JWTParser:                         jwtParser,
 		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,

@@ -187,6 +187,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"is-primary-controller-flag",
+		"jwt-parser",
 		"lease-expiry",
 		"lease-manager",
 		"log-sink",
