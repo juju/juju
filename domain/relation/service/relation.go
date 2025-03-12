@@ -185,8 +185,8 @@ func (s *Service) GetRelationID(ctx context.Context, relationUUID corerelation.U
 // GetRelationKey returns a key identifier for the given relation UUID.
 // The key describes the relation defined by endpoints in sorted order.
 // Note: See the state.relationKey() function.
-func (s *Service) GetRelationKey(ctx context.Context, relationUUID corerelation.UUID) corerelation.Key {
-	return ""
+func (s *Service) GetRelationKey(ctx context.Context, relationUUID corerelation.UUID) (corerelation.Key, error) {
+	return "", nil
 }
 
 // GetRelationStatus returns the status of the given relation.
@@ -198,9 +198,12 @@ func (s *Service) GetRelationStatus(
 }
 
 // GetRelationTag returns the tag for the given relation UUID.
-func (s *Service) GetRelationTag(ctx context.Context, relationUUID corerelation.UUID) names.Tag {
-	key := s.GetRelationKey(ctx, relationUUID)
-	return names.NewRelationTag(string(key))
+func (s *Service) GetRelationTag(ctx context.Context, relationUUID corerelation.UUID) (names.Tag, error) {
+	key, err := s.GetRelationKey(ctx, relationUUID)
+	if err != nil {
+		return nil, err
+	}
+	return names.NewRelationTag(string(key)), nil
 }
 
 // GetRelationUnit returns the relation unit UUID for the given unit for the
