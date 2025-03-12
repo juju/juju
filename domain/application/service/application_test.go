@@ -85,7 +85,7 @@ func (s *applicationServiceSuite) TestGetApplicationStatusFallbackToUnits(c *gc.
 		}, nil)
 
 	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), applicationUUID).Return(
-		map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
+		application.UnitWorkloadStatuses{
 			"unit-1": {
 				Status:  application.WorkloadStatusActive,
 				Message: "doink-1",
@@ -127,7 +127,7 @@ func (s *applicationServiceSuite) TestGetApplicationStatusFallbackToUnitsNoUnits
 		}, nil)
 
 	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), applicationUUID).Return(
-		map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{}, nil,
+		application.UnitWorkloadStatuses{}, nil,
 	)
 
 	obtained, err := s.service.GetApplicationStatus(context.Background(), applicationUUID)
@@ -308,8 +308,7 @@ func (s *applicationServiceSuite) TestGetApplicationDisplayStatusFallbackToUnits
 			Status: application.WorkloadStatusUnset,
 		}, nil)
 
-	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), applicationUUID).Return(nil, nil)
-	s.state.EXPECT().GetUnitCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(nil, nil)
+	s.state.EXPECT().GetUnitWorkloadAndCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(nil, nil, nil)
 
 	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), applicationUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -329,8 +328,8 @@ func (s *applicationServiceSuite) TestGetApplicationDisplayStatusFallbackToUnits
 			Status: application.WorkloadStatusUnset,
 		}, nil)
 
-	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), applicationUUID).Return(
-		map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
+	s.state.EXPECT().GetUnitWorkloadAndCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(
+		application.UnitWorkloadStatuses{
 			"unit-1": {
 				Status:  application.WorkloadStatusActive,
 				Message: "doink",
@@ -343,10 +342,8 @@ func (s *applicationServiceSuite) TestGetApplicationDisplayStatusFallbackToUnits
 				Data:    []byte(`{"foo":"bar"}`),
 				Since:   &now,
 			},
-		}, nil)
-
-	s.state.EXPECT().GetUnitCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(
-		map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]{}, nil)
+		},
+		application.UnitCloudContainerStatuses{}, nil)
 
 	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), applicationUUID)
 	c.Assert(err, jc.ErrorIsNil)

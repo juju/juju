@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 
 	"github.com/juju/juju/core/status"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
@@ -385,8 +384,8 @@ func unitDisplayStatus(
 // applicationDisplayStatusFromUnits returns the status to display for an application
 // based on both the workload and container statuses of its units.
 func applicationDisplayStatusFromUnits(
-	workloadStatus map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType],
-	containerStatus map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType],
+	workloadStatus application.UnitWorkloadStatuses,
+	containerStatus application.UnitCloudContainerStatuses,
 ) (*status.StatusInfo, error) {
 	results := make([]*status.StatusInfo, 0, len(workloadStatus))
 

@@ -1223,16 +1223,12 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appID coreapp
 		return decodeWorkloadStatus(applicationStatus)
 	}
 
-	unitStatuses, err := s.st.GetUnitWorkloadStatusesForApplication(ctx, appID)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-	cloudContainerStatuses, err := s.st.GetUnitCloudContainerStatusesForApplication(ctx, appID)
+	workloadStatuses, cloudContainerStatuses, err := s.st.GetUnitWorkloadAndCloudContainerStatusesForApplication(ctx, appID)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
 
-	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(unitStatuses, cloudContainerStatuses)
+	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(workloadStatuses, cloudContainerStatuses)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}

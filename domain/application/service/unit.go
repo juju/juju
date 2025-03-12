@@ -74,15 +74,23 @@ type UnitState interface {
 	//     application doesn't exist or;
 	//   - error satisfying [applicationerrors.ApplicationIsDead] if the
 	//     application is dead.
-	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error)
+	GetUnitWorkloadStatusesForApplication(
+		context.Context, coreapplication.ID,
+	) (
+		application.UnitWorkloadStatuses, error,
+	)
 
-	// GetUnitCloudContainerStatusesForApplication returns the cloud container
-	// statuses for all units of the specified application, returning:
-	//   - an error satisfying [applicationerrors.ApplicationNotFound] if the
-	//     application doesn't exist or;
-	//   - an error satisfying [applicationerrors.ApplicationIsDead] if the
-	//     application is dead.
-	GetUnitCloudContainerStatusesForApplication(context.Context, coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error)
+	// GetUnitWorkloadAndCloudContainerStatusesForApplication returns the workload statuses
+	// and the cloud container statuses for all units of the specified application, returning:
+	//   - an error satisfying [applicationerrors.ApplicationNotFound] if the application
+	//     doesn't exist or;
+	//   - an error satisfying [applicationerrors.ApplicationIsDead] if the application
+	//     is dead.
+	GetUnitWorkloadAndCloudContainerStatusesForApplication(
+		ctx context.Context, appID coreapplication.ID,
+	) (
+		application.UnitWorkloadStatuses, application.UnitCloudContainerStatuses, error,
+	)
 
 	// GetUnitAgentStatus returns the workload status of the specified unit,
 	// returning:

@@ -1043,7 +1043,7 @@ func (s *unitStateSuite) TestGetUnitWorkloadStatusesForApplicationNoUnits(c *gc.
 	c.Assert(results, gc.HasLen, 0)
 }
 
-func (s *unitStateSuite) TestGetUnitCloudContainerStatusesForApplication(c *gc.C) {
+func (s *unitStateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplication(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
@@ -1052,24 +1052,40 @@ func (s *unitStateSuite) TestGetUnitCloudContainerStatusesForApplication(c *gc.C
 	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u1.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status := &application.StatusInfo[application.CloudContainerStatusType]{
+	workloadStatus := &application.StatusInfo[application.WorkloadStatusType]{
+		Status:  application.WorkloadStatusActive,
+		Message: "it's active",
+		Data:    []byte(`{"bar": "foo"}`),
+		Since:   ptr(time.Now()),
+	}
+	cloudContainerStatus := &application.StatusInfo[application.CloudContainerStatusType]{
 		Status:  application.CloudContainerStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   ptr(time.Now()),
 	}
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, status)
+		err := s.state.setCloudContainerStatus(ctx, tx, unitUUID, cloudContainerStatus)
+		if err != nil {
+			return err
+		}
+		return s.state.setUnitWorkloadStatus(ctx, tx, unitUUID, workloadStatus)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.state.GetUnitCloudContainerStatusesForApplication(context.Background(), appId)
+	workloadResults, containerResults, err := s.state.GetUnitWorkloadAndCloudContainerStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(results, gc.HasLen, 1)
-	result, ok := results["foo/666"]
+	c.Assert(workloadResults, gc.HasLen, 1)
+	workloadResult, ok := workloadResults["foo/666"]
 	c.Assert(ok, jc.IsTrue)
-	assertStatusInfoEqual(c, &result, status)
+
+	c.Assert(containerResults, gc.HasLen, 1)
+	containerResult, ok := containerResults["foo/666"]
+	c.Assert(ok, jc.IsTrue)
+
+	assertStatusInfoEqual(c, &workloadResult, workloadStatus)
+	assertStatusInfoEqual(c, &containerResult, cloudContainerStatus)
 }
 
 func (s *unitStateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(c *gc.C) {
@@ -1108,7 +1124,7 @@ func (s *unitStateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUn
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.state.GetUnitCloudContainerStatusesForApplication(context.Background(), appId)
+	_, results, err := s.state.GetUnitWorkloadAndCloudContainerStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 
@@ -1121,20 +1137,20 @@ func (s *unitStateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUn
 	assertStatusInfoEqual(c, &result2, status2)
 }
 
-func (s *unitStateSuite) TestGetUnitCloudContainerStatusesForApplicationNotFound(c *gc.C) {
-	_, err := s.state.GetUnitCloudContainerStatusesForApplication(context.Background(), "missing")
+func (s *unitStateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplicationNotFound(c *gc.C) {
+	_, _, err := s.state.GetUnitWorkloadAndCloudContainerStatusesForApplication(context.Background(), "missing")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *unitStateSuite) TestGetUnitCloudContainerStatusesForApplicationNoUnits(c *gc.C) {
+func (s *unitStateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplicationNoUnits(c *gc.C) {
 	appId := s.createApplication(c, "foo", life.Alive)
 
-	results, err := s.state.GetUnitCloudContainerStatusesForApplication(context.Background(), appId)
+	_, results, err := s.state.GetUnitWorkloadAndCloudContainerStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 0)
 }
 
-func (s *unitStateSuite) TestGetUnitCloudContainerStatusesForApplicationUnitsWithoutStatuses(c *gc.C) {
+func (s *unitStateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplicationUnitsWithoutStatuses(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
@@ -1143,7 +1159,7 @@ func (s *unitStateSuite) TestGetUnitCloudContainerStatusesForApplicationUnitsWit
 	}
 	appId := s.createApplication(c, "foo", life.Alive, u1, u2)
 
-	results, err := s.state.GetUnitCloudContainerStatusesForApplication(context.Background(), appId)
+	_, results, err := s.state.GetUnitWorkloadAndCloudContainerStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 0)
 }
