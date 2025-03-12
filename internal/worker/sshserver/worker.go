@@ -135,9 +135,10 @@ func (ssw *serverWrapperWorker) loop() error {
 		case <-changesChan:
 			newPort, _, err := ssw.getLatestControllerConfig()
 			if err != nil {
-				continue
+				return errors.Trace(err)
 			}
 			if port == newPort {
+				ssw.config.Logger.Debugf("controller configuration changed, but SSH port is the same, ignoring")
 				continue
 			}
 			return errors.New("changes detected, stopping SSH server worker")

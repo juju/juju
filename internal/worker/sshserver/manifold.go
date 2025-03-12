@@ -20,6 +20,7 @@ import (
 // Logger holds the methods required to log messages.
 type Logger interface {
 	Errorf(string, ...interface{})
+	Debugf(string, ...interface{})
 }
 
 // FacadeClient represents the SSH server's facade client.
