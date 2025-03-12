@@ -201,6 +201,28 @@ func getCallExprs(stmt ast.Stmt) []*ast.FuncLit {
 				callExprs = append(callExprs, funcLit)
 			}
 		}
+	case *ast.ExprStmt:
+		// Recursive descent into the expression statement to find the
+		// call expression.
+		switch x := s.X.(type) {
+		case *ast.CallExpr:
+			if len(x.Args) == 0 {
+				return callExprs
+			}
+
+			// Check the function literal arguments.
+			for _, arg := range x.Args {
+				funcLit, ok := arg.(*ast.FuncLit)
+				if !ok {
+					continue
+				}
+				callExprs = append(callExprs, funcLit)
+
+				for _, stmt := range funcLit.Body.List {
+					callExprs = append(callExprs, getCallExprs(stmt)...)
+				}
+			}
+		}
 	}
 	return callExprs
 }
