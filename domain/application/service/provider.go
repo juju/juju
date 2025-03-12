@@ -20,6 +20,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -312,13 +313,27 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 	for _, arg := range args {
 		unitName := arg.UnitName.String()
 
-		if agentStatus, err := decodeUnitAgentStatus(arg.UnitStatusArg.AgentStatus); err == nil && agentStatus != nil {
+		// The agent and workload status are required to be provided when adding
+		// a unit.
+		if arg.AgentStatus == nil || arg.WorkloadStatus == nil {
+			return internalerrors.Errorf("unit %q status not provided", unitName)
+		}
+
+		// Force the presence to be recorded as true, as the unit has just been
+		// added.
+		if agentStatus, err := decodeUnitAgentStatus(&application.UnitStatusInfo[application.UnitAgentStatusType]{
+			StatusInfo: *arg.AgentStatus,
+			Present:    true,
+		}); err == nil && agentStatus != nil {
 			if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName), *agentStatus); err != nil {
 				s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
 			}
 		}
 
-		if workloadStatus, err := decodeWorkloadStatus(arg.UnitStatusArg.WorkloadStatus); err == nil && workloadStatus != nil {
+		if workloadStatus, err := decodeWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
+			StatusInfo: *arg.WorkloadStatus,
+			Present:    true,
+		}); err == nil && workloadStatus != nil {
 			if err := s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName), *workloadStatus); err != nil {
 				s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
 			}

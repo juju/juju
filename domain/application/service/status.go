@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
@@ -114,6 +115,8 @@ func encodeWorkloadStatusType(s status.Status) (application.WorkloadStatusType, 
 		return application.WorkloadStatusActive, nil
 	case status.Terminated:
 		return application.WorkloadStatusTerminated, nil
+	case status.Error:
+		return application.WorkloadStatusError, nil
 	default:
 		return -1, errors.Errorf("unknown workload status %q", s)
 	}
@@ -137,6 +140,8 @@ func decodeUnitWorkloadStatusType(s application.WorkloadStatusType) (status.Stat
 		return status.Active, nil
 	case application.WorkloadStatusTerminated:
 		return status.Terminated, nil
+	case application.WorkloadStatusError:
+		return status.Error, nil
 	default:
 		return "", errors.Errorf("unknown workload status %q", s)
 	}
@@ -225,9 +230,31 @@ func encodeUnitAgentStatus(s *status.StatusInfo) (*application.StatusInfo[applic
 }
 
 // decodeUnitAgentStatus converts a db status info to a core status info.
-func decodeUnitAgentStatus(s *application.StatusInfo[application.UnitAgentStatusType]) (*status.StatusInfo, error) {
+func decodeUnitAgentStatus(s *application.UnitStatusInfo[application.UnitAgentStatusType]) (*status.StatusInfo, error) {
 	if s == nil {
 		return nil, nil
+	}
+
+	// If the agent isn't present then we need to modify the status for the
+	// agent.
+	if !s.Present {
+		return &status.StatusInfo{
+			Status:  status.Lost,
+			Message: "agent is not communicating with the server",
+			Since:   s.Since,
+		}, nil
+	}
+
+	// If the agent is in an error state, the workload status should also be in
+	// error state as well. The current 3.x system also does this, so we're
+	// attempting to maintain the same behaviour. This can be disingenuous if
+	// there is a legitimate agent error and the workload is fine, but we're
+	// trying to maintain compatibility.
+	if s.Status == application.UnitAgentStatusError {
+		return &status.StatusInfo{
+			Status: status.Idle,
+			Since:  s.Since,
+		}, nil
 	}
 
 	decodedStatus, err := decodeUnitAgentStatusType(s.Status)
@@ -279,9 +306,20 @@ func encodeWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[applica
 }
 
 // decodeWorkloadStatus converts a db status info to a core status info.
-func decodeWorkloadStatus(s *application.StatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
+func decodeWorkloadStatus(s *application.UnitStatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
 	if s == nil {
 		return nil, nil
+	}
+
+	// If the workload isn't present then we need to modify the status for the
+	// workload.
+	if !s.Present && !(s.Status == application.WorkloadStatusError ||
+		s.Status == application.WorkloadStatusTerminated) {
+		return &status.StatusInfo{
+			Status:  status.Unknown,
+			Message: fmt.Sprintf("agent lost, see `juju debug-logs` or `juju show-status-log` for more information"),
+			Since:   s.Since,
+		}, nil
 	}
 
 	decodedStatus, err := decodeUnitWorkloadStatusType(s.Status)
@@ -304,9 +342,32 @@ func decodeWorkloadStatus(s *application.StatusInfo[application.WorkloadStatusTy
 	}, nil
 }
 
+func decodeUnitAgentWorkloadStatus(
+	agent *application.UnitStatusInfo[application.UnitAgentStatusType],
+	workload *application.UnitStatusInfo[application.WorkloadStatusType],
+	containerStatus *application.StatusInfo[application.CloudContainerStatusType],
+) (*status.StatusInfo, *status.StatusInfo, error) {
+	// If the unit agent is allocating, then it won't be present in the model.
+	// In this case, we'll falsify the agent presence status.
+	if agent.Status == application.UnitAgentStatusAllocating {
+		agent.Present = true
+		workload.Present = true
+	}
+
+	agentStatus, err := decodeUnitAgentStatus(agent)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+	workloadStatus, err := unitDisplayStatus(workload, containerStatus)
+	if err != nil {
+		return nil, nil, errors.Capture(err)
+	}
+	return agentStatus, workloadStatus, nil
+}
+
 // reduceWorkloadStatuses reduces a list of workload statuses to a single status.
 // We do this by taking the highest priority status from the list.
-func reduceWorkloadStatuses(statuses []application.StatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
+func reduceWorkloadStatuses(statuses []application.UnitStatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
 	// By providing an unknown default, we get a reasonable answer
 	// even if there are no units.
 	result := &status.StatusInfo{
@@ -341,7 +402,7 @@ var statusSeverities = map[status.Status]int{
 // unit status. It is used in CAAS models where the status of the unit could be
 // overridden by the status of the container.
 func unitDisplayStatus(
-	workloadStatus *application.StatusInfo[application.WorkloadStatusType],
+	workloadStatus *application.UnitStatusInfo[application.WorkloadStatusType],
 	containerStatus *application.StatusInfo[application.CloudContainerStatusType],
 ) (*status.StatusInfo, error) {
 	// container status is not set. This means that the unit is either a non-CAAS

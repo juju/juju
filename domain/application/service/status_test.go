@@ -99,14 +99,6 @@ func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
 		},
 		{
 			input: &status.StatusInfo{
-				Status: status.Error,
-			},
-			output: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusError,
-			},
-		},
-		{
-			input: &status.StatusInfo{
 				Status: status.Executing,
 			},
 			output: &application.StatusInfo[application.UnitAgentStatusType]{
@@ -143,11 +135,40 @@ func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
 		c.Logf("test %d: %v", i, test.input)
 		output, err := encodeUnitAgentStatus(test.input)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(output, jc.DeepEquals, test.output)
-		result, err := decodeUnitAgentStatus(output)
+		c.Check(output, jc.DeepEquals, test.output)
+		result, err := decodeUnitAgentStatus(&application.UnitStatusInfo[application.UnitAgentStatusType]{
+			StatusInfo: *output,
+			Present:    true,
+		})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, jc.DeepEquals, test.input)
+		c.Check(result, jc.DeepEquals, test.input)
 	}
+}
+
+func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
+	output, err := encodeUnitAgentStatus(&status.StatusInfo{
+		Status: status.Error,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(output, jc.DeepEquals, &application.StatusInfo[application.UnitAgentStatusType]{
+		Status: application.UnitAgentStatusError,
+	})
+
+	// If the agent is in an error state, the workload should also
+	// be in an error state. In that case, the workload status will
+	// take precedence and we'll set the unit agent status to idle.
+	// This follows the same patter that already exists.
+
+	input, err := decodeUnitAgentStatus(&application.UnitStatusInfo[application.UnitAgentStatusType]{
+		StatusInfo: application.StatusInfo[application.UnitAgentStatusType]{
+			Status: application.UnitAgentStatusError,
+		},
+		Present: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(input, jc.DeepEquals, &status.StatusInfo{
+		Status: status.Idle,
+	})
 }
 
 func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
@@ -231,23 +252,26 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 		c.Logf("test %d: %v", i, test.input)
 		output, err := encodeWorkloadStatus(test.input)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(output, jc.DeepEquals, test.output)
-		result, err := decodeWorkloadStatus(output)
+		c.Check(output, jc.DeepEquals, test.output)
+		result, err := decodeWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
+			StatusInfo: *output,
+			Present:    true,
+		})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, jc.DeepEquals, test.input)
+		c.Check(result, jc.DeepEquals, test.input)
 	}
 }
 
 func (s *statusSuite) TestReduceWorkloadStatusesEmpty(c *gc.C) {
 	info, err := reduceWorkloadStatuses(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &status.StatusInfo{
+	c.Check(info, jc.DeepEquals, &status.StatusInfo{
 		Status: status.Unknown,
 	})
 
-	info, err = reduceWorkloadStatuses([]application.StatusInfo[application.WorkloadStatusType]{})
+	info, err = reduceWorkloadStatuses([]application.UnitStatusInfo[application.WorkloadStatusType]{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &status.StatusInfo{
+	c.Check(info, jc.DeepEquals, &status.StatusInfo{
 		Status: status.Unknown,
 	})
 }
@@ -259,7 +283,10 @@ func (s *statusSuite) TestReduceWorkloadStatusesBringsAllDetails(c *gc.C) {
 		Data:    []byte(`{"key":"value"}`),
 		Since:   &now,
 	}
-	info, err := reduceWorkloadStatuses([]application.StatusInfo[application.WorkloadStatusType]{value})
+	info, err := reduceWorkloadStatuses([]application.UnitStatusInfo[application.WorkloadStatusType]{{
+		StatusInfo: value,
+		Present:    true,
+	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &status.StatusInfo{
 		Status:  status.Active,
@@ -290,8 +317,19 @@ func (s *statusSuite) TestReduceWorkloadStatusesPriority(c *gc.C) {
 		// Blocked trumps maintenance
 		{status1: application.WorkloadStatusMaintenance, status2: application.WorkloadStatusBlocked, expected: status.Blocked},
 	} {
-		value, err := reduceWorkloadStatuses([]application.StatusInfo[application.WorkloadStatusType]{
-			{Status: t.status1}, {Status: t.status2},
+		value, err := reduceWorkloadStatuses([]application.UnitStatusInfo[application.WorkloadStatusType]{
+			{
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status: t.status1,
+				},
+				Present: true,
+			},
+			{
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status: t.status2,
+				},
+				Present: true,
+			},
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(value, gc.NotNil)
@@ -307,7 +345,10 @@ func (s *statusSuite) TestUnitDisplayStatusNoContainer(c *gc.C) {
 		Since:   &now,
 	}
 
-	info, err := unitDisplayStatus(workloadStatus, nil)
+	info, err := unitDisplayStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
+		StatusInfo: *workloadStatus,
+		Present:    true,
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &status.StatusInfo{
 		Status:  status.Active,
@@ -322,11 +363,14 @@ func (s *statusSuite) TestUnitDisplayStatusWorkloadTerminatedBlockedMaintenanceD
 		Status: application.CloudContainerStatusBlocked,
 	}
 
-	workloadStatus := &application.StatusInfo[application.WorkloadStatusType]{
-		Status:  application.WorkloadStatusTerminated,
-		Message: "msg",
-		Data:    []byte(`{"key":"value"}`),
-		Since:   &now,
+	workloadStatus := &application.UnitStatusInfo[application.WorkloadStatusType]{
+		StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+			Status:  application.WorkloadStatusTerminated,
+			Message: "msg",
+			Data:    []byte(`{"key":"value"}`),
+			Since:   &now,
+		},
+		Present: true,
 	}
 
 	expected := &status.StatusInfo{
@@ -354,8 +398,11 @@ func (s *statusSuite) TestUnitDisplayStatusWorkloadTerminatedBlockedMaintenanceD
 }
 
 func (s *statusSuite) TestUnitDisplayStatusContainerBlockedDominates(c *gc.C) {
-	workloadStatus := &application.StatusInfo[application.WorkloadStatusType]{
-		Status: application.WorkloadStatusWaiting,
+	workloadStatus := &application.UnitStatusInfo[application.WorkloadStatusType]{
+		StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+			Status: application.WorkloadStatusWaiting,
+		},
+		Present: true,
 	}
 
 	containerStatus := &application.StatusInfo[application.CloudContainerStatusType]{
@@ -376,8 +423,11 @@ func (s *statusSuite) TestUnitDisplayStatusContainerBlockedDominates(c *gc.C) {
 }
 
 func (s *statusSuite) TestUnitDisplayStatusContainerWaitingDominatesActiveWorkload(c *gc.C) {
-	workloadStatus := &application.StatusInfo[application.WorkloadStatusType]{
-		Status: application.WorkloadStatusActive,
+	workloadStatus := &application.UnitStatusInfo[application.WorkloadStatusType]{
+		StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+			Status: application.WorkloadStatusActive,
+		},
+		Present: true,
 	}
 
 	containerStatus := &application.StatusInfo[application.CloudContainerStatusType]{
@@ -398,8 +448,11 @@ func (s *statusSuite) TestUnitDisplayStatusContainerWaitingDominatesActiveWorklo
 }
 
 func (s *statusSuite) TestUnitDisplayStatusContainerRunningDominatesWaitingWorkload(c *gc.C) {
-	workloadStatus := &application.StatusInfo[application.WorkloadStatusType]{
-		Status: application.WorkloadStatusWaiting,
+	workloadStatus := &application.UnitStatusInfo[application.WorkloadStatusType]{
+		StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+			Status: application.WorkloadStatusWaiting,
+		},
+		Present: true,
 	}
 
 	containerStatus := &application.StatusInfo[application.CloudContainerStatusType]{
@@ -420,9 +473,12 @@ func (s *statusSuite) TestUnitDisplayStatusContainerRunningDominatesWaitingWorkl
 }
 
 func (s *statusSuite) TestUnitDisplayStatusDefaultsToWorkload(c *gc.C) {
-	workloadStatus := &application.StatusInfo[application.WorkloadStatusType]{
-		Status:  application.WorkloadStatusActive,
-		Message: "I'm an active workload",
+	workloadStatus := &application.UnitStatusInfo[application.WorkloadStatusType]{
+		StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+			Status:  application.WorkloadStatusActive,
+			Message: "I'm an active workload",
+		},
+		Present: true,
 	}
 
 	containerStatus := &application.StatusInfo[application.CloudContainerStatusType]{
@@ -445,9 +501,19 @@ const (
 )
 
 func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *gc.C) {
-	workloadStatuses := map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
-		unitName1: {Status: application.WorkloadStatusActive},
-		unitName2: {Status: application.WorkloadStatusActive},
+	workloadStatuses := map[coreunit.Name]application.UnitStatusInfo[application.WorkloadStatusType]{
+		unitName1: {
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status: application.WorkloadStatusActive,
+			},
+			Present: true,
+		},
+		unitName2: {
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status: application.WorkloadStatusActive,
+			},
+			Present: true,
+		},
 	}
 
 	info, err := applicationDisplayStatusFromUnits(workloadStatuses, nil)
@@ -474,7 +540,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *gc.C) {
 	})
 
 	info, err = applicationDisplayStatusFromUnits(
-		map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{},
+		map[coreunit.Name]application.UnitStatusInfo[application.WorkloadStatusType]{},
 		map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -484,9 +550,19 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *gc.C) {
 }
 
 func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceContainer(c *gc.C) {
-	workloadStatuses := map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
-		unitName1: {Status: application.WorkloadStatusActive},
-		unitName2: {Status: application.WorkloadStatusActive},
+	workloadStatuses := map[coreunit.Name]application.UnitStatusInfo[application.WorkloadStatusType]{
+		unitName1: {
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status: application.WorkloadStatusActive,
+			},
+			Present: true,
+		},
+		unitName2: {
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status: application.WorkloadStatusActive,
+			},
+			Present: true,
+		},
 	}
 
 	containerStatuses := map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]{
@@ -502,9 +578,19 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 }
 
 func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPrecedenceWorkload(c *gc.C) {
-	workloadStatuses := map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
-		unitName1: {Status: application.WorkloadStatusActive},
-		unitName2: {Status: application.WorkloadStatusMaintenance},
+	workloadStatuses := map[coreunit.Name]application.UnitStatusInfo[application.WorkloadStatusType]{
+		unitName1: {
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status: application.WorkloadStatusActive,
+			},
+			Present: true,
+		},
+		unitName2: {
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status: application.WorkloadStatusMaintenance,
+			},
+			Present: true,
+		},
 	}
 
 	containerStatuses := map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]{
@@ -520,9 +606,19 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 }
 
 func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGreatestStatusPrecedence(c *gc.C) {
-	workloadStatuses := map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]{
-		unitName1: {Status: application.WorkloadStatusActive},
-		unitName2: {Status: application.WorkloadStatusMaintenance},
+	workloadStatuses := map[coreunit.Name]application.UnitStatusInfo[application.WorkloadStatusType]{
+		unitName1: {
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status: application.WorkloadStatusActive,
+			},
+			Present: true,
+		},
+		unitName2: {
+			StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+				Status: application.WorkloadStatusMaintenance,
+			},
+			Present: true,
+		},
 	}
 
 	containerStatuses := map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]{

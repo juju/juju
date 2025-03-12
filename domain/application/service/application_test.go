@@ -87,22 +87,31 @@ func (s *applicationServiceSuite) TestGetApplicationStatusFallbackToUnits(c *gc.
 	s.state.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), applicationUUID).Return(
 		application.UnitWorkloadStatuses{
 			"unit-1": {
-				Status:  application.WorkloadStatusActive,
-				Message: "doink-1",
-				Data:    []byte(`{"foo":"bar-1"}`),
-				Since:   &now,
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status:  application.WorkloadStatusActive,
+					Message: "doink-1",
+					Data:    []byte(`{"foo":"bar-1"}`),
+					Since:   &now,
+				},
+				Present: true,
 			},
 			"unit-2": {
-				Status:  application.WorkloadStatusBlocked,
-				Message: "doink-2",
-				Data:    []byte(`{"foo":"bar-2"}`),
-				Since:   &now,
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status:  application.WorkloadStatusBlocked,
+					Message: "doink-2",
+					Data:    []byte(`{"foo":"bar-2"}`),
+					Since:   &now,
+				},
+				Present: true,
 			},
 			"unit-3": {
-				Status:  application.WorkloadStatusMaintenance,
-				Message: "doink-3",
-				Data:    []byte(`{"foo":"bar-3"}`),
-				Since:   &now,
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status:  application.WorkloadStatusMaintenance,
+					Message: "doink-3",
+					Data:    []byte(`{"foo":"bar-3"}`),
+					Since:   &now,
+				},
+				Present: true,
 			},
 		}, nil)
 
@@ -331,16 +340,22 @@ func (s *applicationServiceSuite) TestGetApplicationDisplayStatusFallbackToUnits
 	s.state.EXPECT().GetUnitWorkloadAndCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(
 		application.UnitWorkloadStatuses{
 			"unit-1": {
-				Status:  application.WorkloadStatusActive,
-				Message: "doink",
-				Data:    []byte(`{"foo":"bar"}`),
-				Since:   &now,
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status:  application.WorkloadStatusActive,
+					Message: "doink",
+					Data:    []byte(`{"foo":"bar"}`),
+					Since:   &now,
+				},
+				Present: true,
 			},
 			"unit-2": {
-				Status:  application.WorkloadStatusActive,
-				Message: "doink",
-				Data:    []byte(`{"foo":"bar"}`),
-				Since:   &now,
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status:  application.WorkloadStatusActive,
+					Message: "doink",
+					Data:    []byte(`{"foo":"bar"}`),
+					Since:   &now,
+				},
+				Present: true,
 			},
 		},
 		application.UnitCloudContainerStatuses{}, nil)

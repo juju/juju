@@ -228,6 +228,13 @@ func (s *DqliteSuite) NoopTxnRunner() coredatabase.TxnRunner {
 	return noopTxnRunner{}
 }
 
+// DumpTable dumps the contents of the given table to stdout.
+// This is useful for debugging tests. It is not intended for use
+// in production code.
+func (s *DqliteSuite) DumpTable(c *gc.C, table string, additionalTables ...string) {
+	DumpTable(c, s.DB(), table, additionalTables...)
+}
+
 func (s *DqliteSuite) cleanupDB(c *gc.C, namespace string, db *sql.DB) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

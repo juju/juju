@@ -186,9 +186,14 @@ func (s *MigrationService) GetApplicationStatus(ctx context.Context, name string
 	status, err := s.st.GetApplicationStatus(ctx, appID)
 	if err != nil {
 		return nil, errors.Trace(err)
+	} else if status == nil {
+		return nil, errors.Errorf("application %q has no status", name)
 	}
 
-	decodedStatus, err := decodeWorkloadStatus(status)
+	decodedStatus, err := decodeWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
+		StatusInfo: *status,
+		Present:    true,
+	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "decoding workload status")
 	}
@@ -238,6 +243,7 @@ func (s *MigrationService) GetUnitWorkloadStatus(ctx context.Context, unitUUID c
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return decodeWorkloadStatus(workloadStatus)
 }
 
@@ -252,6 +258,17 @@ func (s *MigrationService) GetUnitAgentStatus(ctx context.Context, unitUUID core
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// If the agent isn't present then we need to modify the status for the
+	// agent.
+	if !agentStatus.Present {
+		return &corestatus.StatusInfo{
+			Status:  corestatus.Lost,
+			Message: "agent is not communicating with the server",
+			Since:   agentStatus.Since,
+		}, nil
+	}
+
 	return decodeUnitAgentStatus(agentStatus)
 }
 

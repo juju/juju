@@ -1096,9 +1096,14 @@ func (s *Service) GetApplicationStatus(ctx context.Context, appID coreapplicatio
 	applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
+	} else if applicationStatus == nil {
+		return nil, errors.Errorf("application has no status")
 	}
 	if applicationStatus.Status != application.WorkloadStatusUnset {
-		return decodeWorkloadStatus(applicationStatus)
+		return decodeWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
+			StatusInfo: *applicationStatus,
+			Present:    true,
+		})
 	}
 
 	// The application status is unset. However, we can still derive the status
@@ -1218,9 +1223,14 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appID coreapp
 	applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
+	} else if applicationStatus == nil {
+		return nil, errors.Errorf("application has no status")
 	}
 	if applicationStatus.Status != application.WorkloadStatusUnset {
-		return decodeWorkloadStatus(applicationStatus)
+		return decodeWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
+			StatusInfo: *applicationStatus,
+			Present:    true,
+		})
 	}
 
 	workloadStatuses, cloudContainerStatuses, err := s.st.GetUnitWorkloadAndCloudContainerStatusesForApplication(ctx, appID)

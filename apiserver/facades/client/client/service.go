@@ -61,6 +61,12 @@ type ApplicationService interface {
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 	// This is used on CAAS models.
 	GetApplicationScale(ctx context.Context, appName string) (int, error)
+
+	// GetUnitAndAgentDisplayStatus returns the unit and agent display status of
+	// the specified unit. The display status a function of both the unit
+	// workload status and the cloud container status. It returns an error
+	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	GetUnitAndAgentDisplayStatus(context.Context, unit.Name) (agent *status.StatusInfo, workload *status.StatusInfo, _ error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.

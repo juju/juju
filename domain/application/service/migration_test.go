@@ -559,11 +559,14 @@ func (s *migrationServiceSuite) TestGetUnitWorkloadStatus(c *gc.C) {
 
 	now := s.clock.Now().UTC()
 
-	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), uuid).Return(&application.StatusInfo[application.WorkloadStatusType]{
-		Status:  application.WorkloadStatusActive,
-		Message: "workload status",
-		Data:    []byte(`{"foo":"bar"}`),
-		Since:   ptr(now),
+	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), uuid).Return(&application.UnitStatusInfo[application.WorkloadStatusType]{
+		StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+			Status:  application.WorkloadStatusActive,
+			Message: "workload status",
+			Data:    []byte(`{"foo":"bar"}`),
+			Since:   ptr(now),
+		},
+		Present: true,
 	}, nil)
 
 	statusInfo, err := s.service.GetUnitWorkloadStatus(context.Background(), uuid)
@@ -590,11 +593,14 @@ func (s *migrationServiceSuite) TestGetUnitAgentStatus(c *gc.C) {
 
 	now := s.clock.Now().UTC()
 
-	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), uuid).Return(&application.StatusInfo[application.UnitAgentStatusType]{
-		Status:  application.UnitAgentStatusIdle,
-		Message: "agent status",
-		Data:    []byte(`{"foo":"bar"}`),
-		Since:   ptr(now),
+	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), uuid).Return(&application.UnitStatusInfo[application.UnitAgentStatusType]{
+		StatusInfo: application.StatusInfo[application.UnitAgentStatusType]{
+			Status:  application.UnitAgentStatusIdle,
+			Message: "agent status",
+			Data:    []byte(`{"foo":"bar"}`),
+			Since:   ptr(now),
+		},
+		Present: true,
 	}, nil)
 
 	statusInfo, err := s.service.GetUnitAgentStatus(context.Background(), uuid)
