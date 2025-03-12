@@ -1172,6 +1172,23 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	)
 }
 
+func (s *MachineSuite) TestControllerMachineWorkers(c *gc.C) {
+	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
+
+	tracker := agenttest.NewEngineTracker()
+	instrumented := TrackMachines(c, tracker, iaasMachineManifolds)
+	s.PatchValue(&iaasMachineManifolds, instrumented)
+
+	expectedWorkers := controllerMachineWorkers
+
+	s.assertJobWithState(c, state.JobManageModel, nil,
+		func(_ agent.Config, _ *state.State, agent *MachineAgent) {
+			matcher := agenttest.NewWorkerMatcher(c, tracker, agent.Tag().String(), expectedWorkers)
+			agenttest.WaitMatch(c, matcher.Check, longerWait)
+		},
+	)
+}
+
 func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	s.PatchValue(&charmrevision.NewAPIFacade, func(base.APICaller) (charmrevision.Facade, error) {
 		return noopRevisionUpdater{}, nil

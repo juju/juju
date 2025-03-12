@@ -99,6 +99,15 @@ func (ssw *serverWrapperWorker) loop() error {
 		return errors.New("jump host key is empty")
 	}
 
+	controllerConfigWatcher, err := ssw.config.FacadeClient.WatchControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := ssw.catacomb.Add(controllerConfigWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
 	port, _, err := ssw.getLatestControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
@@ -118,47 +127,20 @@ func (ssw *serverWrapperWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	controllerConfigWatcher, err := ssw.config.FacadeClient.WatchControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := ssw.catacomb.Add(controllerConfigWatcher); err != nil {
-		return errors.Trace(err)
-	}
-
-	changesChan := controllerConfigWatcher.Changes()
 	for {
 		select {
 		case <-ssw.catacomb.Dying():
 			return ssw.catacomb.ErrDying()
-		case <-changesChan:
-			// Restart the server worker.
-			srv.Kill()
-			if err := srv.Wait(); err != nil {
-				return errors.Trace(err)
-			}
-
-			// Get latest controller configuration.
-			port, _, err := ssw.getLatestControllerConfig()
+		case <-controllerConfigWatcher.Changes():
+			newPort, _, err := ssw.getLatestControllerConfig()
 			if err != nil {
 				return errors.Trace(err)
 			}
-
-			// Start the server again.
-			srv, err = ssw.config.NewServerWorker(ServerWorkerConfig{
-				Logger:      ssw.config.Logger,
-				JumpHostKey: jumpHostKey,
-				Port:        port,
-			})
-			if err != nil {
-				return errors.Trace(err)
+			if port == newPort {
+				ssw.config.Logger.Debugf("controller configuration changed, but SSH port is the same, ignoring")
+				continue
 			}
-
-			// Re-add it to the catacomb with the newly updated configuration.
-			if err := ssw.catacomb.Add(srv); err != nil {
-				return errors.Trace(err)
-			}
+			return errors.New("changes detected, stopping SSH server worker")
 		}
 	}
 }
