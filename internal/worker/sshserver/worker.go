@@ -99,6 +99,15 @@ func (ssw *serverWrapperWorker) loop() error {
 		return errors.New("jump host key is empty")
 	}
 
+	controllerConfigWatcher, err := ssw.config.FacadeClient.WatchControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := ssw.catacomb.Add(controllerConfigWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
 	port, _, err := ssw.getLatestControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
@@ -118,21 +127,11 @@ func (ssw *serverWrapperWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	controllerConfigWatcher, err := ssw.config.FacadeClient.WatchControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := ssw.catacomb.Add(controllerConfigWatcher); err != nil {
-		return errors.Trace(err)
-	}
-
-	changesChan := controllerConfigWatcher.Changes()
 	for {
 		select {
 		case <-ssw.catacomb.Dying():
 			return ssw.catacomb.ErrDying()
-		case <-changesChan:
+		case <-controllerConfigWatcher.Changes():
 			newPort, _, err := ssw.getLatestControllerConfig()
 			if err != nil {
 				return errors.Trace(err)
