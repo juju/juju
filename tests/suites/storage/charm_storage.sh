@@ -39,7 +39,7 @@ run_charm_storage() {
 	if [ "$(unit_exist "data/0")" == "true" ]; then
 		assess_rootfs
 	fi
-	# remove the application
+	# Remove the application
 	juju remove-application --no-prompt dummy-storage-fs
 	wait_for "{}" ".applications"
 
@@ -47,18 +47,18 @@ run_charm_storage() {
 	echo "Assessing block loop disk 1"
 	juju deploy ./testcharms/charms/dummy-storage-lp --base ubuntu@22.04 --storage disks=loop,1G
 	wait_for "dummy-storage-lp" ".applications"
-	# assert the storage kind name
+	# Assert the storage kind name
 	if [ "$(unit_exist "disks/1")" == "true" ]; then
 		assess_loop_disk1
 	fi
 
-	#Assessing adding a storage block to loop disk
+	# Assessing adding a storage block to loop disk
 	juju add-storage -m "${model_name}" dummy-storage-lp/0 disks=1
-	# assert the storage kind name
+	# Assert the storage kind name
 	if [ "$(unit_exist "disks/2")" == "true" ]; then
 		assess_loop_disk2
 	fi
-	# remove the application
+	# Remove the application
 	juju remove-application --no-prompt dummy-storage-lp
 	wait_for "{}" ".applications"
 
@@ -69,30 +69,44 @@ run_charm_storage() {
 	if [ "$(unit_exist "data/3")" == "true" ]; then
 		assess_tmpfs
 	fi
-	# remove the application
+	# Remove the application
 	juju remove-application --no-prompt dummy-storage-tp
 	wait_for "{}" ".applications"
 
-	#Assessing for persistent filesystem
+	# Assessing for persistent filesystem
 	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-np --base ubuntu@22.04 --storage data=1G
 	wait_for "dummy-storage-np" ".applications"
 	if [ "$(unit_exist "data/4")" == "true" ]; then
 		assess_fs
 	fi
-	# remove application
+	# Remove the application
 	juju remove-application --no-prompt dummy-storage-np
 	wait_for "{}" ".applications"
 	# We remove storage data/4 since in Juju 2.3+ it is persistent. Otherwise it will interfere with the next test's results
 	juju remove-storage data/4
 
-	#Assessing multiple filesystem, block, rootfs, loop"
+	# Assessing multiple filesystem, block, rootfs, loop
 	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage-mp --base ubuntu@22.04 --storage data=1G
 	wait_for "dummy-storage-mp" ".applications"
 	if [ "$(unit_exist "data/5")" == "true" ]; then
 		assess_multiple_fs
 	fi
-	# remove application
+	# Remove the application
 	juju remove-application --no-prompt dummy-storage-mp
+	wait_for "{}" ".applications"
+
+	# Assessing storage with a named storage pool
+	juju deploy -m "${model_name}" ./testcharms/charms/dummy-storage --storage single-fs=tempy,1,10M
+	wait_for "dummy-storage" ".applications"
+
+	# Verify tmpfs storage details
+	wait_for_storage "attached" '.storage["single-fs/6"]["status"].current'
+	assert_storage "filesystem" "$(kind_name "single-fs" 6)"
+	assert_storage "alive" "$(life_status "single-fs" 6)"
+	assert_storage "dummy-storage/0" "$(unit_attachment "single-fs" 6 0)"
+
+	# Remove the application
+	juju remove-application --no-prompt dummy-storage
 	wait_for "{}" ".applications"
 	echo "All charm storage tests PASSED"
 
