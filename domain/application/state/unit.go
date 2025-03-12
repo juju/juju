@@ -788,7 +788,34 @@ WHERE  unit_uuid = $unitUUID.uuid
 //     doesn't exist or;
 //   - error satisfying [applicationerrors.ApplicationIsDead] if the application
 //     is dead.
-func (st *State) GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error) {
+func (st *State) GetUnitWorkloadStatusesForApplication(
+	ctx context.Context, appID coreapplication.ID,
+) (
+	map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error,
+) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	ident := applicationID{ID: appID}
+
+	var unitStatuses map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType]
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		unitStatuses, err = st.getUnitWorkloadStatusesForApplication(ctx, tx, ident)
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting workload statuses for application %q: %w", appID, err)
+	}
+	return unitStatuses, nil
+}
+
+func (st *State) getUnitWorkloadStatusesForApplication(
+	ctx context.Context, tx *sqlair.TX, ident applicationID,
+) (
+	map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], error,
+) {
 	type statusInfoAndUnitName struct {
 		UnitName  coreunit.Name `db:"name"`
 		StatusID  int           `db:"status_id"`
@@ -797,12 +824,6 @@ func (st *State) GetUnitWorkloadStatusesForApplication(ctx context.Context, appI
 		UpdatedAt *time.Time    `db:"updated_at"`
 	}
 
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	ident := applicationID{ID: appID}
 	getUnitStatusesStmt, err := st.Prepare(`
 SELECT &statusInfoAndUnitName.*
 FROM unit_workload_status
@@ -814,19 +835,15 @@ WHERE unit.application_uuid = $applicationID.uuid
 	}
 
 	var unitStatuses []statusInfoAndUnitName
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkApplicationNotDead(ctx, tx, ident)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		err = tx.Query(ctx, getUnitStatusesStmt, ident).GetAll(&unitStatuses)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		}
-		return errors.Capture(err)
-	})
+	err = st.checkApplicationNotDead(ctx, tx, ident)
 	if err != nil {
-		return nil, errors.Errorf("getting workload statuses for application %q: %w", appID, err)
+		return nil, errors.Capture(err)
+	}
+	err = tx.Query(ctx, getUnitStatusesStmt, ident).GetAll(&unitStatuses)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
 	}
 
 	statuses := make(map[coreunit.Name]application.StatusInfo[application.WorkloadStatusType], len(unitStatuses))
@@ -852,7 +869,39 @@ WHERE unit.application_uuid = $applicationID.uuid
 //     doesn't exist or;
 //   - an error satisfying [applicationerrors.ApplicationIsDead] if the application
 //     is dead.
-func (st *State) GetUnitCloudContainerStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error) {
+func (st *State) GetUnitCloudContainerStatusesForApplication(
+	ctx context.Context, appID coreapplication.ID,
+) (
+	map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error,
+) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	ident := applicationID{ID: appID}
+
+	var unitStatuses map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType]
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		unitStatuses, err = st.getUnitCloudContainerStatusesForApplication(ctx, tx, ident)
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting cloud container statuses for application %q: %w", appID, err)
+	}
+	return unitStatuses, nil
+}
+
+func (st *State) getUnitCloudContainerStatusesForApplication(
+	ctx context.Context, tx *sqlair.TX, ident applicationID,
+) (
+	map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], error,
+) {
+	err := st.checkApplicationNotDead(ctx, tx, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	type statusInfoAndUnitName struct {
 		UnitName  coreunit.Name `db:"name"`
 		StatusID  int           `db:"status_id"`
@@ -861,12 +910,6 @@ func (st *State) GetUnitCloudContainerStatusesForApplication(ctx context.Context
 		UpdatedAt *time.Time    `db:"updated_at"`
 	}
 
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	ident := applicationID{ID: appID}
 	getContainerStatusesStmt, err := st.Prepare(`
 SELECT &statusInfoAndUnitName.*
 FROM   k8s_pod_status
@@ -878,19 +921,11 @@ WHERE  unit.application_uuid = $applicationID.uuid
 	}
 
 	var containerStatuses []statusInfoAndUnitName
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkApplicationNotDead(ctx, tx, ident)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		err = tx.Query(ctx, getContainerStatusesStmt, ident).GetAll(&containerStatuses)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		}
-		return errors.Capture(err)
-	})
-	if err != nil {
-		return nil, errors.Errorf("getting cloud container statuses for application %q: %w", appID, err)
+	err = tx.Query(ctx, getContainerStatusesStmt, ident).GetAll(&containerStatuses)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
 	}
 
 	statuses := make(map[coreunit.Name]application.StatusInfo[application.CloudContainerStatusType], len(containerStatuses))
