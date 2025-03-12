@@ -55,8 +55,85 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 Juju 3.6 series is LTS
 ```
 
-### :juju: **Juju 3.6.2** - 21 Jan 2025
 
+### :juju: **Juju 3.6.4** - 11 March 2025
+:gear: Features:
+* feat(security): add SECURITY.md for reporting security issues by @anvial in [#18245](https://github.com/juju/juju/pull/18245)
+* feat(charmhub): add revision support for info command by @leyao-daily in [#18676](https://github.com/juju/juju/pull/18676)
+* feat: add virtual host keys to state by @kian99 in [#18829](https://github.com/juju/juju/pull/18829)
+* feat: add support for trust token based authentication on remote LXD  by @nvinuesa in [#18626](https://github.com/juju/juju/pull/18626)
+* feat: virtual host keys upgrade step by @kian99 in [#18941](https://github.com/juju/juju/pull/18941)
+* feat: ssh server facade and plug in by @ale8k in [#19019](https://github.com/juju/juju/pull/19019)
+
+:hammer_and_wrench: Fixes:
+* fix: replicaset update after removing a primary controller in HA by @nvinuesa in [#18965](https://github.com/juju/juju/pull/18965)
+* fix: container resource export by @Aflynn50 in [#18898](https://github.com/juju/juju/pull/18898)
+* fix(state/charm.go): fix for AddCharmMetadata buildTxn by @alesstimec in [#18990](https://github.com/juju/juju/pull/18990)
+* fix(apiserver): avoid splitting untrusted data by @jub0bs in [#18970](https://github.com/juju/juju/pull/18970)
+* fix(shallow-copy-addrs): fix shallow copy before shuffle by @SimoneDutto in [#19017](https://github.com/juju/juju/pull/19017)
+* fix: avoid error when change for a Pebble notice has been pruned by @benhoyt in [#18981](https://github.com/juju/juju/pull/18981)
+* fix: get model info authorization by @alesstimec in [#18959](https://github.com/juju/juju/pull/18959)
+* fix: change jaas snap mount path by @kian99 in [#19062](https://github.com/juju/juju/pull/19062)
+* fix: install aws cli and creds for tests needing aws ec2 cli by @wallyworld in [#19072](https://github.com/juju/juju/pull/19072)
+* fix: login after logout with OIDC by @kian99 in [#19079](https://github.com/juju/juju/pull/19079)
+* fix: worker leaking in TestManfioldStart of the SSH server worker by @ale8k in [#19102](https://github.com/juju/juju/pull/19102)
+
+:partying_face: New Contributors:
+* @network-charles made their first contribution in [#19063](https://github.com/juju/juju/pull/19063)
+* @andogq made their first contribution in [#19023](https://github.com/juju/juju/pull/19023)
+
+
+### :juju: **Juju 3.6.3** - 27 Feb 2025
+:gear: Features:
+* feat(secrets): add support for using besoke k8s secret backends by @wallyworld in [#18599](https://github.com/juju/juju/pull/18599)
+* feat(secrets): add token refresh support to k8s secret backend by @wallyworld in [#18639](https://github.com/juju/juju/pull/18639)
+* chore: bump Pebble version to v1.18.0 by @james-garner-canonical in [#18752](https://github.com/juju/juju/pull/18752)
+* feat: log MAAS device removals by @manadart in [#18705](https://github.com/juju/juju/pull/18705)
+* feat: debug log when we can not find an image by @SimonRichardson in [#18666](https://github.com/juju/juju/pull/18666)
+* feat(config): ssh server configuration options by @ale8k in [#18701](https://github.com/juju/juju/pull/18701)
+* feat: add hostname parsing by @kian99 in [#18821](https://github.com/juju/juju/pull/18821)
+* feat(sshserver worker): adds a base skeleton ssh server worker by @ale8k in [#18627](https://github.com/juju/juju/pull/18627)
+
+:hammer_and_wrench: Fixes:
+* fix: juju debug-log --replay and --no-tail by @CodingCookieRookie in [#18601](https://github.com/juju/juju/pull/18601)
+* fix: dangling state trackers by @SimonRichardson in [#18611](https://github.com/juju/juju/pull/18611)
+* fix: close state pool item on release by @SimonRichardson in [#18614](https://github.com/juju/juju/pull/18614)
+* fix(bootstrap): fix bootstrap mirror bug on noble by @jack-w-shaw in [#18659](https://github.com/juju/juju/pull/18659)
+* fix: remove server side constraints by @CodingCookieRookie in [#18674](https://github.com/juju/juju/pull/18674)
+* fix: support older agents with new k8s secet backend config by @wallyworld in [#18623](https://github.com/juju/juju/pull/18623)
+* fix: google model destruction when missing model firewall by @hpidcock in [#18536](https://github.com/juju/juju/pull/18536)
+* fix: change String method of intValue to display value not pointer by @CodingCookieRookie in [#18683](https://github.com/juju/juju/pull/18683)
+* fix: panic in debug-log by @jack-w-shaw in [#18688](https://github.com/juju/juju/pull/18688)
+* fix(jaasbakery): fix RefreshDischargeURL by @ale8k in [#18563](https://github.com/juju/juju/pull/18563)
+* fix(ci): fix relation departing unit test on aws by @nvinuesa in [#18715](https://github.com/juju/juju/pull/18715)
+* fix(tests): add workaround for checking output of discourse-k8s charm action by @anvial in [#18718](https://github.com/juju/juju/pull/18718)
+* fix(simpleconnector): fix connect() method of simple connector to handle DialOptions by @ale8k in [#18358](https://github.com/juju/juju/pull/18358)
+* fix: allow setting provisioning info for dying machine by @manadart in [#18500](https://github.com/juju/juju/pull/18500)
+* fix: disambiguate k8s artefacts used for juju secrets by @wallyworld in [#18675](https://github.com/juju/juju/pull/18675)
+* fix: backport azure image lookup fix by @anvial in [#18745](https://github.com/juju/juju/pull/18745)
+* fix: cleanup k8s secret artefacts on model deletion by @wallyworld in [#18673](https://github.com/juju/juju/pull/18673)
+* fix: find azure address prefix from new api result; by @ycliuhw in [#18776](https://github.com/juju/juju/pull/18776)
+* fix: add recent introduced aws regions to update public clouds by @CodingCookieRookie in [#18774](https://github.com/juju/juju/pull/18774)
+* fix: reflecting watcher in error handling by @hpidcock in [#18791](https://github.com/juju/juju/pull/18791)
+* fix: upgrade go version to 1.23.6 to address GO-2025-3447 vuln by @nvinuesa in [#18832](https://github.com/juju/juju/pull/18832)
+* fix: correctly handle path segments in controller URL by @kian99 in [#18703](https://github.com/juju/juju/pull/18703)
+* fix: allow authorized external users to add clouds by @alesstimec in [#18858](https://github.com/juju/juju/pull/18858)
+* fix: use after release by @SimonRichardson in [#18868](https://github.com/juju/juju/pull/18868)
+* fix: parse corrected spelling of gratuitous-arp in Netplan by @manadart in [#18918](https://github.com/juju/juju/pull/18918)
+* fix: correct case of JSON/YAML field name for FilesystemInfo.Attachments by @benhoyt in [#18931](https://github.com/juju/juju/pull/18931)
+* fix(applicationoffers): handle permission validation correctly by @gfouillet in [#18928](https://github.com/juju/juju/pull/18928)
+* fix: ensure 'app.kubernetes.io/name' label is set for user secrets by @wallyworld in [#18950](https://github.com/juju/juju/pull/18950)
+* fix: GetModelInfo method by @alesstimec in [#18922](https://github.com/juju/juju/pull/18922)
+* fix: copy mgo session when bulk deleting secrets by @wallyworld in [#18953](https://github.com/juju/juju/pull/18953)
+
+:partying_face: New Contributors:
+* @lengau made their first contribution in [#18670](https://github.com/juju/juju/pull/18670)
+* @rthill91 made their first contribution in [#18656](https://github.com/juju/juju/pull/18656)
+* @samuelallan72 made their first contribution in [#18365](https://github.com/juju/juju/pull/18365)
+* @YanisaHS made their first contribution in [#18903](https://github.com/juju/juju/pull/18903)
+
+
+### :juju: **Juju 3.6.2** - 21 Jan 2025
 :gear: Features:
 * feat: add relation-model-get hook command by @wallyworld in [#18444](https://github.com/juju/juju/pull/18444)
 
@@ -69,7 +146,6 @@ Juju 3.6 series is LTS
 
 
 ### :juju: **Juju 3.6.1** - 11 Dec 2024
-
 :gear: Features:
 * feat: bump pebble version to v1.17.0 by @benhoyt in [#18462](https://github.com/juju/juju/pull/18462)
 * feat(cmd-register): prevent replacing existing controller if logged in by @ca-scribner in [#18079](https://github.com/juju/juju/pull/18079)
@@ -106,9 +182,30 @@ See the full list in these milestone pages:
 
 
 ## :juju: **Juju 3.5**
-> 30 Jan 2025: end of security fix support
+> 30 Apr 2025: end of security fix support
 >
-> 30 Nov 2024: end of bug fix support
+> 28 Feb 2025: end of bug fix support
+
+```{caution}
+
+Juju 3.5 series is in security maintenance until 30 Apr 2025
+
+```
+
+### :juju: **Juju 3.5.7** - 11 March 2025
+
+:hammer_and_wrench: Fixes:
+* feat(security): add SECURITY.md for reporting security issues by @anvial in [#18245](https://github.com/juju/juju/pull/18245)
+* fix: find azure address prefix from new api result; by @ycliuhw in [#18776](https://github.com/juju/juju/pull/18776)
+* fix: add recent introduced aws regions to update public clouds by @CodingCookieRookie in [#18774](https://github.com/juju/juju/pull/18774)
+* fix: reflecting watcher in error handling by @hpidcock in [#18791](https://github.com/juju/juju/pull/18791)
+* fix: upgrade go version to 1.23.6 to address GO-2025-3447 vuln by @nvinuesa in [#18832](https://github.com/juju/juju/pull/18832)
+* fix: use after release by @SimonRichardson in [#18868](https://github.com/juju/juju/pull/18868)
+* fix(applicationoffers): handle permission validation correctly by @gfouillet in [#18928](https://github.com/juju/juju/pull/18928)
+* fix: replicaset update after removing a primary controller in HA by @nvinuesa in [#18965](https://github.com/juju/juju/pull/18965)
+* fix(apiserver): avoid splitting untrusted data by @jub0bs in [#18970](https://github.com/juju/juju/pull/18970)
+* fix(shallow-copy-addrs): fix shallow copy before shuffle by @SimoneDutto in [#19017](https://github.com/juju/juju/pull/19017)
+* fix: install aws cli and creds for tests needing aws ec2 cli by @wallyworld in [#19072](https://github.com/juju/juju/pull/19072)
 
 ### :juju: **Juju 3.5.6** - 11 January 2025
 
@@ -185,13 +282,10 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 
 ## :juju: **Juju 3.4**
-> 30 Nov 2024: end of security fix support
->
-> 30 Aug 2024: end of bug fix support
 
 ```{caution}
 
-Juju 3.4 series is in security maintenance until 30 Nov 2024
+Juju 3.4 series is EOL
 
 ```
 
@@ -440,9 +534,12 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 
 ## :juju: **Juju 3.1**
-> 28 Feb 2025: expected end of security fix support
->
-> 30 July 2023: end of bug fix support
+
+```{caution}
+
+Juju 3.1 series is EOL
+
+```
 
 ### :juju: **Juju 3.1.10** - 24 September 2024
 
