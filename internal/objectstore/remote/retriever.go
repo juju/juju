@@ -5,9 +5,14 @@ package remote
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"sync/atomic"
 
 	"github.com/juju/clock"
+	jujuerrors "github.com/juju/errors"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
@@ -15,6 +20,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/s3client"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/apiremotecaller"
 )
 
@@ -40,38 +46,59 @@ type NewObjectClientFunc func(url string, client s3client.HTTPClient, logger log
 
 // BlobRetriever is responsible for retrieving blobs from remote API servers.
 type BlobRetriever struct {
-	tomb tomb.Tomb
+	catacomb catacomb.Catacomb
 
 	namespace string
 
 	apiRemoteCallers apiremotecaller.APIRemoteCallers
 	newObjectClient  NewObjectClientFunc
 
+	runner *worker.Runner
+
 	clock  clock.Clock
 	logger logger.Logger
+
+	index uint64
 }
 
 // NewBlobRetriever creates a new BlobRetriever.
-func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespace string, newObjectClient NewObjectClientFunc, clock clock.Clock, logger logger.Logger) *BlobRetriever {
+func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespace string, newObjectClient NewObjectClientFunc, clock clock.Clock, logger logger.Logger) (*BlobRetriever, error) {
 	w := &BlobRetriever{
 		namespace:        namespace,
 		newObjectClient:  newObjectClient,
 		apiRemoteCallers: apiRemoteCallers,
 		clock:            clock,
 		logger:           logger,
+
+		runner: worker.NewRunner(worker.RunnerParams{
+			IsFatal: func(err error) bool {
+				return false
+			},
+			ShouldRestart: func(err error) bool {
+				return false
+			},
+			Clock:  clock,
+			Logger: internalworker.WrapLogger(logger),
+		}),
 	}
 
-	w.tomb.Go(w.loop)
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+		Init: []worker.Worker{w.runner},
+	}); err != nil {
+		return nil, err
+	}
 
-	return w
+	return w, nil
 }
 
-// GetBySHA256 returns a reader for the blob with the given SHA256.
+// Retrieve returns a reader for the blob with the given SHA256.
 func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadCloser, _ int64, err error) {
 	// Check if we're already dead or dying before we start to do anything.
 	select {
-	case <-r.tomb.Dying():
-		return nil, -1, tomb.ErrDying
+	case <-r.catacomb.Dying():
+		return nil, -1, r.catacomb.ErrDying()
 	case <-ctx.Done():
 		return nil, -1, ctx.Err()
 	default:
@@ -84,22 +111,37 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 
 	result := make(chan retrievalResult)
 
-	// Register all the retrievers, we can then reference them by index later on.
-	retrievers := make([]*retriever, len(remotes))
-	for index, remote := range remotes {
-		retrievers[index] = newRetriever(index, remote, r.newObjectClient, r.clock, r.logger)
-	}
-
-	// Tie the context to the tomb so that we can stop all the retrievers when
-	// the tomb is killed.
-	ctx = r.tomb.Context(ctx)
-
 	// Retrieve the blob from all the remotes concurrently.
-	for _, ret := range retrievers {
-		go func(ret *retriever) {
+	indexes := map[uint64]struct{}{}
+	for _, remote := range remotes {
+		index := atomic.AddUint64(&r.index, 1)
+		indexes[index] = struct{}{}
+
+		if err := r.runner.StartWorker(name(index, sha256), func() (worker.Worker, error) {
+			return newRetriever(index, remote, r.newObjectClient, r.clock, r.logger), nil
+		}); errors.Is(err, jujuerrors.AlreadyExists) {
+			return nil, -1, errors.Errorf("retriever %d already exists", index)
+		} else if err != nil {
+			return nil, -1, err
+		}
+
+		go func(index uint64) {
+			w, err := r.runner.Worker(name(index, sha256), r.catacomb.Dying())
+			if err != nil {
+				select {
+				case <-r.catacomb.Dying():
+				case result <- retrievalResult{
+					index: index,
+					err:   err,
+				}:
+				}
+				return
+			}
+
+			ret := w.(*retriever)
 			reader, size, err := ret.Retrieve(ctx, r.namespace, sha256)
 			select {
-			case <-ctx.Done():
+			case <-r.catacomb.Dying():
 			case result <- retrievalResult{
 				index:  ret.index,
 				reader: reader,
@@ -107,7 +149,7 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 				err:    err,
 			}:
 			}
-		}(ret)
+		}(index)
 	}
 
 	// If the function returns an error, we want to stop all the retrievers. If
@@ -119,17 +161,17 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 			return
 		}
 
-		r.stopAllRetrievers(ctx, retrievers)
+		r.stopAllRetrievers(ctx, indexes, sha256)
 	}()
 
 	// We want to run it like this so we can return the first successful result
 	// and close the other readers. If we use for range over the channel, we
 	// have no way to close the result.
-	results := make(map[int]struct{})
+	results := make(map[uint64]struct{})
 	for {
 		select {
-		case <-r.tomb.Dying():
-			return nil, -1, tomb.ErrDying
+		case <-r.catacomb.Dying():
+			return nil, -1, r.catacomb.ErrDying()
 
 		case <-ctx.Done():
 			return nil, -1, ctx.Err()
@@ -152,22 +194,20 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 			// Stop all the other retrievers, we don't want to cancel the
 			// retriever that is currently being used, as that will cause the
 			// reader to be closed.
-			for _, retriever := range retrievers {
-				if retriever.index == res.index {
+			for index := range indexes {
+				if index == res.index {
 					continue
 				}
 
-				retriever.Kill()
-
-				// Don't wait for them to stop, when closing the reader, we will
-				// wait for them to stop then. We just want them to stop
-				// processing the request as soon as possible.
+				if err := r.runner.StopWorker(name(index, sha256)); err != nil {
+					return nil, -1, errors.Errorf("failed to stop retriever %d: %w", index, err)
+				}
 			}
 
 			return &retrieverReaderCloser{
 				reader: res.reader,
 				closer: func() {
-					r.stopAllRetrievers(ctx, retrievers)
+					r.stopAllRetrievers(ctx, indexes, sha256)
 				},
 			}, res.size, nil
 		}
@@ -176,30 +216,28 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 
 // Kill stops the BlobRetriever.
 func (r *BlobRetriever) Kill() {
-	r.tomb.Kill(nil)
+	r.catacomb.Kill(nil)
 }
 
 // Wait waits for the BlobRetriever to stop.
 func (r *BlobRetriever) Wait() error {
-	return r.tomb.Wait()
+	return r.catacomb.Wait()
 }
 
 func (r *BlobRetriever) loop() error {
 	select {
-	case <-r.tomb.Dying():
-		return tomb.ErrDying
+	case <-r.catacomb.Dying():
+		return r.catacomb.ErrDying()
 	}
 }
 
 // stopAllRetrievers stops all the retrievers and waits for them to stop. This
 // ensures that there are no dangling goroutines.
-func (r *BlobRetriever) stopAllRetrievers(ctx context.Context, retrievers []*retriever) {
+func (r *BlobRetriever) stopAllRetrievers(ctx context.Context, indexes map[uint64]struct{}, sha256 string) {
 	// Kill 'Em All.
-	for _, retriever := range retrievers {
-		retriever.Kill()
-		// Wait for them to stop, we don't want to leave any hanging.
-		if err := retriever.Wait(); err != nil {
-			r.logger.Errorf(ctx, "failed to stop blob retriever: %v", err)
+	for index := range indexes {
+		if err := r.runner.StopWorker(name(index, sha256)); err != nil && !errors.Is(err, jujuerrors.NotFound) {
+			r.logger.Errorf(ctx, "failed to stop retriever %d: %v", index, err)
 		}
 	}
 }
@@ -207,26 +245,25 @@ func (r *BlobRetriever) stopAllRetrievers(ctx context.Context, retrievers []*ret
 type retriever struct {
 	tomb tomb.Tomb
 
-	index           int
+	index           uint64
 	remote          apiremotecaller.RemoteConnection
 	newObjectClient NewObjectClientFunc
 	clock           clock.Clock
 	logger          logger.Logger
+	requests        chan retrievalRequest
 }
 
-func newRetriever(index int, remote apiremotecaller.RemoteConnection, newObjectClient NewObjectClientFunc, clock clock.Clock, logger logger.Logger) *retriever {
+func newRetriever(index uint64, remote apiremotecaller.RemoteConnection, newObjectClient NewObjectClientFunc, clock clock.Clock, logger logger.Logger) *retriever {
 	t := &retriever{
 		index:           index,
 		remote:          remote,
 		newObjectClient: newObjectClient,
 		clock:           clock,
 		logger:          logger,
+		requests:        make(chan retrievalRequest),
 	}
 
-	t.tomb.Go(func() error {
-		<-t.tomb.Dying()
-		return tomb.ErrDying
-	})
+	t.tomb.Go(t.loop)
 
 	return t
 }
@@ -238,7 +275,61 @@ func newRetriever(index int, remote apiremotecaller.RemoteConnection, newObjectC
 // return an error right away. If the context is cancelled, it will stop
 // processing the request as soon as possible.
 func (t *retriever) Retrieve(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
-	ctx, cancel := context.WithCancel(ctx)
+	res := make(chan retrievalResult)
+	select {
+	case <-t.tomb.Dying():
+		return nil, -1, t.tomb.Err()
+	case t.requests <- retrievalRequest{
+		ctx:       ctx,
+		namespace: namespace,
+		sha256:    sha256,
+		result:    res,
+	}:
+	}
+
+	select {
+	case <-t.tomb.Dying():
+		return nil, -1, t.tomb.Err()
+	case res := <-res:
+		return res.reader, res.size, res.err
+	}
+}
+
+func (t *retriever) Kill() {
+	t.tomb.Kill(nil)
+}
+
+func (t *retriever) Wait() error {
+	return t.tomb.Wait()
+}
+
+func (t *retriever) loop() error {
+	for {
+		select {
+		case <-t.tomb.Dying():
+			return t.tomb.Err()
+		case req := <-t.requests:
+			reader, size, err := t.retrieve(req.ctx, req.namespace, req.sha256)
+			select {
+			case <-t.tomb.Dying():
+				// If we get killed whilst attempting to return the result,
+				// ensure we clean up the reader.
+				if reader != nil {
+					reader.Close()
+				}
+			case req.result <- retrievalResult{
+				index:  t.index,
+				reader: reader,
+				size:   size,
+				err:    err,
+			}:
+			}
+		}
+	}
+}
+
+func (t *retriever) retrieve(ctx context.Context, namespace, sha256 string) (io.ReadCloser, int64, error) {
+	ctx, cancel := context.WithCancel(t.tomb.Context(ctx))
 	defer cancel()
 
 	var (
@@ -267,16 +358,15 @@ func (t *retriever) Retrieve(ctx context.Context, namespace, sha256 string) (io.
 	return reader, size, err
 }
 
-func (t *retriever) Kill() {
-	t.tomb.Kill(nil)
-}
-
-func (t *retriever) Wait() error {
-	return t.tomb.Wait()
+type retrievalRequest struct {
+	ctx       context.Context
+	namespace string
+	sha256    string
+	result    chan<- retrievalResult
 }
 
 type retrievalResult struct {
-	index  int
+	index  uint64
 	reader io.ReadCloser
 	size   int64
 	err    error
@@ -295,4 +385,8 @@ func (t *retrieverReaderCloser) Close() error {
 	err := t.reader.Close()
 	t.closer()
 	return err
+}
+
+func name(index uint64, sha256 string) string {
+	return fmt.Sprintf("retriever-%s-%d", sha256, index)
 }

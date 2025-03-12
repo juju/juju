@@ -18,7 +18,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
@@ -61,7 +60,8 @@ func (s *retrieverSuite) TestRetrieverAlreadyKilled(c *gc.C) {
 	workertest.CleanKill(c, ret)
 
 	_, _, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, tomb.ErrDying)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	workertest.CheckKilled(c, ret)
 }
 
 func (s *retrieverSuite) TestRetrieverAlreadyContextCancelled(c *gc.C) {
@@ -423,9 +423,11 @@ func (s *retrieverSuite) TestRetrieverWaitingForConnection(c *gc.C) {
 }
 
 func (s *retrieverSuite) newRetriever(c *gc.C) *BlobRetriever {
-	return NewBlobRetriever(s.remoteCallers, "namespace", func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+	ret, err := NewBlobRetriever(s.remoteCallers, "namespace", func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
 		return s.client, nil
 	}, s.clock, loggertesting.WrapCheckLog(c))
+	c.Assert(err, jc.ErrorIsNil)
+	return ret
 }
 
 func (s *retrieverSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -437,6 +439,7 @@ func (s *retrieverSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.client = NewMockBlobsClient(ctrl)
 	s.clock = NewMockClock(ctrl)
+	s.clock.EXPECT().Now().AnyTimes().Return(time.Now())
 
 	return ctrl
 }
