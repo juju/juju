@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
@@ -195,15 +194,6 @@ func (s *Service) GetRelationStatus(
 	relationUUID corerelation.UUID,
 ) (corestatus.StatusInfo, error) {
 	return corestatus.StatusInfo{}, errors.NotImplemented
-}
-
-// GetRelationTag returns the tag for the given relation UUID.
-func (s *Service) GetRelationTag(ctx context.Context, relationUUID corerelation.UUID) (names.Tag, error) {
-	key, err := s.GetRelationKey(ctx, relationUUID)
-	if err != nil {
-		return nil, err
-	}
-	return names.NewRelationTag(string(key)), nil
 }
 
 // GetRelationUnit returns the relation unit UUID for the given unit for the
