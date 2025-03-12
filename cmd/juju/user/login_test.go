@@ -6,14 +6,17 @@ package user_test
 import (
 	"bytes"
 	"context"
+	"io"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -462,6 +465,8 @@ func (s *LoginCommandSuite) TestLoginErrorSpecifyingUsernameWithOIDC(c *gc.C) {
 	c.Check(stderr, gc.Matches, `ERROR cannot specify a username during login to a controller with OIDC, remove the username and try again\n`)
 }
 
+// TestLoginWithOIDCWithNoAccountverifies that login to a controller (with OIDC) known
+// to the client store is successful, e.g. when running `juju logout` then `juju login`.
 func (s *LoginCommandSuite) TestLoginWithOIDCWithNoAccount(c *gc.C) {
 	s.store.Controllers["oidc-controller"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"1.1.1.1:12345"},
@@ -474,15 +479,71 @@ func (s *LoginCommandSuite) TestLoginWithOIDCWithNoAccount(c *gc.C) {
 	s.PatchValue(user.NewAPIConnection, func(_ context.Context, p juju.NewAPIConnectionParams) (api.Connection, error) {
 		sessionTokenLogin := api.NewSessionTokenLoginProvider("", nil, nil)
 		c.Check(p.DialOpts.LoginProvider, gc.FitsTypeOf, sessionTokenLogin)
+		c.Check(p.AccountDetails, gc.NotNil)
+		if p.AccountDetails != nil {
+			p.AccountDetails.SessionToken = "new-token"
+		}
 		checkPatchFuncCalled = true
 		return s.apiConnection, nil
 	})
 	_, _, code := runLogin(c, "")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(checkPatchFuncCalled, gc.Equals, true)
+
+	account := s.store.Accounts["oidc-controller"]
+	c.Assert(account.SessionToken, gc.Equals, "new-token")
+	c.Assert(account.User, gc.Equals, "user@external")
+}
+
+// TestLoginToPublicControllerWithOIDC verifies that login to a controller (with OIDC)
+// that we have never seen before is successful and correctly updates the client store.
+func (s *LoginCommandSuite) TestLoginToPublicControllerWithOIDC(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	sessionLoginFactory := NewMockSessionLoginFactory(ctrl)
+	sessionLoginProvider := NewMockLoginProvider(ctrl)
+
+	var checkPatchFuncCalled bool
+	*user.APIOpen = func(cmd *modelcmd.CommandBase, ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		checkPatchFuncCalled = true
+		_, err := opts.LoginProvider.Login(ctx, nil)
+		c.Check(err, jc.ErrorIsNil)
+		return s.apiConnection, nil
+	}
+
+	var tokenCallbackFunc func(string)
+	sessionLoginFactory.EXPECT().NewLoginProvider("", gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ string, _ io.Writer, f func(string)) api.LoginProvider {
+			tokenCallbackFunc = f
+			return sessionLoginProvider
+		})
+
+	sessionLoginProvider.EXPECT().Login(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ base.APICaller) (*api.LoginResultParams, error) {
+			tokenCallbackFunc("session-token")
+			return nil, nil
+		})
+
+	_, _, code := runLoginWithFakeSessionLoginProvider(c, sessionLoginFactory, "mycontroller.com", "-c", "oidc-controller")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(checkPatchFuncCalled, gc.Equals, true)
+
+	acc := s.store.Accounts["oidc-controller"]
+	c.Assert(acc.SessionToken, gc.Equals, "session-token")
+	c.Assert(acc.User, gc.Equals, "user@external")
+}
+
+func runLoginWithFakeSessionLoginProvider(c *gc.C, factory modelcmd.SessionLoginFactory, args ...string) (stdout, stderr string, errCode int) {
+	loginCmd := user.NewLoginCommandWithSessionLoginFactory(factory)
+	return run(c, "", loginCmd, args...)
 }
 
 func runLogin(c *gc.C, stdin string, args ...string) (stdout, stderr string, errCode int) {
+	loginCmd := user.NewLoginCommand()
+	return run(c, stdin, loginCmd, args...)
+}
+
+func run(c *gc.C, stdin string, command cmd.Command, args ...string) (stdout, stderr string, errCode int) {
 	c.Logf("in LoginControllerSuite.run")
 	var stdoutBuf, stderrBuf bytes.Buffer
 	ctxt := &cmd.Context{
@@ -491,6 +552,6 @@ func runLogin(c *gc.C, stdin string, args ...string) (stdout, stderr string, err
 		Stdout: &stdoutBuf,
 		Stderr: &stderrBuf,
 	}
-	exitCode := cmd.Main(user.NewLoginCommand(), ctxt, args)
+	exitCode := cmd.Main(command, ctxt, args)
 	return stdoutBuf.String(), stderrBuf.String(), exitCode
 }
