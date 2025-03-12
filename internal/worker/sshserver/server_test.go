@@ -49,8 +49,9 @@ func newServerWorkerConfig(
 	modifier func(*sshserver.ServerWorkerConfig),
 ) *sshserver.ServerWorkerConfig {
 	cfg := &sshserver.ServerWorkerConfig{
-		Logger:      l,
-		JumpHostKey: j,
+		Logger:               l,
+		JumpHostKey:          j,
+		NewSSHServerListener: newTestingSSHServerListener,
 	}
 
 	modifier(cfg)
@@ -68,7 +69,7 @@ func (s *sshServerSuite) TestValidate(c *gc.C) {
 	defer ctrl.Finish()
 
 	// Test no Logger.
-	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *sshserver.ServerWorkerConfig) {
+	cfg = newServerWorkerConfig(l, "Logger", func(cfg *sshserver.ServerWorkerConfig) {
 		cfg.Logger = nil
 	})
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
@@ -76,6 +77,12 @@ func (s *sshServerSuite) TestValidate(c *gc.C) {
 	// Test no JumpHostKey.
 	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *sshserver.ServerWorkerConfig) {
 		cfg.JumpHostKey = ""
+	})
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	// Test no NewSSHServerListener.
+	cfg = newServerWorkerConfig(l, "NewSSHServerListener", func(cfg *sshserver.ServerWorkerConfig) {
+		cfg.NewSSHServerListener = nil
 	})
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
@@ -88,9 +95,10 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	listener := bufconn.Listen(8 * 1024)
 
 	server, err := sshserver.NewServerWorker(sshserver.ServerWorkerConfig{
-		Logger:      loggertesting.WrapCheckLog(c),
-		Listener:    listener,
-		JumpHostKey: jujutesting.SSHServerHostKey,
+		Logger:               loggertesting.WrapCheckLog(c),
+		Listener:             listener,
+		JumpHostKey:          jujutesting.SSHServerHostKey,
+		NewSSHServerListener: newTestingSSHServerListener,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)

@@ -93,7 +93,8 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 		GetControllerConfigService: func(getter dependency.Getter, name string) (sshserver.ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		Logger: loggertesting.WrapCheckLog(c),
+		Logger:               loggertesting.WrapCheckLog(c),
+		NewSSHServerListener: newTestingSSHServerListener,
 	})
 
 	// Check the inputs are as expected
@@ -134,7 +135,8 @@ func (s *manifoldSuite) newManifoldConfig(c *gc.C, modifier func(cfg *sshserver.
 		GetControllerConfigService: func(getter dependency.Getter, name string) (sshserver.ControllerConfigService, error) {
 			return s.controllerConfigService, nil
 		},
-		Logger: loggertesting.WrapCheckLog(c),
+		Logger:               loggertesting.WrapCheckLog(c),
+		NewSSHServerListener: newTestingSSHServerListener,
 	}
 
 	modifier(cfg)

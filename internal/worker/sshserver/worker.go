@@ -4,6 +4,9 @@
 package sshserver
 
 import (
+	"net"
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -25,6 +28,7 @@ type ServerWrapperWorkerConfig struct {
 	ControllerConfigService ControllerConfigService
 	NewServerWorker         func(ServerWorkerConfig) (worker.Worker, error)
 	Logger                  logger.Logger
+	NewSSHServerListener    func(net.Listener, time.Duration) net.Listener
 }
 
 // Validate validates the workers configuration is as expected.
@@ -37,6 +41,9 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("Logger is required")
+	}
+	if c.NewSSHServerListener == nil {
+		return errors.NotValidf("NewSSHServerListener is required")
 	}
 	return nil
 }
@@ -87,7 +94,8 @@ func (ssw *serverWrapperWorker) Wait() error {
 // and listens for changes in the controller configuration.
 func (ssw *serverWrapperWorker) loop() error {
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
-		Logger: ssw.config.Logger,
+		Logger:               ssw.config.Logger,
+		NewSSHServerListener: ssw.config.NewSSHServerListener,
 	})
 	if err != nil {
 		return errors.Trace(err)
