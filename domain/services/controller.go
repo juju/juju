@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/objectstore"
 	accessservice "github.com/juju/juju/domain/access/service"
 	accessstate "github.com/juju/juju/domain/access/state"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
@@ -52,6 +53,7 @@ type ControllerServices struct {
 func NewControllerServices(
 	controllerDB changestream.WatchableDBFactory,
 	dbDeleter database.DBDeleter,
+	objectStore objectstore.ModelObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ControllerServices {

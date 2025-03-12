@@ -254,7 +254,15 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 	return func(modelUUID model.UUID) services.DomainServices {
 		clock := clock.WallClock
 		logger := loggertesting.WrapCheckLog(c)
-		controllerServices := domainservices.NewControllerServices(databasetesting.ConstFactory(s.TxnRunner()), stubDBDeleter{}, clock, logger)
+		controllerServices := domainservices.NewControllerServices(
+			databasetesting.ConstFactory(s.TxnRunner()),
+			stubDBDeleter{},
+			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
+				return objectStore, nil
+			}),
+			clock,
+			logger,
+		)
 		modelServices := domainservices.NewModelServices(
 			modelUUID,
 			databasetesting.ConstFactory(s.TxnRunner()),
