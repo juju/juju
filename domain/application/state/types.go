@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -924,8 +925,103 @@ func decodeWorkloadStatus(s int) (application.WorkloadStatusType, error) {
 }
 
 type storageInstance struct {
+	StorageUUID      corestorage.UUID `db:"uuid"`
+	StorageID        corestorage.ID   `db:"storage_id"`
+	CharmUUID        string           `db:"charm_uuid"`
+	StorageName      corestorage.Name `db:"storage_name"`
+	LifeID           life.Life        `db:"life_id"`
+	StoragePoolUUID  *string          `db:"storage_pool_uuid"`
+	StorageType      *string          `db:"storage_type"`
+	RequestedSizeMIB uint64           `db:"requested_size_mib"`
+}
+
+type storageUnit struct {
+	StorageUUID corestorage.UUID `db:"storage_instance_uuid"`
+	UnitUUID    coreunit.UUID    `db:"unit_uuid"`
+}
+
+type unitCharmStorage struct {
+	UnitUUID    coreunit.UUID    `db:"uuid"`
+	StorageName corestorage.Name `db:"name"`
+}
+
+type appCharmStorage struct {
+	ApplicationUUID coreapplication.ID `db:"uuid"`
+	StorageName     corestorage.Name   `db:"name"`
+}
+
+type storageCount struct {
 	StorageUUID corestorage.UUID `db:"uuid"`
-	StorageID   corestorage.ID   `db:"storage_id"`
+	StorageName corestorage.Name `db:"storage_name"`
+	UnitUUID    coreunit.UUID    `db:"unit_uuid"`
+	Count       uint64           `db:"count"`
+}
+
+type storageAttachment struct {
+	StorageUUID corestorage.UUID `db:"storage_instance_uuid"`
+	UnitUUID    coreunit.UUID    `db:"unit_uuid"`
+	LifeID      life.Life        `db:"life_id"`
+}
+
+type filesystemUUID struct {
+	UUID       corestorage.FilesystemUUID `db:"uuid"`
+	AttachedTo *string                    `db:"net_node_uuid"`
+}
+
+type volumeUUID struct {
+	UUID       corestorage.VolumeUUID `db:"uuid"`
+	AttachedTo *string                `db:"net_node_uuid"`
+}
+
+type filesystem struct {
+	UUID                 corestorage.FilesystemUUID `db:"uuid"`
+	LifeID               life.Life                  `db:"life_id"`
+	FilesystemID         string                     `db:"filesystem_id"`
+	ProviderID           string                     `db:"provider_id"`
+	SizeMIB              uint64                     `db:"size_mib"`
+	ProvisioningStatusID storage.ProvisioningStatus `db:"provisioning_status_id"`
+}
+
+type storageInstanceFilesystem struct {
+	StorageUUID    corestorage.UUID           `db:"storage_instance_uuid"`
+	FilesystemUUID corestorage.FilesystemUUID `db:"storage_filesystem_uuid"`
+}
+
+type volume struct {
+	UUID                 corestorage.VolumeUUID     `db:"uuid"`
+	LifeID               life.Life                  `db:"life_id"`
+	VolumeID             string                     `db:"volume_id"`
+	ProviderID           string                     `db:"provider_id"`
+	SizeMIB              uint64                     `db:"size_mib"`
+	Name                 string                     `db:"name"`
+	HardwareIDID         string                     `db:"hardware_id"`
+	WWN                  string                     `db:"wwn"`
+	Persistent           bool                       `db:"persistent"`
+	ProvisioningStatusID storage.ProvisioningStatus `db:"provisioning_status_id"`
+}
+
+type storageInstanceVolume struct {
+	StorageUUID corestorage.UUID       `db:"storage_instance_uuid"`
+	VolumeUUID  corestorage.VolumeUUID `db:"storage_volume_uuid"`
+}
+
+type filesystemAttachment struct {
+	UUID                 corestorage.FilesystemAttachmentUUID `db:"uuid"`
+	NetNodeUUID          string                               `db:"net_node_uuid"`
+	FilesystemUUID       corestorage.FilesystemUUID           `db:"storage_filesystem_uuid"`
+	LifeID               life.Life                            `db:"life_id"`
+	MountPoint           string                               `db:"mount_point"`
+	ReadOnly             bool                                 `db:"read_only"`
+	ProvisioningStatusID storage.ProvisioningStatus           `db:"provisioning_status_id"`
+}
+
+type volumeAttachment struct {
+	UUID                 corestorage.VolumeAttachmentUUID `db:"uuid"`
+	NetNodeUUID          string                           `db:"net_node_uuid"`
+	VolumeUUID           corestorage.VolumeUUID           `db:"storage_volume_uuid"`
+	LifeID               life.Life                        `db:"life_id"`
+	ReadOnly             bool                             `db:"read_only"`
+	ProvisioningStatusID storage.ProvisioningStatus       `db:"provisioning_status_id"`
 }
 
 type setUnitConstraint struct {

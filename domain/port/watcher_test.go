@@ -14,6 +14,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -28,6 +29,7 @@ import (
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type watcherSuite struct {
@@ -68,9 +70,19 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 		logger.GetLogger("juju.test.port"),
 	)
 
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 
-	err := machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
+	err = machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machineUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,7 +134,7 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit
 	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = applicationSt.AddUnits(ctx, appID, []application.AddUnitArg{{UnitName: unitName}})
+	err = applicationSt.AddUnits(ctx, c.MkDir(), appID, []application.AddUnitArg{{UnitName: unitName}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unitCount++
 

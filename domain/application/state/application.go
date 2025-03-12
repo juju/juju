@@ -203,7 +203,7 @@ func (st *State) CreateApplication(
 		); err != nil {
 			return errors.Errorf("inserting or resolving resources for application %q: %w", name, err)
 		}
-		if err := st.insertStorage(ctx, tx, appDetails, args.Storage); err != nil {
+		if err := st.insertApplicationStorage(ctx, tx, appDetails, args.Storage); err != nil {
 			return errors.Errorf("inserting storage for application %q: %w", name, err)
 		}
 		if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
@@ -227,16 +227,24 @@ func (st *State) CreateApplication(
 			}
 		}
 
+		modelType, err := st.GetModelType(ctx)
+		if err != nil {
+			return errors.Errorf("getting model type: %w", err)
+		}
+
 		for _, unit := range units {
 			insertArg := application.InsertUnitArg{
-				UnitName:    unit.UnitName,
-				Constraints: unit.Constraints,
+				UnitName:         unit.UnitName,
+				Constraints:      unit.Constraints,
+				Storage:          args.Storage,
+				StoragePoolKind:  args.StoragePoolKind,
+				StorageParentDir: args.StorageParentDir,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    unit.UnitStatusArg.AgentStatus,
 					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
 				},
 			}
-			if _, err := st.insertUnit(ctx, tx, appUUID, insertArg); err != nil {
+			if _, err := st.insertUnit(ctx, tx, modelType, appUUID, insertArg); err != nil {
 				return errors.Errorf("adding unit for application %q: %w", appUUID, err)
 			}
 		}
@@ -461,7 +469,7 @@ func (st *State) GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.
 	var life life.Life
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		life, err = st.getUnitLife(ctx, tx, unitName)
+		life, err = st.getLifeForUnitName(ctx, tx, unitName)
 		return errors.Capture(err)
 	})
 	if err != nil {
@@ -470,7 +478,7 @@ func (st *State) GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.
 	return life, nil
 }
 
-func (st *State) getUnitLife(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (life.Life, error) {
+func (st *State) getLifeForUnitName(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (life.Life, error) {
 	unit := minimalUnit{Name: unitName}
 	queryUnit := `
 SELECT &minimalUnit.life_id

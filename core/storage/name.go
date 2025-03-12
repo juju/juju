@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/juju/juju/internal/errors"
@@ -76,4 +77,9 @@ func (id ID) Validate() error {
 		return errors.Errorf("validating storage ID %q", id).Add(InvalidStorageID)
 	}
 	return nil
+}
+
+// MakeID creates a storage ID from a name and sequence number.
+func MakeID(name Name, num uint) ID {
+	return ID(fmt.Sprintf("%s/%d", name, num))
 }

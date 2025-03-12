@@ -27,7 +27,7 @@ import (
 // units.
 type UnitState interface {
 	// AddUnits adds the specified units to the application.
-	AddUnits(context.Context, coreapplication.ID, []application.AddUnitArg) error
+	AddUnits(context.Context, string, coreapplication.ID, []application.AddUnitArg) error
 
 	// InsertCAASUnit inserts the specified CAAS application unit, returning an
 	// error satisfying [applicationerrors.UnitAlreadyExists] if the unit

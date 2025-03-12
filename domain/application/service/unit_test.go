@@ -253,13 +253,14 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
 	p := application.RegisterCAASUnitArg{
-		UnitName:     coreunit.Name("foo/666"),
-		PasswordHash: "passwordhash",
-		ProviderID:   "provider-id",
-		Address:      ptr("10.6.6.6"),
-		Ports:        ptr([]string{"666"}),
-		OrderedScale: true,
-		OrderedId:    1,
+		UnitName:         coreunit.Name("foo/666"),
+		PasswordHash:     "passwordhash",
+		ProviderID:       "provider-id",
+		Address:          ptr("10.6.6.6"),
+		Ports:            ptr([]string{"666"}),
+		OrderedScale:     true,
+		OrderedId:        1,
+		StorageParentDir: c.MkDir(),
 	}
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
@@ -270,11 +271,12 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 }
 
 var unitParams = application.RegisterCAASUnitArg{
-	UnitName:     coreunit.Name("foo/666"),
-	PasswordHash: "passwordhash",
-	ProviderID:   "provider-id",
-	OrderedScale: true,
-	OrderedId:    1,
+	UnitName:         coreunit.Name("foo/666"),
+	PasswordHash:     "passwordhash",
+	ProviderID:       "provider-id",
+	OrderedScale:     true,
+	OrderedId:        1,
+	StorageParentDir: application.StorageParentDir,
 }
 
 func (s *unitServiceSuite) TestRegisterCAASUnitMissingUnitName(c *gc.C) {

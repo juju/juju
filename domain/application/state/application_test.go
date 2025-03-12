@@ -21,6 +21,7 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/resource"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -39,6 +41,29 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
+
+type modelSuite struct {
+	schematesting.ModelSuite
+}
+
+var _ = gc.Suite(&modelSuite{})
+
+func (s *modelSuite) TestGetModelType(c *gc.C) {
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	mt, err := st.GetModelType(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mt, gc.Equals, coremodel.IAAS)
+}
 
 type applicationStateSuite struct {
 	baseSuite
@@ -49,24 +74,9 @@ type applicationStateSuite struct {
 var _ = gc.Suite(&applicationStateSuite{})
 
 func (s *applicationStateSuite) SetUpTest(c *gc.C) {
-	s.ModelSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-}
-
-func (s *applicationStateSuite) TestGetModelType(c *gc.C) {
-	modelUUID := uuid.MustNewUUID()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
-		`, modelUUID.String(), coretesting.ControllerTag.Id())
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	mt, err := s.state.GetModelType(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mt, gc.Equals, coremodel.ModelType("iaas"))
 }
 
 func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {

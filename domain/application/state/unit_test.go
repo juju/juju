@@ -38,7 +38,7 @@ type unitStateSuite struct {
 var _ = gc.Suite(&unitStateSuite{})
 
 func (s *unitStateSuite) SetUpTest(c *gc.C) {
-	s.ModelSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
@@ -308,13 +308,14 @@ func (s *unitStateSuite) TestInsertCAASUnit(c *gc.C) {
 	unitName := coreunit.Name("foo/666")
 
 	p := application.RegisterCAASUnitArg{
-		UnitName:     unitName,
-		PasswordHash: "passwordhash",
-		ProviderID:   "some-id",
-		Address:      ptr("10.6.6.6"),
-		Ports:        ptr([]string{"666"}),
-		OrderedScale: true,
-		OrderedId:    0,
+		UnitName:         unitName,
+		PasswordHash:     "passwordhash",
+		ProviderID:       "some-id",
+		Address:          ptr("10.6.6.6"),
+		Ports:            ptr([]string{"666"}),
+		OrderedScale:     true,
+		OrderedId:        0,
+		StorageParentDir: c.MkDir(),
 	}
 	err := s.state.InsertCAASUnit(context.Background(), appUUID, p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -343,13 +344,14 @@ func (s *unitStateSuite) TestInsertCAASUnitAlreadyExists(c *gc.C) {
 	})
 
 	p := application.RegisterCAASUnitArg{
-		UnitName:     unitName,
-		PasswordHash: "passwordhash",
-		ProviderID:   "some-id",
-		Address:      ptr("10.6.6.6"),
-		Ports:        ptr([]string{"666"}),
-		OrderedScale: true,
-		OrderedId:    0,
+		UnitName:         unitName,
+		PasswordHash:     "passwordhash",
+		ProviderID:       "some-id",
+		Address:          ptr("10.6.6.6"),
+		Ports:            ptr([]string{"666"}),
+		OrderedScale:     true,
+		OrderedId:        0,
+		StorageParentDir: c.MkDir(),
 	}
 	err := s.state.InsertCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1169,7 +1171,7 @@ func (s *unitStateSuite) TestAddUnits(c *gc.C) {
 	}
 	ctx := context.Background()
 
-	err := s.state.AddUnits(ctx, appID, []application.AddUnitArg{u})
+	err := s.state.AddUnits(ctx, c.MkDir(), appID, []application.AddUnitArg{u})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (

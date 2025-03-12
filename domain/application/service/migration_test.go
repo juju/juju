@@ -446,6 +446,7 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 		Settings: application.ApplicationSettings{
 			Trust: true,
 		},
+		StorageParentDir: application.StorageParentDir,
 	}
 	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", args, nil).Return(id, nil)
 
@@ -520,6 +521,7 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 				Since:   now,
 			},
 		},
+		StorageParentDir: application.StorageParentDir,
 	}
 	c.Check(receivedUnitArgs, gc.DeepEquals, expectedUnitArgs)
 }

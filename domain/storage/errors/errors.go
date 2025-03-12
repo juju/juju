@@ -33,4 +33,12 @@ const (
 	// StorageNotFound describes an error that occurs when the storage being operated
 	// on does not exist.
 	StorageNotFound = errors.ConstError("storage not found")
+
+	// FilesystemNotFound describes an error that occurs when the filesystem being operated
+	// on does not exist.
+	FilesystemNotFound = errors.ConstError("filesystem not found")
+
+	// VolumeNotFound describes an error that occurs when the volume being operated
+	// on does not exist.
+	VolumeNotFound = errors.ConstError("volume not found")
 )

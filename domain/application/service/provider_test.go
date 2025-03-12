@@ -15,7 +15,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
-	assumes "github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -117,6 +117,7 @@ func (s *providerServiceSuite) TestCreateApplication(c *gc.C) {
 				Origin:   charmresource.OriginStore,
 			},
 		},
+		StorageParentDir: application.StorageParentDir,
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
@@ -294,6 +295,7 @@ func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *gc.C) {
 		Platform:         platform,
 		Scale:            1,
 		PendingResources: []resource.UUID{resourceUUID},
+		StorageParentDir: application.StorageParentDir,
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
@@ -679,13 +681,17 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *gc.C) {
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Storage: []application.AddApplicationStorageArg{{
+		Storage: []application.ApplicationStorageArg{{
 			Name:           "data",
 			PoolNameOrType: "loop",
 			Size:           10,
 			Count:          1,
 		}},
 		Scale: 1,
+		StoragePoolKind: map[string]storage.StorageKind{
+			"loop": storage.StorageKindBlock,
+		},
+		StorageParentDir: application.StorageParentDir,
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
@@ -716,7 +722,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *gc.C) {
 	}}}).MinTimes(1)
 
 	pool := domainstorage.StoragePoolDetails{Name: "loop", Provider: "loop"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").Return(pool, nil)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "loop").Return(pool, nil).MaxTimes(2)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -791,13 +797,17 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Storage: []application.AddApplicationStorageArg{{
+		Storage: []application.ApplicationStorageArg{{
 			Name:           "data",
 			PoolNameOrType: "fast",
 			Size:           10,
 			Count:          2,
 		}},
 		Scale: 1,
+		StoragePoolKind: map[string]storage.StorageKind{
+			"fast": storage.StorageKindBlock,
+		},
+		StorageParentDir: application.StorageParentDir,
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
@@ -828,7 +838,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 	}}}).MinTimes(1)
 
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped-block"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -907,13 +917,17 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *gc.
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Storage: []application.AddApplicationStorageArg{{
+		Storage: []application.ApplicationStorageArg{{
 			Name:           "data",
 			PoolNameOrType: "rootfs",
 			Size:           10,
 			Count:          1,
 		}},
 		Scale: 1,
+		StoragePoolKind: map[string]storage.StorageKind{
+			"rootfs": storage.StorageKindFilesystem,
+		},
+		StorageParentDir: application.StorageParentDir,
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
@@ -944,7 +958,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *gc.
 	}}}).MinTimes(1)
 
 	pool := domainstorage.StoragePoolDetails{Name: "rootfs", Provider: "rootfs"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "rootfs").Return(pool, nil)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "rootfs").Return(pool, nil).MaxTimes(2)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -1020,13 +1034,17 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 			DownloadSize:       42,
 		},
 		Platform: platform,
-		Storage: []application.AddApplicationStorageArg{{
+		Storage: []application.ApplicationStorageArg{{
 			Name:           "data",
 			PoolNameOrType: "fast",
 			Size:           10,
 			Count:          2,
 		}},
 		Scale: 1,
+		StoragePoolKind: map[string]storage.StorageKind{
+			"fast": storage.StorageKindBlock,
+		},
+		StorageParentDir: application.StorageParentDir,
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
@@ -1057,7 +1075,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 	}}}).MinTimes(1)
 
 	pool := domainstorage.StoragePoolDetails{Name: "fast", Provider: "modelscoped"}
-	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil)
+	s.state.EXPECT().GetStoragePoolByName(gomock.Any(), "fast").Return(pool, nil).MaxTimes(2)
 
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
@@ -1342,7 +1360,7 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	s.expectEmptyUnitConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args []application.AddUnitArg) error {
+	s.state.EXPECT().AddUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args []application.AddUnitArg) error {
 		received = args
 		return nil
 	})
@@ -1350,7 +1368,7 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), "ubuntu", a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, jc.DeepEquals, u)
 }
@@ -1402,7 +1420,7 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 	s.expectAppConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args []application.AddUnitArg) error {
+	s.state.EXPECT().AddUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args []application.AddUnitArg) error {
 		received = args
 		return nil
 	})
@@ -1410,7 +1428,7 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), "ubuntu", a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, jc.DeepEquals, u)
 }
@@ -1462,7 +1480,7 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 	s.expectModelConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args []application.AddUnitArg) error {
+	s.state.EXPECT().AddUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args []application.AddUnitArg) error {
 		received = args
 		return nil
 	})
@@ -1470,7 +1488,7 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), "ubuntu", a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, jc.DeepEquals, u)
 }
@@ -1509,7 +1527,7 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args []application.AddUnitArg) error {
+	s.state.EXPECT().AddUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args []application.AddUnitArg) error {
 		received = args
 		return nil
 	})
@@ -1517,7 +1535,7 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), "ubuntu", a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, jc.DeepEquals, u)
 }
@@ -1532,7 +1550,7 @@ func (s *providerServiceSuite) TestAddUnitsInvalidName(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), "!!!", a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "!!!", a)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
@@ -1543,7 +1561,7 @@ func (s *providerServiceSuite) TestAddUnitsNoUnits(c *gc.C) {
 		return s.supportedFeaturesProvider, nil
 	}).Finish()
 
-	err := s.service.AddUnits(context.Background(), "foo")
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1561,7 +1579,7 @@ func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), "ubuntu", a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1580,7 +1598,7 @@ func (s *providerServiceSuite) TestAddUnitsGetModelTypeError(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), "ubuntu", a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
 

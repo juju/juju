@@ -454,13 +454,14 @@ func (s *serviceSuite) TestReplaceCAASUnit(c *gc.C) {
 	address := "10.6.6.6"
 	ports := []string{"666"}
 	args := application.RegisterCAASUnitArg{
-		UnitName:     "foo/1",
-		PasswordHash: "passwordhash",
-		ProviderID:   "provider-id",
-		Address:      ptr(address),
-		Ports:        ptr(ports),
-		OrderedScale: true,
-		OrderedId:    1,
+		UnitName:         "foo/1",
+		PasswordHash:     "passwordhash",
+		ProviderID:       "provider-id",
+		Address:          ptr(address),
+		Ports:            ptr(ports),
+		OrderedScale:     true,
+		OrderedId:        1,
+		StorageParentDir: c.MkDir(),
 	}
 	err := s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -480,11 +481,12 @@ func (s *serviceSuite) TestReplaceDeadCAASUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := application.RegisterCAASUnitArg{
-		UnitName:     "foo/1",
-		PasswordHash: "passwordhash",
-		ProviderID:   "provider-id",
-		OrderedScale: true,
-		OrderedId:    1,
+		UnitName:         "foo/1",
+		PasswordHash:     "passwordhash",
+		ProviderID:       "provider-id",
+		OrderedScale:     true,
+		OrderedId:        1,
+		StorageParentDir: c.MkDir(),
 	}
 	err = s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
@@ -502,13 +504,14 @@ func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {
 	address := "10.6.6.6"
 	ports := []string{"666"}
 	args := application.RegisterCAASUnitArg{
-		UnitName:     "foo/1",
-		PasswordHash: "passwordhash",
-		ProviderID:   "provider-id",
-		Address:      &address,
-		Ports:        &ports,
-		OrderedScale: true,
-		OrderedId:    1,
+		UnitName:         "foo/1",
+		PasswordHash:     "passwordhash",
+		ProviderID:       "provider-id",
+		Address:          &address,
+		Ports:            &ports,
+		OrderedScale:     true,
+		OrderedId:        1,
+		StorageParentDir: c.MkDir(),
 	}
 	err = s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -519,11 +522,12 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
 	s.createApplication(c, "foo")
 
 	args := application.RegisterCAASUnitArg{
-		UnitName:     "foo/1",
-		PasswordHash: "passwordhash",
-		ProviderID:   "provider-id",
-		OrderedScale: true,
-		OrderedId:    666,
+		UnitName:         "foo/1",
+		PasswordHash:     "passwordhash",
+		ProviderID:       "provider-id",
+		OrderedScale:     true,
+		OrderedId:        666,
+		StorageParentDir: c.MkDir(),
 	}
 	err := s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
@@ -539,11 +543,12 @@ func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := application.RegisterCAASUnitArg{
-		UnitName:     "foo/1",
-		PasswordHash: "passwordhash",
-		ProviderID:   "provider-id",
-		OrderedScale: true,
-		OrderedId:    2,
+		UnitName:         "foo/1",
+		PasswordHash:     "passwordhash",
+		ProviderID:       "provider-id",
+		OrderedScale:     true,
+		OrderedId:        2,
+		StorageParentDir: c.MkDir(),
 	}
 	err = s.svc.RegisterCAASUnit(context.Background(), "foo", args)
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)

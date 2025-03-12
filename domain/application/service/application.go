@@ -459,6 +459,7 @@ func makeCreateApplicationArgs(
 		Resources:         makeResourcesArgs(args.ResolvedResources),
 		PendingResources:  args.PendingResources,
 		Storage:           makeStorageArgs(storageDirectives),
+		StorageParentDir:  application.StorageParentDir,
 		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,
 		Status:            applicationStatus,
@@ -492,12 +493,12 @@ func makeResourcesArgs(resolvedResources ResolvedResources) []application.AddApp
 	return result
 }
 
-// makeStorageArgs creates a slice of AddApplicationStorageArg from a map of storage directives.
-func makeStorageArgs(storage map[string]storage.Directive) []application.AddApplicationStorageArg {
-	var result []application.AddApplicationStorageArg
+// makeStorageArgs creates a slice of ApplicationStorageArg from a map of storage directives.
+func makeStorageArgs(storage map[string]storage.Directive) []application.ApplicationStorageArg {
+	var result []application.ApplicationStorageArg
 	for name, stor := range storage {
-		result = append(result, application.AddApplicationStorageArg{
-			Name:           name,
+		result = append(result, application.ApplicationStorageArg{
+			Name:           corestorage.Name(name),
 			PoolNameOrType: stor.Pool,
 			Size:           stor.Size,
 			Count:          stor.Count,
