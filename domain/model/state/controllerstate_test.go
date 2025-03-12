@@ -1888,31 +1888,31 @@ func (s *stateSuite) TestGetActivatedModelUUIDs(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Test no input model UUIDs.
-	activatedModelUUIDs, err := st.GetActivatedModelUUIDs(context.Background(), []string{})
+	activatedModelUUIDs, err := st.GetActivatedModelUUIDs(context.Background(), []coremodel.UUID{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(activatedModelUUIDs, gc.HasLen, 0)
 
 	// Test activated model UUID.
-	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []string{s.uuid.String()})
+	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []coremodel.UUID{s.uuid})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(activatedModelUUIDs, gc.HasLen, 1)
 	c.Check(activatedModelUUIDs[0], gc.Equals, s.uuid)
 
 	// Test non-activated model UUID.
 	unactivatedModelUUID := s.createTestModelWithoutActivation(c, st, "my-unactivated-model", s.userUUID)
-	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []string{unactivatedModelUUID.String()})
+	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []coremodel.UUID{unactivatedModelUUID})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(activatedModelUUIDs, gc.HasLen, 0)
 
 	// Test non-existent model UUID.
-	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []string{"non-existent-uuid"})
+	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []coremodel.UUID{"non-existent-uuid"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(activatedModelUUIDs, gc.HasLen, 0)
 
 	// Test activated, non-activated and non-existent model UUIDs.
 	activatedModelUUID := s.createTestModel(c, st, "my-activated-model", s.userUUID)
 	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(),
-		[]string{s.uuid.String(), activatedModelUUID.String(), unactivatedModelUUID.String(), "non-existent-uuid"})
+		[]coremodel.UUID{s.uuid, activatedModelUUID, unactivatedModelUUID, "non-existent-uuid"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(activatedModelUUIDs, gc.HasLen, 2)
 	c.Check(activatedModelUUIDs[0], gc.Equals, s.uuid)

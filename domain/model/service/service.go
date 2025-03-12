@@ -124,9 +124,9 @@ type State interface {
 
 	// GetActivatedModelUUIDs returns the subset of model uuids from the supplied list that are activated.
 	// If no model uuids are activated then an empty slice is returned.
-	GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]coremodel.UUID, error)
+	GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.UUID) ([]coremodel.UUID, error)
 
-	// GetAllActivatedModelsUUIDQuery returns the query string to get the activation status of all models.
+	// GetAllActivatedModelsUUIDQuery returns a SQL statement that will get all the activated models uuids in the controller.
 	GetAllActivatedModelsUUIDQuery() string
 }
 
@@ -165,7 +165,7 @@ func NewService(
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher for events based on the input change mask.
-	// The initialStateQuery ensures the watcher starts with the current state of the table,
+	// The initialStateQuery ensures the watcher starts with the current state of the system,
 	// preventing data loss from prior events.
 	NewNamespaceMapperWatcher(
 		namespace string, changeMask changestream.ChangeType,
@@ -592,36 +592,35 @@ func (s *Service) UpdateCredential(
 
 // getWatchActivatedModelsMapper returns a mapper function that filters change events to
 // include only those associated with activated models.
+// The subset of changes returned is maintained in the same order as they are received.
 func getWatchActivatedModelsMapper(st State) func(ctx context.Context, db database.TxnRunner,
 	changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 
 	return func(ctx context.Context, db database.TxnRunner,
 		changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-		modelUUIDs := make([]string, len(changes))
-
+		modelUUIDs := make([]coremodel.UUID, len(changes))
 		for i, change := range changes {
-			modelUUID := change.Changed()
-			modelUUIDs[i] = modelUUID
+			modelUUIDs[i] = coremodel.UUID(change.Changed())
 		}
 
 		// Retrieve all activate status of all models with associated uuids
 		activatedModelUUIDs, err := st.GetActivatedModelUUIDs(ctx, modelUUIDs)
 
-		// There should be no errors returned if there are no activated models found.
-		if err != nil {
+		// There will be no errors returned if there are no activated models found.
+		if err != nil || len(activatedModelUUIDs) == 0 {
 			return nil, err
 		}
 
-		activatedModelUUIDToChangeEventMap := make(map[string]struct{})
+		activatedModelUUIDToChangeEventMap := make(map[coremodel.UUID]struct{}, len(activatedModelUUIDs))
 		for _, activatedModelUUID := range activatedModelUUIDs {
-			activatedModelUUIDToChangeEventMap[activatedModelUUID.String()] = struct{}{}
+			activatedModelUUIDToChangeEventMap[activatedModelUUID] = struct{}{}
 		}
 
 		activatedModelChangeEvents := make([]changestream.ChangeEvent, 0, len(changes))
 
 		// Add all events associated with activated model UUIDs
-		for i, change := range changes {
-			uuid := modelUUIDs[i]
+		for _, change := range changes {
+			uuid := coremodel.UUID(change.Changed())
 			if _, exists := activatedModelUUIDToChangeEventMap[uuid]; exists {
 				activatedModelChangeEvents = append(activatedModelChangeEvents, change)
 			}
@@ -638,10 +637,11 @@ func getWatchActivatedModelsMapper(st State) func(ctx context.Context, db databa
 // Deletion of activated models is also not reported.
 func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error) {
 	mapper := getWatchActivatedModelsMapper(s.st)
+	query := s.st.GetAllActivatedModelsUUIDQuery()
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		"model", changestream.Changed,
-		eventsource.InitialNamespaceChanges(s.st.GetAllActivatedModelsUUIDQuery()),
+		eventsource.InitialNamespaceChanges(query),
 		mapper,
 	)
 }

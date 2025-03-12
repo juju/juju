@@ -759,7 +759,7 @@ func (c *MockStateDeleteCall) DoAndReturn(f func(context.Context, model.UUID) er
 }
 
 // GetActivatedModelUUIDs mocks base method.
-func (m *MockState) GetActivatedModelUUIDs(arg0 context.Context, arg1 []string) ([]model.UUID, error) {
+func (m *MockState) GetActivatedModelUUIDs(arg0 context.Context, arg1 []model.UUID) ([]model.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetActivatedModelUUIDs", arg0, arg1)
 	ret0, _ := ret[0].([]model.UUID)
@@ -786,13 +786,13 @@ func (c *MockStateGetActivatedModelUUIDsCall) Return(arg0 []model.UUID, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetActivatedModelUUIDsCall) Do(f func(context.Context, []string) ([]model.UUID, error)) *MockStateGetActivatedModelUUIDsCall {
+func (c *MockStateGetActivatedModelUUIDsCall) Do(f func(context.Context, []model.UUID) ([]model.UUID, error)) *MockStateGetActivatedModelUUIDsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetActivatedModelUUIDsCall) DoAndReturn(f func(context.Context, []string) ([]model.UUID, error)) *MockStateGetActivatedModelUUIDsCall {
+func (c *MockStateGetActivatedModelUUIDsCall) DoAndReturn(f func(context.Context, []model.UUID) ([]model.UUID, error)) *MockStateGetActivatedModelUUIDsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -27,9 +27,6 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
-	watcher "github.com/juju/juju/core/watcher"
-	eventsource "github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/core/watcher/watchertest"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -51,6 +48,7 @@ type serviceSuite struct {
 	mockModelDeleter   *MockModelDeleter
 	mockState          *MockState
 	mockWatcherFactory *MockWatcherFactory
+	mockStringsWatcher *MockStringsWatcher[string]
 	changestreamtesting.ControllerSuite
 }
 
@@ -84,6 +82,8 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockModelDeleter = NewMockModelDeleter(ctrl)
 	s.mockState = NewMockState(ctrl)
 	s.mockWatcherFactory = NewMockWatcherFactory(ctrl)
+	s.mockStringsWatcher = NewMockStringsWatcher[string](ctrl)
+
 	return ctrl
 }
 
@@ -1135,61 +1135,111 @@ func (s *serviceSuite) TestWatchActivatedModels(c *gc.C) {
 		s.mockWatcherFactory,
 	)
 
-	activatedModelUUID1 := modeltesting.GenModelUUID(c)
-	activatedModelUUID2 := modeltesting.GenModelUUID(c)
-	activatedModelUUIDs := []coremodel.UUID{activatedModelUUID1, activatedModelUUID2}
-	activatedModelUUIDStrs := transform.Slice(activatedModelUUIDs, func(uuid coremodel.UUID) string {
-		return uuid.String()
-	})
-
-	// Set up necessary state function return values.
+	// Set up necessary mock return values.
 	s.mockState.EXPECT().GetAllActivatedModelsUUIDQuery().Return(
 		"SELECT uuid from model WHERE activated = true",
 	)
-	s.mockState.EXPECT().GetActivatedModelUUIDs(gomock.Any(), gomock.Any()).Return(
+
+	changes := make(chan []string, 1)
+	activatedModelUUID1 := modeltesting.GenModelUUID(c)
+	activatedModelUUID2 := modeltesting.GenModelUUID(c)
+	activatedModelUUIDs := []coremodel.UUID{activatedModelUUID1, activatedModelUUID2}
+	activatedModelUUIDsStr := transform.Slice(activatedModelUUIDs, func(uuid coremodel.UUID) string {
+		return uuid.String()
+	})
+	changes <- activatedModelUUIDsStr
+	s.mockStringsWatcher.EXPECT().Changes().AnyTimes().Return(changes)
+
+	s.mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher("model", changestream.Changed,
+		gomock.Any(), gomock.Any()).Return(s.mockStringsWatcher, nil)
+
+	// Verifies that the service returns a watcher with the correct model UUIDs string.
+	watcher, err := svc.WatchActivatedModels(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(<-watcher.Changes(), gc.DeepEquals, activatedModelUUIDsStr)
+}
+
+// TestWatchActivatedModelsMapper verifies that the WatchActivatedModelsMapper correctly
+// filters change events to include only those associated with activated models and that
+// the subset of changes returned is maintained in the same order as they are received.
+func (s *serviceSuite) TestWatchActivatedModelsMapper(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	ctx := context.Background()
+
+	activatedModelUUID1 := modeltesting.GenModelUUID(c)
+	activatedModelUUID2 := modeltesting.GenModelUUID(c)
+	activatedModelUUID3 := modeltesting.GenModelUUID(c)
+	activatedModelUUID4 := modeltesting.GenModelUUID(c)
+	activatedModelUUID5 := modeltesting.GenModelUUID(c)
+	duplicateActivatedModelUUID := activatedModelUUID1
+	unactivatedModelUUID1 := modeltesting.GenModelUUID(c)
+	unactivatedModelUUID2 := modeltesting.GenModelUUID(c)
+
+	inputModelUUIDs := []coremodel.UUID{activatedModelUUID1, activatedModelUUID2, unactivatedModelUUID1,
+		activatedModelUUID3, unactivatedModelUUID2, activatedModelUUID4, activatedModelUUID5, duplicateActivatedModelUUID}
+	activatedModelUUIDs := []coremodel.UUID{activatedModelUUID1, activatedModelUUID2, activatedModelUUID3,
+		activatedModelUUID4, activatedModelUUID5, duplicateActivatedModelUUID}
+
+	s.mockState.EXPECT().GetActivatedModelUUIDs(gomock.Any(), inputModelUUIDs).Return(
 		activatedModelUUIDs, nil,
 	)
 
 	// Create change events for watcher mapper.
-	chEvent1 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
-	chEvent1.EXPECT().Changed().Return(
+	activatedEvent1 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
+	activatedEvent1.EXPECT().Changed().AnyTimes().Return(
 		activatedModelUUID1.String(),
 	)
 
-	chEvent2 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
-	chEvent2.EXPECT().Changed().Return(
+	activatedEvent2 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
+	activatedEvent2.EXPECT().Changed().AnyTimes().Return(
 		activatedModelUUID2.String(),
 	)
 
-	chEvent3 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
-	chEvent3.EXPECT().Changed().Return(
-		"unactivated model UUID",
+	unactivatedEvent1 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
+	unactivatedEvent1.EXPECT().Changed().AnyTimes().Return(
+		unactivatedModelUUID1.String(),
+	)
+
+	activatedEvent3 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
+	activatedEvent3.EXPECT().Changed().AnyTimes().Return(
+		activatedModelUUID3.String(),
+	)
+
+	unactivatedEvent2 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
+	unactivatedEvent2.EXPECT().Changed().AnyTimes().Return(
+		unactivatedModelUUID2.String(),
+	)
+
+	activatedEvent4 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
+	activatedEvent4.EXPECT().Changed().AnyTimes().Return(
+		activatedModelUUID4.String(),
+	)
+
+	activatedEvent5 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
+	activatedEvent5.EXPECT().Changed().AnyTimes().Return(
+		activatedModelUUID5.String(),
+	)
+
+	duplicateActivatedModelUUIDEvent6 := changestreammock.NewMockChangeEvent(s.mockWatcherFactory.ctrl)
+	duplicateActivatedModelUUIDEvent6.EXPECT().Changed().AnyTimes().Return(
+		activatedModelUUID1.String(),
 	)
 
 	// Change events received by the watcher mapper.
-	receivedChangeEvents := []changestream.ChangeEvent{chEvent1, chEvent2, chEvent3}
+	inputChangeEvents := []changestream.ChangeEvent{activatedEvent1, activatedEvent2, unactivatedEvent1, activatedEvent3,
+		unactivatedEvent2, activatedEvent4, activatedEvent5, duplicateActivatedModelUUIDEvent6}
+
 	// Change events containing model UUIDs of activated models retrieved from the database.
-	expectedChangeEvents := []changestream.ChangeEvent{chEvent1, chEvent2}
+	// The order of returned events should be maintained after filter.
+	expectedChangeEvents := []changestream.ChangeEvent{activatedEvent1, activatedEvent2,
+		activatedEvent3, activatedEvent4, activatedEvent5, duplicateActivatedModelUUIDEvent6}
 
-	changes := make(chan []string, 1)
-	changes <- activatedModelUUIDStrs
-
-	w := watchertest.NewMockStringsWatcher(changes)
-
+	// Tests if mapper correctly filters changes
 	mapper := getWatchActivatedModelsMapper(s.mockState)
-	s.mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher("model", changestream.Changed,
-		gomock.Any(), gomock.Any()).DoAndReturn(
-		func(string, changestream.ChangeType, eventsource.NamespaceQuery, eventsource.Mapper) (watcher.Watcher[[]string], error) {
-			// Use service mapper to retrieve change events containing only model UUIDs of activated models.
-			changes, err := mapper(ctx, s.ControllerTxnRunner(), receivedChangeEvents)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Check(changes, gc.DeepEquals, expectedChangeEvents)
-			return w, nil
-		},
-	)
 
-	// Verifies that the service returns the correct activate model UUIDs string.
-	watcher, err := svc.WatchActivatedModels(ctx)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(<-watcher.Changes(), gc.DeepEquals, activatedModelUUIDStrs)
+	// Use service mapper to retrieve change events containing only model UUIDs of activated models.
+	retrievedChangeEvents, err := mapper(ctx, s.ControllerTxnRunner(), inputChangeEvents)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(retrievedChangeEvents, gc.DeepEquals, expectedChangeEvents)
 }

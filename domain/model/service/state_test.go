@@ -344,6 +344,6 @@ func (d *dummyState) GetAllActivatedModelsUUIDQuery() string {
 	return "SELECT activated from model"
 }
 
-func (d *dummyState) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]coremodel.UUID, error) {
+func (d *dummyState) GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.UUID) ([]coremodel.UUID, error) {
 	return nil, nil
 }

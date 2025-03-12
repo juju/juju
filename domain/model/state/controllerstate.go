@@ -1804,14 +1804,14 @@ AND    ot.type = $dbPermission.object_type
 	return nil
 }
 
-// GetAllActivatedModelsUUIDQuery returns a SQL statement that will return all activated models uuids.
+// GetAllActivatedModelsUUIDQuery returns a SQL statement that will get all the activated models uuids in the controller.
 func (st *State) GetAllActivatedModelsUUIDQuery() string {
 	return "SELECT uuid from model WHERE activated = true"
 }
 
 // GetActivatedModelUUIDs returns the subset of model uuids from the supplied list that are activated.
 // If no models associated with the uuids are activated then an empty slice is returned.
-func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []string) ([]coremodel.UUID, error) {
+func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.UUID) ([]coremodel.UUID, error) {
 	if len(uuids) == 0 {
 		return nil, nil
 	}
@@ -1834,7 +1834,7 @@ WHERE uuid IN ($S[:])
 		return nil, errors.Errorf("preparing select model activated status statement: %w", err)
 	}
 
-	args := sqlair.S(transform.Slice(uuids, func(s string) any { return any(s) }))
+	args := sqlair.S(transform.Slice(uuids, func(s coremodel.UUID) any { return any(s) }))
 	modelUUIDs := []modelUUID{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, args).GetAll(&modelUUIDs)

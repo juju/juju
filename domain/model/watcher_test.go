@@ -8,8 +8,6 @@ import (
 	"database/sql"
 	"testing"
 
-	// "github.com/juju/juju/core/domain"
-	// modeltesting "github.com/juju/juju/core/state/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
