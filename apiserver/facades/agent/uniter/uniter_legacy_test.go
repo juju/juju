@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -47,7 +46,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -1650,89 +1648,6 @@ func (s *uniterLegacySuite) TestBeginActions(c *gc.C) {
 	c.Assert(started.After(enqueued) || started.Equal(enqueued), jc.IsTrue, gc.Commentf("started should be after or equal to enqueued time"))
 }
 
-func (s *uniterLegacySuite) TestRelation(c *gc.C) {
-	rel := s.addRelation(c, "wordpress", "mysql")
-	wpEp, err := rel.Endpoint("wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: "relation-42", Unit: "unit-foo-0"},
-		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
-		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
-		{Relation: rel.Tag().String(), Unit: "unit-foo-0"},
-		{Relation: "relation-blah", Unit: "unit-wordpress-0"},
-		{Relation: "application-foo", Unit: "user-foo"},
-		{Relation: "foo", Unit: "bar"},
-		{Relation: "unit-wordpress-0", Unit: rel.Tag().String()},
-	}}
-	result, err := s.uniter.Relation(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationResultsV2{
-		Results: []params.RelationResultV2{
-			{Error: apiservertesting.ErrUnauthorized},
-			{
-				Id:        rel.Id(),
-				Key:       rel.String(),
-				Life:      life.Value(rel.Life().String()),
-				Suspended: rel.Suspended(),
-				Endpoint: params.Endpoint{
-					ApplicationName: wpEp.ApplicationName,
-					Relation:        params.NewCharmRelation(wpEp.Relation),
-				},
-				OtherApplication: params.RelatedApplicationDetails{
-					ApplicationName: s.mysql.Name(),
-					ModelUUID:       coretesting.ModelTag.Id(),
-				},
-			},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-}
-
-func (s *uniterLegacySuite) TestRelationById(c *gc.C) {
-	rel := s.addRelation(c, "wordpress", "mysql")
-	c.Assert(rel.Id(), gc.Equals, 0)
-	wpEp, err := rel.Endpoint("wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add another relation to mysql application, so we can see we can't
-	// get it.
-	otherRel, _, _ := s.addRelatedApplication(c, "mysql", "logging", s.mysqlUnit)
-
-	args := params.RelationIds{
-		RelationIds: []int{-1, rel.Id(), otherRel.Id(), 42, 234},
-	}
-	result, err := s.uniter.RelationById(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationResultsV2{
-		Results: []params.RelationResultV2{
-			{Error: apiservertesting.ErrUnauthorized},
-			{
-				Id:        rel.Id(),
-				Key:       rel.String(),
-				Life:      life.Value(rel.Life().String()),
-				Suspended: rel.Suspended(),
-				Endpoint: params.Endpoint{
-					ApplicationName: wpEp.ApplicationName,
-					Relation:        params.NewCharmRelation(wpEp.Relation),
-				},
-				OtherApplication: params.RelatedApplicationDetails{
-					ApplicationName: s.mysql.Name(),
-					ModelUUID:       coretesting.ModelTag.Id(),
-				},
-			},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-}
-
 func (s *uniterLegacySuite) TestProviderType(c *gc.C) {
 	modelInfo, err := s.ControllerDomainServices(c).ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1743,6 +1658,7 @@ func (s *uniterLegacySuite) TestProviderType(c *gc.C) {
 }
 
 func (s *uniterLegacySuite) TestEnterScope(c *gc.C) {
+	c.Skip("TODO: reimplement when EnterScope moved to relation domain")
 	// Set wordpressUnit's private address first.
 	controllerConfig, err := s.controllerConfig(c)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1880,6 +1796,7 @@ func countRelationScopes(c *gc.C, st *state.State, rel *state.Relation) int {
 }
 
 func (s *uniterLegacySuite) TestLeaveScope(c *gc.C) {
+	c.Skip("TODO: reimplement when LeaveScope moved to relation domain")
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2067,494 +1984,6 @@ func (s *uniterLegacySuite) TestSetRelationsStatusLeader(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, expect)
 	check(rel, status.Suspended, "message")
 	check(rel2, status.Suspended, "gone")
-}
-
-func (s *uniterLegacySuite) TestReadSettings(c *gc.C) {
-	rel := s.addRelation(c, "wordpress", "mysql")
-	relUnit, err := rel.Unit(s.wordpressUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	settings := map[string]interface{}{
-		"some": "settings",
-	}
-	err = relUnit.EnterScope(settings)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, true)
-
-	err = rel.UpdateApplicationSettings("wordpress", &token{isLeader: true}, map[string]interface{}{
-		"wanda": "firebaugh",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.leadershipChecker.isLeader = true
-
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: "relation-42", Unit: "unit-foo-0"},
-		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
-		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
-		{Relation: "relation-42", Unit: "unit-wordpress-0"},
-		{Relation: "relation-foo", Unit: ""},
-		{Relation: "application-wordpress", Unit: "unit-foo-0"},
-		{Relation: "foo", Unit: "bar"},
-		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
-		{Relation: rel.Tag().String(), Unit: "application-wordpress"},
-		{Relation: rel.Tag().String(), Unit: "application-mysql"},
-		{Relation: rel.Tag().String(), Unit: "user-foo"},
-	}}
-	result, err := s.uniter.ReadSettings(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Settings: params.Settings{
-				"some": "settings",
-			}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Settings: params.Settings{
-				"wanda": "firebaugh",
-			}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-}
-
-func (s *uniterLegacySuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
-	rel := s.addRelation(c, "wordpress", "mysql")
-	relUnit, err := rel.Unit(s.wordpressUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	settings := map[string]interface{}{
-		"some": "settings",
-	}
-	err = relUnit.EnterScope(settings)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, true)
-
-	err = rel.UpdateApplicationSettings("wordpress", &token{isLeader: true}, map[string]interface{}{
-		"wanda": "firebaugh",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.leadershipChecker.isLeader = false
-
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: rel.Tag().String(), Unit: "application-wordpress"},
-	}}
-	result, err := s.uniter.ReadSettings(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-}
-
-func (s *uniterLegacySuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	riak := f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "riak",
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "riak"}),
-	})
-	ep, err := riak.Endpoint("ring")
-	c.Assert(err, jc.ErrorIsNil)
-	st := s.ControllerModel(c).State()
-	rel, err := st.EndpointsRelation(ep)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = rel.UpdateApplicationSettings("riak", &fakeToken{}, map[string]interface{}{
-		"deerhoof": "little hollywood",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	riakUnit := f.MakeUnit(c, &factory.UnitParams{
-		Application: riak,
-		Machine:     s.machine0,
-	})
-
-	relUnit, err := rel.Unit(riakUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
-	uniter := s.newUniterAPI(c, st, auth)
-
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{{
-		Relation: rel.Tag().String(),
-		Unit:     "application-riak",
-	}}}
-	result, err := uniter.ReadSettings(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Settings: params.Settings{
-				"deerhoof": "little hollywood",
-			}},
-		},
-	})
-}
-
-func (s *uniterLegacySuite) TestReadLocalApplicationSettingsWhenNotLeader(c *gc.C) {
-	rel := s.addRelation(c, "wordpress", "mysql")
-	relUnit, err := rel.Unit(s.wordpressUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	settings := map[string]interface{}{
-		"some": "settings",
-	}
-	err = relUnit.EnterScope(settings)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, true)
-
-	// This is a unit that doesn't exist.
-	err = rel.UpdateApplicationSettings("wordpress", &token{isLeader: true}, map[string]interface{}{
-		"wanda": "firebaugh",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	arg := params.RelationUnit{
-		Relation: rel.Tag().String(),
-		Unit:     "unit-wordpress-1",
-	}
-	_, err = s.uniter.ReadLocalApplicationSettings(context.Background(), arg)
-	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
-}
-
-func (s *uniterLegacySuite) TestReadLocalApplicationSettingsInPeerRelation(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	riak := f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "riak",
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "riak"}),
-	})
-	ep, err := riak.Endpoint("ring")
-	c.Assert(err, jc.ErrorIsNil)
-	st := s.ControllerModel(c).State()
-	rel, err := st.EndpointsRelation(ep)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = rel.UpdateApplicationSettings("riak", &fakeToken{}, map[string]interface{}{
-		"deerhoof": "little hollywood",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	riakUnit := f.MakeUnit(c, &factory.UnitParams{
-		Application: riak,
-		Machine:     s.machine0,
-	})
-
-	relUnit, err := rel.Unit(riakUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
-	uniter := s.newUniterAPI(c, st, auth)
-
-	arg := params.RelationUnit{
-		Relation: rel.Tag().String(),
-		Unit:     "unit-riak-0",
-	}
-	result, err := uniter.ReadLocalApplicationSettings(context.Background(), arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResult{
-		Settings: params.Settings{
-			"deerhoof": "little hollywood",
-		},
-	})
-}
-
-func (s *uniterLegacySuite) TestReadSettingsWithNonStringValuesFails(c *gc.C) {
-	rel := s.addRelation(c, "wordpress", "mysql")
-	relUnit, err := rel.Unit(s.wordpressUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	settings := map[string]interface{}{
-		"other":        "things",
-		"invalid-bool": false,
-	}
-	err = relUnit.EnterScope(settings)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, true)
-
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
-	}}
-	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
-	result, err := s.uniter.ReadSettings(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Error: &params.Error{Message: expectErr}},
-		},
-	})
-}
-
-func (s *uniterLegacySuite) TestReadRemoteSettings(c *gc.C) {
-	rel := s.addRelation(c, "wordpress", "mysql")
-	relUnit, err := rel.Unit(s.wordpressUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	settings := map[string]interface{}{
-		"some": "settings",
-	}
-	err = relUnit.EnterScope(settings)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, true)
-
-	// First test most of the invalid args tests and try to read the
-	// (unset) remote unit settings.
-	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
-		{Relation: "relation-42", LocalUnit: "unit-foo-0", RemoteUnit: "foo"},
-		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "unit-wordpress-0"},
-		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "unit-mysql-0"},
-		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "application-mysql"},
-		{Relation: "relation-42", LocalUnit: "unit-wordpress-0", RemoteUnit: ""},
-		{Relation: "relation-foo", LocalUnit: "", RemoteUnit: ""},
-		{Relation: "application-wordpress", LocalUnit: "unit-foo-0", RemoteUnit: "user-foo"},
-		{Relation: "foo", LocalUnit: "bar", RemoteUnit: "baz"},
-		{Relation: rel.Tag().String(), LocalUnit: "unit-mysql-0", RemoteUnit: "unit-wordpress-0"},
-		{Relation: rel.Tag().String(), LocalUnit: "application-wordpress", RemoteUnit: "application-mysql"},
-		{Relation: rel.Tag().String(), LocalUnit: "application-mysql", RemoteUnit: "foo"},
-		{Relation: rel.Tag().String(), LocalUnit: "user-foo", RemoteUnit: "unit-wordpress-0"},
-	}}
-	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
-
-	// We don't set the remote unit settings on purpose
-	// to test the error.
-	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": unit "mysql/0": settings`
-
-	// The application settings are always initialised to empty when
-	// the relation is created.
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%s", pretty.Sprint(result))
-	c.Assert(result, jc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.NotFoundError(expectErr)},
-			{Settings: params.Settings{}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Now leave the mysqlUnit and re-enter with new settings.
-	relUnit, err = rel.Unit(s.mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	settings = map[string]interface{}{
-		"other": "things",
-	}
-	err = relUnit.LeaveScope()
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, false)
-	err = relUnit.EnterScope(settings)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, true)
-
-	// Test the remote unit settings can be read.
-	args = params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
-		Relation:   rel.Tag().String(),
-		LocalUnit:  "unit-wordpress-0",
-		RemoteUnit: "unit-mysql-0",
-	}}}
-	expect := params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Settings: params.Settings{
-				"other": "things",
-			}},
-		},
-	}
-	result, err = s.uniter.ReadRemoteSettings(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, expect)
-
-	// Now destroy the remote unit, and check its settings can still be read.
-	err = s.mysqlUnit.Destroy(s.store)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	result, err = s.uniter.ReadRemoteSettings(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, expect)
-}
-
-func (s *uniterLegacySuite) TestReadRemoteSettingsForApplication(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "logging",
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
-	})
-	rel := s.addRelation(c, "wordpress", "mysql")
-	relUnit, err := rel.Unit(s.wordpressUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	settings := map[string]interface{}{
-		"some": "settings",
-	}
-	err = relUnit.EnterScope(settings)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, true)
-
-	// Set some application settings for mysql and check that we can
-	// see them.
-	err = rel.UpdateApplicationSettings("mysql", &fakeToken{}, map[string]interface{}{
-		"problem thinker": "fireproof",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
-		Relation:   rel.Tag().String(),
-		LocalUnit:  "unit-wordpress-0",
-		RemoteUnit: "application-mysql",
-	}, {
-		Relation:   rel.Tag().String(),
-		LocalUnit:  "unit-wordpress-0",
-		RemoteUnit: "application-wordpress",
-	}, {
-		Relation:   rel.Tag().String(),
-		LocalUnit:  "unit-wordpress-0",
-		RemoteUnit: "application-logging",
-	}}}
-	expect := params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Settings: params.Settings{
-				"problem thinker": "fireproof",
-			}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	}
-	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, expect)
-}
-
-func (s *uniterLegacySuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
-	rel := s.addRelation(c, "wordpress", "mysql")
-	relUnit, err := rel.Unit(s.mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	settings := map[string]interface{}{
-		"other":        "things",
-		"invalid-bool": false,
-	}
-	err = relUnit.EnterScope(settings)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, true)
-
-	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
-		Relation:   rel.Tag().String(),
-		LocalUnit:  "unit-wordpress-0",
-		RemoteUnit: "unit-mysql-0",
-	}}}
-	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
-	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Error: &params.Error{Message: expectErr}},
-		},
-	})
-}
-
-func (s *uniterLegacySuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	riak := f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "riak",
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "riak"}),
-	})
-	ep, err := riak.Endpoint("ring")
-	c.Assert(err, jc.ErrorIsNil)
-	st := s.ControllerModel(c).State()
-	rel, err := st.EndpointsRelation(ep)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = rel.UpdateApplicationSettings("riak", &fakeToken{}, map[string]interface{}{
-		"black midi": "ducter",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	riakUnit := f.MakeUnit(c, &factory.UnitParams{
-		Application: riak,
-		Machine:     s.machine0,
-	})
-
-	relUnit, err := rel.Unit(riakUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
-	uniter := s.newUniterAPI(c, st, auth)
-
-	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
-		Relation:   rel.Tag().String(),
-		LocalUnit:  "unit-riak-0",
-		RemoteUnit: "application-riak",
-	}}}
-	result, err := uniter.ReadRemoteSettings(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Settings: params.Settings{
-				"black midi": "ducter",
-			}},
-		},
-	})
-}
-
-func (s *uniterLegacySuite) TestReadRemoteSettingsForCAASApplicationInPeerRelationSidecar(c *gc.C) {
-	_, cm, app, unit := s.setupCAASModel(c)
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	ep, err := app.Endpoint("ring")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := cm.State().EndpointsRelation(ep)
-	c.Assert(err, jc.ErrorIsNil)
-
-	unit2, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	relUnit, err := rel.Unit(unit2)
-	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(
-
-		map[string]interface{}{
-			"black midi": "ducter",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
-	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
-		Relation:   rel.Tag().String(),
-		LocalUnit:  unit.Tag().String(),
-		RemoteUnit: unit2.Tag().String(),
-	}}}
-	result, err := uniterAPI.ReadRemoteSettings(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.SettingsResults{
-		Results: []params.SettingsResult{
-			{Settings: params.Settings{
-				"black midi": "ducter",
-			}},
-		},
-	})
 }
 
 func (s *uniterLegacySuite) TestWatchRelationUnits(c *gc.C) {
@@ -2981,172 +2410,41 @@ func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	})
 }
 
-func (s *uniterLegacySuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.RelationUnit) {
-	s.makeRemoteWordpress(c)
-
-	controllerConfig, err := s.controllerConfig(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Set mysql's addresses first.
-	err = s.machine1.SetProviderAddresses(
-		controllerConfig,
-		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
-		network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic)),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	st := s.ControllerModel(c).State()
-	eps, err := st.InferEndpoints("mysql", "remote-wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := st.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	relUnit, err := rel.Unit(s.mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, false)
-	return rel.Tag(), relUnit
-}
-
 func (s *uniterLegacySuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
-	relTag, relUnit := s.setupRemoteRelationScenario(c)
-
-	thisUniter := s.makeMysqlUniter(c)
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: relTag.String(), Unit: "unit-mysql-0"},
-	}}
-	result, err := thisUniter.EnterScope(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{Error: nil}},
-	})
-
-	// Verify the scope changes and settings.
-	s.assertInScope(c, relUnit, true)
-	readSettings, err := relUnit.ReadSettings(s.mysqlUnit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
-		"private-address": "4.3.2.1",
-		"ingress-address": "4.3.2.1",
-		"egress-subnets":  "4.3.2.1/32",
-	})
+	c.Skip("Reimplement with CMR domain work, JUJU-4855\n" +
+		"This test asserts that a relation unit's settings include: " +
+		"private-address, ingress-address, and egress-subnets keywords " +
+		"when the relation is in scope and CMR preferring private addresses. ")
 }
 
 func (s *uniterLegacySuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
-	relTag, relUnit := s.setupRemoteRelationScenario(c)
-
-	thisUniter := s.makeMysqlUniter(c)
-
-	controllerConfig, err := s.controllerConfig(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Set mysql's addresses - no public address.
-	err = s.machine1.SetProviderAddresses(
-		controllerConfig,
-		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: relTag.String(), Unit: "unit-mysql-0"},
-	}}
-	result, err := thisUniter.EnterScope(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{Error: nil}},
-	})
-
-	// Verify that we fell back to the private address.
-	s.assertInScope(c, relUnit, true)
-	readSettings, err := relUnit.ReadSettings(s.mysqlUnit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
-		"private-address": "1.2.3.4",
-		"ingress-address": "1.2.3.4",
-		"egress-subnets":  "1.2.3.4/32",
-	})
+	c.Skip("Reimplement with CMR domain work, JUJU-4855\n" +
+		"This test asserts that a relation unit's settings include: " +
+		"private-address, ingress-address, and egress-subnets keywords " +
+		"when the relation is in scope and CMR when unit does not have " +
+		"a public addresses. ")
 }
 
 func (s *uniterLegacySuite) TestRelationEgressSubnets(c *gc.C) {
-	relTag, relUnit := s.setupRemoteRelationScenario(c)
-
-	// Check model attributes are overridden by setting up a value.
-	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	egress := state.NewRelationEgressNetworks(s.ControllerModel(c).State())
-	_, err = egress.Save(relTag.Id(), false, []string{"10.0.0.0/16", "10.1.2.0/8"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	thisUniter := s.makeMysqlUniter(c)
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: relTag.String(), Unit: "unit-mysql-0"},
-	}}
-
-	result, err := thisUniter.EnterScope(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{Error: nil}},
-	})
-
-	// Verify the scope changes and settings.
-	s.assertInScope(c, relUnit, true)
-	readSettings, err := relUnit.ReadSettings(s.mysqlUnit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
-		"private-address": "4.3.2.1",
-		"ingress-address": "4.3.2.1",
-		"egress-subnets":  "10.0.0.0/16,10.1.2.0/8",
-	})
+	c.Skip("Reimplement with CMR domain work, JUJU-4855\n" +
+		"This test asserts that a relation unit's settings include: " +
+		"private-address, ingress-address, and egress-subnets keywords " +
+		"when the relation is in scope and CMR. Use NewRelationEgressNetworks " +
+		"to set different egress networks from the model config. ")
 }
 
 func (s *uniterLegacySuite) TestModelEgressSubnets(c *gc.C) {
-	relTag, relUnit := s.setupRemoteRelationScenario(c)
-
-	err := s.ControllerDomainServices(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	thisUniter := s.makeMysqlUniter(c)
-	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: relTag.String(), Unit: "unit-mysql-0"},
-	}}
-	result, err := thisUniter.EnterScope(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{Error: nil}},
-	})
-
-	// Verify the scope changes and settings.
-	s.assertInScope(c, relUnit, true)
-	readSettings, err := relUnit.ReadSettings(s.mysqlUnit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
-		"private-address": "4.3.2.1",
-		"ingress-address": "4.3.2.1",
-		"egress-subnets":  "192.168.0.0/16",
-	})
+	c.Skip("Reimplement with CMR domain work, JUJU-4855\n" +
+		"This test asserts that a relation unit's settings include: " +
+		"private-address, ingress-address, and egress-subnets keywords " +
+		"when the relation is in scope and CMR. Egress networks are set " +
+		"via model config.")
 }
 
 func (s *uniterLegacySuite) makeMysqlUniter(c *gc.C) *uniter.UniterAPI {
 	authorizer := s.authorizer
 	authorizer.Tag = s.mysqlUnit.Tag()
 	return s.newUniterAPI(c, s.ControllerModel(c).State(), authorizer)
-}
-
-func (s *uniterLegacySuite) makeRemoteWordpress(c *gc.C) {
-	_, err := s.ControllerModel(c).State().AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:            "remote-wordpress",
-		SourceModel:     names.NewModelTag("source-model"),
-		IsConsumerProxy: true,
-		OfferUUID:       "offer-uuid",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Limit:     1,
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *uniterLegacySuite) TestRefresh(c *gc.C) {

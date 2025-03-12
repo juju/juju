@@ -5,6 +5,7 @@ package relation
 
 import (
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
@@ -22,9 +23,18 @@ type GetRelationEndpointUUIDArgs struct {
 	RelationUUID corerelation.UUID
 }
 
+// RelationDetails represents the current application's view of a relation.
+type RelationDetails struct {
+	Life     life.Value
+	UUID     corerelation.UUID
+	ID       int
+	Key      string
+	Endpoint []Endpoint
+}
+
 // Endpoint represents one endpoint of a relation.
 type Endpoint struct {
-	ApplicationID application.ID
+	ApplicationName string
 	charm.Relation
 }
 
