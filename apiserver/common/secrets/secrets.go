@@ -613,7 +613,7 @@ func secretDeletionPreflightCheck(uriStr string, label string, removeState Secre
 		uri, err = getSecretURIForLabel(removeState, modelUUID, label)
 	}
 	if err != nil {
-		return nil, errors.New("must specify either URI or label")
+		return nil, errors.Trace(err)
 	}
 	if _, err := removeState.GetSecret(uri); err != nil {
 		// Check if the uri exists or not.
@@ -672,6 +672,198 @@ func RemoveSecretsForAgent(
 	return result, nil
 }
 
+// cachedBackendGetter is a wrapper around the backend config getter that caches results to reduce the frequency of
+// getting admin configuration or generating providers.
+type cachedBackendGetter struct {
+	backends          map[string]provider.SecretsBackend
+	cfgInfo           *provider.ModelBackendConfigInfo
+	adminConfigGetter BackendAdminConfigGetter
+}
+
+// getBackend returns the secrets backend for the given backend ID, either from cache if available or by creating a new
+// one.
+func (cbg *cachedBackendGetter) getBackend(backendId string) (provider.SecretsBackend, error) {
+	// Return if we have a cached backend.
+	backend, ok := cbg.backends[backendId]
+	if ok {
+		return backend, nil
+	}
+
+	// Otherwise, generate a new backend.
+	backendCfg, err := cbg.getBackendConfig(backendId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	p, err := GetProvider(backendCfg.BackendType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	backend, err = p.NewBackend(backendCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cbg.backends[backendId] = backend
+	return cbg.backends[backendId], nil
+}
+
+// getBackendConfig returns the backend config for the given backend ID, either from cache if available or by refreshing
+// the admin configuration.
+func (cbg *cachedBackendGetter) getBackendConfig(backendId string) (*provider.ModelBackendConfig, error) {
+	// Check if we have a cached backend config.
+	backendCfg, ok := cbg.cfgInfo.Configs[backendId]
+	if ok {
+		return &backendCfg, nil
+	}
+
+	// Otherwise, refresh the cfgInfo in case this is a new backend.
+	cfgInfo, err := cbg.adminConfigGetter()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting secrets provider configuration info")
+	}
+	cbg.cfgInfo = cfgInfo
+
+	backendCfg, ok = cbg.cfgInfo.Configs[backendId]
+	if !ok {
+		return nil, errors.NotFoundf("backend %q", backendId)
+	}
+	return &backendCfg, nil
+}
+
+func newCachedBackendGetter(adminConfigGetter BackendAdminConfigGetter) (*cachedBackendGetter, error) {
+	cfgInfo, err := adminConfigGetter()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting configured secrets providers")
+	}
+	return &cachedBackendGetter{
+		backends:          make(map[string]provider.SecretsBackend),
+		adminConfigGetter: adminConfigGetter,
+		cfgInfo:           cfgInfo,
+	}, nil
+}
+
+// removeSecretFromExternal removes the specified secret from its respective secret backends.
+// Can be called for specific revisions, or omit revisions to remove all revisions of the secret.
+func removeSecretFromExternal(removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter, authTag names.Tag, uri *coresecrets.URI, revisions ...int) error {
+	var (
+		revs []*coresecrets.SecretRevisionMetadata
+		err  error
+	)
+	if len(revisions) == 0 {
+		// Remove all revisions.
+		revs, err = removeState.ListSecretRevisions(uri)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		// Remove specified revisions.
+		revs = make([]*coresecrets.SecretRevisionMetadata, 0, len(revisions))
+		for _, rev := range revisions {
+			revMeta, err := removeState.GetSecretRevision(uri, rev)
+			// TODO: ideally we'd both surface this error and continue to the next revision, but atm we bookkeep errors
+			//  on a per-secret basis, not per-revision basis, so we just skip the revision.
+			if errors.Is(err, errors.NotFound) {
+				continue
+			}
+			if err != nil {
+				return errors.Trace(err)
+			}
+			revs = append(revs, revMeta)
+		}
+
+		if len(revs) == 0 {
+			// Similar to if ListSecretRevisions returns no revisions, we return NotFound if no revisions were found.
+			return errors.NotFoundf("cannot delete any of revisions %v - revisions", revisions)
+		}
+	}
+
+	providersToCleanUp := make(map[string]provider.SecretRevisions)
+	backendGetter, err := newCachedBackendGetter(adminConfigGetter)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, rev := range revs {
+		if rev.ValueRef == nil {
+			// Internal secret. Nothing to do here.
+			continue
+		}
+
+		backendId := rev.ValueRef.BackendID
+		revisionId := rev.ValueRef.RevisionID
+
+		// Repeatedly attempt to delete the revision from the backend until one of:
+		// * deletion is successful
+		// * deletion is unsuccessful with error==NotFound but the revision has not been moved to a new backend
+		// * deletion is unsuccessful with error!=NotFound
+		for {
+			backend, err := backendGetter.getBackend(backendId)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			err = backend.DeleteContent(context.TODO(), revisionId)
+			if err == nil {
+				// Deletion successful. Schedule this revision to be cleaned up in the provider and go to next revision.
+				if _, ok := providersToCleanUp[backendId]; !ok {
+					providersToCleanUp[backendId] = provider.SecretRevisions{}
+				}
+				providersToCleanUp[backendId].Add(uri, rev.ValueRef.RevisionID)
+				break
+			} else if !errors.Is(err, errors.NotFound) {
+				// Exit early for any error other than NotFound.
+				return errors.Annotatef(err, "cannot remove revision %q from secret backend %q", revisionId, *rev.BackendName)
+			}
+
+			// NotFound could be because:
+			// 1. The backend is draining and the secret was moved to the new backend before we accessed it.
+			// 2. The secret is actually missing from the backend.
+			// Check if the revision has moved to a new backend.
+			updatedRev, err := removeState.GetSecretRevision(uri, rev.Revision)
+			if errors.Is(err, errors.NotFound) {
+				// Revision no longer exists. Continue to the next.
+				break
+			}
+			if err != nil {
+				return errors.Annotatef(err, "cannot get revision metadata for secret revision %s/%d", uri, rev.Revision)
+			}
+
+			// If the backend changed, try to delete the secret from the new backend.
+			if backendId != updatedRev.ValueRef.BackendID {
+				backendId = updatedRev.ValueRef.BackendID
+				revisionId = updatedRev.ValueRef.RevisionID
+				continue
+			}
+
+			// Otherwise, the revision really is missing from the backend and we move on.
+			// We tolerate this because our goal is to have that revision removed anyway.
+			break
+		}
+	}
+
+	// Clean up all providers we've touched
+	for backendId, secretRevisions := range providersToCleanUp {
+		backendCfg, err := backendGetter.getBackendConfig(backendId)
+		if errors.Is(err, errors.NotFound) {
+			// Provider has been removed out of band - no need to clean it up.
+			continue
+		}
+		if err != nil {
+			return errors.Annotate(err, "getting secrets provider during provider cleanup")
+		}
+		p, err := GetProvider(backendCfg.BackendType)
+		if err != nil {
+			return errors.Annotate(err, "getting secrets provider during provider cleanup")
+		}
+
+		if err := p.CleanupSecrets(backendCfg, authTag, secretRevisions); err != nil {
+			return errors.Annotate(err, "cleaning up secrets in provider")
+		}
+	}
+
+	return nil
+}
+
 // RemoveUserSecrets removes the specified user supplied secrets.
 // The secrets are removed from the state and backend, and the caller must have model admin access.
 func RemoveUserSecrets(
@@ -680,79 +872,12 @@ func RemoveUserSecrets(
 	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
-	removeFromBackend := func(p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
-		backend, err := p.NewBackend(&cfg)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		for _, revId := range revs.RevisionIDs() {
-			if err = backend.DeleteContent(context.TODO(), revId); err != nil {
-				return errors.Trace(err)
-			}
-		}
-		if err := p.CleanupSecrets(&cfg, authTag, revs); err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	}
-
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
 
 	if len(args.Args) == 0 {
 		return result, nil
-	}
-	cfgInfo, err := adminConfigGetter()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	removeFromExternal := func(uri *coresecrets.URI, revisions ...int) error {
-		externalRevs := make(map[string]provider.SecretRevisions)
-		gatherExternalRevs := func(valRef *coresecrets.ValueRef) {
-			if valRef == nil {
-				// Internal secret, nothing to do here.
-				return
-			}
-			if _, ok := externalRevs[valRef.BackendID]; !ok {
-				externalRevs[valRef.BackendID] = provider.SecretRevisions{}
-			}
-			externalRevs[valRef.BackendID].Add(uri, valRef.RevisionID)
-		}
-		if len(revisions) == 0 {
-			// Remove all revisions.
-			revs, err := removeState.ListSecretRevisions(uri)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			for _, rev := range revs {
-				gatherExternalRevs(rev.ValueRef)
-			}
-		} else {
-			for _, rev := range revisions {
-				revMeta, err := removeState.GetSecretRevision(uri, rev)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				gatherExternalRevs(revMeta.ValueRef)
-			}
-		}
-
-		for backendID, r := range externalRevs {
-			backendCfg, ok := cfgInfo.Configs[backendID]
-			if !ok {
-				return errors.NotFoundf("secret backend %q", backendID)
-			}
-			provider, err := GetProvider(backendCfg.BackendType)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if err := removeFromBackend(provider, backendCfg, r); err != nil {
-				return errors.Trace(err)
-			}
-		}
-		return nil
 	}
 
 	for i, arg := range args.Args {
@@ -761,11 +886,12 @@ func RemoveUserSecrets(
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := removeFromExternal(uri, arg.Revisions...); err != nil {
-			// We remove the secret from the backend first.
+		// We remove the secret from the backend first.
+		if err := removeSecretFromExternal(removeState, adminConfigGetter, authTag, uri, arg.Revisions...); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		// If the secret was successfully removed from the backend, we remove it from the state.
 		if _, err = removeState.DeleteSecret(uri, arg.Revisions...); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
