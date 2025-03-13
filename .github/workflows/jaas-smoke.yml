@@ -1,8 +1,9 @@
 name: "Juju JAAS Smoke Test"
 on:
   push:
-    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+", main]
+    branches: ["[0-9].[0-9]+", "[0-9].[0-9]+.[0-9]+"]
   pull_request:
+    branches-ignore: ["main"]
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
