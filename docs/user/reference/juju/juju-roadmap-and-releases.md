@@ -5,19 +5,13 @@
 
 This document is about our releases of Juju, that is, the `juju` CLI client and the Juju agents.
 
-Starting with Juju 3.4.0, we will release a new minor version (the 'x' of 3.x) every 3 months, on the last Thursday of January, April, July, and October of every year. Thus, Juju 3.4.0 will be released on the last Thursday of January 2024. Juju 3.5.0 will follow on the last Thursday of April. And so on.
+- We release new minor version (the 'x' of m.x.p) approcimately every 3 months.
+- Patch releases for supported series are released every month
+- Once we release a new major version, the latest minor version of the previous release will become an LTS (Long Term Support) release.
 
-When we release a new major version, the latest minor version of the previous release will become an LTS (Long Term Support) release.
+- Minor releases are supported with bug fixes for a period of 6 months from their release date, and a further 3 months of security fixes. LTS releases will receive security fixes for 5 years.
 
-<!--REMOVED REFERENCE TO SPECIFICS AS PEOPLE ONLY REMEMBER THAT:
-When we release a new major version, for example Juju 4.0, the last minor version of the previous release, in this example Juju 3.5.0, will become an LTS (Long Term Support) release.-->
-
-Starting with Juju 3.3, our minor releases  will be supported with bug fixes for a period of 6 months from their release date, and a further 3 months of security fixes. LTS releases will receive security fixes for 5 years.
-
-There are two specific exceptions to the general rule:
-
-- In recognition of our earlier commitment to a longer support period for Juju 3.1, we will extend support of 3.1 for security-only patches (for high/critical security issues) until the final release of 3 which will become the LTS.
-- We will release Juju 4.0 Beta 2024. This will be functionally usable, but without all of the polish that we want to have for a final 4.0 release.
+- 4.0 is an exception to the rule, as it is still under development. We plan on releasing beta versions that are content driven and not time. 
 
 The rest of this document gives detailed information about each release.
 
@@ -35,9 +29,9 @@ ADD WHEN FIXED.
 
 
 <!--TEMPLATE
-### :juju: **Juju 2.9.X**  - <DATE>  <--leave this as TBC until released into stable!
+### 🔸 **Juju 2.9.X**  - <DATE>  <--leave this as TBC until released into stable!
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju 3.2 doesn't accept token login[(LP203943)](https://bugs.launchpad.net/bugs/2030943)
 
@@ -46,7 +40,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 
 
-## :juju: **Juju 3.6**
+## ⭐ **Juju 3.6**
 > 30 May 2030: expected end of security fix support
 >
 > 30 May 2025: expected end of bug fix support
@@ -56,8 +50,8 @@ Juju 3.6 series is LTS
 ```
 
 
-### :juju: **Juju 3.6.4** - 11 March 2025
-:gear: Features:
+### 🔸 **Juju 3.6.4** - 11 March 2025
+⚙️ Features:
 * feat(security): add SECURITY.md for reporting security issues by @anvial in [#18245](https://github.com/juju/juju/pull/18245)
 * feat(charmhub): add revision support for info command by @leyao-daily in [#18676](https://github.com/juju/juju/pull/18676)
 * feat: add virtual host keys to state by @kian99 in [#18829](https://github.com/juju/juju/pull/18829)
@@ -65,7 +59,7 @@ Juju 3.6 series is LTS
 * feat: virtual host keys upgrade step by @kian99 in [#18941](https://github.com/juju/juju/pull/18941)
 * feat: ssh server facade and plug in by @ale8k in [#19019](https://github.com/juju/juju/pull/19019)
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * fix: replicaset update after removing a primary controller in HA by @nvinuesa in [#18965](https://github.com/juju/juju/pull/18965)
 * fix: container resource export by @Aflynn50 in [#18898](https://github.com/juju/juju/pull/18898)
 * fix(state/charm.go): fix for AddCharmMetadata buildTxn by @alesstimec in [#18990](https://github.com/juju/juju/pull/18990)
@@ -78,13 +72,13 @@ Juju 3.6 series is LTS
 * fix: login after logout with OIDC by @kian99 in [#19079](https://github.com/juju/juju/pull/19079)
 * fix: worker leaking in TestManfioldStart of the SSH server worker by @ale8k in [#19102](https://github.com/juju/juju/pull/19102)
 
-:partying_face: New Contributors:
+🥳 New Contributors:
 * @network-charles made their first contribution in [#19063](https://github.com/juju/juju/pull/19063)
 * @andogq made their first contribution in [#19023](https://github.com/juju/juju/pull/19023)
 
 
-### :juju: **Juju 3.6.3** - 27 Feb 2025
-:gear: Features:
+### 🔸 **Juju 3.6.3** - 27 Feb 2025
+⚙️ Features:
 * feat(secrets): add support for using besoke k8s secret backends by @wallyworld in [#18599](https://github.com/juju/juju/pull/18599)
 * feat(secrets): add token refresh support to k8s secret backend by @wallyworld in [#18639](https://github.com/juju/juju/pull/18639)
 * chore: bump Pebble version to v1.18.0 by @james-garner-canonical in [#18752](https://github.com/juju/juju/pull/18752)
@@ -94,7 +88,7 @@ Juju 3.6 series is LTS
 * feat: add hostname parsing by @kian99 in [#18821](https://github.com/juju/juju/pull/18821)
 * feat(sshserver worker): adds a base skeleton ssh server worker by @ale8k in [#18627](https://github.com/juju/juju/pull/18627)
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * fix: juju debug-log --replay and --no-tail by @CodingCookieRookie in [#18601](https://github.com/juju/juju/pull/18601)
 * fix: dangling state trackers by @SimonRichardson in [#18611](https://github.com/juju/juju/pull/18611)
 * fix: close state pool item on release by @SimonRichardson in [#18614](https://github.com/juju/juju/pull/18614)
@@ -126,18 +120,18 @@ Juju 3.6 series is LTS
 * fix: GetModelInfo method by @alesstimec in [#18922](https://github.com/juju/juju/pull/18922)
 * fix: copy mgo session when bulk deleting secrets by @wallyworld in [#18953](https://github.com/juju/juju/pull/18953)
 
-:partying_face: New Contributors:
+🥳 New Contributors:
 * @lengau made their first contribution in [#18670](https://github.com/juju/juju/pull/18670)
 * @rthill91 made their first contribution in [#18656](https://github.com/juju/juju/pull/18656)
 * @samuelallan72 made their first contribution in [#18365](https://github.com/juju/juju/pull/18365)
 * @YanisaHS made their first contribution in [#18903](https://github.com/juju/juju/pull/18903)
 
 
-### :juju: **Juju 3.6.2** - 21 Jan 2025
-:gear: Features:
+### 🔸 **Juju 3.6.2** - 21 Jan 2025
+⚙️ Features:
 * feat: add relation-model-get hook command by @wallyworld in [#18444](https://github.com/juju/juju/pull/18444)
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * fix: poor error message validating constraints by @CodingCookieRookie in [#18447](https://github.com/juju/juju/pull/18447)
 * fix: do not set provider addresses for manually provisioned machines by @manadart in [#18535](https://github.com/juju/juju/pull/18535)
 * fix: juju ssh enforcing port 22 by @CodingCookieRookie in [#18520](https://github.com/juju/juju/pull/18520)
@@ -145,14 +139,14 @@ Juju 3.6 series is LTS
 * fix: cater for leadership change during secret drain by @wallyworld in [#18556](https://github.com/juju/juju/pull/18556)
 
 
-### :juju: **Juju 3.6.1** - 11 Dec 2024
-:gear: Features:
+### 🔸 **Juju 3.6.1** - 11 Dec 2024
+⚙️ Features:
 * feat: bump pebble version to v1.17.0 by @benhoyt in [#18462](https://github.com/juju/juju/pull/18462)
 * feat(cmd-register): prevent replacing existing controller if logged in by @ca-scribner in [#18079](https://github.com/juju/juju/pull/18079)
 * feat: remove upgradesteps API client by @manadart in [#18374](https://github.com/juju/juju/pull/18374)
 * feat: do not require upgradesteps API for migrations by @manadart in [#18387](https://github.com/juju/juju/pull/18387)
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * fix: do not fail probes during controller outage by @hpidcock in [#18468](https://github.com/juju/juju/pull/18468)
 * fix: allow `refresh --base` to pivot a charm by @jameinel in [#18215](https://github.com/juju/juju/pull/18215)
 * fix: fix bootstrap issue on k8s snap by @wallyworld in [#18366](https://github.com/juju/juju/pull/18366)
@@ -166,14 +160,14 @@ Juju 3.6 series is LTS
 * fix(ec2): remove auto assigned public IP when constraint is false by @nvinuesa in [#18432](https://github.com/juju/juju/pull/18432)
 
 
-### :juju: **Juju 3.6.0** - 26 Nov 2024
-:gear: Features:
+### 🔸 **Juju 3.6.0** - 26 Nov 2024
+⚙️ Features:
 * Rootless charms on k8s
 * Azure managed identities
 * Idempotent Secrets
 * The default base was bumped up to noble 24.04
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 See the full list in these milestone pages:
 * [RC2](https://launchpad.net/juju/3.6/3.6-rc2)
 * [RC1](https://launchpad.net/juju/3.6/3.6-rc1)
@@ -181,7 +175,7 @@ See the full list in these milestone pages:
 
 
 
-## :juju: **Juju 3.5**
+## ⭐ **Juju 3.5**
 > 30 Apr 2025: end of security fix support
 >
 > 28 Feb 2025: end of bug fix support
@@ -192,9 +186,9 @@ Juju 3.5 series is in security maintenance until 30 Apr 2025
 
 ```
 
-### :juju: **Juju 3.5.7** - 11 March 2025
+### 🔸 **Juju 3.5.7** - 11 March 2025
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * feat(security): add SECURITY.md for reporting security issues by @anvial in [#18245](https://github.com/juju/juju/pull/18245)
 * fix: find azure address prefix from new api result; by @ycliuhw in [#18776](https://github.com/juju/juju/pull/18776)
 * fix: add recent introduced aws regions to update public clouds by @CodingCookieRookie in [#18774](https://github.com/juju/juju/pull/18774)
@@ -207,9 +201,9 @@ Juju 3.5 series is in security maintenance until 30 Apr 2025
 * fix(shallow-copy-addrs): fix shallow copy before shuffle by @SimoneDutto in [#19017](https://github.com/juju/juju/pull/19017)
 * fix: install aws cli and creds for tests needing aws ec2 cli by @wallyworld in [#19072](https://github.com/juju/juju/pull/19072)
 
-### :juju: **Juju 3.5.6** - 11 January 2025
+### 🔸 **Juju 3.5.6** - 11 January 2025
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 - Fix [controller restart meant sidecar charm k8s workloads restarts](https://bugs.launchpad.net/bugs/2036594)
 - Fix [allocate-public-ip not applied in AWS EC2 provider](https://bugs.launchpad.net/bugs/2080238)
 - Fix [Cannot log into controller where model was migrated](https://bugs.launchpad.net/bugs/2084043)
@@ -221,9 +215,9 @@ Juju 3.5 series is in security maintenance until 30 Apr 2025
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.5.6).
 
-### :juju: **Juju 3.5.5** - 02 December 2024
+### 🔸 **Juju 3.5.5** - 02 December 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 - Fix [Peer relation disappears too early on application removal](https://bugs.launchpad.net/bugs/1998282)
 - Fix [Logout doesn't remove the cookie](https://bugs.launchpad.net/bugs/2072473)
 - Fix [microk8s juju: cloud skip-tls-verify for MAAS cloud does not work](https://bugs.launchpad.net/bugs/2072653)
@@ -234,9 +228,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.5.5).
 
-### :juju: **Juju 3.5.4** - 11 September 2024
+### 🔸 **Juju 3.5.4** - 11 September 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix [CVE-2024-7558](https://github.com/juju/juju/security/advisories/GHSA-mh98-763h-m9v4)
 - Fix [CVE-2024-8037](https://github.com/juju/juju/security/advisories/GHSA-8v4w-f4r9-7h6x)
@@ -246,17 +240,17 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.5.4).
 
-### :juju: **Juju 3.5.3**  - 26 July 2024
+### 🔸 **Juju 3.5.3**  - 26 July 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix [CVE-2024-6984](https://www.cve.org/CVERecord?id=CVE-2024-6984)
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.5.3).
 
-### :juju: **Juju 3.5.2** - 10 July 2024
+### 🔸 **Juju 3.5.2** - 10 July 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 - Runtime error: invalid memory address or nil pointer dereference [LP2064174](https://bugs.launchpad.net/juju/+bug/2064174)
 - Pebble (juju 3.5.1) cannot write files to workload containers [LP2067636](https://bugs.launchpad.net/juju/+bug/2067636)
 - Machines with base ubuntu@24.04 (Noble) flagged as deprecated, blocking controller upgrade [LP2068671](https://bugs.launchpad.net/juju/+bug/2068671)
@@ -264,24 +258,24 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 - Juju should report open-port failures more visibly (than just controller logs) [LP2009102](https://bugs.launchpad.net/juju/+bug/2009102)
 - Lower priority juju status overrides app status when a unit is restarting [LP2038833](https://bugs.launchpad.net/juju/+bug/2038833)
 
-### :juju: **Juju 3.5.1**  - 30 May 2024
+### 🔸 **Juju 3.5.1**  - 30 May 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * Fix non-rootless sidecar charms by optionally setting SecurityContext. [#17415](https://github.com/juju/juju/pull/17415) [LP2066517](https://bugs.launchpad.net/juju/+bug/2066517)
 * Match by MAC in Netplan for LXD VMs [#17327](https://github.com/juju/juju/pull/17327) [LP2064515](https://bugs.launchpad.net/juju/+bug/2064515)
 * Fix `SimpleConnector` to set `UserTag` when no client credentials provided [#17309](https://github.com/juju/juju/pull/17309)
 
-### :juju: **Juju 3.5.0** - 7 May 2024
+### 🔸 **Juju 3.5.0** - 7 May 2024
 
-:gear: Features:
+⚙️ Features:
 * Optional rootless workloads in Kubernetes charms [#17070](https://github.com/juju/juju/pull/17070)
 * Move from pebble 1.7 to pebble 1.10 for Kubernetes charms
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * juju.rpc panic running request [LP2060561](https://bugs.launchpad.net/juju/+bug/2060561)
 
 
-## :juju: **Juju 3.4**
+## ⭐ **Juju 3.4**
 
 ```{caution}
 
@@ -289,9 +283,9 @@ Juju 3.4 series is EOL
 
 ```
 
-### :juju: **Juju 3.4.6** - 11 September 2024
+### 🔸 **Juju 3.4.6** - 11 September 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix [CVE-2024-7558](https://github.com/juju/juju/security/advisories/GHSA-mh98-763h-m9v4)
 - Fix [CVE-2024-8037](https://github.com/juju/juju/security/advisories/GHSA-8v4w-f4r9-7h6x)
@@ -303,20 +297,20 @@ NOTE: This is the last bug fix release of 3.4.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.4.6).
 
-### :juju: **Juju 3.4.5**  - 26 July 2024
+### 🔸 **Juju 3.4.5**  - 26 July 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix [CVE-2024-6984](https://www.cve.org/CVERecord?id=CVE-2024-6984)
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.4.5).
 
-### :juju: **Juju 3.4.4**  - 1 July 2024
-:gear: Features:
+### 🔸 **Juju 3.4.4**  - 1 July 2024
+⚙️ Features:
 
 - Improve error message for "juju register [LP2060265](https://bugs.launchpad.net/juju/+bug/2060265)
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Machines with base ubuntu@24.04 (Noble) flagged as deprecated, blocking controller upgrade [LP2068671](https://bugs.launchpad.net/juju/+bug/2068671)
 - apt-get install distro-info noninteractive [LP2011637](https://bugs.launchpad.net/juju/+bug/2011637)
@@ -334,45 +328,45 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.4.4).
 
-### :juju: **Juju 3.4.3**  - 5 June 2024
+### 🔸 **Juju 3.4.3**  - 5 June 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Missing dependency for Juju agent installation on Ubuntu minimal [LP2031590](https://bugs.launchpad.net/juju/+bug/2031590)
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.4.3).
 
-### :juju: **Juju 3.4.2**  - 6 April 2024
+### 🔸 **Juju 3.4.2**  - 6 April 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix pebble [CVE-2024-3250](https://github.com/canonical/pebble/security/advisories/GHSA-4685-2x5r-65pj)
 - Fix Consume secrets via CMR fails [LP2060222](https://bugs.launchpad.net/juju/+bug/2060222)
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.4.2).
 
-### :juju: **Juju 3.4.0** - 15 Feb 2024
+### 🔸 **Juju 3.4.0** - 15 Feb 2024
 
-:gear: Features:
+⚙️ Features:
 * Pebble notices (https://github.com/juju/juju/pull/16428)
 * Internal enhancements, performance improvements and bug fixes
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * Homogenise VM naming in aws & azure [LP2046546](https://bugs.launchpad.net/juju/+bug/2046546)
 * Juju can't bootstrap controller on top of k8s/mk8s [LP2051865](https://bugs.launchpad.net/juju/+bug/2051865)
 * chown: invalid user: 'syslog:adm' on Oracle [LP1895407](https://bugs.launchpad.net/juju/+bug/1895407)
 
 
-## :juju: **Juju 3.3**
+## ⭐ **Juju 3.3**
 ```{caution}
 
 Juju 3.3 series is EOL
 
 ```
 
-### :juju: **Juju 3.3.7** - 10 September 2024
+### 🔸 **Juju 3.3.7** - 10 September 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix [CVE-2024-7558](https://github.com/juju/juju/security/advisories/GHSA-mh98-763h-m9v4)
 - Fix [CVE-2024-8037](https://github.com/juju/juju/security/advisories/GHSA-8v4w-f4r9-7h6x)
@@ -382,17 +376,17 @@ NOTE: This is the last release of 3.3. There will be no more releases.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.3.7).
 
-### :juju: **Juju 3.3.6**  - 25 July 2024
+### 🔸 **Juju 3.3.6**  - 25 July 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix [CVE-2024-6984](https://www.cve.org/CVERecord?id=CVE-2024-6984)
 
-### :juju: **Juju 3.3.5**  - 28 May 2024
+### 🔸 **Juju 3.3.5**  - 28 May 2024
 
 Final bug fix release of Juju 3.3 series.
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * Fix deploy regressions [#17061](https://github.com/juju/juju/pull/17061) [#17079](https://github.com/juju/juju/pull/17079)
 * Bump Pebble version to v1.4.2 (require admin access for file pull API) [#17137](https://github.com/juju/juju/pull/17137)
 * Avoid panics from using a nil pointer [#17188](https://github.com/juju/juju/pull/17188) [LP2060561](https://bugs.launchpad.net/juju/+bug/2060561)
@@ -404,9 +398,9 @@ Final bug fix release of Juju 3.3 series.
 * Don't print a superfluous error when determining platforms of machine scoped placement entities [#17382](https://github.com/juju/juju/pull/17382) [LP2064174](https://bugs.launchpad.net/juju/+bug/2064174)
 
 
-### :juju: **Juju 3.3.4**  - 10 April 2024
+### 🔸 **Juju 3.3.4**  - 10 April 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix pebble [CVE-2024-3250](https://github.com/canonical/pebble/security/advisories/GHSA-4685-2x5r-65pj)
 - Deploying an application to a specific node fails with invalid model UUID error [LP2056501](https://bugs.launchpad.net/juju/+bug/2056501)
@@ -428,10 +422,10 @@ Final bug fix release of Juju 3.3 series.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.3.4).
 
-### :juju: **Juju 3.3.3**  - 6 Mar 2024
+### 🔸 **Juju 3.3.3**  - 6 Mar 2024
 _Note:_ Juju version 3.3.2 was burnt since we discover a showstopper issue during QA, therefore this version will include fixes from 3.3.2.
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * Bug in controller superuser permission check [LP2053102](https://bugs.launchpad.net/bugs/2053102)
 * [3.3.2 candidate] fail to bootstrap controller on microk8s [LP2054930](https://bugs.launchpad.net/bugs/2054930)
 * Interrupting machine with running juju-exec tasks causes task to be stuck in running state [LP2012861](https://bugs.launchpad.net/bugs/2012861)
@@ -440,17 +434,17 @@ _Note:_ Juju version 3.3.2 was burnt since we discover a showstopper issue durin
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.3.3).
 
-### :juju: **Juju 3.3.1**  - 25 Jan 2024
+### 🔸 **Juju 3.3.1**  - 25 Jan 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * Deployed units using Oracle Cloud / OCI provider in wrong region ([LP1864154](https://bugs.launchpad.net/bugs/1864154))
 * user created secrets should be migrated after we changed the model's secret backend. ([LP2015967](https://bugs.launchpad.net/bugs/2015967))
 * [k8s] topology-key is never set ([LP2040136](https://bugs.launchpad.net/bugs/2040136))
 * Machine lock log in multiple places. ([LP2046089](https://bugs.launchpad.net/bugs/2046089))
 
-### :juju: **Juju 3.3.0**  - 10 Nov 2023
+### 🔸 **Juju 3.3.0**  - 10 Nov 2023
 
-:gear: Features:
+⚙️ Features:
 * User Secrets
 * Ignore status when processing controller changes in peergrouper https://github.com/juju/juju/pull/16377
 * Allow building with podman using `make OCI_BUILDER=podman ...` https://github.com/juju/juju/pull/16380
@@ -462,7 +456,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 * Missing oracle cloud regions https://github.com/juju/juju/pull/16287
 
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 * Enable upgrade action. Fix --build-agent juju root finding. https://github.com/juju/juju/pull/16354
 * Try and ensure secret access role bindings are created before serving the config to the agent https://github.com/juju/juju/pull/16391
 * Fix dqlite binding to ipv6 address. https://github.com/juju/juju/pull/16392
@@ -476,16 +470,16 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 
 
-## :juju: **Juju 3.2**
+## ⭐ **Juju 3.2**
 ```{caution}
 
 Juju 3.2 series is EOL
 
 ```
 
-### :juju: **Juju 3.2.4**  - 23 Nov 2023
+### 🔸 **Juju 3.2.4**  - 23 Nov 2023
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju storage mounting itself over itself ([LP1830228](https://bugs.launchpad.net/juju/+bug/1830228))
 - Updated controller api addresses lost when k8s unit process restarts ([LP2037478](https://bugs.launchpad.net/juju/+bug/2037478))
@@ -496,20 +490,20 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 
 
-### :juju: **Juju 3.2.3**  - 13 Sep 2023
+### 🔸 **Juju 3.2.3**  - 13 Sep 2023
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju 3.2.2 contains pebble with regression ([LP2033094](https://bugs.launchpad.net/juju/+bug/2033094))
 - Juju 3.2 doesn't accept token login ([LP2030943](https://bugs.launchpad.net/juju/+bug/2030943))
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.2.3).
 
-### :juju:  **Juju 3.2.2** - 21 Aug 2023
+### 🔸  **Juju 3.2.2** - 21 Aug 2023
 
 Fixes several major bugs in 3.2.2 -- **2 Critical** / 4 High / 2 Medium
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - juju 3.2 proxy settings not set for lxd/lxc ([LP2025138](https://bugs.launchpad.net/bugs/2025138))
 - juju 3.2 admin can't modify model permissions unless it is an admin of the model ([LP2028939](https://bugs.launchpad.net/bugs/2028939))
@@ -518,12 +512,12 @@ Fixes several major bugs in 3.2.2 -- **2 Critical** / 4 High / 2 Medium
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.2.2).
 
-### :juju:  **Juju 3.2.0** - 26 May 2023
+### 🔸  **Juju 3.2.0** - 26 May 2023
 
 
 Now secrets can be shared accross models. New support for Lunar Lobster. This new version contains the first piece of code targetting the replacement of Mongo by dqlite. Additional bug fixes and quality of life improvements.
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - All watcher missing model data ([LP1939341](https://bugs.launchpad.net/bugs/1939341))
 - Panic when deploying bundle from file ([LP2017681](https://bugs.launchpad.net/bugs/2017681))
@@ -533,7 +527,7 @@ Now secrets can be shared accross models. New support for Lunar Lobster. This ne
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.2.0).
 
 
-## :juju: **Juju 3.1**
+## ⭐ **Juju 3.1**
 
 ```{caution}
 
@@ -541,9 +535,9 @@ Juju 3.1 series is EOL
 
 ```
 
-### :juju: **Juju 3.1.10** - 24 September 2024
+### 🔸 **Juju 3.1.10** - 24 September 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix [CVE-2024-7558](https://github.com/juju/juju/security/advisories/GHSA-mh98-763h-m9v4)
 - Fix [CVE-2024-8037](https://github.com/juju/juju/security/advisories/GHSA-8v4w-f4r9-7h6x)
@@ -551,17 +545,17 @@ Juju 3.1 series is EOL
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.1.10).
 
-### :juju: **Juju 3.1.9**  - 26 July 2024
+### 🔸 **Juju 3.1.9**  - 26 July 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix [CVE-2024-6984](https://www.cve.org/CVERecord?id=CVE-2024-6984)
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.1.9).
 
-### :juju: **Juju 3.1.8**  - 12 April 2024
+### 🔸 **Juju 3.1.8**  - 12 April 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix pebble [CVE-2024-3250](https://github.com/canonical/pebble/security/advisories/GHSA-4685-2x5r-65pj)
 - Growth of file descriptors on the juju controller [LP2052634](https://bugs.launchpad.net/juju/+bug/2052634)
@@ -574,9 +568,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 
 
-### :juju: **Juju 3.1.7** - 3 Jan 2024
+### 🔸 **Juju 3.1.7** - 3 Jan 2024
 
-:hammer_and_wrench: Fixes **3 Critical / 15 High and more** :
+🛠️ Fixes **3 Critical / 15 High and more** :
 
 - panic: malformed yaml of manual-cloud causes bootstrap failure ([LP2039322](https://bugs.launchpad.net/bugs/2039322))
 - panic: bootstrap failure on vsphere (not repeatable) ([LP2040656](https://bugs.launchpad.net/bugs/2040656))
@@ -584,9 +578,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.1.6).
 
-### :juju: **Juju 3.1.6** - 5 Oct 2023
+### 🔸 **Juju 3.1.6** - 5 Oct 2023
 
-:hammer_and_wrench: Fixes **1 Critical / 14 High and more** :
+🛠️ Fixes **1 Critical / 14 High and more** :
 
 - Juju refresh from ch -> local charm fails with: unknown option "trust" ([LP2034707](https://bugs.launchpad.net/bugs/2017157))
 - juju storage mounting itself over itself ([LP1830228](https://bugs.launchpad.net/bugs/1830228))
@@ -596,11 +590,11 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.1.6).
 
-### :juju: **Juju 3.1.5** - 27 June 2023
+### 🔸 **Juju 3.1.5** - 27 June 2023
 
 Fixes several major bugs in 3.1.5 **1 Critical / 6 High**
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Migrating from 2.9 to 3.1 fails ([LP2023756](https://bugs.launchpad.net/bugs/2023756))
 - Bootstrap on LXD panics if server is unreachable ([LP2024376](https://bugs.launchpad.net/bugs/2024376))
@@ -612,11 +606,11 @@ Fixes several major bugs in 3.1.5 **1 Critical / 6 High**
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.1.5).
 
-### :juju: **Juju 3.1.2**  - 18 April 2023
+### 🔸 **Juju 3.1.2**  - 18 April 2023
 
 Fixes several major bugs in 3.1.2. **4 Critical / 14 High**
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - target controller complains if a sidecar app was migrated due to statefulset apply conflicts ([LP2008744](https://bugs.launchpad.net/bugs/2008744))
 - migrated sidecar units continue to talk to an old controller after migrate ([LP2008756](https://bugs.launchpad.net/bugs/2008756))
@@ -625,7 +619,7 @@ Fixes several major bugs in 3.1.2. **4 Critical / 14 High**
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.1.2).
 
-### :juju: **Juju 3.1.0** - 6 February 2023
+### 🔸 **Juju 3.1.0** - 6 February 2023
 
 Juju 3.1 includes quality of life improvements, removal of charmstore support, introduction of secret backends (Vault and Kubernetes), [open-port support for Kubernetes sidecar charms](https://github.com/juju/juju/pull/14975), introduction of --base CLI argument, [support for multi-homing on OpenStack](https://github.com/juju/juju/pull/14848) and [Bootstrap to LXD VM](https://github.com/juju/juju/pull/15004).
 
@@ -637,7 +631,7 @@ Bug fixes include:
 
 
 
-## :juju: **Juju 3.0**
+## ⭐ **Juju 3.0**
 
 ```{caution}
 
@@ -646,11 +640,11 @@ Juju 3.0 series is EOL
 ```
 
 
-### :juju:  **Juju 3.0.3** - 15 Feb 2023
+### 🔸  **Juju 3.0.3** - 15 Feb 2023
 
 This is primarily a bug fix release.
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Charm upgrade series hook uses base instead of series ([LP2003858](https://bugs.launchpad.net/bugs/2003858))
 - Can't switch from edge channel to stable channel ([LP1988587](https://bugs.launchpad.net/bugs/1988587))
@@ -662,12 +656,12 @@ This is primarily a bug fix release.
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.0.3).
 
 
-### :juju:  **Juju 3.0.2** - 1 Dec 2022
+### 🔸  **Juju 3.0.2** - 1 Dec 2022
 
 
 The main fixes in this release are below. Two bootstrap issues are fix: one on k8s and the other on arm64, plus an intermittent situation where container creation can fail. There's also a dashboard fix.
 
-:hammer_and_wrench: Fixes (more on the milestone):
+🛠️ Fixes (more on the milestone):
 
 - Provisioner worker pool errors cause on-machine provisioning to cease ([LP#1994488](https://bugs.launchpad.net/bugs/1994488))
 - charm container crashes resulting in storage-attach hook error ([LP#1993309](https://bugs.launchpad.net/bugs/1993309))
@@ -675,7 +669,7 @@ The main fixes in this release are below. Two bootstrap issues are fix: one on k
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/3.0.2).
 
-### :juju:  **Juju 3.0.0** - 22 Oct 2022
+### 🔸  **Juju 3.0.0** - 22 Oct 2022
 
 #### What's Changed
 
@@ -821,7 +815,7 @@ The controller model has a Juju controller application deployed at bootstrap. Th
 ##### MongoDB server-side transactions now default
 Since the move to mongo 4.4 in juju 2.9, juju now uses server-side transactions.
 
-#### Fixes :hammer_and_wrench:
+#### Fixes 🛠️
 
 - deploy k8s charms to juju 3.0 beta is broken ([LP1947105](https://bugs.launchpad.net/bugs/1947105))
 - Juju bootstrap failing with various Kubernetes ([LP1905320](https://bugs.launchpad.net/bugs/1905320))
@@ -833,15 +827,15 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 
 
-## :juju: **Juju 2.9**
+## ⭐ **Juju 2.9**
 > Currently in Security Fix Only support
 >
 >  April 2028: expected end of security fix support
 
 
-### :juju: **Juju 2.9.51** - 30 August 2024
+### 🔸 **Juju 2.9.51** - 30 August 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix [CVE-2024-7558](https://github.com/juju/juju/security/advisories/GHSA-mh98-763h-m9v4)
 - Fix [CVE-2024-8037](https://github.com/juju/juju/security/advisories/GHSA-8v4w-f4r9-7h6x)
@@ -850,35 +844,35 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.51).
 
 
-### :juju: **Juju 2.9.50**  - 25 July 2024
+### 🔸 **Juju 2.9.50**  - 25 July 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix [CVE-2024-6984](https://www.cve.org/CVERecord?id=CVE-2024-6984)
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.50).
 
 
-### :juju: **Juju 2.9.49**  - 8 April 2024
+### 🔸 **Juju 2.9.49**  - 8 April 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Fix pebble [CVE-2024-3250](https://github.com/canonical/pebble/security/advisories/GHSA-4685-2x5r-65pj)
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.49).
 
-### :juju: **Juju 2.9.47** - 18 March 2024
+### 🔸 **Juju 2.9.47** - 18 March 2024
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - model config num-provision-workers can lockup a controller ([LP2053216](https://bugs.launchpad.net/bugs/2053216))
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.47).
 
 
-### :juju: **Juju 2.9.46** - 5 Dec 2023
+### 🔸 **Juju 2.9.46** - 5 Dec 2023
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - juju refresh to revision is ignored w/ charmhub ([LP1988556](https://bugs.launchpad.net/bugs/1988556))
 - updated controller api addresses lost when k8s unit process restarts ([LP2037478](https://bugs.launchpad.net/bugs/2037478))
@@ -887,9 +881,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.46).
 
-### :juju: **Juju 2.9.45** - 27 Sep 2023
+### 🔸 **Juju 2.9.45** - 27 Sep 2023
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - panic: charm nil pointer dereference ([LP2034707](https://bugs.launchpad.net/juju/+bug/2034707))
 - juju storage mounting itself over itself ([LP1830228](https://bugs.launchpad.net/juju/+bug/1830228))
@@ -898,11 +892,11 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.45).
 
-### :juju: **Juju 2.9.44**  - 20 July 2023
+### 🔸 **Juju 2.9.44**  - 20 July 2023
 
 Fixes several major bugs in 2.9.44 **6 High** / 1 Medium
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Unit is stuck in unknown/lost status when scaling down [(LP1977582)](https://bugs.launchpad.net/bugs/1977582)
 - failed to migrate binaries: charm local:focal/ubuntu-8 unexpectedly assigned local:focal/ubuntu-7 [(LP1983506)](https://bugs.launchpad.net/bugs/1983506)
@@ -914,11 +908,11 @@ Fixes several major bugs in 2.9.44 **6 High** / 1 Medium
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.44).
 
-### :juju: **Juju 2.9.43** - 13 June 2023
+### 🔸 **Juju 2.9.43** - 13 June 2023
 
 Fixes several major bugs in 2.9.43 **5 Critical / 10 High**
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Containers are killed before any 'on stop/remove' handlers have a chance to run ([LP1951415](https://bugs.launchpad.net/juju/+bug/1951415))
 -  the target controller keeps complaining if a sidecar app was migrated due to statefulset apply conflicts in provisioner worker ([LP2008744](https://bugs.launchpad.net/juju/+bug/2008744))
@@ -926,11 +920,11 @@ Fixes several major bugs in 2.9.43 **5 Critical / 10 High**
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.43).
 
-### :juju: **Juju 2.9.42**  - 7 March 2023
+### 🔸 **Juju 2.9.42**  - 7 March 2023
 
 Fixes several major bugs in 2.9.42.
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju forces specifying series on metadata.yaml ([LP1992833](https://bugs.launchpad.net/juju/+bug/1992833))
 - LXD unit binding to incorrect MAAS space with no subnets crashes with error ([LP1994124](https://bugs.launchpad.net/juju/+bug/1994124))
@@ -940,33 +934,33 @@ Fixes several major bugs in 2.9.42.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.42).
 
-### :juju: **Juju 2.9.38**  - 17 January 2023
+### 🔸 **Juju 2.9.38**  - 17 January 2023
 
 This release fixes some critical issues ending in panic and a some problems regarding the usage of lxd 5.x.
 
 The main fixes in this release are below.
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 - Juju panics when trying to add-k8s with no obvious storage to use ([LP#1996808](https://bugs.launchpad.net/bugs/1996808))
 - Panic after agent-logfile-max-backups-changed ([LP#2001732](https://bugs.launchpad.net/bugs/2001732))
 - Failing to deploy lxd containers with lxd latest/stable as lxd version 5.x is promoted to latest/stable ([LP#2002309](https://bugs.launchpad.net/bugs/2002309))
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.38).
 
-### :juju: **Juju 2.9.37** - 15 Nov 2022
+### 🔸 **Juju 2.9.37** - 15 Nov 2022
 
 The main fixes in this release are below. A startup issue on k8s is fixed, plus an intermittent situation where container creation can fail.
 
-:hammer_and_wrench: Fixes (more on the milestone):
+🛠️ Fixes (more on the milestone):
 
 - Provisioner worker pool errors cause on-machine provisioning to cease ([LP#1994488](https://bugs.launchpad.net/bugs/1994488))
 - charm container crashes resulting in storage-attach hook error ([LP#1993309](https://bugs.launchpad.net/bugs/1993309))
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.37).
 
-### :juju: **Juju 2.9.35** - 12 Oct 2022
+### 🔸 **Juju 2.9.35** - 12 Oct 2022
 
-:hammer_and_wrench: Fixes (more on the milestone):
+🛠️ Fixes (more on the milestone):
 
 - juju series inconsistency deploying by charm vs bundle ([LP1983581](https://bugs.launchpad.net/juju/+bug/1983581))
 - Azure provider: New region 'qatarcentral' ([LP1988511](https://bugs.launchpad.net/juju/+bug/1988511))
@@ -976,9 +970,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.35).
 
-### :juju: **Juju 2.9.34** - 7 Sep 2022
+### 🔸 **Juju 2.9.34** - 7 Sep 2022
 
-:hammer_and_wrench: Fixes (more on the milestone):
+🛠️ Fixes (more on the milestone):
 
 - cloudinit-userdata doesn't handle lists in runcmd ([LP1759398](https://bugs.launchpad.net/bugs/1759398))
 - juju doesn't remove KVM virtual machines on maas nodes when using `juju remove-unit` ([LP1982960](https://bugs.launchpad.net/bugs/1982960))
@@ -988,9 +982,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.34).
 
-### :juju: **Juju 2.9.33** - 9 Aug 2022
+### 🔸 **Juju 2.9.33** - 9 Aug 2022
 
-:hammer_and_wrench: Fixes (many more on the milestone):
+🛠️ Fixes (many more on the milestone):
 
 - lxd profiles not being applied ([LP](https://bugs.launchpad.net/bugs/1982329))
 - remove a unit with lxd profile doesn't update ([LP](https://bugs.launchpad.net/bugs/1982599))
@@ -1001,9 +995,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.33).
 
-### :juju: **Juju 2.9.32** - 24 June 2022
+### 🔸 **Juju 2.9.32** - 24 June 2022
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju 2.9.31 breaks yaml format accepted by `juju add-credential`([LP](https://bugs.launchpad.net/bugs/1976620))
 - azure failed provisioning: conflict with a concurrent request([LP](https://bugs.launchpad.net/bugs/1973829))
@@ -1013,9 +1007,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.32).
 
-### :juju: **Juju 2.9.31** - 31 May 2022
+### 🔸 **Juju 2.9.31** - 31 May 2022
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - juju controller doesn't reference juju-https-proxy when deploying from charmhub ([LP](https://bugs.launchpad.net/bugs/1973738))
 - sidecar application caasapplicationprovisioner worker restarts due to status set failed ([LP](https://bugs.launchpad.net/bugs/1975457))
@@ -1026,9 +1020,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.31).
 
-### :juju: **Juju 2.9.29** - 30 Apr 2022
+### 🔸 **Juju 2.9.29** - 30 Apr 2022
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Controller bootstrap fails on local LXD with "Certificate not found"([LP](https://bugs.launchpad.net/bugs/1968849))
 - Juju unable to add a k8s 1.24 k8s cloud([LP](https://bugs.launchpad.net/bugs/1969645))
@@ -1037,9 +1031,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.29).
 
-### :juju: **Juju 2.9.28** - 08 Apr 2022
+### 🔸 **Juju 2.9.28** - 08 Apr 2022
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju renders invalid netplan YAML for nameservers in IPv4/IPv6 dual-stack environment ([LP](https://bugs.launchpad.net/bugs/1883701))
 - juju 2.9.27 glibc errors([LP](https://bugs.launchpad.net/bugs/1967136))
@@ -1047,11 +1041,11 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.28).
 
-### :juju: **Juju 2.9.27** - 21 Mar 2022
+### 🔸 **Juju 2.9.27** - 21 Mar 2022
 
 Candidate release:  18 Mar 2022
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - juju client panics during bootstrap on a k8s cloud ([LP1964533](https://bugs.launchpad.net/bugs/1964533))
 - Controller upgrade ends up with locked upgrade ([LP1942447](https://bugs.launchpad.net/bugs/1942447))
@@ -1059,11 +1053,11 @@ Candidate release:  18 Mar 2022
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.27).
 
-### :juju: **Juju 2.9.26**  - 12 Mar 2022
+### 🔸 **Juju 2.9.26**  - 12 Mar 2022
 
 This release includes a fix for broken upgrades coming from a deployment with cross model relations to multiple offers hosted on an external controller ([LP1964130](https://bugs.launchpad.net/bugs/1964130)).
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - 2.9.25 Upgrade Fails for Cross-Controller CMRs([LP1964130](https://bugs.launchpad.net/bugs/1964130))
 - Unauthorized for K8s API during charm removal([LP1941655](https://bugs.launchpad.net/bugs/1941655))
@@ -1077,12 +1071,12 @@ This release includes a fix for broken upgrades coming from a deployment with cr
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.26).
 
 
-### :juju: **Juju 2.9.25**  - 24 Feb 2022
+### 🔸 **Juju 2.9.25**  - 24 Feb 2022
 
 This release is significant because it transitions to using the juju-db snap from the `4.4/stable` channel (running mongodb 4.4.11 at the time of writing) for newly bootstrapped controllers. NB the juu-db snap is not used if the default series is changed from `focal` to an earlier vrsion.
 Existing controllers which are upgraded to this release will not change the mongo currently in use.
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 - Juju trust not working for K8s charm([LP](https://bugs.launchpad.net/bugs/1957619))
 - cannot migration nor upgrade without manual intervention for a machine after a container is removed- ([LP1960235 ](https://bugs.launchpad.net/bugs/1960235))
   - On machines exhibiting the above behavior, the agents will show as lost during the upgrade, you must kill the jujud process on the machine.  This allow it to be restarted and continue the upgrade.
@@ -1096,9 +1090,9 @@ Existing controllers which are upgraded to this release will not change the mong
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.25).
 
-### :juju: **Juju 2.9.22**  - 13 Dec 2021
+### 🔸 **Juju 2.9.22**  - 13 Dec 2021
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju 2.9.9 fails to bootstrap on AWS ([LP](https://bugs.launchpad.net/bugs/1938019))
 - controller migration is very hard when dealing with large deployments ([LP](https://bugs.launchpad.net/bugs/1918680))
@@ -1109,9 +1103,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.22).
 
-### :juju: **Juju 2.9.21**  - 3 Dec 2021
+### 🔸 **Juju 2.9.21**  - 3 Dec 2021
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - juju enable-ha fails to cluster on 2.9.18 manual machines ([LP](https://bugs.launchpad.net/bugs/1951813))
 - juju storage events are missing JUJU_STORAGE_ID ([LP](https://bugs.launchpad.net/bugs/1948228))
@@ -1120,9 +1114,9 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.21).
 
-### :juju: **Juju 2.9.19**  - 23 Nov 2021
+### 🔸 **Juju 2.9.19**  - 23 Nov 2021
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - controller models with valid credentials becoming suspended ([LP](https://bugs.launchpad.net/bugs/1841880))
 - FIP created in incorrect AZ for instance when bootstrapped against OpenStack. ([LP](https://bugs.launchpad.net/bugs/1928979))
@@ -1131,11 +1125,11 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.19).
 
-### :juju: **Juju 2.8.13**  - 11 Nov 2021
+### 🔸 **Juju 2.8.13**  - 11 Nov 2021
 
 This release fixes various issues with Juju **2.8**
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju ~~2.9.9~~ fails to bootstrap on AWS ([LP](https://bugs.launchpad.net/bugs/1938019))
 - controller migration is very hard when dealing with large deployments ([LP](https://bugs.launchpad.net/bugs/1918680))
@@ -1146,21 +1140,21 @@ This release fixes various issues with Juju **2.8**
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.8.13).
 
-### :juju: **Juju 2.9.18** - 8 Nov 2021
+### 🔸 **Juju 2.9.18** - 8 Nov 2021
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 - agent cannot be up on LXD/Fan network on OpenStack OVN/geneve mtu=1442 ([LP1936842](https://bugs.launchpad.net/bugs/1936842))
 - no way to declare a k8s charm with metadata v2 that doesn't need a workload container ([LP1928991](https://bugs.launchpad.net/bugs/1928991))
 - Method to run an action in a workload container in sidecar charms ([LP1923822](https://bugs.launchpad.net/bugs/1923822) )
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.18).
 
-### :juju: **Juju 2.9.17** - 27 Oct 2021
+### 🔸 **Juju 2.9.17** - 27 Oct 2021
 
 This release introduces [telemetry](https://discourse.charmhub.io/t/telemetry-and-juju/5188) as a configurable option per model.
 It also supports [more OCI image registry providers](https://discourse.charmhub.io/t/initial-private-registry-support/5079) for pulling images used for CAAS models.
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 - Leader role not transferred when the inital leader goes offline ([LP](https://bugs.launchpad.net/bugs/1947409))
 - if the primary node of an HA config goes down, the controller stops responding ([LP](https://bugs.launchpad.net/bugs/1947179))
 - Trust permissions not ready on install hook in sidecar charms ([LP](https://bugs.launchpad.net/bugs/1942792))
@@ -1168,9 +1162,9 @@ It also supports [more OCI image registry providers](https://discourse.charmhub.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.17).
 
-### :juju: **Juju 2.9.16** - 11 Oct 2021
+### 🔸 **Juju 2.9.16** - 11 Oct 2021
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Unable to deploy workloads to lxd cloud added to k8s controller ([LP](https://bugs.launchpad.net/bugs/1943265))
 - memory usage leading to OOMs on controllers
@@ -1179,12 +1173,12 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.16).
 
-### :juju: **Juju 2.9.15** - 28 Sept 2021
+### 🔸 **Juju 2.9.15** - 28 Sept 2021
 
 This release improves the robustness of repeated cross model relation setup / teardown.
 There's also some improvements to how raft is used internally to manage leases.
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - ceph mon does not render data to ceph-rados after redployment of ceph-radosgw only ([LP](https://bugs.launchpad.net/bugs/1940983))
 - Unable to remove offers when 2 endpoints are offered with the same application ([LP](https://bugs.launchpad.net/bugs/1873472))
@@ -1193,12 +1187,12 @@ There's also some improvements to how raft is used internally to manage leases.
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.15).
 
-### :juju: **Juju 2.9.14** - 14 Sept 2021
+### 🔸 **Juju 2.9.14** - 14 Sept 2021
 
 This release fixes an upgrade issue found during testing of the 2.9.13 release.
 There's also an additional fix for an earlier regression deploying LXD containers on AWS.
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju fails to provision LXD containers with LXD >= 4.18 ([LP](https://bugs.launchpad.net/bugs/1942864))
 - Juju is unable to match machine address CIDRs to subnet CIDRs on Equinix Metal clouds ([LP](https://bugs.launchpad.net/bugs/1942241))
@@ -1207,19 +1201,19 @@ There's also an additional fix for an earlier regression deploying LXD container
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.14).
 
-### :juju: **Juju 2.9.13** - Release cancelled, replaced by 2.9.14
+### 🔸 **Juju 2.9.13** - Release cancelled, replaced by 2.9.14
 
 This release adds support for pulling images used for CAAS models from private OCI registries! This means you can host your own `jujud-operator`, `charm-base` and `juju-db` images. This initial release focuses on private registries on Dockerhub, with other public cloud registry support coming in a future release. More details in [this post](https://discourse.charmhub.io/t/initial-private-registry-support/5079).
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju fails to provision LXD containers with LXD >= 4.18 ([LP](https://bugs.launchpad.net/bugs/1942864))
 - Juju is unable to match machine address CIDRs to subnet CIDRs on Equinix Metal clouds ([LP](https://bugs.launchpad.net/bugs/1942241))
 - Non POSIX-compatible script used in `/etc/profile.d/juju-introspection.sh` ([LP](https://bugs.launchpad.net/bugs/1942430))
 
-### :juju: **Juju 2.9.12** - 30 Aug 2021
+### 🔸 **Juju 2.9.12** - 30 Aug 2021
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Cross-model relations broken for CAAS ([LP](https://bugs.launchpad.net/bugs/1940298))
 - Boot failure when `model-config` sets `snap-proxy` ([LP](https://bugs.launchpad.net/bugs/1940445))
@@ -1228,9 +1222,9 @@ This release adds support for pulling images used for CAAS models from private O
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.12).
 
-### :juju: **Juju 2.9.11** - 17 Aug 2021
+### 🔸 **Juju 2.9.11** - 17 Aug 2021
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Resource downloads are very slow in some cases ([LP](https://bugs.launchpad.net/juju/+bug/1905703))
 - Upgrading the mongodb snap causes controller to hang without restarting mongod ([LP](https://bugs.launchpad.net/juju/+bug/1922789))
@@ -1238,7 +1232,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.11).
 
-### :juju: **Juju 2.9.10** - 03 Aug 2021
+### 🔸 **Juju 2.9.10** - 03 Aug 2021
 
 A new logging label: `charmhub`. To enable debugging information about Charmhub, you can now use the following:
 
@@ -1246,7 +1240,7 @@ A new logging label: `charmhub`. To enable debugging information about Charmhub,
 juju model-config -m controller "logging-config='#charmhub=TRACE'"
 ```
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Unable to `upgrade-charm` a pod_spec charm to sidecar charm ([LP](https://bugs.launchpad.net/bugs/1928778))
 - OOM and high load upgrading to 2.9.7 ([LP](https://bugs.launchpad.net/bugs/1936684))
@@ -1256,9 +1250,9 @@ juju model-config -m controller "logging-config='#charmhub=TRACE'"
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.10).
 
-### :juju: **Juju 2.9.9** - 19 Jul 2021
+### 🔸 **Juju 2.9.9** - 19 Jul 2021
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju 2.9.8 tries to use an empty UID when deleting Kubernetes objects, and cannot remove applications ([LP](https://bugs.launchpad.net/bugs/1936262))
 - The `juju-log` output going to machine log file instead of unit log file in Juju 2.9.5 ([LP](https://bugs.launchpad.net/bugs/1933548))
@@ -1267,7 +1261,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.9).
 
-### :juju: **Juju 2.9.8** - 13 Jul 2021
+### 🔸 **Juju 2.9.8** - 13 Jul 2021
 
 This release introduces support for bootstrapping and deploying workloads to **[Equinix](https://www.equinix.com) cloud**. To try out the new provider:
 
@@ -1288,7 +1282,7 @@ juju model-config "logging-config='#http=TRACE'"
 
 The above will turn on HTTP loggers to trace. This is a new UX feature to help with debugging, it's not been full worked through Juju yet and might be subject to change.
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju fails to deploy mysql-k8s charm with its image resource ([LP](https://bugs.launchpad.net/bugs/1934416))
 - Juju 2.9 failing to create ClusterRoleBinding ([LP](https://bugs.launchpad.net/bugs/1934180))
@@ -1296,9 +1290,9 @@ The above will turn on HTTP loggers to trace. This is a new UX feature to help w
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.8).
 
-### :juju: **Juju 2.9.7** - 06 Jul 2021
+### 🔸 **Juju 2.9.7** - 06 Jul 2021
 
-:hammer_and_wrench: Fixes:
+🛠️ Fixes:
 
 - Juju upgrade 2.9 controller from local branch fails with wrong namespace. ([LP](https://bugs.launchpad.net/bugs/1930798))
 - Unit network data not populated on peer relations in sidecar charms ([LP](https://bugs.launchpad.net/bugs/1922133))
@@ -1318,25 +1312,25 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 
 See the full list in the [milestone page](https://launchpad.net/juju/+milestone/2.9.7).
 
-### :juju: **Juju 2.9.5**
+### 🔸 **Juju 2.9.5**
 Release notes [here](https://discourse.charmhub.io/t/juju-2-9-5-release-notes/4750).
 
-### :juju: **Juju 2.9.4**
+### 🔸 **Juju 2.9.4**
 Release notes [here](https://discourse.charmhub.io/t/juju-2-9-4-release-notes/4660).
 
-### :juju: **Juju 2.9.3**
+### 🔸 **Juju 2.9.3**
 Release notes [here](https://discourse.charmhub.io/t/juju-2-9-3-release-notes/4628).
 
-### :juju: **Juju 2.9.2**
+### 🔸 **Juju 2.9.2**
 Release notes [here](https://discourse.charmhub.io/t/juju-2-9-2-release-notes/4605).
 
-### :juju: **Juju 2.9.0**
+### 🔸 **Juju 2.9.0**
 Release notes [here](https://discourse.charmhub.io/t/juju-2-9-0-release-notes/4525).
 
 
-## :juju: **Before Juju 2.9 (all EOL)**
+## **Before Juju 2.9 (all EOL)**
 
-### :juju: **Juju 2.8**
+### 🔸 **Juju 2.8**
 
 
 ```{caution}
@@ -1359,7 +1353,7 @@ Juju 2.8 series is EOL
 
 
 
-### :juju: **Juju 2.7**
+### 🔸 **Juju 2.7**
 
 
 ```{caution}
@@ -1378,7 +1372,7 @@ Juju 2.7 series is EOL
 - [2.7.0](https://discourse.jujucharms.com/t/juju-2-7-release-notes/2380)
 
 
-### :juju: **Juju 2.6**
+### 🔸 **Juju 2.6**
 
 
 ```{caution}
@@ -1397,7 +1391,7 @@ Juju 2.6 series is EOL
 - [2.6.1](https://discourse.jujucharms.com/t/juju-2-6-1-release-notes/1473)
 
 
-### :juju: **Juju 2.5**
+### 🔸 **Juju 2.5**
 
 
 ```{caution}
@@ -1414,7 +1408,7 @@ Juju 2.5 series is EOL
 - [2.5.0](https://discourse.jujucharms.com/t/2-5-0-release-notes/1177)
 
 
-### :juju: **Juju 2.4**
+### 🔸 **Juju 2.4**
 
 
 ```{caution}
