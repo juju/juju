@@ -45,7 +45,7 @@ model-config --logging-config
 
 ### Stream the logs
 
-To stream the logs in the current model, run the `debug-log` command:
+To stream the logs in the current model (including agent logs and logs from charm code that uses the Python [`logging`](https://docs.python.org/3/library/logging.html) module), run the `debug-log` command:
 
 ```text
 juju debug-log
