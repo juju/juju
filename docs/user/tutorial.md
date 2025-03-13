@@ -621,7 +621,7 @@ Congratulations, you now have a functional observability setup! But your control
 
 
 
-> See more: [Manage controllers > Collect metrics about a controller](collect-metrics-about-a-controller)
+> See more: {ref}`collect-metrics-about-a-controller`
 
 
 ## Tear down your test environment
