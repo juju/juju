@@ -2,6 +2,12 @@
 # How to manage logs
 
 > See also: {ref}`log`
+
+```{tip}
+
+For an integrated solution consider [the Loki charm](https://charmhub.io/loki-k8s).
+```
+
 <!--
 Make sure to also cover
 
@@ -56,9 +62,6 @@ In a machine deployment, this will output logs for all the Juju machine and unit
 ```text
 <entity (machine or unit)> <timestamp> <log level> <Juju module> <message>
 ```
-
-In Kubernetes deployments, this will not show any logs below the model level.
-
 
 The command has various options that allow you to control the length, appearance, amount and type of detail.
 
@@ -120,6 +123,57 @@ Juju logging is hierarchical and can be granular.
 #### module
 These are modules of the juju code base. See advanced filtering for more information.
 -->
+
+````{dropdown} Tips for Kubernetes
+View logs from the charm and workload containers with `kubectl logs`:
+
+```text
+# Get logs from the charm container
+kubectl -n <model name> logs pods/prometheus-0 -c charm
+
+# Get logs from the workload container
+kubectl -n <model name> logs pods/prometheus-0 -c prometheus
+```
+
+> See more: [Kubernetes | `kubectl logs`](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_logs/)
+
+View logs from a particular Pebble service with `pebble logs`:
+
+```text
+juju ssh --container prometheus prometheus/0 \
+  /charm/bin/pebble logs prometheus
+```
+
+> See more: [Pebble | `pebble logs`](https://documentation.ubuntu.com/pebble/reference/cli-commands/#reference-pebble-logs-command)
+
+View logs for a Pebble service that failed to start with `pebble services` and `pebble tasks`:
+
+```text
+# get the ID of the failed change with pebble services:
+$ juju ssh --container prometheus prometheus/0 /charm/bin/pebble changes
+ID   Status  Spawn                   Ready                   Summary
+30   Error   yesterday at 21:31 UTC  yesterday at 21:31 UTC  Replan service "prometheus"
+31   Done    yesterday at 21:38 UTC  yesterday at 21:38 UTC  Execute command "/usr/bin/promtool"
+32   Done    yesterday at 21:38 UTC  yesterday at 21:38 UTC  Replan service "prometheus"
+
+# query for the logs with pebble tasks:
+$ juju ssh --container prometheus prometheus/0 /charm/bin/pebble tasks 30
+Status  Spawn                   Ready                   Summary
+Error   yesterday at 21:31 UTC  yesterday at 21:31 UTC  Start service "prometheus"
+
+......................................................................
+Start service "prometheus"
+
+2023-03-07T21:31:39Z INFO Most recent service output:
+    (...)
+    ts=2023-03-07T21:31:39.309Z caller=web.go:561 level=info component=web msg="Start listening for connections" address=0.0.0.0:9090
+    ts=2023-03-07T21:31:39.309Z caller=main.go:807 level=error msg="Unable to start web listener" err="listen tcp 0.0.0.0:9090: bind: address already in use"
+2023-03-07T21:31:39Z ERROR cannot start service: exited quickly with code 1
+```
+
+> See more: [Pebble | `pebble services`](https://documentation.ubuntu.com/pebble/reference/cli-commands/#reference-pebble-services-command), [Pebble | `pebble tasks`](https://documentation.ubuntu.com/pebble/reference/cli-commands/#reference-pebble-tasks-command)
+
+````
 
 
 ### Configure the logging level
@@ -272,9 +326,9 @@ To view the Juju log files in a Juju machine:
 juju ssh 0
 ```
 
-(1b)  IfJuju can connect to the machine (i.e., the output contains `Connected to <IP address>`) but the machine is not fully provisioned (e.g., command hangs at `Running machine configuration script...`), use the `ssh` command followed by the address of the machine and the path to the place where Juju stores your SSH keys (including the ones it generates automatically for you):
+(1b)  If Juju can connect to the machine (i.e., the output contains `Connected to <IP address>`) but the machine is not fully provisioned (e.g., command hangs at `Running machine configuration script...`), use the `ssh` command followed by the address of the machine and the path to the place where Juju stores your SSH keys (including the ones it generates automatically for you):
 
-```
+```text
 ssh ubuntu@<ip-address> -i <juju-data-dir>/ssh/juju_id_rsa
 
 ```

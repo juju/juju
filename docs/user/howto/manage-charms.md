@@ -270,7 +270,10 @@ juju deploy mariadb-k8s --to kubernetes.io/hostname=somehost
 
 To debug a charm:
 
-- Carefully review `juju status`. If a charm is in `blocked` state, there might be a message about steps to unblock.
+- Carefully review `juju status` (if there are relations: `juju status --relations`). If a charm is in `blocked` state, there might be a message about steps to unblock.
+
+> See more: {ref}`command-juju-status`
+
 - Examine the Juju agent and the charm logs.
 
 > See more: {ref}`manage-logs`
@@ -278,6 +281,49 @@ To debug a charm:
 - Take a closer look at the application and its units.
 
 > See more: {ref}`view-details-about-an-application`, {ref}`view-details-about-a-unit`
+
+- (For a Kubernetes charm with a workload:) SSH into the workload container and view the Pebble plan.
+
+````{dropdown} Example
+
+```text
+$ juju ssh --container concourse-worker concourse-worker/0
+# /charm/bin/pebble plan
+services:
+    concourse-worker:
+        summary: concourse worker node
+        startup: enabled
+        override: replace
+        command: /usr/local/bin/entrypoint.sh worker
+        environment:
+            CONCOURSE_BAGGAGECLAIM_DRIVER: overlay
+            CONCOURSE_TSA_HOST: 10.1.234.43:2222
+            CONCOURSE_TSA_PUBLIC_KEY: /concourse-keys/tsa_host_key.pub
+            CONCOURSE_TSA_WORKER_PRIVATE_KEY: /concourse-keys/worker_key
+            CONCOURSE_WORK_DIR: /opt/concourse/worker
+```
+
+In some cases, your workload container might not allow you to run things in it, if, for instance, it’s based on a “scratch” image. To get around this, you can run the same command from your charm container with a small modification to point to the correct location for the pebble socket.
+
+```text
+$ juju ssh concourse-worker/0
+# PEBBLE_SOCKET=/charm/containers/concourse-worker/pebble.socket /charm/bin/pebble plan
+services:
+    concourse-worker:
+        summary: concourse worker node
+        startup: enabled
+        override: replace
+        command: /usr/local/bin/entrypoint.sh worker
+        environment:
+            CONCOURSE_BAGGAGECLAIM_DRIVER: overlay
+            CONCOURSE_TSA_HOST: 10.1.234.43:2222
+            CONCOURSE_TSA_PUBLIC_KEY: /concourse-keys/tsa_host_key.pub
+            CONCOURSE_TSA_WORKER_PRIVATE_KEY: /concourse-keys/worker_key
+            CONCOURSE_WORK_DIR: /opt/concourse/worker
+```
+````
+> See more: {ref}`deploying-on-a-kubernetes-cloud`, [Pebble](https://documentation.ubuntu.com/pebble/)
+
 
 - (If the charm is involved in a relation:) Take a look at the relation data:
 
