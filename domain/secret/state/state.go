@@ -1012,6 +1012,80 @@ ON CONFLICT(revision_uuid, name) DO UPDATE SET
 	return nil
 }
 
+// InitialWatchStatementForSecretMatadata returns the table name and query to use
+// for watching secret metadata changes.
+func (st State) InitialWatchStatementForSecretMatadata(
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		var ownedURIs []*coresecrets.URI
+		err := st.RunAtomic(ctx, func(ctx domain.AtomicContext) error {
+			var err error
+			ownedURIs, err = st.GetSecretsForOwners(ctx, appOwners, unitOwners)
+			return errors.Capture(err)
+		})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		ids := make([]string, len(ownedURIs))
+		for i, uri := range ownedURIs {
+			ids[i] = uri.ID
+		}
+		return ids, nil
+	}
+	return "secret_metadata", queryFunc
+}
+
+// IsSecretOwnedBy returns whether the secret with the given URI is owned by the specified apps and/or units.
+func (st State) IsSecretOwnedBy(
+	ctx context.Context,
+	uri *coresecrets.URI,
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) (bool, error) {
+	if len(appOwners) == 0 && len(unitOwners) == 0 {
+		return false, errors.New("must supply at least one app owner or unit owner")
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	query := `
+SELECT COUNT(*) AS &count.num
+FROM secret_metadata sm
+LEFT JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
+LEFT JOIN application a ON a.uuid = sao.application_uuid
+LEFT JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
+LEFT JOIN unit u ON u.uuid = suo.unit_uuid
+WHERE
+    (sao.application_uuid <> "" OR suo.unit_uuid <> "")
+AND
+    (a.name IN ($ApplicationOwners[:]) OR u.name IN ($UnitOwners[:]))
+AND 
+    sm.secret_id = $secretID.id
+`
+
+	count := count{}
+	secretID := secretID{ID: uri.ID}
+	queryStmt, err := st.Prepare(query, count, appOwners, unitOwners, secretID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, queryStmt, appOwners, unitOwners, secretID).Get(&count)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("secret %q", uri).Add(secreterrors.SecretNotFound)
+		}
+		return errors.Capture(err)
+	}); err != nil {
+		return false, errors.Capture(err)
+	}
+	st.logger.Criticalf(ctx, "IsSecretOwnedBy count: %v", count.Num)
+	return count.Num > 0, nil
+}
+
 // GetSecretsForOwners returns the secrets owned by the specified apps and/or units.
 func (st State) GetSecretsForOwners(
 	ctx domain.AtomicContext, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
