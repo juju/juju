@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
@@ -122,9 +123,9 @@ func encodeWorkloadStatusType(s status.Status) (application.WorkloadStatusType, 
 	}
 }
 
-// decodeUnitWorkloadStatusType converts a db unit workload status id to a core.
+// decodeWorkloadStatusType converts a db unit workload status id to a core.
 // Implicitly validates the status type.
-func decodeUnitWorkloadStatusType(s application.WorkloadStatusType) (status.Status, error) {
+func decodeWorkloadStatusType(s application.WorkloadStatusType) (status.Status, error) {
 	switch s {
 	case application.WorkloadStatusUnset:
 		return status.Unset, nil
@@ -305,8 +306,8 @@ func encodeWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[applica
 	}, nil
 }
 
-// decodeWorkloadStatus converts a db status info to a core status info.
-func decodeWorkloadStatus(s *application.UnitStatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
+// decodeUnitWorkloadStatus converts a db status info to a core status info.
+func decodeUnitWorkloadStatus(s *application.UnitStatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
 	if s == nil {
 		return nil, nil
 	}
@@ -322,7 +323,32 @@ func decodeWorkloadStatus(s *application.UnitStatusInfo[application.WorkloadStat
 		}, nil
 	}
 
-	decodedStatus, err := decodeUnitWorkloadStatusType(s.Status)
+	decodedStatus, err := decodeWorkloadStatusType(s.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	var data map[string]interface{}
+	if len(s.Data) > 0 {
+		if err := json.Unmarshal(s.Data, &data); err != nil {
+			return nil, errors.Errorf("unmarshalling status data: %w", err)
+		}
+	}
+
+	return &status.StatusInfo{
+		Status:  decodedStatus,
+		Message: s.Message,
+		Data:    data,
+		Since:   s.Since,
+	}, nil
+}
+
+func decodeApplicationStatus(s *application.StatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
+	if s == nil {
+		return nil, nil
+	}
+
+	decodedStatus, err := decodeWorkloadStatusType(s.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -365,16 +391,16 @@ func decodeUnitAgentWorkloadStatus(
 	return agentStatus, workloadStatus, nil
 }
 
-// reduceWorkloadStatuses reduces a list of workload statuses to a single status.
+// reduceUnitWorkloadStatuses reduces a list of workload statuses to a single status.
 // We do this by taking the highest priority status from the list.
-func reduceWorkloadStatuses(statuses []application.UnitStatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
+func reduceUnitWorkloadStatuses(statuses []application.UnitStatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
 	// By providing an unknown default, we get a reasonable answer
 	// even if there are no units.
 	result := &status.StatusInfo{
 		Status: status.Unknown,
 	}
 	for _, s := range statuses {
-		decodedStatus, err := decodeWorkloadStatus(&s)
+		decodedStatus, err := decodeUnitWorkloadStatus(&s)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -384,6 +410,18 @@ func reduceWorkloadStatuses(statuses []application.UnitStatusInfo[application.Wo
 		}
 	}
 	return result, nil
+}
+
+func decodeUnitWorkloadStatuses(statuses application.UnitWorkloadStatuses) (map[unit.Name]status.StatusInfo, error) {
+	ret := make(map[unit.Name]status.StatusInfo, len(statuses))
+	for unitName, status := range statuses {
+		info, err := decodeUnitWorkloadStatus(&status)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		ret[unitName] = *info
+	}
+	return ret, nil
 }
 
 // statusSeverities holds status values with a severity measure.
@@ -409,7 +447,7 @@ func unitDisplayStatus(
 	// unit or the container status has not been updated yet. Either way, we
 	// should use the workload status.
 	if containerStatus == nil {
-		return decodeWorkloadStatus(workloadStatus)
+		return decodeUnitWorkloadStatus(workloadStatus)
 	}
 
 	// statuses terminated, blocked and maintenance are statuses informed by the
@@ -417,7 +455,7 @@ func unitDisplayStatus(
 	if workloadStatus.Status == application.WorkloadStatusTerminated ||
 		workloadStatus.Status == application.WorkloadStatusBlocked ||
 		workloadStatus.Status == application.WorkloadStatusMaintenance {
-		return decodeWorkloadStatus(workloadStatus)
+		return decodeUnitWorkloadStatus(workloadStatus)
 	}
 
 	// NOTE: We now know implicitly that the workload status is either active,
@@ -439,7 +477,7 @@ func unitDisplayStatus(
 		}
 	}
 
-	return decodeWorkloadStatus(workloadStatus)
+	return decodeUnitWorkloadStatus(workloadStatus)
 }
 
 // applicationDisplayStatusFromUnits returns the status to display for an application

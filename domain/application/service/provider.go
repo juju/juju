@@ -330,7 +330,7 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 			}
 		}
 
-		if workloadStatus, err := decodeWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
+		if workloadStatus, err := decodeUnitWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
 			StatusInfo: *arg.WorkloadStatus,
 			Present:    true,
 		}); err == nil && workloadStatus != nil {

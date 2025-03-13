@@ -1100,10 +1100,7 @@ func (s *Service) GetApplicationStatus(ctx context.Context, appID coreapplicatio
 		return nil, errors.Errorf("application has no status")
 	}
 	if applicationStatus.Status != application.WorkloadStatusUnset {
-		return decodeWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
-			StatusInfo: *applicationStatus,
-			Present:    true,
-		})
+		return decodeApplicationStatus(applicationStatus)
 	}
 
 	// The application status is unset. However, we can still derive the status
@@ -1120,7 +1117,7 @@ func (s *Service) GetApplicationStatus(ctx context.Context, appID coreapplicatio
 		return nil, internalerrors.Capture(err)
 	}
 
-	derivedApplicationStatus, err := reduceWorkloadStatuses(slices.Collect(maps.Values(unitStatuses)))
+	derivedApplicationStatus, err := reduceUnitWorkloadStatuses(slices.Collect(maps.Values(unitStatuses)))
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
@@ -1227,10 +1224,7 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appID coreapp
 		return nil, errors.Errorf("application has no status")
 	}
 	if applicationStatus.Status != application.WorkloadStatusUnset {
-		return decodeWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
-			StatusInfo: *applicationStatus,
-			Present:    true,
-		})
+		return decodeApplicationStatus(applicationStatus)
 	}
 
 	workloadStatuses, cloudContainerStatuses, err := s.st.GetUnitWorkloadAndCloudContainerStatusesForApplication(ctx, appID)
@@ -1243,6 +1237,67 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appID coreapp
 		return nil, internalerrors.Capture(err)
 	}
 	return derivedApplicationStatus, nil
+}
+
+// GetApplicationAndUnitStatusesForUnitWithLeader returns the display status
+// of the application the specified unit belongs to, and the workload statuses
+// of all the units that belong to that application, indexed by unit name.
+// If no application is found for the unit name, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned
+func (s *Service) GetApplicationAndUnitStatusesForUnitWithLeader(
+	ctx context.Context,
+	unitName coreunit.Name,
+) (
+	*corestatus.StatusInfo,
+	map[coreunit.Name]corestatus.StatusInfo,
+	error,
+) {
+	if err := unitName.Validate(); err != nil {
+		return nil, nil, internalerrors.Errorf("unit name: %w", err)
+	}
+
+	appName := unitName.Application()
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return nil, nil, internalerrors.Errorf("getting application id: %w", err)
+	}
+
+	var applicationDisplayStatus *corestatus.StatusInfo
+	var unitWorkloadStatuses map[coreunit.Name]corestatus.StatusInfo
+	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
+		applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
+		if err != nil {
+			return internalerrors.Errorf("getting application status: %w", err)
+		}
+		workloadStatuses, cloudContainerStatuses, err := s.st.GetUnitWorkloadAndCloudContainerStatusesForApplication(ctx, appID)
+		if err != nil {
+			return internalerrors.Errorf("getting unit workload and container statuses")
+		}
+
+		unitWorkloadStatuses, err = decodeUnitWorkloadStatuses(workloadStatuses)
+		if err != nil {
+			return internalerrors.Errorf("decoding unit workload statuses: %w", err)
+		}
+
+		if applicationStatus.Status != application.WorkloadStatusUnset {
+			applicationDisplayStatus, err = decodeApplicationStatus(applicationStatus)
+			if err != nil {
+				return internalerrors.Errorf("decoding application workload status: %w", err)
+			}
+			return nil
+		}
+
+		applicationDisplayStatus, err = applicationDisplayStatusFromUnits(workloadStatuses, cloudContainerStatuses)
+		if err != nil {
+			return internalerrors.Capture(err)
+		}
+		return nil
+
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return applicationDisplayStatus, unitWorkloadStatuses, nil
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (bool, error) {

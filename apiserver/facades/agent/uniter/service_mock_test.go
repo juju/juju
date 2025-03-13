@@ -165,6 +165,46 @@ func (c *MockApplicationServiceEnsureUnitDeadCall) DoAndReturn(f func(context.Co
 	return c
 }
 
+// GetApplicationAndUnitStatusesForUnitWithLeader mocks base method.
+func (m *MockApplicationService) GetApplicationAndUnitStatusesForUnitWithLeader(arg0 context.Context, arg1 unit.Name) (*status.StatusInfo, map[unit.Name]status.StatusInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationAndUnitStatusesForUnitWithLeader", arg0, arg1)
+	ret0, _ := ret[0].(*status.StatusInfo)
+	ret1, _ := ret[1].(map[unit.Name]status.StatusInfo)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetApplicationAndUnitStatusesForUnitWithLeader indicates an expected call of GetApplicationAndUnitStatusesForUnitWithLeader.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationAndUnitStatusesForUnitWithLeader(arg0, arg1 any) *MockApplicationServiceGetApplicationAndUnitStatusesForUnitWithLeaderCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationAndUnitStatusesForUnitWithLeader", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationAndUnitStatusesForUnitWithLeader), arg0, arg1)
+	return &MockApplicationServiceGetApplicationAndUnitStatusesForUnitWithLeaderCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationAndUnitStatusesForUnitWithLeaderCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationAndUnitStatusesForUnitWithLeaderCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationAndUnitStatusesForUnitWithLeaderCall) Return(arg0 *status.StatusInfo, arg1 map[unit.Name]status.StatusInfo, arg2 error) *MockApplicationServiceGetApplicationAndUnitStatusesForUnitWithLeaderCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationAndUnitStatusesForUnitWithLeaderCall) Do(f func(context.Context, unit.Name) (*status.StatusInfo, map[unit.Name]status.StatusInfo, error)) *MockApplicationServiceGetApplicationAndUnitStatusesForUnitWithLeaderCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationAndUnitStatusesForUnitWithLeaderCall) DoAndReturn(f func(context.Context, unit.Name) (*status.StatusInfo, map[unit.Name]status.StatusInfo, error)) *MockApplicationServiceGetApplicationAndUnitStatusesForUnitWithLeaderCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationDisplayStatus mocks base method.
 func (m *MockApplicationService) GetApplicationDisplayStatus(arg0 context.Context, arg1 application.ID) (*status.StatusInfo, error) {
 	m.ctrl.T.Helper()

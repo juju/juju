@@ -253,7 +253,7 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 		output, err := encodeWorkloadStatus(test.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(output, jc.DeepEquals, test.output)
-		result, err := decodeWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
+		result, err := decodeUnitWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
 			StatusInfo: *output,
 			Present:    true,
 		})
@@ -263,13 +263,13 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 }
 
 func (s *statusSuite) TestReduceWorkloadStatusesEmpty(c *gc.C) {
-	info, err := reduceWorkloadStatuses(nil)
+	info, err := reduceUnitWorkloadStatuses(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(info, jc.DeepEquals, &status.StatusInfo{
 		Status: status.Unknown,
 	})
 
-	info, err = reduceWorkloadStatuses([]application.UnitStatusInfo[application.WorkloadStatusType]{})
+	info, err = reduceUnitWorkloadStatuses([]application.UnitStatusInfo[application.WorkloadStatusType]{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(info, jc.DeepEquals, &status.StatusInfo{
 		Status: status.Unknown,
@@ -283,7 +283,7 @@ func (s *statusSuite) TestReduceWorkloadStatusesBringsAllDetails(c *gc.C) {
 		Data:    []byte(`{"key":"value"}`),
 		Since:   &now,
 	}
-	info, err := reduceWorkloadStatuses([]application.UnitStatusInfo[application.WorkloadStatusType]{{
+	info, err := reduceUnitWorkloadStatuses([]application.UnitStatusInfo[application.WorkloadStatusType]{{
 		StatusInfo: value,
 		Present:    true,
 	}})
@@ -317,7 +317,7 @@ func (s *statusSuite) TestReduceWorkloadStatusesPriority(c *gc.C) {
 		// Blocked trumps maintenance
 		{status1: application.WorkloadStatusMaintenance, status2: application.WorkloadStatusBlocked, expected: status.Blocked},
 	} {
-		value, err := reduceWorkloadStatuses([]application.UnitStatusInfo[application.WorkloadStatusType]{
+		value, err := reduceUnitWorkloadStatuses([]application.UnitStatusInfo[application.WorkloadStatusType]{
 			{
 				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
 					Status: t.status1,
