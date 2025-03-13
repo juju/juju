@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 // keysForContainerConfig lists the model config keys that we need to determine
@@ -213,9 +214,44 @@ func (s *Service) ContainerConfig(ctx context.Context) (container.Config, error)
 	result.SnapStoreAssertions = modelConfig[config.SnapStoreAssertionsKey]
 	result.SnapStoreProxyID = modelConfig[config.SnapStoreProxyKey]
 	result.SnapStoreProxyURL = modelConfig[config.SnapStoreProxyURLKey]
-	_ = yaml.Unmarshal([]byte(modelConfig[config.CloudInitUserDataKey]), &result.CloudInitUserData)
 	result.ContainerInheritProperties = modelConfig[config.ContainerInheritPropertiesKey]
+
+	var ciud map[string]any
+	if err = yaml.Unmarshal([]byte(modelConfig[config.CloudInitUserDataKey]), &ciud); err != nil {
+		return container.Config{}, internalerrors.Capture(err)
+	}
+	result.CloudInitUserData = ensureStringKeyedMaps(ciud).(map[string]any)
+
 	return result, nil
+}
+
+// ensureStringKeyedMaps is used to ensure that maps in collections
+// with interface{} values are keyed by string if possible.
+// It processes the collection values recursively.
+func ensureStringKeyedMaps(data any) any {
+	switch v := data.(type) {
+	case map[string]any:
+		for key, val := range v {
+			v[key] = ensureStringKeyedMaps(val)
+		}
+		return v
+	case map[any]any:
+		m := make(map[string]any)
+		for key, val := range v {
+			// Make sure it is actually a string.
+			strKey, ok := key.(string)
+			if !ok {
+				continue
+			}
+			m[strKey] = ensureStringKeyedMaps(val)
+		}
+		return m
+	case []any:
+		for i, elem := range v {
+			v[i] = ensureStringKeyedMaps(elem)
+		}
+	}
+	return data
 }
 
 // TODO: all the following methods were copied from environs/config, to ensure
