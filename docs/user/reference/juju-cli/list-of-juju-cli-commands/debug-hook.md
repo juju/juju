@@ -40,17 +40,15 @@ Debug the 'pull-site' action and 'update-status' hook of unit '0':
 
 ## Details
 
-The command launches a tmux session that will intercept matching hooks and/or 
-actions. 
+The command launches a tmux session that will intercept matching hooks and/or
+actions.
 
 Initially, the tmux session will take you to '/var/lib/juju' or '/home/ubuntu'.
-As soon as a matching hook or action is fired, the tmux session will 
-automatically navigate you to '/var/lib/juju/agents/&lt;unit-id&gt;/charm' with a 
-properly configured environment. Unlike the 'juju debug-code' command, 
-the fired hooks and/or actions are not executed directly; instead, the user 
+As soon as a matching hook or action is fired, the tmux session will
+automatically navigate you to '/var/lib/juju/agents/&lt;unit-id&gt;/charm' with a
+properly configured environment. Unlike the 'juju debug-code' command,
+the fired hooks and/or actions are not executed directly; instead, the user
 needs to manually run the dispatch script inside the charm's directory.
-
-For more details on debugging charm code, see the charm SDK documentation.
 
 Valid unit identifiers are:
   a standard unit ID, such as mysql/0 or;
