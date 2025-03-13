@@ -22,6 +22,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/modelcmd/mocks"
@@ -200,6 +201,7 @@ func (s *BaseCommandSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *BaseCommandSuite) TestNewAPIRootExternalUser(c *gc.C) {
 	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 	conn := mocks.NewMockConnection(ctrl)
 	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return conn, nil
@@ -228,6 +230,72 @@ func (s *BaseCommandSuite) TestNewAPIRootExternalUser(c *gc.C) {
 
 	_, err := baseCmd.NewAPIRoot(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestLoginWithOIDC verifies that when we have a controller supporting
+// OAuth/OIDC login (i.e. JAAS) that the login provider can return a new
+// session token which is then saved in the client's account store.
+// This specifically tests all commands *besides* `juju login`
+// since `juju login` uses a different code path.
+func (s *BaseCommandSuite) TestLoginWithOIDC(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	conn := mocks.NewMockConnection(ctrl)
+	sessionLoginFactory := mocks.NewMockSessionLoginFactory(ctrl)
+	sessionLoginProvider := mocks.NewMockLoginProvider(ctrl)
+
+	apiOpen := func(ctx context.Context, info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		_, err := opts.LoginProvider.Login(ctx, conn)
+		c.Check(err, jc.ErrorIsNil)
+		return conn, nil
+	}
+	externalName := "kian@external"
+
+	conn.EXPECT().AuthTag().Return(names.NewUserTag(externalName)).MinTimes(1)
+	conn.EXPECT().APIHostPorts()
+	conn.EXPECT().ServerVersion()
+	conn.EXPECT().Addr()
+	conn.EXPECT().IPAddr()
+	conn.EXPECT().PublicDNSName()
+	conn.EXPECT().IsProxied()
+	conn.EXPECT().ControllerAccess().MinTimes(1)
+
+	var tokenCallbackFunc func(string)
+	sessionLoginFactory.EXPECT().NewLoginProvider("test-token", gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ string, _ io.Writer, f func(string)) api.LoginProvider {
+			tokenCallbackFunc = f
+			return sessionLoginProvider
+		})
+
+	sessionLoginProvider.EXPECT().Login(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ base.APICaller) (*api.LoginResultParams, error) {
+			tokenCallbackFunc("new-token")
+			return nil, nil
+		})
+
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"testing.invalid:1234"},
+		OIDCLogin:    true,
+	}
+
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User:         externalName,
+		SessionToken: "test-token",
+	}
+
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.SetClientStore(s.store)
+	baseCmd.SetAPIOpen(apiOpen)
+	baseCmd.SetSessionLoginFactory(sessionLoginFactory)
+	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
+	modelcmd.SetRunStarted(baseCmd)
+
+	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
+
+	_, err := baseCmd.NewAPIRoot(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.store.Accounts["foo"].SessionToken, gc.Equals, "new-token")
 }
 
 // TestNewAPIConnectionParams checks that the connection

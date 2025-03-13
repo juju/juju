@@ -386,7 +386,7 @@ func (c *loginCommand) publicControllerLogin(
 	var oidcLogin bool
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
 		internallogger.GetLogger("juju.cmd.loginprovider"),
-		api.NewSessionTokenLoginProvider(
+		c.SessionTokenLoginFactory().NewLoginProvider(
 			sessionToken,
 			ctx.Stderr,
 			func(t string) {
@@ -514,16 +514,16 @@ Run "juju logout" first before attempting to log in as a different user.`,
 
 	if c.username == "" {
 		// No username specified, so try external-user login.
-		conn, err := safeDial(&jujuclient.AccountDetails{})
+		accountDetails = &jujuclient.AccountDetails{}
+		conn, err := safeDial(accountDetails)
 		if err == nil {
 			user, ok := conn.AuthTag().(names.UserTag)
 			if !ok {
 				conn.Close()
 				return nil, nil, errors.Errorf("logged in as %v, not a user", conn.AuthTag())
 			}
-			return conn, &jujuclient.AccountDetails{
-				User: user.Id(),
-			}, nil
+			accountDetails.User = user.Id()
+			return conn, accountDetails, nil
 		}
 		if !params.IsCodeNoCreds(err) {
 			return nil, nil, errors.Trace(err)

@@ -53,13 +53,12 @@ Next, decide which charms (i.e., software operators) you want to use. Charmhub p
 
 
 ```{dropdown} Look around
-1. Learn more about your MicroK8s cloud.
-1a. Find out more about its snap: `snap info microk8s`. 
-1b. Find out the installed version: `microk8s version`. 
-1c. Check its enabled addons: `microk8s status`. 
-1d. Inspect its .`kube/config` file: `cat ~/.kube/config`.
-1e. Try `microk8s kubectl`; you won't need it once you have Juju, but it's there anyway.
-
+**1. Learn more about your MicroK8s cloud.**<br>
+**1a.** Find out more about its snap: `snap info microk8s`.<br>
+**1b.** Find out the installed version: `microk8s version`.<br>
+**1c.** Check its enabled addons: `microk8s status`.<br>
+**1d.** Inspect its `.kube/config` file: `cat ~/.kube/config`.<br>
+**1e.** Try `microk8s kubectl`; you won't need it once you have Juju, but it's there anyway.<br>
 ```
 
 
@@ -79,7 +78,6 @@ Sample session (yours should look very similar):
 
 
 ```{tip}
-
 Split your terminal window into three. In all, access your Multipass VM shell (`multipass shell my-juju-vm`) and then: 
 
 **Shell 1:** Keep using it as you've already been doing so far, namely to type the commands in this tutorial.
@@ -91,7 +89,6 @@ Split your terminal window into three. In all, access your Multipass VM shell (`
 
 
 ```text
-
 # Verify that you have the juju client installed:
 ubuntu@my-juju-vm:~$ juju version
 3.1.8-genericlinux-amd64
@@ -160,12 +157,10 @@ ubuntu@tutorial-vm:~$ juju deploy postgresql-k8s --channel 14/stable --trust --c
 Located charm "postgresql-k8s" in charm-hub, revision 193
 Deploying "postgresql-k8s" from charm-hub charm "postgresql-k8s", revision 193 in channel 14/stable on ubuntu@22.04/stable
 
-
 # Deploy self-signed-certificates:
 ubuntu@my-juju-vm:~$ juju deploy self-signed-certificates
 Located charm "self-signed-certificates" in charm-hub, revision 72
 Deploying "self-signed-certificates" from charm-hub charm "self-signed-certificates", revision 72 in channel stable on ubuntu@22.04/stable
-
 
 # Integrate self-signed-certificates with postgresql-k8s:
 ubuntu@tutorial-vm:~$ juju integrate self-signed-certificates postgresql-k8s 
@@ -194,7 +189,6 @@ postgresql-k8s:db                      mattermost-k8s:db              pgsql     
 postgresql-k8s:restart                 postgresql-k8s:restart         rolling_op        peer     
 postgresql-k8s:upgrade                 postgresql-k8s:upgrade         upgrade           peer     
 self-signed-certificates:certificates  postgresql-k8s:certificates    tls-certificates  regular  
-
 ```
 
 
@@ -248,7 +242,6 @@ Congratulations, your chat service is up and running!
 **4b.** Find out more about your `chat` model: `juju show-model`, `juju status -m microk8s:chat`. What do you think a model is? A model is a logical abstraction. It denotes a workspace, a canvas where you deploy, integrate, and manage applications. On a Kubernetes cloud, a Juju model corresponds to a Kubernetes namespace. Run `microk8s kubectl get namespaces` to verify -- the output should show a namespace called `chat`, for your `chat` model, and also a namespace called `controller-microk8s`, for your `controller` model.<br>
 **4c.** Try to guess: What is the `controller` model about? Switch to it and check: `juju switch microk8s:controller`, then `juju status`. When you bootstrap a controller into a cloud, this by default creates the `controller` model and deploys to it the `juju-controller` charm, whose units (=running instances of a charm) form the `controller` application. Find out more about the controller charm: `juju info juju-controller` or [Charmhub | `juju-controller`](https://charmhub.io/juju-controller). Find out more about the controller application: `juju show-application controller`. SSH into a controller application unit: `juju ssh controller/0`, then poke around using [`ls`](https://man7.org/linux/man-pages/man1/ls.1.html), [`cd`](https://man7.org/linux/man-pages/man1/cd.1p.html), and [`cat`](https://man7.org/linux/man-pages/man1/cat.1.html) (type `exit` to exit the unit). On a Kubernetes cloud, a Juju unit corresponds to a pod: `microk8s kubectl -n controller-microk8s get pods` should show a `controller-0` pod, which is the Kubernetes pod corresponding to the `controller/0` unit. <br>
 **4d.** Switch back to the `chat` model. Tip: When you're on the same controller, you can skip the controller prefix when you specify the model to switch to.
-
 ```
 
 ## Maintain
@@ -303,7 +296,7 @@ In Juju, performing most major operations looks the same for every charm. Howeve
 
 First, get:
 
-- the host IP address of the PostgreSQL unit: retrieve it from `juju status` or `juju show-unit` (in the sample outputs above, `10.1.170.142`);
+- the host IP address of the PostgreSQL unit: retrieve it from `juju status` or `juju show-unit` (in the sample outputs above, `10.1.32.152`);
 
 -  a PostgreSQL username and password: we can use the internal, default user called `operator` and set a password for it using the `set-password` action. Sample session:
 
@@ -326,13 +319,12 @@ Verify that `psql` is already installed. Sample session:
 ```text
 root@postgresql-k8s-0:/# psql --version
 psql (PostgreSQL) 14.10 (Ubuntu 14.10-0ubuntu0.22.04.1)
-
 ```
 
 Use `psql` to view a list of the existing databases. Sample session (make sure to use your own host and password):
 
 ```text
-root@postgresql-k8s-0:/# psql --host=10.1.170.142 --username=operator --password --list
+root@postgresql-k8s-0:/# psql --host=10.1.32.152 --username=operator --password --list
 Password: 
                                List of databases
    Name    |  Owner   | Encoding | Collate |  Ctype  |    Access privileges     
@@ -348,14 +340,12 @@ Password:
  template1 | operator | UTF8     | C       | C.UTF-8 | =c/operator             +
            |          |          |         |         | operator=CTc/operator
 (3 rows)
-
-
 ```
 
 Finally, use `psql` to access the `postgres` database and submit a query. Sample session:
 
 ```text
-root@postgresql-k8s-0:/# psql --host=10.1.170.142 --username=operator --password postgres
+root@postgresql-k8s-0:/# psql --host=10.1.32.152 --username=operator --password postgres
 Password: 
 psql (14.10 (Ubuntu 14.10-0ubuntu0.22.04.1))
 Type "help" for help.
@@ -513,7 +503,6 @@ ubuntu@my-juju-vm:~$ juju refresh self-signed-certificates
 charm "self-signed-certificates": already up-to-date
 # No surprise there -- our deployment is quite fresh, 
 # so no immediate need for charm upgrades!
-
 ```
 
 
@@ -540,7 +529,6 @@ chat            microk8s/localhost  kubernetes  available  5       admin  9 minu
 controller      microk8s/localhost  kubernetes  available  1       admin  just now
 observability*  microk8s/localhost  kubernetes  available  6       admin  1 minute ago
 
-
 # Deploy to it the cos-lite bundle:
 ubuntu@my-juju-vm:~$ juju deploy cos-lite --trust
 # Partial output:
@@ -559,15 +547,12 @@ Deploy of bundle completed.
 ubuntu@my-juju-vm:~$ juju offer prometheus:metrics-endpoint
 Application "prometheus" endpoints [metrics-endpoint] available at "admin/observability.prometheus"
 
-
 # Switch to the controller model
 ubuntu@my-juju-vm:~$ juju switch controller
 34microk8s:admin/observability -> 34microk8s:admin/controller
 
-
 # Integrate the controller application with the prometheus offer:
 ubuntu@my-juju-vm:~$ juju integrate controller admin/observability.prometheus
-
 
 # Examine the result:
 ubuntu@my-juju-vm:~$ juju status --relations
@@ -599,8 +584,6 @@ Running operation 1 with 1 task
 Waiting for task 2...
 admin-password: 0OpLUlxJXQaU
 url: http://10.238.98.110/observability-grafana
-
-
 ```
 
 On your local machine, open a browser window and copy-paste the Grafana URL. In the username field, enter 'admin'. In the password field, enter the `admin-password`. If everything has gone well, you should now be logged in. 

@@ -4,6 +4,7 @@
 package sshserver
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
@@ -21,6 +23,8 @@ type ControllerConfigService interface {
 	// WatchControllerConfig returns a watcher that returns keys for any changes
 	// to controller config.
 	WatchControllerConfig() (watcher.StringsWatcher, error)
+	// ControllerConfig returns the current controller configuration.
+	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
@@ -93,9 +97,28 @@ func (ssw *serverWrapperWorker) Wait() error {
 // loop is the main loop of the server wrapper worker. It starts the server worker
 // and listens for changes in the controller configuration.
 func (ssw *serverWrapperWorker) loop() error {
+	// Watch for changes then acquire the latest controller configuration
+	// to avoid starting the server with stale config values.
+	controllerConfigWatcher, err := ssw.config.ControllerConfigService.WatchControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := ssw.catacomb.Add(controllerConfigWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	ctx := ssw.catacomb.Context(context.Background())
+	config, err := ssw.config.ControllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	port := config.SSHServerPort()
+
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
 		Logger:               ssw.config.Logger,
 		NewSSHServerListener: ssw.config.NewSSHServerListener,
+		Port:                 port,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -105,42 +128,21 @@ func (ssw *serverWrapperWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	controllerConfigWatcher, err := ssw.config.ControllerConfigService.WatchControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := ssw.catacomb.Add(controllerConfigWatcher); err != nil {
-		return errors.Trace(err)
-	}
-
 	changesChan := controllerConfigWatcher.Changes()
 	for {
 		select {
 		case <-ssw.catacomb.Dying():
 			return ssw.catacomb.ErrDying()
 		case <-changesChan:
-			// TODO(ale8k): Once the configuration PR is merged, get the max conns & port
-			// from controller config. Get the HostKey from server info, and feed them through
-			// to NewServerWorker.
-
-			// Restart the server worker.
-			srv.Kill()
-			if err := srv.Wait(); err != nil {
-				return errors.Trace(err)
-			}
-
-			// Start the server again.
-			srv, err = ssw.config.NewServerWorker(ServerWorkerConfig{
-				Logger: ssw.config.Logger,
-			})
+			config, err := ssw.config.ControllerConfigService.ControllerConfig(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
-
-			// Re-add it to the catacomb with the newly updated configuration.
-			if err := ssw.catacomb.Add(srv); err != nil {
-				return errors.Trace(err)
+			if port == config.SSHServerPort() {
+				ssw.config.Logger.Debugf(context.Background(), "controller configuration changed, but SSH port is the same, ignoring")
+				continue
 			}
+			return errors.New("changes detected, stopping SSH server worker")
 		}
 	}
 }
