@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domaintesting "github.com/juju/juju/domain/testing"
@@ -1259,6 +1260,143 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigNotFound(c *gc
 
 	_, err := s.service.GetApplicationAndCharmConfig(context.Background(), appUUID)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *gc.C) {
+	origin := application.CharmOrigin{
+		Name:   "foo",
+		Source: applicationcharm.CharmHubSource,
+		Platform: application.Platform{
+			Architecture: architecture.AMD64,
+			Channel:      "stable",
+			OSType:       application.Ubuntu,
+		},
+		Channel: &application.Channel{
+			Risk: application.RiskStable,
+		},
+	}
+
+	decoded, err := decodeCharmOrigin(origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(decoded, gc.DeepEquals, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Architecture: arch.AMD64,
+			Channel:      "stable",
+			OS:           "Ubuntu",
+		},
+		Channel: &charm.Channel{
+			Risk: charm.Stable,
+		},
+	})
+}
+
+func (s *applicationServiceSuite) TestDecodeCharmSource(c *gc.C) {
+	source := domaincharm.CharmHubSource
+	decoded, err := decodeCharmSource(source)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(decoded, gc.Equals, corecharm.CharmHub)
+
+	source = domaincharm.LocalSource
+	decoded, err = decodeCharmSource(source)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(decoded, gc.Equals, corecharm.Local)
+
+	decoded, err = decodeCharmSource("boom")
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *applicationServiceSuite) TestDecodePlatform(c *gc.C) {
+	platform := application.Platform{
+		Architecture: architecture.AMD64,
+		Channel:      "stable",
+		OSType:       application.Ubuntu,
+	}
+
+	decoded, err := decodePlatform(platform)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(decoded, gc.DeepEquals, corecharm.Platform{
+		Architecture: arch.AMD64,
+		Channel:      "stable",
+		OS:           "Ubuntu",
+	})
+}
+
+func (s *applicationServiceSuite) TestDecodePlatformArchError(c *gc.C) {
+	platform := application.Platform{
+		Architecture: 99,
+		Channel:      "stable",
+		OSType:       application.Ubuntu,
+	}
+
+	_, err := decodePlatform(platform)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *applicationServiceSuite) TestDecodePlatformOSError(c *gc.C) {
+	platform := application.Platform{
+		Architecture: architecture.AMD64,
+		Channel:      "stable",
+		OSType:       99,
+	}
+
+	_, err := decodePlatform(platform)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *applicationServiceSuite) TestDecodeChannelNilChannel(c *gc.C) {
+	ch, err := decodeChannel(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ch, gc.IsNil)
+}
+
+func (s *applicationServiceSuite) TestDecodeChannel(c *gc.C) {
+	ch, err := decodeChannel(&application.Channel{
+		Risk: application.RiskStable,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ch, gc.DeepEquals, &charm.Channel{
+		Risk: charm.Stable,
+	})
+}
+
+func (s *applicationServiceSuite) TestDecodeChannelInvalidRisk(c *gc.C) {
+	_, err := decodeChannel(&application.Channel{
+		Risk: "risk",
+	})
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *applicationServiceSuite) TestDecodeRisk(c *gc.C) {
+	tests := []struct {
+		risk     application.ChannelRisk
+		expected charm.Risk
+	}{
+		{
+			risk:     application.RiskStable,
+			expected: charm.Stable,
+		},
+		{
+			risk:     application.RiskCandidate,
+			expected: charm.Candidate,
+		},
+		{
+			risk:     application.RiskBeta,
+			expected: charm.Beta,
+		},
+		{
+			risk:     application.RiskEdge,
+			expected: charm.Edge,
+		},
+	}
+	for i, test := range tests {
+		c.Logf("test %d", i)
+		decoded, err := decodeRisk(test.risk)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(decoded, gc.Equals, test.expected)
+	}
 }
 
 type applicationWatcherServiceSuite struct {
