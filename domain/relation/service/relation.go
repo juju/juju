@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
@@ -185,8 +184,8 @@ func (s *Service) GetRelationID(ctx context.Context, relationUUID corerelation.U
 // GetRelationKey returns a key identifier for the given relation UUID.
 // The key describes the relation defined by endpoints in sorted order.
 // Note: See the state.relationKey() function.
-func (s *Service) GetRelationKey(ctx context.Context, relationUUID corerelation.UUID) corerelation.Key {
-	return ""
+func (s *Service) GetRelationKey(ctx context.Context, relationUUID corerelation.UUID) (corerelation.Key, error) {
+	return "", nil
 }
 
 // GetRelationStatus returns the status of the given relation.
@@ -195,12 +194,6 @@ func (s *Service) GetRelationStatus(
 	relationUUID corerelation.UUID,
 ) (corestatus.StatusInfo, error) {
 	return corestatus.StatusInfo{}, errors.NotImplemented
-}
-
-// GetRelationTag returns the tag for the given relation UUID.
-func (s *Service) GetRelationTag(ctx context.Context, relationUUID corerelation.UUID) names.Tag {
-	key := s.GetRelationKey(ctx, relationUUID)
-	return names.NewRelationTag(string(key))
 }
 
 // GetRelationUnit returns the relation unit UUID for the given unit for the
