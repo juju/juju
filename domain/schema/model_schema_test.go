@@ -293,6 +293,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_application_config",
 		"v_application_constraint",
 		"v_application_exposed_endpoint",
+		"v_application_platform_channel",
 		"v_application_resource",
 		"v_application_storage_directive",
 		"v_charm_annotation_index",

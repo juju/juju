@@ -3086,6 +3086,87 @@ func (s *applicationStateSuite) TestGetApplicationStatusNotSet(c *gc.C) {
 	})
 }
 
+func (s *applicationStateSuite) TestGetApplicationCharmOrigin(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	origin, err := s.state.GetApplicationCharmOrigin(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
+		Name:   "foo",
+		Source: charm.CharmHubSource,
+		Platform: application.Platform{
+			Channel:      "22.04/stable",
+			OSType:       0,
+			Architecture: 1,
+		},
+		Channel: &application.Channel{
+			Track:  "track",
+			Risk:   "stable",
+			Branch: "branch",
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestGetApplicationCharmOriginEmptyChannel(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM application_channel WHERE application_uuid=?", id)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	origin, err := s.state.GetApplicationCharmOrigin(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
+		Name:   "foo",
+		Source: charm.CharmHubSource,
+		Platform: application.Platform{
+			Channel:      "22.04/stable",
+			OSType:       0,
+			Architecture: 1,
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestGetApplicationCharmOriginRiskOnlyChannel(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application_channel SET track = '', branch = '' WHERE application_uuid=?", id)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	origin, err := s.state.GetApplicationCharmOrigin(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
+		Name:   "foo",
+		Source: charm.CharmHubSource,
+		Platform: application.Platform{
+			Channel:      "22.04/stable",
+			OSType:       0,
+			Architecture: 1,
+		},
+		Channel: &application.Channel{
+			Risk: "stable",
+		},
+	})
+}
+
+func (s *applicationStateSuite) TestGetApplicationCharmOriginInvalidRisk(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application_channel SET track = '', risk = 'boom', branch = '' WHERE application_uuid=?", id)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.GetApplicationCharmOrigin(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, `decoding channel: decoding risk: unknown risk "boom"`)
+}
+
 func (s *applicationStateSuite) assertApplication(
 	c *gc.C,
 	name string,

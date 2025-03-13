@@ -2029,6 +2029,85 @@ WHERE application_uuid = $applicationID.uuid;
 	return hash.SHA256, nil
 }
 
+// GetApplicationPlatformAndChannel returns the platform and channel for the
+// specified application ID.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationCharmOrigin(ctx context.Context, appID coreapplication.ID) (application.CharmOrigin, error) {
+	db, err := st.DB()
+	if err != nil {
+		return application.CharmOrigin{}, errors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+
+	queryOrigin := `
+SELECT &applicationOrigin.*
+FROM v_application_origin
+WHERE uuid = $applicationID.uuid;`
+
+	stmtOrigin, err := st.Prepare(queryOrigin, applicationOrigin{}, ident)
+	if err != nil {
+		return application.CharmOrigin{}, errors.Errorf("preparing query for application platform and channel: %w", err)
+	}
+
+	queryPlatformChannel := `
+SELECT &applicationPlatformAndChannel.*
+FROM v_application_platform_channel
+WHERE application_uuid = $applicationID.uuid;
+`
+	stmtPlatformChannel, err := st.Prepare(queryPlatformChannel, applicationPlatformAndChannel{}, ident)
+	if err != nil {
+		return application.CharmOrigin{}, errors.Errorf("preparing query for application platform and channel: %w", err)
+	}
+
+	var (
+		appOrigin       applicationOrigin
+		appPlatformChan applicationPlatformAndChannel
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
+			return errors.Capture(err)
+		}
+
+		err := tx.Query(ctx, stmtOrigin, ident).Get(&appOrigin)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, stmtPlatformChannel, ident).Get(&appPlatformChan)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
+		return nil
+	}); err != nil {
+		return application.CharmOrigin{}, errors.Errorf("querying application platform and channel for application %q: %w", appID, err)
+	}
+
+	source, err := decodeCharmSource(appOrigin.SourceID)
+	if err != nil {
+		return application.CharmOrigin{}, errors.Errorf("decoding charm source: %w", err)
+	}
+
+	platform, err := decodePlatform(appPlatformChan.PlatformChannel, appPlatformChan.PlatformOSID, appPlatformChan.PlatformArchitectureID)
+	if err != nil {
+		return application.CharmOrigin{}, errors.Errorf("decoding platform: %w", err)
+	}
+
+	channel, err := decodeChannel(appPlatformChan.ChannelTrack, appPlatformChan.ChannelRisk, appPlatformChan.ChannelBranch)
+	if err != nil {
+		return application.CharmOrigin{}, errors.Errorf("decoding channel: %w", err)
+	}
+
+	return application.CharmOrigin{
+		Name:     appOrigin.ReferenceName,
+		Source:   source,
+		Platform: platform,
+		Channel:  channel,
+	}, nil
+}
+
 // GetApplicationConstraints returns the application constraints for the
 // specified application ID.
 // Empty constraints are returned if no constraints exist for the given
@@ -2656,4 +2735,39 @@ func encodeConfigValue(v application.ApplicationConfig) (string, error) {
 		return "", errors.Errorf("unknown config type %v", v.Type)
 
 	}
+}
+
+func decodePlatform(channel string, os, arch sql.NullInt64) (application.Platform, error) {
+	osType, err := decodeOSType(os)
+	if err != nil {
+		return application.Platform{}, errors.Errorf("decoding os type: %w", err)
+	}
+
+	archType, err := decodeArchitecture(arch)
+	if err != nil {
+		return application.Platform{}, errors.Errorf("decoding architecture: %w", err)
+	}
+
+	return application.Platform{
+		Channel:      channel,
+		OSType:       osType,
+		Architecture: archType,
+	}, nil
+}
+
+func decodeChannel(track string, risk sql.NullString, branch string) (*application.Channel, error) {
+	if !risk.Valid {
+		return nil, nil
+	}
+
+	riskType, err := decodeRisk(risk.String)
+	if err != nil {
+		return nil, errors.Errorf("decoding risk: %w", err)
+	}
+
+	return &application.Channel{
+		Track:  track,
+		Risk:   riskType,
+		Branch: branch,
+	}, nil
 }

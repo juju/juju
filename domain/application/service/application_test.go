@@ -18,7 +18,9 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/changestream"
+	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -1157,6 +1159,106 @@ func (s *applicationServiceSuite) TestSetApplicationConfigInvalidApplicationID(c
 
 	err := s.service.SetApplicationConfig(context.Background(), "!!!", nil)
 	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
+
+	appConfig := map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionString,
+			Value: "bar",
+		},
+	}
+	settings := application.ApplicationSettings{
+		Trust: true,
+	}
+	charmConfig := applicationcharm.Config{
+		Options: map[string]applicationcharm.Option{
+			"foo": {
+				Type:    applicationcharm.OptionString,
+				Default: "baz",
+			},
+		},
+	}
+	charmOrigin := application.CharmOrigin{
+		Name:   "foo",
+		Source: applicationcharm.CharmHubSource,
+		Platform: application.Platform{
+			Architecture: architecture.AMD64,
+			Channel:      "stable",
+			OSType:       application.Ubuntu,
+		},
+		Channel: &application.Channel{
+			Risk: application.RiskStable,
+		},
+	}
+
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(appConfig, settings, nil)
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, charmConfig, nil)
+	s.state.EXPECT().IsSubordinateCharm(gomock.Any(), charmUUID).Return(false, nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(charmOrigin, nil)
+
+	results, err := s.service.GetApplicationAndCharmConfig(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, ApplicationConfig{
+		ApplicationConfig: config.ConfigAttributes{
+			"foo": "bar",
+		},
+		CharmConfig: charm.Config{
+			Options: map[string]charm.Option{
+				"foo": {
+					Type:    "string",
+					Default: "baz",
+				},
+			},
+		},
+		Trust:     true,
+		Principal: true,
+		CharmName: "foo",
+		CharmOrigin: corecharm.Origin{
+			Source: corecharm.CharmHub,
+			Platform: corecharm.Platform{
+				Architecture: arch.AMD64,
+				Channel:      "stable",
+				OS:           "Ubuntu",
+			},
+			Channel: &charm.Channel{
+				Risk: charm.Stable,
+			},
+		},
+	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetApplicationAndCharmConfig(context.Background(), "!!!")
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	appConfig := map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionString,
+			Value: "bar",
+		},
+	}
+	settings := application.ApplicationSettings{
+		Trust: true,
+	}
+
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(appConfig, settings, applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationAndCharmConfig(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 type applicationWatcherServiceSuite struct {

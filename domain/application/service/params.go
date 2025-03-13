@@ -15,6 +15,7 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	apperrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
@@ -229,4 +230,15 @@ type ImportApplicationArgs struct {
 	// ScaleState is the scale state (including scaling, scale and scale
 	// target) of the application.
 	ScaleState application.ScaleState
+}
+
+// ApplicationConfig represents the application config for the specified
+// application ID.
+type ApplicationConfig struct {
+	CharmOrigin       corecharm.Origin
+	CharmConfig       internalcharm.Config
+	ApplicationConfig config.ConfigAttributes
+	Trust             bool
+	CharmName         string
+	Principal         bool
 }

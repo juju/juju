@@ -228,6 +228,10 @@ const (
 	// provided space constraints do not exist or the container type is not
 	// supported.
 	InvalidUnitConstraints = errors.ConstError("invalid unit constraints")
+
+	// InvalidSecretConfig describes an error that occurs when the secret
+	// config is not valid.
+	InvalidSecretConfig = errors.ConstError("invalid secret config")
 )
 
 const (
