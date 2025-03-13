@@ -93,8 +93,10 @@ func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespa
 	return w, nil
 }
 
+type indexMap map[uint64]struct{}
+
 // Retrieve returns a reader for the blob with the given SHA256.
-func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadCloser, _ int64, err error) {
+func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
 	// Check if we're already dead or dying before we start to do anything.
 	select {
 	case <-r.catacomb.Dying():
@@ -109,10 +111,19 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 		return nil, -1, NoRemoteConnections
 	}
 
+	indexes, result, err := r.spawn(ctx, remotes, sha256)
+	if err != nil {
+		return nil, -1, err
+	}
+
+	return r.collect(ctx, indexes, sha256, result)
+}
+
+func (r *BlobRetriever) spawn(ctx context.Context, remotes []apiremotecaller.RemoteConnection, sha256 string) (indexMap, chan retrievalResult, error) {
 	result := make(chan retrievalResult)
 
 	// Retrieve the blob from all the remotes concurrently.
-	indexes := map[uint64]struct{}{}
+	indexes := make(indexMap)
 	for _, remote := range remotes {
 		index := atomic.AddUint64(&r.index, 1)
 		indexes[index] = struct{}{}
@@ -120,9 +131,9 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 		if err := r.runner.StartWorker(name(index, sha256), func() (worker.Worker, error) {
 			return newRetriever(index, remote, r.newBlobsClient, r.clock, r.logger), nil
 		}); errors.Is(err, jujuerrors.AlreadyExists) {
-			return nil, -1, errors.Errorf("retriever %d already exists", index)
+			return nil, nil, errors.Errorf("retriever %d already exists", index)
 		} else if err != nil {
-			return nil, -1, err
+			return nil, nil, err
 		}
 
 		go func(index uint64) {
@@ -154,6 +165,10 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 		}(index)
 	}
 
+	return indexes, result, nil
+}
+
+func (r *BlobRetriever) collect(ctx context.Context, indexes indexMap, sha256 string, result chan retrievalResult) (_ io.ReadCloser, _ int64, err error) {
 	// If the function returns an error, we want to stop all the retrievers. If
 	// there is an error, we will return the retriever that was successful and
 	// close the other readers. Once the reader is closed, the retriever will be
@@ -169,7 +184,7 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 	// We want to run it like this so we can return the first successful result
 	// and close the other readers. If we use for range over the channel, we
 	// have no way to close the result.
-	results := make(map[uint64]struct{})
+	results := make(indexMap)
 	for {
 		select {
 		case <-r.catacomb.Dying():
@@ -184,7 +199,7 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 			// If the blob is not found on that remote, continue to the next one
 			// until it is exhausted. This is a race to find it first.
 			if err := res.err; errors.Is(err, BlobNotFound) {
-				if len(results) == len(remotes) {
+				if len(results) == len(indexes) {
 					return nil, -1, BlobNotFound
 				}
 				continue
