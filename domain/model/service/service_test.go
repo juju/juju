@@ -48,7 +48,7 @@ type serviceSuite struct {
 	mockModelDeleter   *MockModelDeleter
 	mockState          *MockState
 	mockWatcherFactory *MockWatcherFactory
-	mockStringsWatcher *MockStringsWatcher[string]
+	mockStringsWatcher *MockStringsWatcher[[]string]
 	changestreamtesting.ControllerSuite
 }
 
@@ -82,7 +82,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockModelDeleter = NewMockModelDeleter(ctrl)
 	s.mockState = NewMockState(ctrl)
 	s.mockWatcherFactory = NewMockWatcherFactory(ctrl)
-	s.mockStringsWatcher = NewMockStringsWatcher[string](ctrl)
+	s.mockStringsWatcher = NewMockStringsWatcher[[]string](ctrl)
 
 	return ctrl
 }
