@@ -71,9 +71,9 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			// Set model activated status to false. This should not trigger a change event.
 			res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", false, modelUUID)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			rowsAffected, err := res.RowsAffected()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(int(rowsAffected), gc.Equals, 1)
 			return nil
 		})
@@ -82,7 +82,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 		var testModel dbModel
 		row := s.DB().QueryRow(`SELECT activated FROM model WHERE uuid = ?`, modelUUIDStr)
 		err = row.Scan(&testModel.Activated)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(testModel.Activated, jc.IsFalse)
 
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -96,9 +96,9 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 			// Update name of unactivated model. This should not trigger a change event.
 			updatedName := "new-test-model"
 			res, err := tx.ExecContext(ctx, "UPDATE model SET name = ? WHERE uuid = ?", updatedName, modelUUIDStr)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			rowsAffected, err := res.RowsAffected()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(int(rowsAffected), gc.Equals, 1)
 
 			// Checks if model name is updated successfully.
@@ -110,7 +110,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 			row := tx.QueryRow(selectModelQuery, modelUUIDStr)
 			err = row.Scan(&testModel.UUID, &testModel.Activated, &testModel.ModelTypeID,
 				&testModel.Name, &testModel.CloudUUID, &testModel.LifeID, &testModel.OwnerUUID)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(testModel.UUID, gc.Equals, modelUUIDStr)
 			c.Check(testModel.Activated, jc.IsFalse)
 			c.Check(testModel.Name, gc.Equals, updatedName)
@@ -126,9 +126,9 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			// Update activated status of model. This should trigger a change event.
 			res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", true, modelUUIDStr)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			rowsAffected, err := res.RowsAffected()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(int(rowsAffected), gc.Equals, 1)
 			return nil
 		})
@@ -147,9 +147,9 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 			// Update name of activated model. This should trigger a change event.
 			updatedName := "new-test-model-2"
 			res, err := tx.ExecContext(ctx, "UPDATE model SET name = ? WHERE uuid = ?", updatedName, modelUUIDStr)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			rowsAffected, err := res.RowsAffected()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(int(rowsAffected), gc.Equals, 1)
 
 			// Checks if model name is updated successfully.
@@ -161,7 +161,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 			row := tx.QueryRow(selectModelQuery, modelUUIDStr)
 			err = row.Scan(&testModel.UUID, &testModel.Activated, &testModel.ModelTypeID,
 				&testModel.Name, &testModel.CloudUUID, &testModel.LifeID, &testModel.OwnerUUID)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(testModel.UUID, gc.Equals, modelUUIDStr)
 			c.Check(testModel.Activated, jc.IsTrue)
 			c.Check(testModel.Name, gc.Equals, updatedName)
@@ -181,16 +181,16 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			// Insert into table that is not model. This should not trigger a change event.
 			res, err := tx.ExecContext(ctx, "INSERT into cloud_type (id, type) values (100, 'testing')")
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			rowsAffected, err := res.RowsAffected()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(int(rowsAffected), gc.Equals, 1)
 
 			// Update entity that is not model. This should not trigger a change event.
 			res, err = tx.ExecContext(ctx, "UPDATE cloud_type SET type = 'test' WHERE id = 100")
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			rowsAffected, err = res.RowsAffected()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(int(rowsAffected), gc.Equals, 1)
 			return nil
 		})
