@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	apperrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/internal/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -120,7 +119,7 @@ type UpdateCharmParams struct {
 	// Charm is the new charm to use for the application. New units
 	// will be started with this charm, and existing units will be
 	// upgraded to use it.
-	Charm charm.Charm
+	Charm internalcharm.Charm
 
 	// Storage contains the storage directives to add or update when
 	// upgrading the charm.
@@ -182,7 +181,7 @@ func (r ResolvedResources) Validate() error {
 // model.
 type ImportApplicationArgs struct {
 	// Charm is the charm to import.
-	Charm charm.Charm
+	Charm internalcharm.Charm
 
 	// CharmOrigin is the origin of the charm.
 	CharmOrigin corecharm.Origin

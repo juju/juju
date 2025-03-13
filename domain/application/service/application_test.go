@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
-	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domaintesting "github.com/juju/juju/domain/testing"
@@ -1293,17 +1292,17 @@ func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *gc.C) {
 }
 
 func (s *applicationServiceSuite) TestDecodeCharmSource(c *gc.C) {
-	source := domaincharm.CharmHubSource
+	source := applicationcharm.CharmHubSource
 	decoded, err := decodeCharmSource(source)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(decoded, gc.Equals, corecharm.CharmHub)
 
-	source = domaincharm.LocalSource
+	source = applicationcharm.LocalSource
 	decoded, err = decodeCharmSource(source)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(decoded, gc.Equals, corecharm.Local)
 
-	decoded, err = decodeCharmSource("boom")
+	_, err = decodeCharmSource("boom")
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
