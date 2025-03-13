@@ -99,13 +99,11 @@ func newRemoteServer(config RemoteServerConfig, internalStates chan string) Remo
 func (w *remoteServer) Connection(ctx context.Context, fn func(context.Context, api.Connection) error) error {
 	ch := make(chan api.Connection, 1)
 
-	go func() {
-		select {
-		case <-w.tomb.Dying():
-		case <-ctx.Done():
-		case w.connections <- ch:
-		}
-	}()
+	select {
+	case <-w.tomb.Dying():
+	case <-ctx.Done():
+	case w.connections <- ch:
+	}
 
 	select {
 	case <-w.tomb.Dying():

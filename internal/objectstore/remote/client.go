@@ -13,11 +13,11 @@ import (
 	"github.com/juju/juju/internal/s3client"
 )
 
-// NewObjectClient returns a new client based on the supplied dependencies.
+// NewBlobsClient returns a new client based on the supplied dependencies.
 // This only provides a read only session to the object store. As this is
 // intended to be used by the unit, there is never an expectation that the unit
 // will write to the object store.
-func NewObjectClient(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
+func NewBlobsClient(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error) {
 	session, err := s3client.NewS3Client(ensureHTTPS(url), client, s3client.AnonymousCredentials{}, logger)
 	if err != nil {
 		return nil, err

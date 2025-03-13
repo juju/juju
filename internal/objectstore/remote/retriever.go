@@ -41,8 +41,8 @@ type BlobsClient interface {
 	GetObject(ctx context.Context, bucket, key string) (io.ReadCloser, int64, error)
 }
 
-// NewObjectClientFunc is a function that creates a new BlobsClient.
-type NewObjectClientFunc func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error)
+// NewBlobsClientFunc is a function that creates a new BlobsClient.
+type NewBlobsClientFunc func(url string, client s3client.HTTPClient, logger logger.Logger) (BlobsClient, error)
 
 // BlobRetriever is responsible for retrieving blobs from remote API servers.
 type BlobRetriever struct {
@@ -51,7 +51,7 @@ type BlobRetriever struct {
 	namespace string
 
 	apiRemoteCallers apiremotecaller.APIRemoteCallers
-	newObjectClient  NewObjectClientFunc
+	newBlobsClient   NewBlobsClientFunc
 
 	runner *worker.Runner
 
@@ -62,10 +62,10 @@ type BlobRetriever struct {
 }
 
 // NewBlobRetriever creates a new BlobRetriever.
-func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespace string, newObjectClient NewObjectClientFunc, clock clock.Clock, logger logger.Logger) (*BlobRetriever, error) {
+func NewBlobRetriever(apiRemoteCallers apiremotecaller.APIRemoteCallers, namespace string, newBlobsClient NewBlobsClientFunc, clock clock.Clock, logger logger.Logger) (*BlobRetriever, error) {
 	w := &BlobRetriever{
 		namespace:        namespace,
-		newObjectClient:  newObjectClient,
+		newBlobsClient:   newBlobsClient,
 		apiRemoteCallers: apiRemoteCallers,
 		clock:            clock,
 		logger:           logger,
@@ -118,7 +118,7 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 		indexes[index] = struct{}{}
 
 		if err := r.runner.StartWorker(name(index, sha256), func() (worker.Worker, error) {
-			return newRetriever(index, remote, r.newObjectClient, r.clock, r.logger), nil
+			return newRetriever(index, remote, r.newBlobsClient, r.clock, r.logger), nil
 		}); errors.Is(err, jujuerrors.AlreadyExists) {
 			return nil, -1, errors.Errorf("retriever %d already exists", index)
 		} else if err != nil {
@@ -130,6 +130,7 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 			if err != nil {
 				select {
 				case <-r.catacomb.Dying():
+				case <-ctx.Done():
 				case result <- retrievalResult{
 					index: index,
 					err:   err,
@@ -142,6 +143,7 @@ func (r *BlobRetriever) Retrieve(ctx context.Context, sha256 string) (_ io.ReadC
 			reader, size, err := ret.Retrieve(ctx, r.namespace, sha256)
 			select {
 			case <-r.catacomb.Dying():
+			case <-ctx.Done():
 			case result <- retrievalResult{
 				index:  ret.index,
 				reader: reader,
@@ -245,22 +247,22 @@ func (r *BlobRetriever) stopAllRetrievers(ctx context.Context, indexes map[uint6
 type retriever struct {
 	tomb tomb.Tomb
 
-	index           uint64
-	remote          apiremotecaller.RemoteConnection
-	newObjectClient NewObjectClientFunc
-	clock           clock.Clock
-	logger          logger.Logger
-	requests        chan retrievalRequest
+	index          uint64
+	remote         apiremotecaller.RemoteConnection
+	newBlobsClient NewBlobsClientFunc
+	clock          clock.Clock
+	logger         logger.Logger
+	requests       chan retrievalRequest
 }
 
-func newRetriever(index uint64, remote apiremotecaller.RemoteConnection, newObjectClient NewObjectClientFunc, clock clock.Clock, logger logger.Logger) *retriever {
+func newRetriever(index uint64, remote apiremotecaller.RemoteConnection, newBlobsClient NewBlobsClientFunc, clock clock.Clock, logger logger.Logger) *retriever {
 	t := &retriever{
-		index:           index,
-		remote:          remote,
-		newObjectClient: newObjectClient,
-		clock:           clock,
-		logger:          logger,
-		requests:        make(chan retrievalRequest),
+		index:          index,
+		remote:         remote,
+		newBlobsClient: newBlobsClient,
+		clock:          clock,
+		logger:         logger,
+		requests:       make(chan retrievalRequest),
 	}
 
 	t.tomb.Go(t.loop)
@@ -342,7 +344,7 @@ func (t *retriever) retrieve(ctx context.Context, namespace, sha256 string) (io.
 			return errors.Errorf("failed to get root HTTP client: %v", err)
 		}
 
-		client, err := t.newObjectClient(httpClient.BaseURL, newHTTPClient(httpClient), t.logger)
+		client, err := t.newBlobsClient(httpClient.BaseURL, newHTTPClient(httpClient), t.logger)
 		if err != nil {
 			return errors.Errorf("failed to create object client: %v", err)
 		}
