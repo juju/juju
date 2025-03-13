@@ -152,11 +152,9 @@ Some hooks also can be grouped according to the Juju subsystem they represent. T
 * upgrade series: used to coordinate upgrade of host OS (3.6 or earlier only)
 * workload: used to inform the charm about events related to a pebble managed workload (currently k8s only)
 
-In addition, charms can define named actions. Actions are executed in a similar way to hooks, but are technically
-not hooks. They are invoked directly by the user rather than being triggered in response a well defined model event.
-
 The documentation in this section will, where relevant, describe behaviour specific to particular hook kinds. 
 
+(hook-execution)=
 ## Hook execution
 
 Hooks are run with environment variables set by Juju to expose relevant contextual configuration to the charm.
@@ -285,26 +283,6 @@ information or advice before signalling the error.
 
 This section describes the workflows and associated hook events which are important to the operation of Juju.
 
-(actions)=
-### Actions
-
-Actions operate in an execution environment similar to a hook, with additional environment variables available:
-
-* JUJU_ACTION_NAME holds the name of the action.
-* JUJU_ACTION_UUID holds the UUID of the action.
-
-An action is used to perform a named, parameterised operation and report back the results of said operation.
-Actions are defined by the charm and invoked by the user using {ref}`command-juju-run`. The default behaviour is that
-the command blocks, logs any progress messages as reported by the action, and finally prints the action result.
-An action result is a map of key values, containing data set by the action as it runs, plus the overall exit code
-of the action process itself, and the content of stdout and stderr.
-
-The code used to implement an action can the following additional hook commands:
-* action-log: to report a progress message
-* action-get: to get the value of a named action parameter as supplied by the user
-* action-set: to set a value in the action results map 
-* action-fail: to mark the action as failed along with a failure message
-
 (relation-hooks)=
 ### Relation hooks
 
@@ -424,38 +402,6 @@ Workload hooks operate in an environment with additional environment variables a
 ## List of hooks
 
 > [Source](https://github.com/juju/juju/blob/main/internal/charm/hooks/hooks.go)
-
-(hook-action)=
-### `action`
-
-#### What triggers it?
-
-A charm user invoking the action name from the Juju CLI (`juju run <unit/0> foo`,  `juju run <unit/0> <unit/1> foo`).
-
-#### Which environment variables is it executed with? 
-
-Most [common charm hook](#common-charm-hooks) and [action hook](#action-hooks) environment variables.
-```{note}
-For actions, JUJU_ACTION_NAME is set, rather than JUJU_HOOK_NAME.
-```
-
-#### Who gets it?
-
-All the units that the charm user has run the action on.
-
-```{note}
-When implementing a hook using {ref}`Ops <ops-ops>`, any hyphens in action names are replaced with underscores
-in the corresponding event names.
-For example, an action named `snapshot-database` would result in an event named `snapshot_database_action`
-being triggered when the action is invoked.
-```
-
-```{tip}
-The action handler in the charm can in principle cause other events to be fired.
-For example:
- - deferred events will trigger before the action.
- - if the action handler updates relation data, a `<endpoint name>_relation_changed` will be emitted afterwards on the affected units.
-```
 
 (hook-collect-metrics)=
 ### `collect-metrics` (deprecated)
