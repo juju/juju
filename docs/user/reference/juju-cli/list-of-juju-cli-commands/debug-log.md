@@ -69,13 +69,13 @@ new WARNING and ERROR messages as they are logged:
 
 View all logs on the cmr topic (label):
 
-juju debug-log --include-label cmr
+    juju debug-log --include-label cmr
 
 Progressively exclude more content from the entire log:
 
-juju debug-log --replay --exclude-module juju.state.apiserver
-juju debug-log --replay --exclude-module juju.state
-juju debug-log --replay --exclude-module juju
+    juju debug-log --replay --exclude-module juju.state.apiserver
+    juju debug-log --replay --exclude-module juju.state
+    juju debug-log --replay --exclude-module juju
 
 Begin with the last 2000 lines and include messages pertaining to both the
 juju.cmd and the juju.worker modules:
@@ -123,7 +123,7 @@ basis. By default, the logs for the currently select model are shown.
 
 Each log line is emitted in this format:
 
-  &lt;entity&gt; &lt;timestamp&gt; &lt;log-level&gt; &lt;module&gt;:&lt;line-no&gt; &lt;message&gt;
+    <entity> <timestamp> <log-level> <module>:<line-no> <message>
 
 The "entity" is the source of the message: a machine or unit. The names for
 machines and units can be seen in the output of `juju status`.
