@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -519,7 +518,7 @@ func (s *LoginCommandSuite) TestLoginToPublicControllerWithOIDC(c *gc.C) {
 		})
 
 	sessionLoginProvider.EXPECT().Login(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ base.APICaller) (*api.LoginResultParams, error) {
+		func(_ context.Context, _ apibase.APICaller) (*api.LoginResultParams, error) {
 			tokenCallbackFunc("session-token")
 			return nil, nil
 		})

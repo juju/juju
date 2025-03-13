@@ -90,6 +90,13 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	controllerConfigService := sshserver.NewMockControllerConfigService(ctrl)
 	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
+	// Expect config to be called just the once.
+	ctrlCfg := controller.Config{
+		controller.SSHServerPort:               22,
+		controller.SSHMaxConcurrentConnections: 10,
+	}
+	controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(ctrlCfg, nil).Times(1)
+
 	cfg := sshserver.ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
 		Logger:                  loggertesting.WrapCheckLog(c),
@@ -130,14 +137,9 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	controllerConfigService := sshserver.NewMockControllerConfigService(ctrl)
 	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
-	// Expect SSHServerHostKey to be retrieved
-	controllerConfigService.EXPECT().SSHServerHostKey().Return("key", nil).Times(1)
-	// Expect WatchControllerConfig call
-	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
-
 	// Expect first call to have port of 22 and called once on worker startup.
 	controllerConfigService.EXPECT().
-		ControllerConfig().
+		ControllerConfig(gomock.Any()).
 		Return(
 			controller.Config{
 				controller.SSHServerPort:               22,
@@ -149,7 +151,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	// The second call will be made if the worker receives changes on the watcher
 	// and should should show no change and avoid restarting the worker.
 	controllerConfigService.EXPECT().
-		ControllerConfig().
+		ControllerConfig(gomock.Any()).
 		Return(
 			controller.Config{
 				controller.SSHServerPort:               22,
@@ -160,7 +162,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 		Times(1)
 	// On the third call, we're updating the port and should see it restart the worker.
 	controllerConfigService.EXPECT().
-		ControllerConfig().
+		ControllerConfig(gomock.Any()).
 		Return(
 			controller.Config{
 				controller.SSHServerPort:               2222,
@@ -193,12 +195,12 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	c.Check(serverStarted, gc.Equals, true)
 
 	// Send some changes to restart the server (expect no changes).
-	watcherChan <- struct{}{}
+	ch <- nil
 
 	workertest.CheckAlive(c, w)
 
 	// Send some changes to restart the server (expect the worker to restart).
-	watcherChan <- struct{}{}
+	ch <- nil
 
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "changes detected, stopping SSH server worker")
