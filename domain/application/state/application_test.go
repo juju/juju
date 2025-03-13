@@ -696,8 +696,10 @@ AND state = 'potential'`, appUUID)
 
 	assertTxn("No pending application resources", func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT resource_uuid FROM pending_application_resource WHERE application_name = ?", appName).Scan(nil)
-		c.Check(err, jc.ErrorIs, sql.ErrNoRows)
-		return nil
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
 	})
 }
 
