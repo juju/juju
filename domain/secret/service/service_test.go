@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
@@ -1936,27 +1937,72 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 
 	mockWatcherFactory := NewMockWatcherFactory(ctrl)
 
-	ch := make(chan []string)
-	mockStringWatcher := NewMockStringsWatcher(ctrl)
-	mockStringWatcher.EXPECT().Changes().Return(ch).AnyTimes()
-	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
-	mockStringWatcher.EXPECT().Kill().AnyTimes()
+	obsoleteRevisionCh := make(chan []string)
+	obsoleteRevisionWatcher := NewMockStringsWatcher(ctrl)
+	obsoleteRevisionWatcher.EXPECT().Changes().Return(obsoleteRevisionCh).AnyTimes()
+	obsoleteRevisionWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	obsoleteRevisionWatcher.EXPECT().Kill().AnyTimes()
+
+	secretMetadataCh := make(chan []string)
+	secretMetadataWatcher := NewMockStringsWatcher(ctrl)
+	secretMetadataWatcher.EXPECT().Changes().Return(secretMetadataCh).AnyTimes()
+	secretMetadataWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	secretMetadataWatcher.EXPECT().Kill().AnyTimes()
 
 	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
-		return []string{"revision-uuid-1", "revision-uuid-2"}, nil
+		return []string{}, nil
 	}
 	s.state.EXPECT().InitialWatchStatementForObsoleteRevision(
 		domainsecret.ApplicationOwners([]string{"mysql"}),
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return("table", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(mockStringWatcher, nil)
+	).Return("secret_revision_obsolete", namespaceQuery)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher(
+		"secret_revision_obsolete",
+		changestream.Changed,
+		gomock.Any(),
+	).Return(obsoleteRevisionWatcher, nil)
+
+	s.state.EXPECT().InitialWatchStatementForSecretMatadata(
+		domainsecret.ApplicationOwners([]string{"mysql"}),
+		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+	).Return("secret_metadata", namespaceQuery)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher(
+		"secret_metadata",
+		changestream.Created|changestream.Deleted,
+		gomock.Any(),
+	).Return(secretMetadataWatcher, nil)
+
+	ownedURI := coresecrets.NewURI()
+	notOwnedURI := coresecrets.NewURI()
+	s.state.EXPECT().GetSecretsForOwners(gomock.Any(),
+		domainsecret.ApplicationOwners([]string{"mysql"}), domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+	).Return([]*coresecrets.URI{
+		ownedURI,
+	}, nil)
 
 	s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) ([]string, error) {
 		c.Assert(appOwners, jc.SameContents, domainsecret.ApplicationOwners([]string{"mysql"}))
 		c.Assert(unitOwners, jc.SameContents, domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}))
 		c.Assert(revisionUUIDs, jc.SameContents, []string{"revision-uuid-1", "revision-uuid-2"})
-		return []string{"yyy/1", "yyy/2"}, nil
+		return []string{
+			ownedURI.ID + "/1",
+			ownedURI.ID + "/2",
+		}, nil
 	})
+
+	s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
+		ownedURI,
+		domainsecret.ApplicationOwners([]string{"mysql"}),
+		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+	).Return(
+		false,
+		secreterrors.SecretNotFound, // the secret is not found, so it is considered as not removed.
+	)
+	s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
+		notOwnedURI,
+		domainsecret.ApplicationOwners([]string{"mysql"}),
+		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+	).Return(false, nil)
 
 	svc := NewWatchableService(
 		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
@@ -1980,14 +2026,24 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 	wC := watchertest.NewStringsWatcherC(c, w)
 
 	select {
-	case ch <- []string{"revision-uuid-1", "revision-uuid-2"}:
+	case obsoleteRevisionCh <- []string{"revision-uuid-1", "revision-uuid-2"}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for the initial changes")
+	}
+
+	select {
+	case secretMetadataCh <- []string{
+		ownedURI.ID,
+		notOwnedURI.ID,
+	}:
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for the initial changes")
 	}
 
 	wC.AssertChange(
-		"yyy/1",
-		"yyy/2",
+		ownedURI.ID+"/1",
+		ownedURI.ID+"/2",
+		ownedURI.ID,
 	)
 	wC.AssertNoChange()
 }
