@@ -93,6 +93,16 @@ func (ssw *serverWrapperWorker) Wait() error {
 // loop is the main loop of the server wrapper worker. It starts the server worker
 // and listens for changes in the controller configuration.
 func (ssw *serverWrapperWorker) loop() error {
+	// Watch for changes then acquire the latest controller configuration
+	// to avoid starting the server with stale config values.
+	controllerConfigWatcher, err := ssw.config.ControllerConfigService.WatchControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := ssw.catacomb.Add(controllerConfigWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
 		Logger:               ssw.config.Logger,
 		NewSSHServerListener: ssw.config.NewSSHServerListener,
@@ -102,14 +112,6 @@ func (ssw *serverWrapperWorker) loop() error {
 	}
 
 	if err := ssw.catacomb.Add(srv); err != nil {
-		return errors.Trace(err)
-	}
-
-	controllerConfigWatcher, err := ssw.config.ControllerConfigService.WatchControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := ssw.catacomb.Add(controllerConfigWatcher); err != nil {
 		return errors.Trace(err)
 	}
 

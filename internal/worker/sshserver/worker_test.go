@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/sshserver"
@@ -129,12 +130,53 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	controllerConfigService := sshserver.NewMockControllerConfigService(ctrl)
 	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
-	startCounter := 0
+	// Expect SSHServerHostKey to be retrieved
+	controllerConfigService.EXPECT().SSHServerHostKey().Return("key", nil).Times(1)
+	// Expect WatchControllerConfig call
+	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
+
+	// Expect first call to have port of 22 and called once on worker startup.
+	controllerConfigService.EXPECT().
+		ControllerConfig().
+		Return(
+			controller.Config{
+				controller.SSHServerPort:               22,
+				controller.SSHMaxConcurrentConnections: 10,
+			},
+			nil,
+		).
+		Times(1)
+	// The second call will be made if the worker receives changes on the watcher
+	// and should should show no change and avoid restarting the worker.
+	controllerConfigService.EXPECT().
+		ControllerConfig().
+		Return(
+			controller.Config{
+				controller.SSHServerPort:               22,
+				controller.SSHMaxConcurrentConnections: 10,
+			},
+			nil,
+		).
+		Times(1)
+	// On the third call, we're updating the port and should see it restart the worker.
+	controllerConfigService.EXPECT().
+		ControllerConfig().
+		Return(
+			controller.Config{
+				controller.SSHServerPort:               2222,
+				controller.SSHMaxConcurrentConnections: 10,
+			},
+			nil,
+		).
+		Times(1)
+
+	serverStarted := false
 	cfg := sshserver.ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
-			startCounter++
+			serverStarted = true
+			c.Check(swc.Port, gc.Equals, 22)
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
@@ -148,19 +190,21 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	workertest.CheckAlive(c, serverWorker)
 	workertest.CheckAlive(c, controllerConfigWatcher)
 
-	// Send some changes to restart the server.
-	ch <- []string{"some-config-key"}
+	c.Check(serverStarted, gc.Equals, true)
 
-	// Kill wrapper worker.
-	workertest.CleanKill(c, w)
+	// Send some changes to restart the server (expect no changes).
+	watcherChan <- struct{}{}
+
+	workertest.CheckAlive(c, w)
+
+	// Send some changes to restart the server (expect the worker to restart).
+	watcherChan <- struct{}{}
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, gc.ErrorMatches, "changes detected, stopping SSH server worker")
 
 	// Check all workers killed.
-	c.Check(workertest.CheckKilled(c, w), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, w), gc.ErrorMatches, "changes detected, stopping SSH server worker")
 	c.Check(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
 	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
-
-	// Expect start counter.
-	// 1 for the initial start.
-	// 1 for the restart.
-	c.Assert(startCounter, gc.Equals, 2)
 }
