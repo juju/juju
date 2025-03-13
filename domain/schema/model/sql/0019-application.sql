@@ -196,11 +196,13 @@ CREATE TABLE application_status (
 CREATE TABLE application_agent_version (
     application_uuid TEXT NOT NULL PRIMARY KEY,
     version TEXT NOT NULL,
-    architecture TEXT NOT NULL,
-    release TEXT NOT NULL,
+    architecture_id INT NOT NULL,
     CONSTRAINT fk_application_agent_version_application
     FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_application_agent_version_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id)
 );
 
 CREATE VIEW v_application_constraint AS

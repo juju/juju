@@ -69,12 +69,14 @@ CREATE TABLE unit_principal (
 -- unit.
 CREATE TABLE unit_agent_version (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
-    VERSION TEXT NOT NULL,
-    architecture TEXT NOT NULL,
-    release TEXT NOT NULL,
+    version TEXT NOT NULL,
+    architecture_id INT NOT NULL,
     CONSTRAINT fk_unit_agent_version_unit
     FOREIGN KEY (unit_uuid)
-    REFERENCES application (uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_unit_agent_version_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id)
 );
 
 CREATE TABLE unit_state (

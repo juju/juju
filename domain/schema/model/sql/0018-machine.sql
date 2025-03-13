@@ -46,11 +46,13 @@ CREATE TABLE machine_parent (
 CREATE TABLE machine_agent_version (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     version TEXT NOT NULL,
-    architecture TEXT NOT NULL,
-    release TEXT NOT NULL,
+    architecture_id INT NOT NULL,
     CONSTRAINT fk_machine_agent_version_machine
     FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid)
+    REFERENCES machine (uuid),
+    CONSTRAINT fk_machine_agent_version_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id)
 );
 
 CREATE TABLE machine_constraint (
