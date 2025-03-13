@@ -32,6 +32,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
@@ -68,6 +69,7 @@ type ManifoldSuite struct {
 	modelService            *MockModelService
 	tracerGetter            stubTracerGetter
 	objectStoreGetter       stubObjectStoreGetter
+	jwtParser               *jwtparser.Parser
 
 	stub testing.Stub
 }
@@ -91,6 +93,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.httpClientGetter = &stubHTTPClientGetter{
 		client: s.charmhubHTTPClient,
 	}
+	s.jwtParser = &jwtparser.Parser{}
 	s.stub.ResetCalls()
 	s.domainServicesGetter = &stubDomainServicesGetter{}
 	s.dbDeleter = stubDBDeleter{}
@@ -112,6 +115,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		ObjectStoreName:                   "object-store",
 		ChangeStreamName:                  "change-stream",
 		DBAccessorName:                    "db-accessor",
+		JWTParserName:                     "jwt-parser",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -143,6 +147,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"domain-services":     s.domainServicesGetter,
 		"trace":               s.tracerGetter,
 		"object-store":        s.objectStoreGetter,
+		"jwt-parser":          s.jwtParser,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -175,6 +180,7 @@ var expectedInputs = []string{
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"http-client", "change-stream",
 	"domain-services", "trace", "object-store", "log-sink", "db-accessor",
+	"jwt-parser",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -245,6 +251,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ObjectStoreGetter:          s.objectStoreGetter,
 		ControllerConfigService:    s.controllerConfigService,
 		ModelService:               s.modelService,
+		JWTParser:                  s.jwtParser,
 	})
 }
 

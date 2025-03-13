@@ -4,19 +4,34 @@
 package jwt_test
 
 import (
+	"context"
+	"encoding/base64"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/juju/errors"
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
+}
+
+type testJWTParser struct {
+	notReady bool
+}
+
+func (m *testJWTParser) Parse(ctx context.Context, tok string) (jwt.Token, error) {
+	if m.notReady {
+		return nil, errors.NotProvisioned
+	}
+	data, err := base64.StdEncoding.DecodeString(tok)
+	if err != nil {
+		return nil, err
+	}
+	return jwt.ParseInsecure(data)
 }
 
 // JWTParams are the necessary params to issue a ready-to-go JWT.
@@ -27,30 +42,12 @@ type JWTParams struct {
 }
 
 // EncodedJWT returns jwt as bytes signed by the specified key.
-func EncodedJWT(params JWTParams, jwkSet jwk.Set, signingKey jwk.Key) ([]byte, error) {
-	jti, err := generateJTI()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	pubKey, ok := jwkSet.Key(jwkSet.Len() - 1)
-	if !ok {
-		return nil, errors.Errorf("no jwk found")
-	}
-
-	err = signingKey.Set(jwk.AlgorithmKey, jwa.RS256)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	err = signingKey.Set(jwk.KeyIDKey, pubKey.KeyID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func EncodedJWT(params JWTParams) ([]byte, error) {
 	token, err := jwt.NewBuilder().
 		Audience([]string{params.Controller}).
 		Subject(params.User).
 		Issuer("test").
-		JwtID(jti).
+		JwtID(uuid.NewString()).
 		Claim("access", params.Access).
 		Expiration(time.Now().Add(time.Hour)).
 		Build()
@@ -58,20 +55,6 @@ func EncodedJWT(params JWTParams, jwkSet jwk.Set, signingKey jwk.Key) ([]byte, e
 		return nil, errors.Trace(err)
 	}
 
-	freshToken, err := jwt.Sign(
-		token,
-		jwt.WithKey(
-			jwa.RS256,
-			signingKey,
-		),
-	)
+	freshToken, err := jwt.NewSerializer().Serialize(token)
 	return freshToken, errors.Trace(err)
-}
-
-func generateJTI() (string, error) {
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return "", err
-	}
-	return id.String(), nil
 }

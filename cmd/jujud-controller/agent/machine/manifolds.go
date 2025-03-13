@@ -85,6 +85,7 @@ import (
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/internal/worker/identityfilewriter"
 	"github.com/juju/juju/internal/worker/instancemutater"
+	"github.com/juju/juju/internal/worker/jwtparser"
 	leasemanager "github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 	"github.com/juju/juju/internal/worker/logger"
@@ -649,6 +650,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			HTTPClientName:         httpClientName,
 			TraceName:              traceName,
 			ObjectStoreName:        objectStoreName,
+			JWTParserName:          jwtParserName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
@@ -923,6 +925,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:          config.Clock,
 			Logger:         internallogger.GetLogger("juju.worker.apiremotecaller"),
 			NewWorker:      apiremotecaller.NewWorker,
+		})),
+
+		jwtParserName: ifController(jwtparser.Manifold(jwtparser.ManifoldConfig{
+			GetControllerConfigService: jwtparser.GetControllerConfigService,
+			DomainServicesName:         domainServicesName,
 		})),
 	}
 
@@ -1358,6 +1365,7 @@ const (
 	isControllerFlagName          = "is-controller-flag"
 	isNotControllerFlagName       = "is-not-controller-flag"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
+	jwtParserName                 = "jwt-parser"
 	leaseExpiryName               = "lease-expiry"
 	leaseManagerName              = "lease-manager"
 	loggingConfigUpdaterName      = "logging-config-updater"
