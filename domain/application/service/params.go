@@ -225,4 +225,8 @@ type ImportApplicationArgs struct {
 	// CharmUpgradeOnError indicates whether the charm must be upgraded
 	// even when on error.
 	CharmUpgradeOnError bool
+
+	// ScaleState is the scale state (including scaling, scale and scale
+	// target) of the application.
+	ScaleState application.ScaleState
 }

@@ -17,6 +17,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/application"
 )
 
 type exportUnitSuite struct {
@@ -48,6 +49,7 @@ func (s *exportUnitSuite) TestApplicationExportUnitWorkloadStatus(c *gc.C) {
 	s.expectApplicationConfig()
 	s.expectApplicationStatus()
 	s.expectApplicationConstraints(constraints.Value{})
+	s.expectGetApplicationScaleState(application.ScaleState{})
 
 	exportOp := exportOperation{
 		service: s.exportService,

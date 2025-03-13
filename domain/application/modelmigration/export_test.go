@@ -87,6 +87,7 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 		Zones:            ptr([]string{"zone0", "zone1"}),
 	}
 	s.expectApplicationConstraints(cons)
+	s.expectGetApplicationScaleState(application.ScaleState{})
 
 	exportOp := exportOperation{
 		service: s.exportService,
@@ -112,6 +113,45 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 	c.Check(app.Constraints().Spaces(), gc.DeepEquals, []string{"space0", "space1"})
 	c.Check(app.Constraints().Tags(), gc.DeepEquals, []string{"tag0", "tag1"})
 	c.Check(app.Constraints().Zones(), gc.DeepEquals, []string{"zone0", "zone1"})
+}
+
+func (s *exportApplicationSuite) TestExportScalingState(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+	}
+	app := model.AddApplication(appArgs)
+	app.AddUnit(description.UnitArgs{
+		Name: "prometheus/0",
+	})
+
+	s.expectApplicationStatus()
+	s.expectApplicationUnitStatus(c)
+	s.expectMinimalCharm()
+	s.expectApplicationConfig()
+	s.expectApplicationConstraints(constraints.Value{})
+	s.expectGetApplicationScaleState(application.ScaleState{
+		Scaling:     true,
+		ScaleTarget: 42,
+		Scale:       1,
+	})
+
+	exportOp := exportOperation{
+		service: s.exportService,
+		clock:   clock.WallClock,
+	}
+
+	err := exportOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Applications(), gc.HasLen, 1)
+	app = model.Applications()[0]
+	c.Check(app.ProvisioningState().ScaleTarget(), gc.Equals, 42)
+	c.Check(app.ProvisioningState().Scaling(), jc.IsTrue)
+	c.Check(app.DesiredScale(), gc.Equals, 1)
 }
 
 func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -149,6 +189,11 @@ func (s *exportSuite) expectApplicationConfig() {
 		Trust: true,
 	}
 	s.exportService.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), "prometheus").Return(config, settings, nil)
+}
+
+func (s *exportSuite) expectGetApplicationScaleState(scaleState application.ScaleState) {
+	exp := s.exportService.EXPECT()
+	exp.GetApplicationScaleState(gomock.Any(), "prometheus").Return(scaleState, nil)
 }
 
 func (s *exportSuite) expectApplicationStatus() {

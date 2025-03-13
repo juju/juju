@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/domain/application"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
@@ -43,6 +44,7 @@ func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 	s.expectApplicationStatus()
 	s.expectApplicationUnitStatus(c)
 	s.expectApplicationConstraints(constraints.Value{})
+	s.expectGetApplicationScaleState(application.ScaleState{})
 
 	exportOp := exportOperation{
 		service: s.exportService,

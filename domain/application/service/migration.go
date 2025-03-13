@@ -231,6 +231,22 @@ func (s *MigrationService) GetUnitUUIDByName(ctx context.Context, name coreunit.
 	return s.st.GetUnitUUIDByName(ctx, name)
 }
 
+// GetApplicationScaleState returns the scale state of the specified
+// application, returning an error satisfying
+// [applicationerrors.ApplicationNotFound] if the application is not found.
+func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name string) (application.ScaleState, error) {
+	if !isValidApplicationName(name) {
+		return application.ScaleState{}, applicationerrors.ApplicationNameNotValid
+	}
+
+	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return application.ScaleState{}, errors.Trace(err)
+	}
+
+	return s.st.GetApplicationScaleState(ctx, appID)
+}
+
 // GetUnitWorkloadStatus returns the workload status of the specified unit,
 // returning an error satisfying [applicationerrors.UnitNotFound] if the unit
 // doesn't exist.
@@ -339,11 +355,15 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 			return errors.Annotatef(err, "inserting unit %q", arg.UnitName)
 		}
 	}
-	// TODO(nvinuesa): We should use the service method to set the
-	// constraints because we need validation. For the moment it's not
-	// possible because we need a provider during migration.
-	err = s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(args.ApplicationConstraints))
-	if err != nil {
+
+	if err := s.st.SetDesiredApplicationScale(ctx, appID, args.ScaleState.Scale); err != nil {
+		return errors.Annotatef(err, "setting desired scale for application %q", name)
+	}
+	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.Scaling); err != nil {
+		return errors.Annotatef(err, "setting provisioning state for application %q", name)
+	}
+
+	if err := s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(args.ApplicationConstraints)); err != nil {
 		return errors.Annotatef(err, "setting application constraints for application %q", name)
 	}
 
