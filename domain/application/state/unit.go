@@ -520,7 +520,7 @@ func (st *State) AddCAASUnits(
 //   - If any of the units already exists [applicationerrors.UnitAlreadyExists] is returned.
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) InsertIAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.InsertUnitArg) error {
+func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.InsertUnitArg) error {
 	if len(units) == 0 {
 		return nil
 	}
@@ -543,7 +543,7 @@ func (st *State) InsertIAASUnits(ctx context.Context, appUUID coreapplication.ID
 //   - If any of the units already exists [applicationerrors.UnitAlreadyExists] is returned.
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) InsertCAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.InsertUnitArg) error {
+func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.InsertUnitArg) error {
 	if len(units) == 0 {
 		return nil
 	}

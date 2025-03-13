@@ -231,39 +231,7 @@ func (st *State) CreateApplication(
 			return nil
 		}
 
-		insertUnits := make([]application.InsertUnitArg, len(units))
-		for i, unit := range units {
-			insertUnits[i] = application.InsertUnitArg{
-				UnitName:         unit.UnitName,
-				Constraints:      unit.Constraints,
-				Storage:          args.Storage,
-				StoragePoolKind:  args.StoragePoolKind,
-				StorageParentDir: args.StorageParentDir,
-				UnitStatusArg: application.UnitStatusArg{
-					AgentStatus:    unit.UnitStatusArg.AgentStatus,
-					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
-				},
-			}
-		}
-
-		modelType, err := st.GetModelType(ctx)
-		if err != nil {
-			return errors.Errorf("getting model type: %w", err)
-		}
-		if modelType == coremodel.IAAS {
-			for _, arg := range insertUnits {
-				if err := st.insertIAASUnit(ctx, tx, appUUID, arg); err != nil {
-					return errors.Errorf("inserting IAAS unit %q: %w", arg.UnitName, err)
-				}
-			}
-		} else {
-			for _, arg := range insertUnits {
-				if err := st.insertCAASUnit(ctx, tx, appUUID, arg); err != nil {
-					return errors.Errorf("inserting CAAS unit %q: %w", arg.UnitName, err)
-				}
-			}
-		}
-		if err != nil {
+		if err = st.insertApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
 			return errors.Errorf("inserting units for application %q: %w", appUUID, err)
 		}
 		return nil
@@ -272,6 +240,45 @@ func (st *State) CreateApplication(
 		return "", errors.Errorf("creating application %q: %w", name, err)
 	}
 	return appUUID, nil
+}
+
+func (st *State) insertApplicationUnits(
+	ctx context.Context, tx *sqlair.TX,
+	appUUID coreapplication.ID, args application.AddApplicationArg, units []application.AddUnitArg,
+) error {
+	insertUnits := make([]application.InsertUnitArg, len(units))
+	for i, unit := range units {
+		insertUnits[i] = application.InsertUnitArg{
+			UnitName:         unit.UnitName,
+			Constraints:      unit.Constraints,
+			Storage:          args.Storage,
+			StoragePoolKind:  args.StoragePoolKind,
+			StorageParentDir: args.StorageParentDir,
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus:    unit.UnitStatusArg.AgentStatus,
+				WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
+			},
+		}
+	}
+
+	modelType, err := st.GetModelType(ctx)
+	if err != nil {
+		return errors.Errorf("getting model type: %w", err)
+	}
+	if modelType == coremodel.IAAS {
+		for _, arg := range insertUnits {
+			if err := st.insertIAASUnit(ctx, tx, appUUID, arg); err != nil {
+				return errors.Errorf("inserting IAAS unit %q: %w", arg.UnitName, err)
+			}
+		}
+	} else {
+		for _, arg := range insertUnits {
+			if err := st.insertCAASUnit(ctx, tx, appUUID, arg); err != nil {
+				return errors.Errorf("inserting CAAS unit %q: %w", arg.UnitName, err)
+			}
+		}
+	}
+	return nil
 }
 
 // DeleteApplication deletes the specified application, returning an error

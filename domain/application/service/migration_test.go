@@ -414,12 +414,12 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 
 	var receivedUnitArgs []application.InsertUnitArg
 	if modelType == coremodel.IAAS {
-		s.state.EXPECT().InsertIAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.InsertUnitArg) error {
+		s.state.EXPECT().InsertMigratingIAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.InsertUnitArg) error {
 			receivedUnitArgs = args
 			return nil
 		})
 	} else {
-		s.state.EXPECT().InsertCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.InsertUnitArg) error {
+		s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.InsertUnitArg) error {
 			receivedUnitArgs = args
 			return nil
 		})
