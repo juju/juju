@@ -480,38 +480,6 @@ func (st *State) AddUnits(
 	return nil
 }
 
-// GetUnitUUID returns the UUID for the named unit, returning an error
-// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) GetUnitUUID(ctx domain.AtomicContext, unitName coreunit.Name) (coreunit.UUID, error) {
-	var unitUUID coreunit.UUID
-	err := domain.Run(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		unitUUID, err = st.getUnitUUID(ctx, tx, unitName)
-		return err
-	})
-	if err != nil {
-		return "", errors.Errorf("getting unit UUID for unit %q: %w", unitName, err)
-	}
-	return unitUUID, nil
-}
-
-func (st *State) getUnitUUID(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (coreunit.UUID, error) {
-	unit := unitDetails{Name: unitName}
-	getUnitStmt, err := st.Prepare(`SELECT &unitDetails.uuid FROM unit WHERE name = $unitDetails.name`, unit)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("unit %q not found%w", unitName, jujuerrors.Hide(applicationerrors.UnitNotFound))
-	}
-	if err != nil {
-		return "", errors.Errorf("querying unit %q: %w", unitName, err)
-	}
-	return unit.UnitUUID, nil
-}
-
 // GetUnitUUIDByName returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
