@@ -222,6 +222,9 @@ func (s *suite) TestContainerConfig(c *gc.C) {
 			"preruncmd":       []any{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
 			"postruncmd":      []any{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 			"package_upgrade": false,
+			"ca_certs": map[string]any{
+				"trusted": []any{"root-cert", "intermediate-cert"},
+			},
 		},
 	})
 }
@@ -237,4 +240,8 @@ postruncmd:
   - mkdir /tmp/postruncmd
   - mkdir /tmp/postruncmd2
 package_upgrade: false
+ca_certs:
+  trusted:
+    - root-cert
+    - intermediate-cert
 `[1:]
