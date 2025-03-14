@@ -157,6 +157,14 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 
 		applicationStatus := i.importStatus(app.Status())
+		scaleState := application.ScaleState{
+			Scale: app.DesiredScale(),
+		}
+
+		if provisioningState := app.ProvisioningState(); provisioningState != nil {
+			scaleState.Scaling = provisioningState.Scaling()
+			scaleState.ScaleTarget = provisioningState.ScaleTarget()
+		}
 
 		err = i.service.ImportApplication(ctx, app.Name(), service.ImportApplicationArgs{
 			Charm:                  charm,
@@ -166,6 +174,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			ApplicationSettings:    applicationSettings,
 			ApplicationStatus:      &applicationStatus,
 			ApplicationConstraints: i.importApplicationConstraints(app),
+			ScaleState:             scaleState,
 
 			// ReferenceName is the name of the charm URL, not the application
 			// name and not the charm name in the metadata, but the name of

@@ -478,6 +478,9 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, domainconstraints.DecodeConstraints(cons)).Return(nil)
 
+	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
+	s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, true).Return(nil)
+
 	err := s.service.ImportApplication(context.Background(), "ubuntu", ImportApplicationArgs{
 		Charm: s.charm,
 		CharmOrigin: corecharm.Origin{
@@ -496,6 +499,11 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 		},
 		Units: []ImportUnitArg{
 			unitArg,
+		},
+		ScaleState: application.ScaleState{
+			Scale:       1,
+			Scaling:     true,
+			ScaleTarget: 42,
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

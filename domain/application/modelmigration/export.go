@@ -83,6 +83,11 @@ type ExportService interface {
 	// [applicationerrors.UnitNotFound] is returned.
 	GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error)
 
+	// GetApplicationScaleState returns the scale state of the specified
+	// application, returning an error satisfying
+	// [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationScaleState(ctx context.Context, name string) (application.ScaleState, error)
+
 	// GetUnitWorkloadStatus returns the workload status of the specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the
 	// unit doesn't exist.
@@ -174,6 +179,13 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		}
 		app.SetConstraints(e.exportApplicationConstraints(appCons))
 
+		scaleState, err := e.service.GetApplicationScaleState(ctx, app.Name())
+		if err != nil {
+			return fmt.Errorf("getting application scale state for %q: %v", app.Name(), err)
+		}
+		app.SetProvisioningState(e.exportApplicationScaleState(scaleState))
+		app.SetDesiredScale(scaleState.Scale)
+
 		err = e.exportApplicationUnits(ctx, app)
 		if err != nil {
 			return fmt.Errorf("exporting application units %q: %v", app.Name(), err)
@@ -200,6 +212,13 @@ func (e *exportOperation) exportStatus(status *corestatus.StatusInfo) descriptio
 		Message: status.Message,
 		Data:    status.Data,
 		Updated: now,
+	}
+}
+
+func (e *exportOperation) exportApplicationScaleState(scaleState application.ScaleState) *description.ProvisioningStateArgs {
+	return &description.ProvisioningStateArgs{
+		Scaling:     scaleState.Scaling,
+		ScaleTarget: scaleState.ScaleTarget,
 	}
 }
 
