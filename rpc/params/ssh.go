@@ -64,12 +64,12 @@ type SSHHostKeyRequestArg struct {
 	Hostname string `json:"hostname"`
 }
 
-// SSHHostKeyResult returns the host key for the target hostname.
+// PublicSSHHostKeyResult returns the host key for the target hostname.
 // Additionally, it returns the controller's SSH jump server's host key.
 //
 // We return the jump server's host key as to SSH to this unit, clients MUST
 // jump through the controller.
-type SSHHostKeyResult struct {
+type PublicSSHHostKeyResult struct {
 	Error             *Error `json:"error,omitempty"`
 	HostKey           string `json:"host-key"`
 	JumpServerHostKey string `json:"jump-server-host-key"`

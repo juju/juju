@@ -341,10 +341,10 @@ func (facade *Facade) getExecSecretToken(cloudSpec environscloudspec.CloudSpec, 
 	return broker.GetSecretToken(k8sprovider.ExecRBACResourceName)
 }
 
-// PublicHostKeyForTarget returns the host key for the target entity. In addition, it also returns
+// PublicHostKeyForTarget returns the host key for the target host. In addition, it also returns
 // the jump server's host key.
-func (facade *Facade) PublicHostKeyForTarget(arg params.SSHHostKeyRequestArg) params.SSHHostKeyResult {
-	var res params.SSHHostKeyResult
+func (facade *Facade) PublicHostKeyForTarget(arg params.SSHHostKeyRequestArg) params.PublicSSHHostKeyResult {
+	var res params.PublicSSHHostKeyResult
 
 	// Check if superuser or at least model reader
 	if err := facade.checkIsModelReader(); err != nil {
@@ -367,9 +367,7 @@ func (facade *Facade) PublicHostKeyForTarget(arg params.SSHHostKeyRequestArg) pa
 			res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get machine host key"))
 			return res
 		}
-	case virtualhostname.ContainerTarget:
-		fallthrough
-	case virtualhostname.UnitTarget:
+	case virtualhostname.ContainerTarget, virtualhostname.UnitTarget:
 		unitName, _ := info.Unit()
 		hostkey, err = facade.backend.UnitVirtualPublicHostKeyPEM(unitName)
 		if err != nil {

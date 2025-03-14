@@ -14111,7 +14111,7 @@
                             "$ref": "#/definitions/SSHHostKeyRequestArg"
                         },
                         "Result": {
-                            "$ref": "#/definitions/SSHHostKeyResult"
+                            "$ref": "#/definitions/PublicSSHHostKeyResult"
                         }
                     }
                 },
@@ -14272,6 +14272,25 @@
                         "code"
                     ]
                 },
+                "PublicSSHHostKeyResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "host-key": {
+                            "type": "string"
+                        },
+                        "jump-server-host-key": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "host-key",
+                        "jump-server-host-key"
+                    ]
+                },
                 "SSHAddressResult": {
                     "type": "object",
                     "properties": {
@@ -14342,25 +14361,6 @@
                     "additionalProperties": false,
                     "required": [
                         "hostname"
-                    ]
-                },
-                "SSHHostKeyResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "host-key": {
-                            "type": "string"
-                        },
-                        "jump-server-host-key": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "host-key",
-                        "jump-server-host-key"
                     ]
                 },
                 "SSHProxyResult": {
