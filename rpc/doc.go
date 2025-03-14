@@ -5,7 +5,7 @@
 
 // Related packages
 
-// - jsoncodec: Defines methods for reading and writing RPC messages, enabling serialization and deserialization.
+// - jsoncodec: Defines methods for reading and writing RPC messages in JSON format, enabling serialization and deserialization.
 // - params: Defines the structs for json RPC requests
 
 // Example sequence flow for a rpc interaction
