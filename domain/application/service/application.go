@@ -1416,7 +1416,7 @@ func validateSecretConfig(chCfg internalcharm.Config, cfg internalcharm.Settings
 		option, ok := chCfg.Options[name]
 		if !ok {
 			// This should never happen.
-			return errors.NotValidf("unknown option %q", name)
+			return errors.NotValidf("unsupported option %q", name)
 		}
 		if option.Type == "secret" {
 			uriStr, ok := value.(string)
@@ -1463,7 +1463,7 @@ func decodeCharmSource(source charm.CharmSource) (corecharm.Source, error) {
 	case charm.LocalSource:
 		return corecharm.Local, nil
 	default:
-		return "", internalerrors.Errorf("unknown charm source type %q", source)
+		return "", internalerrors.Errorf("unsupported charm source type %q", source)
 	}
 }
 
@@ -1498,7 +1498,7 @@ func decodeArchitecture(a architecture.Architecture) (arch.Arch, error) {
 	case architecture.S390X:
 		return arch.S390X, nil
 	default:
-		return "", internalerrors.Errorf("unknown architecture %q", a)
+		return "", internalerrors.Errorf("unsupported architecture %q", a)
 	}
 }
 
@@ -1507,7 +1507,7 @@ func decodeOS(osType application.OSType) (os.OSType, error) {
 	case application.Ubuntu:
 		return os.Ubuntu, nil
 	default:
-		return -1, internalerrors.Errorf("unknown OS type %q", osType)
+		return -1, internalerrors.Errorf("unsupported OS type %q", osType)
 	}
 }
 
@@ -1539,6 +1539,6 @@ func decodeRisk(r application.ChannelRisk) (internalcharm.Risk, error) {
 	case application.RiskEdge:
 		return internalcharm.Edge, nil
 	default:
-		return "", internalerrors.Errorf("unknown risk %q", r)
+		return "", internalerrors.Errorf("unsupported risk %q", r)
 	}
 }
