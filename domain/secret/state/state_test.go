@@ -4378,7 +4378,7 @@ func (s *stateSuite) TestInitialWatchStatementForSecretMatadataGetForBothAppAndU
 	c.Assert(err, jc.ErrorIsNil)
 	updateSecretContent(c, st, uri2)
 
-	tableName, f := st.InitialWatchStatementForSecretMatadata(domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"})
+	tableName, f := st.InitialWatchStatementForOwnedSecrets(domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"})
 	c.Check(tableName, gc.Equals, "secret_metadata")
 	result, err := f(ctx, s.TxnRunner())
 	c.Check(err, jc.ErrorIsNil)
@@ -4408,7 +4408,7 @@ func (s *stateSuite) TestInitialWatchStatementForSecretMatadataGetForAppOwners(c
 	c.Assert(err, jc.ErrorIsNil)
 	updateSecretContent(c, st, uri2)
 
-	tableName, f := st.InitialWatchStatementForSecretMatadata(domainsecret.ApplicationOwners{"mysql"}, nil)
+	tableName, f := st.InitialWatchStatementForOwnedSecrets(domainsecret.ApplicationOwners{"mysql"}, nil)
 	c.Check(tableName, gc.Equals, "secret_metadata")
 	result, err := f(ctx, s.TxnRunner())
 	c.Check(err, jc.ErrorIsNil)
@@ -4438,7 +4438,7 @@ func (s *stateSuite) TestInitialWatchStatementForSecretMatadataGetForUnitOwners(
 	c.Assert(err, jc.ErrorIsNil)
 	updateSecretContent(c, st, uri2)
 
-	tableName, f := st.InitialWatchStatementForSecretMatadata(nil, domainsecret.UnitOwners{"mysql/0"})
+	tableName, f := st.InitialWatchStatementForOwnedSecrets(nil, domainsecret.UnitOwners{"mysql/0"})
 	c.Check(tableName, gc.Equals, "secret_metadata")
 	result, err := f(ctx, s.TxnRunner())
 	c.Check(err, jc.ErrorIsNil)

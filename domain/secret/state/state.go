@@ -1012,9 +1012,9 @@ ON CONFLICT(revision_uuid, name) DO UPDATE SET
 	return nil
 }
 
-// InitialWatchStatementForSecretMatadata returns the table name and query to use
-// for watching secret metadata changes.
-func (st State) InitialWatchStatementForSecretMatadata(
+// InitialWatchStatementForOwnedSecrets returns the table name and query to use
+// for watching changes of secrets owned by the specified apps and/or units.
+func (st State) InitialWatchStatementForOwnedSecrets(
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 ) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
@@ -1053,17 +1053,14 @@ func (st State) IsSecretOwnedBy(
 
 	query := `
 SELECT COUNT(*) AS &count.num
-FROM secret_metadata sm
-LEFT JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
-LEFT JOIN application a ON a.uuid = sao.application_uuid
-LEFT JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
-LEFT JOIN unit u ON u.uuid = suo.unit_uuid
-WHERE
-    (sao.application_uuid <> "" OR suo.unit_uuid <> "")
-AND
-    (a.name IN ($ApplicationOwners[:]) OR u.name IN ($UnitOwners[:]))
-AND 
-    sm.secret_id = $secretID.id
+FROM   secret_metadata sm
+       LEFT JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
+       LEFT JOIN application a ON a.uuid = sao.application_uuid
+       LEFT JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
+       LEFT JOIN unit u ON u.uuid = suo.unit_uuid
+WHERE  (sao.application_uuid <> "" OR suo.unit_uuid <> "")
+AND    (a.name IN ($ApplicationOwners[:]) OR u.name IN ($UnitOwners[:]))
+AND    sm.secret_id = $secretID.id
 `
 
 	count := count{}
@@ -1082,7 +1079,6 @@ AND
 	}); err != nil {
 		return false, errors.Capture(err)
 	}
-	st.logger.Criticalf(ctx, "IsSecretOwnedBy count: %v", count.Num)
 	return count.Num > 0, nil
 }
 
@@ -1096,15 +1092,13 @@ func (st State) GetSecretsForOwners(
 
 	query := `
 SELECT sm.secret_id AS &secretID.id
-FROM secret_metadata sm
-LEFT JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
-LEFT JOIN application a ON a.uuid = sao.application_uuid
-LEFT JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
-LEFT JOIN unit u ON u.uuid = suo.unit_uuid
-WHERE
-    (sao.application_uuid <> "" OR suo.unit_uuid <> "")
-AND
-    (a.name IN ($ApplicationOwners[:]) OR u.name IN ($UnitOwners[:]))
+FROM   secret_metadata sm
+       LEFT JOIN secret_application_owner sao ON sao.secret_id = sm.secret_id
+       LEFT JOIN application a ON a.uuid = sao.application_uuid
+       LEFT JOIN secret_unit_owner suo ON suo.secret_id = sm.secret_id
+       LEFT JOIN unit u ON u.uuid = suo.unit_uuid
+WHERE  (sao.application_uuid <> "" OR suo.unit_uuid <> "")
+AND    (a.name IN ($ApplicationOwners[:]) OR u.name IN ($UnitOwners[:]))
 `
 
 	queryTypes := []any{

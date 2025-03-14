@@ -26,10 +26,6 @@ const (
 	delete
 )
 
-// Created returns if the underlying type has been created. This will encompass
-// if a row has been created in the database.
-const Created = create
-
 // Changed returns if the underlying type has changed. This will encompass
 // if a row has been created or updated. There is no distinction between the
 // two types of changes, only that the underlying type has changed.

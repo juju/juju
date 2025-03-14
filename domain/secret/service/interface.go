@@ -132,7 +132,8 @@ type State interface {
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
 	) ([]domainsecret.ExpiryInfo, error)
 
-	InitialWatchStatementForSecretMatadata(
+	// For watching secret changes for the provided owners.
+	InitialWatchStatementForOwnedSecrets(
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) (string, eventsource.NamespaceQuery)
 	IsSecretOwnedBy(

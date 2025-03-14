@@ -1755,19 +1755,19 @@ func (c *MockStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferi
 	return c
 }
 
-// InitialWatchStatementForSecretMatadata mocks base method.
-func (m *MockState) InitialWatchStatementForSecretMatadata(arg0 secret.ApplicationOwners, arg1 secret.UnitOwners) (string, eventsource.NamespaceQuery) {
+// InitialWatchStatementForOwnedSecrets mocks base method.
+func (m *MockState) InitialWatchStatementForOwnedSecrets(arg0 secret.ApplicationOwners, arg1 secret.UnitOwners) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitialWatchStatementForSecretMatadata", arg0, arg1)
+	ret := m.ctrl.Call(m, "InitialWatchStatementForOwnedSecrets", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(eventsource.NamespaceQuery)
 	return ret0, ret1
 }
 
-// InitialWatchStatementForSecretMatadata indicates an expected call of InitialWatchStatementForSecretMatadata.
-func (mr *MockStateMockRecorder) InitialWatchStatementForSecretMatadata(arg0, arg1 any) *MockStateInitialWatchStatementForSecretMatadataCall {
+// InitialWatchStatementForOwnedSecrets indicates an expected call of InitialWatchStatementForOwnedSecrets.
+func (mr *MockStateMockRecorder) InitialWatchStatementForOwnedSecrets(arg0, arg1 any) *MockStateInitialWatchStatementForSecretMatadataCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForSecretMatadata", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForSecretMatadata), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForOwnedSecrets", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForOwnedSecrets), arg0, arg1)
 	return &MockStateInitialWatchStatementForSecretMatadataCall{Call: call}
 }
 

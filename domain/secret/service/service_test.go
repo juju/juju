@@ -1962,25 +1962,19 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *gc
 		gomock.Any(),
 	).Return(obsoleteRevisionWatcher, nil)
 
-	s.state.EXPECT().InitialWatchStatementForSecretMatadata(
+	s.state.EXPECT().InitialWatchStatementForOwnedSecrets(
 		domainsecret.ApplicationOwners([]string{"mysql"}),
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
 	).Return("secret_metadata", namespaceQuery)
 	mockWatcherFactory.EXPECT().NewNamespaceWatcher(
 		"secret_metadata",
-		changestream.Created|changestream.Deleted,
+		changestream.All,
 		gomock.Any(),
 	).Return(secretMetadataWatcher, nil)
 
 	ownedURI := coresecrets.NewURI()
 	removedOwnedURI := coresecrets.NewURI()
 	notOwnedURI := coresecrets.NewURI()
-	s.state.EXPECT().GetSecretsForOwners(gomock.Any(),
-		domainsecret.ApplicationOwners([]string{"mysql"}), domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return([]*coresecrets.URI{
-		ownedURI,
-		removedOwnedURI,
-	}, nil)
 
 	s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) ([]string, error) {
 		c.Assert(appOwners, jc.SameContents, domainsecret.ApplicationOwners([]string{"mysql"}))
@@ -1991,19 +1985,37 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *gc
 			"revision-uuid-3",
 		})
 		return []string{
-			ownedURI.ID + "/1",        // owned secret, will be sent.
-			removedOwnedURI.ID + "/1", // removed owned secret, will be ignored.
-			removedOwnedURI.ID + "/2", // removed owned secret, will be ignored.
+			ownedURI.ID + "/1", // owned secret, will be sent.
 		}, nil
 	})
 
 	s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
-		removedOwnedURI,
+		ownedURI,
 		domainsecret.ApplicationOwners([]string{"mysql"}),
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
 	).Return(
-		false,
-		secreterrors.SecretNotFound, // the secret is not found, so it is considered as removed.
+		true,
+		nil,
+	)
+	gomock.InOrder(
+		// When we receive the initial event, the secret is not removed yet.
+		s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
+			removedOwnedURI,
+			domainsecret.ApplicationOwners([]string{"mysql"}),
+			domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+		).Return(
+			true,
+			nil,
+		),
+		// When we receive the event 2nd time, the secret is removed.
+		s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
+			removedOwnedURI,
+			domainsecret.ApplicationOwners([]string{"mysql"}),
+			domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+		).Return(
+			false,
+			secreterrors.SecretNotFound, // the secret is not found, so it is considered as removed.
+		),
 	)
 	s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
 		notOwnedURI,
@@ -2033,6 +2045,16 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *gc
 	wC := watchertest.NewStringsWatcherC(c, w)
 
 	select {
+	case secretMetadataCh <- []string{
+		// The initial event of the secretWatcher is sent.
+		ownedURI.ID,
+		removedOwnedURI.ID,
+	}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for the initial changes")
+	}
+
+	select {
 	case obsoleteRevisionCh <- []string{
 		"revision-uuid-1",
 		"revision-uuid-2",
@@ -2044,6 +2066,7 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisionAndRemovedURIs(c *gc
 
 	select {
 	case secretMetadataCh <- []string{
+		// Deletion events of the secretWatcher are sent.
 		removedOwnedURI.ID,
 		notOwnedURI.ID, // not owned by the given owners will be ignored.
 	}:
@@ -2089,22 +2112,17 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisions(c *gc.C) {
 		gomock.Any(),
 	).Return(obsoleteRevisionWatcher, nil)
 
-	s.state.EXPECT().InitialWatchStatementForSecretMatadata(
+	s.state.EXPECT().InitialWatchStatementForOwnedSecrets(
 		domainsecret.ApplicationOwners([]string{"mysql"}),
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
 	).Return("secret_metadata", namespaceQuery)
 	mockWatcherFactory.EXPECT().NewNamespaceWatcher(
 		"secret_metadata",
-		changestream.Created|changestream.Deleted,
+		changestream.All,
 		gomock.Any(),
 	).Return(secretMetadataWatcher, nil)
 
 	ownedURI := coresecrets.NewURI()
-	s.state.EXPECT().GetSecretsForOwners(gomock.Any(),
-		domainsecret.ApplicationOwners([]string{"mysql"}), domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return([]*coresecrets.URI{
-		ownedURI,
-	}, nil)
 
 	s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) ([]string, error) {
 		c.Assert(appOwners, jc.SameContents, domainsecret.ApplicationOwners([]string{"mysql"}))
@@ -2114,6 +2132,15 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisions(c *gc.C) {
 			ownedURI.ID + "/1",
 		}, nil
 	})
+
+	s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
+		ownedURI,
+		domainsecret.ApplicationOwners([]string{"mysql"}),
+		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+	).Return(
+		true,
+		nil,
+	)
 
 	svc := NewWatchableService(
 		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
@@ -2135,6 +2162,15 @@ func (s *serviceSuite) TestWatchObsoleteSendObsoleteRevisions(c *gc.C) {
 	c.Assert(w, gc.NotNil)
 	defer workertest.CleanKill(c, w)
 	wC := watchertest.NewStringsWatcherC(c, w)
+
+	select {
+	case secretMetadataCh <- []string{
+		// The initial event of the secretWatcher is sent.
+		ownedURI.ID,
+	}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for the initial changes")
+	}
 
 	select {
 	case obsoleteRevisionCh <- []string{
@@ -2181,32 +2217,39 @@ func (s *serviceSuite) TestWatchObsoleteSendRemovedURIs(c *gc.C) {
 		gomock.Any(),
 	).Return(obsoleteRevisionWatcher, nil)
 
-	s.state.EXPECT().InitialWatchStatementForSecretMatadata(
+	s.state.EXPECT().InitialWatchStatementForOwnedSecrets(
 		domainsecret.ApplicationOwners([]string{"mysql"}),
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
 	).Return("secret_metadata", namespaceQuery)
 	mockWatcherFactory.EXPECT().NewNamespaceWatcher(
 		"secret_metadata",
-		changestream.Created|changestream.Deleted,
+		changestream.All,
 		gomock.Any(),
 	).Return(secretMetadataWatcher, nil)
 
 	ownedURI := coresecrets.NewURI()
 	notOwnedURI := coresecrets.NewURI()
 	createdAfterWatcherStartURI := coresecrets.NewURI()
-	s.state.EXPECT().GetSecretsForOwners(gomock.Any(),
-		domainsecret.ApplicationOwners([]string{"mysql"}), domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return([]*coresecrets.URI{
-		ownedURI,
-	}, nil)
 
-	s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
-		ownedURI,
-		domainsecret.ApplicationOwners([]string{"mysql"}),
-		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return(
-		false,
-		secreterrors.SecretNotFound, // the secret is not found, so it is considered as removed.
+	gomock.InOrder(
+		// When we receive the initial event, the secret is not removed yet.
+		s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
+			ownedURI,
+			domainsecret.ApplicationOwners([]string{"mysql"}),
+			domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+		).Return(
+			true,
+			nil,
+		),
+		// When we receive the event 2nd time, the secret is removed.
+		s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
+			ownedURI,
+			domainsecret.ApplicationOwners([]string{"mysql"}),
+			domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
+		).Return(
+			false,
+			secreterrors.SecretNotFound, // the secret is not found, so it is considered as removed.
+		),
 	)
 
 	s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
@@ -2247,6 +2290,15 @@ func (s *serviceSuite) TestWatchObsoleteSendRemovedURIs(c *gc.C) {
 
 	select {
 	case secretMetadataCh <- []string{
+		// The initial event of the secretWatcher is sent.
+		ownedURI.ID,
+	}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for the initial changes")
+	}
+
+	select {
+	case secretMetadataCh <- []string{
 		createdAfterWatcherStartURI.ID,
 		ownedURI.ID,
 		notOwnedURI.ID, // not owned by the given owners will be ignored.
@@ -2257,120 +2309,6 @@ func (s *serviceSuite) TestWatchObsoleteSendRemovedURIs(c *gc.C) {
 
 	wC.AssertChange(
 		ownedURI.ID,
-	)
-	wC.AssertNoChange()
-}
-
-func (s *serviceSuite) TestWatchObsoleteSendRemovedURIButDiscardObsoleteRevision(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	mockWatcherFactory := NewMockWatcherFactory(ctrl)
-
-	obsoleteRevisionCh := make(chan []string)
-	obsoleteRevisionWatcher := NewMockStringsWatcher(ctrl)
-	obsoleteRevisionWatcher.EXPECT().Changes().Return(obsoleteRevisionCh).AnyTimes()
-	obsoleteRevisionWatcher.EXPECT().Wait().Return(nil).AnyTimes()
-	obsoleteRevisionWatcher.EXPECT().Kill().AnyTimes()
-
-	secretMetadataCh := make(chan []string)
-	secretMetadataWatcher := NewMockStringsWatcher(ctrl)
-	secretMetadataWatcher.EXPECT().Changes().Return(secretMetadataCh).AnyTimes()
-	secretMetadataWatcher.EXPECT().Wait().Return(nil).AnyTimes()
-	secretMetadataWatcher.EXPECT().Kill().AnyTimes()
-
-	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
-		return []string{}, nil
-	}
-	s.state.EXPECT().InitialWatchStatementForObsoleteRevision(
-		domainsecret.ApplicationOwners([]string{"mysql"}),
-		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return("secret_revision_obsolete", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher(
-		"secret_revision_obsolete",
-		changestream.Changed,
-		gomock.Any(),
-	).Return(obsoleteRevisionWatcher, nil)
-
-	s.state.EXPECT().InitialWatchStatementForSecretMatadata(
-		domainsecret.ApplicationOwners([]string{"mysql"}),
-		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return("secret_metadata", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher(
-		"secret_metadata",
-		changestream.Created|changestream.Deleted,
-		gomock.Any(),
-	).Return(secretMetadataWatcher, nil)
-
-	removedOwnedURI := coresecrets.NewURI()
-	ownedURI := coresecrets.NewURI()
-	s.state.EXPECT().GetSecretsForOwners(gomock.Any(),
-		domainsecret.ApplicationOwners([]string{"mysql"}), domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return([]*coresecrets.URI{
-		ownedURI,
-		removedOwnedURI,
-	}, nil)
-
-	s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) ([]string, error) {
-		c.Assert(appOwners, jc.SameContents, domainsecret.ApplicationOwners([]string{"mysql"}))
-		c.Assert(unitOwners, jc.SameContents, domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}))
-		c.Assert(revisionUUIDs, jc.SameContents, []string{"revision-uuid-1", "revision-uuid-2"})
-		return []string{
-			ownedURI.ID + "/1",
-			removedOwnedURI.ID + "/1", // The obsolete reivison of a removed owned secret, will be ignored.
-		}, nil
-	})
-
-	s.state.EXPECT().IsSecretOwnedBy(gomock.Any(),
-		removedOwnedURI,
-		domainsecret.ApplicationOwners([]string{"mysql"}),
-		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-	).Return(
-		false,
-		secreterrors.SecretNotFound, // the secret is not found, so it is considered as not removed.
-	)
-
-	svc := NewWatchableService(
-		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
-	w, err := svc.WatchObsolete(context.Background(),
-		CharmSecretOwner{
-			Kind: ApplicationOwner,
-			ID:   "mysql",
-		},
-		CharmSecretOwner{
-			Kind: UnitOwner,
-			ID:   "mysql/0",
-		},
-		CharmSecretOwner{
-			Kind: UnitOwner,
-			ID:   "mysql/1",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
-	defer workertest.CleanKill(c, w)
-	wC := watchertest.NewStringsWatcherC(c, w)
-
-	select {
-	case obsoleteRevisionCh <- []string{
-		"revision-uuid-1",
-		"revision-uuid-2",
-	}:
-	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
-	}
-
-	select {
-	case secretMetadataCh <- []string{
-		removedOwnedURI.ID,
-	}:
-	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
-	}
-
-	wC.AssertChange(
-		ownedURI.ID+"/1",
-		removedOwnedURI.ID,
 	)
 	wC.AssertNoChange()
 }
