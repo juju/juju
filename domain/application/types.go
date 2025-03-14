@@ -114,6 +114,14 @@ type Platform struct {
 // Architecture represents the architecture of a application charm.
 type Architecture = architecture.Architecture
 
+// CharmOrigin represents the origin of a charm.
+type CharmOrigin struct {
+	Name     string
+	Source   domaincharm.CharmSource
+	Channel  *Channel
+	Platform Platform
+}
+
 // ScaleState describes the scale status of a k8s application.
 type ScaleState struct {
 	Scaling     bool

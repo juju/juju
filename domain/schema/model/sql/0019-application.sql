@@ -169,7 +169,7 @@ CREATE TABLE application_platform (
 CREATE TABLE application_channel (
     application_uuid TEXT NOT NULL,
     track TEXT,
-    risk TEXT,
+    risk TEXT NOT NULL,
     branch TEXT,
     CONSTRAINT fk_application_origin_application
     FOREIGN KEY (application_uuid)
@@ -190,7 +190,6 @@ CREATE TABLE application_status (
     FOREIGN KEY (status_id)
     REFERENCES workload_status_value (id)
 );
-
 
 CREATE VIEW v_application_constraint AS
 SELECT
@@ -217,3 +216,27 @@ LEFT JOIN container_type AS ctype ON c.container_type_id = ctype.id
 LEFT JOIN constraint_tag AS ctag ON c.uuid = ctag.constraint_uuid
 LEFT JOIN constraint_space AS cspace ON c.uuid = cspace.constraint_uuid
 LEFT JOIN constraint_zone AS czone ON c.uuid = czone.constraint_uuid;
+
+CREATE VIEW v_application_platform_channel AS
+SELECT
+    ap.application_uuid,
+    os.name AS platform_os,
+    os.id AS platform_os_id,
+    ap.channel AS platform_channel,
+    a.name AS platform_architecture,
+    a.id AS platform_architecture_id,
+    ac.track AS channel_track,
+    ac.risk AS channel_risk,
+    ac.branch AS channel_branch
+FROM application_platform AS ap
+JOIN os ON ap.os_id = os.id
+JOIN architecture AS a ON ap.architecture_id = a.id
+LEFT JOIN application_channel AS ac ON ap.application_uuid = ac.application_uuid;
+
+CREATE VIEW v_application_origin AS
+SELECT
+    a.uuid,
+    c.reference_name,
+    c.source_id
+FROM application AS a
+JOIN charm AS c ON a.charm_uuid = c.uuid;

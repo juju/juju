@@ -1168,3 +1168,17 @@ type statusInfoAndUnitName struct {
 	UpdatedAt *time.Time    `db:"updated_at"`
 	Present   bool          `db:"present"`
 }
+
+type applicationPlatformAndChannel struct {
+	PlatformOSID           sql.NullInt64  `db:"platform_os_id"`
+	PlatformChannel        string         `db:"platform_channel"`
+	PlatformArchitectureID sql.NullInt64  `db:"platform_architecture_id"`
+	ChannelTrack           string         `db:"channel_track"`
+	ChannelRisk            sql.NullString `db:"channel_risk"`
+	ChannelBranch          string         `db:"channel_branch"`
+}
+
+type applicationOrigin struct {
+	ReferenceName string `db:"reference_name"`
+	SourceID      int    `db:"source_id"`
+}

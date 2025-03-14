@@ -18,7 +18,9 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/changestream"
+	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -1157,6 +1159,243 @@ func (s *applicationServiceSuite) TestSetApplicationConfigInvalidApplicationID(c
 
 	err := s.service.SetApplicationConfig(context.Background(), "!!!", nil)
 	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
+
+	appConfig := map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionString,
+			Value: "bar",
+		},
+	}
+	settings := application.ApplicationSettings{
+		Trust: true,
+	}
+	charmConfig := applicationcharm.Config{
+		Options: map[string]applicationcharm.Option{
+			"foo": {
+				Type:    applicationcharm.OptionString,
+				Default: "baz",
+			},
+		},
+	}
+	charmOrigin := application.CharmOrigin{
+		Name:   "foo",
+		Source: applicationcharm.CharmHubSource,
+		Platform: application.Platform{
+			Architecture: architecture.AMD64,
+			Channel:      "stable",
+			OSType:       application.Ubuntu,
+		},
+		Channel: &application.Channel{
+			Risk: application.RiskStable,
+		},
+	}
+
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(appConfig, settings, nil)
+	s.state.EXPECT().GetCharmConfigByApplicationID(gomock.Any(), appUUID).Return(charmUUID, charmConfig, nil)
+	s.state.EXPECT().IsSubordinateCharm(gomock.Any(), charmUUID).Return(false, nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(charmOrigin, nil)
+
+	results, err := s.service.GetApplicationAndCharmConfig(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, ApplicationConfig{
+		ApplicationConfig: config.ConfigAttributes{
+			"foo": "bar",
+		},
+		CharmConfig: charm.Config{
+			Options: map[string]charm.Option{
+				"foo": {
+					Type:    "string",
+					Default: "baz",
+				},
+			},
+		},
+		Trust:     true,
+		Principal: true,
+		CharmName: "foo",
+		CharmOrigin: corecharm.Origin{
+			Source: corecharm.CharmHub,
+			Platform: corecharm.Platform{
+				Architecture: arch.AMD64,
+				Channel:      "stable",
+				OS:           "Ubuntu",
+			},
+			Channel: &charm.Channel{
+				Risk: charm.Stable,
+			},
+		},
+	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetApplicationAndCharmConfig(context.Background(), "!!!")
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+
+	appConfig := map[string]application.ApplicationConfig{
+		"foo": {
+			Type:  applicationcharm.OptionString,
+			Value: "bar",
+		},
+	}
+	settings := application.ApplicationSettings{
+		Trust: true,
+	}
+
+	s.state.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), appUUID).Return(appConfig, settings, applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationAndCharmConfig(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *gc.C) {
+	origin := application.CharmOrigin{
+		Name:   "foo",
+		Source: applicationcharm.CharmHubSource,
+		Platform: application.Platform{
+			Architecture: architecture.AMD64,
+			Channel:      "stable",
+			OSType:       application.Ubuntu,
+		},
+		Channel: &application.Channel{
+			Risk: application.RiskStable,
+		},
+	}
+
+	decoded, err := decodeCharmOrigin(origin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(decoded, gc.DeepEquals, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Architecture: arch.AMD64,
+			Channel:      "stable",
+			OS:           "Ubuntu",
+		},
+		Channel: &charm.Channel{
+			Risk: charm.Stable,
+		},
+	})
+}
+
+func (s *applicationServiceSuite) TestDecodeCharmSource(c *gc.C) {
+	source := applicationcharm.CharmHubSource
+	decoded, err := decodeCharmSource(source)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(decoded, gc.Equals, corecharm.CharmHub)
+
+	source = applicationcharm.LocalSource
+	decoded, err = decodeCharmSource(source)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(decoded, gc.Equals, corecharm.Local)
+
+	_, err = decodeCharmSource("boom")
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *applicationServiceSuite) TestDecodePlatform(c *gc.C) {
+	platform := application.Platform{
+		Architecture: architecture.AMD64,
+		Channel:      "stable",
+		OSType:       application.Ubuntu,
+	}
+
+	decoded, err := decodePlatform(platform)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(decoded, gc.DeepEquals, corecharm.Platform{
+		Architecture: arch.AMD64,
+		Channel:      "stable",
+		OS:           "Ubuntu",
+	})
+}
+
+func (s *applicationServiceSuite) TestDecodePlatformArchError(c *gc.C) {
+	platform := application.Platform{
+		Architecture: 99,
+		Channel:      "stable",
+		OSType:       application.Ubuntu,
+	}
+
+	_, err := decodePlatform(platform)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *applicationServiceSuite) TestDecodePlatformOSError(c *gc.C) {
+	platform := application.Platform{
+		Architecture: architecture.AMD64,
+		Channel:      "stable",
+		OSType:       99,
+	}
+
+	_, err := decodePlatform(platform)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *applicationServiceSuite) TestDecodeChannelNilChannel(c *gc.C) {
+	ch, err := decodeChannel(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ch, gc.IsNil)
+}
+
+func (s *applicationServiceSuite) TestDecodeChannel(c *gc.C) {
+	ch, err := decodeChannel(&application.Channel{
+		Risk: application.RiskStable,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ch, gc.DeepEquals, &charm.Channel{
+		Risk: charm.Stable,
+	})
+}
+
+func (s *applicationServiceSuite) TestDecodeChannelInvalidRisk(c *gc.C) {
+	_, err := decodeChannel(&application.Channel{
+		Risk: "risk",
+	})
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *applicationServiceSuite) TestDecodeRisk(c *gc.C) {
+	tests := []struct {
+		risk     application.ChannelRisk
+		expected charm.Risk
+	}{
+		{
+			risk:     application.RiskStable,
+			expected: charm.Stable,
+		},
+		{
+			risk:     application.RiskCandidate,
+			expected: charm.Candidate,
+		},
+		{
+			risk:     application.RiskBeta,
+			expected: charm.Beta,
+		},
+		{
+			risk:     application.RiskEdge,
+			expected: charm.Edge,
+		},
+	}
+	for i, test := range tests {
+		c.Logf("test %d", i)
+		decoded, err := decodeRisk(test.risk)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(decoded, gc.Equals, test.expected)
+	}
 }
 
 type applicationWatcherServiceSuite struct {
