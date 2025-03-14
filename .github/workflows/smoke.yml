@@ -78,20 +78,6 @@ jobs:
         run: |
           cd tests
           export MODEL_ARCH=$(go env GOARCH)
-          ./main.sh -v -s 'test_build' smoke
-
-      - name: Update microk8s operator image
-        if: matrix.cloud == 'microk8s'
-        run: |
-          # TODO: use temporary Docker account (set DOCKER_USERNAME env var)
-          sg snap_microk8s 'make microk8s-operator-update'
-
-      - name: Smoke test (LXD)
-        if: matrix.cloud == 'localhost'
-        shell: bash
-        run: |
-          cd tests
-          export MODEL_ARCH=$(go env GOARCH)
           export BOOTSTRAP_ADDITIONAL_ARGS="--model-default enable-os-upgrade=false"
 
           # Skip destroy to keep the environment up.
