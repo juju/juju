@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/leadership"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -24,7 +23,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination blockservices_mock_test.go github.com/juju/juju/apiserver/common BlockCommandService
 
 func TestPackage(t *testing.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 type MockBaseSuite struct {

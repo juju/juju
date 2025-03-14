@@ -1470,14 +1470,6 @@ func (m *mockCloudService) ListAll(ctx context.Context) ([]cloud.Cloud, error) {
 	return result, nil
 }
 
-type mockCredentialShim struct {
-	commonmodel.ModelManagerBackend
-}
-
-func (s mockCredentialShim) InvalidateModelCredential(reason string) error {
-	return nil
-}
-
 type mockObjectStore struct {
 	objectstore.ObjectStore
 }

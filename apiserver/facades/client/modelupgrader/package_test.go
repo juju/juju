@@ -8,9 +8,9 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/version/v2"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
 
@@ -20,7 +20,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCheckerInterface
 
 func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 func (m *ModelUpgraderAPI) FindAgents(ctx context.Context, args common.FindAgentsParams) (coretools.Versions, error) {

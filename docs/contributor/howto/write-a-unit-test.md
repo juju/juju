@@ -39,12 +39,6 @@ func Test(t *testing.T) {
 }
 ```
 
-[note type=caution]
-You will sometimes see `package_test.go` files which use `testing.MgoTestPackage` as their entrypoint. This is required
-to run old-style `JujuConnSuite` tests, which test against a running instance of MongoDB.
-
-These tests are deprecated and are actively being removed. No more should be added.
-[/note]
 
 ### Create
 

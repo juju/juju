@@ -6,11 +6,11 @@ package charms
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/internal/testing"
+	gc "gopkg.in/check.v1"
 )
 
 func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/charms/interfaces BackendState,Application,Machine,Unit,Downloader

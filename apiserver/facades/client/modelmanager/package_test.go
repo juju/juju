@@ -6,7 +6,7 @@ package modelmanager
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/internal/testing"
+	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCheckerInterface
@@ -15,5 +15,5 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/service_mock.go github.com/juju/juju/apiserver/facades/client/modelmanager ApplicationService,AccessService,SecretBackendService,ModelService,DomainServicesGetter,ModelDefaultsService,ModelInfoService,ModelConfigService,NetworkService,ModelDomainServices,MachineService,ModelAgentService
 
 func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	gc.TestingT(t)
 }

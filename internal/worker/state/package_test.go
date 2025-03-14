@@ -6,9 +6,9 @@ package state_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/internal/testing"
+	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	gc.TestingT(t)
 }

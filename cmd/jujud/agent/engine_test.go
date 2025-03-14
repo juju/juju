@@ -19,48 +19,6 @@ var (
 	// least two 5s ticks to pass, and should expect rare circumstances
 	// to take even longer.
 	ReallyLongWait = coretesting.LongWait * 3
-
-	alwaysMachineWorkers = []string{
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"broker-tracker",
-		"charmhub-http-client",
-		"clock",
-		"instance-mutater",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"migration-minion",
-		"state-config-watcher",
-		"termination-signal-handler",
-		"trace",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-		"upgrader",
-		"valid-credential-flag",
-	}
-	notMigratingMachineWorkers = []string{
-		"api-address-updater",
-		"deployer",
-		"disk-manager",
-		"is-bootstrap-flag",
-		"is-bootstrap-gate",
-		"is-controller-flag",
-		"is-not-controller-flag",
-		"kvm-container-provisioner",
-		"log-sender",
-		"logging-config-updater",
-		"lxd-container-provisioner",
-		"machine-action-runner",
-		"machiner",
-		"proxy-config-updater",
-		"reboot-executor",
-		"ssh-authkeys-updater",
-		"storage-provisioner",
-		"upgrade-series",
-	}
 )
 
 type MachineManifoldsFunc func(config machine.ManifoldsConfig) dependency.Manifolds
