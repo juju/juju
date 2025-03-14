@@ -160,16 +160,10 @@ func (c *Client) RemoteApplications(ctx context.Context, applications []string) 
 // WatchRemoteApplications returns a strings watcher that notifies of the addition,
 // removal, and lifecycle changes of remote applications in the model.
 func (c *Client) WatchRemoteApplications(ctx context.Context) (watcher.StringsWatcher, error) {
-	var result params.StringsWatchResult
-	err := c.facade.FacadeCall(ctx, "WatchRemoteApplications", nil, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
-	return w, nil
+	// todo(gfouillet): re-enable this watcher call whenever CMR will be fully
+	//   implemented in the new domain. It is required to disable that way
+	//   because this watcher is required to allows the uniter to run.
+	return newDisabledWatcher(), nil
 }
 
 // WatchRemoteApplicationRelations returns remote relations watchers that delivers
@@ -178,28 +172,10 @@ func (c *Client) WatchRemoteApplications(ctx context.Context) (watcher.StringsWa
 // according to the entering, departing, and change of unit settings in
 // those relations.
 func (c *Client) WatchRemoteApplicationRelations(ctx context.Context, application string) (watcher.StringsWatcher, error) {
-	if !names.IsValidApplication(application) {
-		return nil, errors.NotValidf("application name %q", application)
-	}
-	applicationTag := names.NewApplicationTag(application)
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: applicationTag.String()}},
-	}
-
-	var results params.StringsWatchResults
-	err := c.facade.FacadeCall(ctx, "WatchRemoteApplicationRelations", args, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
-	return w, nil
+	// todo(gfouillet): re-enable this watcher call whenever CMR will be fully
+	//   implemented in the new domain. It is required to disable that way
+	//   because this watcher is required to allows the uniter to run.
+	return newDisabledWatcher(), nil
 }
 
 // WatchLocalRelationChanges returns a watcher that emits
@@ -232,16 +208,10 @@ func (c *Client) WatchLocalRelationChanges(ctx context.Context, relationKey stri
 // WatchRemoteRelations returns a strings watcher that notifies of the addition,
 // removal, and lifecycle changes of remote relations in the model.
 func (c *Client) WatchRemoteRelations(ctx context.Context) (watcher.StringsWatcher, error) {
-	var result params.StringsWatchResult
-	err := c.facade.FacadeCall(ctx, "WatchRemoteRelations", nil, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
-	return w, nil
+	// todo(gfouillet): re-enable this watcher call whenever CMR will be fully
+	//   implemented in the new domain. It is required to disable that way
+	//   because this watcher is required to allows the uniter to run.
+	return newDisabledWatcher(), nil
 }
 
 // ConsumeRemoteRelationChange consumes a change to settings originating

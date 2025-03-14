@@ -63,7 +63,7 @@ func makeStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModel
 		modelInfo.UUID,
 		secretInfoGetter,
 		backendService,
-		&crossModelShim{RemoteEntities: st.RemoteEntities()},
+		crossmodel.GetBackend(st),
 		&stateBackendShim{State: st},
 		ctx.Logger().Child("crossmodelsecrets", corelogger.SECRETS),
 	)

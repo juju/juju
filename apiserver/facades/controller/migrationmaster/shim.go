@@ -7,6 +7,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/state"
 )
 
@@ -14,10 +15,13 @@ import (
 // It is untested, but is simple enough to be verified by inspection.
 type backend struct {
 	*state.State
+	allRemoteApplications func() ([]commoncrossmodel.RemoteApplication, error)
 }
 
 func newBacked(st *state.State) Backend {
-	return &backend{State: st}
+	return &backend{
+		State:                 st,
+		allRemoteApplications: commoncrossmodel.GetBackend(st).AllRemoteApplications}
 }
 
 // AllLocalRelatedModels returns all models on this controller to which
@@ -28,7 +32,7 @@ func (s *backend) AllLocalRelatedModels() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	localUUIDs := set.NewStrings(uuids...)
-	apps, err := s.AllRemoteApplications()
+	apps, err := s.allRemoteApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

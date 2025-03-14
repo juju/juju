@@ -15,6 +15,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -138,7 +139,8 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	}
 
 	state := &stateShim{
-		State: ctx.State(),
+		State:      ctx.State(),
+		cmrBackend: commoncrossmodel.GetBackend(ctx.State()),
 	}
 
 	charmhubHTTPClient, err := ctx.HTTPClient(corehttp.CharmhubPurpose)
@@ -1654,33 +1656,9 @@ func (api *APIBase) DestroyConsumedApplications(ctx context.Context, args params
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	results := make([]params.ErrorResult, len(args.Applications))
-	for i, arg := range args.Applications {
-		appTag, err := names.ParseApplicationTag(arg.ApplicationTag)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		app, err := api.backend.RemoteApplication(appTag.Id())
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		force := false
-		if arg.Force != nil {
-			force = *arg.Force
-		}
-		op := app.DestroyOperation(force)
-		if force {
-			op.MaxWait = common.MaxWait(arg.MaxWait)
-		}
-		err = api.backend.ApplyOperation(op)
-		if len(op.Errors) > 0 {
-			api.logger.Warningf(context.TODO(), "operational error encountered destroying consumed application %v: %v", appTag.Id(), op.Errors)
-		}
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
+	for i := range args.Applications {
+		results[i].Error = apiservererrors.ServerError(errors.NotImplementedf("cross model relations are disabled until " +
+			"backend functionality is moved to domain"))
 	}
 	return params.ErrorResults{
 		Results: results,

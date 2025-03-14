@@ -36,6 +36,7 @@ func (s *remoteRelationsSuite) TestNewClient(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
+	c.Skip("Re-enable this test whenever CMR will be fully implemented and the related watcher rewired.")
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "RemoteRelations")
@@ -56,6 +57,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
+	c.Skip("Re-enable this test whenever CMR will be fully implemented and the related watcher rewired.")
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "RemoteRelations")
@@ -78,6 +80,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestWatchRemoteApplicationInvalidApplication(c *gc.C) {
+	c.Skip("Re-enable this test whenever CMR will be fully implemented and the related watcher rewired.")
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
@@ -307,6 +310,7 @@ func (s *remoteRelationsSuite) TestImportRemoteEntityCount(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
+	c.Skip("Re-enable this test whenever CMR will be fully implemented and the related watcher rewired.")
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "RemoteRelations")

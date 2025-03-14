@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
-	"github.com/juju/juju/core/crossmodel"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/charm"
@@ -67,8 +66,6 @@ type ExportConfig struct {
 	SkipMachineAgentBinaries bool
 	SkipRelationData         bool
 	SkipInstanceData         bool
-	SkipApplicationOffers    bool
-	SkipOfferConnections     bool
 	SkipSecrets              bool
 }
 
@@ -145,16 +142,7 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 	if err := export.applications(leaders); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.remoteApplications(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := export.relations(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := export.remoteEntities(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := export.offerConnections(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.relationNetworks(); err != nil {
@@ -196,7 +184,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 type ExportStateMigration struct {
 	src        *State
 	dst        description.Model
-	exporter   *exporter
 	migrations []func() error
 }
 
@@ -417,11 +404,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 		return errors.Trace(err)
 	}
 
-	appOfferMap, err := e.groupOffersByApplicationName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
 		appCtx := addApplicationContext{
@@ -431,10 +413,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 			cloudContainers:  cloudContainers,
 			endpointBindings: bindings,
 			leader:           leaders[application.Name()],
-		}
-
-		if appOfferMap != nil {
-			appCtx.offers = appOfferMap[application.Name()]
 		}
 
 		if err := e.addApplication(appCtx); err != nil {
@@ -485,9 +463,6 @@ type addApplicationContext struct {
 	// CAAS
 	cloudServices   map[string]*cloudServiceDoc
 	cloudContainers map[string]*cloudContainerDoc
-
-	// Offers
-	offers []*crossmodel.ApplicationOffer
 }
 
 func (e *exporter) addApplication(ctx addApplicationContext) error {
@@ -559,23 +534,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 
 	exApplication := e.model.AddApplication(args)
-
-	// Populate offer list
-	for _, offer := range ctx.offers {
-		endpoints := make(map[string]string, len(offer.Endpoints))
-		for k, ep := range offer.Endpoints {
-			endpoints[k] = ep.Name
-		}
-
-		_ = exApplication.AddOffer(description.ApplicationOfferArgs{
-			OfferUUID:              offer.OfferUUID,
-			OfferName:              offer.OfferName,
-			Endpoints:              endpoints,
-			ACL:                    nil,
-			ApplicationName:        offer.ApplicationName,
-			ApplicationDescription: offer.ApplicationDescription,
-		})
-	}
 
 	// Find the current application status.
 	statusArgs, err := e.statusArgs(globalKey)
@@ -782,8 +740,6 @@ func (e *exporter) relationEndpoint(
 
 	// We expect a relationScope and settings for each of
 	// the units of the specified application.
-	// We need to check both local and remote applications
-	// in case we are dealing with a CMR.
 	if units, ok := e.units[ep.ApplicationName]; ok {
 		for _, unit := range units {
 			ru, err := relation.Unit(unit)
@@ -792,22 +748,6 @@ func (e *exporter) relationEndpoint(
 			}
 
 			if err := e.relationUnit(exEndPoint, ru, unit.Name(), relationScopes); err != nil {
-				return errors.Annotatef(err, "processing relation unit in %s", relation)
-			}
-		}
-	} else {
-		remotes, err := relation.AllRemoteUnits(ep.ApplicationName)
-		if err != nil {
-			if errors.Is(err, errors.NotFound) {
-				// If there are no local or remote units for this application,
-				// then there are none in scope. We are done.
-				return nil
-			}
-			return errors.Annotatef(err, "retrieving remote units for %s", relation)
-		}
-
-		for _, ru := range remotes {
-			if err := e.relationUnit(exEndPoint, ru, ru.unitName, relationScopes); err != nil {
 				return errors.Annotatef(err, "processing relation unit in %s", relation)
 			}
 		}
@@ -846,80 +786,6 @@ func (e *exporter) relationUnit(
 	exEndPoint.SetUnitSettings(unitName, settingsDoc.Settings)
 
 	return nil
-}
-
-func (e *exporter) remoteEntities() error {
-	e.logger.Debugf(context.TODO(), "reading remote entities")
-	migration := &ExportStateMigration{
-		src: e.st,
-		dst: e.model,
-	}
-	migration.Add(func() error {
-		m := migrations.ExportRemoteEntities{}
-		return m.Execute(remoteEntitiesShim{
-			st: migration.src,
-		}, migration.dst)
-	})
-	return migration.Run()
-}
-
-// offerConnectionsShim provides a way to model our dependencies by providing
-// a shim layer to manage the covariance of the state package to the migration
-// package.
-type offerConnectionsShim struct {
-	st *State
-}
-
-// AllOfferConnections returns all offer connections in the model.
-// The offer connection shim converts a state.OfferConnection to a
-// migrations.MigrationOfferConnection.
-func (s offerConnectionsShim) AllOfferConnections() ([]migrations.MigrationOfferConnection, error) {
-	conns, err := s.st.AllOfferConnections()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]migrations.MigrationOfferConnection, len(conns))
-	for k, v := range conns {
-		result[k] = v
-	}
-	return result, nil
-}
-
-func (e *exporter) offerConnections() error {
-	if e.cfg.SkipOfferConnections {
-		return nil
-	}
-
-	e.logger.Debugf(context.TODO(), "reading offer connections")
-	migration := &ExportStateMigration{
-		src: e.st,
-		dst: e.model,
-	}
-	migration.Add(func() error {
-		m := migrations.ExportOfferConnections{}
-		return m.Execute(offerConnectionsShim{st: migration.src}, migration.dst)
-	})
-	return migration.Run()
-}
-
-// remoteEntitiesShim is to handle the fact that go doesn't handle covariance
-// and the tight abstraction around the new migration export work ensures that
-// we handle our dependencies up front.
-type remoteEntitiesShim struct {
-	st *State
-}
-
-// AllRemoteEntities returns all remote entities in the model.
-func (s remoteEntitiesShim) AllRemoteEntities() ([]migrations.MigrationRemoteEntity, error) {
-	entities, err := s.st.AllRemoteEntities()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]migrations.MigrationRemoteEntity, len(entities))
-	for k, v := range entities {
-		result[k] = v
-	}
-	return result, nil
 }
 
 func (e *exporter) relationNetworks() error {
@@ -1480,77 +1346,6 @@ func (e *exporter) checkUnexportedValues() error {
 	return nil
 }
 
-func (e *exporter) remoteApplications() error {
-	e.logger.Debugf(context.TODO(), "read remote applications")
-	migration := &ExportStateMigration{
-		src:      e.st,
-		dst:      e.model,
-		exporter: e,
-	}
-	migration.Add(func() error {
-		m := migrations.ExportRemoteApplications{}
-		return m.Execute(remoteApplicationsShim{
-			st:       migration.src,
-			exporter: e,
-		}, migration.dst)
-	})
-	return migration.Run()
-}
-
-// remoteApplicationsShim is to handle the fact that go doesn't handle covariance
-// and the tight abstraction around the new migration export work ensures that
-// we handle our dependencies up front.
-type remoteApplicationsShim struct {
-	st       *State
-	exporter *exporter
-}
-
-// AllRemoteApplications returns all remote applications in the model.
-func (s remoteApplicationsShim) AllRemoteApplications() ([]migrations.MigrationRemoteApplication, error) {
-	remoteApps, err := s.st.AllRemoteApplications()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]migrations.MigrationRemoteApplication, len(remoteApps))
-	for k, v := range remoteApps {
-		result[k] = remoteApplicationShim{RemoteApplication: v}
-	}
-	return result, nil
-}
-
-func (s remoteApplicationsShim) StatusArgs(key string) (description.StatusArgs, error) {
-	return s.exporter.statusArgs(key)
-}
-
-type remoteApplicationShim struct {
-	*RemoteApplication
-}
-
-func (s remoteApplicationShim) Endpoints() ([]migrations.MigrationRemoteEndpoint, error) {
-	endpoints, err := s.RemoteApplication.Endpoints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]migrations.MigrationRemoteEndpoint, len(endpoints))
-	for k, v := range endpoints {
-		result[k] = migrations.MigrationRemoteEndpoint{
-			Name:      v.Name,
-			Role:      v.Role,
-			Interface: v.Interface,
-		}
-	}
-	return result, nil
-}
-
-func (s remoteApplicationShim) GlobalKey() string {
-	return s.RemoteApplication.globalKey()
-}
-
-// Macaroon returns the encoded macaroon JSON.
-func (s remoteApplicationShim) Macaroon() string {
-	return s.RemoteApplication.doc.Macaroon
-}
-
 func (e *exporter) storage() error {
 	if err := e.volumes(); err != nil {
 		return errors.Trace(err)
@@ -1917,25 +1712,4 @@ func (e *exporter) readStorageAttachments() (map[string][]string, error) {
 	}
 	e.logger.Debugf(context.TODO(), "read %d storage attachment documents", count)
 	return result, nil
-}
-
-func (e *exporter) groupOffersByApplicationName() (map[string][]*crossmodel.ApplicationOffer, error) {
-	if e.cfg.SkipApplicationOffers {
-		return nil, nil
-	}
-
-	offerList, err := NewApplicationOffers(e.st).AllApplicationOffers()
-	if err != nil {
-		return nil, errors.Annotate(err, "listing offers")
-	}
-
-	if len(offerList) == 0 {
-		return nil, nil
-	}
-
-	appMap := make(map[string][]*crossmodel.ApplicationOffer)
-	for _, offer := range offerList {
-		appMap[offer.ApplicationName] = append(appMap[offer.ApplicationName], offer)
-	}
-	return appMap, nil
 }

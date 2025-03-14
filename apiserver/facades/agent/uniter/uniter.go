@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -82,6 +83,10 @@ type UniterAPI struct {
 	relationService         RelationService
 	secretService           SecretService
 	unitStateService        UnitStateService
+
+	// cmrBackend is a wrapper around state to handle CMR request
+	// todo(gfouillet): remove it whenever CMR have their domain.
+	cmrBackend commoncrossmodel.Backend
 
 	store objectstore.ObjectStore
 
@@ -1950,7 +1955,6 @@ func (u *UniterAPI) prepareRelationResult(
 		ApplicationName: otherAppName,
 		ModelUUID:       modelUUID.String(),
 	}
-
 	return params.RelationResultV2{
 		Id:   rel.ID,
 		Key:  rel.Key,
@@ -2296,7 +2300,7 @@ func (u *UniterAPI) goalStateRelations(ctx context.Context, appName, principalNa
 				key = app.Name()
 			} else if errors.Is(err, errors.NotFound) {
 				u.logger.Debugf(context.TODO(), "application %q must be a remote application.", e.ApplicationName)
-				remoteApplication, err := u.st.RemoteApplication(e.ApplicationName)
+				remoteApplication, err := u.cmrBackend.RemoteApplication(e.ApplicationName)
 				if err != nil {
 					return nil, err
 				}

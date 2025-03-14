@@ -267,25 +267,6 @@ func (w *mockWatcher) Stop() error {
 	return w.Tomb.Wait()
 }
 
-type mockStringsWatcher struct {
-	mockWatcher
-	changes chan []string
-}
-
-func newMockStringsWatcher() *mockStringsWatcher {
-	w := &mockStringsWatcher{changes: make(chan []string, 1)}
-	w.Tomb.Go(func() error {
-		<-w.Tomb.Dying()
-		return nil
-	})
-	return w
-}
-
-func (w *mockStringsWatcher) Changes() <-chan []string {
-	w.MethodCall(w, "Changes")
-	return w.changes
-}
-
 type mockRelationUnitsWatcher struct {
 	mockWatcher
 	changes chan watcher.RelationUnitsChange

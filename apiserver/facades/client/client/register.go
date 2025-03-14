@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -46,9 +47,10 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 	domainServices := ctx.DomainServices()
 	client := &Client{
 		stateAccessor: &stateShim{
-			State:   st,
-			model:   model,
-			session: nil,
+			State:      st,
+			model:      model,
+			session:    nil,
+			cmrBackend: commoncrossmodel.GetBackend(st),
 		},
 		storageAccessor:  storageAccessor,
 		auth:             authorizer,

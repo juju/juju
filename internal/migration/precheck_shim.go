@@ -135,22 +135,14 @@ func (s *precheckRelationShim) Unit(pu PrecheckUnit) (PrecheckRelationUnit, erro
 
 // AllRemoteUnits implements PreCheckRelation.
 func (s *precheckRelationShim) AllRemoteUnits(appName string) ([]PrecheckRelationUnit, error) {
-	all, err := s.Relation.AllRemoteUnits(appName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]PrecheckRelationUnit, len(all))
-	for i, ru := range all {
-		out[i] = ru
-	}
-	return out, nil
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 // RemoteApplication implements PreCheckRelation.
 func (s *precheckRelationShim) RemoteApplication() (string, bool, error) {
-	app, isCrossModel, err := s.Relation.RemoteApplication()
-	if isCrossModel {
-		return app.Name(), true, nil
-	}
-	return "", false, errors.Trace(err)
+	// todo(gfouillet): cross model relations are disabled until backend
+	//   functionality is moved to domain, so we just return false there until it
+	//   is done.
+	return "", false, nil
 }

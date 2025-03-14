@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
 	"github.com/juju/juju/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
@@ -86,7 +87,7 @@ func NewSecretManagerAPI(_ context.Context, ctx facade.ModelContext) (*SecretsMa
 		controllerUUID:       ctx.ControllerUUID(),
 		modelUUID:            ctx.ModelUUID().String(),
 		remoteClientGetter:   remoteClientGetter,
-		crossModelState:      ctx.State().RemoteEntities(),
+		crossModelState:      commoncrossmodel.GetBackend(ctx.State()),
 		logger:               ctx.Logger().Child("secretsmanager", corelogger.SECRETS),
 	}, nil
 }

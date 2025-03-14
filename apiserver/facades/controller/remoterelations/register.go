@@ -42,7 +42,7 @@ func makeAPI(stdCtx context.Context, ctx facade.ModelContext) (*API, error) {
 	}
 	return NewRemoteRelationsAPI(
 		modelInfo.UUID,
-		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
+		commoncrossmodel.GetBackend(ctx.State()),
 		externalControllerService,
 		domainServices.Secret(),
 		common.NewControllerConfigAPI(systemState, controllerConfigService, externalControllerService),

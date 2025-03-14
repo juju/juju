@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var _ = gc.Suite(&remoteRelationsSuite{})
@@ -82,68 +81,11 @@ func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	applicationWatcher := newMockStringsWatcher()
-	applicationWatcher.changes <- []string{"db2", "hadoop"}
-	s.st.EXPECT().WatchRemoteApplications().Return(applicationWatcher)
-	result, err := s.api.WatchRemoteApplications(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.StringsWatcherId, gc.Equals, "1")
-	c.Assert(result.Changes, jc.DeepEquals, []string{"db2", "hadoop"})
-
-	resource := s.resources.Get("1")
-	c.Assert(resource, gc.NotNil)
-	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
-}
-
-func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	db2RelationsWatcher := newMockStringsWatcher()
-	db2RelationsWatcher.changes <- []string{"db2:db django:db"}
-	s.st.EXPECT().WatchRemoteApplicationRelations("db2").Return(db2RelationsWatcher, nil)
-	s.st.EXPECT().WatchRemoteApplicationRelations("hadoop").Return(nil, errors.NotFoundf(`application "hadoop"`))
-
-	results, err := s.api.WatchRemoteApplicationRelations(context.Background(), params.Entities{Entities: []params.Entity{
-		{"application-db2"},
-		{"application-hadoop"},
-		{"machine-42"},
-	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.StringsWatchResult{{
-		StringsWatcherId: "1",
-		Changes:          []string{"db2:db django:db"},
-	}, {
-		Error: &params.Error{
-			Code:    params.CodeNotFound,
-			Message: `application "hadoop" not found`,
-		},
-	}, {
-		Error: &params.Error{
-			Message: `"machine-42" is not a valid application tag`,
-		},
-	}})
-}
-
-func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	relationWatcher := newMockStringsWatcher()
-	relationWatcher.changes <- []string{"1", "2"}
-	s.st.EXPECT().WatchRemoteRelations().Return(relationWatcher)
-
-	result, err := s.api.WatchRemoteRelations(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.StringsWatcherId, gc.Equals, "1")
-	c.Assert(result.Changes, jc.DeepEquals, []string{"1", "2"})
-
-	resource := s.resources.Get("1")
-	c.Assert(resource, gc.NotNil)
-	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
+func (s *remoteRelationsSuite) TestWatchStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+	- Watch remote applications
+    - Watch remote applications relations
+    - Watch remote relations`)
 }
 
 func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {

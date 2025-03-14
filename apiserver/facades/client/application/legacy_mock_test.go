@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
 	objectstore "github.com/juju/juju/core/objectstore"
@@ -88,7 +89,7 @@ func (c *MockBackendAddApplicationCall) DoAndReturn(f func(state.AddApplicationA
 }
 
 // AddRemoteApplication mocks base method.
-func (m *MockBackend) AddRemoteApplication(arg0 state.AddRemoteApplicationParams) (RemoteApplication, error) {
+func (m *MockBackend) AddRemoteApplication(arg0 crossmodel.AddRemoteApplicationParams) (RemoteApplication, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddRemoteApplication", arg0)
 	ret0, _ := ret[0].(RemoteApplication)
@@ -115,13 +116,13 @@ func (c *MockBackendAddRemoteApplicationCall) Return(arg0 RemoteApplication, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBackendAddRemoteApplicationCall) Do(f func(state.AddRemoteApplicationParams) (RemoteApplication, error)) *MockBackendAddRemoteApplicationCall {
+func (c *MockBackendAddRemoteApplicationCall) Do(f func(crossmodel.AddRemoteApplicationParams) (RemoteApplication, error)) *MockBackendAddRemoteApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAddRemoteApplicationCall) DoAndReturn(f func(state.AddRemoteApplicationParams) (RemoteApplication, error)) *MockBackendAddRemoteApplicationCall {
+func (c *MockBackendAddRemoteApplicationCall) DoAndReturn(f func(crossmodel.AddRemoteApplicationParams) (RemoteApplication, error)) *MockBackendAddRemoteApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

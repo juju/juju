@@ -131,14 +131,8 @@ func (ctrl *Controller) Import(
 	if err := restore.applications(controllerConfig); err != nil {
 		return nil, nil, errors.Annotate(err, "applications")
 	}
-	if err := restore.remoteApplications(); err != nil {
-		return nil, nil, errors.Annotate(err, "remoteapplications")
-	}
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
-	}
-	if err := restore.remoteEntities(); err != nil {
-		return nil, nil, errors.Annotate(err, "remoteentitites")
 	}
 	if err := restore.relationNetworks(); err != nil {
 		return nil, nil, errors.Annotate(err, "relationnetworks")
@@ -641,40 +635,6 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		}
 	}
 
-	if err := i.applicationOffers(a); err != nil {
-		i.logger.Errorf(context.TODO(), "error importing application %s: %s", app.Name(), err)
-		return errors.Annotate(err, app.Name())
-	}
-
-	return nil
-}
-
-func (i *importer) applicationOffers(app ApplicationDescription) error {
-	i.logger.Debugf(context.TODO(), "importing application offer")
-	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
-	}
-	migration.Add(func() error {
-		m := ImportApplicationOffer{}
-		// The following shims compose a model and series of methods that should
-		// be public, but are private (for unit/mock testing) and we encapsulate
-		// that as one thing.
-		return m.Execute(applicationDescriptionShim{
-			stateApplicationOfferDocumentFactoryShim{
-				stateModelNamspaceShim{
-					Model: migration.src,
-					st:    i.st,
-				},
-				i,
-			},
-			app,
-		}, migration.dst)
-	})
-	if err := migration.Run(); err != nil {
-		return errors.Trace(err)
-	}
-	i.logger.Debugf(context.TODO(), "importing application offer succeeded")
 	return nil
 }
 
@@ -1098,55 +1058,6 @@ func (i *importer) unitStorageAttachmentCount(unitName string) int {
 	return count
 }
 
-func (i *importer) remoteApplications() error {
-	i.logger.Debugf(context.TODO(), "importing remote applications")
-	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
-	}
-	migration.Add(func() error {
-		m := ImportRemoteApplications{}
-		return m.Execute(stateDocumentFactoryShim{
-			stateModelNamspaceShim: stateModelNamspaceShim{
-				Model: migration.src,
-				st:    i.st,
-			},
-			importer: i,
-		}, migration.dst)
-	})
-	if err := migration.Run(); err != nil {
-		return errors.Trace(err)
-	}
-	i.logger.Debugf(context.TODO(), "importing remote applications succeeded")
-	return nil
-}
-
-func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {
-	doc := &remoteApplicationDoc{
-		Name:            app.Name(),
-		URL:             app.URL(),
-		SourceModelUUID: app.SourceModelUUID(),
-		IsConsumerProxy: app.IsConsumerProxy(),
-		Macaroon:        app.Macaroon(),
-		Version:         app.ConsumeVersion(),
-	}
-	if !doc.IsConsumerProxy {
-		doc.OfferUUID = app.OfferUUID()
-	}
-	descEndpoints := app.Endpoints()
-	eps := make([]remoteEndpointDoc, len(descEndpoints))
-	for i, ep := range descEndpoints {
-		eps[i] = remoteEndpointDoc{
-			Name:      ep.Name(),
-			Role:      charm.RelationRole(ep.Role()),
-			Interface: ep.Interface(),
-			// TODO: Role, Scope
-		}
-	}
-	doc.Endpoints = eps
-	return doc
-}
-
 func (i *importer) relations() error {
 	i.logger.Debugf(context.TODO(), "importing relations")
 	for _, r := range i.model.Relations() {
@@ -1208,17 +1119,6 @@ func (i *importer) relation(rel description.Relation) error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-			} else {
-				ru, err = dbRelation.RemoteUnit(unitName)
-				if err != nil {
-					if errors.Is(err, errors.NotFound) {
-						// This mirrors the logic from export.
-						// If there are no local or remote units in scope,
-						// then we are done for this endpoint.
-						continue
-					}
-					return errors.Trace(err)
-				}
 			}
 
 			ruKey := ru.key()
@@ -1265,34 +1165,6 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 		doc.UnitCount += ep.UnitCount()
 	}
 	return doc
-}
-
-func (i *importer) remoteEntities() error {
-	i.logger.Debugf(context.TODO(), "importing remote entities")
-	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
-	}
-	offerUUIDByName := make(map[string]string)
-	for _, app := range i.model.Applications() {
-		for _, offer := range app.Offers() {
-			offerUUIDByName[offer.OfferName()] = offer.OfferUUID()
-		}
-	}
-	migration.Add(func() error {
-		m := ImportRemoteEntities{}
-		return m.Execute(&applicationOffersStateShim{
-			offerUUIDByName: offerUUIDByName,
-			stateModelNamspaceShim: stateModelNamspaceShim{
-				Model: migration.src,
-				st:    i.st,
-			}}, migration.dst)
-	})
-	if err := migration.Run(); err != nil {
-		return errors.Trace(err)
-	}
-	i.logger.Debugf(context.TODO(), "importing remote entities succeeded")
-	return nil
 }
 
 func (i *importer) relationNetworks() error {

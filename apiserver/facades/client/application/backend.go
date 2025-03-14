@@ -7,6 +7,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -30,7 +31,7 @@ type Backend interface {
 	ApplyOperation(state.ModelOperation) error
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	RemoteApplication(string) (RemoteApplication, error)
-	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
+	AddRemoteApplication(commoncrossmodel.AddRemoteApplicationParams) (RemoteApplication, error)
 	Machine(string) (Machine, error)
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
@@ -148,6 +149,7 @@ type Model interface {
 
 type stateShim struct {
 	*state.State
+	cmrBackend commoncrossmodel.Backend
 }
 
 type modelShim struct {
@@ -233,7 +235,7 @@ func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectsto
 }
 
 type remoteApplicationShim struct {
-	*state.RemoteApplication
+	commoncrossmodel.RemoteApplication
 }
 
 type RemoteApplication interface {
@@ -242,18 +244,17 @@ type RemoteApplication interface {
 	Endpoints() ([]relation.Endpoint, error)
 	AddEndpoints(eps []charm.Relation) error
 	Destroy() error
-	DestroyOperation(force bool) *state.DestroyRemoteApplicationOperation
 	Status() (status.StatusInfo, error)
 	Life() state.Life
 }
 
 func (s stateShim) RemoteApplication(name string) (RemoteApplication, error) {
-	app, err := s.State.RemoteApplication(name)
+	app, err := s.cmrBackend.RemoteApplication(name)
 	return &remoteApplicationShim{RemoteApplication: app}, err
 }
 
-func (s stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) (RemoteApplication, error) {
-	app, err := s.State.AddRemoteApplication(args)
+func (s stateShim) AddRemoteApplication(args commoncrossmodel.AddRemoteApplicationParams) (RemoteApplication, error) {
+	app, err := s.cmrBackend.AddRemoteApplication(args)
 	return &remoteApplicationShim{RemoteApplication: app}, err
 }
 
@@ -297,12 +298,11 @@ type OfferConnection interface {
 }
 
 func (s stateShim) OfferConnectionForRelation(key string) (OfferConnection, error) {
-	return s.State.OfferConnectionForRelation(key)
+	return s.cmrBackend.OfferConnectionForRelation(key)
 }
 
 func (s stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
-	offers := state.NewApplicationOffers(s.State)
-	return offers.ApplicationOfferForUUID(offerUUID)
+	return s.cmrBackend.ApplicationOfferForUUID(offerUUID)
 }
 
 type stateApplicationShim struct {

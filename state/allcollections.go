@@ -350,31 +350,6 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
-		// Cross model relations collections.
-		applicationOffersC: {
-			indexes: []mgo.Index{
-				{Key: []string{"model-uuid", "_id"}},
-				{Key: []string{"model-uuid", "application-name"}},
-			},
-		},
-		offerConnectionsC: {
-			indexes: []mgo.Index{
-				{Key: []string{"model-uuid", "offer-uuid"}},
-				{Key: []string{"model-uuid", "username"}},
-			},
-		},
-		remoteApplicationsC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
-			}},
-		},
-		// remoteEntitiesC holds information about entities involved in
-		// cross-model relations.
-		remoteEntitiesC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "token"},
-			}},
-		},
 		// relationNetworksC holds required ingress or egress cidrs for remote relations.
 		relationNetworksC: {
 			indexes: []mgo.Index{{
@@ -460,11 +435,7 @@ const (
 	volumesC               = "volumes"
 
 	// Cross model relations
-	applicationOffersC  = "applicationOffers"
-	remoteApplicationsC = "remoteApplications"
-	offerConnectionsC   = "applicationOfferConnections"
-	remoteEntitiesC     = "remoteEntities"
-	relationNetworksC   = "relationNetworks"
+	relationNetworksC = "relationNetworks"
 )
 
 // watcherIgnoreList contains all the collections in mongo that should not be watched by the
