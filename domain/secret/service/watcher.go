@@ -6,6 +6,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -185,7 +188,7 @@ func newObsoleteWatcher(
 ) (*obsoleteWatcher, error) {
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	if len(appOwners) == 0 && len(unitOwners) == 0 {
-		return nil, errors.Errorf("at least one owner must be provided for obsolete watcher")
+		return nil, errors.Errorf("at least one owner must be provided for the obsolete watcher")
 	}
 
 	w := &obsoleteWatcher{
@@ -255,15 +258,34 @@ func (w *obsoleteWatcher) scopedContext() (context.Context, context.CancelFunc) 
 	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
+func splitSecretRevision(s string) (string, int) {
+	parts := strings.Split(s, "/")
+	if len(parts) < 2 {
+		return parts[0], 0
+	}
+	rev, _ := strconv.Atoi(parts[1])
+	return parts[0], rev
+}
+
 func (w *obsoleteWatcher) mergeSecretChanges(
-	ctx context.Context, currentChanges []string, newChanges []string,
+	ctx context.Context, currentChanges []string, receivcedSecretIDs []string,
 ) ([]string, error) {
-	if len(newChanges) == 0 {
+	if len(receivcedSecretIDs) == 0 {
 		return currentChanges, nil
 	}
 
-	w.logger.Criticalf(ctx, "secretWatcher(%v-%v): received changes %v", w.appOwners, w.unitOwners, newChanges)
-	for _, uriStr := range newChanges {
+	// pushChanges pushes the secret ID to the changes slice.
+	// At the same time, any previously added obsolete revisions of this secret are removed from the slice.
+	pushChanges := func(secretID string) {
+		currentChanges = slices.DeleteFunc(currentChanges, func(s string) bool {
+			id, _ := splitSecretRevision(s)
+			return id == secretID
+		})
+		currentChanges = append(currentChanges, secretID)
+	}
+
+	w.logger.Criticalf(ctx, "secretWatcher(%v-%v): received changes %v", w.appOwners, w.unitOwners, receivcedSecretIDs)
+	for _, uriStr := range receivcedSecretIDs {
 		uri, err := coresecrets.ParseURI(uriStr)
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -285,7 +307,7 @@ func (w *obsoleteWatcher) mergeSecretChanges(
 
 		if !owned && w.knownSecretURIs.Contains(uri.ID) {
 			// An onwed secret has been deleted, we need to notify the URI change.
-			currentChanges = append(currentChanges, uri.ID)
+			pushChanges(uri.ID)
 
 			// No need to track this one anymore.
 			w.knownSecretURIs.Remove(uri.ID)
@@ -312,7 +334,15 @@ func (w *obsoleteWatcher) mergeRevisionChanges(
 	}
 
 	w.logger.Criticalf(context.Background(), "obsoleteWatcher(%v-%v): obsoleteRevisionIDs %v", w.appOwners, w.unitOwners, revisionIDs)
-	return append(currentChanges, revisionIDs...), nil
+	for _, revisionID := range revisionIDs {
+		id, _ := splitSecretRevision(revisionID)
+		if !w.knownSecretURIs.Contains(id) {
+			// The secret has already removed, so we don't need to notify the obsolete revision.
+			continue
+		}
+		currentChanges = append(currentChanges, revisionID)
+	}
+	return currentChanges, nil
 }
 
 func (w *obsoleteWatcher) loop() error {
