@@ -5,6 +5,7 @@ package openstack
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"html/template"
 	"strings"
@@ -51,7 +52,7 @@ func MetadataStorage(e environs.Environ) envstorage.Storage {
 }
 
 func InstanceAddress(publicIP string, addresses map[string][]nova.IPAddress) string {
-	addr, _ := convertNovaAddresses(publicIP, addresses).OneMatchingScope(network.ScopeMatchPublic)
+	addr, _ := convertNovaAddresses(context.Background(), publicIP, addresses).OneMatchingScope(network.ScopeMatchPublic)
 	return addr.Value
 }
 

@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -92,5 +93,5 @@ func GetImageSources(env environs.Environ) ([]lxd.ServerSpec, error) {
 	if !ok {
 		return nil, errors.New("not a LXD environ")
 	}
-	return lxdEnv.getImageSources()
+	return lxdEnv.getImageSources(context.Background())
 }

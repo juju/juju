@@ -44,30 +44,30 @@ type vmTemplateManager struct {
 // to import a new template from simplestreams.
 func (v *vmTemplateManager) EnsureTemplate(ctx context.Context, b base.Base, agentArch string) (*object.VirtualMachine, string, error) {
 	// Attempt to find image in image-metadata
-	logger.Debugf(context.TODO(), "looking for local templates")
+	logger.Debugf(ctx, "looking for local templates")
 	tpl, arch, err := v.findTemplate(ctx)
 	if err == nil {
-		logger.Debugf(context.TODO(), "found requested template for base %s", b)
+		logger.Debugf(ctx, "found requested template for base %s", b)
 		return tpl, arch, nil
 	}
 	if !errors.Is(err, errors.NotFound) {
 		return nil, "", errors.Annotate(err, "searching for template")
 	}
 
-	logger.Debugf(context.TODO(), "looking for already imported templates for base %q", b)
+	logger.Debugf(ctx, "looking for already imported templates for base %q", b)
 	// Attempt to find a previously imported instance template
 	importedTemplate, arch, err := v.getImportedTemplate(ctx, b, agentArch)
 	if err == nil {
-		logger.Debugf(context.TODO(), "using already imported template for base %s", b)
+		logger.Debugf(ctx, "using already imported template for base %s", b)
 		return importedTemplate, arch, nil
 	}
-	logger.Debugf(context.TODO(), "could not find cached image: %s", err)
+	logger.Debugf(ctx, "could not find cached image: %s", err)
 	// Exit here if we do not have a Not Found error. A Not Found error means we we have
 	// not imported a template yet, keep going
 	if !errors.Is(err, errors.NotFound) {
 		return nil, "", errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(), "downloading and importing template from simplestreams")
+	logger.Debugf(ctx, "downloading and importing template from simplestreams")
 	// Last resort, download and import a template.
 	return v.downloadAndImportTemplate(ctx, b, agentArch)
 }
@@ -130,14 +130,14 @@ func (v *vmTemplateManager) getVMArch(ctx context.Context, vmObj *object.Virtual
 }
 
 func (v *vmTemplateManager) getImportedTemplate(ctx context.Context, b base.Base, agentArch string) (*object.VirtualMachine, string, error) {
-	logger.Tracef(context.TODO(), "getImportedTemplate for base %q, arch %q", b, agentArch)
+	logger.Tracef(ctx, "getImportedTemplate for base %q, arch %q", b, agentArch)
 	baseTemplateFolder := v.baseTemplateFolder(b)
 	baseTemplates, err := v.client.ListVMTemplates(ctx, path.Join(baseTemplateFolder, "*"))
 	if err != nil {
-		logger.Tracef(context.TODO(), "failed to fetch templates: %v", err)
+		logger.Tracef(ctx, "failed to fetch templates: %v", err)
 		return nil, "", errors.Trace(err)
 	}
-	logger.Tracef(context.TODO(), "Base templates: %v", baseTemplates)
+	logger.Tracef(ctx, "Base templates: %v", baseTemplates)
 	if len(baseTemplates) == 0 {
 		return nil, "", errors.NotFoundf("%s templates", b)
 	}
@@ -147,9 +147,9 @@ func (v *vmTemplateManager) getImportedTemplate(ctx context.Context, b base.Base
 		arch, err = v.getVMArch(ctx, item)
 		if err != nil {
 			if errors.Is(err, errors.NotFound) {
-				logger.Debugf(context.TODO(), "failed find arch for template %q: %s", item.InventoryPath, err)
+				logger.Debugf(ctx, "failed find arch for template %q: %s", item.InventoryPath, err)
 			} else {
-				logger.Infof(context.TODO(), "failed to get arch for template %q: %s", item.InventoryPath, err)
+				logger.Infof(ctx, "failed to get arch for template %q: %s", item.InventoryPath, err)
 			}
 			continue
 		}
@@ -161,7 +161,7 @@ func (v *vmTemplateManager) getImportedTemplate(ctx context.Context, b base.Base
 	}
 	if vmTpl == nil {
 		// Templates created by juju before 2.9, do not have an arch tag.
-		logger.Warningf(context.TODO(), "using default template since old templates do not contain arch")
+		logger.Warningf(ctx, "using default template since old templates do not contain arch")
 		vmTpl = baseTemplates[0]
 	}
 

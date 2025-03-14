@@ -294,7 +294,7 @@ func (e *Environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.I
 // PrepareForBootstrap implements environs.Environ.
 func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	if ctx.ShouldVerifyCredentials() {
-		logger.Infof(context.TODO(), "Logging into the oracle cloud infrastructure")
+		logger.Infof(ctx, "Logging into the oracle cloud infrastructure")
 		if err := e.ping(); err != nil {
 			return errors.Trace(err)
 		}
@@ -336,7 +336,7 @@ func (e *Environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (cons
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(constraints.Arch, []string{corearch.AMD64, corearch.ARM64})
-	logger.Infof(context.TODO(), "Returning constraints validator: %v", validator)
+	logger.Infof(ctx, "Returning constraints validator: %v", validator)
 	return validator, nil
 }
 
@@ -389,7 +389,7 @@ func (e *Environ) DestroyController(ctx envcontext.ProviderCallContext, controll
 	err := e.Destroy(ctx)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
-		logger.Errorf(context.TODO(), "Failed to destroy environment through controller: %s", errors.Trace(err))
+		logger.Errorf(ctx, "Failed to destroy environment through controller: %s", errors.Trace(err))
 	}
 	instances, err := e.allControllerManagedInstances(ctx, controllerUUID)
 	if err != nil {
@@ -409,8 +409,8 @@ func (e *Environ) DestroyController(ctx envcontext.ProviderCallContext, controll
 		providerCommon.HandleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(), "Cleaning up network resources")
-	err = e.cleanupNetworksAndSubnets(controllerUUID, "")
+	logger.Debugf(ctx, "Cleaning up network resources")
+	err = e.cleanupNetworksAndSubnets(ctx, controllerUUID, "")
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return errors.Trace(err)
@@ -483,12 +483,12 @@ func (e *Environ) startInstance(
 	// refresh the global image cache
 	// this only hits the API every 30 minutes, otherwise just retrieves
 	// from cache
-	imgCache, err := refreshImageCache(e.Compute, e.ecfg().compartmentID())
+	imgCache, err := refreshImageCache(ctx, e.Compute, e.ecfg().compartmentID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if logger.IsLevelEnabled(corelogger.TRACE) {
-		logger.Tracef(context.TODO(), "Image cache contains: %# v", pretty.Formatter(imgCache))
+		logger.Tracef(ctx, "Image cache contains: %# v", pretty.Formatter(imgCache))
 	}
 
 	arch, err := args.Tools.OneArch()
@@ -504,6 +504,7 @@ func (e *Environ) startInstance(
 	// check if we find an image that is compliant with the
 	// constraints provided in the oracle cloud account
 	spec, image, err := findInstanceSpec(
+		ctx,
 		args.InstanceConfig.Base,
 		arch,
 		args.Constraints,
@@ -517,7 +518,7 @@ func (e *Environ) startInstance(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Tracef(context.TODO(), "agent binaries: %v", tools)
+	logger.Tracef(ctx, "agent binaries: %v", tools)
 	if err = args.InstanceConfig.SetTools(tools); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -554,7 +555,7 @@ func (e *Environ) startInstance(
 	}
 
 	// compose userdata with the cloud config template
-	logger.Debugf(context.TODO(), "Composing userdata")
+	logger.Debugf(ctx, "Composing userdata")
 	userData, err := providerinit.ComposeUserData(
 		args.InstanceConfig,
 		cloudcfg,
@@ -568,12 +569,12 @@ func (e *Environ) startInstance(
 	if args.Constraints.RootDisk != nil {
 		rootDiskSizeGB = int64(*args.Constraints.RootDisk) / 1024
 		if int(*args.Constraints.RootDisk) < MinVolumeSizeMB {
-			logger.Warningf(context.TODO(),
+			logger.Warningf(ctx,
 				"selected disk size is too small (%d MB). Setting root disk size to minimum volume size (%d MB)",
 				int(*args.Constraints.RootDisk), MinVolumeSizeMB)
 			rootDiskSizeGB = MinVolumeSizeMB / 1024
 		} else if int(*args.Constraints.RootDisk) > MaxVolumeSizeMB {
-			logger.Warningf(context.TODO(),
+			logger.Warningf(ctx,
 				"selected disk size is too large (%d MB). Setting root disk size to maximum volume size (%d MB)",
 				int(*args.Constraints.RootDisk), MaxVolumeSizeMB)
 			rootDiskSizeGB = MaxVolumeSizeMB / 1024
@@ -629,7 +630,7 @@ func (e *Environ) startInstance(
 	if err := instance.waitForMachineStatus(desiredStatus, timeout); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof(context.TODO(), "started instance %q", *machineId)
+	logger.Infof(ctx, "started instance %q", *machineId)
 
 	if desiredStatus == ociCore.InstanceLifecycleStateRunning && allocatePublicIP {
 		if err := instance.waitForPublicIP(ctx); err != nil {
@@ -685,7 +686,7 @@ func (e *Environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...insta
 		return err
 	}
 
-	logger.Debugf(context.TODO(), "terminating instances %v", ids)
+	logger.Debugf(ctx, "terminating instances %v", ids)
 	if err := e.terminateInstances(ctx, ociInstances...); err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return err

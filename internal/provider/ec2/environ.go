@@ -422,7 +422,7 @@ func (e *environ) parsePlacement(ctx envcontext.ProviderCallContext, placement s
 		}
 		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
 	case "subnet":
-		logger.Debugf(context.TODO(), "searching for subnet matching placement directive %q", value)
+		logger.Debugf(ctx, "searching for subnet matching placement directive %q", value)
 		matcher := CreateSubnetMatcher(value)
 		// Get all known subnets, look for a match
 		subnets, vpcID, err := e.subnetsForVPC(ctx)
@@ -448,7 +448,7 @@ func (e *environ) parsePlacement(ctx envcontext.ProviderCallContext, placement s
 						}, nil
 					}
 				}
-				logger.Debugf(context.TODO(), "found a matching subnet (%v) but couldn't find the AZ", subnet)
+				logger.Debugf(ctx, "found a matching subnet (%v) but couldn't find the AZ", subnet)
 			}
 		}
 		return nil, fmt.Errorf("unable to find subnet %q in %v for vpi-id %q%w", value, subnetIDs, vpcID, errors.Hide(errors.NotFound))
@@ -553,7 +553,7 @@ func (e *environ) StartInstance(
 		}
 		if err := e.StopInstances(ctx, inst.Id()); err != nil {
 			_ = callback(ctx, status.Error, fmt.Sprintf("error stopping failed instance: %v", err), nil)
-			logger.Errorf(context.TODO(), "error stopping failed instance: %v", err)
+			logger.Errorf(ctx, "error stopping failed instance: %v", err)
 		}
 	}()
 
@@ -590,7 +590,7 @@ func (e *environ) StartInstance(
 		return nil, errors.Trace(err)
 	}
 
-	subnetZones, err := getValidSubnetZoneMap(args)
+	subnetZones, err := getValidSubnetZoneMap(ctx, args)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -625,6 +625,7 @@ func (e *environ) StartInstance(
 	}
 
 	spec, err := findInstanceSpec(
+		ctx,
 		args.InstanceConfig.IsController(),
 		args.ImageMetadata,
 		instanceTypes,
@@ -649,7 +650,7 @@ func (e *environ) StartInstance(
 	if err != nil {
 		return nil, environs.ZoneIndependentError(fmt.Errorf("constructing user data: %w", err))
 	}
-	logger.Debugf(context.TODO(), "ec2 user data; %d bytes", len(userData))
+	logger.Debugf(ctx, "ec2 user data; %d bytes", len(userData))
 
 	_ = callback(ctx, status.Allocating, "Setting up groups", nil)
 	groupIDs, err := e.setUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId)
@@ -758,9 +759,9 @@ func (e *environ) StartInstance(
 	if hasVPCID {
 		instVPC := e.ecfg().vpcID()
 		instSubnet := aws.ToString(inst.i.SubnetId)
-		logger.Infof(context.TODO(), "started instance %q in AZ %q, subnet %q, VPC %q", inst.Id(), instAZ, instSubnet, instVPC)
+		logger.Infof(ctx, "started instance %q in AZ %q, subnet %q, VPC %q", inst.Id(), instAZ, instSubnet, instVPC)
 	} else {
-		logger.Infof(context.TODO(), "started instance %q in AZ %q", inst.Id(), instAZ)
+		logger.Infof(ctx, "started instance %q in AZ %q", inst.Id(), instAZ)
 	}
 
 	hc := instance.HardwareCharacteristics{
@@ -843,7 +844,7 @@ func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec 
 // requirements are congruent and can be met, and that the representative
 // subnet-zone map is returned, with Fan networks filtered out.
 // The returned map will be nil if there are no space requirements.
-func getValidSubnetZoneMap(args environs.StartInstanceParams) (map[network.Id][]string, error) {
+func getValidSubnetZoneMap(ctx context.Context, args environs.StartInstanceParams) (map[network.Id][]string, error) {
 	spaceCons := args.Constraints.IncludeSpaces()
 
 	bindings := set.NewStrings()
@@ -898,7 +899,7 @@ func getValidSubnetZoneMap(args environs.StartInstanceParams) (map[network.Id][]
 	// It will not take too much effort to enable multi-NIC support for EC2
 	// if we use them all when constructing the instance creation request.
 	if conCount > 1 || bindCount > 1 {
-		logger.Warningf(context.TODO(), "only considering the space requirement for %q", allSpaceReqs[indexInCommon])
+		logger.Warningf(ctx, "only considering the space requirement for %q", allSpaceReqs[indexInCommon])
 	}
 
 	// We should always have a mapping if there are space requirements,
@@ -908,7 +909,7 @@ func getValidSubnetZoneMap(args environs.StartInstanceParams) (map[network.Id][]
 	// panicking, log a warning and let the provisioning continue.
 	mappingCount := len(args.SubnetsToZones)
 	if mappingCount == 0 || mappingCount <= indexInCommon {
-		logger.Warningf(context.TODO(),
+		logger.Warningf(ctx,
 			"got space requirements, but not a valid subnet-zone map; constraints/bindings not applied")
 		return nil, nil
 	}
@@ -973,7 +974,7 @@ func (e *environ) selectSubnetForInstance(ctx envcontext.ProviderCallContext,
 	var subnet types.Subnet
 	if len(preferredSubnets) != 0 {
 		subnet = preferredSubnets[rand.Intn(len(preferredSubnets))]
-		logger.Debugf(context.TODO(),
+		logger.Debugf(ctx,
 			"selecting random preferred subnet %q from %d matching in zone %q",
 			*subnet.SubnetId,
 			len(preferredSubnets),
@@ -981,7 +982,7 @@ func (e *environ) selectSubnetForInstance(ctx envcontext.ProviderCallContext,
 		)
 	} else {
 		subnet = usableSubnets[rand.Intn(len(usableSubnets))]
-		logger.Debugf(context.TODO(),
+		logger.Debugf(ctx,
 			"selected random subnet %q from %d matching in zone %q",
 			*subnet.SubnetId,
 			len(usableSubnets),
@@ -1394,7 +1395,7 @@ func (e *environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 		// Network interfaces are not currently tagged so we cannot
 		// use a model filter here.
 		filter := makeFilter("attachment.instance-id", need...)
-		logger.Tracef(context.TODO(), "retrieving NICs for instances %v", need)
+		logger.Tracef(ctx, "retrieving NICs for instances %v", need)
 		return e.gatherNetworkInterfaceInfo(ctx, filter, infos, idToInfosIndex, subMap)
 	}
 	err = retry.Call(retryStrategy)
@@ -1497,10 +1498,10 @@ func (e *environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 		return errors.Is(err, common.ErrorCredentialNotValid)
 	}
 	retryStrategy.NotifyFunc = func(lastError error, attempt int) {
-		logger.Errorf(context.TODO(), "failed to get instance %q interfaces: %v (retrying)", instId, lastError)
+		logger.Errorf(ctx, "failed to get instance %q interfaces: %v (retrying)", instId, lastError)
 	}
 	retryStrategy.Func = func() error {
-		logger.Tracef(context.TODO(), "retrieving NICs for instance %q", instId)
+		logger.Tracef(ctx, "retrieving NICs for instance %q", instId)
 		filter := makeFilter("attachment.instance-id", string(instId))
 
 		var err error
@@ -1512,11 +1513,11 @@ func (e *environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 		}
 		if len(resp.NetworkInterfaces) == 0 {
 			msg := fmt.Sprintf("instance %q has no NIC attachment yet, retrying...", instId)
-			logger.Tracef(context.TODO(), "%s", msg)
+			logger.Tracef(ctx, "%s", msg)
 			return errors.New(msg)
 		}
 		if logger.IsLevelEnabled(corelogger.TRACE) {
-			logger.Tracef(context.TODO(), "found instance %q NICs: %s", instId, pretty.Sprint(resp.NetworkInterfaces))
+			logger.Tracef(ctx, "found instance %q NICs: %s", instId, pretty.Sprint(resp.NetworkInterfaces))
 		}
 		return nil
 	}
@@ -1604,6 +1605,7 @@ func mapNetworkInterface(iface types.NetworkInterface, subnet types.Subnet) netw
 }
 
 func makeSubnetInfo(
+	ctx context.Context,
 	cidr string, subnetId, providerNetworkId network.Id, availZones []string,
 ) (network.SubnetInfo, error) {
 	_, _, err := net.ParseCIDR(cidr)
@@ -1618,7 +1620,7 @@ func makeSubnetInfo(
 		VLANTag:           0, // Not supported on EC2
 		AvailabilityZones: availZones,
 	}
-	logger.Tracef(context.TODO(), "found subnet with info %#v", info)
+	logger.Tracef(ctx, "found subnet with info %#v", info)
 	return info, nil
 
 }
@@ -1649,11 +1651,12 @@ func (e *environ) Subnets(
 		for _, iface := range interfaces {
 			_, ok := subIdSet[string(iface.ProviderSubnetId)]
 			if !ok {
-				logger.Tracef(context.TODO(), "subnet %q not in %v, skipping", iface.ProviderSubnetId, subnetIds)
+				logger.Tracef(ctx, "subnet %q not in %v, skipping", iface.ProviderSubnetId, subnetIds)
 				continue
 			}
 			subIdSet[string(iface.ProviderSubnetId)] = true
 			info, err := makeSubnetInfo(
+				ctx,
 				iface.PrimaryAddress().CIDR, iface.ProviderSubnetId, iface.ProviderNetworkId, iface.AvailabilityZones)
 			if err != nil {
 				// Error will already have been logged.
@@ -1676,12 +1679,13 @@ func (e *environ) Subnets(
 			subnetID := aws.ToString(subnet.SubnetId)
 			_, ok := subIdSet[subnetID]
 			if !ok {
-				logger.Tracef(context.TODO(), "subnet %q not in %v, skipping", subnetID, subnetIds)
+				logger.Tracef(ctx, "subnet %q not in %v, skipping", subnetID, subnetIds)
 				continue
 			}
 			subIdSet[subnetID] = true
 			cidr := aws.ToString(subnet.CidrBlock)
 			info, err := makeSubnetInfo(
+				ctx,
 				cidr, network.Id(subnetID), network.Id(aws.ToString(subnet.VpcId)), []string{aws.ToString(subnet.AvailabilityZone)})
 			if err != nil {
 				// Error will already have been logged.
@@ -1911,7 +1915,7 @@ func (e *environ) destroyControllerManagedModels(ctx envcontext.ProviderCallCont
 
 	instanceProfiles, err := listInstanceProfilesForController(ctx, e.iamClient, controllerUUID)
 	if errors.Is(err, errors.Unauthorized) {
-		logger.Warningf(context.TODO(), "unable to list Instance Profiles for deletion, Instance Profiles may have to be manually cleaned up for controller %q", controllerUUID)
+		logger.Warningf(ctx, "unable to list Instance Profiles for deletion, Instance Profiles may have to be manually cleaned up for controller %q", controllerUUID)
 	} else if err != nil {
 		return errors.Annotatef(err, "listing instance profiles for controller uuid %q", controllerUUID)
 	}
@@ -1925,7 +1929,7 @@ func (e *environ) destroyControllerManagedModels(ctx envcontext.ProviderCallCont
 
 	roles, err := listRolesForController(ctx, e.iamClient, controllerUUID)
 	if errors.Is(err, errors.Unauthorized) {
-		logger.Warningf(context.TODO(), "unable to list Roles for deletion, Roles may have to be manually cleaned up for controller %q", controllerUUID)
+		logger.Warningf(ctx, "unable to list Roles for deletion, Roles may have to be manually cleaned up for controller %q", controllerUUID)
 	} else if err != nil {
 		return errors.Annotatef(err, "listing roles for controller uuid %q", controllerUUID)
 	}
@@ -2098,7 +2102,7 @@ func (e *environ) OpenPorts(ctx envcontext.ProviderCallContext, rules firewall.I
 	if err := e.openPortsInGroup(ctx, e.globalGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof(context.TODO(), "opened ports in global group: %v", rules)
+	logger.Infof(ctx, "opened ports in global group: %v", rules)
 	return nil
 }
 
@@ -2109,7 +2113,7 @@ func (e *environ) ClosePorts(ctx envcontext.ProviderCallContext, rules firewall.
 	if err := e.closePortsInGroup(ctx, e.globalGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof(context.TODO(), "closed ports in global group: %v", rules)
+	logger.Infof(ctx, "closed ports in global group: %v", rules)
 	return nil
 }
 
@@ -2164,7 +2168,7 @@ func (e *environ) instanceSecurityGroups(ctx envcontext.ProviderCallContext, ins
 	var securityGroups []types.GroupIdentifier
 	for _, res := range resp.Reservations {
 		for _, inst := range res.Instances {
-			logger.Debugf(context.TODO(), "instance %q has security groups %s", aws.ToString(inst.InstanceId), pretty.Sprint(inst.SecurityGroups))
+			logger.Debugf(ctx, "instance %q has security groups %s", aws.ToString(inst.InstanceId), pretty.Sprint(inst.SecurityGroups))
 			securityGroups = append(securityGroups, inst.SecurityGroups...)
 		}
 	}
@@ -2208,7 +2212,7 @@ func (e *environ) cleanModelSecurityGroups(ctx envcontext.ProviderCallContext) e
 		return errors.Annotatef(err, "cannot retrieve security groups for model %q", e.uuid())
 	}
 	for _, g := range groups {
-		logger.Debugf(context.TODO(), "deleting model security group %q (%q)", aws.ToString(g.GroupName), aws.ToString(g.GroupId))
+		logger.Debugf(ctx, "deleting model security group %q (%q)", aws.ToString(g.GroupName), aws.ToString(g.GroupId))
 		if err := deleteSecurityGroupInsistently(ctx, e.ec2Client, g, clock.WallClock); err != nil {
 			return errors.Trace(e.HandleCredentialError(ctx, err))
 		}
@@ -2247,7 +2251,7 @@ func (e *environ) terminateInstances(ctx envcontext.ProviderCallContext, ids []i
 		if err == nil {
 			for i, sc := range resp {
 				if !terminatingStates.Contains(string(sc.CurrentState.Name)) {
-					logger.Warningf(context.TODO(), "instance %d has been terminated but is in state %q", ids[i], sc.CurrentState.Name)
+					logger.Warningf(ctx, "instance %d has been terminated but is in state %q", ids[i], sc.CurrentState.Name)
 				}
 			}
 		}
@@ -2279,7 +2283,7 @@ func (e *environ) terminateInstances(ctx envcontext.ProviderCallContext, ids []i
 		if err == nil {
 			scName := string(resp[0].CurrentState.Name)
 			if !terminatingStates.Contains(scName) {
-				logger.Warningf(context.TODO(), "instance %d has been terminated but is in state %q", id, scName)
+				logger.Warningf(ctx, "instance %d has been terminated but is in state %q", id, scName)
 			}
 			deletedIDs = append(deletedIDs, id)
 		}
@@ -2310,7 +2314,7 @@ var terminateInstancesById = func(ctx context.Context, ec2inst Client, ids ...in
 
 func (e *environ) deleteSecurityGroupsForInstances(ctx envcontext.ProviderCallContext, ids []instance.Id) {
 	if len(ids) == 0 {
-		logger.Debugf(context.TODO(), "no need to delete security groups: no intances were terminated successfully")
+		logger.Debugf(ctx, "no need to delete security groups: no intances were terminated successfully")
 		return
 	}
 
@@ -2318,7 +2322,7 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx envcontext.ProviderCallCo
 	// instances that have been successfully terminated.
 	securityGroups, err := e.instanceSecurityGroups(ctx, ids, terminatingStates.Values()...)
 	if err != nil {
-		logger.Errorf(context.TODO(), "cannot determine security groups to delete: %v", err)
+		logger.Errorf(ctx, "cannot determine security groups to delete: %v", err)
 		return
 	}
 
@@ -2340,7 +2344,7 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx envcontext.ProviderCallCo
 			// In this case, our failure to delete security group is reasonable: it's still in use.
 			// 2. Some security groups may be shared by multiple instances,
 			// for example, global firewalling. We should not delete these.
-			logger.Warningf(context.TODO(), "%v", e.HandleCredentialError(ctx, err))
+			logger.Warningf(ctx, "%v", e.HandleCredentialError(ctx, err))
 		}
 	}
 }
@@ -2364,7 +2368,7 @@ var deleteSecurityGroupInsistently = func(ctx context.Context, client SecurityGr
 				GroupId: g.GroupId,
 			})
 			if err == nil || isNotFoundError(err) {
-				logger.Debugf(context.TODO(), "deleting security group %q", aws.ToString(g.GroupName))
+				logger.Debugf(ctx, "deleting security group %q", aws.ToString(g.GroupName))
 				return nil
 			}
 			return errors.Trace(err)
@@ -2373,7 +2377,7 @@ var deleteSecurityGroupInsistently = func(ctx context.Context, client SecurityGr
 			return errors.Is(err, common.ErrorCredentialNotValid)
 		},
 		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf(context.TODO(), "deleting security group %q, attempt %d (%v)", aws.ToString(g.GroupName), attempt, err)
+			logger.Debugf(ctx, "deleting security group %q, attempt %d (%v)", aws.ToString(g.GroupName), attempt, err)
 		},
 	})
 	if err != nil {
@@ -2534,7 +2538,7 @@ func (e *environ) ensureGroup(ctx envcontext.ProviderCallContext, name string, i
 		return types.SecurityGroup{}, errors.NotFoundf("security group %q%s", name, inVPCLogSuffix)
 	}
 	if len(groups) > 1 {
-		logger.Debugf(context.TODO(), "more than one security group with name %q", name)
+		logger.Debugf(ctx, "more than one security group with name %q", name)
 	}
 	group := groups[0]
 

@@ -150,11 +150,11 @@ func (c *Client) lister(ref types.ManagedObjectReference) *list.Lister {
 // return the pointer for the same folder, and should also deal with
 // the case where folderPath is nil or empty.
 func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error) {
-	c.logger.Tracef(context.TODO(), "FindFolder() path=%q", folderPath)
+	c.logger.Tracef(ctx, "FindFolder() path=%q", folderPath)
 	if strings.Contains(folderPath, "..") {
 		// ".." not supported as per:
 		// https://github.com/vmware/govmomi/blob/master/find/finder.go#L114
-		c.logger.Errorf(context.TODO(), "vm folder path %q contains %q which is not supported", folderPath, "..")
+		c.logger.Errorf(ctx, "vm folder path %q contains %q which is not supported", folderPath, "..")
 		return nil, errors.NotSupportedf("vm folder path contains ..")
 	}
 
@@ -167,7 +167,7 @@ func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *o
 		return nil, errors.Trace(err)
 	}
 	if folderPath == "" {
-		c.logger.Warningf(context.TODO(), "empty string passed as vm-folder, using Datacenter root folder instead")
+		c.logger.Warningf(ctx, "empty string passed as vm-folder, using Datacenter root folder instead")
 		return dcfolders.VmFolder, nil
 	}
 
@@ -175,9 +175,9 @@ func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *o
 	// We'll accept an absolute path as is. Relative paths will use the DC vm folder as a parent.
 	folderPath = strings.TrimPrefix(folderPath, "./")
 	if strings.HasPrefix(folderPath, "/") {
-		c.logger.Debugf(context.TODO(), "using absolute folder path %q", folderPath)
+		c.logger.Debugf(ctx, "using absolute folder path %q", folderPath)
 	} else if !strings.HasPrefix(folderPath, dcfolders.VmFolder.InventoryPath) {
-		c.logger.Debugf(context.TODO(), "relative folderPath %q found, join with DC vm folder %q now", folderPath, dcfolders.VmFolder.InventoryPath)
+		c.logger.Debugf(ctx, "relative folderPath %q found, join with DC vm folder %q now", folderPath, dcfolders.VmFolder.InventoryPath)
 		folderPath = path.Join(dcfolders.VmFolder.InventoryPath, folderPath)
 	}
 
@@ -204,7 +204,7 @@ func (c *Client) finder(ctx context.Context) (*find.Finder, *object.Datacenter, 
 // RemoveVirtualMachines removes VMs matching the given path from the
 // system. The path may include wildcards, to match multiple VMs.
 func (c *Client) RemoveVirtualMachines(ctx context.Context, path string) error {
-	c.logger.Tracef(context.TODO(), "RemoveVirtualMachines() path=%q", path)
+	c.logger.Tracef(ctx, "RemoveVirtualMachines() path=%q", path)
 	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -213,7 +213,7 @@ func (c *Client) RemoveVirtualMachines(ctx context.Context, path string) error {
 	vms, err := finder.VirtualMachineList(ctx, path)
 	if err != nil {
 		if _, ok := err.(*find.NotFoundError); ok {
-			c.logger.Debugf(context.TODO(), "no VMs matching path %q", path)
+			c.logger.Debugf(ctx, "no VMs matching path %q", path)
 			return nil
 		}
 		return errors.Annotatef(err, "listing VMs at %q", path)
@@ -234,20 +234,20 @@ func (c *Client) RemoveVirtualMachines(ctx context.Context, path string) error {
 	tasks := make([]*object.Task, 0, len(vms)*2)
 	for i, vm := range vms {
 		if mos[i].Runtime.PowerState == types.VirtualMachinePowerStatePoweredOn {
-			c.logger.Debugf(context.TODO(), "powering off %q", vm.Name())
+			c.logger.Debugf(ctx, "powering off %q", vm.Name())
 			task, err := vm.PowerOff(ctx)
 			if err != nil {
 				lastError = errors.Annotatef(err, "powering off %q", vm.Name())
-				c.logger.Errorf(context.TODO(), err.Error())
+				c.logger.Errorf(ctx, err.Error())
 				continue
 			}
 			tasks = append(tasks, task)
 		}
-		c.logger.Debugf(context.TODO(), "destroying %q", vm.Name())
+		c.logger.Debugf(ctx, "destroying %q", vm.Name())
 		task, err := vm.Destroy(ctx)
 		if err != nil {
 			lastError = errors.Annotatef(err, "destroying %q", vm.Name())
-			c.logger.Errorf(context.TODO(), err.Error())
+			c.logger.Errorf(ctx, err.Error())
 			continue
 		}
 		tasks = append(tasks, task)
@@ -257,7 +257,7 @@ func (c *Client) RemoveVirtualMachines(ctx context.Context, path string) error {
 		_, err := task.WaitForResult(ctx, nil)
 		if err != nil && !isManagedObjectNotFound(err) {
 			lastError = err
-			c.logger.Errorf(context.TODO(), err.Error())
+			c.logger.Errorf(ctx, err.Error())
 		}
 	}
 	return errors.Annotate(lastError, "failed to remove instances")
@@ -275,7 +275,7 @@ func (c *Client) VirtualMachineObjectToManagedObject(ctx context.Context, vmObje
 
 // VirtualMachines return list of all VMs in the system matching the given path.
 func (c *Client) VirtualMachines(ctx context.Context, path string) ([]*mo.VirtualMachine, error) {
-	c.logger.Tracef(context.TODO(), "VirtualMachines() path=%q", path)
+	c.logger.Tracef(ctx, "VirtualMachines() path=%q", path)
 	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -303,7 +303,7 @@ func (c *Client) VirtualMachines(ctx context.Context, path string) ([]*mo.Virtua
 // ListVMTemplates returns a list of virtual machine objects in the given path,
 // that have been marked as templates.
 func (c *Client) ListVMTemplates(ctx context.Context, path string) ([]*object.VirtualMachine, error) {
-	c.logger.Tracef(context.TODO(), "ListVMTemplates() path=%q", path)
+	c.logger.Tracef(ctx, "ListVMTemplates() path=%q", path)
 	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -334,7 +334,7 @@ func (c *Client) ListVMTemplates(ctx context.Context, path string) ([]*object.Vi
 // ComputeResources returns a slice of all compute resources in the datacenter,
 // along with a slice of each compute resource's full path.
 func (c *Client) ComputeResources(ctx context.Context) ([]ComputeResource, error) {
-	c.logger.Tracef(context.TODO(), "ComputeResources()")
+	c.logger.Tracef(ctx, "ComputeResources()")
 	_, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -364,21 +364,21 @@ func (c *Client) computeResourcesFromRef(ctx context.Context, ref types.ManagedO
 				Path:     path + "/" + o.ComputeResource.Name,
 			}
 			crs = append(crs, cr)
-			c.logger.Tracef(context.TODO(), "added cluster crPath %q", cr.Path)
+			c.logger.Tracef(ctx, "added cluster crPath %q", cr.Path)
 		case mo.ComputeResource:
 			cr := ComputeResource{
 				Resource: &o,
 				Path:     path + "/" + o.Name,
 			}
 			crs = append(crs, cr)
-			c.logger.Tracef(context.TODO(), "added host crPath %q", cr.Path)
+			c.logger.Tracef(ctx, "added host crPath %q", cr.Path)
 		case mo.Folder:
 			subCrs, err := c.computeResourcesFromRef(ctx, o.Reference(), path+"/"+o.Name)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			crs = append(crs, subCrs...)
-			c.logger.Tracef(context.TODO(), "added %d compute resources from %q",
+			c.logger.Tracef(ctx, "added %d compute resources from %q",
 				len(subCrs), path+"/"+o.Name)
 		}
 	}
@@ -387,7 +387,7 @@ func (c *Client) computeResourcesFromRef(ctx context.Context, ref types.ManagedO
 
 // Folders returns the datacenter's folders object.
 func (c *Client) Folders(ctx context.Context) (*object.DatacenterFolders, error) {
-	c.logger.Tracef(context.TODO(), "Folders()")
+	c.logger.Tracef(ctx, "Folders()")
 	_, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -401,7 +401,7 @@ func (c *Client) Folders(ctx context.Context) (*object.DatacenterFolders, error)
 
 // Datastores returns list of all datastores in the system.
 func (c *Client) Datastores(ctx context.Context) ([]mo.Datastore, error) {
-	c.logger.Tracef(context.TODO(), "Datastores()")
+	c.logger.Tracef(ctx, "Datastores()")
 	finder, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -412,11 +412,11 @@ func (c *Client) Datastores(ctx context.Context) ([]mo.Datastore, error) {
 	}
 
 	dsPath := path.Join(folders.DatastoreFolder.InventoryPath, "...")
-	c.logger.Tracef(context.TODO(), "listing datastores under %q", dsPath)
+	c.logger.Tracef(ctx, "listing datastores under %q", dsPath)
 	items, err := finder.DatastoreList(ctx, dsPath)
 	if err != nil {
 		if _, ok := err.(*find.NotFoundError); ok {
-			c.logger.Debugf(context.TODO(), "no datastores for path %q", dsPath)
+			c.logger.Debugf(ctx, "no datastores for path %q", dsPath)
 			return nil, nil
 		}
 		return nil, errors.Trace(err)
@@ -424,7 +424,7 @@ func (c *Client) Datastores(ctx context.Context) ([]mo.Datastore, error) {
 
 	refs := make([]types.ManagedObjectReference, len(items))
 	for i, item := range items {
-		c.logger.Tracef(context.TODO(), "%s", item.InventoryPath)
+		c.logger.Tracef(ctx, "%s", item.InventoryPath)
 		refs[i] = item.Reference()
 	}
 
@@ -439,16 +439,16 @@ func (c *Client) Datastores(ctx context.Context) ([]mo.Datastore, error) {
 // ResourcePools returns a list of all of the resource pools (possibly
 // nested) under the given path.
 func (c *Client) ResourcePools(ctx context.Context, path string) ([]*object.ResourcePool, error) {
-	c.logger.Tracef(context.TODO(), "ResourcePools() path=%q", path)
+	c.logger.Tracef(ctx, "ResourcePools() path=%q", path)
 	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	c.logger.Tracef(context.TODO(), "listing resource pools under %q", path)
+	c.logger.Tracef(ctx, "listing resource pools under %q", path)
 	items, err := finder.ResourcePoolList(ctx, path)
 	if err != nil {
 		if _, ok := err.(*find.NotFoundError); ok {
-			c.logger.Debugf(context.TODO(), "no resource pools for path %q", path)
+			c.logger.Debugf(ctx, "no resource pools for path %q", path)
 			return nil, nil
 		}
 		return nil, errors.Annotate(err, "listing resource pools")
@@ -461,7 +461,7 @@ func (c *Client) ResourcePools(ctx context.Context, path string) ([]*object.Reso
 // whereas parentFolderName is the subfolder in DC's root-folder.
 // The parentFolderName will fallback to DC's root-folder if it's an empty string.
 func (c *Client) EnsureVMFolder(ctx context.Context, parentFolderName string, relativeFolderPath string) (*object.Folder, error) {
-	c.logger.Tracef(context.TODO(), "EnsureVMFolder() parent=%q, rel=%q", parentFolderName, relativeFolderPath)
+	c.logger.Tracef(ctx, "EnsureVMFolder() parent=%q, rel=%q", parentFolderName, relativeFolderPath)
 	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -505,7 +505,7 @@ func (c *Client) EnsureVMFolder(ctx context.Context, parentFolderName string, re
 
 // DestroyVMFolder destroys a folder(folderPath could be either relative path of vmfolder of datacenter or full path).
 func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
-	c.logger.Tracef(context.TODO(), "DestroyVMFolder() path=%q", folderPath)
+	c.logger.Tracef(ctx, "DestroyVMFolder() path=%q", folderPath)
 	folder, err := c.FindFolder(ctx, folderPath)
 	if errors.Is(err, errors.NotFound) {
 		return nil
@@ -527,7 +527,7 @@ func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
 
 // MoveVMFolderInto moves one VM folder into another.
 func (c *Client) MoveVMFolderInto(ctx context.Context, parentPath, childPath string) error {
-	c.logger.Tracef(context.TODO(), "MoveVMFolderInto() parent=%q, child=%q", parentPath, childPath)
+	c.logger.Tracef(ctx, "MoveVMFolderInto() parent=%q, child=%q", parentPath, childPath)
 	parent, err := c.FindFolder(ctx, parentPath)
 	if err != nil {
 		return errors.Trace(err)
@@ -553,7 +553,7 @@ func (c *Client) MoveVMsInto(
 	folderPath string,
 	vms ...types.ManagedObjectReference,
 ) error {
-	c.logger.Tracef(context.TODO(), "MoveVMsInto() path=%q, vms=%v", folderPath, vms)
+	c.logger.Tracef(ctx, "MoveVMsInto() path=%q, vms=%v", folderPath, vms)
 	folder, err := c.FindFolder(ctx, folderPath)
 	if err != nil {
 		return errors.Trace(err)
@@ -578,7 +578,7 @@ func (c *Client) UpdateVirtualMachineExtraConfig(
 	vmInfo *mo.VirtualMachine,
 	metadata map[string]string,
 ) error {
-	c.logger.Tracef(context.TODO(), "UpdateVirtualMachineExtraConfig() vmInfo.Name=%q, metadata=%v",
+	c.logger.Tracef(ctx, "UpdateVirtualMachineExtraConfig() vmInfo.Name=%q, metadata=%v",
 		vmInfo.Name, metadata)
 	var spec types.VirtualMachineConfigSpec
 	for k, v := range metadata {
@@ -598,7 +598,7 @@ func (c *Client) UpdateVirtualMachineExtraConfig(
 
 // DeleteDatastoreFile deletes a file or directory in the datastore.
 func (c *Client) DeleteDatastoreFile(ctx context.Context, datastorePath string) error {
-	c.logger.Tracef(context.TODO(), "DeleteDatastoreFile() path=%q", datastorePath)
+	c.logger.Tracef(ctx, "DeleteDatastoreFile() path=%q", datastorePath)
 	_, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -867,7 +867,7 @@ func (c *Client) buildConfigSpec(
 		if err != nil {
 			return nil, errors.Annotatef(err, "adding network device %d - network %s", i, network)
 		}
-		c.logger.Debugf(context.TODO(), "network device: %+v", device)
+		c.logger.Debugf(ctx, "network device: %+v", device)
 	}
 	newVAppConfig, err := customiseVAppConfig(ctx, srcVM, args)
 	if err != nil {
@@ -946,7 +946,7 @@ func (c *Client) extendDisk(
 	desiredCapacityKB int64,
 ) error {
 	prettySize := func(kb int64) string { return humanize.IBytes(uint64(kb) * 1024) }
-	c.logger.Debugf(context.TODO(), "extending disk from %q to %q", prettySize(disk.CapacityInKB), prettySize(desiredCapacityKB))
+	c.logger.Debugf(ctx, "extending disk from %q to %q", prettySize(disk.CapacityInKB), prettySize(desiredCapacityKB))
 
 	// Resize the disk to desired size.
 	disk.CapacityInKB = desiredCapacityKB
@@ -957,7 +957,7 @@ func (c *Client) extendDisk(
 		Operation:     types.VirtualDeviceConfigSpecOperationEdit,
 		FileOperation: "",
 	})
-	c.logger.Tracef(context.TODO(), "extending disk, config change -> %s", pretty.Sprint(spec))
+	c.logger.Tracef(ctx, "extending disk, config change -> %s", pretty.Sprint(spec))
 	task, err := vm.Reconfigure(ctx, spec)
 	if err != nil {
 		return errors.Trace(&extendDiskError{err})
@@ -984,7 +984,7 @@ func isManagedObjectNotFound(err error) bool {
 // UserHasRootLevelPrivilege returns whether the connected user has the
 // specified privilege on the root-level object.
 func (c *Client) UserHasRootLevelPrivilege(ctx context.Context, privilege string) (bool, error) {
-	c.logger.Tracef(context.TODO(), "UserHasRootLevelPrivilege() privilege=%q", privilege)
+	c.logger.Tracef(ctx, "UserHasRootLevelPrivilege() privilege=%q", privilege)
 	session, err := c.client.SessionManager.UserSession(ctx)
 	if err != nil {
 		return false, errors.Annotate(err, "getting user session")

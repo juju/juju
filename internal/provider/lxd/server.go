@@ -190,7 +190,7 @@ func (s *serverFactory) LocalServer() (Server, error) {
 	// bootstrap a new local server, this ensures that all connections to and
 	// from the local server are connected and setup correctly.
 	var hostName string
-	svr, hostName, err = s.bootstrapLocalServer(svr)
+	svr, hostName, err = s.bootstrapLocalServer(context.TODO(), svr)
 	if err == nil {
 		s.localServer = svr
 		s.localServerAddress = hostName
@@ -237,7 +237,7 @@ func (s *serverFactory) RemoteServer(spec CloudSpec) (Server, error) {
 		svr.UseProject(spec.Project)
 	}
 
-	return svr, errors.Trace(s.bootstrapRemoteServer(svr))
+	return svr, errors.Trace(s.bootstrapRemoteServer(context.TODO(), svr))
 }
 
 func (s *serverFactory) InsecureRemoteServer(spec CloudSpec) (Server, error) {
@@ -290,7 +290,7 @@ func (s *serverFactory) initLocalServer() (Server, error) {
 	return svr, nil
 }
 
-func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error) {
+func (s *serverFactory) bootstrapLocalServer(ctx context.Context, svr Server) (Server, string, error) {
 	// select the server bridge name, so that we can then try and select
 	// the hostAddress from the current interfaceAddress
 	bridgeName := svr.LocalBridgeName()
@@ -348,19 +348,19 @@ func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error)
 
 	// If the server is not a simple simple stream server, don't check the
 	// API version, but do report for other scenarios
-	if err := s.validateServer(svr); err != nil {
+	if err := s.validateServer(ctx, svr); err != nil {
 		return nil, "", errors.Trace(err)
 	}
 
 	return svr, hostAddress, nil
 }
 
-func (s *serverFactory) bootstrapRemoteServer(svr Server) error {
-	err := s.validateServer(svr)
+func (s *serverFactory) bootstrapRemoteServer(ctx context.Context, svr Server) error {
+	err := s.validateServer(ctx, svr)
 	return errors.Trace(err)
 }
 
-func (s *serverFactory) validateServer(svr Server) error {
+func (s *serverFactory) validateServer(ctx context.Context, svr Server) error {
 	// If the storage API is supported, let's make sure the LXD has a
 	// default pool; we'll just use dir backend for now.
 	if svr.StorageSupported() {
@@ -382,10 +382,10 @@ func (s *serverFactory) validateServer(svr Server) error {
 		return errors.Trace(err)
 	}
 	if err != nil {
-		logger.Warningf(context.TODO(), err.Error())
-		logger.Warningf(context.TODO(), "trying to use unsupported LXD API version %q", apiVersion)
+		logger.Warningf(ctx, err.Error())
+		logger.Warningf(ctx, "trying to use unsupported LXD API version %q", apiVersion)
 	} else {
-		logger.Tracef(context.TODO(), "using LXD API version %q", apiVersion)
+		logger.Tracef(ctx, "using LXD API version %q", apiVersion)
 	}
 
 	return nil

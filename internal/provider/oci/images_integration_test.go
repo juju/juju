@@ -343,7 +343,7 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntu3).Return(listShapesResponse(), nil)
 	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntu4).Return(listShapesResponse(), nil)
 
-	imgCache, err := oci.RefreshImageCache(compute, &s.testCompartment)
+	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	c.Assert(imgCache, gc.NotNil)
 	c.Check(imgCache.ImageMap(), gc.HasLen, 1)
@@ -375,11 +375,11 @@ func (s *imagesSuite) TestRefreshImageCacheFetchFromCache(c *gc.C) {
 
 	compute.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return([]ociCore.Image{}, nil)
 
-	imgCache, err := oci.RefreshImageCache(compute, &s.testCompartment)
+	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	c.Assert(imgCache, gc.NotNil)
 
-	fromCache, err := oci.RefreshImageCache(compute, &s.testCompartment)
+	fromCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	c.Check(imgCache, gc.DeepEquals, fromCache)
 }
@@ -391,7 +391,7 @@ func (s *imagesSuite) TestRefreshImageCacheStaleCache(c *gc.C) {
 
 	compute.EXPECT().ListImages(gomock.Any(), gomock.Any()).Return([]ociCore.Image{}, nil).Times(2)
 
-	imgCache, err := oci.RefreshImageCache(compute, &s.testCompartment)
+	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	c.Assert(imgCache, gc.NotNil)
 
@@ -400,7 +400,7 @@ func (s *imagesSuite) TestRefreshImageCacheStaleCache(c *gc.C) {
 	// No need to check the value. gomock will assert if ListImages
 	// is not called twice
 	imgCache.SetLastRefresh(now.Add(-31 * time.Minute))
-	_, err = oci.RefreshImageCache(compute, &s.testCompartment)
+	_, err = oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -432,7 +432,7 @@ func (s *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *gc.C) {
 	// is invalid.
 	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntuID).Return(listShapesResponse(), nil)
 
-	imgCache, err := oci.RefreshImageCache(compute, &s.testCompartment)
+	imgCache, err := oci.RefreshImageCache(context.Background(), compute, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	c.Assert(imgCache, gc.NotNil)
 	c.Check(imgCache.ImageMap(), gc.HasLen, 1)

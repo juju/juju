@@ -109,7 +109,7 @@ var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 
 	client := env.clientUnlocked
 	if env.volumeURL == nil {
-		url, err := getVolumeEndpointURL(client, env.cloudUnlocked.Region)
+		url, err := getVolumeEndpointURL(context.TODO(), client, env.cloudUnlocked.Region)
 		if IsNotFoundError(err) {
 			// No volume endpoint found; Cinder is not supported.
 			return nil, errors.NotSupportedf("volumes")
@@ -284,11 +284,11 @@ func (s *cinderVolumeSource) createVolume(
 	})
 	if err != nil {
 		if err := s.storageAdaptor.DeleteVolume(volumeId); err != nil {
-			logger.Warningf(context.TODO(), "destroying volume %s: %s", volumeId, err)
+			logger.Warningf(ctx, "destroying volume %s: %s", volumeId, err)
 		}
 		return nil, errors.Errorf("waiting for volume to be provisioned: %s", err)
 	}
-	logger.Debugf(context.TODO(), "created volume: %+v", cinderVolume)
+	logger.Debugf(ctx, "created volume: %+v", cinderVolume)
 	return &storage.Volume{Tag: arg.Tag, VolumeInfo: cinderToJujuVolumeInfo(cinderVolume)}, nil
 }
 
@@ -311,7 +311,7 @@ func (s *cinderVolumeSource) availabilityZoneForVolume(
 
 	volumeZones, err := s.storageAdaptor.ListVolumeAvailabilityZones()
 	if err != nil && !gooseerrors.IsNotImplemented(err) {
-		logger.Infof(context.TODO(), "block volume zones not supported, not using availability zone for volume %q", volName)
+		logger.Infof(ctx, "block volume zones not supported, not using availability zone for volume %q", volName)
 		return "", errors.Trace(err)
 	}
 	vZones := set.NewStrings()
@@ -321,10 +321,10 @@ func (s *cinderVolumeSource) availabilityZoneForVolume(
 		}
 	}
 	if vZones.Size() == 0 {
-		logger.Infof(context.TODO(), "no block volume zones defined, not using availability zone for volume %q", volName)
+		logger.Infof(ctx, "no block volume zones defined, not using availability zone for volume %q", volName)
 		return "", nil
 	}
-	logger.Debugf(context.TODO(), "possible block volume zones: %v", vZones.SortedValues())
+	logger.Debugf(ctx, "possible block volume zones: %v", vZones.SortedValues())
 	aZones, err := s.zonedEnv.InstanceAvailabilityZoneNames(ctx, []instance.Id{attachment.InstanceId})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -333,7 +333,7 @@ func (s *cinderVolumeSource) availabilityZoneForVolume(
 		// All instances should have an availability zone.
 		// The default is "nova" so something is wrong if nothing
 		// is returned from this call.
-		logger.Warningf(context.TODO(), "no availability zone detected for instance %q", attachment.InstanceId)
+		logger.Warningf(ctx, "no availability zone detected for instance %q", attachment.InstanceId)
 		return "", nil
 	}
 	// Only choose an AZ from the instance if there's a matching volume AZ.
@@ -342,10 +342,10 @@ func (s *cinderVolumeSource) availabilityZoneForVolume(
 		break
 	}
 	if vZones.Contains(az) {
-		logger.Debugf(context.TODO(), "using availability zone %q to create cinder volume %q", az, volName)
+		logger.Debugf(ctx, "using availability zone %q to create cinder volume %q", az, volName)
 		return az, nil
 	}
-	logger.Warningf(context.TODO(), "no compatible availability zone detected for volume %q", volName)
+	logger.Warningf(ctx, "no compatible availability zone detected for volume %q", volName)
 	return "", nil
 }
 
@@ -447,7 +447,7 @@ func foreachVolume(ctx envcontext.ProviderCallContext, storageAdaptor OpenstackS
 }
 
 func destroyVolume(ctx envcontext.ProviderCallContext, storageAdaptor OpenstackStorage, volumeId string) error {
-	logger.Debugf(context.TODO(), "destroying volume %q", volumeId)
+	logger.Debugf(ctx, "destroying volume %q", volumeId)
 	// Volumes must not be in-use when destroying. A volume may
 	// still be in-use when the instance it is attached to is
 	// in the process of being terminated.
@@ -503,7 +503,7 @@ func destroyVolume(ctx envcontext.ProviderCallContext, storageAdaptor OpenstackS
 }
 
 func releaseVolume(ctx envcontext.ProviderCallContext, storageAdaptor OpenstackStorage, volumeId string) error {
-	logger.Debugf(context.TODO(), "releasing volume %q", volumeId)
+	logger.Debugf(ctx, "releasing volume %q", volumeId)
 	_, err := waitVolume(storageAdaptor, volumeId, func(v *cinder.Volume) (bool, error) {
 		switch v.Status {
 		case volumeStatusAvailable, volumeStatusError:
@@ -710,7 +710,7 @@ type endpointResolver interface {
 	EndpointsForRegion(region string) identity.ServiceURLs
 }
 
-func getVolumeEndpointURL(client endpointResolver, region string) (*url.URL, error) {
+func getVolumeEndpointURL(ctx context.Context, client endpointResolver, region string) (*url.URL, error) {
 	if !client.IsAuthenticated() {
 		if err := authenticateClient(client); err != nil {
 			return nil, errors.Trace(err)
@@ -725,12 +725,12 @@ func getVolumeEndpointURL(client endpointResolver, region string) (*url.URL, err
 	if ok {
 		return url.Parse(endpoint)
 	}
-	logger.Debugf(context.TODO(), `endpoint "volumev3" not found for %q region, trying "volumev2"`, region)
+	logger.Debugf(ctx, `endpoint "volumev3" not found for %q region, trying "volumev2"`, region)
 	endpoint, ok = endpointMap["volumev2"]
 	if ok {
 		return url.Parse(endpoint)
 	}
-	logger.Debugf(context.TODO(), `endpoint "volumev2" not found for %q region, trying "volume"`, region)
+	logger.Debugf(ctx, `endpoint "volumev2" not found for %q region, trying "volume"`, region)
 	endpoint, ok = endpointMap["volume"]
 	if ok {
 		return url.Parse(endpoint)

@@ -120,7 +120,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		res.Res = &types.CloneVM_TaskResponse{Returnval: cloneVMTask}
 	case *methods.CreateFolderBody:
 		req := req.(*methods.CreateFolderBody).Req
-		logger.Debugf(context.TODO(), "CreateFolder: %q", req.Name)
+		logger.Debugf(ctx, "CreateFolder: %q", req.Name)
 		r.MethodCall(r, "CreateFolder", req.Name)
 		res.Res = &types.CreateFolderResponse{}
 	case *methods.CreateImportSpecBody:
@@ -189,7 +189,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 	case *methods.HttpNfcLeaseProgressBody:
 		req := req.(*methods.HttpNfcLeaseProgressBody).Req
 		r.MethodCall(r, "HttpNfcLeaseProgressBody", req.This.Value)
-		logger.Infof(context.TODO(), "%s", req.This.Value)
+		logger.Infof(ctx, "%s", req.This.Value)
 		//delete(r.collectors, req.This.Value)
 		res.Res = &types.HttpNfcLeaseProgressResponse{}
 	case *methods.HttpNfcLeaseCompleteBody:
@@ -252,7 +252,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 	case *methods.FindByInventoryPathBody:
 		req := req.(*methods.FindByInventoryPathBody).Req
 		r.MethodCall(r, "FindByInventoryPath", req.This.Value, req.InventoryPath)
-		logger.Debugf(context.TODO(), "FindByInventoryPath ref: %q, path: %q", req.This.Value, req.InventoryPath)
+		logger.Debugf(ctx, "FindByInventoryPath ref: %q, path: %q", req.This.Value, req.InventoryPath)
 		var findResponse *types.FindByInventoryPathResponse
 		if req.InventoryPath == "/dc0/datastore" {
 			findResponse = &types.FindByInventoryPathResponse{
@@ -306,7 +306,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 			},
 		}
 	default:
-		logger.Debugf(context.TODO(), "mockRoundTripper: unknown res type %T", res)
+		logger.Debugf(ctx, "mockRoundTripper: unknown res type %T", res)
 		panic(fmt.Sprintf("unknown type %T", res))
 		//		return errors.Errorf("unknown type %T", res)
 	}
@@ -324,7 +324,7 @@ func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *ty
 		typeNames = append(typeNames, prop.Type)
 	}
 	r.MethodCall(r, "RetrieveProperties", args...)
-	logger.Debugf(context.TODO(), "RetrieveProperties for %s expecting %v", args, typeNames)
+	logger.Debugf(context.Background(), "RetrieveProperties for %s expecting %v", args, typeNames)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var contents []types.ObjectContent
@@ -342,7 +342,7 @@ func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *ty
 			}
 		}
 	}
-	logger.Debugf(context.TODO(), "received %s", contents)
+	logger.Debugf(context.Background(), "received %s", contents)
 	return &types.RetrievePropertiesResponse{Returnval: contents}
 }
 

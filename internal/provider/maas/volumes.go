@@ -181,6 +181,7 @@ func buildMAASVolumeParameters(args []storage.VolumeParams, cons constraints.Val
 }
 
 func (mi *maasInstance) volumes(
+	ctx context.Context,
 	mTag names.MachineTag, requestedVolumes []names.VolumeTag,
 ) (
 	[]storage.Volume, []storage.VolumeAttachment, error,
@@ -217,7 +218,7 @@ func (mi *maasInstance) volumes(
 			// This should never happen, as we only request one block
 			// device per label. If it does happen, we'll just report
 			// the first block device and log this warning.
-			logger.Warningf(context.TODO(),
+			logger.Warningf(ctx,
 				"expected 1 block device for label %s, received %d",
 				label, len(devices),
 			)

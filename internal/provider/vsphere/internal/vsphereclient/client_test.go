@@ -535,7 +535,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.uploadRequests = nil
 	s.onImageUpload = nil
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Infof(context.TODO(), "HTTP %#v", r)
+		logger.Infof(r.Context(), "HTTP %#v", r)
 		var buf bytes.Buffer
 		io.Copy(&buf, r.Body)
 		rcopy := *r

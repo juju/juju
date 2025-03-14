@@ -4,7 +4,6 @@
 package gce
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -139,7 +138,7 @@ func (v *volumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, params 
 	instances := make(instanceCache)
 	if instanceIds.Size() > 1 {
 		if err := instances.update(v.gce, ctx, instanceIds.Values()...); err != nil {
-			logger.Debugf(context.TODO(), "querying running instances: %v", err)
+			logger.Debugf(ctx, "querying running instances: %v", err)
 			// We ignore the error, because we don't want an invalid
 			// InstanceId reference from one VolumeParams to prevent
 			// the creation of another volume.
@@ -158,7 +157,7 @@ func (v *volumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, params 
 		volume, attachment, err := v.createOneVolume(ctx, p, instances)
 		if err != nil {
 			results[i].Error = err
-			logger.Errorf(context.TODO(), "could not create one volume (or attach it): %v", err)
+			logger.Errorf(ctx, "could not create one volume (or attach it): %v", err)
 			// ... Unless the error is due to an invalid credential, in which case, continuing with this call
 			// is pointless and creates an unnecessary churn: we know all calls will fail with the same error.
 			if google.HasDenialStatusCode(err) {
@@ -196,7 +195,7 @@ func (v *volumeSource) createOneVolume(ctx envcontext.ProviderCallContext, p sto
 			return
 		}
 		if err := v.gce.RemoveDisk(zone, volumeName); err != nil {
-			logger.Errorf(context.TODO(), "error cleaning up volume %v: %v", volumeName, google.HandleCredentialError(err, ctx))
+			logger.Errorf(ctx, "error cleaning up volume %v: %v", volumeName, google.HandleCredentialError(err, ctx))
 		}
 	}()
 
@@ -442,7 +441,7 @@ func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, attachP
 		instanceId := attachment.InstanceId
 		attached, err := v.attachOneVolume(ctx, volumeName, mode, instanceId.String())
 		if err != nil {
-			logger.Errorf(context.TODO(), "could not attach %q to %q: %v", volumeName, instanceId, err)
+			logger.Errorf(ctx, "could not attach %q to %q: %v", volumeName, instanceId, err)
 			results[i].Error = err
 			// ... Unless the error is due to an invalid credential, in which case, continuing with this call
 			// is pointless and creates an unnecessary churn: we know all calls will fail with the same error.

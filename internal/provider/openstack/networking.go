@@ -92,7 +92,7 @@ func (n *NeutronNetworking) AllocatePublicIP(id instance.Id) (*string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	extNetworkIds, err := n.getExternalNetworkIDsFromHostAddrs(detail.Addresses)
+	extNetworkIds, err := n.getExternalNetworkIDsFromHostAddrs(context.TODO(), detail.Addresses)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -140,16 +140,16 @@ func (n *NeutronNetworking) AllocatePublicIP(id instance.Id) (*string, error) {
 // If specified, the configured external network is returned. Otherwise search
 // for an external network in the same availability zones as the provided
 // server addresses.
-func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(addrs map[string][]nova.IPAddress) ([]string, error) {
+func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(ctx context.Context, addrs map[string][]nova.IPAddress) ([]string, error) {
 	var extNetworkIds []string
 	externalNetwork := n.ecfg().externalNetwork()
 	if externalNetwork != "" {
 		// The config specified an external network, try it first.
 		networks, err := n.ResolveNetworks(externalNetwork, true)
 		if err != nil {
-			logger.Warningf(context.TODO(), "resolving configured external network %q: %s", externalNetwork, err.Error())
+			logger.Warningf(ctx, "resolving configured external network %q: %s", externalNetwork, err.Error())
 		} else {
-			logger.Debugf(context.TODO(), "using external network %q", externalNetwork)
+			logger.Debugf(ctx, "using external network %q", externalNetwork)
 			toID := func(n neutron.NetworkV2) string { return n.Id }
 			extNetworkIds = transform.Slice(networks, toID)
 		}
@@ -160,7 +160,7 @@ func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(addrs map[string]
 		return extNetworkIds, nil
 	}
 
-	logger.Debugf(context.TODO(), "unique match for external network %q not found; searching for one", externalNetwork)
+	logger.Debugf(ctx, "unique match for external network %q not found; searching for one", externalNetwork)
 
 	hostAddrAZs, err := n.findNetworkAZForHostAddrs(addrs)
 	if err != nil {
@@ -171,7 +171,7 @@ func (n *NeutronNetworking) getExternalNetworkIDsFromHostAddrs(addrs map[string]
 	// Create slice of network.Ids for external networks in the same AZ as
 	// the instance's networks, to find an existing floating ip in, or allocate
 	// a new floating ip from.
-	extNetIds, _ := getExternalNeutronNetworksByAZ(n, hostAddrAZs)
+	extNetIds, _ := getExternalNeutronNetworksByAZ(ctx, n, hostAddrAZs)
 
 	// We have an external network ID, no need for specific error message.
 	if len(extNetIds) > 0 {
@@ -206,7 +206,7 @@ func (n *NeutronNetworking) findNetworkAZForHostAddrs(addrs map[string][]nova.IP
 // getExternalNeutronNetworksByAZ returns all external networks within the
 // given availability zones. If azName is empty, return all external networks
 // with no AZ.  If no network has an AZ, return all external networks.
-func getExternalNeutronNetworksByAZ(e NetworkingBase, azNames set.Strings) ([]string, error) {
+func getExternalNeutronNetworksByAZ(ctx context.Context, e NetworkingBase, azNames set.Strings) ([]string, error) {
 	neutronClient := e.neutron()
 	// Find all external networks in availability zone.
 	networks, err := neutronClient.ListNetworksV2(externalNetworkFilter())
@@ -222,7 +222,7 @@ func getExternalNeutronNetworksByAZ(e NetworkingBase, azNames set.Strings) ([]st
 			}
 		}
 		if azNames.IsEmpty() || len(network.AvailabilityZones) == 0 {
-			logger.Debugf(context.TODO(),
+			logger.Debugf(ctx,
 				"Adding %q to potential external networks for Floating IPs, no availability zones found", network.Name)
 			netIds = append(netIds, network.Id)
 		}
@@ -333,7 +333,7 @@ func generateUniquePortName(name string) string {
 	return fmt.Sprintf("juju-%s-%s", name, unique)
 }
 
-func makeSubnetInfo(neutron NetworkingNeutron, subnet neutron.SubnetV2) (network.SubnetInfo, error) {
+func makeSubnetInfo(ctx context.Context, neutron NetworkingNeutron, subnet neutron.SubnetV2) (network.SubnetInfo, error) {
 	_, _, err := net.ParseCIDR(subnet.Cidr)
 	if err != nil {
 		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", subnet.Cidr)
@@ -353,7 +353,7 @@ func makeSubnetInfo(neutron NetworkingNeutron, subnet neutron.SubnetV2) (network
 		VLANTag:           0,
 		AvailabilityZones: net.AvailabilityZones,
 	}
-	logger.Tracef(context.TODO(), "found subnet with info %#v", info)
+	logger.Tracef(ctx, "found subnet with info %#v", info)
 	return info, nil
 }
 
@@ -433,7 +433,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 				continue
 			}
 			subIdSet.Remove(subnet.Id)
-			if info, err := makeSubnetInfo(neutron, subnet); err == nil {
+			if info, err := makeSubnetInfo(context.TODO(), neutron, subnet); err == nil {
 				// Error will already have been logged.
 				results = append(results, info)
 			}

@@ -48,7 +48,7 @@ func (env *environ) StartInstance(ctx envcontext.ProviderCallContext, args envir
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof(context.TODO(), "started instance %q in zone %q", raw.ID, raw.ZoneName)
+	logger.Infof(ctx, "started instance %q in zone %q", raw.ID, raw.ZoneName)
 	inst := newInstance(raw, env)
 
 	// Build the result.

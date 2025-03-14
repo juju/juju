@@ -194,7 +194,7 @@ func (c *Client) CreateTemplateVM(
 	importSpec := spec.ImportSpec
 	ovaArgs.StatusUpdateParams.UpdateProgress(
 		fmt.Sprintf("creating template VM %q", ovaArgs.TemplateName))
-	c.logger.Debugf(context.TODO(), "creating template VM in folder %s", ovaArgs.DestinationFolder)
+	c.logger.Debugf(ctx, "creating template VM in folder %s", ovaArgs.DestinationFolder)
 
 	// Each controller maintains its own image cache. All compute
 	// provisioners (i.e. each model's) run on the same controller
@@ -230,7 +230,7 @@ func (c *Client) CreateTemplateVM(
 		if err != nil {
 			abortErr := lease.Abort(ctx, nil)
 			if abortErr != nil {
-				c.logger.Errorf(context.TODO(), "error encountered during upload: %s", err)
+				c.logger.Errorf(ctx, "error encountered during upload: %s", err)
 			}
 		}
 	}()
@@ -249,7 +249,7 @@ func (c *Client) CreateTemplateVM(
 		}
 		if strings.HasSuffix(header.Name, ".vmdk") {
 			item := info.Items[0]
-			c.logger.Infof(context.TODO(), "Streaming VMDK from %s to %s", ovaLocation, item.URL)
+			c.logger.Infof(ctx, "Streaming VMDK from %s to %s", ovaLocation, item.URL)
 			statusArgs := ovaArgs.StatusUpdateParams
 			withStatusUpdater(ctx, "streaming vmdk", statusArgs.Clock, statusArgs.UpdateProgress, statusArgs.UpdateProgressInterval,
 				func(ctx context.Context, sink progress.Sinker) {
@@ -269,7 +269,7 @@ func (c *Client) CreateTemplateVM(
 				)
 			}
 
-			c.logger.Debugf(context.TODO(), "VMDK uploaded")
+			c.logger.Debugf(ctx, "VMDK uploaded")
 			break
 		}
 	}
@@ -320,7 +320,7 @@ func (c *Client) CreateVirtualMachine(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
 ) (_ *mo.VirtualMachine, err error) {
-	c.logger.Tracef(context.TODO(), "CreateVirtualMachine() args.Name=%q", args.Name)
+	c.logger.Tracef(ctx, "CreateVirtualMachine() args.Name=%q", args.Name)
 	_, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -349,7 +349,7 @@ func (c *Client) CreateVirtualMachine(
 			return
 		}
 		if err := c.cleanupVM(ctx, vm, taskWaiter); err != nil {
-			c.logger.Warningf(context.TODO(), "cleaning up cloned VM %q failed: %s", vm.InventoryPath, err)
+			c.logger.Warningf(ctx, "cleaning up cloned VM %q failed: %s", vm.InventoryPath, err)
 		}
 	}()
 
@@ -437,14 +437,14 @@ func (c *Client) createImportSpec(
 	cisp := types.OvfCreateImportSpecParams{
 		EntityName: templateName,
 	}
-	c.logger.Debugf(context.TODO(), "Creating import spec: pool=%q, datastore=%q, entity=%q",
+	c.logger.Debugf(ctx, "Creating import spec: pool=%q, datastore=%q, entity=%q",
 		resourcePool, datastore, cisp.EntityName)
 
-	c.logger.Debugf(context.TODO(), "Fetching OVF manager")
+	c.logger.Debugf(ctx, "Fetching OVF manager")
 	ovfManager := ovf.NewManager(c.client.Client)
 	spec, err := ovfManager.CreateImportSpec(ctx, UbuntuOVF, resourcePool, datastore, cisp)
 	if err != nil {
-		c.logger.Debugf(context.TODO(), "CreateImportSpec error: err=%v", err)
+		c.logger.Debugf(ctx, "CreateImportSpec error: err=%v", err)
 		return nil, errors.Trace(err)
 	} else if len(spec.Error) > 0 {
 		messages := make([]string, len(spec.Error))
@@ -452,10 +452,10 @@ func (c *Client) createImportSpec(
 			messages[i] = e.LocalizedMessage
 		}
 		message := strings.Join(messages, "\n")
-		c.logger.Debugf(context.TODO(), "CreateImportSpec fault: messages=%s", message)
+		c.logger.Debugf(ctx, "CreateImportSpec fault: messages=%s", message)
 		return nil, errors.New(message)
 	}
-	c.logger.Debugf(context.TODO(), "CreateImportSpec succeeded")
+	c.logger.Debugf(ctx, "CreateImportSpec succeeded")
 	return spec, nil
 }
 
@@ -469,7 +469,7 @@ func (c *Client) selectDatastore(
 			err = environs.ZoneIndependentError(err)
 		}
 	}()
-	c.logger.Debugf(context.TODO(), "Selecting datastore")
+	c.logger.Debugf(ctx, "Selecting datastore")
 	// Select a datastore. If the user specified one, use that. When no datastore
 	// is provided and there is only datastore accessible, use that. Otherwise return
 	// an error and ask for guidance.
@@ -489,7 +489,7 @@ func (c *Client) selectDatastore(
 			accessibleDatastores = append(accessibleDatastores, ds)
 			datastoreNames = append(datastoreNames, ds.Name)
 		} else {
-			c.logger.Debugf(context.TODO(), "datastore %s is inaccessible", ds.Name)
+			c.logger.Debugf(ctx, "datastore %s is inaccessible", ds.Name)
 		}
 	}
 
@@ -499,11 +499,11 @@ func (c *Client) selectDatastore(
 
 	if rootDiskSource != "" {
 		dsName := rootDiskSource
-		c.logger.Debugf(context.TODO(), "desired datastore %q", dsName)
-		c.logger.Debugf(context.TODO(), "accessible datastores %q", datastoreNames)
+		c.logger.Debugf(ctx, "desired datastore %q", dsName)
+		c.logger.Debugf(ctx, "accessible datastores %q", datastoreNames)
 		for _, ds := range datastores {
 			if ds.Name == dsName {
-				c.logger.Infof(context.TODO(), "selecting datastore %s", ds.Name)
+				c.logger.Infof(ctx, "selecting datastore %s", ds.Name)
 				return &ds, nil
 			}
 		}
@@ -516,7 +516,7 @@ func (c *Client) selectDatastore(
 
 	if len(accessibleDatastores) == 1 {
 		ds := accessibleDatastores[0]
-		c.logger.Infof(context.TODO(), "selecting datastore %s", ds.Name)
+		c.logger.Infof(ctx, "selecting datastore %s", ds.Name)
 		return &ds, nil
 	} else if len(accessibleDatastores) > 1 {
 		return nil, errors.Errorf("no datastore provided and multiple available: %q", strings.Join(datastoreNames, ", "))

@@ -107,7 +107,7 @@ func (e *Environ) secListName(controllerUUID, modelUUID string) string {
 	return fmt.Sprintf("%s-%s-%s", SecListNamePrefix, controllerUUID, modelUUID)
 }
 
-func (e *Environ) ensureVCN(controllerUUID, modelUUID string) (ociCore.Vcn, error) {
+func (e *Environ) ensureVCN(ctx context.Context, controllerUUID, modelUUID string) (ociCore.Vcn, error) {
 	if vcn, err := e.getVCN(controllerUUID, modelUUID); err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			return ociCore.Vcn{}, errors.Trace(err)
@@ -117,7 +117,7 @@ func (e *Environ) ensureVCN(controllerUUID, modelUUID string) (ociCore.Vcn, erro
 	}
 
 	name := e.vcnName(controllerUUID, modelUUID)
-	logger.Debugf(context.TODO(), "creating new VCN %s", name)
+	logger.Debugf(ctx, "creating new VCN %s", name)
 
 	vcnDetails := ociCore.CreateVcnDetails{
 		CidrBlock:     e.ecfg().addressSpace(),
@@ -136,7 +136,7 @@ func (e *Environ) ensureVCN(controllerUUID, modelUUID string) (ociCore.Vcn, erro
 	if err != nil {
 		return ociCore.Vcn{}, errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(), "VCN %s created. Waiting for status: %s", *result.Vcn.Id, string(ociCore.VcnLifecycleStateAvailable))
+	logger.Debugf(ctx, "VCN %s created. Waiting for status: %s", *result.Vcn.Id, string(ociCore.VcnLifecycleStateAvailable))
 
 	err = e.waitForResourceStatus(
 		e.getVCNStatus, result.Vcn.Id,
@@ -204,7 +204,7 @@ func (e *Environ) getSecurityList(controllerUUID, modelUUID string, vcnId *strin
 	return seclist[0], nil
 }
 
-func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *string) (ociCore.SecurityList, error) {
+func (e *Environ) ensureSecurityList(ctx context.Context, controllerUUID, modelUUID string, vcnid *string) (ociCore.SecurityList, error) {
 	if seclist, err := e.getSecurityList(controllerUUID, modelUUID, vcnid); err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			return ociCore.SecurityList{}, errors.Trace(err)
@@ -214,7 +214,7 @@ func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *st
 	}
 
 	name := e.secListName(controllerUUID, modelUUID)
-	logger.Debugf(context.TODO(), "creating new security list %s", name)
+	logger.Debugf(ctx, "creating new security list %s", name)
 
 	// Hopefully just temporary, open all ingress/egress ports
 	prefix := AllowAllPrefix
@@ -248,7 +248,7 @@ func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *st
 	if err != nil {
 		return ociCore.SecurityList{}, errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(), "security list %s created. Waiting for status: %s",
+	logger.Debugf(ctx, "security list %s created. Waiting for status: %s",
 		*response.SecurityList.Id, string(ociCore.SecurityListLifecycleStateAvailable))
 
 	err = e.waitForResourceStatus(
@@ -261,7 +261,7 @@ func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *st
 	return response.SecurityList, nil
 }
 
-func (e *Environ) allSubnets(controllerUUID, modelUUID string, vcnID *string) (map[string][]ociCore.Subnet, error) {
+func (e *Environ) allSubnets(ctx context.Context, controllerUUID, modelUUID string, vcnID *string) (map[string][]ociCore.Subnet, error) {
 	subnets, err := e.Networking.ListSubnets(context.Background(), e.ecfg().compartmentID(), vcnID)
 	if err != nil {
 		return nil, err
@@ -281,7 +281,7 @@ func (e *Environ) allSubnets(controllerUUID, modelUUID string, vcnID *string) (m
 		}
 		cidr := *val.CidrBlock
 		if valid, err := e.validateCidrBlock(cidr); err != nil || !valid {
-			logger.Warningf(context.TODO(), "failed to validate CIDR block %s: %s", cidr, err)
+			logger.Warningf(ctx, "failed to validate CIDR block %s: %s", cidr, err)
 			continue
 		}
 		ret[*val.AvailabilityDomain] = append(ret[*val.AvailabilityDomain], val)
@@ -397,7 +397,7 @@ func (e *Environ) ensureSubnets(
 		return nil, errors.Trace(err)
 	}
 
-	allSubnets, err := e.allSubnets(controllerUUID, modelUUID, vcn.Id)
+	allSubnets, err := e.allSubnets(ctx, controllerUUID, modelUUID, vcn.Id)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
@@ -449,7 +449,7 @@ func (e *Environ) ensureNetworksAndSubnets(
 	if e.subnets != nil {
 		return e.subnets, nil
 	}
-	vcn, err := e.ensureVCN(controllerUUID, modelUUID)
+	vcn, err := e.ensureVCN(ctx, controllerUUID, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -464,12 +464,12 @@ func (e *Environ) ensureNetworksAndSubnets(
 	// * There is no way to specify the target prefix for an Ingress/Egress rule, thus making
 	// instance level firewalling, impossible.
 	// For now, we open all ports until we decide how to properly take care of this.
-	secList, err := e.ensureSecurityList(controllerUUID, modelUUID, vcn.Id)
+	secList, err := e.ensureSecurityList(ctx, controllerUUID, modelUUID, vcn.Id)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	ig, err := e.ensureInternetGateway(controllerUUID, modelUUID, vcn.Id)
+	ig, err := e.ensureInternetGateway(ctx, controllerUUID, modelUUID, vcn.Id)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -484,7 +484,7 @@ func (e *Environ) ensureNetworksAndSubnets(
 			NetworkEntityId: ig.Id,
 		},
 	}
-	routeTable, err := e.ensureRouteTable(controllerUUID, modelUUID, vcn.Id, routeRules)
+	routeTable, err := e.ensureRouteTable(ctx, controllerUUID, modelUUID, vcn.Id, routeRules)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -528,7 +528,7 @@ func (e *Environ) removeSubnets(subnets map[string][]ociCore.Subnet) error {
 	return nil
 }
 
-func (e *Environ) removeSecurityLists(secLists []ociCore.SecurityList) error {
+func (e *Environ) removeSecurityLists(ctx context.Context, secLists []ociCore.SecurityList) error {
 	for _, secList := range secLists {
 		if secList.Id == nil {
 			return nil
@@ -536,7 +536,7 @@ func (e *Environ) removeSecurityLists(secLists []ociCore.SecurityList) error {
 		request := ociCore.DeleteSecurityListRequest{
 			SecurityListId: secList.Id,
 		}
-		logger.Debugf(context.TODO(), "deleting security list %s", *secList.Id)
+		logger.Debugf(ctx, "deleting security list %s", *secList.Id)
 		response, err := e.Firewall.DeleteSecurityList(context.Background(), request)
 		if err != nil && !e.isNotFound(response.RawResponse) {
 			return nil
@@ -552,7 +552,7 @@ func (e *Environ) removeSecurityLists(secLists []ociCore.SecurityList) error {
 	return nil
 }
 
-func (e *Environ) removeVCN(vcn ociCore.Vcn) error {
+func (e *Environ) removeVCN(ctx context.Context, vcn ociCore.Vcn) error {
 	if vcn.Id == nil {
 		return nil
 	}
@@ -560,7 +560,7 @@ func (e *Environ) removeVCN(vcn ociCore.Vcn) error {
 		VcnId: vcn.Id,
 	}
 
-	logger.Infof(context.TODO(), "deleting VCN: %s", *vcn.Id)
+	logger.Infof(ctx, "deleting VCN: %s", *vcn.Id)
 	response, err := e.Networking.DeleteVcn(context.Background(), requestDeleteVcn)
 	if err != nil && !e.isNotFound(response.RawResponse) {
 		return err
@@ -579,7 +579,7 @@ func (e *Environ) removeVCN(vcn ociCore.Vcn) error {
 // been used by this juju deployment. This function should only be called when
 // destroying the environment, and only after destroying any resources that may be attached
 // to a network.
-func (e *Environ) cleanupNetworksAndSubnets(controllerUUID, modelUUID string) error {
+func (e *Environ) cleanupNetworksAndSubnets(ctx context.Context, controllerUUID, modelUUID string) error {
 	vcns, err := e.allVCNs(controllerUUID, modelUUID)
 	if err != nil {
 		return errors.Trace(err)
@@ -589,7 +589,7 @@ func (e *Environ) cleanupNetworksAndSubnets(controllerUUID, modelUUID string) er
 	}
 
 	for _, vcn := range vcns {
-		allSubnets, err := e.allSubnets(controllerUUID, modelUUID, vcn.Id)
+		allSubnets, err := e.allSubnets(ctx, controllerUUID, modelUUID, vcn.Id)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -602,7 +602,7 @@ func (e *Environ) cleanupNetworksAndSubnets(controllerUUID, modelUUID string) er
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if err := e.removeSecurityLists(secLists); err != nil {
+		if err := e.removeSecurityLists(ctx, secLists); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -614,7 +614,7 @@ func (e *Environ) cleanupNetworksAndSubnets(controllerUUID, modelUUID string) er
 			return errors.Trace(err)
 		}
 
-		if err := e.removeVCN(vcn); err != nil {
+		if err := e.removeVCN(ctx, vcn); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -657,7 +657,7 @@ func (e *Environ) internetGatewayName(controllerUUID, modelUUID string) string {
 	return fmt.Sprintf("%s-%s-%s", InternetGatewayPrefix, controllerUUID, modelUUID)
 }
 
-func (e *Environ) ensureInternetGateway(controllerUUID, modelUUID string, vcnID *string) (ociCore.InternetGateway, error) {
+func (e *Environ) ensureInternetGateway(ctx context.Context, controllerUUID, modelUUID string, vcnID *string) (ociCore.InternetGateway, error) {
 	if ig, err := e.getInternetGateway(vcnID); err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			return ociCore.InternetGateway{}, errors.Trace(err)
@@ -667,7 +667,7 @@ func (e *Environ) ensureInternetGateway(controllerUUID, modelUUID string, vcnID 
 	}
 
 	name := e.internetGatewayName(controllerUUID, modelUUID)
-	logger.Debugf(context.TODO(), "creating new internet gateway %s", name)
+	logger.Debugf(ctx, "creating new internet gateway %s", name)
 
 	enabled := true
 	details := ociCore.CreateInternetGatewayDetails{
@@ -800,6 +800,7 @@ func (e *Environ) getRouteTableStatus(resourceID *string) (string, error) {
 }
 
 func (e *Environ) ensureRouteTable(
+	ctx context.Context,
 	controllerUUID, modelUUID string, vcnId *string, routeRules []ociCore.RouteRule,
 ) (ociCore.RouteTable, error) {
 	if rt, err := e.getRouteTable(vcnId); err != nil {
@@ -811,7 +812,7 @@ func (e *Environ) ensureRouteTable(
 	}
 
 	name := e.routeTableName(controllerUUID, modelUUID)
-	logger.Debugf(context.TODO(), "creating new route table %s", name)
+	logger.Debugf(ctx, "creating new route table %s", name)
 
 	details := ociCore.CreateRouteTableDetails{
 		VcnId:         vcnId,
@@ -832,7 +833,7 @@ func (e *Environ) ensureRouteTable(
 	if err != nil {
 		return ociCore.RouteTable{}, errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(), "route table %s created. Waiting for status: %s",
+	logger.Debugf(ctx, "route table %s created. Waiting for status: %s",
 		*response.RouteTable.Id, string(ociCore.RouteTableLifecycleStateAvailable))
 
 	if err := e.waitForResourceStatus(

@@ -390,7 +390,7 @@ func (v *ebsVolumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, para
 	if instanceIds.Size() > 1 {
 		if err := instances.update(ctx, v.env.ec2Client, instanceIds.Values()...); err != nil {
 			err := v.env.HandleCredentialError(ctx, err)
-			logger.Debugf(context.TODO(), "querying running instances: %v", err)
+			logger.Debugf(ctx, "querying running instances: %v", err)
 			// We ignore the error, because we don't want an invalid
 			// InstanceId reference from one VolumeParams to prevent
 			// the creation of another volume.
@@ -425,7 +425,7 @@ func (v *ebsVolumeSource) createVolume(ctx envcontext.ProviderCallContext, p sto
 		if _, err := v.env.ec2Client.DeleteVolume(ctx, &ec2.DeleteVolumeInput{
 			VolumeId: volumeId,
 		}); err != nil {
-			logger.Errorf(context.TODO(), "error cleaning up volume %v: %v", *volumeId, v.env.HandleCredentialError(ctx, err))
+			logger.Errorf(ctx, "error cleaning up volume %v: %v", *volumeId, v.env.HandleCredentialError(ctx, err))
 		}
 	}()
 
@@ -602,13 +602,13 @@ func destroyVolume(ctx context.Context, client Client, volumeId string) (err err
 				// instance corresponding to a DeleteOnTermination
 				// attachment; in either case, the volume is or will
 				// be destroyed.
-				logger.Tracef(context.TODO(), "Ignoring error destroying volume %q: %v", volumeId, err)
+				logger.Tracef(ctx, "Ignoring error destroying volume %q: %v", volumeId, err)
 				err = nil
 			}
 		}
 	}()
 
-	logger.Debugf(context.TODO(), "destroying %q", volumeId)
+	logger.Debugf(ctx, "destroying %q", volumeId)
 
 	// Volumes must not be in-use when destroying. A volume may
 	// still be in-use when the instance it is attached to is
@@ -707,7 +707,7 @@ func destroyVolume(ctx context.Context, client Client, volumeId string) (err err
 }
 
 func releaseVolume(ctx context.Context, client Client, volumeId string) error {
-	logger.Debugf(context.TODO(), "releasing %q", volumeId)
+	logger.Debugf(ctx, "releasing %q", volumeId)
 	_, err := waitVolume(ctx, client, volumeId, destroyVolumeAttempt, func(volume *types.Volume) (bool, error) {
 		if volume.State == volumeStatusAvailable {
 			return true, nil
@@ -792,7 +792,7 @@ func (v *ebsVolumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, atta
 	instances := make(instanceCache)
 	if err := instances.update(ctx, v.env.ec2Client, instIds.Values()...); err != nil {
 		err := v.env.HandleCredentialError(ctx, err)
-		logger.Debugf(context.TODO(), "querying running instances: %v", err)
+		logger.Debugf(ctx, "querying running instances: %v", err)
 		// We ignore the error, because we don't want an invalid
 		// InstanceId reference from one VolumeParams to prevent
 		// the creation of another volume.

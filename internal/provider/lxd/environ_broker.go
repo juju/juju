@@ -96,7 +96,7 @@ func (env *environ) newContainer(
 	// and passed in as args.ImageMetadata. However, lxd provider doesn't
 	// use datatype: image-ids, it uses datatype: image-download, and we
 	// don't have a registered cloud/region.
-	imageSources, err := env.getImageSources()
+	imageSources, err := env.getImageSources(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -130,7 +130,7 @@ func (env *environ) newContainer(
 	}
 	cleanupCallback() // Clean out any long line of completed download status
 
-	cSpec, err := env.getContainerSpec(image, target.ServerVersion(), args)
+	cSpec, err := env.getContainerSpec(ctx, image, target.ServerVersion(), args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -144,7 +144,7 @@ func (env *environ) newContainer(
 	return container, nil
 }
 
-func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
+func (env *environ) getImageSources(ctx context.Context) ([]lxd.ServerSpec, error) {
 	// TODO (stickupkid): Allow the passing in of the factory.
 	factory := simplestreams.DefaultDataSourceFactory()
 	metadataSources, err := environs.ImageMetadataSources(env, factory)
@@ -155,7 +155,7 @@ func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
 	for _, source := range metadataSources {
 		url, err := source.URL("")
 		if err != nil {
-			logger.Debugf(context.TODO(), "failed to get the URL for metadataSource: %s", err)
+			logger.Debugf(ctx, "failed to get the URL for metadataSource: %s", err)
 			continue
 		}
 		// NOTE(jam) LXD only allows you to pass HTTPS URLs. So strip
@@ -181,6 +181,7 @@ func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
 // Cloud-init config is generated based on the network devices in the default
 // profile and included in the spec config.
 func (env *environ) getContainerSpec(
+	ctx context.Context,
 	image lxd.SourcedImage, serverVersion string, args environs.StartInstanceParams,
 ) (lxd.ContainerSpec, error) {
 	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
@@ -213,7 +214,7 @@ func (env *environ) getContainerSpec(
 	}
 
 	if !(len(nics) == 1 && nics["eth0"] != nil) {
-		logger.Debugf(context.TODO(), "generating custom cloud-init networking")
+		logger.Debugf(ctx, "generating custom cloud-init networking")
 
 		cSpec.Config[lxd.NetworkConfigKey] = cloudinit.CloudInitNetworkConfigDisabled
 
@@ -232,7 +233,7 @@ func (env *environ) getContainerSpec(
 	if err != nil {
 		return cSpec, errors.Annotate(err, "composing user data")
 	}
-	logger.Debugf(context.TODO(), "LXD user data; %d bytes", len(userData))
+	logger.Debugf(ctx, "LXD user data; %d bytes", len(userData))
 
 	// TODO(ericsnow) Looks like LXD does not handle gzipped userdata
 	// correctly.  It likely has to do with the HTTP transport, much
@@ -246,7 +247,7 @@ func (env *environ) getContainerSpec(
 			// Since some metadata is interpreted by LXD, we cannot allow
 			// arbitrary tags to be passed in by the user.
 			// We currently only pass through Juju-defined tags.
-			logger.Debugf(context.TODO(), "ignoring non-juju tag: %s=%s", k, v)
+			logger.Debugf(ctx, "ignoring non-juju tag: %s=%s", k, v)
 			continue
 		}
 		cSpec.Config[lxd.UserNamespacePrefix+k] = v

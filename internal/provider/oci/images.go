@@ -420,7 +420,7 @@ func instTypeByShapeName(shape string) string {
 	}
 }
 
-func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, error) {
+func refreshImageCache(ctx context.Context, cli ComputeClient, compartmentID *string) (*ImageCache, error) {
 	cacheMutex.Lock()
 	defer cacheMutex.Unlock()
 
@@ -439,15 +439,15 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 		img, arch, err := NewInstanceImage(val, compartmentID)
 		if err != nil {
 			if val.Id != nil {
-				logger.Debugf(context.TODO(), "error parsing image %q: %q", *val.Id, err)
+				logger.Debugf(ctx, "error parsing image %q: %q", *val.Id, err)
 			} else {
-				logger.Debugf(context.TODO(), "error parsing image %q", err)
+				logger.Debugf(ctx, "error parsing image %q", err)
 			}
 			continue
 		}
 		// For the moment juju does not support minimal ubuntu
 		if img.IsMinimal {
-			logger.Tracef(context.TODO(), "ubuntu minimal images (%q), not supported", *val.DisplayName)
+			logger.Tracef(ctx, "ubuntu minimal images (%q), not supported", *val.DisplayName)
 			continue
 		}
 		// Only set the instance types to the images that we correctly
@@ -463,7 +463,7 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 		// in case one of them doesn't.
 		for _, instType := range instTypes {
 			if instType.Arch != arch {
-				logger.Debugf(context.TODO(), "instance type %s has arch %s while image %s only supports %s", instType.Name, instType.Arch, *val.Id, arch)
+				logger.Debugf(ctx, "instance type %s has arch %s while image %s only supports %s", instType.Name, instType.Arch, *val.Id, arch)
 			}
 		}
 		img.SetInstanceTypes(instTypes)
@@ -491,13 +491,14 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 // findInstanceSpec returns an *InstanceSpec, imagelist name
 // satisfying the supplied instanceConstraint
 func findInstanceSpec(
+	ctx context.Context,
 	base corebase.Base,
 	arch string,
 	constraints coreconstraints.Value,
 	imgCache *ImageCache,
 ) (*instances.InstanceSpec, string, error) {
 	allImageMetadata := imgCache.ImageMetadata(base, arch, *constraints.VirtType)
-	logger.Debugf(context.TODO(), "received %d image(s): %v", len(allImageMetadata), allImageMetadata)
+	logger.Debugf(ctx, "received %d image(s): %v", len(allImageMetadata), allImageMetadata)
 
 	ic := &instances.InstanceConstraint{
 		Base:        base,

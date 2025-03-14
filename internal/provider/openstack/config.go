@@ -164,7 +164,7 @@ func (p EnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) 
 				"existing image metadata, please run 'juju-metadata help' to see how suitable image"+
 				"metadata can be generated.",
 			"default-image-id", defaultImageId)
-		logger.Warningf(context.TODO(), msg)
+		logger.Warningf(ctx, msg)
 	}
 	if defaultInstanceType := cfgAttrs["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
 		msg := fmt.Sprintf(
@@ -173,7 +173,7 @@ func (p EnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) 
 				"when an model is bootstrapped, or individually when a charm is deployed.\n"+
 				"See 'juju help bootstrap' or 'juju help deploy'.",
 			"default-instance-type", defaultInstanceType)
-		logger.Warningf(context.TODO(), msg)
+		logger.Warningf(ctx, msg)
 	}
 
 	// Construct a new config with the ignored, deprecated attributes removed.

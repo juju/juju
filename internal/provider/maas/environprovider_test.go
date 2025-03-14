@@ -141,7 +141,7 @@ func (s *MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
 	endpoint := "https://foo.com/MAAS"
 	var serverURLs []string
 	err := ping(c, s.callCtx, endpoint,
-		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
 			c.Assert(serverURL, gc.Equals, endpoint)
 			return nil, errors.New("nope")
@@ -157,7 +157,7 @@ func (s *MaasPingSuite) TestPingOK(c *gc.C) {
 	endpoint := "https://foo.com/MAAS"
 	var serverURLs []string
 	err := ping(c, s.callCtx, endpoint,
-		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
 			c.Assert(serverURL, gc.Equals, endpoint)
 			return set.NewStrings("network-deployment-ubuntu"), nil
@@ -173,7 +173,7 @@ func (s *MaasPingSuite) TestPingVersionURLOK(c *gc.C) {
 	endpoint := "https://foo.com/MAAS/api/10.1/"
 	var serverURLs []string
 	err := ping(c, s.callCtx, endpoint,
-		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
 			c.Assert(serverURL, gc.Equals, "https://foo.com/MAAS/")
 			return set.NewStrings("network-deployment-ubuntu"), nil
@@ -189,7 +189,7 @@ func (s *MaasPingSuite) TestPingVersionURLBad(c *gc.C) {
 	endpoint := "https://foo.com/MAAS/api/10.1/"
 	var serverURLs []string
 	err := ping(c, s.callCtx, endpoint,
-		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+		func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 			serverURLs = append(serverURLs, client.URL().String())
 			c.Assert(serverURL, gc.Equals, "https://foo.com/MAAS/")
 			return nil, errors.New("nope")

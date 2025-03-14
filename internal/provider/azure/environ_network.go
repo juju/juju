@@ -25,7 +25,7 @@ func (env *azureEnviron) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
-func (env *azureEnviron) networkInfo() (vnetRG string, vnetName string) {
+func (env *azureEnviron) networkInfo(ctx context.Context) (vnetRG string, vnetName string) {
 	// The virtual network to use defaults to "juju-internal-network"
 	// but may also be specified by the user.
 	vnetName = internalNetworkName
@@ -38,7 +38,7 @@ func (env *azureEnviron) networkInfo() (vnetRG string, vnetName string) {
 			vnetRG = parts[0]
 			vnetName = parts[1]
 		}
-		logger.Debugf(context.TODO(), "user specified network name %q in resource group %q", vnetName, vnetRG)
+		logger.Debugf(ctx, "user specified network name %q in resource group %q", vnetName, vnetRG)
 	}
 	return
 }
@@ -70,7 +70,7 @@ func (env *azureEnviron) allProviderSubnets(ctx envcontext.ProviderCallContext) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	vnetRG, vnetName := env.networkInfo()
+	vnetRG, vnetName := env.networkInfo(ctx)
 	var result []*azurenetwork.Subnet
 	pager := subnets.NewListPager(vnetRG, vnetName, nil)
 	for pager.More() {
@@ -113,7 +113,7 @@ func (env *azureEnviron) allSubnets(ctx envcontext.ProviderCallContext) ([]netwo
 		// An empty CIDR is no use to us, so guard against it.
 		cidr := toValue(addressPrefix)
 		if cidr == "" {
-			logger.Debugf(context.TODO(), "ignoring subnet %q with empty address prefix", id)
+			logger.Debugf(ctx, "ignoring subnet %q with empty address prefix", id)
 			continue
 		}
 
@@ -328,7 +328,7 @@ func (env *azureEnviron) defaultControllerSubnet() network.Id {
 	// subnets. This enables us to create controller-specific NSG rules
 	// just by targeting the controller subnet.
 
-	vnetRG, vnetName := env.networkInfo()
+	vnetRG, vnetName := env.networkInfo(context.TODO())
 	subnetID := fmt.Sprintf(
 		`[concat(resourceId('Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
 		vnetName, controllerSubnetName,
@@ -364,7 +364,7 @@ func (env *azureEnviron) networkInfoForInstance(
 	placementSubnetID network.Id,
 ) (vnetID string, subnetIDs []network.Id, _ error) {
 
-	vnetRG, vnetName := env.networkInfo()
+	vnetRG, vnetName := env.networkInfo(ctx)
 	vnetID = fmt.Sprintf(`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`, vnetName)
 	if vnetRG != "" {
 		vnetID = fmt.Sprintf(`[resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s')]`, vnetRG, vnetName)
@@ -503,6 +503,6 @@ func (env *azureEnviron) findPlacementSubnet(ctx envcontext.ProviderCallContext,
 		return "", errors.Trace(err)
 	}
 
-	logger.Debugf(context.TODO(), "searching for subnet matching placement directive %q", subnetName)
+	logger.Debugf(ctx, "searching for subnet matching placement directive %q", subnetName)
 	return env.findSubnetID(ctx, subnetName)
 }

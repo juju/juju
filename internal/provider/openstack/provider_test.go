@@ -918,7 +918,7 @@ func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
 		AvailabilityZone: "eu-west-az",
 	}
 
-	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
+	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(context.Background(), siParams, netCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
@@ -946,7 +946,7 @@ func (s *providerUnitTests) TestNetworksForInstanceNoConfigMultiNet(c *gc.C) {
 		AvailabilityZone: "eu-west-az",
 	}
 
-	result, err := envWithNetworking(mockNetworking, "").networksForInstance(siParams, netCfg)
+	result, err := envWithNetworking(mockNetworking, "").networksForInstance(context.Background(), siParams, netCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
@@ -971,7 +971,7 @@ func (s *providerUnitTests) TestNetworksForInstanceMultiConfigMultiNet(c *gc.C) 
 		AvailabilityZone: "eu-west-az",
 	}
 
-	result, err := envWithNetworking(mockNetworking, "network-id-foo,network-id-bar").networksForInstance(siParams, netCfg)
+	result, err := envWithNetworking(mockNetworking, "network-id-foo,network-id-bar").networksForInstance(context.Background(), siParams, netCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
@@ -1016,7 +1016,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 		SubnetsToZones:   []map[network.Id][]string{{"subnet-foo": {"eu-west-az", "eu-east-az"}}},
 	}
 
-	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
+	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(context.Background(), siParams, netCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
@@ -1089,7 +1089,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZNoConfigMultiNet(c *gc.
 		},
 	}
 
-	result, err := envWithNetworking(mockNetworking, "").networksForInstance(siParams, netCfg)
+	result, err := envWithNetworking(mockNetworking, "").networksForInstance(context.Background(), siParams, netCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
@@ -1126,7 +1126,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
 		},
 	}
 
-	_, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
+	_, err := envWithNetworking(mockNetworking, netID).networksForInstance(context.Background(), siParams, netCfg)
 	c.Assert(err, gc.ErrorMatches, "determining subnets in zone \"us-east-az\": subnets in AZ \"us-east-az\" not found")
 }
 
@@ -1171,7 +1171,7 @@ func (s *providerUnitTests) TestNetworksForInstanceNoSubnetAZsStillConsidered(c 
 		}},
 	}
 
-	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
+	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(context.Background(), siParams, netCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{

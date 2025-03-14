@@ -951,7 +951,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolume(c *gc.C) {
 	client := &testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
 		"west": map[string]string{"volume": "http://cinder.testing/v1"},
 	}}
-	url, err := openstack.GetVolumeEndpointURL(client, "west")
+	url, err := openstack.GetVolumeEndpointURL(context.Background(), client, "west")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url.String(), gc.Equals, "http://cinder.testing/v1")
 }
@@ -960,7 +960,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolumeV2(c *gc.C) {
 	client := &testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
 		"west": map[string]string{"volumev2": "http://cinder.testing/v2"},
 	}}
-	url, err := openstack.GetVolumeEndpointURL(client, "west")
+	url, err := openstack.GetVolumeEndpointURL(context.Background(), client, "west")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url.String(), gc.Equals, "http://cinder.testing/v2")
 }
@@ -972,7 +972,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointV2IfNoV3(c *gc.C) {
 			"volumev2": "http://cinder.testing/v2",
 		},
 	}}
-	url, err := openstack.GetVolumeEndpointURL(client, "south")
+	url, err := openstack.GetVolumeEndpointURL(context.Background(), client, "south")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url.String(), gc.Equals, "http://cinder.testing/v2")
 }
@@ -985,14 +985,14 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointPreferV3(c *gc.C) {
 			"volumev3": "http://cinder.testing/v3",
 		},
 	}}
-	url, err := openstack.GetVolumeEndpointURL(client, "south")
+	url, err := openstack.GetVolumeEndpointURL(context.Background(), client, "south")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url.String(), gc.Equals, "http://cinder.testing/v3")
 }
 
 func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointMissing(c *gc.C) {
 	client := &testEndpointResolver{}
-	url, err := openstack.GetVolumeEndpointURL(client, "east")
+	url, err := openstack.GetVolumeEndpointURL(context.Background(), client, "east")
 	c.Assert(err, gc.ErrorMatches, `endpoint "volume" in region "east" not found`)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(url, gc.IsNil)
@@ -1002,7 +1002,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointBadURL(c *gc.C) {
 	client := &testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
 		"north": map[string]string{"volumev2": "some %4"},
 	}}
-	url, err := openstack.GetVolumeEndpointURL(client, "north")
+	url, err := openstack.GetVolumeEndpointURL(context.Background(), client, "north")
 	// NOTE(achilleasa): go1.14 quotes malformed URLs in error messages
 	// hence the optional quotes in the regex below.
 	c.Assert(err, gc.ErrorMatches, `parse ("?)some %4("?): .*`)

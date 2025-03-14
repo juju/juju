@@ -425,7 +425,7 @@ func (s *vpcSuite) TestCheckVPCRouteTableRoutesWithNoDefaultRoute(c *gc.C) {
 	c.Check(table.Routes, gc.HasLen, 0) // no routes at all
 
 	checkFailed := func() {
-		err := checkVPCRouteTableRoutes(&vpc, &table, &gateway)
+		err := checkVPCRouteTableRoutes(context.Background(), &vpc, &table, &gateway)
 		c.Assert(err, gc.ErrorMatches, `missing default route via gateway "igw-anything"`)
 		c.Check(err, jc.ErrorIs, errorVPCNotRecommended)
 	}
@@ -448,7 +448,7 @@ func (s *vpcSuite) TestCheckVPCRouteTableRoutesWithDefaultButNoLocalRoutes(c *gc
 	table.Routes = makeEC2Routes(gatewayID, "", types.RouteStateActive, 3) // default and 3 extra routes; no local route
 
 	checkFailed := func() {
-		err := checkVPCRouteTableRoutes(&vpc, &table, &gateway)
+		err := checkVPCRouteTableRoutes(context.Background(), &vpc, &table, &gateway)
 		c.Assert(err, gc.ErrorMatches, `missing local route with destination "0.1.0.0/16"`)
 		c.Check(err, jc.ErrorIs, errorVPCNotRecommended)
 	}
@@ -462,7 +462,7 @@ func (s *vpcSuite) TestCheckVPCRouteTableRoutesSuccess(c *gc.C) {
 	vpc, table, gateway := prepareCheckVPCRouteTableRoutesArgs()
 	table.Routes = makeEC2Routes(aws.ToString(gateway.InternetGatewayId), aws.ToString(vpc.CidrBlock), types.RouteStateActive, 3) // default, local and 3 extra routes
 
-	err := checkVPCRouteTableRoutes(&vpc, &table, &gateway)
+	err := checkVPCRouteTableRoutes(context.Background(), &vpc, &table, &gateway)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

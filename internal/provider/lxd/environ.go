@@ -100,7 +100,7 @@ func newEnviron(
 	return env, nil
 }
 
-func (env *environ) initProfile() error {
+func (env *environ) initProfile(ctx context.Context) error {
 	pName := env.profileName()
 
 	hasProfile, err := env.serverUnlocked.HasProfile(pName)
@@ -127,11 +127,11 @@ func (env *environ) initProfile() error {
 	}
 	hasProfile, hasErr := env.serverUnlocked.HasProfile(pName)
 	if hasErr != nil {
-		logger.Errorf(context.TODO(), "%s", err)
+		logger.Errorf(ctx, "%s", err)
 		return errors.Trace(hasErr)
 	}
 	if hasProfile {
-		logger.Debugf(context.TODO(), "received %q, but no need to fail", err)
+		logger.Debugf(ctx, "received %q, but no need to fail", err)
 		return nil
 	}
 	return err
@@ -164,7 +164,7 @@ func (env *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 }
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (env *environ) SetCloudSpec(_ context.Context, spec environscloudspec.CloudSpec) error {
+func (env *environ) SetCloudSpec(ctx context.Context, spec environscloudspec.CloudSpec) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 
@@ -175,7 +175,7 @@ func (env *environ) SetCloudSpec(_ context.Context, spec environscloudspec.Cloud
 	}
 
 	env.serverUnlocked = server
-	return env.initProfile()
+	return env.initProfile(ctx)
 }
 
 func (env *environ) server() Server {
@@ -241,7 +241,7 @@ func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, contro
 	if err := env.Destroy(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	if err := env.destroyHostedModelResources(controllerUUID); err != nil {
+	if err := env.destroyHostedModelResources(ctx, controllerUUID); err != nil {
 		return errors.Trace(env.HandleCredentialError(ctx, err))
 	}
 	if env.storageSupported() {
@@ -252,7 +252,7 @@ func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, contro
 	return nil
 }
 
-func (env *environ) destroyHostedModelResources(controllerUUID string) error {
+func (env *environ) destroyHostedModelResources(ctx context.Context, controllerUUID string) error {
 	// Destroy all instances with juju-controller-uuid
 	// matching the specified UUID.
 	const prefix = "juju-"
@@ -271,7 +271,7 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 		}
 		names = append(names, string(inst.Id()))
 	}
-	logger.Debugf(context.TODO(), "removing instances: %v", names)
+	logger.Debugf(ctx, "removing instances: %v", names)
 
 	return errors.Trace(env.server().RemoveContainers(names))
 }
@@ -397,7 +397,7 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) e
 		return errors.Trace(err)
 	}
 	logger.Debugf(context.TODO(), "wrote lxd profile %q", pName)
-	if err := env.verifyProfile(pName); err != nil {
+	if err := env.verifyProfile(context.TODO(), pName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -406,7 +406,7 @@ func (env *environ) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) e
 // verifyProfile gets the actual profile from lxd for the name provided
 // and logs the result. For informational purposes only. Returns an error
 // if the call to GetProfile fails.
-func (env *environ) verifyProfile(pName string) error {
+func (env *environ) verifyProfile(ctx context.Context, pName string) error {
 	// As there are configs where we do not have the option of looking at
 	// the profile on the machine to verify, verify here that what we thought
 	// was written, is what was written.
@@ -414,7 +414,7 @@ func (env *environ) verifyProfile(pName string) error {
 	if err != nil {
 		return err
 	}
-	logger.Debugf(context.TODO(), "lxd profile %q: received %+v ", pName, profile)
+	logger.Debugf(ctx, "lxd profile %q: received %+v ", pName, profile)
 	return nil
 }
 
