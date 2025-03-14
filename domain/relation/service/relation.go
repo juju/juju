@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -107,6 +108,25 @@ func (s *Service) GetApplicationEndpoints(ctx context.Context, id application.ID
 	return nil, errors.NotImplemented
 }
 
+// GetLocalRelationApplicationSettings returns the application settings
+// for the given application and relation identifier combination.
+// ApplicationSettings may only be read by the application leader.
+// Returns NotFound if this unit is not the leader, if the application or
+// relation is not found.
+func (s *Service) GetLocalRelationApplicationSettings(
+	ctx context.Context,
+	unitName unit.Name,
+	relationUUID corerelation.UUID,
+	applicationID application.ID,
+) (map[string]string, error) {
+	// TODO: (hml) 12-Mar-2025
+	// Implement leadership checking here: e.g.
+	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
+	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
+	//	})
+	return nil, errors.NotImplemented
+}
+
 // GetRelatedEndpoints returns the endpoints of the relation with which
 // units of the named application will establish relations.
 func (s *Service) GetRelatedEndpoints(
@@ -114,16 +134,6 @@ func (s *Service) GetRelatedEndpoints(
 	relationUUID corerelation.UUID,
 	applicationName string,
 ) ([]internalrelation.Endpoint, error) {
-	return nil, errors.NotImplemented
-}
-
-// GetRelationApplicationSettings returns the application settings for the
-// given application and relation identifier combination.
-func (s *Service) GetRelationApplicationSettings(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	applicationID application.ID,
-) (map[string]string, error) {
 	return nil, errors.NotImplemented
 }
 
@@ -206,7 +216,7 @@ func (s *Service) GetRelationUnit(
 	return "", errors.NotImplemented
 }
 
-// GetRelationApplicationSettings returns the unit settings for the
+// GetRelationUnitSettings returns the unit settings for the
 // given unit and relation identifier combination.
 func (s *Service) GetRelationUnitSettings(
 	ctx context.Context,
@@ -218,6 +228,17 @@ func (s *Service) GetRelationUnitSettings(
 // GetRelationUUIDFromKey returns a relation UUID for the given Key.
 func (s *Service) GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error) {
 	return "", errors.NotImplemented
+}
+
+// GetRemoteRelationApplicationSettings returns the application settings
+// for the given application and relation identifier combination.
+// Returns NotFound if the application or relation is not found.
+func (s *Service) GetRemoteRelationApplicationSettings(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationID application.ID,
+) (map[string]string, error) {
+	return nil, errors.NotImplemented
 }
 
 // IsRelationSuspended returns a boolean to indicate if the given

@@ -1495,13 +1495,16 @@ func (u UniterAPI) readOneUnitSettings(
 			// See LP1876097
 			return nil, apiservererrors.ErrPerm
 		}
-		settings, err = u.readLocalApplicationSettings(ctx, relUUID, tag, authTag.(names.UnitTag))
+		unitName, err := coreunit.NewName(authTag.Id())
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+		settings, err = u.readLocalApplicationSettings(ctx, relUUID, tag, unitName)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
 	default:
 		return nil, apiservererrors.ErrPerm
-	}
-
-	if err != nil {
-		return nil, internalerrors.Capture(err)
 	}
 	return settings, nil
 }
@@ -1544,6 +1547,11 @@ func (u *UniterAPI) ReadLocalApplicationSettings(ctx context.Context, arg params
 	}
 	inferredAppTag := names.NewApplicationTag(inferredAppName)
 
+	unitName, err := coreunit.NewName(unitTag.Id())
+	if err != nil {
+		return res, apiservererrors.ServerError(err)
+	}
+
 	// Check whether the agent has authenticated as a unit or as an
 	// application (e.g. an operator in a k8s scenario).
 	authTag := u.auth.GetAuthTag()
@@ -1574,7 +1582,7 @@ func (u *UniterAPI) ReadLocalApplicationSettings(ctx context.Context, arg params
 		return res, internalerrors.Capture(err)
 	}
 
-	settings, err := u.readLocalApplicationSettings(ctx, relUUID, inferredAppTag, unitTag)
+	settings, err := u.readLocalApplicationSettings(ctx, relUUID, inferredAppTag, unitName)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
@@ -1583,41 +1591,37 @@ func (u *UniterAPI) ReadLocalApplicationSettings(ctx context.Context, arg params
 }
 
 // readLocalApplicationSettings attempts to access the local application data
-// bag for the specified relation on wordpressAppTag on behalf of wordpressUnitTag. If the
-// provided wordpressUnitTag is not the leader, this method will return ErrPerm.
+// bag for the specified relation on based on an ApplicationTag on behalf of
+// a UnitTag.
 func (u *UniterAPI) readLocalApplicationSettings(
 	ctx context.Context,
 	relUUID corerelation.UUID,
 	appTag names.ApplicationTag,
-	unitTag names.UnitTag,
+	unitName coreunit.Name,
 ) (map[string]string, error) {
 	canAccessApp, err := u.accessApplication()
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
 
-	token := u.leadershipChecker.LeadershipCheck(appTag.Id(), unitTag.Id())
-
-	endpoints, err := u.relationService.GetRelationEndpoints(ctx, relUUID)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
+	if !canAccessApp(appTag) {
+		return nil, apiservererrors.ErrPerm
 	}
 
-	canAccessSettings := func(appTag names.Tag) bool {
-		if !canAccessApp(appTag) {
-			return false
-		}
-
-		isPeerRelation := len(endpoints) == 1 && endpoints[0].Role == charm.RolePeer
-		if isPeerRelation {
-			return true
-		}
-		// For provider-requirer relations only allow the
-		// leader unit to read the application settings.
-		return token.Check() == nil
+	appID, err := u.applicationService.GetApplicationIDByName(ctx, appTag.Id())
+	if errors.Is(err, errors.NotFound) {
+		return nil, apiservererrors.ErrPerm
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	return u.getRelationAppSettings(ctx, canAccessSettings, relUUID, appTag)
+	settings, err := u.relationService.GetLocalRelationApplicationSettings(ctx, unitName, relUUID, appID)
+	if errors.Is(err, errors.NotFound) {
+		return nil, apiservererrors.ErrPerm
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return settings, nil
 }
 
 // ReadRemoteSettings returns the remote settings of each given set of
@@ -1668,22 +1672,22 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 
 	switch tag := remoteTag.(type) {
 	case names.UnitTag:
-		relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, remoteTag.Id())
+		relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, tag.Id())
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
 		settings, err = u.relationService.GetRelationUnitSettings(ctx, relUnitUUID)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, internalerrors.Capture(err)
 		}
 	case names.ApplicationTag:
 		appID, err := u.applicationService.GetApplicationIDByName(ctx, tag.Id())
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
-		settings, err = u.relationService.GetRelationApplicationSettings(ctx, relUUID, appID)
+		settings, err = u.relationService.GetRemoteRelationApplicationSettings(ctx, relUUID, appID)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, internalerrors.Capture(err)
 		}
 	default:
 		return nil, apiservererrors.ErrPerm
@@ -1998,32 +2002,6 @@ func (u *UniterAPI) getOneRelation(
 		return nothing, apiservererrors.ErrBadId
 	}
 	return u.prepareRelationResult(rel, appName, modelUUID)
-}
-
-func (u *UniterAPI) getRelationAppSettings(
-	ctx context.Context,
-	canAccess common.AuthFunc,
-	relUUID corerelation.UUID,
-	appTag names.ApplicationTag,
-) (map[string]string, error) {
-	if !canAccess(appTag) {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	appID, err := u.applicationService.GetApplicationIDByName(ctx, appTag.Id())
-	if errors.Is(err, errors.NotFound) {
-		return nil, apiservererrors.ErrPerm
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	settings, err := u.relationService.GetRelationApplicationSettings(ctx, relUUID, appID)
-	if errors.Is(err, errors.NotFound) {
-		return nil, apiservererrors.ErrPerm
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return settings, nil
 }
 
 func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Unit) error {
