@@ -73,7 +73,7 @@ CREATE TABLE unit_agent_version (
     architecture_id INT NOT NULL,
     CONSTRAINT fk_unit_agent_version_unit
     FOREIGN KEY (unit_uuid)
-    REFERENCES application (uuid),
+    REFERENCES unit (uuid),
     CONSTRAINT fk_unit_agent_version_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id)
