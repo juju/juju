@@ -13,33 +13,33 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
-type ApplicationService interface {
+type StatusService interface {
 	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	// error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist.
 	GetUnitWorkloadStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
 
 	// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
-	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
+	// error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist.
 	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
 }
 
 // UnitStatusSetter defines the API used to set the workload status of a unit.
 type UnitStatusSetter struct {
-	clock              clock.Clock
-	applicationService ApplicationService
-	getCanModify       GetAuthFunc
+	clock         clock.Clock
+	statusService StatusService
+	getCanModify  GetAuthFunc
 }
 
 // NewUnitStatusSetter returns a new UnitStatusSetter.
-func NewUnitStatusSetter(applicationService ApplicationService, clock clock.Clock, getCanModify GetAuthFunc) *UnitStatusSetter {
+func NewUnitStatusSetter(statusService StatusService, clock clock.Clock, getCanModify GetAuthFunc) *UnitStatusSetter {
 	return &UnitStatusSetter{
-		applicationService: applicationService,
-		getCanModify:       getCanModify,
-		clock:              clock,
+		statusService: statusService,
+		getCanModify:  getCanModify,
+		clock:         clock,
 	}
 }
 
@@ -81,8 +81,8 @@ func (s *UnitStatusSetter) SetStatus(ctx context.Context, args params.SetStatus)
 			Data:    arg.Data,
 			Since:   &now,
 		}
-		err = s.applicationService.SetUnitWorkloadStatus(ctx, unitName, &sInfo)
-		if errors.Is(err, applicationerrors.UnitNotFound) {
+		err = s.statusService.SetUnitWorkloadStatus(ctx, unitName, &sInfo)
+		if errors.Is(err, statuserrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
 			continue
 		} else if err != nil {
@@ -95,17 +95,17 @@ func (s *UnitStatusSetter) SetStatus(ctx context.Context, args params.SetStatus)
 
 // UnitStatusGetter defines the API used to get the workload status of a unit.
 type UnitStatusGetter struct {
-	clock              clock.Clock
-	applicationService ApplicationService
-	getCanAccess       GetAuthFunc
+	clock         clock.Clock
+	statusService StatusService
+	getCanAccess  GetAuthFunc
 }
 
 // NewUnitStatusGetter returns a new UnitStatusGetter.
-func NewUnitStatusGetter(applicationService ApplicationService, clock clock.Clock, getCanAccess GetAuthFunc) *UnitStatusGetter {
+func NewUnitStatusGetter(statusService StatusService, clock clock.Clock, getCanAccess GetAuthFunc) *UnitStatusGetter {
 	return &UnitStatusGetter{
-		applicationService: applicationService,
-		getCanAccess:       getCanAccess,
-		clock:              clock,
+		statusService: statusService,
+		getCanAccess:  getCanAccess,
+		clock:         clock,
 	}
 }
 
@@ -138,8 +138,8 @@ func (s *UnitStatusGetter) Status(ctx context.Context, args params.Entities) (pa
 			continue
 		}
 
-		sInfo, err := s.applicationService.GetUnitWorkloadStatus(ctx, unitName)
-		if errors.Is(err, applicationerrors.UnitNotFound) {
+		sInfo, err := s.statusService.GetUnitWorkloadStatus(ctx, unitName)
+		if errors.Is(err, statuserrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
 			continue
 		} else if err != nil {

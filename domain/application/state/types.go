@@ -91,11 +91,6 @@ type unitUUID struct {
 	UnitUUID coreunit.UUID `db:"uuid"`
 }
 
-type unitPresence struct {
-	UnitUUID coreunit.UUID `db:"unit_uuid"`
-	LastSeen time.Time     `db:"last_seen"`
-}
-
 type unitName struct {
 	Name coreunit.Name `db:"name"`
 }
@@ -145,13 +140,6 @@ type unitStatusInfo struct {
 	Message   string        `db:"message"`
 	Data      []byte        `db:"data"`
 	UpdatedAt *time.Time    `db:"updated_at"`
-}
-
-type statusInfo struct {
-	StatusID  int        `db:"status_id"`
-	Message   string     `db:"message"`
-	Data      []byte     `db:"data"`
-	UpdatedAt *time.Time `db:"updated_at"`
 }
 
 type unitPresentStatusInfo struct {
@@ -835,19 +823,6 @@ func encodeCloudContainerStatus(s application.CloudContainerStatusType) (int, er
 	}
 }
 
-func decodeCloudContainerStatus(s int) (application.CloudContainerStatusType, error) {
-	switch s {
-	case 0:
-		return application.CloudContainerStatusWaiting, nil
-	case 1:
-		return application.CloudContainerStatusBlocked, nil
-	case 2:
-		return application.CloudContainerStatusRunning, nil
-	default:
-		return -1, errors.Errorf("unknown status %d", s)
-	}
-}
-
 func encodeAgentStatus(s application.UnitAgentStatusType) (int, error) {
 	switch s {
 	case application.UnitAgentStatusAllocating:
@@ -1158,15 +1133,6 @@ type dbConstraintZone struct {
 // dbUUID represents a UUID.
 type dbUUID struct {
 	UUID string `db:"uuid"`
-}
-
-type statusInfoAndUnitName struct {
-	UnitName  coreunit.Name `db:"name"`
-	StatusID  int           `db:"status_id"`
-	Message   string        `db:"message"`
-	Data      []byte        `db:"data"`
-	UpdatedAt *time.Time    `db:"updated_at"`
-	Present   bool          `db:"present"`
 }
 
 type applicationPlatformAndChannel struct {

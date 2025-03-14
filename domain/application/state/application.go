@@ -892,57 +892,6 @@ WHERE application_uuid = $applicationID.uuid;
 	}, nil
 }
 
-// SetApplicationStatus saves the given application status, overwriting any
-// current status data. If returns an error satisfying
-// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
-func (st *State) SetApplicationStatus(
-	ctx context.Context,
-	applicationID coreapplication.ID,
-	status *application.StatusInfo[application.WorkloadStatusType],
-) error {
-	db, err := st.DB()
-	if err != nil {
-		return jujuerrors.Trace(err)
-	}
-
-	statusID, err := encodeWorkloadStatus(status.Status)
-	if err != nil {
-		return jujuerrors.Trace(err)
-	}
-
-	statusInfo := applicationStatusInfo{
-		ApplicationID: applicationID,
-		StatusID:      statusID,
-		Message:       status.Message,
-		Data:          status.Data,
-		UpdatedAt:     status.Since,
-	}
-	stmt, err := st.Prepare(`
-INSERT INTO application_status (*) VALUES ($applicationStatusInfo.*)
-ON CONFLICT(application_uuid) DO UPDATE SET
-    status_id = excluded.status_id,
-    message = excluded.message,
-    updated_at = excluded.updated_at,
-    data = excluded.data;
-`, statusInfo)
-	if err != nil {
-		return jujuerrors.Trace(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
-			return errors.Errorf("%w: %q", applicationerrors.ApplicationNotFound, applicationID)
-		} else if err != nil {
-			return jujuerrors.Trace(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return errors.Errorf("updating application status for %q: %w", applicationID, err)
-	}
-	return nil
-}
-
 // InitialWatchStatementApplicationsWithPendingCharms returns the initial
 // namespace query for the applications with pending charms watcher.
 func (st *State) InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery) {
@@ -2501,11 +2450,11 @@ func encodeConstraints(constraintUUID string, cons constraints.Constraints, cont
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) lookupApplication(ctx context.Context, tx *sqlair.TX, name string) (coreapplication.ID, error) {
-	app := applicationDetails{Name: name}
+	app := applicationIDAndName{Name: name}
 	queryApplicationStmt, err := st.Prepare(`
-SELECT uuid AS &applicationDetails.uuid
+SELECT uuid AS &applicationIDAndName.uuid
 FROM application
-WHERE name = $applicationDetails.name
+WHERE name = $applicationIDAndName.name
 `, app)
 	if err != nil {
 		return "", jujuerrors.Trace(err)
@@ -2516,7 +2465,7 @@ WHERE name = $applicationDetails.name
 	} else if err != nil {
 		return "", errors.Errorf("looking up UUID for application %q: %w", name, err)
 	}
-	return app.UUID, nil
+	return app.ID, nil
 }
 
 func (st *State) checkApplicationCharm(ctx context.Context, tx *sqlair.TX, ident applicationID, charmID charmID) error {

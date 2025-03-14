@@ -27,6 +27,7 @@ type Client struct {
 	leadershipReader leadership.Reader
 
 	applicationService ApplicationService
+	statusService      StatusService
 	blockDeviceService BlockDeviceService
 	machineService     MachineService
 	modelInfoService   ModelInfoService

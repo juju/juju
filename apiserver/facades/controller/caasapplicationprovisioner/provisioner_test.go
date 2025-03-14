@@ -60,6 +60,7 @@ type CAASApplicationProvisionerSuite struct {
 	modelConfigService      *MockModelConfigService
 	modelInfoService        *MockModelInfoService
 	applicationService      *MockApplicationService
+	statusService           *MockStatusService
 	leadershipRevoker       *MockRevoker
 	resourceOpener          *MockOpener
 	registry                *mockStorageRegistry
@@ -98,6 +99,7 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
 	s.leadershipRevoker = NewMockRevoker(ctrl)
 	s.resourceOpener = NewMockOpener(ctrl)
 	newResourceOpener := func(context.Context, string) (jujuresource.Opener, error) {
@@ -113,6 +115,7 @@ func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
 		s.modelConfigService,
 		s.modelInfoService,
 		s.applicationService,
+		s.statusService,
 		s.leadershipRevoker,
 		s.store,
 		s.clock,
@@ -137,6 +140,7 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		s.modelConfigService,
 		s.modelInfoService,
 		s.applicationService,
+		s.statusService,
 		s.leadershipRevoker,
 		s.store,
 		s.clock,
@@ -279,7 +283,7 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 
 	appId := applicationtesting.GenApplicationUUID(c)
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(appId, nil)
-	s.applicationService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appId).Return(map[coreunit.Name]status.StatusInfo{
+	s.statusService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appId).Return(map[coreunit.Name]status.StatusInfo{
 		"gitlab/0": {Status: status.Active},
 		"gitlab/1": {Status: status.Maintenance},
 		"gitlab/2": {Status: status.Unknown},

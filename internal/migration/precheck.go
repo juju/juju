@@ -37,9 +37,10 @@ func SourcePrecheck(
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) error {
-	c := newPrecheckSource(backend, environscloudspecGetter, credentialService, upgradeService, applicationService, modelAgentService)
+	c := newPrecheckSource(backend, environscloudspecGetter, credentialService, upgradeService, applicationService, statusService, modelAgentService)
 	if err := c.checkModel(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -68,7 +69,7 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerCtx := newPrecheckTarget(controllerBackend, upgradeService, applicationService, modelAgentService)
+	controllerCtx := newPrecheckTarget(controllerBackend, upgradeService, applicationService, statusService, modelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Annotate(err, "controller")
 	}
@@ -98,6 +99,7 @@ func TargetPrecheck(ctx context.Context,
 	modelInfo coremigration.ModelInfo,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) error {
 	if err := modelInfo.Validate(); err != nil {
@@ -132,7 +134,7 @@ func TargetPrecheck(ctx context.Context,
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	controllerCtx := newPrecheckTarget(backend, upgradeService, applicationService, modelAgentService)
+	controllerCtx := newPrecheckTarget(backend, upgradeService, applicationService, statusService, modelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -177,6 +179,7 @@ func newPrecheckTarget(
 	backend PrecheckBackend,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) *precheckTarget {
 	return &precheckTarget{
@@ -184,6 +187,7 @@ func newPrecheckTarget(
 			backend:            backend,
 			upgradeService:     upgradeService,
 			applicationService: applicationService,
+			statusService:      statusService,
 			modelAgentService:  modelAgentService,
 		},
 	}
@@ -193,6 +197,7 @@ type precheckContext struct {
 	backend            PrecheckBackend
 	upgradeService     UpgradeService
 	applicationService ApplicationService
+	statusService      StatusService
 	modelAgentService  ModelAgentService
 }
 
@@ -330,7 +335,7 @@ func (c *precheckContext) checkUnitAgentStatus(ctx context.Context, unit Prechec
 		return internalerrors.Errorf("parsing unit name %q: %w", unit.Name(), err)
 	}
 
-	agentStatus, err := c.applicationService.GetUnitAgentStatus(ctx, unitName)
+	agentStatus, err := c.statusService.GetUnitAgentStatus(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return errors.NotFoundf("unit %s", unit.Name())
 	} else if err != nil {
@@ -339,7 +344,7 @@ func (c *precheckContext) checkUnitAgentStatus(ctx context.Context, unit Prechec
 		return newStatusError("unit %s not idle or executing", unit.Name(), agentStatus.Status)
 	}
 
-	workloadStatus, err := c.applicationService.GetUnitWorkloadStatus(ctx, unitName)
+	workloadStatus, err := c.statusService.GetUnitWorkloadStatus(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return errors.NotFoundf("unit %s", unit.Name())
 	} else if err != nil {
@@ -420,6 +425,7 @@ func newPrecheckSource(
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) *precheckSource {
 	return &precheckSource{
@@ -427,6 +433,7 @@ func newPrecheckSource(
 			backend:            backend,
 			upgradeService:     upgradeService,
 			applicationService: applicationService,
+			statusService:      statusService,
 			modelAgentService:  modelAgentService,
 		},
 		environscloudspecGetter: environscloudspecGetter,

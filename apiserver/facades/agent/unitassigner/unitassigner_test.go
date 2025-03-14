@@ -25,7 +25,7 @@ import (
 type testsuite struct {
 	testing.IsolationSuite
 
-	applicationService *MockApplicationService
+	statusService *MockStatusService
 }
 
 var _ = gc.Suite(&testsuite{})
@@ -77,7 +77,7 @@ func (s *testsuite) TestSetStatus(c *gc.C) {
 		},
 	}
 
-	s.applicationService.EXPECT().SetUnitAgentStatus(gomock.Any(), unit.Name("foo/0"), &status).Return(nil)
+	s.statusService.EXPECT().SetUnitAgentStatus(gomock.Any(), unit.Name("foo/0"), &status).Return(nil)
 
 	api := s.newAPI(c)
 
@@ -103,14 +103,14 @@ func (s *testsuite) TestSetStatus(c *gc.C) {
 func (s *testsuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.applicationService = NewMockApplicationService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
 
 	return ctrl
 }
 
 func (s *testsuite) newAPI(c *gc.C) *API {
 	return &API{
-		applicationService: s.applicationService,
+		statusService: s.statusService,
 	}
 }
 

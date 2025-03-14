@@ -85,6 +85,6 @@ type modelService struct {
 	services services.DomainServices
 }
 
-func (m modelService) ApplicationService() observer.ApplicationService {
-	return m.services.Application()
+func (m modelService) StatusService() observer.StatusService {
+	return m.services.Status()
 }

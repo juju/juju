@@ -54,6 +54,9 @@ type ApplicationService interface {
 	// [applicationerrors.ApplicationNotFoundError] if the application is not
 	// found.
 	GetApplicationLife(context.Context, string) (life.Value, error)
+}
+
+type StatusService interface {
 
 	// GetUnitWorkloadStatus returns the workload status of the specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the

@@ -6,8 +6,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -25,7 +23,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/secrets"
-	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -256,15 +253,6 @@ type ApplicationState interface {
 	// returning an error satisfying [applicationerrors.ApplicationNotFound] if the
 	// application is not found.
 	GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*application.StatusInfo[application.WorkloadStatusType], error)
-
-	// SetApplicationStatus saves the given application status, overwriting any
-	// current status data. If returns an error satisfying
-	// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
-	SetApplicationStatus(
-		ctx context.Context,
-		applicationID coreapplication.ID,
-		status *application.StatusInfo[application.WorkloadStatusType],
-	) error
 
 	// GetApplicationCharmOrigin returns the platform and channel for the
 	// specified application ID.
@@ -1150,221 +1138,6 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 
 	cons, err := s.st.GetApplicationConstraints(ctx, appID)
 	return constraints.EncodeConstraints(cons), internalerrors.Capture(err)
-}
-
-// GetApplicationStatus looks up the status of the specified application,
-// returning an error satisfying [applicationerrors.ApplicationNotFound] if the
-// application is not found.
-func (s *Service) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error) {
-	if err := appID.Validate(); err != nil {
-		return nil, internalerrors.Errorf("application ID: %w", err)
-	}
-
-	applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	} else if applicationStatus == nil {
-		return nil, errors.Errorf("application has no status")
-	}
-	if applicationStatus.Status != application.WorkloadStatusUnset {
-		return decodeApplicationStatus(applicationStatus)
-	}
-
-	// The application status is unset. However, we can still derive the status
-	// of the application using the workload statuses of all the application's
-	// units.
-	//
-	// NOTE: It is possible that between these two calls to state someone else
-	// calls SetApplicationStatus and changes the status. This would potentially
-	// lead to an out of date status being returned here. In this specific case,
-	// we don't mind so long as we have 'eventual' (i.e. milliseconds) consistency.
-
-	unitStatuses, err := s.st.GetUnitWorkloadStatusesForApplication(ctx, appID)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-
-	derivedApplicationStatus, err := reduceUnitWorkloadStatuses(slices.Collect(maps.Values(unitStatuses)))
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-	return derivedApplicationStatus, nil
-}
-
-// SetApplicationStatus saves the given application status, overwriting any
-// current status data. If returns an error satisfying
-// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
-func (s *Service) SetApplicationStatus(
-	ctx context.Context,
-	applicationID coreapplication.ID,
-	status *corestatus.StatusInfo,
-) error {
-	if err := applicationID.Validate(); err != nil {
-		return internalerrors.Errorf("application ID: %w", err)
-	}
-
-	if status == nil {
-		return nil
-	}
-
-	// Ensure we have a valid timestamp. It's optional at the API server level.
-	// but it is a requirement for the database.
-	if status.Since == nil {
-		status.Since = ptr(s.clock.Now())
-	}
-
-	// This will implicitly verify that the status is valid.
-	encodedStatus, err := encodeWorkloadStatus(status)
-	if err != nil {
-		return internalerrors.Errorf("encoding workload status: %w", err)
-	}
-
-	if err := s.st.SetApplicationStatus(ctx, applicationID, encodedStatus); err != nil {
-		return internalerrors.Capture(err)
-	}
-
-	if err := s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(applicationID.String()), *status); err != nil {
-		s.logger.Infof(ctx, "failed recording setting application status history: %v", err)
-	}
-
-	return nil
-}
-
-// SetApplicationStatusForUnitLeader sets the application status using the
-// leader unit of the application. If the application has no leader unit, or
-// the is not the leader unit of the application, an error satisfying
-// [applicationerrors.UnitNotLeader] is returned. If the unit is not found, an
-// error satisfying [applicationerrors.UnitNotFound] is returned.
-func (s *Service) SetApplicationStatusForUnitLeader(
-	ctx context.Context,
-	unitName coreunit.Name,
-	status *corestatus.StatusInfo,
-) error {
-	if err := unitName.Validate(); err != nil {
-		return internalerrors.Errorf("unit name: %w", err)
-	}
-
-	if status == nil {
-		return nil
-	}
-
-	// Ensure we have a valid timestamp. It's optional at the API server level.
-	// but it is a requirement for the database.
-	if status.Since == nil {
-		status.Since = ptr(s.clock.Now())
-	}
-
-	// This will implicitly verify that the status is valid.
-	encodedStatus, err := encodeWorkloadStatus(status)
-	if err != nil {
-		return internalerrors.Errorf("encoding workload status: %w", err)
-	}
-
-	// This returns the UnitNotFound if we can't find the application. This
-	// is because we're doing a reverse lookup from the unit to the application.
-	// We can't return the application not found, as we're not looking up the
-	// application directly.
-	appID, appName, err := s.st.GetApplicationIDAndNameByUnitName(ctx, unitName)
-	if err != nil {
-		return internalerrors.Capture(err)
-	}
-
-	return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-		return s.st.SetApplicationStatus(ctx, appID, encodedStatus)
-	})
-}
-
-// GetApplicationDisplayStatus returns the display status of the specified application.
-// The display status is equal to the application status if it is set, otherwise it is
-// derived from the unit display statuses.
-// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
-// is returned.
-func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error) {
-	if err := appID.Validate(); err != nil {
-		return nil, internalerrors.Errorf("application ID: %w", err)
-	}
-
-	applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	} else if applicationStatus == nil {
-		return nil, errors.Errorf("application has no status")
-	}
-	if applicationStatus.Status != application.WorkloadStatusUnset {
-		return decodeApplicationStatus(applicationStatus)
-	}
-
-	workloadStatuses, cloudContainerStatuses, err := s.st.GetUnitWorkloadAndCloudContainerStatusesForApplication(ctx, appID)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-
-	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(workloadStatuses, cloudContainerStatuses)
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-	return derivedApplicationStatus, nil
-}
-
-// GetApplicationAndUnitStatusesForUnitWithLeader returns the display status
-// of the application the specified unit belongs to, and the workload statuses
-// of all the units that belong to that application, indexed by unit name.
-// If no application is found for the unit name, an error satisfying
-// [applicationerrors.ApplicationNotFound] is returned
-func (s *Service) GetApplicationAndUnitStatusesForUnitWithLeader(
-	ctx context.Context,
-	unitName coreunit.Name,
-) (
-	*corestatus.StatusInfo,
-	map[coreunit.Name]corestatus.StatusInfo,
-	error,
-) {
-	if err := unitName.Validate(); err != nil {
-		return nil, nil, internalerrors.Errorf("unit name: %w", err)
-	}
-
-	appName := unitName.Application()
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
-	if err != nil {
-		return nil, nil, internalerrors.Errorf("getting application id: %w", err)
-	}
-
-	var applicationDisplayStatus *corestatus.StatusInfo
-	var unitWorkloadStatuses map[coreunit.Name]corestatus.StatusInfo
-	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-		applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
-		if err != nil {
-			return internalerrors.Errorf("getting application status: %w", err)
-		}
-		workloadStatuses, cloudContainerStatuses, err := s.st.GetUnitWorkloadAndCloudContainerStatusesForApplication(ctx, appID)
-		if err != nil {
-			return internalerrors.Errorf("getting unit workload and container statuses")
-		}
-
-		unitWorkloadStatuses, err = decodeUnitWorkloadStatuses(workloadStatuses)
-		if err != nil {
-			return internalerrors.Errorf("decoding unit workload statuses: %w", err)
-		}
-
-		if applicationStatus.Status != application.WorkloadStatusUnset {
-			applicationDisplayStatus, err = decodeApplicationStatus(applicationStatus)
-			if err != nil {
-				return internalerrors.Errorf("decoding application workload status: %w", err)
-			}
-			return nil
-		}
-
-		applicationDisplayStatus, err = applicationDisplayStatusFromUnits(workloadStatuses, cloudContainerStatuses)
-		if err != nil {
-			return internalerrors.Capture(err)
-		}
-		return nil
-
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	return applicationDisplayStatus, unitWorkloadStatuses, nil
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (bool, error) {

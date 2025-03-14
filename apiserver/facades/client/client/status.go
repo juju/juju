@@ -58,6 +58,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	var noStatus params.FullStatus
 	context := statusContext{
 		applicationService: c.applicationService,
+		statusService:      c.statusService,
 	}
 
 	modelInfo, err := c.modelInfoService.GetModelInfo(ctx)
@@ -513,6 +514,7 @@ func (s relationStatus) RelatedEndpoints(applicationName string) ([]relation.End
 
 type statusContext struct {
 	applicationService ApplicationService
+	statusService      StatusService
 
 	providerType string
 	model        *state.Model
@@ -1197,7 +1199,7 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 
-	displayStatus, err := context.applicationService.GetApplicationDisplayStatus(ctx, applicationId)
+	displayStatus, err := context.statusService.GetApplicationDisplayStatus(ctx, applicationId)
 	if err == nil && displayStatus != nil {
 		applicationStatus = *displayStatus
 	}
@@ -1517,7 +1519,7 @@ type lifer interface {
 // NOTE(jack-w-shaw): When this method was Mongo-backed, it will pull the unit
 // statuses out of a cache.
 func (c *statusContext) processUnitAndAgentStatus(ctx context.Context, unit *state.Unit, unitName coreunit.Name) (params.DetailedStatus, params.DetailedStatus) {
-	agentStatus, workloadStatus, err := c.applicationService.GetUnitAndAgentDisplayStatus(ctx, unitName)
+	agentStatus, workloadStatus, err := c.statusService.GetUnitAndAgentDisplayStatus(ctx, unitName)
 	if internalerrors.Is(err, applicationerrors.UnitNotFound) {
 		return params.DetailedStatus{}, params.DetailedStatus{Err: apiservererrors.ServerError(internalerrors.Errorf(
 			"unit %q: %w", unitName, errors.NotFound))}

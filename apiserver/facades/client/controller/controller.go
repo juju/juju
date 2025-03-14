@@ -76,6 +76,7 @@ type ControllerAPI struct {
 	modelInfoService          ModelInfoService
 	blockCommandService       common.BlockCommandService
 	applicationServiceGetter  func(context.Context, coremodel.UUID) (ApplicationService, error)
+	statusServiceGetter       func(context.Context, coremodel.UUID) (StatusService, error)
 	modelAgentServiceGetter   func(context.Context, coremodel.UUID) (common.ModelAgentService, error)
 	modelConfigServiceGetter  func(context.Context, coremodel.UUID) (cloudspec.ModelConfigService, error)
 	blockCommandServiceGetter func(context.Context, coremodel.UUID) (BlockCommandService, error)
@@ -112,6 +113,7 @@ func NewControllerAPI(
 	modelInfoService ModelInfoService,
 	blockCommandService common.BlockCommandService,
 	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
+	statusServiceGetter func(context.Context, coremodel.UUID) (StatusService, error),
 	modelAgentServiceGetter func(context.Context, coremodel.UUID) (common.ModelAgentService, error),
 	modelConfigServiceGetter func(context.Context, coremodel.UUID) (cloudspec.ModelConfigService, error),
 	blockCommandServiceGetter func(context.Context, coremodel.UUID) (BlockCommandService, error),
@@ -164,6 +166,7 @@ func NewControllerAPI(
 		upgradeService:            upgradeService,
 		cloudService:              cloudService,
 		applicationServiceGetter:  applicationServiceGetter,
+		statusServiceGetter:       statusServiceGetter,
 		accessService:             accessService,
 		modelService:              modelService,
 		blockCommandService:       blockCommandService,
@@ -629,6 +632,10 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	statusService, err := c.statusServiceGetter(ctx, coremodel.UUID(hostedState.ModelUUID()))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	if err := runMigrationPrechecks(
 		ctx,
 		hostedState.State,
@@ -642,6 +649,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		c.upgradeService,
 		c.modelService,
 		applicationService,
+		statusService,
 		c.modelExporter,
 		c.store,
 		leaders,
@@ -789,6 +797,7 @@ var runMigrationPrechecks = func(
 	upgradeService UpgradeService,
 	modelService ModelService,
 	applicationService ApplicationService,
+	statusService StatusService,
 	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
 	leaders map[string]string,
@@ -806,6 +815,7 @@ var runMigrationPrechecks = func(
 		credentialService,
 		upgradeService,
 		applicationService,
+		statusService,
 		modelAgentService,
 	); err != nil {
 		return errors.Annotate(err, "source prechecks failed")

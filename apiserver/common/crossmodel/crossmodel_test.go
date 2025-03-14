@@ -26,7 +26,8 @@ import (
 type crossmodelSuite struct {
 	coretesting.BaseSuite
 
-	appService *mocks.MockApplicationService
+	appService    *mocks.MockApplicationService
+	statusService *mocks.MockStatusService
 }
 
 var _ = gc.Suite(&crossmodelSuite{})
@@ -34,6 +35,7 @@ var _ = gc.Suite(&crossmodelSuite{})
 func (s *crossmodelSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.appService = mocks.NewMockApplicationService(ctrl)
+	s.statusService = mocks.NewMockStatusService(ctrl)
 	return ctrl
 }
 
@@ -65,7 +67,7 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneNotMigrating(c *gc.C)
 	defer s.setupMocks(c).Finish()
 
 	st := &mockBackend{}
-	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, "uuid", "mysql")
+	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, s.statusService, "uuid", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
@@ -80,7 +82,7 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneMigrating(c *gc.C) {
 		migrating: true,
 	}
 
-	_, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, "uuid", "mysql")
+	_, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, s.statusService, "uuid", "mysql")
 	c.Assert(err, gc.ErrorMatches, "model is being migrated")
 }
 
@@ -92,7 +94,7 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneNotMigrating(c 
 	}
 	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql-app").Return("", applicationerrors.ApplicationNotFound)
 
-	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, "deadbeef", "mysql")
+	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, s.statusService, "deadbeef", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
@@ -109,7 +111,7 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneMigrating(c *gc
 	}
 	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql-app").Return("", applicationerrors.ApplicationNotFound)
 
-	_, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, "deadbeef", "mysql")
+	_, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, s.statusService, "deadbeef", "mysql")
 	c.Assert(err, gc.ErrorMatches, "model is being migrated")
 }
 
@@ -118,10 +120,10 @@ func (s *crossmodelSuite) TestGetOfferStatusChange(c *gc.C) {
 
 	appID := applicationtesting.GenApplicationUUID(c)
 	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql-app").Return(appID, nil)
-	s.appService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), appID).Return(&status.StatusInfo{Status: status.Active}, nil)
+	s.statusService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), appID).Return(&status.StatusInfo{Status: status.Active}, nil)
 
 	st := &mockBackend{appName: "mysql-app"}
-	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, "deadbeef", "mysql")
+	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, s.statusService, "deadbeef", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",

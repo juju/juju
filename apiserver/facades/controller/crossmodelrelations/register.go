@@ -53,6 +53,7 @@ func makeStateCrossModelRelationsAPI(stdCtx context.Context, ctx facade.ModelCon
 		ctx.DomainServices().Secret(),
 		ctx.DomainServices().Config(),
 		ctx.DomainServices().Application(),
+		ctx.DomainServices().Status(),
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeSuspendedStatus,
 		watchOfferStatus,

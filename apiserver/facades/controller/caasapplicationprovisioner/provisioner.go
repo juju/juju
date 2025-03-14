@@ -40,6 +40,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -83,6 +84,7 @@ type API struct {
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
 	applicationService      ApplicationService
+	statusService           StatusService
 	leadershipRevoker       leadership.Revoker
 	clock                   clock.Clock
 	logger                  corelogger.Logger
@@ -100,6 +102,7 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	modelInfoService := domainServices.ModelInfo()
 	storageService := domainServices.Storage()
 	applicationService := domainServices.Application()
+	statusService := domainServices.Status()
 	resourceService := domainServices.Resource()
 
 	sb, err := state.NewStorageBackend(st)
@@ -148,6 +151,7 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 		modelConfigService,
 		modelInfoService,
 		applicationService,
+		statusService,
 		leadershipRevoker,
 		ctx.ObjectStore(),
 		ctx.Clock(),
@@ -247,6 +251,7 @@ func NewCAASApplicationProvisionerAPI(
 	modelConfigService ModelConfigService,
 	modelInfoService ModelInfoService,
 	applicationService ApplicationService,
+	statusService StatusService,
 	leadershipRevoker leadership.Revoker,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
@@ -269,6 +274,7 @@ func NewCAASApplicationProvisionerAPI(
 		modelConfigService:      modelConfigService,
 		modelInfoService:        modelInfoService,
 		applicationService:      applicationService,
+		statusService:           statusService,
 		leadershipRevoker:       leadershipRevoker,
 		clock:                   clock,
 		logger:                  logger,
@@ -614,8 +620,8 @@ func (a *API) units(ctx context.Context, arg params.Entity) params.CAASUnitsResu
 	} else if err != nil {
 		return params.CAASUnitsResult{Error: apiservererrors.ServerError(err)}
 	}
-	unitStatuses, err := a.applicationService.GetUnitWorkloadStatusesForApplication(ctx, appId)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+	unitStatuses, err := a.statusService.GetUnitWorkloadStatusesForApplication(ctx, appId)
+	if errors.Is(err, statuserrors.ApplicationNotFound) {
 		return params.CAASUnitsResult{Error: apiservererrors.ServerError(errors.NotFoundf("application %q", appName.Id()))}
 	} else if err != nil {
 		return params.CAASUnitsResult{Error: apiservererrors.ServerError(err)}

@@ -47,6 +47,7 @@ type Suite struct {
 
 	agentService            *mocks.MockModelAgentService
 	applicationService      *mocks.MockApplicationService
+	statusService           *mocks.MockStatusService
 	controllerConfigService *mocks.MockControllerConfigService
 	credentialService       *mocks.MockCredentialService
 	modelConfigService      *mocks.MockModelConfigService
@@ -554,6 +555,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.agentService = mocks.NewMockModelAgentService(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
+	s.statusService = mocks.NewMockStatusService(ctrl)
 	s.backend = mocks.NewMockBackend(ctrl)
 	s.credentialService = mocks.NewMockCredentialService(ctrl)
 	s.controllerBackend = mocks.NewMockControllerState(ctrl)
@@ -592,6 +594,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		s.modelInfoService,
 		s.modelService,
 		s.applicationService,
+		s.statusService,
 		s.upgradeService,
 		s.agentService,
 	)

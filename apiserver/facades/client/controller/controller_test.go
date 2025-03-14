@@ -998,6 +998,7 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
