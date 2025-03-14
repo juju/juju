@@ -191,20 +191,6 @@ CREATE TABLE application_status (
     REFERENCES workload_status_value (id)
 );
 
--- application_agent_version tracks the reported agent version running for each
--- application.
-CREATE TABLE application_agent_version (
-    application_uuid TEXT NOT NULL PRIMARY KEY,
-    version TEXT NOT NULL,
-    architecture_id INT NOT NULL,
-    CONSTRAINT fk_application_agent_version_application
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid),
-    CONSTRAINT fk_application_agent_version_architecture
-    FOREIGN KEY (architecture_id)
-    REFERENCES architecture (id)
-);
-
 CREATE VIEW v_application_constraint AS
 SELECT
     ac.application_uuid,
