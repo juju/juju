@@ -68,12 +68,15 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 		modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), modelName)
 		modelUUIDStr = modelUUID.String()
 
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			// Set model activated status to false. This should not trigger a change event.
-			_, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", false, modelUUID)
-			return err
+			res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", false, modelUUID)
+			c.Check(err, jc.ErrorIsNil)
+			rowsAffected, err := res.RowsAffected()
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(int(rowsAffected), gc.Equals, 1)
+			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
 
 		// Ensure that the initial activated status of model is indeed false.
 		var testModel dbModel
@@ -81,6 +84,7 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 		err = row.Scan(&testModel.Activated)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(testModel.Activated, jc.IsFalse)
+
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Get the change.
 		w.AssertNoChange()
@@ -88,26 +92,30 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 
 	// Verifies that watchers do not receive any changes when unactivated models are updated.
 	harness.AddTest(func(c *gc.C) {
-		updatedName := "new-test-model"
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			// Update name of unactivated model. This should not trigger a change event.
-			_, err := tx.ExecContext(ctx, "UPDATE model SET name = ? WHERE uuid = ?", updatedName, modelUUIDStr)
-			return err
-		})
-		c.Assert(err, jc.ErrorIsNil)
-		// Checks if model name is updated successfully.
-		selectModelQuery := `
+			updatedName := "new-test-model"
+			res, err := tx.ExecContext(ctx, "UPDATE model SET name = ? WHERE uuid = ?", updatedName, modelUUIDStr)
+			c.Check(err, jc.ErrorIsNil)
+			rowsAffected, err := res.RowsAffected()
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(int(rowsAffected), gc.Equals, 1)
+
+			// Checks if model name is updated successfully.
+			selectModelQuery := `
 			SELECT uuid, activated, model_type_id, name, cloud_uuid, life_id, owner_uuid 
 			FROM model 
 			WHERE uuid = ?`
-		var testModel dbModel
-		row := s.DB().QueryRow(selectModelQuery, modelUUIDStr)
-		err = row.Scan(&testModel.UUID, &testModel.Activated, &testModel.ModelTypeID,
-			&testModel.Name, &testModel.CloudUUID, &testModel.LifeID, &testModel.OwnerUUID)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(testModel.UUID, gc.Equals, modelUUIDStr)
-		c.Check(testModel.Activated, jc.IsFalse)
-		c.Check(testModel.Name, gc.Equals, updatedName)
+			var testModel dbModel
+			row := tx.QueryRow(selectModelQuery, modelUUIDStr)
+			err = row.Scan(&testModel.UUID, &testModel.Activated, &testModel.ModelTypeID,
+				&testModel.Name, &testModel.CloudUUID, &testModel.LifeID, &testModel.OwnerUUID)
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(testModel.UUID, gc.Equals, modelUUIDStr)
+			c.Check(testModel.Activated, jc.IsFalse)
+			c.Check(testModel.Name, gc.Equals, updatedName)
+			return nil
+		})
 	}, func(w watchertest.WatcherC[[]string]) {
 		// Get the change.
 		w.AssertNoChange()
@@ -115,12 +123,16 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 
 	// Verifies that watchers receive changes when models are activated.
 	harness.AddTest(func(c *gc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			// Update activated status of model. This should trigger a change event.
-			_, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", true, modelUUIDStr)
-			return err
+			res, err := tx.ExecContext(ctx, "UPDATE model SET activated = ? WHERE uuid = ?", true, modelUUIDStr)
+			c.Check(err, jc.ErrorIsNil)
+			rowsAffected, err := res.RowsAffected()
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(int(rowsAffected), gc.Equals, 1)
+			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
 			watchertest.StringSliceAssert(
@@ -131,26 +143,30 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 
 	// Verifies that watchers receive changes when activated models are updated.
 	harness.AddTest(func(c *gc.C) {
-		updatedName := "new-test-model-2"
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			// Update name of activated model. This should trigger a change event.
-			_, err := tx.ExecContext(ctx, "UPDATE model SET name = ? WHERE uuid = ?", updatedName, modelUUIDStr)
-			return err
+			updatedName := "new-test-model-2"
+			res, err := tx.ExecContext(ctx, "UPDATE model SET name = ? WHERE uuid = ?", updatedName, modelUUIDStr)
+			c.Check(err, jc.ErrorIsNil)
+			rowsAffected, err := res.RowsAffected()
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(int(rowsAffected), gc.Equals, 1)
+
+			// Checks if model name is updated successfully.
+			selectModelQuery := `
+			SELECT uuid, activated, model_type_id, name, cloud_uuid, life_id, owner_uuid 
+			FROM model 
+			WHERE uuid = ?`
+			var testModel dbModel
+			row := tx.QueryRow(selectModelQuery, modelUUIDStr)
+			err = row.Scan(&testModel.UUID, &testModel.Activated, &testModel.ModelTypeID,
+				&testModel.Name, &testModel.CloudUUID, &testModel.LifeID, &testModel.OwnerUUID)
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(testModel.UUID, gc.Equals, modelUUIDStr)
+			c.Check(testModel.Activated, jc.IsTrue)
+			c.Check(testModel.Name, gc.Equals, updatedName)
+			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		// Checks if model name is updated successfully.
-		selectModelQuery := `
-		SELECT uuid, activated, model_type_id, name, cloud_uuid, life_id, owner_uuid 
-		FROM model 
-		WHERE uuid = ?`
-		var testModel dbModel
-		row := s.DB().QueryRow(selectModelQuery, modelUUIDStr)
-		err = row.Scan(&testModel.UUID, &testModel.Activated, &testModel.ModelTypeID,
-			&testModel.Name, &testModel.CloudUUID, &testModel.LifeID, &testModel.OwnerUUID)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(testModel.UUID, gc.Equals, modelUUIDStr)
-		c.Check(testModel.Activated, jc.IsTrue)
-		c.Check(testModel.Name, gc.Equals, updatedName)
 
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(
@@ -162,17 +178,22 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 
 	// Verifies that watchers do not receive changes when entities other than models are updated.
 	harness.AddTest(func(c *gc.C) {
-		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			// Insert into table that is not model. This should not trigger a change event.
-			_, err := tx.ExecContext(ctx, "INSERT into cloud_type (id, type) values (100, 'testing')")
-			if err != nil {
-				return err
-			}
+			res, err := tx.ExecContext(ctx, "INSERT into cloud_type (id, type) values (100, 'testing')")
+			c.Check(err, jc.ErrorIsNil)
+			rowsAffected, err := res.RowsAffected()
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(int(rowsAffected), gc.Equals, 1)
+
 			// Update entity that is not model. This should not trigger a change event.
-			_, err = tx.ExecContext(ctx, "UPDATE cloud_type SET type = 'test' WHERE id = 100")
-			return err
+			res, err = tx.ExecContext(ctx, "UPDATE cloud_type SET type = 'test' WHERE id = 100")
+			c.Check(err, jc.ErrorIsNil)
+			rowsAffected, err = res.RowsAffected()
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(int(rowsAffected), gc.Equals, 1)
+			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})

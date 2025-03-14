@@ -27,12 +27,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ModelWatcher provides an interface for watching the additiona and
-// removal of models.
-type ModelWatcher interface {
-	WatchModels() state.StringsWatcher
-}
-
 // ControllerConfigGetter is an interface that returns the controller config.
 type ControllerConfigGetter interface {
 	ControllerConfig(context.Context) (controller.Config, error)
@@ -98,19 +92,19 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
 type Config struct {
-	Authority              pki.Authority
-	Logger                 corelogger.Logger
-	ModelWatcher           ModelWatcher
-	ModelMetrics           ModelMetrics
-	Mux                    *apiserverhttp.Mux
-	Controller             Controller
-	NewModelWorker         NewModelWorkerFunc
-	ErrorDelay             time.Duration
-	LogSinkGetter          corelogger.ModelLogSinkGetter
-	ProviderServicesGetter ProviderServicesGetter
-	DomainServicesGetter   services.DomainServicesGetter
-	GetControllerConfig    GetControllerConfigFunc
-	HTTPClientGetter       http.HTTPClientGetter
+	Authority                pki.Authority
+	Logger                   corelogger.Logger
+	ModelMetrics             ModelMetrics
+	Mux                      *apiserverhttp.Mux
+	Controller               Controller
+	NewModelWorker           NewModelWorkerFunc
+	ErrorDelay               time.Duration
+	LogSinkGetter            corelogger.ModelLogSinkGetter
+	ProviderServicesGetter   ProviderServicesGetter
+	DomainServicesGetter     services.DomainServicesGetter
+	ControllerDomainServices services.ControllerDomainServices
+	GetControllerConfig      GetControllerConfigFunc
+	HTTPClientGetter         http.HTTPClientGetter
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -122,8 +116,8 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if config.ModelWatcher == nil {
-		return errors.NotValidf("nil ModelConfigWatcher")
+	if config.ControllerDomainServices == nil {
+		return errors.NotValidf("nil ControllerDomainServices")
 	}
 	if config.ModelMetrics == nil {
 		return errors.NotValidf("nil ModelMetrics")
@@ -203,7 +197,22 @@ func (m *modelWorkerManager) Wait() error {
 }
 
 func (m *modelWorkerManager) loop() error {
-	watcher := m.config.ModelWatcher.WatchModels()
+	controllerDomainServices := m.config.ControllerDomainServices
+	controllerModelUUID, err := controllerDomainServices.Controller().ControllerModelUUID(context.Background())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	domainServicesGetter := m.config.DomainServicesGetter
+
+	domainServices, err := domainServicesGetter.ServicesForModel(context.Background(), controllerModelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	watcher, err := domainServices.Model().WatchActivatedModels(context.Background())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := m.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
@@ -242,14 +251,6 @@ func (m *modelWorkerManager) modelChanged(modelUUID string) error {
 	}
 	defer release()
 
-	if !isModelActive(model) {
-		// Ignore this model until it's activated - we
-		// never want to run workers for an importing
-		// model.
-		// https://bugs.launchpad.net/juju/+bug/1646310
-		return nil
-	}
-
 	cfg := NewModelConfig{
 		Authority:    m.config.Authority,
 		ModelName:    model.Name(),
@@ -281,7 +282,7 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func(context.Context) (
 	return func(ctx context.Context) (worker.Worker, error) {
 		modelUUID := model.UUID(cfg.ModelUUID)
 		modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s-%s", cfg.ModelOwner, cfg.ModelName), modelUUID)
-		m.config.Logger.Debugf(ctx, "starting workers for model %s", modelName)
+		m.config.Logger.Infof(ctx, "starting workers for model %s", modelName)
 
 		// Get the provider domain services for the model.
 		cfg.ProviderServicesGetter = m.config.ProviderServicesGetter
@@ -328,10 +329,6 @@ func neverFatal(error) bool {
 
 func neverImportant(error, error) bool {
 	return false
-}
-
-func isModelActive(m Model) bool {
-	return m.MigrationMode() != state.MigrationModeImporting
 }
 
 // Report shows up in the dependency engine report.
