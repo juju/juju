@@ -235,6 +235,11 @@ func (st *State) insertUnitStorage(
 			}
 			storageID := corestorage.MakeID(t.params.Name, id)
 
+			result[i].instArgs[c] = storageInstanceArg{
+				StorageUUID: instUUID,
+				StorageID:   storageID,
+			}
+
 			inst := storageInstance{
 				StorageUUID:      instUUID,
 				StorageID:        storageID,
@@ -254,9 +259,6 @@ func (st *State) insertUnitStorage(
 			if err := st.createUnitStorageInstance(ctx, tx, unitUUID, inst); err != nil {
 				return result, errors.Capture(err)
 			}
-
-			result[i].instArgs[c].StorageID = storageID
-			result[i].instArgs[c].StorageUUID = instUUID
 
 			// TODO(storage) - insert data for the unit's assigned machine when that is implemented
 		}

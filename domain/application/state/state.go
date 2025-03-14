@@ -1326,6 +1326,10 @@ func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, app
 
 // checkApplicationLife checks if the application exists and its life has not
 // advanced beyond the specified allowed life.
+// Note: this is a helper method and should be called directly.
+// Instead use one of:
+//   - checkApplicationAlive
+//   - checkApplicationNotDead
 func (st *State) checkApplicationLife(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, allowed domainlife.Life) error {
 	type life struct {
 		LifeID domainlife.Life `db:"life_id"`
