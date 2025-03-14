@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -23,7 +23,6 @@ import (
 
 type statusBaseSuite struct {
 	applicationService *uniter.MockApplicationService
-	leadershipChecker  *fakeLeadershipChecker
 	now                time.Time
 	badTag             names.Tag
 	api                *uniter.StatusAPI
@@ -31,7 +30,6 @@ type statusBaseSuite struct {
 
 func (s *statusBaseSuite) SetUpTest(c *gc.C) {
 	s.badTag = nil
-	s.leadershipChecker = &fakeLeadershipChecker{true}
 }
 
 func (s *statusBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -45,7 +43,7 @@ func (s *statusBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	auth := func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	}
-	s.api = uniter.NewStatusAPI(nil, s.applicationService, auth, s.leadershipChecker, clock)
+	s.api = uniter.NewStatusAPI(nil, s.applicationService, auth, nil, clock)
 
 	return ctrl
 }
@@ -87,7 +85,7 @@ func (s *ApplicationStatusAPISuite) TestNotATag(c *gc.C) {
 func (s *ApplicationStatusAPISuite) TestNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+	s.applicationService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(nil, nil, applicationerrors.ApplicationNotFound)
 
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: names.NewUnitTag("foo/0").String(),
@@ -108,7 +106,7 @@ func (s *ApplicationStatusAPISuite) TestGetMachineStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results, gc.HasLen, 1)
 	// Can't call application status on a machine.
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[0].Error, gc.ErrorMatches, ".*is not a valid unit tag.*")
 }
 
 func (s *ApplicationStatusAPISuite) TestGetApplicationStatus(c *gc.C) {
@@ -122,41 +120,39 @@ func (s *ApplicationStatusAPISuite) TestGetApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results, gc.HasLen, 1)
 	// Can't call unit status on an application.
-	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Results[0].Error, gc.ErrorMatches, ".*is not a valid unit tag.*")
 }
 
 func (s *ApplicationStatusAPISuite) TestGetUnitStatusNotLeader(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// If the unit isn't the leader, it can't get it.
-	s.leadershipChecker.isLeader = false
 	unitTag := names.NewUnitTag("foo/0")
+
+	s.applicationService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(nil, nil, errors.NotValidf("not leader"))
+
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: unitTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results, gc.HasLen, 1)
 	status := result.Results[0]
-	c.Check(status.Error, gc.ErrorMatches, ".* not leader .*")
+	c.Check(status.Error.Code, gc.Equals, "not valid")
 }
 
 func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
-	s.applicationService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), appID).Return(&status.StatusInfo{
-		Status: status.Maintenance,
-	}, nil)
-	s.applicationService.EXPECT().GetUnitWorkloadStatusesForApplication(gomock.Any(), appID).Return(map[coreunit.Name]status.StatusInfo{
-		"foo/0": {
+	s.applicationService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/3")).Return(
+		&status.StatusInfo{
 			Status: status.Maintenance,
 		},
-	}, nil)
+		map[coreunit.Name]status.StatusInfo{
+			"foo/0": {
+				Status: status.Maintenance,
+			},
+		}, nil)
 
 	unitTag := names.NewUnitTag("foo/3")
-	// No need to claim leadership - the checker passed in in setup
-	// always returns true.
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: unitTag.String(),
 	}}})
@@ -177,20 +173,16 @@ func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
 func (s *ApplicationStatusAPISuite) TestBulk(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.badTag = names.NewMachineTag("42")
-	machineTag := names.NewMachineTag("42")
+	s.badTag = names.NewUnitTag("foo/42")
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: s.badTag.String(),
-	}, {
-		Tag: machineTag.String(),
 	}, {
 		Tag: "bad-tag",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.HasLen, 3)
+	c.Check(result.Results, gc.HasLen, 2)
 	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Check(result.Results[1].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Check(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Check(result.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
 type UnitStatusAPISuite struct {

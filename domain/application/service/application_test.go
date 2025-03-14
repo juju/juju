@@ -370,6 +370,186 @@ func (s *applicationServiceSuite) TestGetApplicationDisplayStatusFallbackToUnits
 	})
 }
 
+func (s *applicationServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderNotLeader(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+
+	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
+			return jujuerrors.NotValidf("not leader")
+		})
+
+	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderInvalidUnitName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), coreunit.Name("!!!"))
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderNoApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplicationStatusSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+	now := time.Now()
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
+			return fn(ctx)
+		})
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+
+	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+		&application.StatusInfo[application.WorkloadStatusType]{
+			Status:  application.WorkloadStatusActive,
+			Message: "doink",
+			Data:    []byte(`{"foo":"bar"}`),
+			Since:   &now,
+		}, nil)
+
+	s.state.EXPECT().GetUnitWorkloadAndCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(
+		application.UnitWorkloadStatuses{
+			"foo/0": {
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status:  application.WorkloadStatusActive,
+					Message: "boink",
+					Data:    []byte(`{"foo":"baz"}`),
+					Since:   &now,
+				},
+				Present: true,
+			},
+			"foo/1": {
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status:  application.WorkloadStatusBlocked,
+					Message: "poink",
+					Data:    []byte(`{"foo":"bat"}`),
+					Since:   &now,
+				},
+				Present: true,
+			},
+		}, nil, nil)
+
+	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(applicationStatus, jc.DeepEquals, &corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "doink",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
+	c.Check(unitWorkloadStatuses, jc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
+		"foo/0": {
+			Status:  corestatus.Active,
+			Message: "boink",
+			Data:    map[string]interface{}{"foo": "baz"},
+			Since:   &now,
+		},
+		"foo/1": {
+			Status:  corestatus.Blocked,
+			Message: "poink",
+			Data:    map[string]interface{}{"foo": "bat"},
+			Since:   &now,
+		},
+	})
+}
+
+func (s *applicationServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplicationStatusUnset(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+	now := time.Now()
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+
+	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
+			return fn(ctx)
+		})
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+
+	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
+		&application.StatusInfo[application.WorkloadStatusType]{
+			Status: application.WorkloadStatusUnset,
+		}, nil)
+
+	s.state.EXPECT().GetUnitWorkloadAndCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(
+		application.UnitWorkloadStatuses{
+			"foo/0": {
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status:  application.WorkloadStatusActive,
+					Message: "boink",
+					Data:    []byte(`{"foo":"baz"}`),
+					Since:   &now,
+				},
+				Present: true,
+			},
+			"foo/1": {
+				StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
+					Status:  application.WorkloadStatusActive,
+					Message: "poink",
+					Data:    []byte(`{"foo":"bat"}`),
+					Since:   &now,
+				},
+				Present: true,
+			},
+		}, application.UnitCloudContainerStatuses{
+			"foo/0": {
+				Status:  application.CloudContainerStatusBlocked,
+				Message: "zoink",
+				Data:    []byte(`{"foo":"baz"}`),
+				Since:   &now,
+			},
+			"foo/1": {
+				Status:  application.CloudContainerStatusRunning,
+				Message: "yoink",
+				Data:    []byte(`{"foo":"bat"}`),
+				Since:   &now,
+			},
+		}, nil)
+
+	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(applicationStatus, jc.DeepEquals, &corestatus.StatusInfo{
+		Status:  corestatus.Blocked,
+		Message: "zoink",
+		Data:    map[string]interface{}{"foo": "baz"},
+		Since:   &now,
+	})
+	c.Check(unitWorkloadStatuses, jc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
+		"foo/0": {
+			Status:  corestatus.Active,
+			Message: "boink",
+			Data:    map[string]interface{}{"foo": "baz"},
+			Since:   &now,
+		},
+		"foo/1": {
+			Status:  corestatus.Active,
+			Message: "poink",
+			Data:    map[string]interface{}{"foo": "bat"},
+			Since:   &now,
+		},
+	})
+}
+
 func (s *applicationServiceSuite) TestGetCharmByApplicationName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

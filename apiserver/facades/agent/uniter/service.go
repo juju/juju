@@ -143,6 +143,20 @@ type ApplicationService interface {
 	// application.
 	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
 
+	// GetApplicationAndUnitStatusesForUnitWithLeader returns the display status
+	// of the application the specified unit belongs to, and the workload statuses
+	// of all the units that belong to that application, indexed by unit name.
+	// If no application is found for the unit name, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned
+	GetApplicationAndUnitStatusesForUnitWithLeader(
+		context.Context,
+		coreunit.Name,
+	) (
+		*corestatus.StatusInfo,
+		map[coreunit.Name]corestatus.StatusInfo,
+		error,
+	)
+
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses of
 	// all units in the specified application, indexed by unit name, returning
 	// an error satisfying [applicationerrors.ApplicationNotFound] if the

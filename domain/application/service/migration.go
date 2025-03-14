@@ -190,10 +190,7 @@ func (s *MigrationService) GetApplicationStatus(ctx context.Context, name string
 		return nil, errors.Errorf("application %q has no status", name)
 	}
 
-	decodedStatus, err := decodeWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
-		StatusInfo: *status,
-		Present:    true,
-	})
+	decodedStatus, err := decodeApplicationStatus(status)
 	if err != nil {
 		return nil, errors.Annotatef(err, "decoding workload status")
 	}
@@ -260,7 +257,7 @@ func (s *MigrationService) GetUnitWorkloadStatus(ctx context.Context, unitUUID c
 		return nil, errors.Trace(err)
 	}
 
-	return decodeWorkloadStatus(workloadStatus)
+	return decodeUnitWorkloadStatus(workloadStatus)
 }
 
 // GetUnitAgentStatus returns the agent status of the specified unit, returning

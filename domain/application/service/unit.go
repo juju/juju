@@ -228,7 +228,7 @@ func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 		return nil, errors.Trace(err)
 	}
 
-	return decodeWorkloadStatus(workloadStatus)
+	return decodeUnitWorkloadStatus(workloadStatus)
 }
 
 // SetUnitAgentStatus sets the agent status of the specified unit,
@@ -310,15 +310,11 @@ func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, app
 		return nil, internalerrors.Capture(err)
 	}
 
-	ret := make(map[coreunit.Name]corestatus.StatusInfo, len(statuses))
-	for unitName, status := range statuses {
-		info, err := decodeWorkloadStatus(&status)
-		if err != nil {
-			return nil, internalerrors.Capture(err)
-		}
-		ret[unitName] = *info
+	decoded, err := decodeUnitWorkloadStatuses(statuses)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
 	}
-	return ret, nil
+	return decoded, nil
 }
 
 // GetUnitDisplayStatus returns the display status of the specified unit. The display
