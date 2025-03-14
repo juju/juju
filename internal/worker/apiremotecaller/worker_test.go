@@ -4,6 +4,7 @@
 package apiremotecaller
 
 import (
+	"context"
 	"net/url"
 	"sync"
 	"time"
@@ -139,7 +140,24 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 	s.remote.EXPECT().UpdateAddresses([]string{addr.Host}).DoAndReturn(func(s []string) {
 		close(done)
 	})
-	s.remote.EXPECT().Connection().Return(s.connection)
+	s.remote.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
+		ch := make(chan api.Connection, 1)
+		go func() {
+			select {
+			case ch <- s.connection:
+			case <-ctx.Done():
+			case <-time.After(testing.LongWait):
+				c.Fatalf("timed out waiting for connection")
+			}
+		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case conn := <-ch:
+			return fn(ctx, conn)
+		}
+	})
 	s.connection.EXPECT().Addr().Return(addr)
 
 	w := s.newWorker(c)
@@ -174,7 +192,15 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *gc.C) {
 
 	remotes := w.GetAPIRemotes()
 	c.Assert(remotes, gc.HasLen, 1)
-	c.Check(remotes[0].Connection().Addr(), gc.DeepEquals, addr)
+
+	var conn api.Connection
+	err := remotes[0].Connection(context.Background(), func(ctx context.Context, c api.Connection) error {
+		conn = c
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.NotNil)
+	c.Check(conn.Addr(), gc.DeepEquals, addr)
 
 	workertest.CleanKill(c, w)
 }
