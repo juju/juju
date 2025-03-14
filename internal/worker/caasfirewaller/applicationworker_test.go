@@ -17,6 +17,7 @@ import (
 	caasmocks "github.com/juju/juju/caas/mocks"
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/k8s"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -123,7 +124,7 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 	gomock.InOrder(
 		s.firewallerAPI.EXPECT().WatchApplication(gomock.Any(), s.appName).Return(s.appsWatcher, nil),
 		s.portService.EXPECT().WatchOpenedPortsForApplication(gomock.Any(), s.appUUID).Return(s.portsWatcher, nil),
-		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
+		s.broker.EXPECT().Application(s.appName, k8s.K8sDeploymentStateful).Return(s.brokerApp),
 
 		// initial fetch.
 		s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), s.appUUID).Return(network.GroupedPortRanges{}, nil),

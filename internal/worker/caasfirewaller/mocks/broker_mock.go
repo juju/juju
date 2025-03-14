@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	caas "github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/core/k8s"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -40,7 +41,7 @@ func (m *MockCAASBroker) EXPECT() *MockCAASBrokerMockRecorder {
 }
 
 // Application mocks base method.
-func (m *MockCAASBroker) Application(arg0 string, arg1 caas.DeploymentType) caas.Application {
+func (m *MockCAASBroker) Application(arg0 string, arg1 k8s.K8sDeploymentType) caas.Application {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0, arg1)
 	ret0, _ := ret[0].(caas.Application)
@@ -66,13 +67,13 @@ func (c *MockCAASBrokerApplicationCall) Return(arg0 caas.Application) *MockCAASB
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCAASBrokerApplicationCall) Do(f func(string, caas.DeploymentType) caas.Application) *MockCAASBrokerApplicationCall {
+func (c *MockCAASBrokerApplicationCall) Do(f func(string, k8s.K8sDeploymentType) caas.Application) *MockCAASBrokerApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASBrokerApplicationCall) DoAndReturn(f func(string, caas.DeploymentType) caas.Application) *MockCAASBrokerApplicationCall {
+func (c *MockCAASBrokerApplicationCall) DoAndReturn(f func(string, k8s.K8sDeploymentType) caas.Application) *MockCAASBrokerApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

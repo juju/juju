@@ -11,8 +11,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/scale"
+	"github.com/juju/juju/core/k8s"
 )
 
 // Scale scales the Application's unit to the value specificied. Scale must
@@ -20,14 +20,14 @@ import (
 // defined.
 func (a *app) Scale(scaleTo int) error {
 	switch a.deploymentType {
-	case caas.DeploymentStateful:
+	case k8s.K8sDeploymentStateful:
 		return scale.PatchReplicasToScale(
 			context.Background(),
 			a.name,
 			int32(scaleTo),
 			scale.StatefulSetScalePatcher(a.client.AppsV1().StatefulSets(a.namespace)),
 		)
-	case caas.DeploymentStateless:
+	case k8s.K8sDeploymentStateless:
 		return scale.PatchReplicasToScale(
 			context.Background(),
 			a.name,
@@ -45,7 +45,7 @@ func (a *app) Scale(scaleTo int) error {
 // many units is Kubernetes currently running for application x.
 func (a *app) currentScale(ctx context.Context) (int, error) {
 	switch a.deploymentType {
-	case caas.DeploymentStateful:
+	case k8s.K8sDeploymentStateful:
 		ss, err := a.client.AppsV1().StatefulSets(a.namespace).Get(ctx, a.name, meta.GetOptions{})
 		if k8serrors.IsNotFound(err) {
 			err = errors.WithType(err, errors.NotFound)

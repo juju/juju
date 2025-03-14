@@ -25,6 +25,7 @@ import (
 	charmscommon "github.com/juju/juju/api/common/charms"
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/k8s"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resource"
@@ -67,7 +68,7 @@ type CAASProvisionerFacade interface {
 
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {
-	Application(string, caas.DeploymentType) caas.Application
+	Application(string, k8s.K8sDeploymentType) caas.Application
 	AnnotateUnit(ctx context.Context, appName string, podName string, unit names.UnitTag) error
 	Units(ctx context.Context, appName string) ([]caas.Unit, error)
 }

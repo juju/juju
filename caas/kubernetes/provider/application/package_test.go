@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
+	"github.com/juju/juju/core/k8s"
 )
 
 func Test(t *testing.T) {
@@ -39,7 +40,7 @@ func NewApplicationForTest(
 	modelUUID string,
 	modelName string,
 	legacyLabels bool,
-	deploymentType caas.DeploymentType,
+	deploymentType k8s.K8sDeploymentType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,

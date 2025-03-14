@@ -11,12 +11,12 @@ import (
 	gc "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/k8s"
 )
 
 func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
-	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
@@ -30,7 +30,7 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
-	app, _ := s.getApp(c, caas.DeploymentStateless, false)
+	app, _ := s.getApp(c, k8s.K8sDeploymentStateless, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
@@ -44,14 +44,14 @@ func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *gc.C) {
-	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
 	c.Assert(app.Scale(-1), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *applicationSuite) TestCurrentScale(c *gc.C) {
-	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
 	c.Assert(app.Scale(3), jc.ErrorIsNil)

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/k8s"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
@@ -143,13 +144,13 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(errors.NotProvisionedf("application"))
 	}
 
-	deploymentType := caas.DeploymentStateful
+	deploymentType := k8s.K8sDeploymentStateful
 
 	upsert := state.UpsertCAASUnitParams{}
 
 	containerID := args.PodName
 	switch deploymentType {
-	case caas.DeploymentStateful:
+	case k8s.K8sDeploymentStateful:
 		splitPodName := strings.Split(args.PodName, "-")
 		ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
 		if err != nil {
@@ -168,7 +169,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	}
 
 	// Find the pod/unit in the provider.
-	caasApp := f.broker.Application(appName, caas.DeploymentStateful)
+	caasApp := f.broker.Application(appName, k8s.K8sDeploymentStateful)
 	pods, err := caasApp.Units()
 	if err != nil {
 		return errResp(err)

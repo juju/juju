@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/k8s"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
@@ -110,5 +111,5 @@ type Unit interface {
 
 // Broker contains methods from the caas.Broker interface used by the caasapplication facade.
 type Broker interface {
-	Application(string, caas.DeploymentType) caas.Application
+	Application(string, k8s.K8sDeploymentType) caas.Application
 }

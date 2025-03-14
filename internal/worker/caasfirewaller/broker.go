@@ -5,11 +5,12 @@ package caasfirewaller
 
 import (
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/k8s"
 )
 
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {
-	Application(string, caas.DeploymentType) caas.Application
+	Application(string, k8s.K8sDeploymentType) caas.Application
 }
 
 // PortMutator exposes CAAS application functionality to a worker.

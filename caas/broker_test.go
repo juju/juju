@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/k8s"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -20,15 +20,15 @@ var _ = gc.Suite(&brokerSuite{})
 
 func (s *brokerSuite) TestDeploymentTypeValidation(c *gc.C) {
 
-	validTypes := []caas.DeploymentType{
-		caas.DeploymentStateful,
-		caas.DeploymentStateless,
-		caas.DeploymentDaemon,
-		caas.DeploymentType(""), // TODO(caas): change deployment to mandatory.
+	validTypes := []k8s.K8sDeploymentType{
+		k8s.K8sDeploymentStateful,
+		k8s.K8sDeploymentStateless,
+		k8s.K8sDeploymentDaemon,
+		k8s.K8sDeploymentType(""), // TODO(caas): change deployment to mandatory.
 	}
 	for _, t := range validTypes {
 		c.Check(t.Validate(), jc.ErrorIsNil)
 	}
 
-	c.Assert(caas.DeploymentType("bad type").Validate(), jc.ErrorIs, errors.NotSupported)
+	c.Assert(k8s.K8sDeploymentType("bad type").Validate(), jc.ErrorIs, errors.NotSupported)
 }

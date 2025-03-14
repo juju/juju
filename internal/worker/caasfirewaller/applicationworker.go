@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/k8s"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
@@ -105,7 +106,7 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 	}
 
 	// TODO(sidecar): support deployment other than statefulset
-	app := w.broker.Application(w.appName, caas.DeploymentStateful)
+	app := w.broker.Application(w.appName, k8s.K8sDeploymentStateful)
 	w.portMutator = app
 	w.serviceUpdater = app
 

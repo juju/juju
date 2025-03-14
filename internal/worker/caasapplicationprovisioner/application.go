@@ -15,6 +15,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/k8s"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
@@ -110,7 +111,7 @@ func (a *appWorker) loop() error {
 	defer cancel()
 
 	// TODO(sidecar): support more than statefulset
-	app := a.broker.Application(a.name, caas.DeploymentStateful)
+	app := a.broker.Application(a.name, k8s.K8sDeploymentStateful)
 
 	// If the application no longer exists, return immediately. If it's in
 	// Dead state, ensure it's deleted and terminated.

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/config"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/k8s"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -725,7 +726,7 @@ func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID st
 // Broker provides access to the k8s cluster to guery the scale
 // of a specified application.
 type Broker interface {
-	Application(string, caas.DeploymentType) caas.Application
+	Application(string, k8s.K8sDeploymentType) caas.Application
 }
 
 // GetApplicationLife looks up the life of the specified application, returning

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/k8s"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
@@ -71,28 +72,6 @@ type NewContainerBrokerFunc func(ctx context.Context, args environs.OpenParams, 
 // StatusCallbackFunc represents a function that can be called to report a status.
 type StatusCallbackFunc func(appName string, settableStatus status.Status, info string, data map[string]interface{}) error
 
-// DeploymentType defines a deployment type.
-type DeploymentType string
-
-// Validate validates if this deployment type is supported.
-func (dt DeploymentType) Validate() error {
-	if dt == "" {
-		return nil
-	}
-	if dt == DeploymentStateless ||
-		dt == DeploymentStateful ||
-		dt == DeploymentDaemon {
-		return nil
-	}
-	return errors.NotSupportedf("deployment type %q", dt)
-}
-
-const (
-	DeploymentStateless DeploymentType = "stateless"
-	DeploymentStateful  DeploymentType = "stateful"
-	DeploymentDaemon    DeploymentType = "daemon"
-)
-
 // DeploymentMode defines a deployment mode.
 type DeploymentMode string
 
@@ -113,7 +92,7 @@ const (
 
 // DeploymentParams defines parameters for specifying how a service is deployed.
 type DeploymentParams struct {
-	DeploymentType DeploymentType
+	DeploymentType k8s.K8sDeploymentType
 	ServiceType    ServiceType
 }
 
@@ -207,7 +186,7 @@ type Broker interface {
 // individual applications and watching their units.
 type ApplicationBroker interface {
 	// Application returns the broker interface for an Application
-	Application(string, DeploymentType) Application
+	Application(string, k8s.K8sDeploymentType) Application
 
 	// Units returns all units and any associated filesystems
 	// of the specified application. Filesystems are mounted
