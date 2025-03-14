@@ -4,7 +4,6 @@
 package environs
 
 import (
-	"context"
 	"net"
 	"strconv"
 	"time"
@@ -37,7 +36,7 @@ func getAddresses(ctx envcontext.ProviderCallContext, instances []instances.Inst
 		}
 		addrs, err := inst.Addresses(ctx)
 		if err != nil {
-			logger.Debugf(context.TODO(),
+			logger.Debugf(ctx,
 				"failed to get addresses for %v: %v (ignoring)",
 				inst.Id(), err,
 			)
@@ -59,7 +58,7 @@ func waitAnyInstanceAddresses(
 	for a := AddressesRefreshAttempt.Start(); len(addrs) == 0 && a.Next(); {
 		instances, err := env.Instances(ctx, instanceIds)
 		if err != nil && err != ErrPartialInstances {
-			logger.Debugf(context.TODO(), "error getting state instances: %v", err)
+			logger.Debugf(ctx, "error getting state instances: %v", err)
 			return nil, err
 		}
 		addrs = getAddresses(ctx, instances)
@@ -79,7 +78,7 @@ func APIInfo(
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf(context.TODO(), "ControllerInstances returned: %v", instanceIds)
+	logger.Debugf(ctx, "ControllerInstances returned: %v", instanceIds)
 	addrs, err := waitAnyInstanceAddresses(env, ctx, instanceIds)
 	if err != nil {
 		return nil, err

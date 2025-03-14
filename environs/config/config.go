@@ -477,7 +477,7 @@ func New(withDefaults Defaulting, attrs map[string]any) (*Config, error) {
 	}
 
 	// no old config to compare against
-	if err := Validate(context.TODO(), c, nil); err != nil {
+	if err := Validate(context.Background(), c, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Copy unknown attributes onto the type-specific map.

@@ -4,6 +4,8 @@
 package tools_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -30,7 +32,7 @@ func (s *StorageSuite) TestStorageName(c *gc.C) {
 func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = envtools.ReadList(stor, "released", 2, 0)
+	_, err = envtools.ReadList(context.Background(), stor, "released", 2, 0)
 	c.Assert(err, gc.Equals, envtools.ErrNoTools)
 }
 
@@ -52,20 +54,20 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 		minorVersion int
 		list coretools.List
 	}{{
-		-1, -1, coretools.List{t100, t101, t111, t201},
+		majorVersion: -1, minorVersion: -1, list: coretools.List{t100, t101, t111, t201},
 	}, {
-		1, 0, coretools.List{t100, t101},
+		majorVersion: 1, minorVersion: 0, list: coretools.List{t100, t101},
 	}, {
-		1, 1, coretools.List{t111},
+		majorVersion: 1, minorVersion: 1, list: coretools.List{t111},
 	}, {
-		1, -1, coretools.List{t100, t101, t111},
+		majorVersion: 1, minorVersion: -1, list: coretools.List{t100, t101, t111},
 	}, {
-		1, 2, nil,
+		majorVersion: 1, minorVersion: 2, list: nil,
 	}, {
-		3, 0, nil,
+		majorVersion: 3, minorVersion: 0, list: nil,
 	}} {
 		c.Logf("test %d", i)
-		list, err := envtools.ReadList(stor, "proposed", t.majorVersion, t.minorVersion)
+		list, err := envtools.ReadList(context.Background(), stor, "proposed", t.majorVersion, t.minorVersion)
 		if t.list != nil {
 			c.Assert(err, jc.ErrorIsNil)
 			// ReadList doesn't set the Size or SHA256, so blank out those attributes.

@@ -111,8 +111,9 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	}
 	if len(specs) > 0 {
 		sort.Sort(byArch(specs))
-		logger.Infof(context.TODO(), "find instance - using %v image of type %v with id: %v", specs[0].Image.Arch, specs[0].InstanceType.Name, specs[0].Image.Id)
-		return specs[0], nil
+		spec := specs[0]
+		logger.Infof(context.TODO(), "find instance - using %v image of type %v with id: %v", spec.Image.Arch, spec.InstanceType.Name, spec.Image.Id)
+		return spec, nil
 	}
 
 	names := make([]string, len(matchingTypes))

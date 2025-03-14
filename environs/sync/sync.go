@@ -72,12 +72,12 @@ type ToolsUploader interface {
 // SyncTools copies the Juju tools tarball from the official bucket
 // or a specified source directory into the user's environment.
 func SyncTools(stdCtx context.Context, syncContext *SyncContext) error {
-	sourceDataSource, err := selectSourceDatasource(syncContext)
+	sourceDataSource, err := selectSourceDatasource(stdCtx, syncContext)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	logger.Infof(context.TODO(), "listing available agent binaries")
+	logger.Infof(stdCtx, "listing available agent binaries")
 	if syncContext.ChosenVersion.Major == 0 && syncContext.ChosenVersion.Minor == 0 {
 		syncContext.ChosenVersion.Major = jujuversion.Current.Major
 		syncContext.ChosenVersion.Minor = -1
@@ -112,20 +112,20 @@ func SyncTools(stdCtx context.Context, syncContext *SyncContext) error {
 		return errors.Trace(err)
 	}
 
-	logger.Infof(context.TODO(), "found %d agent binaries", len(sourceTools))
+	logger.Infof(stdCtx, "found %d agent binaries", len(sourceTools))
 	for _, tool := range sourceTools {
-		logger.Debugf(context.TODO(), "found source agent binary: %v", tool)
+		logger.Debugf(stdCtx, "found source agent binary: %v", tool)
 	}
 
-	logger.Infof(context.TODO(), "listing target agent binaries storage")
+	logger.Infof(stdCtx, "listing target agent binaries storage")
 
 	result, err := sourceTools.Match(coretools.Filter{Number: syncContext.ChosenVersion})
-	logger.Tracef(context.TODO(), "syncContext.ChosenVersion %s, result %s", syncContext.ChosenVersion, result)
+	logger.Tracef(stdCtx, "syncContext.ChosenVersion %s, result %s", syncContext.ChosenVersion, result)
 	if err != nil {
 		return errors.Wrap(err, errors.NotFoundf("%q", syncContext.ChosenVersion))
 	}
 	_, chosenList := result.Newest()
-	logger.Tracef(context.TODO(), "syncContext.ChosenVersion %s, chosenList %s", syncContext.ChosenVersion, chosenList)
+	logger.Tracef(stdCtx, "syncContext.ChosenVersion %s, chosenList %s", syncContext.ChosenVersion, chosenList)
 	if syncContext.TargetToolsFinder != nil {
 		targetTools, err := syncContext.TargetToolsFinder.FindTools(
 			syncContext.ChosenVersion.Major, syncContext.Stream,
@@ -136,7 +136,7 @@ func SyncTools(stdCtx context.Context, syncContext *SyncContext) error {
 			return errors.Trace(err)
 		}
 		for _, tool := range targetTools {
-			logger.Debugf(context.TODO(), "found target agent binary: %v", tool)
+			logger.Debugf(stdCtx, "found target agent binary: %v", tool)
 		}
 		if targetTools.Exclude(chosenList).Len() != targetTools.Len() {
 			// already in target.
@@ -146,7 +146,7 @@ func SyncTools(stdCtx context.Context, syncContext *SyncContext) error {
 
 	if syncContext.DryRun {
 		for _, tools := range chosenList {
-			logger.Infof(context.TODO(), "copying %s from %s", tools.Version, tools.URL)
+			logger.Infof(stdCtx, "copying %s from %s", tools.Version, tools.URL)
 		}
 		return nil
 	}
@@ -155,12 +155,12 @@ func SyncTools(stdCtx context.Context, syncContext *SyncContext) error {
 	if err != nil {
 		return err
 	}
-	logger.Infof(context.TODO(), "copied %d agent binaries", len(chosenList))
+	logger.Infof(stdCtx, "copied %d agent binaries", len(chosenList))
 	return nil
 }
 
 // selectSourceDatasource returns a storage reader based on the source setting.
-func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource, error) {
+func selectSourceDatasource(ctx context.Context, syncContext *SyncContext) (simplestreams.DataSource, error) {
 	source := syncContext.Source
 	if source == "" {
 		source = envtools.DefaultBaseURL
@@ -169,7 +169,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof(context.TODO(), "source for sync of agent binaries: %v", sourceURL)
+	logger.Infof(ctx, "source for sync of agent binaries: %v", sourceURL)
 	config := simplestreams.Config{
 		Description:          "sync agent binaries source",
 		BaseURL:              sourceURL,
@@ -186,7 +186,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 // copyTools copies a set of tools from the source to the target.
 func copyTools(ctx context.Context, toolsDir, stream string, tools []*coretools.Tools, u ToolsUploader) error {
 	for _, tool := range tools {
-		logger.Infof(context.TODO(), "copying %s from %s", tool.Version, tool.URL)
+		logger.Infof(ctx, "copying %s from %s", tool.Version, tool.URL)
 		if err := copyOneToolsPackage(ctx, toolsDir, stream, tool, u); err != nil {
 			return err
 		}
@@ -197,7 +197,7 @@ func copyTools(ctx context.Context, toolsDir, stream string, tools []*coretools.
 // copyOneToolsPackage copies one tool from the source to the target.
 func copyOneToolsPackage(ctx context.Context, toolsDir, stream string, tools *coretools.Tools, u ToolsUploader) error {
 	toolsName := envtools.StorageName(tools.Version, toolsDir)
-	logger.Infof(context.TODO(), "downloading %q %v (%v)", stream, toolsName, tools.URL)
+	logger.Infof(ctx, "downloading %q %v (%v)", stream, toolsName, tools.URL)
 	client := http.NewClient()
 	resp, err := client.Get(ctx, tools.URL)
 	if err != nil {
@@ -211,12 +211,12 @@ func copyOneToolsPackage(ctx context.Context, toolsDir, stream string, tools *co
 		return err
 	}
 	if tools.SHA256 == "" {
-		logger.Errorf(context.TODO(), "no SHA-256 hash for %v", tools.SHA256) // TODO(dfc) can you spot the bug ?
+		logger.Errorf(ctx, "no SHA-256 hash for %v", tools.SHA256) // TODO(dfc) can you spot the bug ?
 	} else if sha256 != tools.SHA256 {
 		return errors.Errorf("SHA-256 hash mismatch (%v/%v)", sha256, tools.SHA256)
 	}
 	sizeInKB := (size + 512) / 1024
-	logger.Infof(context.TODO(), "uploading %v (%dkB) to model", toolsName, sizeInKB)
+	logger.Infof(ctx, "uploading %v (%dkB) to model", toolsName, sizeInKB)
 	return u.UploadTools(ctx, toolsDir, stream, tools, buf.Bytes())
 }
 
@@ -268,7 +268,7 @@ func generateAgentMetadata(ctx context.Context, ss envtools.SimplestreamsFetcher
 	if err != nil {
 		return err
 	}
-	logger.Debugf(context.TODO(), "generating agent metadata")
+	logger.Debugf(ctx, "generating agent metadata")
 	return envtools.MergeAndWriteMetadata(ctx, ss, metadataStore, stream, stream, targetTools, false)
 }
 
@@ -388,7 +388,7 @@ func syncBuiltTools(ctx context.Context, ss envtools.SimplestreamsFetcher, store
 		Stream:        stream,
 		ChosenVersion: builtTools.Version.Number,
 	}
-	logger.Debugf(context.TODO(), "uploading agent binaries to cloud storage")
+	logger.Debugf(ctx, "uploading agent binaries to cloud storage")
 	err := SyncTools(ctx, syncContext)
 	if err != nil {
 		return nil, err
@@ -412,7 +412,7 @@ type StorageToolsFinder struct {
 }
 
 func (f StorageToolsFinder) FindTools(major int, stream string) (coretools.List, error) {
-	return envtools.ReadList(f.Storage, stream, major, -1)
+	return envtools.ReadList(context.TODO(), f.Storage, stream, major, -1)
 }
 
 // StorageToolsUploader is an implementation of ToolsUploader that
@@ -435,7 +435,7 @@ func (u StorageToolsUploader) UploadTools(ctx context.Context, toolsDir, stream 
 	}
 	err := envtools.MergeAndWriteMetadata(ctx, u.Fetcher, u.Storage, toolsDir, stream, coretools.List{tools}, u.WriteMirrors)
 	if err != nil {
-		logger.Errorf(context.TODO(), "error writing agent metadata: %v", err)
+		logger.Errorf(ctx, "error writing agent metadata: %v", err)
 		return err
 	}
 	return nil

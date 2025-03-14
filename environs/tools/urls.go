@@ -87,7 +87,7 @@ func GetMetadataSources(env environs.BootstrapEnviron, dataSourceFactory simples
 		sources = append(sources, dataSource)
 	}
 
-	envDataSources, err := environmentDataSources(env)
+	envDataSources, err := environmentDataSources(context.TODO(), env)
 	if err != nil {
 		return nil, err
 	}
@@ -119,19 +119,19 @@ func GetMetadataSources(env environs.BootstrapEnviron, dataSourceFactory simples
 // environmentDataSources returns simplestreams datasources for the environment
 // by calling the functions registered in RegisterToolsDataSourceFunc.
 // The datasources returned will be in the same order the functions were registered.
-func environmentDataSources(bootstrapEnviron environs.BootstrapEnviron) ([]simplestreams.DataSource, error) {
+func environmentDataSources(ctx context.Context, bootstrapEnviron environs.BootstrapEnviron) ([]simplestreams.DataSource, error) {
 	toolsDatasourceFuncsMu.RLock()
 	defer toolsDatasourceFuncsMu.RUnlock()
 
 	var datasources []simplestreams.DataSource
 	env, ok := bootstrapEnviron.(environs.Environ)
 	if !ok {
-		logger.Debugf(context.TODO(), "environmentDataSources is supported for IAAS, environ %#v is not Environ", bootstrapEnviron)
+		logger.Debugf(ctx, "environmentDataSources is supported for IAAS, environ %#v is not Environ", bootstrapEnviron)
 		// ignore for CAAS
 		return datasources, nil
 	}
 	for _, f := range toolsDatasourceFuncs {
-		logger.Debugf(context.TODO(), "trying datasource %q", f.id)
+		logger.Debugf(ctx, "trying datasource %q", f.id)
 		datasource, err := f.f(env)
 		if err != nil {
 			if errors.Is(err, errors.NotSupported) {
