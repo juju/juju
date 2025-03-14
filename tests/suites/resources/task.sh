@@ -15,7 +15,15 @@ test_resources() {
 
 	test_basic_resources
 	test_upgrade_resources
-	test_container_resources
+
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"k8s")
+		test_container_resources
+		;;
+	*)
+		echo "==> TEST SKIPPED: test_container_resources - tests for k8s only"
+		;;
+	esac
 
 	destroy_controller "test-resources"
 }
