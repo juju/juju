@@ -75,10 +75,14 @@ func (f *WatcherFactory) NewNamespaceMapperWatcher(
 	), nil
 }
 
-// NewFilterWatcher returns a watcher that filters events based on the input
-// filter options. The watcher will only emit events that match the filter in
-// a single term.
-func (f *WatcherFactory) NewFilterWatcher(
+// NewNotifyWatcher returns a new watcher that filters changes from the
+// input base watcher's db/queue. Change-log events will be emitted only if
+// the filter accepts them, and dispatching the notifications via the Changes
+// channel.
+// A filter option is required, though additional filter options can be
+// provided.
+func (f *WatcherFactory) NewNotifyWatcher(
+	filter eventsource.FilterOption,
 	filterOpts ...eventsource.FilterOption,
 ) (watcher.NotifyWatcher, error) {
 	base, err := f.newBaseWatcher()
@@ -86,15 +90,19 @@ func (f *WatcherFactory) NewFilterWatcher(
 		return nil, errors.Annotate(err, "creating base watcher")
 	}
 
-	return eventsource.NewFilterWatcher(base, filterOpts...), nil
+	return eventsource.NewNotifyWatcher(base, filter, filterOpts...)
 }
 
-// NewFilterWatcher returns a watcher that filters events based on the input
-// filter options. The watcher will only emit events that match the filter in
-// a single term. The mapper is used to transform the events before they are
-// emitted, either by changing the event or by filtering them out.
-func (f *WatcherFactory) NewFilterMapperWatcher(
+// NewNotifyMapperWatcher returns a new watcher that receives changes from the
+// input base watcher's db/queue. Change-log events will be emitted only if the
+// filter accepts them, and dispatching the notifications via the Changes
+// channel, once the mapper has processed them. Filtering of values is done
+// first by the filter, and then by the mapper.
+// A filter option is required, though additional filter options can be
+// provided.
+func (f *WatcherFactory) NewNotifyMapperWatcher(
 	mapper eventsource.Mapper,
+	filter eventsource.FilterOption,
 	filterOpts ...eventsource.FilterOption,
 ) (watcher.NotifyWatcher, error) {
 	base, err := f.newBaseWatcher()
@@ -102,8 +110,24 @@ func (f *WatcherFactory) NewFilterMapperWatcher(
 		return nil, errors.Annotate(err, "creating base watcher")
 	}
 
-	return eventsource.NewFilterMapperWatcher(base, mapper, filterOpts...), nil
+	return eventsource.NewNotifyMapperWatcher(base, mapper, filter, filterOpts...)
 }
+
+func (f *WatcherFactory) newBaseWatcher() (*eventsource.BaseWatcher, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.watchableDB == nil {
+		var err error
+		if f.watchableDB, err = f.getDB(); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	return eventsource.NewBaseWatcher(f.watchableDB, f.logger), nil
+}
+
+// Everything below is deprecated and will be removed in the future.
 
 // NewNamespaceNotifyWatcher returns a new namespace notify watcher
 // for events based on the input change mask.
@@ -161,18 +185,4 @@ func (f *WatcherFactory) NewValueMapperWatcher(
 	}
 
 	return eventsource.NewValueMapperWatcher(base, namespace, changeValue, changeMask, mapper), nil
-}
-
-func (f *WatcherFactory) newBaseWatcher() (*eventsource.BaseWatcher, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.watchableDB == nil {
-		var err error
-		if f.watchableDB, err = f.getDB(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	return eventsource.NewBaseWatcher(f.watchableDB, f.logger), nil
 }

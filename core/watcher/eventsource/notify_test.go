@@ -1,4 +1,4 @@
-// Copyright 2023 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package eventsource
@@ -18,15 +18,15 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-var _ watcher.NotifyWatcher = &ValueWatcher{}
-
-type valueSuite struct {
+type notifySuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&valueSuite{})
+var _ watcher.NotifyWatcher = &NotifyWatcher{}
 
-func (s *valueSuite) TestNotificationsByPredicate(c *gc.C) {
+var _ = gc.Suite(&notifySuite{})
+
+func (s *notifySuite) TestNotificationsByNamespaceFilter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -49,7 +49,7 @@ func (s *valueSuite) TestNotificationsByPredicate(c *gc.C) {
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueMapperWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All, func(ctx context.Context, _ database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(ctx context.Context, _ database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		if len(e) != 1 {
 			c.Fatalf("expected 1 event, got %d", len(e))
 		}
@@ -57,8 +57,9 @@ func (s *valueSuite) TestNotificationsByPredicate(c *gc.C) {
 			return e, nil
 		}
 		return nil, nil
-	})
-	defer workertest.CleanKill(c, w)
+	}, NamespaceFilter("random_namespace", changestream.All))
+	defer workertest.DirtyKill(c, w)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Initial notification.
 	select {
@@ -106,60 +107,7 @@ func (s *valueSuite) TestNotificationsByPredicate(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *valueSuite) TestNotificationsByPredicateError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	subExp := s.sub.EXPECT()
-
-	done := make(chan struct{})
-	subExp.Done().Return(done).MinTimes(1)
-
-	deltas := make(chan []changestream.ChangeEvent)
-	subExp.Changes().Return(deltas)
-
-	subExp.Unsubscribe()
-
-	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
-	).Return(s.sub, nil)
-
-	w := NewValueMapperWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All, func(_ context.Context, _ database.TxnRunner, _ []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
-		return nil, errors.Errorf("boom")
-	})
-	defer workertest.DirtyKill(c, w)
-
-	// Initial notification.
-	select {
-	case <-w.Changes():
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for initial watcher changes")
-	}
-
-	// Simulate an incoming change from the stream.
-	select {
-	case deltas <- []changestream.ChangeEvent{changeEvent{
-		changeType: 0,
-		namespace:  "random_namespace",
-		changed:    "some-key-value",
-	}}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out dispatching change event")
-	}
-
-	// Notification for change.
-	select {
-	case _, ok := <-w.Changes():
-		// Ensure the channel is closed, when the predicate dies.
-		c.Assert(ok, jc.IsFalse)
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for initial watcher changes")
-	}
-
-	err := workertest.CheckKill(c, w)
-	c.Assert(err, gc.ErrorMatches, "boom")
-}
-
-func (s *valueSuite) TestNotificationsSent(c *gc.C) {
+func (s *notifySuite) TestNotificationsByPredicateFilter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -182,130 +130,7 @@ func (s *valueSuite) TestNotificationsSent(c *gc.C) {
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All)
-	defer workertest.CleanKill(c, w)
-
-	// Initial notification.
-	select {
-	case <-w.Changes():
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for initial watcher changes")
-	}
-
-	// Simulate an incoming change from the stream.
-	select {
-	case deltas <- []changestream.ChangeEvent{changeEvent{
-		changeType: 0,
-		namespace:  "random_namespace",
-		changed:    "some-key-value",
-	}}:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out dispatching change event")
-	}
-
-	// Notification for change.
-	select {
-	case <-w.Changes():
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for initial watcher changes")
-	}
-
-	workertest.CleanKill(c, w)
-}
-
-func (s *valueSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	subExp := s.sub.EXPECT()
-	subExp.Changes().Return(make(chan []changestream.ChangeEvent)).AnyTimes()
-
-	done := make(chan struct{})
-	close(done)
-	subExp.Done().Return(done)
-
-	subExp.Unsubscribe()
-
-	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
-	).Return(s.sub, nil)
-
-	w := NewValueWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All)
-	defer workertest.DirtyKill(c, w)
-
-	err := workertest.CheckKilled(c, w)
-	c.Check(err, jc.ErrorIs, ErrSubscriptionClosed)
-}
-
-func (s *valueSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	subExp := s.sub.EXPECT()
-	done := make(chan struct{})
-	subExp.Changes().Return(make(chan []changestream.ChangeEvent)).AnyTimes()
-	subExp.Done().Return(done)
-	subExp.Unsubscribe()
-
-	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
-	).Return(s.sub, nil)
-
-	w := NewValueWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All)
-
-	workertest.CleanKill(c, w)
-	_, ok := <-w.Changes()
-	c.Assert(ok, jc.IsFalse)
-}
-
-func (s *valueSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	subExp := s.sub.EXPECT()
-	done := make(chan struct{})
-	subExp.Changes().Return(make(chan []changestream.ChangeEvent))
-	subExp.Done().Return(done)
-	subExp.Unsubscribe()
-
-	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
-	).Return(s.sub, nil)
-
-	w := NewValueWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All)
-
-	workertest.DirtyKill(c, w)
-	_, ok := <-w.Changes()
-	c.Assert(ok, jc.IsFalse)
-}
-
-type namespaceNotifyWatcherSuite struct {
-	baseSuite
-}
-
-var _ = gc.Suite(&namespaceNotifyWatcherSuite{})
-
-func (s *namespaceNotifyWatcherSuite) TestNotificationsByPredicate(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	subExp := s.sub.EXPECT()
-
-	// We go through the worker loop minimum 4 times:
-	// - Read initial delta (additional subsequent events aren't guaranteed).
-	// - Dispatch initial notification.
-	// - Read deltas.
-	// - Dispatch notification.
-	// - Pick up tomb.Dying()
-	done := make(chan struct{})
-	subExp.Done().Return(done).MinTimes(4)
-
-	deltas := make(chan []changestream.ChangeEvent)
-	subExp.Changes().Return(deltas)
-
-	subExp.Unsubscribe()
-
-	s.eventsource.EXPECT().Subscribe(
-		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
-	).Return(s.sub, nil)
-
-	w := NewNamespaceNotifyMapperWatcher(s.newBaseWatcher(c), "random_namespace", changestream.All, func(ctx context.Context, _ database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(ctx context.Context, _ database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		if len(e) != 1 {
 			c.Fatalf("expected 1 event, got %d", len(e))
 		}
@@ -313,8 +138,9 @@ func (s *namespaceNotifyWatcherSuite) TestNotificationsByPredicate(c *gc.C) {
 			return e, nil
 		}
 		return nil, nil
-	})
-	defer workertest.CleanKill(c, w)
+	}, PredicateFilter("random_namespace", changestream.All, matches("some-key-value")))
+	defer workertest.DirtyKill(c, w)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Initial notification.
 	select {
@@ -362,7 +188,7 @@ func (s *namespaceNotifyWatcherSuite) TestNotificationsByPredicate(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceNotifyWatcherSuite) TestNotificationsByPredicateError(c *gc.C) {
+func (s *notifySuite) TestNotificationsByMapperError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -379,10 +205,11 @@ func (s *namespaceNotifyWatcherSuite) TestNotificationsByPredicateError(c *gc.C)
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewNamespaceNotifyMapperWatcher(s.newBaseWatcher(c), "random_namespace", changestream.All, func(_ context.Context, _ database.TxnRunner, _ []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(_ context.Context, _ database.TxnRunner, _ []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		return nil, errors.Errorf("boom")
-	})
+	}, PredicateFilter("random_namespace", changestream.All, matches("value")))
 	defer workertest.DirtyKill(c, w)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Initial notification.
 	select {
@@ -411,11 +238,11 @@ func (s *namespaceNotifyWatcherSuite) TestNotificationsByPredicateError(c *gc.C)
 		c.Fatal("timed out waiting for initial watcher changes")
 	}
 
-	err := workertest.CheckKill(c, w)
+	err = workertest.CheckKill(c, w)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *namespaceNotifyWatcherSuite) TestNotificationsSent(c *gc.C) {
+func (s *notifySuite) TestNotificationsSent(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -438,8 +265,9 @@ func (s *namespaceNotifyWatcherSuite) TestNotificationsSent(c *gc.C) {
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewNamespaceNotifyWatcher(s.newBaseWatcher(c), "random_namespace", changestream.All)
-	defer workertest.CleanKill(c, w)
+	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, matches("value")))
+	defer workertest.DirtyKill(c, w)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Initial notification.
 	select {
@@ -469,7 +297,7 @@ func (s *namespaceNotifyWatcherSuite) TestNotificationsSent(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *namespaceNotifyWatcherSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
+func (s *notifySuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -485,14 +313,15 @@ func (s *namespaceNotifyWatcherSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewNamespaceNotifyWatcher(s.newBaseWatcher(c), "random_namespace", changestream.All)
+	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, matches("value")))
 	defer workertest.DirtyKill(c, w)
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := workertest.CheckKilled(c, w)
+	err = workertest.CheckKilled(c, w)
 	c.Check(err, jc.ErrorIs, ErrSubscriptionClosed)
 }
 
-func (s *namespaceNotifyWatcherSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
+func (s *notifySuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -505,14 +334,20 @@ func (s *namespaceNotifyWatcherSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewNamespaceNotifyWatcher(s.newBaseWatcher(c), "random_namespace", changestream.All)
+	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, matches("value")))
+	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
-	_, ok := <-w.Changes()
-	c.Assert(ok, jc.IsFalse)
+
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for watcher to close")
+	}
 }
 
-func (s *namespaceNotifyWatcherSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
+func (s *notifySuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
@@ -525,9 +360,22 @@ func (s *namespaceNotifyWatcherSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewNamespaceNotifyWatcher(s.newBaseWatcher(c), "random_namespace", changestream.All)
+	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, matches("value")))
+	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.DirtyKill(c, w)
-	_, ok := <-w.Changes()
-	c.Assert(ok, jc.IsFalse)
+
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for watcher to close")
+	}
+}
+
+func (s *notifySuite) TestNilPredicate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, nil))
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
