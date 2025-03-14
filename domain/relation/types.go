@@ -65,6 +65,14 @@ type EndpointRelationData struct {
 	UnitRelationData map[string]RelationData
 }
 
+// RelationUnitStatus holds details about scope and suspended status
+// for a relation unit.
+type RelationUnitStatus struct {
+	Key       corerelation.Key
+	InScope   bool
+	Suspended bool
+}
+
 // Watcher is implemented by all watchers; the actual
 // changes channel is returned by a watcher-specific
 // Changes method.
