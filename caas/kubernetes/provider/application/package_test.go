@@ -40,7 +40,7 @@ func NewApplicationForTest(
 	modelUUID string,
 	modelName string,
 	legacyLabels bool,
-	deploymentType k8s.K8sDeploymentType,
+	deploymentType k8s.WorkloadType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,

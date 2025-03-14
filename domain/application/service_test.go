@@ -12,12 +12,10 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/k8s"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -71,7 +69,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		func(ctx context.Context) (service.Provider, error) {
 			return serviceProvider{}, nil
 		},
-		func(ctx context.Context) (service.SupportedFeatureProvider, error) {
+		func(ctx context.Context) (service.K8sProvider, error) {
 			return serviceProvider{}, nil
 		},
 		nil,
@@ -739,107 +737,6 @@ func (s *serviceSuite) TestChangeScaleInvalid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ScaleChangeInvalid)
 }
 
-func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *gc.C) {
-	u := service.AddUnitArg{
-		UnitName: "foo/0",
-	}
-	u2 := service.AddUnitArg{
-		UnitName: "foo/1",
-	}
-	s.createApplication(c, "foo", u, u2)
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	app := application.NewMockApplication(ctrl)
-	app.EXPECT().State().Return(caas.ApplicationState{
-		DesiredReplicas: 6,
-	}, nil)
-	broker := application.NewMockBroker(ctrl)
-	broker.EXPECT().Application("foo", k8s.K8sDeploymentStateful).Return(app)
-	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 1, broker)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(willRestart, jc.IsTrue)
-}
-
-func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *gc.C) {
-	u := service.AddUnitArg{
-		UnitName: "foo/0",
-	}
-	s.createApplication(c, "foo", u)
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	app := application.NewMockApplication(ctrl)
-	app.EXPECT().State().Return(caas.ApplicationState{
-		DesiredReplicas: 6,
-	}, nil)
-	broker := application.NewMockBroker(ctrl)
-	broker.EXPECT().Application("foo", k8s.K8sDeploymentStateful).Return(app)
-	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 666, broker)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(willRestart, jc.IsFalse)
-}
-
-func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *gc.C) {
-	u := service.AddUnitArg{
-		UnitName: "foo/0",
-	}
-	u2 := service.AddUnitArg{
-		UnitName: "foo/1",
-	}
-	u3 := service.AddUnitArg{
-		UnitName: "foo/2",
-	}
-	s.createApplication(c, "foo", u, u2, u3)
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	app := application.NewMockApplication(ctrl)
-	app.EXPECT().State().Return(caas.ApplicationState{
-		DesiredReplicas: 6,
-	}, nil)
-	broker := application.NewMockBroker(ctrl)
-	broker.EXPECT().Application("foo", k8s.K8sDeploymentStateful).Return(app)
-	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 6, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 2, broker)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(willRestart, jc.IsTrue)
-}
-
-func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *gc.C) {
-	u := service.AddUnitArg{
-		UnitName: "foo/0",
-	}
-	u2 := service.AddUnitArg{
-		UnitName: "foo/1",
-	}
-	u3 := service.AddUnitArg{
-		UnitName: "foo/2",
-	}
-	s.createApplication(c, "foo", u, u2, u3)
-
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	app := application.NewMockApplication(ctrl)
-	app.EXPECT().State().Return(caas.ApplicationState{
-		DesiredReplicas: 1,
-	}, nil)
-	broker := application.NewMockBroker(ctrl)
-	broker.EXPECT().Application("foo", k8s.K8sDeploymentStateful).Return(app)
-	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 6, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 2, broker)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(willRestart, jc.IsFalse)
-}
-
 func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.AddUnitArg) coreapplication.ID {
 	appID, err := s.svc.CreateApplication(context.Background(), name, &stubCharm{}, corecharm.Origin{
 		Source: corecharm.CharmHub,
@@ -861,7 +758,7 @@ func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.
 
 type serviceProvider struct {
 	service.Provider
-	service.SupportedFeatureProvider
+	service.K8sProvider
 }
 
 func (serviceProvider) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {

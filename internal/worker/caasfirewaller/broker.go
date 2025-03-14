@@ -10,7 +10,7 @@ import (
 
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {
-	Application(string, k8s.K8sDeploymentType) caas.Application
+	Application(string, k8s.WorkloadType) caas.Application
 }
 
 // PortMutator exposes CAAS application functionality to a worker.

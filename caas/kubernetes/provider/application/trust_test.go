@@ -7,16 +7,17 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/k8s"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/juju/juju/core/k8s"
 )
 
 func (s *applicationSuite) TestTrust(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateless, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDeployment, true)
 	defer ctrl.Finish()
 
 	_, err := s.client.RbacV1().Roles(s.namespace).Create(context.Background(), &rbacv1.Role{
@@ -56,7 +57,7 @@ func (s *applicationSuite) TestTrust(c *gc.C) {
 }
 
 func (s *applicationSuite) TestTrustRoleNotFound(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateless, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDeployment, true)
 	defer ctrl.Finish()
 
 	err := app.Trust(true)
@@ -64,7 +65,7 @@ func (s *applicationSuite) TestTrustRoleNotFound(c *gc.C) {
 }
 
 func (s *applicationSuite) TestTrustClusterRoleNotFound(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateless, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDeployment, true)
 	defer ctrl.Finish()
 
 	_, err := s.client.RbacV1().Roles(s.namespace).Create(context.Background(), &rbacv1.Role{
@@ -85,7 +86,7 @@ func (s *applicationSuite) TestTrustClusterRoleNotFound(c *gc.C) {
 }
 
 func (s *applicationSuite) TestRemoveTrust(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateless, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDeployment, true)
 	defer ctrl.Finish()
 
 	_, err := s.client.RbacV1().Roles(s.namespace).Create(context.Background(), &rbacv1.Role{

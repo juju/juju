@@ -20,14 +20,14 @@ import (
 // defined.
 func (a *app) Scale(scaleTo int) error {
 	switch a.deploymentType {
-	case k8s.K8sDeploymentStateful:
+	case k8s.WorkloadTypeStatefulSet:
 		return scale.PatchReplicasToScale(
 			context.Background(),
 			a.name,
 			int32(scaleTo),
 			scale.StatefulSetScalePatcher(a.client.AppsV1().StatefulSets(a.namespace)),
 		)
-	case k8s.K8sDeploymentStateless:
+	case k8s.WorkloadTypeDeployment:
 		return scale.PatchReplicasToScale(
 			context.Background(),
 			a.name,
@@ -45,7 +45,7 @@ func (a *app) Scale(scaleTo int) error {
 // many units is Kubernetes currently running for application x.
 func (a *app) currentScale(ctx context.Context) (int, error) {
 	switch a.deploymentType {
-	case k8s.K8sDeploymentStateful:
+	case k8s.WorkloadTypeStatefulSet:
 		ss, err := a.client.AppsV1().StatefulSets(a.namespace).Get(ctx, a.name, meta.GetOptions{})
 		if k8serrors.IsNotFound(err) {
 			err = errors.WithType(err, errors.NotFound)

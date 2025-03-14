@@ -92,7 +92,7 @@ const (
 
 // DeploymentParams defines parameters for specifying how a service is deployed.
 type DeploymentParams struct {
-	DeploymentType k8s.K8sDeploymentType
+	DeploymentType k8s.WorkloadType
 	ServiceType    ServiceType
 }
 
@@ -186,7 +186,7 @@ type Broker interface {
 // individual applications and watching their units.
 type ApplicationBroker interface {
 	// Application returns the broker interface for an Application
-	Application(string, k8s.K8sDeploymentType) Application
+	Application(string, k8s.WorkloadType) Application
 
 	// Units returns all units and any associated filesystems
 	// of the specified application. Filesystems are mounted

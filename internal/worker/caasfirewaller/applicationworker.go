@@ -106,7 +106,7 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 	}
 
 	// TODO(sidecar): support deployment other than statefulset
-	app := w.broker.Application(w.appName, k8s.K8sDeploymentStateful)
+	app := w.broker.Application(w.appName, k8s.WorkloadTypeStatefulSet)
 	w.portMutator = app
 	w.serviceUpdater = app
 

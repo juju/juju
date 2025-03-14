@@ -124,7 +124,7 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 	gomock.InOrder(
 		s.firewallerAPI.EXPECT().WatchApplication(gomock.Any(), s.appName).Return(s.appsWatcher, nil),
 		s.portService.EXPECT().WatchOpenedPortsForApplication(gomock.Any(), s.appUUID).Return(s.portsWatcher, nil),
-		s.broker.EXPECT().Application(s.appName, k8s.K8sDeploymentStateful).Return(s.brokerApp),
+		s.broker.EXPECT().Application(s.appName, k8s.WorkloadTypeStatefulSet).Return(s.brokerApp),
 
 		// initial fetch.
 		s.portService.EXPECT().GetApplicationOpenedPortsByEndpoint(gomock.Any(), s.appUUID).Return(network.GroupedPortRanges{}, nil),

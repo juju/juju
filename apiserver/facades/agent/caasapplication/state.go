@@ -111,5 +111,5 @@ type Unit interface {
 
 // Broker contains methods from the caas.Broker interface used by the caasapplication facade.
 type Broker interface {
-	Application(string, k8s.K8sDeploymentType) caas.Application
+	Application(string, k8s.WorkloadType) caas.Application
 }

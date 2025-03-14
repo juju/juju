@@ -111,7 +111,7 @@ func (a *appWorker) loop() error {
 	defer cancel()
 
 	// TODO(sidecar): support more than statefulset
-	app := a.broker.Application(a.name, k8s.K8sDeploymentStateful)
+	app := a.broker.Application(a.name, k8s.WorkloadTypeStatefulSet)
 
 	// If the application no longer exists, return immediately. If it's in
 	// Dead state, ensure it's deleted and terminated.

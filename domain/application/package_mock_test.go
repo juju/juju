@@ -41,7 +41,7 @@ func (m *MockBroker) EXPECT() *MockBrokerMockRecorder {
 }
 
 // Application mocks base method.
-func (m *MockBroker) Application(arg0 string, arg1 k8s.K8sDeploymentType) caas.Application {
+func (m *MockBroker) Application(arg0 string, arg1 k8s.WorkloadType) caas.Application {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0, arg1)
 	ret0, _ := ret[0].(caas.Application)
@@ -67,13 +67,13 @@ func (c *MockBrokerApplicationCall) Return(arg0 caas.Application) *MockBrokerApp
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBrokerApplicationCall) Do(f func(string, k8s.K8sDeploymentType) caas.Application) *MockBrokerApplicationCall {
+func (c *MockBrokerApplicationCall) Do(f func(string, k8s.WorkloadType) caas.Application) *MockBrokerApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerApplicationCall) DoAndReturn(f func(string, k8s.K8sDeploymentType) caas.Application) *MockBrokerApplicationCall {
+func (c *MockBrokerApplicationCall) DoAndReturn(f func(string, k8s.WorkloadType) caas.Application) *MockBrokerApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

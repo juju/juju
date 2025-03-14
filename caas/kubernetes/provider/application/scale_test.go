@@ -16,7 +16,7 @@ import (
 )
 
 func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
@@ -30,7 +30,7 @@ func (s *applicationSuite) TestApplicationScaleStateful(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateless, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeDeployment, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
 	c.Assert(app.Scale(20), jc.ErrorIsNil)
@@ -44,14 +44,14 @@ func (s *applicationSuite) TestApplicationScaleStateless(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
 	c.Assert(app.Scale(-1), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *applicationSuite) TestCurrentScale(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, false, "", func() {})
 
 	c.Assert(app.Scale(3), jc.ErrorIsNil)

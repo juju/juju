@@ -726,7 +726,7 @@ func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID st
 // Broker provides access to the k8s cluster to guery the scale
 // of a specified application.
 type Broker interface {
-	Application(string, k8s.K8sDeploymentType) caas.Application
+	Application(string, k8s.WorkloadType) caas.Application
 }
 
 // GetApplicationLife looks up the life of the specified application, returning

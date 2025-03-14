@@ -94,7 +94,7 @@ type app struct {
 	modelUUID      string
 	modelName      string
 	legacyLabels   bool
-	deploymentType k8s.K8sDeploymentType
+	deploymentType k8s.WorkloadType
 	client         kubernetes.Interface
 	newWatcher     k8swatcher.NewK8sWatcherFunc
 	clock          clock.Clock
@@ -112,7 +112,7 @@ func NewApplication(
 	modelUUID string,
 	modelName string,
 	legacyLabels bool,
-	deploymentType k8s.K8sDeploymentType,
+	deploymentType k8s.WorkloadType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
@@ -139,7 +139,7 @@ func newApplication(
 	modelUUID string,
 	modelName string,
 	legacyLabels bool,
-	deploymentType k8s.K8sDeploymentType,
+	deploymentType k8s.WorkloadType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
 	clock clock.Clock,
@@ -255,7 +255,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	}
 
 	switch a.deploymentType {
-	case k8s.K8sDeploymentStateful:
+	case k8s.WorkloadTypeStatefulSet:
 		if err := a.configureHeadlessService(a.name, a.annotations(config)); err != nil {
 			return errors.Annotatef(err, "creating or updating headless service for %q %q", a.deploymentType, a.name)
 		}
@@ -320,7 +320,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 
 		applier.Apply(&statefulset)
-	case k8s.K8sDeploymentStateless:
+	case k8s.WorkloadTypeDeployment:
 		exists := true
 		d, getErr := a.getDeployment()
 		if errors.Is(getErr, errors.NotFound) {
@@ -368,7 +368,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 
 		applier.Apply(&deployment)
-	case k8s.K8sDeploymentDaemon:
+	case k8s.WorkloadTypeDaemonSet:
 		storageUniqueID, err := a.getStorageUniqPrefix(func() (annotationGetter, error) {
 			return a.getDaemonSet()
 		})
@@ -567,7 +567,7 @@ func (a *app) upgradeHeadlessService(applier resources.Applier, ver semversion.N
 
 func (a *app) upgradeMainResource(applier resources.Applier, ver semversion.Number) error {
 	switch a.deploymentType {
-	case k8s.K8sDeploymentStateful:
+	case k8s.WorkloadTypeStatefulSet:
 		if err := a.upgradeHeadlessService(applier, ver); err != nil {
 			return errors.Trace(err)
 		}
@@ -591,9 +591,9 @@ func (a *app) upgradeMainResource(applier resources.Applier, ver semversion.Numb
 		ss.SetAnnotations(a.upgradeAnnotations(annotations.New(ss.GetAnnotations()), ver))
 		applier.Apply(ss)
 		return nil
-	case k8s.K8sDeploymentStateless:
+	case k8s.WorkloadTypeDeployment:
 		return errors.NotSupportedf("upgrade for deployment type %q", a.deploymentType)
-	case k8s.K8sDeploymentDaemon:
+	case k8s.WorkloadTypeDaemonSet:
 		return errors.NotSupportedf("upgrade for deployment type %q", a.deploymentType)
 	default:
 		return errors.NotSupportedf("unknown deployment type %q", a.deploymentType)
@@ -618,13 +618,13 @@ func (a *app) Exists() (caas.DeploymentState, error) {
 		{"serviceAccount", a.serviceAccountExists, false},
 	}
 	switch a.deploymentType {
-	case k8s.K8sDeploymentStateful:
+	case k8s.WorkloadTypeStatefulSet:
 		checks[0].label = "statefulset"
 		checks[0].check = a.statefulSetExists
-	case k8s.K8sDeploymentStateless:
+	case k8s.WorkloadTypeDeployment:
 		checks[0].label = "deployment"
 		checks[0].check = a.deploymentExists
-	case k8s.K8sDeploymentDaemon:
+	case k8s.WorkloadTypeDaemonSet:
 		checks[0].label = "daemonset"
 		checks[0].check = a.daemonSetExists
 	default:
@@ -826,7 +826,7 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 	}
 
 	switch a.deploymentType {
-	case k8s.K8sDeploymentStateful:
+	case k8s.WorkloadTypeStatefulSet:
 		ss := resources.NewStatefulSet(a.name, a.namespace, nil)
 		if err := ss.Get(context.Background(), a.client); err != nil {
 			return errors.Trace(err)
@@ -834,7 +834,7 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 
 		updatePodSpec(&ss.StatefulSet.Spec.Template.Spec, containerPorts)
 		applier.Apply(ss)
-	case k8s.K8sDeploymentStateless:
+	case k8s.WorkloadTypeDeployment:
 		d := resources.NewDeployment(a.name, a.namespace, nil)
 		if err := d.Get(context.Background(), a.client); err != nil {
 			return errors.Trace(err)
@@ -842,7 +842,7 @@ func (a *app) updateContainerPorts(applier resources.Applier, ports []corev1.Ser
 
 		updatePodSpec(&d.Deployment.Spec.Template.Spec, containerPorts)
 		applier.Apply(d)
-	case k8s.K8sDeploymentDaemon:
+	case k8s.WorkloadTypeDaemonSet:
 		d := resources.NewDaemonSet(a.name, a.namespace, nil)
 		if err := d.Get(context.Background(), a.client); err != nil {
 			return errors.Trace(err)
@@ -995,12 +995,12 @@ func (a *app) Delete() error {
 	logger.Debugf(context.TODO(), "deleting %s application", a.name)
 	applier := a.newApplier()
 	switch a.deploymentType {
-	case k8s.K8sDeploymentStateful:
+	case k8s.WorkloadTypeStatefulSet:
 		applier.Delete(resources.NewStatefulSet(a.name, a.namespace, nil))
 		applier.Delete(resources.NewService(HeadlessServiceName(a.name), a.namespace, nil))
-	case k8s.K8sDeploymentStateless:
+	case k8s.WorkloadTypeDeployment:
 		applier.Delete(resources.NewDeployment(a.name, a.namespace, nil))
-	case k8s.K8sDeploymentDaemon:
+	case k8s.WorkloadTypeDaemonSet:
 		applier.Delete(resources.NewDaemonSet(a.name, a.namespace, nil))
 	default:
 		return errors.NotSupportedf("unknown deployment type")
@@ -1048,11 +1048,11 @@ func (a *app) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	)
 	var informer cache.SharedIndexInformer
 	switch a.deploymentType {
-	case k8s.K8sDeploymentStateful:
+	case k8s.WorkloadTypeStatefulSet:
 		informer = factory.Apps().V1().StatefulSets().Informer()
-	case k8s.K8sDeploymentStateless:
+	case k8s.WorkloadTypeDeployment:
 		informer = factory.Apps().V1().Deployments().Informer()
-	case k8s.K8sDeploymentDaemon:
+	case k8s.WorkloadTypeDaemonSet:
 		informer = factory.Apps().V1().DaemonSets().Informer()
 	default:
 		return nil, errors.NotSupportedf("unknown deployment type")
@@ -1081,7 +1081,7 @@ func (a *app) WatchReplicas() (watcher.NotifyWatcher, error) {
 func (a *app) State() (caas.ApplicationState, error) {
 	state := caas.ApplicationState{}
 	switch a.deploymentType {
-	case k8s.K8sDeploymentStateful:
+	case k8s.WorkloadTypeStatefulSet:
 		ss := resources.NewStatefulSet(a.name, a.namespace, nil)
 		err := ss.Get(context.Background(), a.client)
 		if err != nil {
@@ -1091,7 +1091,7 @@ func (a *app) State() (caas.ApplicationState, error) {
 			return caas.ApplicationState{}, errors.Errorf("missing replicas")
 		}
 		state.DesiredReplicas = int(*ss.Spec.Replicas)
-	case k8s.K8sDeploymentStateless:
+	case k8s.WorkloadTypeDeployment:
 		d := resources.NewDeployment(a.name, a.namespace, nil)
 		err := d.Get(context.Background(), a.client)
 		if err != nil {
@@ -1101,7 +1101,7 @@ func (a *app) State() (caas.ApplicationState, error) {
 			return caas.ApplicationState{}, errors.Errorf("missing replicas")
 		}
 		state.DesiredReplicas = int(*d.Spec.Replicas)
-	case k8s.K8sDeploymentDaemon:
+	case k8s.WorkloadTypeDaemonSet:
 		d := resources.NewDaemonSet(a.name, a.namespace, nil)
 		err := d.Get(context.Background(), a.client)
 		if err != nil {
@@ -1161,7 +1161,7 @@ func (a *app) Service() (*caas.Service, error) {
 func (a *app) computeStatus(ctx context.Context, client kubernetes.Interface, now time.Time) (string, status.Status, time.Time, error) {
 	jujuStatus := status.Waiting
 	switch a.deploymentType {
-	case k8s.K8sDeploymentStateful:
+	case k8s.WorkloadTypeStatefulSet:
 		ss, err := a.getStatefulSet()
 		if err != nil {
 			return "", jujuStatus, now, errors.Trace(err)
@@ -1218,7 +1218,7 @@ func (a *app) Units() ([]caas.Unit, error) {
 			Address:  p.Status.PodIP,
 			Ports:    ports,
 			Dying:    terminated,
-			Stateful: a.deploymentType == k8s.K8sDeploymentStateful,
+			Stateful: a.deploymentType == k8s.WorkloadTypeStatefulSet,
 			Status: status.StatusInfo{
 				Status:  unitStatus,
 				Message: statusMessage,

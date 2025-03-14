@@ -95,7 +95,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *gc.C) {
 	done := make(chan struct{})
 
 	gomock.InOrder(
-		broker.EXPECT().Application("test", k8s.K8sDeploymentStateful).Return(brokerApp),
+		broker.EXPECT().Application("test", k8s.WorkloadTypeStatefulSet).Return(brokerApp),
 		facade.EXPECT().Life(gomock.Any(), "test").DoAndReturn(func(ctx context.Context, appName string) (life.Value, error) {
 			close(done)
 			return "", errors.NotFoundf("test charm")
@@ -121,7 +121,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *gc.C) {
 	done := make(chan struct{})
 
 	gomock.InOrder(
-		broker.EXPECT().Application("test", k8s.K8sDeploymentStateful).Return(app),
+		broker.EXPECT().Application("test", k8s.WorkloadTypeStatefulSet).Return(app),
 		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Dead, nil),
 		ops.EXPECT().AppDying(gomock.Any(), "test", app, life.Dead, facade, unitFacade, s.logger).Return(nil),
 		ops.EXPECT().AppDead(gomock.Any(), "test", app, broker, facade, unitFacade, clk, s.logger).
@@ -161,7 +161,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	ops.EXPECT().RefreshApplicationStatus(gomock.Any(), "test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
 	gomock.InOrder(
-		broker.EXPECT().Application("test", k8s.K8sDeploymentStateful).Return(app),
+		broker.EXPECT().Application("test", k8s.WorkloadTypeStatefulSet).Return(app),
 		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 
 		ops.EXPECT().CheckCharmFormat(gomock.Any(), "test", gomock.Any(), gomock.Any()).Return(true, nil),
@@ -264,7 +264,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 	ops.EXPECT().RefreshApplicationStatus(gomock.Any(), "test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
 	gomock.InOrder(
-		broker.EXPECT().Application("test", k8s.K8sDeploymentStateful).Return(app),
+		broker.EXPECT().Application("test", k8s.WorkloadTypeStatefulSet).Return(app),
 		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 
 		ops.EXPECT().CheckCharmFormat(gomock.Any(), "test", gomock.Any(), gomock.Any()).Return(true, nil),
@@ -339,7 +339,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *gc.C) {
 	ops.EXPECT().RefreshApplicationStatus(gomock.Any(), "test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
 	gomock.InOrder(
-		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
+		broker.EXPECT().Application("test", k8s.WorkloadTypeDeployment).Return(app),
 		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 
 		ops.EXPECT().CheckCharmFormat(gomock.Any(), "test", gomock.Any(), gomock.Any()).Return(true, nil),

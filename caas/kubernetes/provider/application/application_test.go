@@ -77,7 +77,7 @@ func (s *applicationSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *applicationSuite) getApp(c *gc.C, deploymentType k8s.K8sDeploymentType, mockApplier bool) (application.ApplicationInterfaceForTest, *gomock.Controller) {
+func (s *applicationSuite) getApp(c *gc.C, deploymentType k8s.WorkloadType, mockApplier bool) (application.ApplicationInterfaceForTest, *gomock.Controller) {
 	watcherFn := k8swatcher.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
 		if s.k8sWatcherFn == nil {
 			return nil, errors.NewNotFound(nil, "undefined k8sWatcherFn for base test")
@@ -452,7 +452,7 @@ func (s *applicationSuite) assertDelete(c *gc.C, app caas.Application) {
 }
 
 func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
@@ -540,7 +540,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 }
 
 func (s *applicationSuite) TestEnsureStatefulRootless35(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, true, "3.5-beta1", func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
@@ -647,7 +647,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *gc.C) {
 }
 
 func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, true, "3.6-beta3", func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
@@ -736,7 +736,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 }
 
 func (s *applicationSuite) TestEnsureTrusted(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {},
 	)
@@ -744,7 +744,7 @@ func (s *applicationSuite) TestEnsureTrusted(c *gc.C) {
 }
 
 func (s *applicationSuite) TestEnsureUntrusted(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
@@ -752,7 +752,7 @@ func (s *applicationSuite) TestEnsureUntrusted(c *gc.C) {
 }
 
 func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 
 	podSpec := getPodSpec31()
 	podSpec.ImagePullSecrets = append(
@@ -848,7 +848,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 }
 
 func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateless, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeDeployment, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
 			ss, err := s.client.AppsV1().Deployments("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
@@ -921,7 +921,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 }
 
 func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentDaemon, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeDaemonSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, false, "", func() {
 			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
@@ -1001,7 +1001,7 @@ func (s *applicationSuite) TestExistsNotSupported(c *gc.C) {
 func (s *applicationSuite) TestExistsDeployment(c *gc.C) {
 	now := metav1.Now()
 
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateless, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeDeployment, false)
 	// Deployment does not exists.
 	result, err := app.Exists()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1040,7 +1040,7 @@ func (s *applicationSuite) TestExistsDeployment(c *gc.C) {
 func (s *applicationSuite) TestExistsStatefulSet(c *gc.C) {
 	now := metav1.Now()
 
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	// Statefulset does not exists.
 	result, err := app.Exists()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1080,7 +1080,7 @@ func (s *applicationSuite) TestExistsStatefulSet(c *gc.C) {
 func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
 	now := metav1.Now()
 
-	app, _ := s.getApp(c, k8s.K8sDeploymentDaemon, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeDaemonSet, false)
 	// Daemonset does not exists.
 	result, err := app.Exists()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1118,7 +1118,7 @@ func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
 
 // Test upgrades are performed by ensure. Regression bug for lp1997253
 func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.34", func() {
 		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -1162,7 +1162,7 @@ func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 }
 
 func (s *applicationSuite) TestDeleteStateful(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateful, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeStatefulSet, true)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -1181,7 +1181,7 @@ func (s *applicationSuite) TestDeleteStateful(c *gc.C) {
 }
 
 func (s *applicationSuite) TestDeleteStateless(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateless, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDeployment, true)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -1199,7 +1199,7 @@ func (s *applicationSuite) TestDeleteStateless(c *gc.C) {
 }
 
 func (s *applicationSuite) TestDeleteDaemon(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentDaemon, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDaemonSet, true)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -1230,7 +1230,7 @@ func (s *applicationSuite) TestWatchNotsupported(c *gc.C) {
 }
 
 func (s *applicationSuite) TestWatch(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentDaemon, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDaemonSet, true)
 	defer ctrl.Finish()
 
 	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
@@ -1250,7 +1250,7 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 }
 
 func (s *applicationSuite) TestWatchReplicas(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentDaemon, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDaemonSet, true)
 	defer ctrl.Finish()
 
 	s.k8sWatcherFn = func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
@@ -1275,7 +1275,7 @@ func (s *applicationSuite) TestStateNotSupported(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown deployment type not supported`)
 }
 
-func (s *applicationSuite) assertState(c *gc.C, deploymentType k8s.K8sDeploymentType, createMainResource func() int) {
+func (s *applicationSuite) assertState(c *gc.C, deploymentType k8s.WorkloadType, createMainResource func() int) {
 	app, ctrl := s.getApp(c, deploymentType, false)
 	defer ctrl.Finish()
 
@@ -1316,7 +1316,7 @@ func (s *applicationSuite) assertState(c *gc.C, deploymentType k8s.K8sDeployment
 }
 
 func (s *applicationSuite) TestStateStateful(c *gc.C) {
-	s.assertState(c, k8s.K8sDeploymentStateful, func() int {
+	s.assertState(c, k8s.WorkloadTypeStatefulSet, func() int {
 		desiredReplicas := 10
 
 		dmr := &appsv1.StatefulSet{
@@ -1344,7 +1344,7 @@ func (s *applicationSuite) TestStateStateful(c *gc.C) {
 }
 
 func (s *applicationSuite) TestStateStateless(c *gc.C) {
-	s.assertState(c, k8s.K8sDeploymentStateless, func() int {
+	s.assertState(c, k8s.WorkloadTypeDeployment, func() int {
 		desiredReplicas := 10
 
 		dmr := &appsv1.Deployment{
@@ -1372,7 +1372,7 @@ func (s *applicationSuite) TestStateStateless(c *gc.C) {
 }
 
 func (s *applicationSuite) TestStateDaemon(c *gc.C) {
-	s.assertState(c, k8s.K8sDeploymentDaemon, func() int {
+	s.assertState(c, k8s.WorkloadTypeDaemonSet, func() int {
 		desiredReplicas := 10
 
 		dmr := &appsv1.DaemonSet{
@@ -1425,7 +1425,7 @@ func getDefaultSvc() *corev1.Service {
 }
 
 func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateless, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDeployment, true)
 	defer ctrl.Finish()
 
 	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
@@ -1554,7 +1554,7 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *gc.C)
 }
 
 func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateful, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeStatefulSet, true)
 	defer ctrl.Finish()
 
 	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
@@ -1683,7 +1683,7 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *gc.C) 
 }
 
 func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentDaemon, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDaemonSet, true)
 	defer ctrl.Finish()
 
 	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
@@ -1772,7 +1772,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *gc.C) {
 }
 
 func (s *applicationSuite) TestUpdatePortsInvalidProtocol(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateful, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeStatefulSet, true)
 	defer ctrl.Finish()
 
 	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
@@ -1789,7 +1789,7 @@ func (s *applicationSuite) TestUpdatePortsInvalidProtocol(c *gc.C) {
 }
 
 func (s *applicationSuite) TestUpdatePortsWithExistingPorts(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateful, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeStatefulSet, true)
 	defer ctrl.Finish()
 
 	existingSvc := getDefaultSvc()
@@ -1883,7 +1883,7 @@ func (s *applicationSuite) TestUpdatePortsWithExistingPorts(c *gc.C) {
 }
 
 func (s *applicationSuite) TestUpdatePortsStateless(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateless, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDeployment, true)
 	defer ctrl.Finish()
 
 	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
@@ -1917,7 +1917,7 @@ func (s *applicationSuite) TestUpdatePortsStateless(c *gc.C) {
 }
 
 func (s *applicationSuite) TestUpdatePortsStateful(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentStateful, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeStatefulSet, true)
 	defer ctrl.Finish()
 
 	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
@@ -1951,7 +1951,7 @@ func (s *applicationSuite) TestUpdatePortsStateful(c *gc.C) {
 }
 
 func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *gc.C) {
-	app, ctrl := s.getApp(c, k8s.K8sDeploymentDaemon, true)
+	app, ctrl := s.getApp(c, k8s.WorkloadTypeDaemonSet, true)
 	defer ctrl.Finish()
 
 	_, err := s.client.CoreV1().Services("test").Create(context.Background(), getDefaultSvc(), metav1.CreateOptions{})
@@ -1985,7 +1985,7 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdate(c *gc.C) {
 }
 
 func (s *applicationSuite) TestUnits(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 
 	for i := 0; i < 9; i++ {
 		podSpec := getPodSpec31()
@@ -2522,7 +2522,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) TestServiceActive(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
@@ -2561,7 +2561,7 @@ func (s *applicationSuite) TestServiceActive(c *gc.C) {
 }
 
 func (s *applicationSuite) TestServiceNotSupportedDaemon(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentDaemon, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeDaemonSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
@@ -2574,11 +2574,11 @@ func (s *applicationSuite) TestServiceNotSupportedDaemon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = app.Service()
-	c.Assert(err, gc.ErrorMatches, `deployment type "daemon" not supported`)
+	c.Assert(err, gc.ErrorMatches, `deployment type "DaemonSet" not supported`)
 }
 
 func (s *applicationSuite) TestServiceNotSupportedStateless(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateless, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeDeployment, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
@@ -2591,11 +2591,11 @@ func (s *applicationSuite) TestServiceNotSupportedStateless(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = app.Service()
-	c.Assert(err, gc.ErrorMatches, `deployment type "stateless" not supported`)
+	c.Assert(err, gc.ErrorMatches, `deployment type "Deployment" not supported`)
 }
 
 func (s *applicationSuite) TestServiceTerminated(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
@@ -2635,7 +2635,7 @@ func (s *applicationSuite) TestServiceTerminated(c *gc.C) {
 }
 
 func (s *applicationSuite) TestServiceError(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, false, false, "", func() {},
 	)
@@ -2694,7 +2694,7 @@ func (s *applicationSuite) TestServiceError(c *gc.C) {
 }
 
 func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
@@ -2794,7 +2794,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 }
 
 func (s *applicationSuite) TestPullSecretUpdate(c *gc.C) {
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 
 	unusedPullSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2941,7 +2941,7 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 		corev1.ResourceMemory: *k8sresource.NewQuantity(1024*1024*1024, k8sresource.BinarySI),
 	}
 
-	app, _ := s.getApp(c, k8s.K8sDeploymentStateful, false)
+	app, _ := s.getApp(c, k8s.WorkloadTypeStatefulSet, false)
 	s.assertEnsure(
 		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})

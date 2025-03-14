@@ -20,15 +20,15 @@ var _ = gc.Suite(&brokerSuite{})
 
 func (s *brokerSuite) TestDeploymentTypeValidation(c *gc.C) {
 
-	validTypes := []k8s.K8sDeploymentType{
-		k8s.K8sDeploymentStateful,
-		k8s.K8sDeploymentStateless,
-		k8s.K8sDeploymentDaemon,
-		k8s.K8sDeploymentType(""), // TODO(caas): change deployment to mandatory.
+	validTypes := []k8s.WorkloadType{
+		k8s.WorkloadTypeStatefulSet,
+		k8s.WorkloadTypeDeployment,
+		k8s.WorkloadTypeDaemonSet,
+		k8s.WorkloadType(""), // TODO(caas): change deployment to mandatory.
 	}
 	for _, t := range validTypes {
 		c.Check(t.Validate(), jc.ErrorIsNil)
 	}
 
-	c.Assert(k8s.K8sDeploymentType("bad type").Validate(), jc.ErrorIs, errors.NotSupported)
+	c.Assert(k8s.WorkloadType("bad type").Validate(), jc.ErrorIs, errors.NotSupported)
 }
