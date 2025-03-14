@@ -67,11 +67,13 @@ You can set the base for the machines provisioned by Juju for your application's
 juju deploy ubuntu --base ubuntu@20.04
 ```
 
-**Set the machine base after deployment.** (*starting with Juju 4.0, this is no longer possible*) To set the machine base after deployment, run the `set-application-base` command followed by the name of the application and the desired compatible base. (This will affect any future units added to the application.) For example:
+**Set the machine base after deployment.** (*starting with Juju 4.0, this is no longer possible*) To set the machine base after deployment (i.e., for machines provisioned for future units of the application, if any), run the `set-application-base` command followed by the name of the application and the desired compatible base. (This will affect any future units added to the application.) For example:
 
 ```text
 juju set-application-base ubuntu ubuntu@20.04
 ```
+
+Note that the charm's current revision must support the base you want to switch to.
 
 > See more: {ref}`command-juju-set-application-base`
 
