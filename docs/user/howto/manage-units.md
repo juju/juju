@@ -3,7 +3,7 @@
 
 > See also: {ref}`unit`
 
-This document demonstrates various operations that you can perform on a unit. 
+This document demonstrates various operations that you can perform on a unit.
 
 ```{important}
 Units are also relevant when adding storage or scaling an application. See {ref}`manage-storage` and {ref}`manage-aplications`.
@@ -21,7 +21,7 @@ This is only true for machine deployments. For Kubernetes, see [How to control t
 juju add-unit mysql
 ```
 
-By using various command options, you can also specify the number of units, the model, the kind of storage, the target machine (e.g., if you want to collocate multiple units of the same or of different applications on the same machine -- though watch out for potentials configuration clashes!), etc. 
+By using various command options, you can also specify the number of units, the model, the kind of storage, the target machine (e.g., if you want to collocate multiple units of the same or of different applications on the same machine -- though watch out for potentials configuration clashes!), etc.
 
 
 > See more: {ref}`command-juju-add-unit`
@@ -35,7 +35,7 @@ The procedure depends on whether you are on machines or rather Kubernetes.
 
 > See more: {ref}`add-a-unit`, {ref}`remove-a-unit`
 
-**Kubernetes.** To control the number of an application's units in a Kubernetes deployment, run the `scale-application` command followed by the number of desired units (which can be both higher and lower than the current number). 
+**Kubernetes.** To control the number of an application's units in a Kubernetes deployment, run the `scale-application` command followed by the number of desired units (which can be both higher and lower than the current number).
 
 ```text
 juju scale-application mediawiki 3
@@ -43,7 +43,8 @@ juju scale-application mediawiki 3
 
 > See more: {ref}`command-juju-scale-application`
 
-## Show details about a unit
+(view-details-about-a-unit)=
+## View details about a unit
 
 To see more details about a unit, use the `show-unit` command followed by the unit name:
 
@@ -81,11 +82,11 @@ Model           Controller           Cloud/Region        Version  SLA          T
 tutorial-model  tutorial-controller  microk8s/localhost  2.9.34   unsupported  12:10:16+02:00
 
 App             Version                         Status  Scale  Charm           Channel  Rev  Address         Exposed  Message
-mattermost-k8s  .../mattermost:v6.6.0-20.04...  active      1  mattermost-k8s  stable    21  10.152.183.185  no       
+mattermost-k8s  .../mattermost:v6.6.0-20.04...  active      1  mattermost-k8s  stable    21  10.152.183.185  no
 postgresql-k8s  .../postgresql@ed0e37f          active      1  postgresql-k8s  stable     4                  no       Pod configured
 
 Unit               Workload  Agent  Address       Ports     Message
-mattermost-k8s/0*  active    idle   10.1.179.151  8065/TCP  
+mattermost-k8s/0*  active    idle   10.1.179.151  8065/TCP
 postgresql-k8s/0*  active    idle   10.1.179.149  5432/TCP  Pod configured
 ```
 
