@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
+	pkissh "github.com/juju/juju/internal/pki/ssh"
 )
 
 // ControllerConfigService is the interface that the worker uses to get the
@@ -115,9 +116,22 @@ func (ssw *serverWrapperWorker) loop() error {
 
 	port := config.SSHServerPort()
 
+	// TODO(ale8k): As of right now, the generated host key is in mongo.
+	// The initialisation logic needs migrating over to DQLite and then
+	// a domain service should call the method to retrieve the generated
+	// host key here. For now, we'll generate it to stop the server bouncing.
+	//
+	// We could access state directly in the worker here, but 4.0 isn't
+	// released yet anyway.
+	hostKey, err := pkissh.NewMarshalledED25519()
+	if err != nil {
+		return errors.Annotatef(err, "failed to ensure ssh server host key")
+	}
+
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
 		Logger:               ssw.config.Logger,
 		NewSSHServerListener: ssw.config.NewSSHServerListener,
+		JumpHostKey:          string(hostKey), // TODO(ale8k): Use generated hostkey from initialise()
 		Port:                 port,
 	})
 	if err != nil {
