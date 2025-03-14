@@ -120,7 +120,7 @@ juju deploy ./mini_ubuntu-20.04-amd64.charm
 ````{dropdown} Example: Deploy a local charm with a resource
 
 
-If your charm's `metadata.yaml` specifies a {ref}`resource <resource-charm>`, you must also explicitly pass the resource. For example:
+If your charm's `metadata.yaml` specifies a {ref}`resource <charm-resource>`, you must also explicitly pass the resource. For example:
 
 ```text
 juju deploy ./demo-api-charm_ubuntu-22.04-amd64.charm --resource \
@@ -228,7 +228,7 @@ When deploying, if Juju fails to provision a subset of machines for some reason 
 
 ```
 
-````{dropdown} Expand to view examples of using a placement directive to deploy to specific targets
+````{dropdown} Examples: Use a placement directive to deploy to specific targets
 
 > See also: {ref}`placement-directive`
 
@@ -264,6 +264,208 @@ juju deploy mariadb-k8s --to kubernetes.io/hostname=somehost
 ````
 
 > See more: {ref}`command-juju-deploy`
+
+(debug-a-charm)=
+## Debug a charm
+
+To debug a charm:
+
+- Carefully review `juju status` (if there are relations: `juju status --relations`). If a charm is in `blocked` state, there might be a message about steps to unblock.
+
+> See more: {ref}`command-juju-status`
+
+- Examine the Juju agent and the charm logs.
+
+> See more: {ref}`manage-logs`
+
+- Take a closer look at the application and its units.
+
+> See more: {ref}`view-details-about-an-application`, {ref}`view-details-about-a-unit`
+
+- (For a Kubernetes charm with a workload:) SSH into the workload container and view the Pebble plan.
+
+````{dropdown} Example
+
+```text
+$ juju ssh --container concourse-worker concourse-worker/0
+# /charm/bin/pebble plan
+services:
+    concourse-worker:
+        summary: concourse worker node
+        startup: enabled
+        override: replace
+        command: /usr/local/bin/entrypoint.sh worker
+        environment:
+            CONCOURSE_BAGGAGECLAIM_DRIVER: overlay
+            CONCOURSE_TSA_HOST: 10.1.234.43:2222
+            CONCOURSE_TSA_PUBLIC_KEY: /concourse-keys/tsa_host_key.pub
+            CONCOURSE_TSA_WORKER_PRIVATE_KEY: /concourse-keys/worker_key
+            CONCOURSE_WORK_DIR: /opt/concourse/worker
+```
+
+In some cases, your workload container might not allow you to run things in it, if, for instance, it’s based on a “scratch” image. To get around this, you can run the same command from your charm container with a small modification to point to the correct location for the pebble socket.
+
+```text
+$ juju ssh concourse-worker/0
+# PEBBLE_SOCKET=/charm/containers/concourse-worker/pebble.socket /charm/bin/pebble plan
+services:
+    concourse-worker:
+        summary: concourse worker node
+        startup: enabled
+        override: replace
+        command: /usr/local/bin/entrypoint.sh worker
+        environment:
+            CONCOURSE_BAGGAGECLAIM_DRIVER: overlay
+            CONCOURSE_TSA_HOST: 10.1.234.43:2222
+            CONCOURSE_TSA_PUBLIC_KEY: /concourse-keys/tsa_host_key.pub
+            CONCOURSE_TSA_WORKER_PRIVATE_KEY: /concourse-keys/worker_key
+            CONCOURSE_WORK_DIR: /opt/concourse/worker
+```
+````
+> See more: {ref}`deploying-on-a-kubernetes-cloud`, [Pebble](https://documentation.ubuntu.com/pebble/)
+
+
+- (If the charm is involved in a relation:) Take a look at the relation data:
+
+```text
+$ juju exec --unit your-charm/0 "relation-ids foo"
+foo:123
+$  juju exec --unit your-charm/0 "relation-list -r bar:foo"
+other-charm/0
+$ juju exec --unit nova-compute/0 "relation-get -r foo:30 - other-charm/0"
+hostname: 1.2.3.4
+password: passw0rd
+private-address: 2.3.45.
+somekey: somedata
+```
+
+> See more: {ref}`hook-command-relation-ids`, {ref}`hook-command-relation-list`, {ref}`hook-command-relation-get`
+
+- Debug a single failing hook:
+
+```text
+juju debug-hooks mysql/0                     # for any hook
+juju debug-hooks mysql/0 X-relation-changed  # for a specific hook
+```
+
+The command launches a tmux session that will intercept matching hooks and/or
+actions, which you can then execute manually by running `./dispatch`.
+
+> See more: {ref}`command-juju-debug-hooks`
+
+`````{dropdown} Tips
+A debugging session lands you in `/var/lib/juju`, and as soon as a hook fires, the tmux session automatically takes you to `/var/lib/juju/agents/unit-mysql-0/charm`.
+
+There, you need to execute hook manually. This means running `./dispatch`, which launches your charm code with the current hook's context.
+
+You can run `./dispatch` multiple times, modifying your charm code in between, as your investigation progresses. You could:
+
+- directly edit src/charm.py in the tmux session; or
+- manually sync with `juju scp` or `rsync`; or
+- automatically sync with `jhack sync`; etc.
+
+Moreover, if you (temporarily) include `import pdb; pdb.set_trace()` anywhere in your code, then you’ll be placed in a `pdb` session whenever `./dispatch` encounters a `set_trace()` statement.
+
+For example:
+
+1. Run `juju debug-hooks mysql/0 X-relation-joined`.
+1. Create the integration (`juju integrate` ...).
+1. Wait for the `debug-hooks` session to start.
+1. Start a `jhack sync` session including whatever file is surfacing the error:
+    1. `cd` into the charm root folder on your local filesystem.
+    1. If the code raising the exception is in `/lib` or `/src`, you don’t have to do anything special. If not, check the documentation for `jhack sync` to see how you can include the file.
+    1. Run `jhack sync <name of broken unit>`. <br> This will start listening for changes in your local tree and push them to the unit. Whatever edits you make locally will be ssh’d into the live running unit.
+1. Write wherever you like: `import pdb; pdb.set_trace()` and save (so that `jhack` will sync the change).
+1. In the `debug-hooks` shell, type `./dispatch` (a small shell script located in the charm folder on the unit that executes the charm code).
+1. Welcome to `pdb`.
+
+This recipe is interesting because it allows you to run the same event handler over and over while making changes to the code. You can run `./dispatch`, debug at will, exit the debugger. Remove the `pdb` call, try dispatching again. Once, twice… Is the bug gone? Very well, you’re done. Not gone? Rinse and repeat.
+
+````{dropdown} Example: Debug a tracing relation in a testing environment
+
+```text
+# in shell A
+$ juju debug-hooks tester/0 tracing-relation-joined
+
+# in shell B
+$ jhack nuke tester:tracing
+$ juju relate tester tempo
+
+# in shell A
+[...]
+./dispatch
+tmux kill-session -t tester/0 # or, equivalently, CTRL+a d
+# CTRL+a is tmux prefix.
+
+root@tester-0:/var/lib/juju/agents/unit-tester-0/charm#
+
+
+# in shell B
+$ cd /path/to/tester/charm/root
+$ jhack sync tester/0
+
+$ vim ./src/charm.py
+[...]
+# insert at some line:
+#import pdb; pdb.set_trace(header="hello debugger-world")
+```
+
+At this point you're all set. If you save the file, `jhack sync` will push it to `tester/0`. That means that if you dispatch the event, you will execute the code you just changed.
+
+```bash
+# in shell A:
+$ ./dispatch
+hello debugger-world
+> /var/lib/juju/agents/unit-tester-0/charm/src/charm.py(34)__init__()
+-> self.container: Container = self.unit.get_container(self._container_name)
+(Pdb) self
+<__main__.TempoTesterCharm object at 0x7f3af724e370>
+(Pdb)
+```
+
+````
+
+`````
+
+- (For charms built with Ops and equipped with [`pdb`](https://docs.python.org/3/library/pdb.html) breakpoints:) Step into a live debugger:
+
+```text
+juju debug-code --at=hook <unit>
+```
+
+> See more: {ref}`command-juju-debug-code`
+
+- Debug a flow: Use [`jhack`](https://snapcraft.io/jhack) (esp. [`jhack sync`](https://github.com/canonical/jhack#sync)), [`rsync`](https://linux.die.net/man/1/rsync), {ref}`command-juju-ssh`.
+
+
+`````{dropdown} Tips
+1. Start a `jhack sync` session on the charm root (see note in recipe 1).
+1. `jhack fire` the event you wish to debug or work on the unit you're syncing to.
+1. Look at the logging or the resulting state (charm status, app data, workload config, etc...).
+
+What is good about this flow is that:
+
+1. You're not forced to wait for an event to occur "for real" in order to execute the handler for it.
+1. You can easily test several handlers in succession by firing different events. For example, `relation-created`, `relation-changed` ...
+
+What is risky about this flow is that the context that the event normally occurs in is not granted to be there. If you `jhack fire X-relation-created` while in fact there is no relation X, your charm might make some bad assumptions (which is why you should always write your charm code making basically no assumptions).
+
+````{dropdown} Example: Debug a tracing relation in a testing environment
+
+Working with the same example as in the case where we were trying to debug a single failing hook above, the commands would be:
+
+```text
+# in shell A
+$ cd /path/to/tester/charm/root
+$ jhack sync tester/0
+
+# in shell B
+jhack fire tester/0 tracing-relation-changed
+```
+
+That's it. In your editor you can locally make any change you like to the tester source, and when you're done you can manually trigger the event.
+````
+`````
 
 (update-a-charm)=
 ## Update a charm
