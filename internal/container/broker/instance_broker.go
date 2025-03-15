@@ -5,8 +5,6 @@ package broker
 
 import (
 	"context"
-	"io"
-	"os"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,9 +26,8 @@ import (
 type NewBrokerFunc func(Config) (environs.InstanceBroker, error)
 
 var (
-	systemNetworkInterfacesFile = "/etc/network/interfaces"
-	systemNetplanDirectory      = "/etc/netplan"
-	activateBridgesTimeout      = 5 * time.Minute
+	systemNetplanDirectory = "/etc/netplan"
+	activateBridgesTimeout = 5 * time.Minute
 )
 
 // NetConfigFunc returns a slice of NetworkConfig from a source config.
@@ -108,49 +105,21 @@ func New(config Config) (environs.InstanceBroker, error) {
 
 func prepareHost(config Config) PrepareHostFunc {
 	return func(ctx context.Context, containerTag names.MachineTag, logger corelogger.Logger, abort <-chan struct{}) error {
+		bridger, err := network.DefaultNetplanBridger(activateBridgesTimeout, systemNetplanDirectory)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		preparer := NewHostPreparer(HostPreparerParams{
 			API:                config.APICaller,
 			ObserveNetworkFunc: observeNetwork(config),
 			AcquireLockFunc:    acquireLock(config),
-			CreateBridger:      defaultBridger,
+			Bridger:            bridger,
 			AbortChan:          abort,
 			MachineTag:         config.MachineTag,
 			Logger:             logger,
 		})
 		return errors.Trace(preparer.Prepare(ctx, containerTag))
-	}
-}
-
-// Patch for testing.
-var (
-	openFunc    = os.Open
-	readDirFunc = func(f *os.File, n int) (names []string, err error) {
-		return f.Readdirnames(n)
-	}
-)
-
-func isDirectoryEmpty(directory string) (bool, error) {
-	f, err := openFunc(directory)
-	if err != nil {
-		return false, err
-	}
-	defer func() { _ = f.Close() }()
-
-	_, err = readDirFunc(f, 1)
-	if err == io.EOF {
-		return true, nil
-	}
-
-	return false, err
-}
-
-// defaultBridger will prefer to use netplan if there is an /etc/netplan directory
-// and it is not empty, falling back to ENI if the directory doesn't exist or is empty.
-func defaultBridger() (network.Bridger, error) {
-	if empty, err := isDirectoryEmpty(systemNetplanDirectory); (err == nil) && !empty {
-		return network.DefaultNetplanBridger(activateBridgesTimeout, systemNetplanDirectory)
-	} else {
-		return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, systemNetworkInterfacesFile)
 	}
 }
 
