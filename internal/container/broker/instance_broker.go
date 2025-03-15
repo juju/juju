@@ -105,23 +105,22 @@ func New(config Config) (environs.InstanceBroker, error) {
 
 func prepareHost(config Config) PrepareHostFunc {
 	return func(ctx context.Context, containerTag names.MachineTag, logger corelogger.Logger, abort <-chan struct{}) error {
+		bridger, err := network.DefaultNetplanBridger(activateBridgesTimeout, systemNetplanDirectory)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		preparer := NewHostPreparer(HostPreparerParams{
 			API:                config.APICaller,
 			ObserveNetworkFunc: observeNetwork(config),
 			AcquireLockFunc:    acquireLock(config),
-			CreateBridger:      defaultBridger,
+			Bridger:            bridger,
 			AbortChan:          abort,
 			MachineTag:         config.MachineTag,
 			Logger:             logger,
 		})
 		return errors.Trace(preparer.Prepare(ctx, containerTag))
 	}
-}
-
-// defaultBridger will prefer to use netplan if there is an /etc/netplan directory
-// and it is not empty, falling back to ENI if the directory doesn't exist or is empty.
-func defaultBridger() (network.Bridger, error) {
-	return network.DefaultNetplanBridger(activateBridgesTimeout, systemNetplanDirectory)
 }
 
 // acquireLock tries to grab the machine lock (initLockName), and either

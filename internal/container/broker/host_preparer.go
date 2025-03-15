@@ -34,7 +34,7 @@ type HostPreparerParams struct {
 	API                PrepareAPI
 	ObserveNetworkFunc func() ([]params.NetworkConfig, error)
 	AcquireLockFunc    func(string, <-chan struct{}) (func(), error)
-	CreateBridger      func() (network.Bridger, error)
+	Bridger            network.Bridger
 	AbortChan          <-chan struct{}
 	MachineTag         names.MachineTag
 	Logger             corelogger.Logger
@@ -46,7 +46,7 @@ type HostPreparer struct {
 	api                PrepareAPI
 	observeNetworkFunc func() ([]params.NetworkConfig, error)
 	acquireLockFunc    func(string, <-chan struct{}) (func(), error)
-	createBridger      func() (network.Bridger, error)
+	bridger            network.Bridger
 	abortChan          <-chan struct{}
 	machineTag         names.MachineTag
 	logger             corelogger.Logger
@@ -58,7 +58,7 @@ func NewHostPreparer(params HostPreparerParams) *HostPreparer {
 		api:                params.API,
 		observeNetworkFunc: params.ObserveNetworkFunc,
 		acquireLockFunc:    params.AcquireLockFunc,
-		createBridger:      params.CreateBridger,
+		bridger:            params.Bridger,
 		abortChan:          params.AbortChan,
 		machineTag:         params.MachineTag,
 		logger:             params.Logger,
@@ -84,15 +84,10 @@ func (hp *HostPreparer) Prepare(ctx context.Context, containerTag names.MachineT
 		return nil
 	}
 
-	bridger, err := hp.createBridger()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	hp.logger.Debugf(ctx, "bridging %+v devices on host %q for container %q",
 		devicesToBridge, hp.machineTag.String(), containerTag.String())
 
-	err = bridger.Bridge(devicesToBridge)
+	err = hp.bridger.Bridge(devicesToBridge)
 	if err != nil {
 		return errors.Annotate(err, "failed to bridge devices")
 	}

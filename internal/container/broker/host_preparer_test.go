@@ -89,16 +89,6 @@ func (br *stubBridger) Bridge(devices []network.DeviceToBridge) error {
 	return nil
 }
 
-func (s *hostPreparerSuite) createStubBridger() (network.Bridger, error) {
-	s.Stub.AddCall("CreateBridger")
-	if err := s.Stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return &stubBridger{
-		s.Stub,
-	}, nil
-}
-
 type cannedNetworkObserver struct {
 	*jujutesting.Stub
 	config []params.NetworkConfig
@@ -123,7 +113,7 @@ func (s *hostPreparerSuite) createPreparerParams(c *gc.C, bridges []network.Devi
 			requestedBridges: bridges,
 		},
 		AcquireLockFunc:    s.acquireStubLock,
-		CreateBridger:      s.createStubBridger,
+		Bridger:            &stubBridger{s.Stub},
 		ObserveNetworkFunc: observer.ObserveNetwork,
 		MachineTag:         names.NewMachineTag("1"),
 		Logger:             loggertesting.WrapCheckLog(c),
@@ -209,8 +199,6 @@ func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *gc.C) {
 			FuncName: "HostChangesForContainer",
 			Args:     []interface{}{containerTag},
 		}, {
-			FuncName: "CreateBridger",
-		}, {
 			FuncName: "Bridge",
 			Args:     []interface{}{devices},
 		}, {
@@ -240,8 +228,6 @@ func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *gc.C) {
 		}, {
 			FuncName: "HostChangesForContainer",
 			Args:     []interface{}{containerTag},
-		}, {
-			FuncName: "CreateBridger",
 		}, {
 			FuncName: "Bridge",
 			Args:     []interface{}{devices},
@@ -283,7 +269,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *gc.C) {
 	s.Stub.SetErrors(
 		nil, // AcquireLock
 		nil, // HostChangesForContainer
-		errors.New("unable to find python interpreter"), // CreateBridger
+		errors.New("unable to find python interpreter"), // Bridge
 		nil, //Release
 	)
 	devices := []network.DeviceToBridge{{
@@ -293,7 +279,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *gc.C) {
 	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(context.Background(), containerTag)
-	c.Check(err, gc.ErrorMatches, "unable to find python interpreter")
+	c.Check(err, gc.ErrorMatches, ".*unable to find python interpreter")
 
 	s.Stub.CheckCalls(c, []jujutesting.StubCall{
 		{
@@ -302,7 +288,8 @@ func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *gc.C) {
 			FuncName: "HostChangesForContainer",
 			Args:     []interface{}{containerTag},
 		}, {
-			FuncName: "CreateBridger",
+			FuncName: "Bridge",
+			Args:     []interface{}{[]network.DeviceToBridge{{DeviceName: "eth0", BridgeName: "br-eth0", MACAddress: ""}}},
 		}, {
 			FuncName: "Release",
 		},
@@ -332,7 +319,6 @@ func (s *hostPreparerSuite) TestPrepareHostNoLock(c *gc.C) {
 func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *gc.C) {
 	s.Stub.SetErrors(
 		nil, // HostChangesForContainer
-		nil, // CreateBridger
 		nil, // AcquireLock
 		errors.New("script invocation error: IOError"), // Bridge
 	)
@@ -351,8 +337,6 @@ func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *gc.C) {
 			FuncName: "HostChangesForContainer",
 			Args:     []interface{}{containerTag},
 		}, {
-			FuncName: "CreateBridger",
-		}, {
 			FuncName: "Bridge",
 			Args:     []interface{}{devices},
 		}, {
@@ -369,7 +353,6 @@ func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *gc.C) {
 func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *gc.C) {
 	s.Stub.SetErrors(
 		nil, // HostChangesForContainer
-		nil, // CreateBridger
 		nil, // AcquireLock
 		nil, // BridgeBridgeFailure
 		errors.New("cannot get network interfaces: enoent"), // GetObservedNetworkConfig
@@ -389,8 +372,6 @@ func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *gc.C) {
 			FuncName: "HostChangesForContainer",
 			Args:     []interface{}{containerTag},
 		}, {
-			FuncName: "CreateBridger",
-		}, {
 			FuncName: "Bridge",
 			Args:     []interface{}{devices},
 		}, {
@@ -405,7 +386,6 @@ func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *gc.C) {
 func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *gc.C) {
 	s.Stub.SetErrors(
 		nil,                             // HostChangesForContainer
-		nil,                             // CreateBridger
 		nil,                             // AcquireLock
 		nil,                             // BridgeBridgeFailure
 		nil,                             // ObserveNetwork
@@ -425,8 +405,6 @@ func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *gc.C) {
 		}, {
 			FuncName: "HostChangesForContainer",
 			Args:     []interface{}{containerTag},
-		}, {
-			FuncName: "CreateBridger",
 		}, {
 			FuncName: "Bridge",
 			Args:     []interface{}{devices},
