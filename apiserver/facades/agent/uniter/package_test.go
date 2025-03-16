@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -26,10 +27,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/password"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -50,6 +48,10 @@ func TestPackage(t *stdtesting.T) {
 // uniterSuiteBase implements common testing suite for all API versions.
 // It is not intended to be used directly or registered as a suite,
 // but embedded.
+//
+// Suites embedding this base are skipped.
+// Testing factory functionality is removed.
+// Deprecated: Retained for test documentation purposes.
 type uniterSuiteBase struct {
 	testing.ApiServerSuite
 
@@ -59,14 +61,6 @@ type uniterSuiteBase struct {
 	leadershipRevoker *leadershipRevoker
 	uniter            *uniter.UniterAPI
 
-	machine0          *state.Machine
-	machine1          *state.Machine
-	wpCharm           state.CharmRefFull
-	wordpress         *state.Application
-	wordpressUnit     *state.Unit
-	mysqlCharm        state.CharmRefFull
-	mysql             *state.Application
-	mysqlUnit         *state.Unit
 	leadershipChecker *fakeLeadershipChecker
 
 	store objectstore.ObjectStore
@@ -94,7 +88,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming the wordpress unit has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.wordpressUnit.Tag(),
+		Tag: names.NewUnitTag("wordpress/0"),
 	}
 	s.leadershipRevoker = &leadershipRevoker{
 		revoked: set.NewStrings(),
@@ -113,44 +107,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 }
 
 // setupState creates 2 machines, 2 services and adds a unit to each service.
-func (s *uniterSuiteBase) setupState(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	s.machine0 = f.MakeMachine(c, &factory.MachineParams{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageModel},
-	})
-	s.machine1 = f.MakeMachine(c, &factory.MachineParams{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
-
-	s.wpCharm = f.MakeCharm(c, &factory.CharmParams{
-		Name:     "wordpress",
-		Revision: "3",
-	})
-	s.wordpress = f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "wordpress",
-		Charm: s.wpCharm,
-	})
-	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
-		Application: s.wordpress,
-		Machine:     s.machine0,
-	})
-
-	s.mysqlCharm = f.MakeCharm(c, &factory.CharmParams{
-		Name: "mysql",
-	})
-	s.mysql = f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "mysql",
-		Charm: s.mysqlCharm,
-	})
-	s.mysqlUnit = f.MakeUnit(c, &factory.UnitParams{
-		Application: s.mysql,
-		Machine:     s.machine1,
-	})
-}
+func (s *uniterSuiteBase) setupState(c *gc.C) {}
 
 func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.ModelContext {
 	return facadetest.ModelContext{
@@ -206,49 +163,7 @@ func (s *uniterSuiteBase) assertInScope(c *gc.C, relUnit *state.RelationUnit, in
 // If we are testing a CAAS model, it is a waste of resources to do preamble
 // for an IAAS model.
 func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAASModel, *state.Application, *state.Unit) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	// For the test to run properly with part of the model in mongo and
-	// part in a service domain, a model with the same uuid is required
-	// in both places for the test to work. Necessary after model config
-	// was move to the domain services.
-	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
-	c.Assert(err, jc.ErrorIsNil)
-
-	st := f.MakeCAASModel(c, &factory.ModelParams{UUID: &modelUUID})
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.CleanupSuite.AddCleanup(func(*gc.C) { _ = st.Close() })
-	cm, err := m.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	f2, release := s.NewFactory(c, m.UUID())
-	defer release()
-
-	app := f2.MakeApplication(
-		c, &factory.ApplicationParams{
-			Name:  "gitlab",
-			Charm: f2.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"}),
-		})
-	unit := f2.MakeUnit(c, &factory.UnitParams{
-		Application: app,
-		SetCharmURL: true,
-	})
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: unit.Tag(),
-	}
-
-	password, err := password.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-
-	api := s.OpenModelAPIAs(c, st.ModelUUID(), unit.Tag(), password, "nonce")
-	u, err := apiuniter.NewFromConnection(api)
-	c.Assert(err, jc.ErrorIsNil)
-	return u, cm, app, unit
+	return nil, nil, nil, nil
 }
 
 type fakeLeadershipChecker struct {
