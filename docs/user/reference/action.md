@@ -3,11 +3,12 @@
 
 > See also: {ref}`manage-actions`
 
-An action is used to perform a named, parameterised operation and report back the results of said operation.
-It is triggered via the {ref}`juju-cli` and applied to one or more {ref}`units <unit>`.
-
 Actions are defined by a  {ref}`charm <charm>` to allow a {ref}`user <user>` with the right {ref}`access level <user-access-levels>` to interact with an {ref}`application <application>` in ways specific to the application.
 This may include anything from creating a snapshot of a database, adding a user to a system, dumping debug information, etc.
+
+An action is triggered via the {ref}`juju-cli` and applied to one or more {ref}`units <unit>`.
+It is run with parameters supplied by the user and records the success/fail status and any results for subsequent perusal. 
+
 
 > See examples: [Charmhub | `kafka` > Actions](https://charmhub.io/kafka/actions), [Charmhub | `prometheus-k8s` > Actions](https://charmhub.io/prometheus-k8s/actions), etc.
 
@@ -19,7 +20,7 @@ of the action process itself, as well as the content of stdout and stderr.
 The execution of an action is organised into {ref}`tasks <task>` and {ref}`operations <operation>`.
 (If an action defines a named unit of work -- e.g., back up the database -- that can be executed on selected units, a task is the execution of the action on each target unit, and an operation is the group of tasks queued by running an action across one or more units.)
 
-The code used to implement an action can call the following hook commands in addition to {ref}`the others <list-of-hook-commands>`:
+The code used to implement an action can call any {ref}`hook command <list-of-hook-commands>` as well as the following action commands:
 * `action-log`: to report a progress message
 * `action-get`: to get the value of a named action parameter as supplied by the user
 * `action-set`: to set a value in the action results map
