@@ -16,8 +16,8 @@ type typeSuite struct{}
 
 var _ = gc.Suite(&typeSuite{})
 
-// TestVersionValidation checks that if we specify valid version attributes
-// validation succeeds.
+// TestVersionValidation verifies that validation succeeds when given valid
+// version attributes.
 func (s *typeSuite) TestVersionValidation(c *gc.C) {
 	v := Version{
 		Number: version.MustParse("4.1.1"),
@@ -27,7 +27,7 @@ func (s *typeSuite) TestVersionValidation(c *gc.C) {
 }
 
 // TestVersionValidationFailsWithZeroVersion checks that if we specify the zero
-// value for the agent version number we get a validation error that satisfies
+// value for the agent version number, we get a validation error that satisfies
 // [coreerrors.NotValid]
 func (s *typeSuite) TestVersionValidationFailsWithZeroVersion(c *gc.C) {
 	v := Version{
@@ -39,7 +39,7 @@ func (s *typeSuite) TestVersionValidationFailsWithZeroVersion(c *gc.C) {
 }
 
 // TestVersionValidationFailsWithUnsupportedArch checks that if we specify an
-// architecture that is unsupported we get back a validation error that
+// architecture that is unsupported, we get back a validation error that
 // satisfies [coreerrors.NotValid].
 func (s *typeSuite) TestVersionValidationFailsWithUnsupportedArch(c *gc.C) {
 	v := Version{
