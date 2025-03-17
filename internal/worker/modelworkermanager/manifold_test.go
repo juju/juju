@@ -31,14 +31,15 @@ import (
 type ManifoldSuite struct {
 	jujutesting.BaseSuite
 
-	authority              pki.Authority
-	manifold               dependency.Manifold
-	getter                 dependency.Getter
-	stateTracker           stubStateTracker
-	logSinkGetter          dummyLogSinkGetter
-	domainServicesGetter   services.DomainServicesGetter
-	providerServicesGetter services.ProviderServicesGetter
-	httpClientGetter       http.HTTPClientGetter
+	authority                pki.Authority
+	manifold                 dependency.Manifold
+	getter                   dependency.Getter
+	stateTracker             stubStateTracker
+	logSinkGetter            dummyLogSinkGetter
+	domainServicesGetter     services.DomainServicesGetter
+	controllerDomainServices services.ControllerDomainServices
+	providerServicesGetter   services.ProviderServicesGetter
+	httpClientGetter         http.HTTPClientGetter
 
 	logger logger.Logger
 
@@ -61,6 +62,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.pool = &state.StatePool{}
 	s.stateTracker = stubStateTracker{pool: s.pool, state: s.state}
 	s.domainServicesGetter = stubDomainServicesGetter{}
+	s.controllerDomainServices = stubControllerDomainServices{}
 	s.providerServicesGetter = stubProviderServicesGetter{}
 	s.httpClientGetter = stubHTTPclientGetter{}
 	s.stub.ResetCalls()
@@ -98,7 +100,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"authority":         s.authority,
 		"state":             &s.stateTracker,
 		"log-sink":          s.logSinkGetter,
-		"domain-services":   s.domainServicesGetter,
+		"domain-services":   []any{s.domainServicesGetter, s.controllerDomainServices},
 		"provider-services": s.providerServicesGetter,
 		"http-client":       s.httpClientGetter,
 	}
@@ -169,17 +171,17 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 
 	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
 		Authority:    s.authority,
-		ModelWatcher: s.state,
 		ModelMetrics: dummyModelMetrics{},
 		Controller: modelworkermanager.StatePoolController{
 			StatePool: s.pool,
 		},
-		ErrorDelay:             jworker.RestartDelay,
-		Logger:                 s.logger,
-		LogSinkGetter:          dummyLogSinkGetter{},
-		ProviderServicesGetter: providerServicesGetter{},
-		DomainServicesGetter:   s.domainServicesGetter,
-		HTTPClientGetter:       s.httpClientGetter,
+		ErrorDelay:               jworker.RestartDelay,
+		Logger:                   s.logger,
+		LogSinkGetter:            dummyLogSinkGetter{},
+		ProviderServicesGetter:   providerServicesGetter{},
+		ControllerDomainServices: s.controllerDomainServices,
+		DomainServicesGetter:     s.domainServicesGetter,
+		HTTPClientGetter:         s.httpClientGetter,
 	})
 }
 
@@ -247,4 +249,8 @@ func (s providerServicesGetter) ServicesForModel(_ string) modelworkermanager.Pr
 
 type stubHTTPclientGetter struct {
 	http.HTTPClientGetter
+}
+
+type stubControllerDomainServices struct {
+	services.ControllerDomainServices
 }

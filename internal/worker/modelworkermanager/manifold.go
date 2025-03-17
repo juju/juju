@@ -142,6 +142,11 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var controllerDomainServices services.ControllerDomainServices
+	if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var httpClientGetter http.HTTPClientGetter
 	if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
 		return nil, errors.Trace(err)
@@ -156,7 +161,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	if err := getter.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	statePool, systemState, err := stTracker.Use()
+	statePool, _, err := stTracker.Use()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -164,18 +169,18 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	w, err := config.NewWorker(Config{
 		Authority:    authority,
 		Logger:       config.Logger,
-		ModelWatcher: systemState,
 		ModelMetrics: config.ModelMetrics,
 		Controller: StatePoolController{
 			StatePool: statePool,
 		},
-		LogSinkGetter:          logSinkGetter,
-		NewModelWorker:         config.NewModelWorker,
-		ErrorDelay:             jworker.RestartDelay,
-		DomainServicesGetter:   domainServicesGetter,
-		ProviderServicesGetter: providerServicesGetter,
-		HTTPClientGetter:       httpClientGetter,
-		GetControllerConfig:    config.GetControllerConfig,
+		LogSinkGetter:            logSinkGetter,
+		NewModelWorker:           config.NewModelWorker,
+		ErrorDelay:               jworker.RestartDelay,
+		DomainServicesGetter:     domainServicesGetter,
+		ControllerDomainServices: controllerDomainServices,
+		ProviderServicesGetter:   providerServicesGetter,
+		HTTPClientGetter:         httpClientGetter,
+		GetControllerConfig:      config.GetControllerConfig,
 	})
 	if err != nil {
 		_ = stTracker.Done()
