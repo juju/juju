@@ -9,9 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	corearch "github.com/juju/juju/core/arch"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	cmachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
@@ -762,4 +766,46 @@ func (s *serviceSuite) TestSetLXDProfilesError(c *gc.C) {
 
 	err := NewService(s.state).SetAppliedLXDProfileNames(context.Background(), "666", []string{"profile1", "profile2"})
 	c.Check(err, jc.ErrorIs, rErr)
+}
+
+// TestSetReportedMachineAgentVersionInvalid is here to assert that if pass a
+// junk agent binary version to [Service.SetReportedMachineAgentVersion] we get
+// back an error that satisfies [coreerrors.NotValid].
+func (s *serviceSuite) TestSetReportedMachineAgentVersionInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := NewService(s.state).SetReportedMachineAgentVersion(
+		context.Background(),
+		cmachine.Name("0"),
+		coreagentbinary.Version{
+			Number: version.Zero,
+		},
+	)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestSetReportedMachineAgentVersionSuccess asserts that if try to set the
+// reported agent version for a machine that doesn't exist we get an error
+// satisfying [machineerrors.MachineNotFound]
+func (s *serviceSuite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().SetRunningAgentBinaryVersion(
+		gomock.Any(),
+		cmachine.Name("0"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	).Return(machineerrors.MachineNotFound)
+
+	err := NewService(s.state).SetReportedMachineAgentVersion(
+		context.Background(),
+		cmachine.Name("0"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
