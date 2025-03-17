@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/api/base"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/logger"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	portservice "github.com/juju/juju/domain/port/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
@@ -36,8 +38,6 @@ type manifoldSuite struct {
 	client         *mocks.MockClient
 	domainServices *mocks.MockModelDomainServices
 
-	ctrl *gomock.Controller
-
 	logger logger.Logger
 }
 
@@ -48,15 +48,23 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.ResetCalls()
 
 	s.logger = loggertesting.WrapCheckLog(c)
+}
 
-	s.ctrl = gomock.NewController(c)
-	s.apiCaller = mocks.NewMockAPICaller(s.ctrl)
-	s.broker = caasmocks.NewMockBroker(s.ctrl)
-	s.client = mocks.NewMockClient(s.ctrl)
-	s.domainServices = mocks.NewMockModelDomainServices(s.ctrl)
+func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.apiCaller = mocks.NewMockAPICaller(ctrl)
+	s.broker = caasmocks.NewMockBroker(ctrl)
+	s.client = mocks.NewMockClient(ctrl)
+
+	s.domainServices = mocks.NewMockModelDomainServices(ctrl)
+	s.domainServices.EXPECT().Port().Return(nil).AnyTimes()
+	s.domainServices.EXPECT().Application().Return(nil).AnyTimes()
 
 	s.getter = s.newGetter(nil)
 	s.manifold = caasfirewaller.Manifold(s.validConfig())
+
+	return ctrl
 }
 
 func (s *manifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
@@ -100,36 +108,48 @@ func (s *manifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 }
 
 func (s *manifoldSuite) TestMissingControllerUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	config := s.validConfig()
 	config.ControllerUUID = ""
 	s.checkConfigInvalid(c, config, "empty ControllerUUID not valid")
 }
 
 func (s *manifoldSuite) TestMissingModelUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	config := s.validConfig()
 	config.ModelUUID = ""
 	s.checkConfigInvalid(c, config, "empty ModelUUID not valid")
 }
 
 func (s *manifoldSuite) TestMissingAPICallerName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	config := s.validConfig()
 	config.APICallerName = ""
 	s.checkConfigInvalid(c, config, "empty APICallerName not valid")
 }
 
 func (s *manifoldSuite) TestMissingBrokerName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	config := s.validConfig()
 	config.BrokerName = ""
 	s.checkConfigInvalid(c, config, "empty BrokerName not valid")
 }
 
 func (s *manifoldSuite) TestMissingNewWorker(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	config := s.validConfig()
 	config.NewWorker = nil
 	s.checkConfigInvalid(c, config, "nil NewWorker not valid")
 }
 
 func (s *manifoldSuite) TestMissingLogger(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	config := s.validConfig()
 	config.Logger = nil
 	s.checkConfigInvalid(c, config, "nil Logger not valid")
@@ -144,10 +164,14 @@ func (s *manifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewaller.Manifo
 var expectedInputs = []string{"api-caller", "broker", "domain-services"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
 }
 
 func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	for _, input := range expectedInputs {
 		getter := s.newGetter(map[string]interface{}{
 			input: dependency.ErrMissing,
@@ -158,6 +182,8 @@ func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
@@ -166,11 +192,13 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	s.CheckCall(c, 0, "NewClient", s.apiCaller)
 
 	s.CheckCall(c, 1, "NewWorker", caasfirewaller.Config{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
-		FirewallerAPI:  s.client,
-		LifeGetter:     s.client,
-		Broker:         s.broker,
-		Logger:         s.logger,
+		ControllerUUID:     coretesting.ControllerTag.Id(),
+		ModelUUID:          coretesting.ModelTag.Id(),
+		FirewallerAPI:      s.client,
+		LifeGetter:         s.client,
+		Broker:             s.broker,
+		Logger:             s.logger,
+		PortService:        (*portservice.WatchableService)(nil),
+		ApplicationService: (*applicationservice.WatchableService)(nil),
 	})
 }
