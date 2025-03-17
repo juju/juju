@@ -226,6 +226,19 @@ type MachineService interface {
 // RelationService defines the methods that the facade assumes from the
 // Relation service.
 type RelationService interface {
+	// EnterScope indicates that the provided unit has joined the relation.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
+	//     scope is a subordinate and the endpoint scope is charm.ScopeContainer
+	//     where the other application is a principal, but not in the current
+	//     relation.
+	EnterScope(
+		ctx context.Context,
+		relationID corerelation.UUID,
+		unitName coreunit.Name,
+	) error
+
 	// GetLocalRelationApplicationSettings returns the application settings
 	// for the given application and relation identifier combination.
 	// ApplicationSettings may only be read by the application leader.
@@ -288,6 +301,9 @@ type RelationService interface {
 		relationUUID corerelation.UUID,
 		applicationID coreapplication.ID,
 	) (map[string]string, error)
+
+	// LeaveScope updates the given relation to indicate it is not in scope.
+	LeaveScope(ctx context.Context, relationID corerelation.UnitUUID) error
 
 	// SetRelationStatus sets the status of the relation to the status provided.
 	// Status may only be set by the application leader.

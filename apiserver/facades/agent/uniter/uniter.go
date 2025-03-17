@@ -37,6 +37,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -1326,69 +1327,49 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	one := func(relTag string, unitTag names.UnitTag) error {
-		rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
-		if err != nil {
-			return err
-		}
-		relUnit, err := rel.Unit(unit)
-		if err != nil {
-			return err
-		}
 
-		valid, err := relUnit.Valid()
-		if err != nil {
-			return err
-		}
-		if !valid {
-			principalName, _ := unit.PrincipalName()
-			u.logger.Debugf(context.TODO(), "ignoring %q EnterScope for %q - unit has invalid principal %q",
-				unit.Name(), rel.String(), principalName)
-			return nil
-		}
-
-		netInfo, err := NewNetworkInfo(ctx, u.st, u.clock, u.networkService, u.modelConfigService, unitTag, u.logger)
-		if err != nil {
-			return err
-		}
-
-		settings := map[string]interface{}{}
-		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel)
-		if err == nil && len(ingressAddresses) > 0 {
-			ingressAddress := ingressAddresses[0].Value
-			// private-address is historically a cloud local address for the machine.
-			// Existing charms are built to ask for this attribute from relation
-			// settings to find out what address to use to connect to the app
-			// on the other side of a relation. For cross model scenarios, we'll
-			// replace this with possibly a public address; we expect to fix more
-			// charms than we break - breakage will not occur for correctly written
-			// charms, since the semantics of this value dictates the use case described.
-			// Any other use goes against the intended purpose of this value.
-			settings["private-address"] = ingressAddress
-			// ingress-address is the preferred settings attribute name as it more accurately
-			// reflects the purpose of the attribute value. We'll deprecate private-address.
-			settings["ingress-address"] = ingressAddress
-		} else if err != nil {
-			u.logger.Warningf(context.TODO(), "cannot set ingress/egress addresses for unit %v in relation %v: %v",
-				unitTag.Id(), relTag, err)
-		}
-		if len(egressSubnets) > 0 {
-			settings["egress-subnets"] = strings.Join(egressSubnets, ",")
-		}
-		return relUnit.EnterScope(settings)
-	}
 	for i, arg := range args.RelationUnits {
 		tag, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = one(arg.Relation, tag)
+		err = u.oneEnterScope(ctx, canAccess, arg.Relation, tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc, relTagStr string, unitTag names.UnitTag) error {
+	if !canAccess(unitTag) {
+		return apiservererrors.ErrPerm
+	}
+
+	relKey, err := corerelation.ParseKeyFromTagString(relTagStr)
+	if err != nil {
+		return apiservererrors.ErrPerm
+	}
+
+	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
+	if errors.Is(err, errors.NotFound) {
+		return apiservererrors.ErrPerm
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	unitName, err := coreunit.NewName(unitTag.Id())
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	err = u.relationService.EnterScope(ctx, relUUID, unitName)
+	if internalerrors.Is(err, relationerrors.PotentialRelationUnitNotValid) {
+		u.logger.Debugf(ctx, "ignoring %q EnterScope for %q, not valid", unitName, relKey.String())
+		return nil
+	}
+	return internalerrors.Capture(err)
 }
 
 // LeaveScope signals each unit has left its scope in the relation,
@@ -1403,18 +1384,36 @@ func (u *UniterAPI) LeaveScope(ctx context.Context, args params.RelationUnits) (
 		return params.ErrorResults{}, err
 	}
 	for i, arg := range args.RelationUnits {
-		unit, err := names.ParseUnitTag(arg.Unit)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
-		if err == nil {
-			err = relUnit.LeaveScope()
-		}
+		err := u.oneLeaveScope(ctx, canAccess, arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) oneLeaveScope(ctx context.Context, canAccess common.AuthFunc, arg params.RelationUnit) error {
+	unit, err := names.ParseUnitTag(arg.Unit)
+	if err != nil {
+		return err
+	}
+	if !canAccess(unit) {
+		return apiservererrors.ErrPerm
+	}
+	relKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
+	if err != nil {
+		return apiservererrors.ErrPerm
+	}
+	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
+	if errors.Is(err, errors.NotFound) {
+		// TODO: update error type once it exists in the domain.
+		return apiservererrors.ErrPerm
+	} else if err != nil {
+		return internalerrors.Capture(err)
+	}
+	relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, coreunit.Name(unit.Id()))
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+	return u.relationService.LeaveScope(ctx, relUnitUUID)
 }
 
 // ReadSettings returns the local settings of each given set of
