@@ -111,8 +111,8 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"k8s_pod",
 		"unit_agent_status_value",
 		"unit_agent_status",
-		"unit_agent",
 		"unit_agent_presence",
+		"unit_agent_version",
 		"unit_constraint",
 		"unit_principal",
 		"unit_resolve_kind",
@@ -130,9 +130,9 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Machine
 		"machine",
+		"machine_agent_version",
 		"machine_parent",
 		"machine_constraint",
-		"machine_agent",
 		"machine_agent_presence",
 		"machine_volume",
 		"machine_filesystem",

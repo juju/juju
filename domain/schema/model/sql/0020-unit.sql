@@ -65,27 +65,18 @@ CREATE TABLE unit_principal (
     REFERENCES unit (uuid)
 );
 
-CREATE TABLE unit_agent (
-    unit_uuid TEXT NOT NULL,
-    url TEXT NOT NULL,
-    version_major INT NOT NULL,
-    version_minor INT NOT NULL,
-    version_tag TEXT,
-    version_patch INT NOT NULL,
-    version_build INT,
-    hash TEXT NOT NULL,
-    hash_kind_id INT NOT NULL DEFAULT 0,
-    binary_size INT NOT NULL,
-    CONSTRAINT fk_unit_agent_unit
+-- unit_agent_version tracks the reported agent version running for each
+-- unit.
+CREATE TABLE unit_agent_version (
+    unit_uuid TEXT NOT NULL PRIMARY KEY,
+    version TEXT NOT NULL,
+    architecture_id INT NOT NULL,
+    CONSTRAINT fk_unit_agent_version_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
-    CONSTRAINT fk_unit_agent_hash_kind
-    FOREIGN KEY (hash_kind_id)
-    REFERENCES hash_kind (id),
-    CONSTRAINT fk_object_store_metadata_path_unit
-    FOREIGN KEY (url)
-    REFERENCES object_store_metadata_path (path),
-    PRIMARY KEY (unit_uuid, url)
+    CONSTRAINT fk_unit_agent_version_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id)
 );
 
 CREATE TABLE unit_state (

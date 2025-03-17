@@ -173,7 +173,7 @@ func (st *State) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, 
 	unit := minimalUnit{UUID: unitUUID}
 
 	for _, table := range []string{
-		"unit_agent",
+		"unit_agent_version",
 		"unit_state",
 		"unit_state_charm",
 		"unit_state_relation",
@@ -1379,7 +1379,7 @@ func (st *State) setUnitConstraints(ctx context.Context, tx *sqlair.TX, inUnitUU
 
 	selectConstraintUUIDQuery := `
 SELECT &constraintUUID.*
-FROM unit_constraint 
+FROM unit_constraint
 WHERE unit_uuid = $unitConstraintUUID.unit_uuid
 `
 	selectConstraintUUIDStmt, err := st.Prepare(selectConstraintUUIDQuery, constraintUUID{}, unitConstraintUUID{})
@@ -1418,7 +1418,7 @@ WHERE unit_uuid = $unitConstraintUUID.unit_uuid
 	}
 
 	insertConstraintsQuery := `
-INSERT INTO "constraint"(*) 
+INSERT INTO "constraint"(*)
 VALUES ($setConstraint.*)
 ON CONFLICT (uuid) DO UPDATE SET
     arch = excluded.arch,
