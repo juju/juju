@@ -51,7 +51,7 @@ WHERE  uuid = $entityUUID.uuid`, relationUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return errors.Errorf("checking if relation %q exists: %w", rUUID, err)
+			return errors.Errorf("running relation exists query: %w", err)
 		}
 
 		relationExists = true
