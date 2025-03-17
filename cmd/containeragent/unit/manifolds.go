@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
 	"github.com/juju/juju/internal/worker/caasprobebinder"
 	"github.com/juju/juju/internal/worker/caasprober"
-	"github.com/juju/juju/internal/worker/caasunitsmanager"
 	"github.com/juju/juju/internal/worker/caasunitterminationworker"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -416,15 +415,6 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			UniterName:    uniterName,
 		}))),
 
-		// The CAAS units manager worker runs on CAAS agent and subscribes and handles unit topics on the localhub.
-		caasUnitsManager: ifNotDead(caasunitsmanager.Manifold(caasunitsmanager.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Logger:        internallogger.GetLogger("juju.worker.caasunitsmanager"),
-			Hub:           config.LocalHub,
-		})),
-
 		// The secretDrainWorker is the worker that drains secrets from the inactive backend to the current active backend.
 		secretDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
 			APICallerName:         apiCallerName,
@@ -493,7 +483,6 @@ const (
 	apiAddressUpdaterName    = "api-address-updater"
 
 	caasUnitTerminationWorker = "caas-unit-termination-worker"
-	caasUnitsManager          = "caas-units-manager"
 
 	secretDrainWorker = "secret-drain-worker"
 

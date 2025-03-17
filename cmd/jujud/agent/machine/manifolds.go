@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
 	"github.com/juju/juju/internal/worker/authenticationworker"
-	"github.com/juju/juju/internal/worker/caasunitsmanager"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/common"
 	lxdbroker "github.com/juju/juju/internal/worker/containerbroker"
@@ -580,15 +579,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:               internallogger.GetLogger("juju.worker.upgradesteps"),
 			Clock:                config.Clock,
 		}),
-
-		// The CAAS units manager worker runs on CAAS agent and subscribes and handles unit topics on the localhub.
-		caasUnitsManager: caasunitsmanager.Manifold(caasunitsmanager.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Logger:        internallogger.GetLogger("juju.worker.caasunitsmanager"),
-			Hub:           config.LocalHub,
-		}),
 	})
 }
 
@@ -668,8 +658,6 @@ const (
 	lxdContainerProvisioner  = "lxd-container-provisioner"
 
 	traceName = "trace"
-
-	caasUnitsManager = "caas-units-manager"
 
 	validCredentialFlagName = "valid-credential-flag"
 

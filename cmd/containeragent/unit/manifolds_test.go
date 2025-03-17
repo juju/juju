@@ -42,7 +42,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"caas-prober",
 		"caas-unit-termination-worker",
 		"caas-unit-prober-binder",
-		"caas-units-manager",
 		"caas-zombie-prober-binder",
 		"charm-dir",
 		"dead-flag",
@@ -86,7 +85,6 @@ func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *gc.C) {
 		"caas-prober",
 		"caas-unit-prober-binder",
 		"caas-unit-termination-worker",
-		"caas-units-manager",
 		"caas-zombie-prober-binder",
 		"charm-dir",
 		"dead-flag",
@@ -138,7 +136,6 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"upgrade-steps-gate",
 
 		"upgrade-steps-flag",
-		"caas-units-manager",
 
 		"dead-flag",
 		"not-dead-flag",
@@ -311,12 +308,6 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"uniter",
 		"not-dead-flag",
 		"trace",
-	},
-	"caas-units-manager": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"not-dead-flag",
 	},
 	"caas-unit-prober-binder": {
 		"agent",

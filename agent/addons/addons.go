@@ -40,7 +40,6 @@ type IntrospectionConfig struct {
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
 	Clock              clock.Clock
-	LocalHub           introspection.SimpleHub
 	CentralHub         introspection.StructuredHub
 	Logger             logger.Logger
 
@@ -67,8 +66,6 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 		PubSub:             cfg.PubSubReporter,
 		MachineLock:        cfg.MachineLock,
 		PrometheusGatherer: cfg.PrometheusGatherer,
-		Clock:              cfg.Clock,
-		LocalHub:           cfg.LocalHub,
 		CentralHub:         cfg.CentralHub,
 		// TODO(leases) - add lease introspection
 	})

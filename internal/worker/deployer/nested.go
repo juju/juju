@@ -5,7 +5,6 @@ package deployer
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/core/logger"
-	message "github.com/juju/juju/internal/pubsub/agent"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common/reboot"
 )
@@ -67,7 +65,6 @@ type nestedContext struct {
 type ContextConfig struct {
 	Agent                    agent.Agent
 	Clock                    clock.Clock
-	Hub                      Hub
 	Logger                   logger.Logger
 	UnitEngineConfig         func() dependency.EngineConfig
 	SetupLogging             func(logger.LoggerContext, agent.Config)
@@ -82,9 +79,6 @@ func (c *ContextConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing Clock")
-	}
-	if c.Hub == nil {
-		return errors.NotValidf("missing Hub")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing Logger")
@@ -130,7 +124,6 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 			MoreImportant: agenterrors.MoreImportant,
 			RestartDelay:  internalworker.RestartDelay,
 		}),
-		hub:                      config.Hub,
 		rebootMonitorStatePurger: config.RebootMonitorStatePurger,
 	}
 
@@ -138,14 +131,6 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 		nContext.rebootMonitorStatePurger = reboot.NewMonitor(agentConfig.TransientDataDir())
 	}
 
-	unsubStop := nContext.hub.Subscribe(message.StopUnitTopic, nContext.stopUnitRequest)
-	unsubStart := nContext.hub.Subscribe(message.StartUnitTopic, nContext.startUnitRequest)
-	unsubStatus := nContext.hub.Subscribe(message.UnitStatusTopic, nContext.unitStatusRequest)
-	nContext.unsub = func() {
-		unsubStop()
-		unsubStart()
-		unsubStatus()
-	}
 	// Stat all the units that context should have deployed and started.
 	units := nContext.deployedUnits()
 	stopped := nContext.stoppedUnits()
@@ -173,72 +158,6 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 	return nContext, nil
 }
 
-func (c *nestedContext) stopUnitRequest(topic string, data interface{}) {
-	units, ok := data.(message.Units)
-	if !ok {
-		c.logger.Errorf(context.TODO(), "data should be a Units structure")
-	}
-	response := message.StartStopResponse{}
-	for _, unitName := range units.Names {
-		if err := c.stopUnit(unitName); err != nil {
-			response[unitName] = err.Error()
-		} else {
-			response[unitName] = "stopped"
-		}
-	}
-	c.hub.Publish(message.StopUnitResponseTopic, response)
-}
-
-func (c *nestedContext) startUnitRequest(topic string, data interface{}) {
-	units, ok := data.(message.Units)
-	if !ok {
-		c.logger.Errorf(context.TODO(), "data should be a Units structure")
-	}
-	response := message.StartStopResponse{}
-	for _, unitName := range units.Names {
-		if unitAgent, ok := c.units[unitName]; ok && !unitAgent.running() {
-			// Start over with a new agent, we do not know how long it's been lost.
-			newAgent, err := c.newUnitAgent(unitName)
-			if err != nil {
-				response[unitName] = fmt.Sprintf("unable to get new unit agent: %v", err)
-				c.errors[unitName] = err
-				continue
-			}
-			c.units[unitName] = newAgent
-		}
-
-		if err := c.startUnit(unitName); err != nil {
-			response[unitName] = err.Error()
-		} else {
-			response[unitName] = "started"
-		}
-	}
-	c.hub.Publish(message.StartUnitResponseTopic, response)
-}
-
-func (c *nestedContext) unitStatusRequest(topic string, _ interface{}) {
-	c.mu.Lock()
-	agentName := c.agentConfig.Tag()
-	deployed := c.deployedUnits()
-	stopped := c.stoppedUnits()
-	c.mu.Unlock()
-
-	units := make(map[string]string)
-	for _, unitName := range deployed.Values() {
-		status := "running"
-		if stopped.Contains(unitName) {
-			status = "stopped"
-		}
-		units[unitName] = status
-	}
-
-	response := message.Status{
-		"agent": agentName.String(),
-		"units": units,
-	}
-	c.hub.Publish(message.UnitStatusResponseTopic, response)
-}
-
 func (c *nestedContext) newUnitAgent(unitName string) (*UnitAgent, error) {
 	unitConfig := c.baseUnitConfig
 	unitConfig.Name = unitName
@@ -249,11 +168,6 @@ func (c *nestedContext) newUnitAgent(unitName string) (*UnitAgent, error) {
 		err = errors.Cause(err)
 		switch err {
 		case internalworker.ErrTerminateAgent:
-			// Here we just return nil to have the worker Wait function
-			// return nil, so that the start function isn't called again.
-			// We also try to record the unit as "stopped".
-			c.hub.Publish(message.StopUnitTopic,
-				message.Units{Names: []string{unitName}})
 			return nil
 		case internalworker.ErrRestartAgent:
 			// Return a different error that the Runner will not identify

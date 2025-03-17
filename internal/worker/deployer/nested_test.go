@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
@@ -26,8 +25,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	jv "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	internalpubsub "github.com/juju/juju/internal/pubsub"
-	message "github.com/juju/juju/internal/pubsub/agent"
 	jt "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/deployer"
@@ -40,7 +37,6 @@ type NestedContextSuite struct {
 
 	config  deployer.ContextConfig
 	agent   agentconfig.AgentConf
-	hub     *pubsub.SimpleHub
 	workers *unitWorkersStub
 }
 
@@ -49,9 +45,7 @@ var _ = gc.Suite(&NestedContextSuite{})
 func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	logger := loggertesting.WrapCheckLog(c).Child("nested-context")
-	s.hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: internalpubsub.WrapLogger(logger),
-	})
+
 	datadir := c.MkDir()
 	machine := names.NewMachineTag("42")
 	config, err := agent.NewAgentConfig(
@@ -87,7 +81,6 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 	s.config = deployer.ContextConfig{
 		Agent:  s.agent,
 		Clock:  clock.WallClock,
-		Hub:    s.hub,
 		Logger: logger,
 		UnitEngineConfig: func() dependency.EngineConfig {
 			return engine.DependencyEngineConfig(
@@ -112,13 +105,6 @@ func (s *NestedContextSuite) TestConfigMissingClock(c *gc.C) {
 	err := s.config.Validate()
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Clock not valid")
-}
-
-func (s *NestedContextSuite) TestConfigMissingHub(c *gc.C) {
-	s.config.Hub = nil
-	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-	c.Assert(err.Error(), gc.Equals, "missing Hub not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingLogger(c *gc.C) {
@@ -286,144 +272,6 @@ func (s *NestedContextSuite) waitForStoppedCount(c *gc.C, ctx deployer.Context, 
 		}
 	}
 	return report
-}
-
-func (s *NestedContextSuite) TestStopStartUnits(c *gc.C) {
-	ctx := s.newContext(c)
-	s.deployThreeUnits(c, ctx)
-
-	handledBothCalls := make(chan struct{})
-	count := 0
-	unsub := s.hub.Subscribe(message.StopUnitResponseTopic, func(_ string, data interface{}) {
-		c.Check(data, jc.DeepEquals, message.StartStopResponse{
-			"first/0":   "stopped",
-			"second/0":  "stopped",
-			"unknown/2": `unit "unknown/2" not found`,
-		})
-		count++
-		if count == 2 {
-			close(handledBothCalls)
-		}
-	})
-
-	done := s.hub.Publish(message.StopUnitTopic, message.Units{
-		Names: []string{"first/0", "second/0", "unknown/2"},
-	})
-	s.waitForEventHandled(c, pubsub.Wait(done))
-	// Call the stop topic again, and the results are the same.
-	done = s.hub.Publish(message.StopUnitTopic, message.Units{
-		Names: []string{"first/0", "second/0", "unknown/2"},
-	})
-	s.waitForEventHandled(c, pubsub.Wait(done))
-	s.waitForEventHandled(c, handledBothCalls)
-	unsub()
-
-	report := ctx.Report()
-	c.Assert(report["stopped"], jc.DeepEquals, []string{"first/0", "second/0"})
-
-	handledBothCalls = make(chan struct{})
-	count = 0
-	unsub = s.hub.Subscribe(message.StartUnitResponseTopic, func(_ string, data interface{}) {
-		c.Check(data, jc.DeepEquals, message.StartStopResponse{
-			"first/0":   "started",
-			"unknown/2": `unit "unknown/2" not found`,
-		})
-		count++
-		if count == 2 {
-			close(handledBothCalls)
-		}
-	})
-
-	// Start one back up again.
-	done = s.hub.Publish(message.StartUnitTopic, message.Units{
-		Names: []string{"first/0", "unknown/2"},
-	})
-	s.waitForEventHandled(c, pubsub.Wait(done))
-	// Called again gets the same results.
-	done = s.hub.Publish(message.StartUnitTopic, message.Units{
-		Names: []string{"first/0", "unknown/2"},
-	})
-	s.waitForEventHandled(c, pubsub.Wait(done))
-	s.waitForEventHandled(c, handledBothCalls)
-	unsub()
-
-	report = ctx.Report()
-	c.Assert(report["stopped"], jc.DeepEquals, []string{"second/0"})
-}
-
-func (s *NestedContextSuite) TestStartUnitAgent(c *gc.C) {
-	ctx := s.errTerminateAgentFromAgentWorker(c)
-	s.workers.workerError = nil
-
-	handledBothCalls := make(chan struct{})
-	count := 0
-	unsub := s.hub.Subscribe(message.StartUnitResponseTopic, func(_ string, data interface{}) {
-		c.Check(data, jc.DeepEquals, message.StartStopResponse{
-			"something/0": "started",
-			"unknown/2":   `unit "unknown/2" not found`,
-		})
-		count++
-		if count == 2 {
-			close(handledBothCalls)
-		}
-	})
-
-	// Start one back up again.
-	done := s.hub.Publish(message.StartUnitTopic, message.Units{
-		Names: []string{"something/0", "unknown/2"},
-	})
-	s.waitForEventHandled(c, pubsub.Wait(done))
-	// Wait for unit to start.
-	s.workers.waitForStart(c, "something/0")
-
-	// Called again gets the same results.
-	done = s.hub.Publish(message.StartUnitTopic, message.Units{
-		Names: []string{"something/0", "unknown/2"},
-	})
-	s.waitForEventHandled(c, pubsub.Wait(done))
-	s.waitForEventHandled(c, handledBothCalls)
-	unsub()
-
-	report := ctx.Report()
-	c.Assert(report["stopped"], gc.IsNil)
-}
-
-func (s *NestedContextSuite) TestUnitStatus(c *gc.C) {
-	responseHandled := make(chan struct{})
-	unsub := s.hub.Subscribe(message.UnitStatusResponseTopic, func(_ string, payload interface{}) {
-		response := payload.(message.Status) // TODO rename to unit status
-		c.Check(response, jc.DeepEquals, message.Status{
-			"agent": "machine-42",
-			"units": map[string]string{
-				"first/0":  "running",
-				"second/0": "stopped",
-				"third/0":  "running",
-			},
-		})
-		close(responseHandled)
-	})
-	defer unsub()
-
-	ctx := s.newContext(c)
-	s.deployThreeUnits(c, ctx)
-	// And stop one.
-	done := s.hub.Publish(message.StopUnitTopic, message.Units{
-		Names: []string{"second/0"},
-	})
-	s.waitForEventHandled(c, pubsub.Wait(done))
-
-	done = s.hub.Publish(message.UnitStatusTopic, nil)
-	s.waitForEventHandled(c, pubsub.Wait(done))
-	s.waitForEventHandled(c, responseHandled)
-}
-
-func (s *NestedContextSuite) waitForEventHandled(c *gc.C, handled <-chan struct{}) {
-	select {
-	case <-handled:
-		// All good.
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not handled")
-	}
 }
 
 func (s *NestedContextSuite) deployThreeUnits(c *gc.C, ctx deployer.Context) {

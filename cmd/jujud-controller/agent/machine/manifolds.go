@@ -59,7 +59,6 @@ import (
 	"github.com/juju/juju/internal/worker/auditconfigupdater"
 	"github.com/juju/juju/internal/worker/authenticationworker"
 	"github.com/juju/juju/internal/worker/bootstrap"
-	"github.com/juju/juju/internal/worker/caasunitsmanager"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/centralhub"
 	"github.com/juju/juju/internal/worker/certupdater"
@@ -1203,15 +1202,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                config.Clock,
 		}),
 
-		// The CAAS units manager worker runs on CAAS agent and subscribes and handles unit topics on the localhub.
-		caasUnitsManager: caasunitsmanager.Manifold(caasunitsmanager.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			Logger:        internallogger.GetLogger("juju.worker.caasunitsmanager"),
-			Hub:           config.LocalHub,
-		}),
-
 		// DBAccessor is a manifold that provides a DBAccessor worker
 		// that can be used to access the database.
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
@@ -1343,7 +1333,6 @@ const (
 	auditConfigUpdaterName        = "audit-config-updater"
 	authenticationWorkerName      = "ssh-authkeys-updater"
 	brokerTrackerName             = "broker-tracker"
-	caasUnitsManager              = "caas-units-manager"
 	certificateUpdaterName        = "certificate-updater"
 	certificateWatcherName        = "certificate-watcher"
 	changeStreamName              = "change-stream"
