@@ -4,7 +4,6 @@
 package vsphere
 
 import (
-	"context"
 	"fmt"
 	"path"
 	"sync"
@@ -88,8 +87,8 @@ func (env *sessionEnviron) StartInstance(ctx envcontext.ProviderCallContext, arg
 		return nil, errors.Trace(err)
 	}
 
-	logger.Infof(context.TODO(), "started instance %q", vm.Name)
-	logger.Tracef(context.TODO(), "instance data %+v", vm)
+	logger.Infof(ctx, "started instance %q", vm.Name)
+	logger.Tracef(ctx, "instance data %+v", vm)
 	inst := newInstance(vm, env.environ)
 	result := environs.StartInstanceResult{
 		Instance: inst,
@@ -135,7 +134,7 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.
-	logger.Debugf(context.TODO(), "attempting to create VM in availability zone %q", args.AvailabilityZone)
+	logger.Debugf(ctx, "attempting to create VM in availability zone %q", args.AvailabilityZone)
 	availZone, err := env.availZone(ctx, args.AvailabilityZone)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -246,7 +245,7 @@ func (env *sessionEnviron) newRawInstance(
 			errors.Annotate(err, "cannot make user data"),
 		)
 	}
-	logger.Debugf(context.TODO(), "Vmware user data; %d bytes", len(userData))
+	logger.Debugf(ctx, "Vmware user data; %d bytes", len(userData))
 
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name:                   vmName,

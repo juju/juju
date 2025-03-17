@@ -311,10 +311,10 @@ func (inst *azureInstance) openPortsOnGroup(
 			}
 		}
 		if found {
-			logger.Debugf(context.TODO(), "security rule %q already exists", ruleName)
+			logger.Debugf(ctx, "security rule %q already exists", ruleName)
 			continue
 		}
-		logger.Debugf(context.TODO(), "creating security rule %q", ruleName)
+		logger.Debugf(ctx, "creating security rule %q", ruleName)
 
 		priority, err := nextSecurityRulePriority(nsg, securityRuleInternalMax+1, securityRuleMax)
 		if err != nil {
@@ -400,7 +400,7 @@ func (inst *azureInstance) closePortsOnGroup(
 	singleSourceIngressRules := explodeIngressRules(rules)
 	for _, rule := range singleSourceIngressRules {
 		ruleName := securityRuleName(prefix, rule)
-		logger.Debugf(context.TODO(), "deleting security rule %q", ruleName)
+		logger.Debugf(ctx, "deleting security rule %q", ruleName)
 		poller, err := securityRules.BeginDelete(
 			ctx,
 			nsgInfo.resourceGroup, toValue(nsgInfo.securityGroup.Name), ruleName,

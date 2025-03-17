@@ -4,8 +4,6 @@
 package vsphere
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -94,7 +92,7 @@ func (inst *environInstance) changeIngressRules(ctx envcontext.ProviderCallConte
 		// Open/Close port without an externalNetwork defined is treated as a no-op.
 		// We don't firewall the internal network, and without an external network we don't have any iptables rules
 		// to define.
-		logger.Warningf(context.TODO(), "ingress rules changing without an external network defined, no changes will be made")
+		logger.Warningf(ctx, "ingress rules changing without an external network defined, no changes will be made")
 		return nil
 	}
 	addresses, client, err := inst.getInstanceConfigurator(ctx)

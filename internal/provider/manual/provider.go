@@ -36,10 +36,10 @@ var initUbuntuUser = sshprovisioner.InitUbuntuUser
 func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host, user string, cfg *environConfig) error {
 	err := initUbuntuUser(host, user, cfg.AuthorizedKeys(), "", ctx.GetStdin(), ctx.GetStdout())
 	if err != nil {
-		logger.Errorf(context.TODO(), "initializing ubuntu user: %v", err)
+		logger.Errorf(ctx, "initializing ubuntu user: %v", err)
 		return err
 	}
-	logger.Infof(context.TODO(), "initialized ubuntu user")
+	logger.Infof(ctx, "initialized ubuntu user")
 	return nil
 }
 
@@ -74,7 +74,7 @@ func (p ManualProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string
 }
 
 var echo = func(s string) error {
-	logger.Infof(context.TODO(), "trying to ssh using %q", s)
+	logger.Infof(context.Background(), "trying to ssh using %q", s)
 	command := ssh.Command(s, []string{"echo", "hi"}, nil)
 	// os/exec just returns an error that contains the error code from the
 	// executable, which is basically useless, but stderr usually shows
@@ -171,7 +171,7 @@ func (p ManualProvider) validate(ctx context.Context, cfg, old *config.Config) (
 	// given value.
 	defineIfNot := func(keyName string, value interface{}) {
 		if _, defined := cfg.AllAttrs()[keyName]; !defined {
-			logger.Infof(context.TODO(), "%s was not defined. Defaulting to %v.", keyName, value)
+			logger.Infof(ctx, "%s was not defined. Defaulting to %v.", keyName, value)
 			envConfig.attrs[keyName] = value
 		}
 	}

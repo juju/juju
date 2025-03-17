@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"context"
+
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
@@ -98,13 +100,16 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 		},
 	}
 	mTag := names.NewMachineTag("1")
-	volumes, attachments, err := instance.volumes(mTag, []names.VolumeTag{
-		names.NewVolumeTag("1"),
-		names.NewVolumeTag("2"),
-		names.NewVolumeTag("3"),
-		names.NewVolumeTag("4"),
-		names.NewVolumeTag("5"),
-	})
+	volumes, attachments, err := instance.volumes(
+		context.Background(),
+		mTag, []names.VolumeTag{
+			names.NewVolumeTag("1"),
+			names.NewVolumeTag("2"),
+			names.NewVolumeTag("3"),
+			names.NewVolumeTag("4"),
+			names.NewVolumeTag("5"),
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	// Expect 4 volumes - root volume is ignored, as are volumes
 	// with tags we did not request.

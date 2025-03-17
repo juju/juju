@@ -67,7 +67,7 @@ func (v *volumeSource) createVolume(ctx envcontext.ProviderCallContext, p storag
 			}
 			response, nestedErr := v.storageAPI.DeleteVolume(context.Background(), req)
 			if nestedErr != nil && !v.env.isNotFound(response.RawResponse) {
-				logger.Warningf(context.TODO(), "failed to cleanup volume: %s", *details.Id)
+				logger.Warningf(ctx, "failed to cleanup volume: %s", *details.Id)
 				return
 			}
 			nestedErr = v.env.waitForResourceStatus(
@@ -75,7 +75,7 @@ func (v *volumeSource) createVolume(ctx envcontext.ProviderCallContext, p storag
 				string(ociCore.VolumeLifecycleStateTerminated),
 				5*time.Minute)
 			if nestedErr != nil && !errors.Is(nestedErr, errors.NotFound) {
-				logger.Warningf(context.TODO(), "failed to cleanup volume: %s", *details.Id)
+				logger.Warningf(ctx, "failed to cleanup volume: %s", *details.Id)
 				return
 			}
 		}
@@ -158,7 +158,7 @@ func makeVolumeInfo(vol ociCore.Volume) storage.VolumeInfo {
 }
 
 func (v *volumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
-	logger.Debugf(context.TODO(), "Creating volumes: %v", params)
+	logger.Debugf(ctx, "Creating volumes: %v", params)
 	if params == nil {
 		return []storage.CreateVolumesResult{}, nil
 	}
@@ -423,7 +423,7 @@ func (v *volumeSource) attachVolume(ctx envcontext.ProviderCallContext, param st
 			}
 			res, nestedErr := v.computeAPI.DetachVolume(context.Background(), req)
 			if nestedErr != nil && !v.env.isNotFound(res.RawResponse) {
-				logger.Warningf(context.TODO(), "failed to cleanup volume attachment: %v", volAttach.GetId())
+				logger.Warningf(ctx, "failed to cleanup volume attachment: %v", volAttach.GetId())
 				return
 			}
 			nestedErr = v.env.waitForResourceStatus(
@@ -431,7 +431,7 @@ func (v *volumeSource) attachVolume(ctx envcontext.ProviderCallContext, param st
 				string(ociCore.VolumeAttachmentLifecycleStateDetached),
 				5*time.Minute)
 			if nestedErr != nil && !errors.Is(nestedErr, errors.NotFound) {
-				logger.Warningf(context.TODO(), "failed to cleanup volume attachment: %v", volAttach.GetId())
+				logger.Warningf(ctx, "failed to cleanup volume attachment: %v", volAttach.GetId())
 				return
 			}
 		}
@@ -609,7 +609,7 @@ func (v *volumeSource) DetachVolumes(ctx envcontext.ProviderCallContext, params 
 				ret[idx] = errors.Trace(credErr)
 				continue
 			}
-			logger.Tracef(context.TODO(), "volume ID is: %v", attachment.VolumeId)
+			logger.Tracef(ctx, "volume ID is: %v", attachment.VolumeId)
 			if attachment.VolumeId != nil && param.VolumeId == *attachment.VolumeId && attachment.LifecycleState != ociCore.VolumeAttachmentLifecycleStateDetached {
 				if attachment.LifecycleState != ociCore.VolumeAttachmentLifecycleStateDetaching {
 					request := ociCore.DetachVolumeRequest{
@@ -636,7 +636,7 @@ func (v *volumeSource) DetachVolumes(ctx envcontext.ProviderCallContext, params 
 						common.HandleCredentialError(err, ctx)
 					}
 					ret[idx] = errors.Trace(err)
-					logger.Warningf(context.TODO(), "failed to detach volume: %s", *attachment.Id)
+					logger.Warningf(ctx, "failed to detach volume: %s", *attachment.Id)
 				} else {
 					ret[idx] = nil
 				}

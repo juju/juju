@@ -222,7 +222,7 @@ func (c *ServicePrincipalCreator) ensureRoleDefinition(
 		roleDefinitionId, err = c.getExistingRoleDefinition(ctx, roleDefinitionClient, "", roleName)
 	}
 	if err == nil {
-		logger.Debugf(context.TODO(), "found existing role definition %q", roleDefinitionId)
+		logger.Debugf(ctx, "found existing role definition %q", roleDefinitionId)
 		return roleDefinitionId, nil
 	} else if !errors.Is(err, errors.NotFound) {
 		return "", errors.Annotate(err, "finding existing tenant scoped role definition")
@@ -272,7 +272,7 @@ func (c *ServicePrincipalCreator) ensureEnterpriseApplication(
 	result := resp.GetValue()
 	if len(result) > 0 {
 		id := toValue(result[0].GetAppId())
-		logger.Debugf(context.TODO(), "found existing Juju application %q", id)
+		logger.Debugf(ctx, "found existing Juju application %q", id)
 		return id, nil
 	}
 

@@ -237,7 +237,7 @@ func BootstrapInstance(
 		// a blank StartInstanceParams.AvailabilityZone.
 		zones = []string{""}
 		if args.BootstrapConstraints.HasZones() {
-			logger.Debugf(context.TODO(), "environ doesn't support zones: ignoring bootstrap zone constraints")
+			logger.Debugf(callCtx, "environ doesn't support zones: ignoring bootstrap zone constraints")
 		}
 	} else if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "cannot start bootstrap instance")
@@ -285,7 +285,7 @@ func BootstrapInstance(
 
 		if i < len(zones)-1 {
 			// Try the next zone.
-			logger.Debugf(context.TODO(), "failed to start instance in availability zone %q: %s", zone, err)
+			logger.Debugf(callCtx, "failed to start instance in availability zone %q: %s", zone, err)
 			continue
 		}
 		// This is the last zone in the list, error.

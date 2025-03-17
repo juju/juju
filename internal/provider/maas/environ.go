@@ -107,7 +107,7 @@ var (
 
 // Capabilities is an alias for a function that gets
 // the capabilities of a MAAS installation.
-type Capabilities = func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error)
+type Capabilities = func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error)
 
 func NewEnviron(ctx context.Context, cloud environscloudspec.CloudSpec, cfg *config.Config, getCaps Capabilities) (*maasEnviron, error) {
 	if getCaps == nil {
@@ -158,7 +158,7 @@ func (env *maasEnviron) Bootstrap(
 	defer func() {
 		if err != nil {
 			if err := env.StopInstances(callCtx, result.Instance.Id()); err != nil {
-				logger.Errorf(context.TODO(), "error releasing bootstrap instance: %v", err)
+				logger.Errorf(ctx, "error releasing bootstrap instance: %v", err)
 			}
 		}
 	}()
@@ -377,7 +377,7 @@ func (env *maasEnviron) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCal
 		}
 		z, err := mInst.zone()
 		if err != nil {
-			logger.Errorf(context.TODO(), "could not get availability zone %v", err)
+			logger.Errorf(ctx, "could not get availability zone %v", err)
 			continue
 		}
 		zones[inst.Id()] = z
@@ -439,7 +439,7 @@ func (env *maasEnviron) PrecheckInstance(ctx envcontext.ProviderCallContext, arg
 
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
-func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+func getCapabilities(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 	caps := make(set.Strings)
 	var result gomaasapi.JSONObject
 
@@ -459,13 +459,13 @@ func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.String
 	err := retry.Call(retryStrategy)
 
 	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
-		logger.Debugf(context.TODO(), "Can't connect to maas server at endpoint %q: %v", serverURL, err)
+		logger.Debugf(ctx, "Can't connect to maas server at endpoint %q: %v", serverURL, err)
 		err = retry.LastError(err)
 		return caps, err
 	}
 	if err != nil {
 		err, _ := errors.Cause(err).(gomaasapi.ServerError)
-		logger.Debugf(context.TODO(), "Failed attempting to get capabilities from maas endpoint %q: %v", serverURL, err)
+		logger.Debugf(ctx, "Failed attempting to get capabilities from maas endpoint %q: %v", serverURL, err)
 
 		message := "could not connect to MAAS controller - check the endpoint is correct"
 		trimmedURL := strings.TrimRight(serverURL, "/")
@@ -477,7 +477,7 @@ func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.String
 
 	info, err := result.GetMap()
 	if err != nil {
-		logger.Debugf(context.TODO(), "Invalid data returned from maas endpoint %q: %v", serverURL, err)
+		logger.Debugf(ctx, "Invalid data returned from maas endpoint %q: %v", serverURL, err)
 		// invalid data of some sort, probably not a MAAS server.
 		return caps, errors.New("failed to get expected data from server")
 	}
@@ -487,13 +487,13 @@ func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.String
 	}
 	items, err := capsObj.GetArray()
 	if err != nil {
-		logger.Debugf(context.TODO(), "Invalid data returned from maas endpoint %q: %v", serverURL, err)
+		logger.Debugf(ctx, "Invalid data returned from maas endpoint %q: %v", serverURL, err)
 		return caps, errors.New("failed to get expected data from server")
 	}
 	for _, item := range items {
 		val, err := item.GetString()
 		if err != nil {
-			logger.Debugf(context.TODO(), "Invalid data returned from maas endpoint %q: %v", serverURL, err)
+			logger.Debugf(ctx, "Invalid data returned from maas endpoint %q: %v", serverURL, err)
 			return set.NewStrings(), errors.New("failed to get expected data from server")
 		}
 		caps.Add(val)
@@ -686,7 +686,7 @@ func (env *maasEnviron) StartInstance(
 		if err := errors.Trace(zones.Validate(availabilityZone)); err != nil {
 			return nil, errors.Trace(err)
 		}
-		logger.Debugf(context.TODO(), "attempting to acquire node in zone %q", availabilityZone)
+		logger.Debugf(ctx, "attempting to acquire node in zone %q", availabilityZone)
 	}
 
 	// Storage.
@@ -725,7 +725,7 @@ func (env *maasEnviron) StartInstance(
 	defer func() {
 		if err != nil {
 			if err := env.StopInstances(ctx, inst.Id()); err != nil {
-				logger.Errorf(context.TODO(), "error releasing failed instance: %v", err)
+				logger.Errorf(ctx, "error releasing failed instance: %v", err)
 			}
 		}
 	}()
@@ -759,7 +759,7 @@ func (env *maasEnviron) StartInstance(
 		return nil, environs.ZoneIndependentError(err)
 	}
 
-	cloudcfg, err := env.newCloudinitConfig(hostname, args.InstanceConfig.Base.OS)
+	cloudcfg, err := env.newCloudinitConfig(ctx, hostname, args.InstanceConfig.Base.OS)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
@@ -770,7 +770,7 @@ func (env *maasEnviron) StartInstance(
 			err, "could not compose userdata for bootstrap node",
 		))
 	}
-	logger.Debugf(context.TODO(), "maas user data; %d bytes", len(userdata))
+	logger.Debugf(ctx, "maas user data; %d bytes", len(userdata))
 
 	distroSeries, err := env.distroSeries(args)
 	if err != nil {
@@ -792,19 +792,20 @@ func (env *maasEnviron) StartInstance(
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
-	env.tagInstance(inst, args.InstanceConfig)
+	env.tagInstance(ctx, inst, args.InstanceConfig)
 
 	displayName, err := inst.displayName()
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}
-	logger.Debugf(context.TODO(), "started instance %q", inst.Id())
+	logger.Debugf(ctx, "started instance %q", inst.Id())
 
 	requestedVolumes := make([]names.VolumeTag, len(args.Volumes))
 	for i, v := range args.Volumes {
 		requestedVolumes[i] = v.Tag
 	}
 	resultVolumes, resultAttachments, err := inst.volumes(
+		ctx,
 		names.NewMachineTag(args.InstanceConfig.MachineId),
 		requestedVolumes,
 	)
@@ -828,10 +829,10 @@ func (env *maasEnviron) StartInstance(
 	}, nil
 }
 
-func (env *maasEnviron) tagInstance(inst *maasInstance, instanceConfig *instancecfg.InstanceConfig) {
+func (env *maasEnviron) tagInstance(ctx context.Context, inst *maasInstance, instanceConfig *instancecfg.InstanceConfig) {
 	err := inst.machine.SetOwnerData(instanceConfig.Tags)
 	if err != nil {
-		logger.Errorf(context.TODO(), "could not set owner data for instance: %v", err)
+		logger.Errorf(ctx, "could not set owner data for instance: %v", err)
 	}
 }
 
@@ -856,7 +857,7 @@ func (env *maasEnviron) waitForNodeDeployment(ctx envcontext.ProviderCallContext
 	}
 	retryStrategy.NotifyFunc = func(lastErr error, attempts int) {
 		if errors.Is(lastErr, errors.NotFound) {
-			logger.Warningf(context.TODO(), "failed to get instance from provider attempt %d", attempts)
+			logger.Warningf(ctx, "failed to get instance from provider attempt %d", attempts)
 		}
 	}
 	retryStrategy.Func = func() error {
@@ -917,7 +918,7 @@ func (env *maasEnviron) selectNode(ctx envcontext.ProviderCallContext, args sele
 
 // newCloudinitConfig creates a cloudinit.Config structure suitable as a base
 // for initialising a MAAS node.
-func (env *maasEnviron) newCloudinitConfig(hostname, osname string) (cloudinit.CloudConfig, error) {
+func (env *maasEnviron) newCloudinitConfig(ctx context.Context, hostname, osname string) (cloudinit.CloudConfig, error) {
 	cloudcfg, err := cloudinit.New(osname)
 	if err != nil {
 		return nil, err
@@ -936,7 +937,7 @@ func (env *maasEnviron) newCloudinitConfig(hostname, osname string) (cloudinit.C
 		cloudcfg.AddScripts("set -xe", runCmd)
 		// DisableNetworkManagement can still disable the bridge(s) creation.
 		if on, set := env.Config().DisableNetworkManagement(); on && set {
-			logger.Infof(context.TODO(),
+			logger.Infof(ctx,
 				"network management disabled - not using %q bridge for containers",
 				instancecfg.DefaultBridgeName,
 			)
@@ -966,7 +967,7 @@ func (env *maasEnviron) releaseNodes(ctx envcontext.ProviderCallContext, ids []i
 		// MaaS also releases (or attempts) all nodes, and raises
 		// a single error on failure. So even with an error 409, all
 		// nodes have been released.
-		logger.Infof(context.TODO(), "ignoring error while releasing nodes (%v); all nodes released OK", err)
+		logger.Infof(ctx, "ignoring error while releasing nodes (%v); all nodes released OK", err)
 		return nil
 	case gomaasapi.IsBadRequestError(err), denied:
 		// a status code of 400 or 403 means one of the nodes
@@ -989,7 +990,7 @@ func (env *maasEnviron) releaseNodesIndividually(ctx envcontext.ProviderCallCont
 		err := env.releaseNodes(ctx, []instance.Id{id}, false)
 		if err != nil {
 			lastErr = err
-			logger.Errorf(context.TODO(), "error while releasing node %v (%v)", id, err)
+			logger.Errorf(ctx, "error while releasing node %v (%v)", id, err)
 			if denied := common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
 				break
 			}
@@ -1305,7 +1306,7 @@ func (env *maasEnviron) AllocateContainerAddresses(ctx envcontext.ProviderCallCo
 		return nil, errors.Errorf("no prepared info to allocate")
 	}
 
-	logger.Debugf(context.TODO(), "using prepared container info: %+v", preparedInfo)
+	logger.Debugf(ctx, "using prepared container info: %+v", preparedInfo)
 	args := gomaasapi.MachinesArgs{
 		AgentName: env.uuid,
 		SystemIDs: []string{string(hostInstanceID)},
@@ -1322,18 +1323,18 @@ func (env *maasEnviron) AllocateContainerAddresses(ctx envcontext.ProviderCallCo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	params, err := env.prepareDeviceDetails(deviceName, machine, preparedInfo)
+	params, err := env.prepareDeviceDetails(ctx, deviceName, machine, preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Check to see if we've already tried to allocate information for this device:
-	device, err := env.checkForExistingDevice(params)
+	device, err := env.checkForExistingDevice(ctx, params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if device == nil {
-		device, err = env.createAndPopulateDevice(params)
+		device, err = env.createAndPopulateDevice(ctx, params)
 		if err != nil {
 			return nil, errors.Annotatef(err,
 				"failed to create MAAS device for %q",
@@ -1346,7 +1347,7 @@ func (env *maasEnviron) AllocateContainerAddresses(ctx envcontext.ProviderCallCo
 	for _, nic := range preparedInfo {
 		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
 	}
-	interfaces, err := env.deviceInterfaceInfo(device, nameToParentName, params.CIDRToStaticRoutes)
+	interfaces, err := env.deviceInterfaceInfo(ctx, device, nameToParentName, params.CIDRToStaticRoutes)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get device interfaces")
 	}
@@ -1364,7 +1365,7 @@ func (env *maasEnviron) ReleaseContainerAddresses(ctx envcontext.ProviderCallCon
 		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)
 	}
-	logger.Infof(context.TODO(), "found %d MAAS devices to remove", len(devices))
+	logger.Infof(ctx, "found %d MAAS devices to remove", len(devices))
 
 	// If one device matched on multiple MAC addresses (like for
 	// multi-nic containers) it will be in the slice multiple
@@ -1380,7 +1381,7 @@ func (env *maasEnviron) ReleaseContainerAddresses(ctx envcontext.ProviderCallCon
 		if err != nil {
 			return errors.Annotatef(err, "deleting device %s", device.SystemID())
 		}
-		logger.Infof(context.TODO(), "removed MAAS device %s", device.SystemID())
+		logger.Infof(ctx, "removed MAAS device %s", device.SystemID())
 	}
 	return nil
 }
@@ -1405,7 +1406,7 @@ func (env *maasEnviron) AdoptResources(ctx envcontext.ProviderCallContext, contr
 		// https://maas.ubuntu.com/docs2.0/api.html#machine
 		err := maasInst.machine.SetOwnerData(map[string]string{tags.JujuController: controllerUUID})
 		if err != nil {
-			logger.Errorf(context.TODO(), "error setting controller uuid tag for %q: %v", inst.Id(), err)
+			logger.Errorf(ctx, "error setting controller uuid tag for %q: %v", inst.Id(), err)
 			failed = append(failed, inst.Id())
 		}
 	}

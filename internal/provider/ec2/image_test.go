@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -235,6 +237,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 		)
 		base := corebase.MakeDefaultBase("ubuntu", test.version)
 		spec, err := findInstanceSpec(
+			context.Background(),
 			false, // non-controller
 			imageMetadata,
 			testInstanceTypes,
@@ -260,6 +263,7 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 
 	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
 	_, err := findInstanceSpec(
+		context.Background(),
 		false, // non-controller
 		TestImageMetadata,
 		testInstanceTypes,
@@ -303,6 +307,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 			c, TestImageMetadata, t.base.Channel.Track, t.arch,
 		)
 		_, err := findInstanceSpec(
+			context.Background(),
 			false, // non-controller
 			imageMetadata,
 			testInstanceTypes,
@@ -334,7 +339,7 @@ func filterImageMetadata(
 }
 
 func (*specSuite) TestFilterImagesAcceptsNil(c *gc.C) {
-	c.Check(filterImages(nil, nil), gc.HasLen, 0)
+	c.Check(filterImages(context.Background(), nil, nil), gc.HasLen, 0)
 }
 
 func (*specSuite) TestFilterImagesReturnsSelectively(c *gc.C) {
@@ -344,7 +349,7 @@ func (*specSuite) TestFilterImagesReturnsSelectively(c *gc.C) {
 	expectation := []*imagemetadata.ImageMetadata{&good}
 
 	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
-	c.Check(filterImages(input, ic), gc.DeepEquals, expectation)
+	c.Check(filterImages(context.Background(), input, ic), gc.DeepEquals, expectation)
 }
 
 func (*specSuite) TestFilterImagesMaintainsOrdering(c *gc.C) {
@@ -354,5 +359,5 @@ func (*specSuite) TestFilterImagesMaintainsOrdering(c *gc.C) {
 		{Id: "three", Storage: "ebs"},
 	}
 	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
-	c.Check(filterImages(input, ic), gc.DeepEquals, input)
+	c.Check(filterImages(context.Background(), input, ic), gc.DeepEquals, input)
 }

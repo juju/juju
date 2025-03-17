@@ -279,7 +279,7 @@ func (*Suite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *gc.C) {
 		SubnetsToZones: allSubnetZones,
 	}
 
-	subnetZones, err := getValidSubnetZoneMap(args)
+	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subnetZones, gc.DeepEquals, allSubnetZones[0])
 }
@@ -299,7 +299,7 @@ func (*Suite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *gc.C) {
 		},
 	}
 
-	subnetZones, err := getValidSubnetZoneMap(args)
+	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subnetZones, gc.DeepEquals, map[network.Id][]string{
 		"sub-1": {"az-1"},
@@ -322,7 +322,7 @@ func (*Suite) TestGetValidSubnetZoneMapNoIntersectionError(c *gc.C) {
 		},
 	}
 
-	_, err := getValidSubnetZoneMap(args)
+	_, err := getValidSubnetZoneMap(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches,
 		`unable to satisfy supplied space requirements; spaces: \[admin\], bindings: \[space-1\]`)
 }
@@ -349,7 +349,7 @@ func (*Suite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *gc.C) 
 	// This should result in the selection of the same index from the
 	// subnets-to-zones map.
 
-	subnetZones, err := getValidSubnetZoneMap(args)
+	subnetZones, err := getValidSubnetZoneMap(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subnetZones, gc.DeepEquals, allSubnetZones[1])
 }

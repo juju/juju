@@ -115,7 +115,7 @@ func (inst *sdkInstance) OpenPorts(ctx envcontext.ProviderCallContext, machineId
 	if err := inst.e.openPortsInGroup(ctx, name, rules); err != nil {
 		return err
 	}
-	logger.Infof(context.TODO(), "opened ports in security group %s: %v", name, rules)
+	logger.Infof(ctx, "opened ports in security group %s: %v", name, rules)
 	return nil
 }
 
@@ -129,7 +129,7 @@ func (inst *sdkInstance) ClosePorts(ctx envcontext.ProviderCallContext, machineI
 	if err := inst.e.closePortsInGroup(ctx, name, ports); err != nil {
 		return err
 	}
-	logger.Infof(context.TODO(), "closed ports in security group %s: %v", name, ports)
+	logger.Infof(ctx, "closed ports in security group %s: %v", name, ports)
 	return nil
 }
 

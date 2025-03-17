@@ -286,7 +286,7 @@ func SetResponseHeaderValues(resp *http.Response, h string, values []string) {
 type Senders []policy.Transporter
 
 func (s *Senders) Do(req *http.Request) (*http.Response, error) {
-	logger.Debugf(context.TODO(), "Senders.Do(%s)", req.URL)
+	logger.Debugf(req.Context(), "Senders.Do(%s)", req.URL)
 	if len(*s) == 0 {
 		response := NewResponseWithStatus("", http.StatusInternalServerError)
 		return response, fmt.Errorf("no sender for %q", req.URL)

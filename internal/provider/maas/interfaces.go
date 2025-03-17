@@ -4,7 +4,6 @@
 package maas
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -154,7 +153,7 @@ func (env *maasEnviron) networkInterfacesForInstance(ctx envcontext.ProviderCall
 }
 
 func maasNetworkInterfaces(
-	_ envcontext.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	instance *maasInstance,
 	subnetsMap map[string]corenetwork.Id,
 	dnsSearchDomains ...string,
@@ -206,7 +205,7 @@ func maasNetworkInterfaces(
 		}
 
 		if len(iface.Links()) == 0 {
-			logger.Debugf(context.TODO(), "interface %q has no links", iface.Name())
+			logger.Debugf(ctx, "interface %q has no links", iface.Name())
 			infos = append(infos, nicInfo)
 			continue
 		}
@@ -215,7 +214,7 @@ func maasNetworkInterfaces(
 			configType := maasLinkToInterfaceConfigType(link.Mode())
 
 			if link.IPAddress() == "" && link.Subnet() == nil {
-				logger.Debugf(context.TODO(), "interface %q link %d has neither subnet nor address", iface.Name(), link.ID())
+				logger.Debugf(ctx, "interface %q link %d has neither subnet nor address", iface.Name(), link.ID())
 				infos = append(infos, nicInfo)
 			} else {
 				// We set it here initially without a space, just so we don't
@@ -231,7 +230,7 @@ func maasNetworkInterfaces(
 
 			sub := link.Subnet()
 			if sub == nil {
-				logger.Debugf(context.TODO(), "interface %q link %d missing subnet", iface.Name(), link.ID())
+				logger.Debugf(ctx, "interface %q link %d missing subnet", iface.Name(), link.ID())
 				infos = append(infos, nicInfo)
 				continue
 			}
@@ -253,7 +252,7 @@ func maasNetworkInterfaces(
 			if !ok {
 				// The space we found is not recognised.
 				// No provider space info is available.
-				logger.Warningf(context.TODO(), "interface %q link %d has unrecognised space %q", iface.Name(), link.ID(), sub.Space())
+				logger.Warningf(ctx, "interface %q link %d has unrecognised space %q", iface.Name(), link.ID(), sub.Space())
 			} else {
 				nicInfo.Addresses[0].ProviderSpaceID = spaceId
 				nicInfo.ProviderSpaceId = spaceId

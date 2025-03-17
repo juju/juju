@@ -201,7 +201,7 @@ func (e EnvironProvider) ValidateCloud(ctx context.Context, spec environscloudsp
 
 // Open implements environs.EnvironProvider.
 func (e *EnvironProvider) Open(ctx context.Context, params environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
-	logger.Infof(context.TODO(), "opening model %q", params.Config.Name())
+	logger.Infof(ctx, "opening model %q", params.Config.Name())
 
 	if err := validateCloudSpec(params.Cloud); err != nil {
 		return nil, errors.Trace(err)
@@ -219,7 +219,7 @@ func (e *EnvironProvider) Open(ctx context.Context, params environs.OpenParams, 
 	// We don't support setting a default region in the credentials anymore. Because, such approach conflicts with the
 	// way we handle regions in Juju.
 	if creds["region"] != "" {
-		logger.Warningf(context.TODO(), "Setting a default region in Oracle Cloud credentials is not supported.")
+		logger.Warningf(ctx, "Setting a default region in Oracle Cloud credentials is not supported.")
 	}
 	err := providerConfig.Validate()
 	if err != nil {

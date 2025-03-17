@@ -185,13 +185,13 @@ func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error 
 			return errors.Trace(err)
 		}
 		if iteration >= maxPollIterations {
-			logger.Debugf(context.TODO(), "could not find a public IP after %s. breaking loop", time.Since(startTime))
+			logger.Debugf(ctx, "could not find a public IP after %s. breaking loop", time.Since(startTime))
 			break
 		}
 
 		for _, val := range addresses {
 			if val.Scope == corenetwork.ScopePublic {
-				logger.Infof(context.TODO(), "Found public IP: %s", val)
+				logger.Infof(ctx, "Found public IP: %s", val)
 				return nil
 			}
 		}
@@ -209,7 +209,7 @@ func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 	}
 
 	if o.isTerminating() {
-		logger.Debugf(context.TODO(), "instance %q is alrealy in terminating state", *o.raw.Id)
+		logger.Debugf(ctx, "instance %q is alrealy in terminating state", *o.raw.Id)
 		return nil
 	}
 	request := ociCore.TerminateInstanceRequest{
@@ -230,7 +230,7 @@ func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 			ocicommon.HandleCredentialError(err, ctx)
 			return err
 		}
-		logger.Infof(context.TODO(), "Waiting for machine to transition to Terminating: %s", o.raw.LifecycleState)
+		logger.Infof(ctx, "Waiting for machine to transition to Terminating: %s", o.raw.LifecycleState)
 		if o.isTerminating() {
 			break
 		}

@@ -128,7 +128,7 @@ func (p *environProvider) Ping(callCtx callcontext.ProviderCallContext, endpoint
 			// vSphere without any creds, so return nil.
 			return nil
 		}
-		logger.Errorf(context.TODO(), "Unexpected error dialing vSphere connection: %v", err)
+		logger.Errorf(ctx, "Unexpected error dialing vSphere connection: %v", err)
 		return errors.Errorf("No vCenter/ESXi available at %s", endpoint)
 	}
 	defer client.Close(ctx)

@@ -59,7 +59,7 @@ func (EnvironProvider) Version() int {
 }
 
 func (EnvironProvider) Open(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
-	logger.Debugf(context.TODO(), "opening model %q.", args.Config.Name())
+	logger.Debugf(ctx, "opening model %q.", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -80,13 +80,13 @@ func (p EnvironProvider) Ping(ctx envcontext.ProviderCallContext, endpoint strin
 	var err error
 	base, version, includesVersion := gomaasapi.SplitVersionedURL(endpoint)
 	if includesVersion {
-		err = p.checkMaas(base, version)
+		err = p.checkMaas(ctx, base, version)
 		if err == nil {
 			return nil
 		}
 	} else {
 		// No version info in the endpoint - try both in preference order.
-		err = p.checkMaas(endpoint, apiVersion2)
+		err = p.checkMaas(ctx, endpoint, apiVersion2)
 		if err == nil {
 			return nil
 		}
@@ -94,14 +94,14 @@ func (p EnvironProvider) Ping(ctx envcontext.ProviderCallContext, endpoint strin
 	return errors.Annotatef(err, "No MAAS server running at %s", endpoint)
 }
 
-func (p EnvironProvider) checkMaas(endpoint, ver string) error {
+func (p EnvironProvider) checkMaas(ctx context.Context, endpoint, ver string) error {
 	c, err := gomaasapi.NewAnonymousClient(endpoint, ver)
 	if err != nil {
-		logger.Debugf(context.TODO(), "Can't create maas API %s client for %q: %v", ver, endpoint, err)
+		logger.Debugf(ctx, "Can't create maas API %s client for %q: %v", ver, endpoint, err)
 		return errors.Trace(err)
 	}
 	maas := gomaasapi.NewMAAS(*c)
-	_, err = p.GetCapabilities(maas, endpoint)
+	_, err = p.GetCapabilities(ctx, maas, endpoint)
 	return errors.Trace(err)
 }
 

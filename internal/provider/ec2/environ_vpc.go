@@ -162,7 +162,7 @@ func validateVPC(ctx context.Context, apiClient vpcAPIClient, vpcID string) erro
 	// TODO(dimitern): Rather than just logging that, use publicSubnet.Id or
 	// even publicSubnet.AvailZone as default bootstrap placement directive, so
 	// the controller would be reachable.
-	logger.Infof(context.TODO(),
+	logger.Infof(ctx,
 		"found subnet %q (%s) in AZ %q, suitable for a Juju controller instance",
 		aws.ToString(publicSubnet.SubnetId), aws.ToString(publicSubnet.CidrBlock), aws.ToString(publicSubnet.AvailabilityZone),
 	)
@@ -181,11 +181,11 @@ func validateVPC(ctx context.Context, apiClient vpcAPIClient, vpcID string) erro
 		return errors.Trace(err)
 	}
 
-	if err := checkVPCRouteTableRoutes(vpc, &mainRouteTable, gateway); err != nil {
+	if err := checkVPCRouteTableRoutes(ctx, vpc, &mainRouteTable, gateway); err != nil {
 		return errors.Annotatef(err, "VPC %q main route table %q", vpcID, aws.ToString(mainRouteTable.RouteTableId))
 	}
 
-	logger.Infof(context.TODO(), "VPC %q is suitable for Juju controllers and expose-able workloads", vpcID)
+	logger.Infof(ctx, "VPC %q is suitable for Juju controllers and expose-able workloads", vpcID)
 	return nil
 }
 
@@ -212,7 +212,7 @@ func getVPCByID(ctx context.Context, apiClient vpcAPIClient, vpcID string) (*typ
 	if numResults := len(response.Vpcs); numResults == 0 {
 		return nil, fmt.Errorf("VPC %q %w%w", vpcID, errors.NotFound, errors.Hide(errorVPCNotUsable))
 	} else if numResults > 1 {
-		logger.Debugf(context.TODO(), "VPCs() returned %s", pretty.Sprint(response))
+		logger.Debugf(ctx, "VPCs() returned %s", pretty.Sprint(response))
 		return nil, errors.Errorf("expected 1 result from AWS, got %d", numResults)
 	}
 
@@ -330,7 +330,7 @@ func getVPCInternetGateway(ctx context.Context, apiClient vpcAPIClient, vpc *typ
 	if numResults := len(resp.InternetGateways); numResults == 0 {
 		return nil, fmt.Errorf("VPC has no Internet Gateway attached%w", errors.Hide(errorVPCNotRecommended))
 	} else if numResults > 1 {
-		logger.Debugf(context.TODO(), "InternetGateways() returned %#v", resp)
+		logger.Debugf(ctx, "InternetGateways() returned %#v", resp)
 		return nil, errors.Errorf("expected 1 result from AWS, got %d", numResults)
 	}
 
@@ -391,17 +391,17 @@ func getVPCMainRouteTable(ctx context.Context, apiClient vpcAPIClient, vpc *type
 	return resp.RouteTables[0], nil
 }
 
-func checkVPCRouteTableRoutes(vpc *types.Vpc, routeTable *types.RouteTable, gateway *types.InternetGateway) error {
+func checkVPCRouteTableRoutes(ctx context.Context, vpc *types.Vpc, routeTable *types.RouteTable, gateway *types.InternetGateway) error {
 	hasDefaultRoute := false
 	hasLocalRoute := false
 
-	logger.Tracef(context.TODO(), "checking route table %+v routes", routeTable)
+	logger.Tracef(ctx, "checking route table %+v routes", routeTable)
 	gatewayID := aws.ToString(gateway.InternetGatewayId)
 	vpcCIDRBlock := aws.ToString(vpc.CidrBlock)
 	for _, route := range routeTable.Routes {
 		if route.State != types.RouteStateActive {
 			if logger.IsLevelEnabled(corelogger.TRACE) {
-				logger.Tracef(context.TODO(), "skipping inactive route %s", pretty.Sprint(route))
+				logger.Tracef(ctx, "skipping inactive route %s", pretty.Sprint(route))
 			}
 			continue
 		}
@@ -413,15 +413,15 @@ func checkVPCRouteTableRoutes(vpc *types.Vpc, routeTable *types.RouteTable, gate
 		case routeCIDRIPv6Block == defaultRouteIPv6CIDRBlock:
 		case routeCIDRBlock == defaultRouteIpv4CIDRBlock:
 			if routeGatewayID == gatewayID {
-				logger.Tracef(context.TODO(), "default route uses expected gateway %q", gatewayID)
+				logger.Tracef(ctx, "default route uses expected gateway %q", gatewayID)
 				hasDefaultRoute = true
 			}
 		case routeGatewayID == localRouteGatewayID:
-			logger.Tracef(context.TODO(), "local route uses expected CIDR %q", vpcCIDRBlock)
+			logger.Tracef(ctx, "local route uses expected CIDR %q", vpcCIDRBlock)
 			hasLocalRoute = true
 		default:
 			if logger.IsLevelEnabled(corelogger.TRACE) {
-				logger.Tracef(context.TODO(), "route %s is neither local nor default (skipping)", pretty.Sprint(route))
+				logger.Tracef(ctx, "route %s is neither local nor default (skipping)", pretty.Sprint(route))
 			}
 		}
 	}
@@ -485,11 +485,11 @@ func getVPCSubnetsForAvailabilityZone(
 	for _, subnet := range subnets {
 		subnetID := aws.ToString(subnet.SubnetId)
 		if aws.ToString(subnet.AvailabilityZone) != zoneName {
-			logger.Debugf(context.TODO(), "skipping subnet %q (in VPC %q): not in the chosen AZ %q", subnetID, vpcID, zoneName)
+			logger.Debugf(ctx, "skipping subnet %q (in VPC %q): not in the chosen AZ %q", subnetID, vpcID, zoneName)
 			continue
 		}
 		if !allowedSubnets.IsEmpty() && !allowedSubnets.Contains(corenetwork.Id(subnetID)) {
-			logger.Debugf(context.TODO(), "skipping subnet %q (in VPC %q, AZ %q): not matching spaces constraints", subnetID, vpcID, zoneName)
+			logger.Debugf(ctx, "skipping subnet %q (in VPC %q, AZ %q): not matching spaces constraints", subnetID, vpcID, zoneName)
 			continue
 		}
 		matchingSubnets = append(matchingSubnets, subnet)
@@ -500,7 +500,7 @@ func getVPCSubnetsForAvailabilityZone(
 		return nil, errors.NewNotFound(nil, message)
 	}
 
-	logger.Infof(context.TODO(), "found %d subnets in VPC %q matching AZ %q and constraints: %v", len(matchingSubnets), vpcID, zoneName, matchingSubnets)
+	logger.Infof(ctx, "found %d subnets in VPC %q matching AZ %q and constraints: %v", len(matchingSubnets), vpcID, zoneName, matchingSubnets)
 	return matchingSubnets, nil
 }
 
@@ -554,7 +554,7 @@ func validateModelVPC(ctx context.Context, apiClient vpcAPIClient, modelName, vp
 	case errors.Is(err, errorVPCNotRecommended):
 		// VPC does not meet minimum validation criteria, but that's less
 		// important for hosted models, as the controller is already accessible.
-		logger.Infof(context.TODO(),
+		logger.Infof(ctx,
 			"Juju will use, but does not recommend using VPC %q: %v",
 			vpcID, err.Error(),
 		)
@@ -562,7 +562,7 @@ func validateModelVPC(ctx context.Context, apiClient vpcAPIClient, modelName, vp
 		// Anything else unexpected while validating the VPC.
 		return errors.Annotate(err, cannotValidateVPCErrorPrefix)
 	}
-	logger.Infof(context.TODO(), "Using VPC %q for model %q", vpcID, modelName)
+	logger.Infof(ctx, "Using VPC %q for model %q", vpcID, modelName)
 
 	return nil
 }

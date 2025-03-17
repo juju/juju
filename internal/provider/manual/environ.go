@@ -144,14 +144,14 @@ func (e *manualEnviron) ControllerInstances(ctx envcontext.ProviderCallContext, 
 	if !isRunningController() {
 		// Not running inside the controller, so we must
 		// verify the host.
-		if err := e.verifyBootstrapHost(); err != nil {
+		if err := e.verifyBootstrapHost(ctx); err != nil {
 			return nil, err
 		}
 	}
 	return []instance.Id{BootstrapInstanceId}, nil
 }
 
-func (e *manualEnviron) verifyBootstrapHost() error {
+func (e *manualEnviron) verifyBootstrapHost(ctx context.Context) error {
 	// First verify that the environment is bootstrapped by checking
 	// if the agents directory exists. Note that we cannot test the
 	// root data directory, as that is created in the process of
@@ -176,7 +176,7 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 			return environs.ErrNotBootstrapped
 		}
 		err := errors.Errorf("unexpected output: %q", out)
-		logger.Infof(context.TODO(), err.Error())
+		logger.Infof(ctx, err.Error())
 		return err
 	}
 	return nil
@@ -298,13 +298,13 @@ exit 0
 		diagnostics,
 		mongo.ServiceName,
 	)
-	logger.Tracef(context.TODO(), "destroy controller script: %s", script)
+	logger.Tracef(ctx, "destroy controller script: %s", script)
 	stdout, stderr, err := runSSHCommand(
 		"ubuntu@"+e.host,
 		[]string{"sudo", "/bin/bash"}, script,
 	)
-	logger.Debugf(context.TODO(), "script stdout: \n%s", stdout)
-	logger.Debugf(context.TODO(), "script stderr: \n%s", stderr)
+	logger.Debugf(ctx, "script stdout: \n%s", stdout)
+	logger.Debugf(ctx, "script stderr: \n%s", stderr)
 	return err
 }
 

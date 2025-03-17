@@ -205,7 +205,7 @@ Please choose a model name of no more than %d characters.`,
 		loadBalancerSkuNameTitle := strings.Title(loadBalancerSkuName)
 		if loadBalancerSkuName != loadBalancerSkuNameTitle {
 			loadBalancerSkuName = loadBalancerSkuNameTitle
-			logger.Infof(context.TODO(), "using %q for config parameter %s", loadBalancerSkuName, configAttrLoadBalancerSkuName)
+			logger.Infof(ctx, "using %q for config parameter %s", loadBalancerSkuName, configAttrLoadBalancerSkuName)
 		}
 		if !isKnownLoadBalancerSkuName(loadBalancerSkuName) {
 			return nil, errors.Errorf(

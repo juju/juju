@@ -4,7 +4,6 @@
 package gce
 
 import (
-	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -43,7 +42,7 @@ func (env *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance
 		// for each ID into the result. If there is a problem then we
 		// will return either ErrPartialInstances or ErrNoInstances.
 		// TODO(ericsnow) Skip returning here only for certain errors?
-		logger.Errorf(context.TODO(), "failed to get instances from GCE: %v", err)
+		logger.Errorf(ctx, "failed to get instances from GCE: %v", err)
 		err = errors.Trace(err)
 	}
 
@@ -188,7 +187,7 @@ func (env *environ) checkInstanceType(ctx envcontext.ProviderCallContext, cons c
 	// fetch all instance types and check manually.
 	instTypesAndCosts, err := env.InstanceTypes(ctx, constraints.Value{})
 	if err != nil {
-		logger.Errorf(context.TODO(), "unable to fetch GCE instance types: %v", err)
+		logger.Errorf(ctx, "unable to fetch GCE instance types: %v", err)
 		return false
 	}
 
