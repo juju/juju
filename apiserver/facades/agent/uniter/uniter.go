@@ -1494,7 +1494,11 @@ func (u *UniterAPI) readLocalUnitSettings(
 		return nil, apiservererrors.ErrPerm
 	}
 
-	relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, unitTag.Id())
+	unitName, err := coreunit.NewName(unitTag.Id())
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, unitName)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
@@ -1647,7 +1651,11 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 
 	switch tag := remoteTag.(type) {
 	case names.UnitTag:
-		relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, tag.Id())
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+		relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, unitName)
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
@@ -1947,7 +1955,11 @@ func (u *UniterAPI) getOneRelation(
 	} else if err != nil {
 		return nothing, err
 	}
-	rel, err := u.relationService.GetRelationDetailsForUnit(ctx, relUUID, unitTag.Id())
+	unitName, err := coreunit.NewName(unitTag.Id())
+	if err != nil {
+		return nothing, internalerrors.Capture(err)
+	}
+	rel, err := u.relationService.GetRelationDetailsForUnit(ctx, relUUID, unitName)
 	if errors.Is(err, errors.NotFound) {
 		return nothing, apiservererrors.ErrPerm
 	} else if err != nil {

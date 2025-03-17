@@ -261,7 +261,7 @@ type RelationService interface {
 	GetRelationDetailsForUnit(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
-		unitName string,
+		unitName coreunit.Name,
 	) (relation.RelationDetails, error)
 
 	// GetRelationUnit returns the relation unit UUID for the given unit within
@@ -269,7 +269,7 @@ type RelationService interface {
 	GetRelationUnit(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
-		unitName string,
+		unitName coreunit.Name,
 	) (corerelation.UnitUUID, error)
 
 	// GetRelationUnitSettings returns the unit settings for the

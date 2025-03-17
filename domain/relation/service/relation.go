@@ -147,7 +147,7 @@ func (s *Service) GetRelationDetails(ctx context.Context, relationID int) (relat
 func (s *Service) GetRelationDetailsForUnit(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
-	unitName string,
+	unitName unit.Name,
 ) (relation.RelationDetails, error) {
 	// TODO (hml) 2025-03-11
 	// During implementation investigate the difference between the
@@ -220,7 +220,7 @@ func (s *Service) GetRelationsStatusForUnit(
 func (s *Service) GetRelationUnit(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
-	unitName string,
+	unitName unit.Name,
 ) (corerelation.UnitUUID, error) {
 	return "", errors.NotImplemented
 }
@@ -230,7 +230,7 @@ func (s *Service) GetRelationUnit(
 func (s *Service) GetRelationUnitByID(
 	ctx context.Context,
 	relationID int,
-	unitName string,
+	unitName unit.Name,
 ) (corerelation.UnitUUID, error) {
 	return "", errors.NotImplemented
 }
