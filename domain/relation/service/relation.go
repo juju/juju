@@ -99,7 +99,11 @@ func (s *Service) ApplicationRelationsInfo(
 }
 
 // EnterScope updates the given relation to indicate it is in scope.
-func (s *Service) EnterScope(ctx context.Context, relationID corerelation.UnitUUID) error {
+func (s *Service) EnterScope(
+	ctx context.Context,
+	relationID corerelation.UUID,
+	unitName unit.Name,
+) error {
 	return errors.NotImplemented
 }
 
@@ -337,21 +341,43 @@ func (s *Service) SetRelationSuspended(
 	return errors.NotImplemented
 }
 
+// SetRelationApplicationSettings records settings for a specific application
+// relation combination.
 func (s *Service) SetRelationApplicationSettings(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	applicationID application.ID,
 	settings map[string]string,
 ) error {
+	// TODO: (hml) 17-Mar-2025
+	// Implement leadership checking here: e.g.
+	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
+	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
+	//	})
 	return errors.NotImplemented
 }
 
+// SetRelationUnitSettings records settings for a specific unit
+// relation combination.
 func (s *Service) SetRelationUnitSettings(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
 	settings map[string]string,
 ) error {
 	return errors.NotImplemented
+}
+
+// ValidateEnterScope returns a boolean to indicate whether scope may be
+// entered for this relation and unit. A principal unit is always valid.
+// A subordinate unit is valid when the relation is container-scoped if
+// the other end of the relation is also a subordinate charm or its
+// principal unit is also a member of the relation.
+func (s *Service) ValidateEnterScope(
+	ctx context.Context,
+	relUUID corerelation.UUID,
+	unitName unit.Name,
+) (bool, error) {
+	return false, errors.NotImplemented
 }
 
 // WatchableService provides the API for working with applications and the
