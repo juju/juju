@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -790,14 +791,10 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionInvalid(c *gc.C) {
 func (s *serviceSuite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().SetRunningAgentBinaryVersion(
-		gomock.Any(),
-		cmachine.Name("0"),
-		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
-			Arch:   corearch.ARM64,
-		},
-	).Return(machineerrors.MachineNotFound)
+	// MachineNotFound error location 1
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), cmachine.Name("0")).Return(
+		"", machineerrors.MachineNotFound,
+	)
 
 	err := NewService(s.state).SetReportedMachineAgentVersion(
 		context.Background(),
@@ -808,4 +805,61 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
 		},
 	)
 	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), cmachine.Name("0")).Return(
+		machineUUID.String(), nil,
+	)
+
+	s.state.EXPECT().SetRunningAgentBinaryVersion(
+		gomock.Any(),
+		machineUUID.String(),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	).Return(machineerrors.MachineNotFound)
+
+	err = NewService(s.state).SetReportedMachineAgentVersion(
+		context.Background(),
+		cmachine.Name("0"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestSetReportedMachineAgentVersion asserts the happy path of
+// [Service.SetReportedMachineAgentVersion].
+func (s *serviceSuite) TestSetReportedMachineAgentVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), cmachine.Name("0")).Return(
+		machineUUID.String(), nil,
+	)
+	s.state.EXPECT().SetRunningAgentBinaryVersion(
+		gomock.Any(),
+		machineUUID.String(),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	).Return(nil)
+
+	err = NewService(s.state).SetReportedMachineAgentVersion(
+		context.Background(),
+		cmachine.Name("0"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIsNil)
 }

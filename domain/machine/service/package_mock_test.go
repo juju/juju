@@ -1170,7 +1170,7 @@ func (c *MockStateSetMachineStatusCall) DoAndReturn(f func(context.Context, mach
 }
 
 // SetRunningAgentBinaryVersion mocks base method.
-func (m *MockState) SetRunningAgentBinaryVersion(arg0 context.Context, arg1 machine.Name, arg2 agentbinary.Version) error {
+func (m *MockState) SetRunningAgentBinaryVersion(arg0 context.Context, arg1 string, arg2 agentbinary.Version) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetRunningAgentBinaryVersion", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1196,13 +1196,13 @@ func (c *MockStateSetRunningAgentBinaryVersionCall) Return(arg0 error) *MockStat
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetRunningAgentBinaryVersionCall) Do(f func(context.Context, machine.Name, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
+func (c *MockStateSetRunningAgentBinaryVersionCall) Do(f func(context.Context, string, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetRunningAgentBinaryVersionCall) DoAndReturn(f func(context.Context, machine.Name, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
+func (c *MockStateSetRunningAgentBinaryVersionCall) DoAndReturn(f func(context.Context, string, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

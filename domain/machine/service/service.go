@@ -100,7 +100,7 @@ type State interface {
 
 	// SetRunningAgentBinaryVersion sets the running agent version for the machine.
 	// A MachineNotFound error if the machine does not exist.
-	SetRunningAgentBinaryVersion(context.Context, machine.Name, coreagentbinary.Version) error
+	SetRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
 
 	// DeleteMachineCloudInstance removes an entry in the machine cloud instance
 	// table along with the instance tags and the link to a lxd profile if any.
@@ -200,7 +200,7 @@ func (s *Service) SetReportedMachineAgentVersion(
 		)
 	}
 
-	if err := s.st.SetRunningAgentBinaryVersion(ctx, machineName, reportedVersion); err != nil {
+	if err := s.st.SetRunningAgentBinaryVersion(ctx, machineUUID, reportedVersion); err != nil {
 		return interrors.Errorf(
 			"setting machine %q reported agent version in state: %w",
 			machineUUID,
