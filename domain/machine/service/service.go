@@ -179,8 +179,9 @@ func NewService(st State) *Service {
 // binary on this machine has reported it is running.
 //
 // The following errors are possible:
-// - [coreerrors.NotValid] - is the reportedVersion is not valid
-// - [machineerrors.MachineNotFound] - when the machine does not exist
+// - [coreerrors.NotValid] if the reportedVersion is not valid.
+// - [coreerrors.NotSupported] if the architecture is not supported.
+// - [machineerrors.MachineNotFound] - when the machine does not exist.
 func (s *Service) SetReportedMachineAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
@@ -190,10 +191,19 @@ func (s *Service) SetReportedMachineAgentVersion(
 		return interrors.Errorf("reported agent version %v is not valid: %w", reportedVersion, err)
 	}
 
+	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	if err != nil {
+		return interrors.Errorf(
+			"getting machine UUID for machine %q: %w",
+			machineName,
+			err,
+		)
+	}
+
 	if err := s.st.SetRunningAgentBinaryVersion(ctx, machineName, reportedVersion); err != nil {
 		return interrors.Errorf(
 			"setting machine %q reported agent version in state: %w",
-			machineName,
+			machineUUID,
 			err,
 		)
 	}
