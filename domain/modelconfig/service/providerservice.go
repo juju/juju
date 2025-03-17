@@ -81,7 +81,7 @@ func NewWatchableProviderService(
 // config.
 func (s *WatchableProviderService) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher(
-		s.st.NamespaceForWatchModelConfig(), changestream.All,
 		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchModelConfig(), changestream.All),
 	)
 }

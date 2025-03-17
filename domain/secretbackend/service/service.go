@@ -672,7 +672,10 @@ var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
 // WatchSecretBackendRotationChanges returns a watcher for secret backend rotation changes.
 func (s *WatchableService) WatchSecretBackendRotationChanges(context.Context) (watcher.SecretBackendRotateWatcher, error) {
 	tableName, initialQ := s.st.InitialWatchStatementForSecretBackendRotationChanges()
-	w, err := s.watcherFactory.NewNamespaceWatcher(tableName, changestream.All, InitialNamespaceChanges(initialQ))
+	w, err := s.watcherFactory.NewNamespaceWatcher(
+		InitialNamespaceChanges(initialQ),
+		eventsource.NamespaceFilter(tableName, changestream.All),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

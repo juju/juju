@@ -29,17 +29,17 @@ type WatchableService struct {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewNamespaceWatcher returns a new namespace watcher
-	// for events based on the input change mask.
-	NewNamespaceWatcher(
-		namespace string, changeMask changestream.ChangeType, initialStateQuery eventsource.NamespaceQuery,
-	) (watcher.StringsWatcher, error)
-
+	// NewNamespaceMapperWatcher returns a new watcher that receives changes
+	// from the input base watcher's db/queue. Change-log events will be emitted
+	// only if the filter accepts them, and dispatching the notifications via
+	// the Changes channel, once the mapper has processed them. Filtering of
+	// values is done first by the filter, and then by the mapper. Based on the
+	// mapper's logic a subset of them (or none) may be emitted. A filter option
+	// is required, though additional filter options can be provided.
 	NewNamespaceMapperWatcher(
-		namespace string,
-		changeMask changestream.ChangeType,
 		initialStateQuery eventsource.NamespaceQuery,
 		mapper eventsource.Mapper,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 
 	// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
@@ -74,10 +74,9 @@ func NewWatchableService(
 func (s *WatchableService) WatchModelMachines() (watcher.StringsWatcher, error) {
 	table, stmt := s.st.InitialWatchModelMachinesStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
-		table,
-		changestream.Changed,
 		eventsource.InitialNamespaceChanges(stmt),
 		uuidToNameMapper(noContainersFilter),
+		eventsource.NamespaceFilter(table, changestream.Changed),
 	)
 }
 
