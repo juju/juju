@@ -240,6 +240,13 @@ type MachineService interface {
 // RelationService defines the methods that the facade assumes from the
 // Relation service.
 type RelationService interface {
+	// EnterScope updates the given relation to indicate it is in scope.
+	EnterScope(
+		ctx context.Context,
+		relationID corerelation.UUID,
+		unitName coreunit.Name,
+	) error
+
 	// GetLocalRelationApplicationSettings returns the application settings
 	// for the given application and relation identifier combination.
 	// ApplicationSettings may only be read by the application leader.
@@ -303,6 +310,9 @@ type RelationService interface {
 		applicationID coreapplication.ID,
 	) (map[string]string, error)
 
+	// LeaveScope updates the given relation to indicate it is not in scope.
+	LeaveScope(ctx context.Context, relationID corerelation.UnitUUID) error
+
 	// SetRelationStatus sets the status of the relation to the status provided.
 	// Status may only be set by the application leader.
 	SetRelationStatus(
@@ -311,4 +321,15 @@ type RelationService interface {
 		relationUUID corerelation.UUID,
 		info corestatus.StatusInfo,
 	) error
+
+	// ValidateEnterScope returns a boolean to indicate whether scope may be
+	// entered for this relation and unit. A principal unit is always valid.
+	// A subordinate unit is valid when the relation is container-scoped if
+	// the other end of the relation is also a subordinate charm or its
+	// principal unit is also a member of the relation.
+	ValidateEnterScope(
+		ctx context.Context,
+		relUUID corerelation.UUID,
+		unitName coreunit.Name,
+	) (bool, error)
 }

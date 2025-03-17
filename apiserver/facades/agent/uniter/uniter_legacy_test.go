@@ -1353,6 +1353,7 @@ func (s *uniterLegacySuite) makeSubordinateRelation(c *gc.C, subApp, principalAp
 		Endpoints: []relation.Endpoint{subEndpoint, principalEndpoint},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
 	// Trigger the creation of the subordinate unit by entering scope
 	// on the principal unit.
 	ru, err := rel.Unit(principalUnit)

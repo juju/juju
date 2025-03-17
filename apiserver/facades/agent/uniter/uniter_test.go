@@ -901,6 +901,57 @@ func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 	c.Check(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
+func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	failRelTag := names.NewRelationTag("postgresql:database wordpress:mysql")
+	s.expectGetRelationUUIDFromKey(corerelation.Key(failRelTag.Id()), "", errors.NotFound)
+
+	// act
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		// relation tag not parsable
+		{Relation: "relation-42", Unit: "unit-wordpress-0"},
+		// not found relation key
+		{Relation: failRelTag.String(), Unit: "unit-wordpress-0"},
+		// authorization on unit tag fails
+		{Relation: relTag.String(), Unit: "unit-mysql-0"},
+	}}
+	result, err := s.uniter.EnterScope(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+}
+
+func (s *uniterRelationSuite) TestEnterScope(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
+	s.expectValidateEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()))
+	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()))
+
+	// act
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()},
+	}}
+	result, err := s.uniter.EnterScope(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	emptyErrorResults := params.ErrorResults{Results: []params.ErrorResult{{}}}
+	c.Assert(result, gc.DeepEquals, emptyErrorResults)
+}
+
 func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -1067,4 +1118,12 @@ func (s *uniterRelationSuite) expectSetRelationStatus(unitName string, relUUID c
 
 func (s *uniterRelationSuite) expectGetRelationStatus(uuid corerelation.UUID, currentStatus status.StatusInfo) {
 	s.relationService.EXPECT().GetRelationStatus(gomock.Any(), uuid).Return(currentStatus, nil)
+}
+
+func (s *uniterRelationSuite) expectValidateEnterScope(uuid corerelation.UUID, name coreunit.Name) {
+	s.relationService.EXPECT().ValidateEnterScope(gomock.Any(), uuid, name).Return(true, nil)
+}
+
+func (s *uniterRelationSuite) expectEnterScope(uuid corerelation.UUID, name coreunit.Name) {
+	s.relationService.EXPECT().EnterScope(gomock.Any(), uuid, name).Return(nil)
 }
