@@ -2090,7 +2090,7 @@ WHERE application_uuid = $applicationID.uuid;
 		appPlatformChan applicationPlatformAndChannel
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
 

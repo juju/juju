@@ -332,7 +332,7 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		return errors.Annotatef(err, "setting desired scale for application %q", name)
 	}
 	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.Scaling); err != nil {
-		return errors.Annotatef(err, "setting provisioning state for application %q", name)
+		return errors.Annotatef(err, "setting scale state for application %q", name)
 	}
 
 	if err := s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(args.ApplicationConstraints)); err != nil {
