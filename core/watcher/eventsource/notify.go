@@ -23,12 +23,10 @@ type NotifyWatcher struct {
 	mapper     Mapper
 }
 
-// NewNotifyWatcher returns a new watcher that filters changes from the
-// input base watcher's db/queue. Change-log events will be emitted only if
-// the filter accepts them, and dispatching the notifications via the Changes
-// channel.
-// A filter option is required, though additional filter options can be
-// provided.
+// NewNotifyWatcher returns a new watcher that filters changes from the input
+// base watcher's db/queue. Change-log events will be emitted only if the filter
+// accepts them, and dispatching the notifications via the Changes channel. A
+// filter option is required, though additional filter options can be provided.
 func NewNotifyWatcher(
 	base *BaseWatcher,
 	filterOption FilterOption, filterOptions ...FilterOption,
@@ -40,9 +38,8 @@ func NewNotifyWatcher(
 // input base watcher's db/queue. Change-log events will be emitted only if the
 // filter accepts them, and dispatching the notifications via the Changes
 // channel, once the mapper has processed them. Filtering of values is done
-// first by the filter, and then by the mapper.
-// A filter option is required, though additional filter options can be
-// provided.
+// first by the filter, and then by the mapper. A filter option is required,
+// though additional filter options can be provided.
 func NewNotifyMapperWatcher(
 	base *BaseWatcher, mapper Mapper,
 	filterOption FilterOption, filterOptions ...FilterOption,

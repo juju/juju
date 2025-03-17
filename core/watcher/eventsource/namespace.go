@@ -26,44 +26,62 @@ type NamespaceQuery Query[[]string]
 type NamespaceWatcher struct {
 	*BaseWatcher
 
-	out chan []string
-
 	// TODO (manadart 2023-05-24): Consider making this plural (composite key)
 	// if/when it is supported by the change log table structure and stream.
-	namespace    string
 	initialQuery NamespaceQuery
-	changeMask   changestream.ChangeType
 
-	mapper Mapper
+	out        chan []string
+	filterOpts []changestream.SubscriptionOption
+	mapper     Mapper
 }
 
-// NewNamespaceWatcher returns a new watcher that receives changes from the
-// input base watcher's db/queue when changes in the namespace occur.
-// It emits the values from the namespace that changed.
+// NewNamespaceWatcher returns a new watcher that filters changes from the input
+// base watcher's db/queue. Change-log events will be emitted only if the filter
+// accepts them, and dispatching the notifications via the Changes channel. A
+// filter option is required, though additional filter options can be provided.
 func NewNamespaceWatcher(
-	base *BaseWatcher, namespace string, changeMask changestream.ChangeType, initialQuery NamespaceQuery,
-) watcher.StringsWatcher {
-	return NewNamespaceMapperWatcher(base, namespace, changeMask, initialQuery, defaultMapper)
+	base *BaseWatcher,
+	initialQuery NamespaceQuery,
+	filterOption FilterOption, filterOptions ...FilterOption,
+) (watcher.StringsWatcher, error) {
+	return NewNamespaceMapperWatcher(base, initialQuery, defaultMapper, filterOption, filterOptions...)
 }
 
-// NewNamespaceMapperWatcher returns a new watcher that receives changes
-// from the input base watcher's db/queue when changes in the namespace occur.
-// Values from the namespace that change are processed by the input mapper,
-// and based on the mapper's logic a subset of them (or none) may be emitted.
+// NewNamespaceMapperWatcher returns a new watcher that receives changes from
+// the input base watcher's db/queue. Change-log events will be emitted only if
+// the filter accepts them, and dispatching the notifications via the Changes
+// channel, once the mapper has processed them. Filtering of values is done
+// first by the filter, and then by the mapper. Based on the mapper's logic a
+// subset of them (or none) may be emitted. A filter option is required, though
+// additional filter options can be provided.
 func NewNamespaceMapperWatcher(
-	base *BaseWatcher, namespace string, changeMask changestream.ChangeType, initialQuery NamespaceQuery, mapper Mapper,
-) watcher.StringsWatcher {
+	base *BaseWatcher,
+	initialQuery NamespaceQuery, mapper Mapper,
+	filterOption FilterOption, filterOptions ...FilterOption,
+) (watcher.StringsWatcher, error) {
+	filters := append([]FilterOption{filterOption}, filterOptions...)
+	opts := make([]changestream.SubscriptionOption, len(filters))
+	for i, opt := range filters {
+		predicate := opt.ChangePredicate()
+		if predicate == nil {
+			return nil, errors.Errorf("no change predicate provided for filter option %d", i)
+		}
+
+		opts[i] = changestream.FilteredNamespace(opt.Namespace(), opt.ChangeMask(), func(e changestream.ChangeEvent) bool {
+			return predicate(e.Changed())
+		})
+	}
+
 	w := &NamespaceWatcher{
 		BaseWatcher:  base,
 		out:          make(chan []string),
-		namespace:    namespace,
 		initialQuery: initialQuery,
-		changeMask:   changeMask,
+		filterOpts:   opts,
 		mapper:       mapper,
 	}
 
 	w.tomb.Go(w.loop)
-	return w
+	return w, nil
 }
 
 // Changes returns the channel on which the keys for
@@ -73,23 +91,21 @@ func (w *NamespaceWatcher) Changes() <-chan []string {
 }
 
 func (w *NamespaceWatcher) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	defer close(w.out)
 
-	if w.changeMask == 0 {
-		return errors.NotValidf("changeMask value: 0")
-	}
-	subscription, err := w.watchableDB.Subscribe(changestream.Namespace(w.namespace, w.changeMask))
+	subscription, err := w.watchableDB.Subscribe(w.filterOpts...)
 	if err != nil {
-		return errors.Annotatef(err, "subscribing to namespace %q", w.namespace)
+		return errors.Annotatef(err, "subscribing to namespaces")
 	}
 	defer subscription.Unsubscribe()
-
-	ctx := w.tomb.Context(context.Background())
 
 	changes, err := w.initialQuery(ctx, w.watchableDB)
 	if err != nil {
 		return errors.Annotatef(
-			err, "retrieving initial watcher state for namespace %q", w.namespace)
+			err, "retrieving initial watcher state")
 	}
 
 	// By reassigning the in and out channels, we effectively ticktock between
@@ -113,7 +129,7 @@ func (w *NamespaceWatcher) loop() error {
 			return ErrSubscriptionClosed
 		case subChanges, ok := <-in:
 			if !ok {
-				w.logger.Debugf(context.TODO(), "change channel closed for %q; terminating watcher", w.namespace)
+				w.logger.Debugf(ctx, "change channel closed; terminating watcher")
 				return nil
 			}
 
@@ -138,6 +154,10 @@ func (w *NamespaceWatcher) loop() error {
 			out = nil
 		}
 	}
+}
+
+func (w *NamespaceWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }
 
 // InitialNamespaceChanges retrieves the current state of the world from the
