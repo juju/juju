@@ -1414,7 +1414,7 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 		return nil
 	})
 	s.mockState.EXPECT().InitialWatchStatementForSecretBackendRotationChanges().Return("table", "SELECT * FROM table")
-	s.mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.All, gomock.Any()).Return(s.mockStringWatcher, nil)
+	s.mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(s.mockStringWatcher, nil)
 	s.mockState.EXPECT().GetSecretBackendRotateChanges(gomock.Any(), backendID1, backendID2).Return([]watcher.SecretBackendRotateChange{
 		{
 			ID:              backendID1,
