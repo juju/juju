@@ -36,13 +36,3 @@ func (s *stateBackendShim) HasEndpoint(key string, app string) (bool, error) {
 	_, err = rel.Endpoint(app)
 	return err == nil, nil
 }
-
-type crossModelShim struct {
-	*state.RemoteEntities
-}
-
-// GetRemoteApplicationTag returns the consumer remote application
-// tag for the token.
-func (s *crossModelShim) GetRemoteApplicationTag(token string) (names.Tag, error) {
-	return s.RemoteEntities.GetRemoteEntity(token)
-}

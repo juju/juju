@@ -19,6 +19,7 @@ import (
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
@@ -2611,6 +2612,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
 	req, _ := b.Build()
 
 	s.st = cm.State()
+	s.cmrBackend = commoncrossmodel.GetBackend(s.st)
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
 	uniterAPI := s.newUniterAPI(c, s.st, s.authorizer)
 

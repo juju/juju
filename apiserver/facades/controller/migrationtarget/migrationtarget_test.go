@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -280,7 +281,7 @@ func (s *Suite) TestActivate(c *gc.C) {
 	s.expectImportModel(c)
 
 	sourceModel := "deadbeef-0bad-400d-8000-4b1d0d06f666"
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	_, err := commoncrossmodel.GetBackend(s.State).AddRemoteApplication(commoncrossmodel.AddRemoteApplicationParams{
 		Name: "foo", SourceModel: names.NewModelTag(sourceModel),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -318,7 +319,7 @@ func (s *Suite) TestActivate(c *gc.C) {
 	defer ph.Release()
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
 
-	app, err := model.State().RemoteApplication("foo")
+	app, err := commoncrossmodel.GetBackend(model.State()).RemoteApplication("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.SourceController(), gc.Equals, jujutesting.ControllerTag.Id())
 }

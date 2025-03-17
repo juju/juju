@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
@@ -192,11 +193,16 @@ func (n *NetworkInfoBase) getRelationAndEndpointName(relationID int) (*state.Rel
 func (n *NetworkInfoBase) maybeGetUnitAddress(
 	rel *state.Relation, fallbackPrivate bool,
 ) (network.SpaceAddresses, error) {
-	_, crossModel, err := rel.RemoteApplication()
+	cmrRel, err := commoncrossmodel.GetBackend(n.st).Relation(rel.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !crossModel {
+	_, isCMR, err := cmrRel.RemoteApplication()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// If it is not cross model, don't search any address.
+	if !isCMR {
 		return nil, nil
 	}
 

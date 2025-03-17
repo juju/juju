@@ -15,6 +15,7 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/vallerion/rscanner"
 
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
@@ -371,7 +372,7 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 
 	// Update the source controller attribute on remote applications
 	// to allow external controller ref counts to function properly.
-	remoteApps, err := model.State().AllRemoteApplications()
+	remoteApps, err := commoncrossmodel.GetBackend(model.State()).AllRemoteApplications()
 	if err != nil {
 		return errors.Errorf("cannot get remote applications for model %q: %w", model.UUID(), err)
 	}

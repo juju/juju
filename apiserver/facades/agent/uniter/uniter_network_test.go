@@ -12,6 +12,7 @@ import (
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/apiserver/common"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -36,6 +37,7 @@ type uniterNetworkInfoSuite struct {
 	domainServices services.DomainServices
 	mysqlCharm     state.CharmRefFull
 	st             *state.State
+	cmrBackend     commoncrossmodel.Backend
 }
 
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
@@ -530,7 +532,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBin
 	// endpoint of that relation is bound to the non default space, we
 	// provide the ingress addresses as those belonging to the space.
 	s.setupUniterAPIForUnit(c, s.mysqlUnit)
-	_, err := s.st.AddRemoteApplication(state.AddRemoteApplicationParams{
+	_, err := s.cmrBackend.AddRemoteApplication(commoncrossmodel.AddRemoteApplicationParams{
 		SourceModel: coretesting.ModelTag,
 		Name:        "wordpress-remote",
 		Endpoints:   []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer"}},
@@ -584,7 +586,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 	// If a network info call is made in the context of a relation, and the
 	// endpoint of that relation is not bound, or bound to the default space, we
 	// provide the ingress address relevant to the relation: public for CMR.
-	_, err := s.st.AddRemoteApplication(state.AddRemoteApplicationParams{
+	_, err := s.cmrBackend.AddRemoteApplication(commoncrossmodel.AddRemoteApplicationParams{
 		SourceModel: coretesting.ModelTag,
 		Name:        "wordpress-remote",
 		Endpoints:   []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer"}},

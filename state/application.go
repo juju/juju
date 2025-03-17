@@ -288,11 +288,6 @@ type DestroyApplicationOperation struct {
 	// then detachable storage will be detached and left in the model.
 	DestroyStorage bool
 
-	// RemoveOffers controls whether or not application offers
-	// are removed. If this is false, then the operation will
-	// fail if there are any offers remaining.
-	RemoveOffers bool
-
 	// CleanupIgnoringResources is true if this operation has been
 	// scheduled by a forced cleanup task.
 	CleanupIgnoringResources bool
@@ -363,25 +358,6 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 		//}
 		return nil
 	}
-	connected, err2 := applicationHasConnectedOffers(op.app.st, op.app.Name())
-	if err2 != nil {
-		err = errors.Trace(err2)
-	} else if connected {
-		rels, err2 := op.app.st.AllRelations()
-		if err2 != nil {
-			err = errors.Trace(err2)
-		} else {
-			n := 0
-			for _, r := range rels {
-				if _, isCrossModel, err := r.RemoteApplication(); err == nil && isCrossModel {
-					n++
-				}
-			}
-			err = errors.Errorf("application is used by %d consumer%s", n, plural(n))
-		}
-	} else {
-		err = errors.NewNotSupported(err, "change to the application detected")
-	}
 
 	return errors.Annotatef(err, "cannot destroy application %q", op.app)
 }
@@ -444,45 +420,6 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, removeUnitAssignmentOps...)
-
-	// We can't delete an application if it is being offered,
-	// unless those offers have no relations.
-	if !op.RemoveOffers {
-		countOp, n, err := countApplicationOffersRefOp(op.app.st, op.app.Name())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if n == 0 {
-			ops = append(ops, countOp)
-		} else {
-			connected, err := applicationHasConnectedOffers(op.app.st, op.app.Name())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if connected {
-				return nil, errors.Errorf("application is used by %d offer%s", n, plural(n))
-			}
-			// None of our offers are connected,
-			// it's safe to remove them.
-			removeOfferOps, err := removeApplicationOffersOps(op.app.st, op.app.Name())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ops = append(ops, removeOfferOps...)
-			ops = append(ops, txn.Op{
-				C:  applicationsC,
-				Id: op.app.doc.DocID,
-				Assert: bson.D{
-					// We're using the txn-revno here because relationcount is too
-					// coarse-grained for what we need. Using the revno will
-					// create false positives during concurrent updates of the
-					// model, but eliminates the possibility of it entering
-					// an inconsistent state.
-					{"txn-revno", op.app.doc.TxnRevno},
-				},
-			})
-		}
-	}
 
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed, so long as there are
@@ -589,13 +526,6 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		Assert: asserts,
 		Remove: true,
 	}}
-
-	// Remove application offers.
-	removeOfferOps, err := removeApplicationOffersOps(a.st, a.doc.Name)
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, removeOfferOps...)
 
 	// Reimplement in dqlite.
 	// Remove secret permissions.
@@ -1982,56 +1912,6 @@ func (a *Application) addUnitStorageOps(
 	return storageOps, numStorageAttachments, nil
 }
 
-// applicationOffersRefCountKey returns a key for refcounting offers
-// for the specified application. Each time an offer is created, the
-// refcount is incremented, and the opposite happens on removal.
-func applicationOffersRefCountKey(appName string) string {
-	return fmt.Sprintf("offer#%s", appName)
-}
-
-// incApplicationOffersRefOp returns a txn.Op that increments the reference
-// count for an application offer.
-func incApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(refcountsC)
-	defer closer()
-	offerRefCountKey := applicationOffersRefCountKey(appName)
-	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, offerRefCountKey, 1)
-	return incRefOp, errors.Trace(err)
-}
-
-// newApplicationOffersRefOp returns a txn.Op that creates a new reference
-// count for an application offer, starting at the count supplied. Used in
-// model migration, where offers are created in bulk.
-func newApplicationOffersRefOp(mb modelBackend, appName string, startCount int) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(refcountsC)
-	defer closer()
-	offerRefCountKey := applicationOffersRefCountKey(appName)
-	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, offerRefCountKey, startCount)
-	return incRefOp, errors.Trace(err)
-}
-
-// countApplicationOffersRefOp returns the number of offers for an application,
-// along with a txn.Op that ensures that that does not change.
-func countApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, int, error) {
-	refcounts, closer := mb.db().GetCollection(refcountsC)
-	defer closer()
-	key := applicationOffersRefCountKey(appName)
-	return nsRefcounts.CurrentOp(refcounts, key)
-}
-
-// decApplicationOffersRefOp returns a txn.Op that decrements the reference
-// count for an application offer.
-func decApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(refcountsC)
-	defer closer()
-	offerRefCountKey := applicationOffersRefCountKey(appName)
-	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, offerRefCountKey)
-	if err != nil {
-		return txn.Op{}, errors.Trace(err)
-	}
-	return decRefOp, nil
-}
-
 // incUnitCountOp returns the operation to increment the application's unit count.
 func (a *Application) incUnitCountOp(asserts bson.D) txn.Op {
 	op := txn.Op{
@@ -2757,11 +2637,6 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		Id:     app.Name(),
 		Assert: txn.DocMissing,
 		Insert: args.applicationDoc,
-	})
-	ops = append(ops, txn.Op{
-		C:      remoteApplicationsC,
-		Id:     app.Name(),
-		Assert: txn.DocMissing,
 	})
 	return ops, nil
 }

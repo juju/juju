@@ -54,7 +54,7 @@ type Backend interface {
 
 	// AddRemoteApplication creates a new remote application record, having the supplied relation endpoints,
 	// with the supplied name (which must be unique across all applications, local and remote).
-	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
+	AddRemoteApplication(AddRemoteApplicationParams) (RemoteApplication, error)
 
 	// OfferUUIDForRelation gets the uuid of the offer for the
 	// specified cross-model relation key.
@@ -84,16 +84,11 @@ type Backend interface {
 	// ApplicationOfferForUUID returns the application offer for the UUID.
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 
-	// WatchOfferStatus returns a watcher that notifies of changes to the status
-	// of the offer.
-	WatchOfferStatus(offerUUID string) (state.NotifyWatcher, error)
-
-	// WatchOffer returns a watcher that notifies of changes to the
-	// lifecycle of the offer.
-	WatchOffer(offerName string) state.NotifyWatcher
-
 	// ApplyOperation applies a model operation to the state.
 	ApplyOperation(op state.ModelOperation) error
+
+	// AllRemoteApplications returns a list of all remote applications available in the model.
+	AllRemoteApplications() ([]RemoteApplication, error)
 }
 
 // OfferConnection provides access to an offer connection in state.
@@ -168,6 +163,15 @@ type Relation interface {
 	// ApplicationSettings returns the settings for the specified
 	// application in the relation.
 	ApplicationSettings(appName string) (map[string]interface{}, error)
+
+	// RemoteApplication returns the remote application the relation is crossmodel,
+	// or false if it is not
+	RemoteApplication() (RemoteApplication, bool, error)
+
+	// RelatedEndpoints returns the endpoints of the relation with which
+	// units of the named application will establish relations. If the application
+	// is not part of the relation r, an error will be returned.
+	RelatedEndpoints(name string) ([]relation.Endpoint, error)
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,
@@ -286,6 +290,26 @@ type RemoteApplication interface {
 
 	// DestroyOperation returns a model operation to destroy remote application.
 	DestroyOperation(bool) state.ModelOperation
+
+	// SetSourceController updates the source controller attribute.
+	SetSourceController(uuid string) error
+
+	// SourceController returns the UUID of the source controller associated
+	// with the remote application.
+	SourceController() string
+
+	// Endpoints returns the application's currently available relation endpoints.
+	Endpoints() ([]relation.Endpoint, error)
+
+	// AddEndpoints adds the specified endpoints to the remote application.
+	// If an endpoint with the same name already exists, an error is returned.
+	// If the endpoints change during the update, the operation is retried.
+	AddEndpoints(eps []charm.Relation) error
+
+	// Destroy ensures that this remote application reference and all its relations
+	// will be removed at some point; if no relation involving the
+	// application has any units in scope, they are all removed immediately.
+	Destroy() error
 }
 
 // AccessService provides information about users and permissions.

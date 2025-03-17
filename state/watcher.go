@@ -398,12 +398,6 @@ func (st *State) WatchApplications() StringsWatcher {
 	return newLifecycleWatcher(st, applicationsC, nil, isLocalID(st), nil)
 }
 
-// WatchRemoteApplications returns a StringsWatcher that notifies of changes to
-// the lifecycles of the remote applications in the model.
-func (st *State) WatchRemoteApplications() StringsWatcher {
-	return newLifecycleWatcher(st, remoteApplicationsC, nil, isLocalID(st), nil)
-}
-
 // WatchApplicationCharms notifies when application charm URLs change.
 // TODO(wallyworld) - use a filter to only trigger on charm URL changes.
 func (st *State) WatchApplicationCharms() StringsWatcher {
@@ -458,12 +452,6 @@ func (a *Application) WatchUnits() StringsWatcher {
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving a.
 func (a *Application) WatchRelations() StringsWatcher {
-	return watchApplicationRelations(a.st, a.doc.Name)
-}
-
-// WatchRelations returns a StringsWatcher that notifies of changes to the
-// lifecycles of relations involving a.
-func (a *RemoteApplication) WatchRelations() StringsWatcher {
 	return watchApplicationRelations(a.st, a.doc.Name)
 }
 
@@ -3239,66 +3227,6 @@ func (w *notifyCollWatcher) loop() error {
 			out = nil
 		}
 	}
-}
-
-// WatchRemoteRelations returns a StringsWatcher that notifies of changes to
-// the lifecycles of the remote relations in the model.
-func (st *State) WatchRemoteRelations() StringsWatcher {
-	// Use a no-op transform func to record the known ids.
-	known := make(map[interface{}]bool)
-	tr := func(id string) string {
-		known[id] = true
-		return id
-	}
-
-	filter := func(id interface{}) bool {
-		id, err := st.strictLocalID(id.(string))
-		if err != nil {
-			return false
-		}
-
-		// Gather the remote app names.
-		remoteApps, closer := st.db().GetCollection(remoteApplicationsC)
-		defer closer()
-
-		type remoteAppDoc struct {
-			Name string
-		}
-		remoteAppNameField := bson.D{{"name", 1}}
-		var apps []remoteAppDoc
-		err = remoteApps.Find(nil).Select(remoteAppNameField).All(&apps)
-		if err != nil {
-			watchLogger.Errorf(context.TODO(), "could not lookup remote application names: %v", err)
-			return false
-		}
-		remoteAppNames := set.NewStrings()
-		for _, a := range apps {
-			remoteAppNames.Add(a.Name)
-		}
-
-		// Run a query to pickup any relations to those remote apps.
-		relations, closer := st.db().GetCollection(relationsC)
-		defer closer()
-
-		query := bson.D{
-			{"key", id},
-			{"endpoints.applicationname", bson.D{{"$in", remoteAppNames.Values()}}},
-		}
-		num, err := relations.Find(query).Count()
-		if err != nil {
-			watchLogger.Errorf(context.TODO(), "could not lookup remote relations: %v", err)
-			return false
-		}
-		// The relation (or remote app) may have been deleted, but if it has been
-		// seen previously, return true.
-		if num == 0 {
-			_, seen := known[id]
-			delete(known, id)
-			return seen
-		}
-		return num > 0
-	}
-	return newRelationLifeSuspendedWatcher(st, nil, filter, tr)
 }
 
 // isLocalID returns a watcher filter func that rejects ids not specific

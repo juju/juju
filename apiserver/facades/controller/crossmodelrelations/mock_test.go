@@ -111,7 +111,7 @@ func (st *mockState) AddRelation(eps ...relation.Endpoint) (commoncrossmodel.Rel
 	return rel, nil
 }
 
-func (st *mockState) AddOfferConnection(arg state.AddOfferConnectionParams) (commoncrossmodel.OfferConnection, error) {
+func (st *mockState) AddOfferConnection(arg commoncrossmodel.AddOfferConnectionParams) (commoncrossmodel.OfferConnection, error) {
 	if _, ok := st.offerConnections[arg.RelationId]; ok {
 		return nil, errors.AlreadyExistsf("offer connection for relation %d", arg.RelationId)
 	}
@@ -148,7 +148,8 @@ func (st *mockState) EndpointsRelation(eps ...relation.Endpoint) (commoncrossmod
 	return nil, errors.NotFoundf("relation with key %q", key)
 }
 
-func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParams) (commoncrossmodel.RemoteApplication, error) {
+func (st *mockState) AddRemoteApplication(params commoncrossmodel.AddRemoteApplicationParams) (commoncrossmodel.RemoteApplication,
+	error) {
 	app := &mockRemoteApplication{
 		sourceModelUUID: params.SourceModel.Id(),
 		consumerproxy:   params.IsConsumerProxy,

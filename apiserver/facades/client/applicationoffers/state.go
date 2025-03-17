@@ -17,7 +17,7 @@ type StatePool interface {
 	// Get returns a State for a given model from the pool.
 	Get(modelUUID string) (Backend, func(), error)
 
-	// Get returns a Model from the pool.
+	// GetModel returns a Model from the pool.
 	GetModel(modelUUID string) (Model, func(), error)
 }
 
@@ -69,24 +69,20 @@ type stateShim struct {
 	st *state.State
 }
 
+func (s *stateShim) ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (s *stateShim) OfferConnections(offerUUID string) ([]OfferConnection, error) {
+	// todo(gfouillet): cross model relations are disabled until backend
+	//   functionality is moved to domain, so we just return an empty list until it is done
+	return nil, nil
+}
+
 func (s *stateShim) Model() (Model, error) {
 	m, err := s.st.Model()
 	return &modelShim{m}, err
-}
-
-func (s *stateShim) ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error) {
-	offers := state.NewApplicationOffers(s.st)
-	return offers.ApplicationOffer(name)
-}
-
-var GetApplicationOffers = func(backend interface{}) crossmodel.ApplicationOffers {
-	switch st := backend.(type) {
-	case *state.State:
-		return state.NewApplicationOffers(st)
-	case *stateShim:
-		return state.NewApplicationOffers(st.st)
-	}
-	return nil
 }
 
 type Model interface {
@@ -101,18 +97,6 @@ type modelShim struct {
 	*state.Model
 }
 
-func (s *stateShim) OfferConnections(offerUUID string) ([]OfferConnection, error) {
-	conns, err := s.st.OfferConnections(offerUUID)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]OfferConnection, len(conns))
-	for i, oc := range conns {
-		result[i] = offerConnectionShim{oc}
-	}
-	return result, nil
-}
-
 type OfferConnection interface {
 	SourceModelUUID() string
 	UserName() string
@@ -120,6 +104,46 @@ type OfferConnection interface {
 	RelationId() int
 }
 
-type offerConnectionShim struct {
-	*state.OfferConnection
+type applicationOfferShim struct {
+}
+
+func (a applicationOfferShim) AddOffer(offer crossmodel.AddApplicationOfferArgs) (*crossmodel.ApplicationOffer, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (a applicationOfferShim) UpdateOffer(offer crossmodel.AddApplicationOfferArgs) (*crossmodel.ApplicationOffer, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (a applicationOfferShim) ApplicationOffer(offerName string) (*crossmodel.ApplicationOffer, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (a applicationOfferShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (a applicationOfferShim) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+	// todo(gfouillet): cross model relations are disabled until backend
+	//   functionality is moved to domain, so we just return an empty list until it is done
+	return nil, nil
+}
+
+func (a applicationOfferShim) Remove(offerName string, force bool) error {
+	return errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (a applicationOfferShim) AllApplicationOffers() (offers []*crossmodel.ApplicationOffer, _ error) {
+	// todo(gfouillet): cross model relations are disabled until backend
+	//   functionality is moved to domain, so we just return an empty list until it is done
+	return nil, nil
+}
+
+func GetApplicationOffers(i interface{}) crossmodel.ApplicationOffers {
+	return applicationOfferShim{}
 }

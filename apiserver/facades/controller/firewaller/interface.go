@@ -77,14 +77,14 @@ type ControllerConfigAPI interface {
 	ControllerAPIInfoForModels(ctx context.Context, args params.Entities) (params.ControllerAPIInfoResults, error)
 }
 
-// TODO(wallyworld) - for tests, remove when remaining firewaller tests become unit tests.
-func StateShim(st *state.State, m *state.Model) stateShim {
-	return stateShim{st: st, State: firewall.StateShim(st, m)}
+type MacaroonGetter interface {
+	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
 }
 
 type stateShim struct {
 	firewall.State
 	st *state.State
+	MacaroonGetter
 }
 
 func (st stateShim) IsController() bool {
@@ -93,11 +93,6 @@ func (st stateShim) IsController() bool {
 
 func (st stateShim) ModelUUID() string {
 	return st.st.ModelUUID()
-}
-
-func (st stateShim) GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error) {
-	r := st.st.RemoteEntities()
-	return r.GetMacaroon(entity)
 }
 
 func (st stateShim) FindEntity(tag names.Tag) (state.Entity, error) {

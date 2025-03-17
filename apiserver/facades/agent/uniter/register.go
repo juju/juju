@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -213,5 +214,7 @@ func newUniterAPIWithServices(
 		relationService:         services.RelationService,
 		secretService:           services.SecretService,
 		unitStateService:        services.UnitStateService,
+
+		cmrBackend: commoncrossmodel.GetBackend(st),
 	}, nil
 }

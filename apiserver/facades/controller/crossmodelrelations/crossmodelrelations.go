@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/charm"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	internalrelation "github.com/juju/juju/internal/relation"
@@ -283,7 +282,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 		}
 	}
 
-	_, err = api.st.AddRemoteApplication(state.AddRemoteApplicationParams{
+	_, err = api.st.AddRemoteApplication(commoncrossmodel.AddRemoteApplicationParams{
 		Name:            uniqueRemoteApplicationName,
 		SourceModel:     sourceModelTag,
 		Token:           relation.ApplicationToken,
@@ -311,7 +310,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 			api.logger.Debugf(context.TODO(), "added relation %v to model %s", localRel.Tag().Id(), api.modelID)
 		}
 	}
-	_, err = api.st.AddOfferConnection(state.AddOfferConnectionParams{
+	_, err = api.st.AddOfferConnection(commoncrossmodel.AddOfferConnectionParams{
 		SourceModelUUID: sourceModelTag.Id(), Username: username,
 		OfferUUID:   appOffer.OfferUUID,
 		RelationId:  localRel.Id(),
@@ -482,35 +481,9 @@ type OfferWatcher interface {
 	OfferName() string
 }
 
-type offerWatcher struct {
-	*eventsource.MultiWatcher[struct{}]
-	offerUUID string
-	offerName string
-}
-
-func (w *offerWatcher) OfferUUID() string {
-	return w.offerUUID
-}
-
-func (w *offerWatcher) OfferName() string {
-	return w.offerName
-}
-
 func watchOfferStatus(ctx context.Context, st CrossModelRelationsState, offerUUID string) (OfferWatcher, error) {
-	w1, err := st.WatchOfferStatus(offerUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	offer, err := st.ApplicationOfferForUUID(offerUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	w2 := st.WatchOffer(offer.OfferName)
-	mw, err := eventsource.NewMultiNotifyWatcher(ctx, w1, w2)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &offerWatcher{MultiWatcher: mw, offerUUID: offerUUID, offerName: offer.OfferName}, nil
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 func watchConsumedSecrets(ctx context.Context, s SecretService, appName string) (corewatcher.StringsWatcher, error) {

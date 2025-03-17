@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -44,7 +45,7 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		domainServices.ExternalController(),
 	)
 
-	stShim := stateShim{st: st, State: firewall.StateShim(st, m)}
+	stShim := stateShim{st: st, State: firewall.StateShim(st, m), MacaroonGetter: crossmodel.GetBackend(st)}
 	return NewStateFirewallerAPI(
 		stShim,
 		domainServices.Network(),

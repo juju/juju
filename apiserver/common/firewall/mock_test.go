@@ -312,19 +312,6 @@ func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	return w.changes
 }
 
-func (st *mockState) GetRemoteEntity(sourceModel names.ModelTag, token string) (names.Tag, error) {
-	st.MethodCall(st, "GetRemoteEntity", sourceModel, token)
-	if err := st.NextErr(); err != nil {
-		return nil, err
-	}
-	for e, t := range st.remoteEntities {
-		if t == token {
-			return e, nil
-		}
-	}
-	return nil, errors.NotFoundf("token %v", token)
-}
-
 func (st *mockState) KeyRelation(key string) (firewall.Relation, error) {
 	st.MethodCall(st, "KeyRelation", key)
 	if err := st.NextErr(); err != nil {

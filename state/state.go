@@ -460,13 +460,6 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.session
 }
 
-// WatchParams defines config to control which
-// entites are included when watching a model.
-type WatchParams struct {
-	// IncludeOffers controls whether application offers should be watched.
-	IncludeOffers bool
-}
-
 // Upgrader is an interface that can be used to check if an upgrade is in
 // progress.
 type Upgrader interface {
@@ -835,8 +828,7 @@ func (st *State) addPeerRelationsOps(applicationName string, peers map[string]ch
 }
 
 var (
-	errSameNameRemoteApplicationExists = errors.Errorf("saas application with same name already exists")
-	errLocalApplicationExists          = errors.Errorf("application already exists")
+	errLocalApplicationExists = errors.Errorf("application already exists")
 )
 
 // SaveCloudServiceArgs defines the arguments for SaveCloudService method.
@@ -1127,12 +1119,6 @@ func (st *State) AddApplication(
 				return nil, errors.Trace(err)
 			} else if exists {
 				return nil, errLocalApplicationExists
-			}
-			// Ensure a remote application with the same name doesn't exist.
-			if remoteExists, err := isNotDead(st, remoteApplicationsC, args.Name); err != nil {
-				return nil, errors.Trace(err)
-			} else if remoteExists {
-				return nil, errSameNameRemoteApplicationExists
 			}
 		}
 		// The addApplicationOps does not include the model alive assertion,
@@ -1757,21 +1743,7 @@ func splitEndpointName(name string) (string, string, error) {
 }
 
 func applicationByName(st *State, name string) (ApplicationEntity, error) {
-	app, err := st.Application(name)
-	if err == nil {
-		return app, nil
-	} else if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, err
-	}
-	remoteApp, remoteErr := st.RemoteApplication(name)
-	if errors.Is(remoteErr, errors.NotFound) {
-		// We can't find either an application or a remote application
-		// by that name. Report the missing application, since that's
-		// probably what was intended (and still indicates the problem
-		// for remote applications).
-		return nil, err
-	}
-	return remoteApp, remoteErr
+	return st.Application(name)
 }
 
 // endpoints returns all endpoints that could be intended by the
@@ -1893,50 +1865,32 @@ func (st *State) AddRelation(eps ...relation.Endpoint) (r *Relation, err error) 
 			if assertRelationCount {
 				assertions = append(assertions, bson.DocElem{Name: "relationcount", Value: existingRelationCount})
 			}
-			if app.IsRemote() {
-				// If the remote application is known to be terminated, we don't
-				// allow a relation to it.
-				statusInfo, err := app.Status()
-				if err != nil && !errors.Is(err, errors.NotFound) {
-					return nil, errors.Trace(err)
-				}
-				if err == nil && statusInfo.Status == status.Terminated {
-					return nil, errors.Errorf("remote offer %s is terminated", ep.ApplicationName)
-				}
-				ops = append(ops, txn.Op{
-					C:      remoteApplicationsC,
-					Id:     st.docID(ep.ApplicationName),
-					Assert: assertions,
-					Update: bson.D{{Name: "$inc", Value: bson.D{{Name: "relationcount", Value: 1}}}},
-				})
-			} else {
-				localApp := app.(*Application)
-				if localApp.doc.Subordinate {
-					subordinateCount++
-				}
-				ch, _, err := localApp.Charm()
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				if !ep.ImplementedBy(ch.Meta()) {
-					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
-				}
-				charmBases, err := corecharm.ComputedBases(ch)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				if len(charmBases) == 0 {
-					return nil, errors.NotValidf("charm %q does not support any bases", ch.Meta().Name)
-				}
-				appBases[localApp.doc.Name] = charmBases
-				assertions = append(assertions, bson.DocElem{Name: "charmurl", Value: ch.URL()})
-				ops = append(ops, txn.Op{
-					C:      applicationsC,
-					Id:     st.docID(ep.ApplicationName),
-					Assert: assertions,
-					Update: bson.D{{Name: "$inc", Value: bson.D{{Name: "relationcount", Value: 1}}}},
-				})
+			localApp := app.(*Application)
+			if localApp.doc.Subordinate {
+				subordinateCount++
 			}
+			ch, _, err := localApp.Charm()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if !ep.ImplementedBy(ch.Meta()) {
+				return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
+			}
+			charmBases, err := corecharm.ComputedBases(ch)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if len(charmBases) == 0 {
+				return nil, errors.NotValidf("charm %q does not support any bases", ch.Meta().Name)
+			}
+			appBases[localApp.doc.Name] = charmBases
+			assertions = append(assertions, bson.DocElem{Name: "charmurl", Value: ch.URL()})
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     st.docID(ep.ApplicationName),
+				Assert: assertions,
+				Update: bson.D{{Name: "$inc", Value: bson.D{{Name: "relationcount", Value: 1}}}},
+			})
 		}
 		// We need to ensure that there's intersection between the supported
 		// bases of both applications' charms.

@@ -286,43 +286,6 @@ func (r *Relation) Destroy(_ objectstore.ObjectStore) error {
 	return err
 }
 
-// destroyCrossModelRelationUnitsOps returns the operations necessary for the units
-// of the specified remote application to leave scope.
-func destroyCrossModelRelationUnitsOps(op *ForcedOperation, remoteApp *RemoteApplication, rel *Relation, onlyForTerminated bool) ([]txn.Op, error) {
-	if onlyForTerminated {
-		statusInfo, err := remoteApp.Status()
-		if op.FatalError(err) && !errors.Is(err, errors.NotFound) {
-			return nil, errors.Trace(err)
-		}
-		if err != nil || statusInfo.Status != status.Terminated {
-			return nil, jujutxn.ErrNoOperations
-		}
-	}
-	logger.Debugf(context.TODO(), "forcing cleanup of units for %v", remoteApp.Name())
-	remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	} else if err != nil {
-		logger.Warningf(context.TODO(), "could not get remote units for %q: %v", remoteApp.Name(), err)
-	}
-
-	var ops []txn.Op
-	logger.Debugf(context.TODO(), "got %v relation units to clean", len(remoteUnits))
-	failRemoteUnits := false
-	for _, ru := range remoteUnits {
-		leaveScopeOps, err := ru.leaveScopeForcedOps(op)
-		if err != nil && err != jujutxn.ErrNoOperations {
-			op.AddError(err)
-			failRemoteUnits = true
-		}
-		ops = append(ops, leaveScopeOps...)
-	}
-	if !op.Force && failRemoteUnits {
-		return nil, errors.Trace(op.LastError())
-	}
-	return ops, nil
-}
-
 // When 'force' is set, this call will construct and apply needed operations
 // as well as accumulate all operational errors encountered.
 // If the 'force' is not set, any error will be fatal and no operations will be applied.
@@ -337,40 +300,6 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 		}
 	}()
 	rel := &Relation{op.r.st, op.r.doc}
-
-	remoteApp, isCrossModel, err := op.r.RemoteApplication()
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	} else if isCrossModel {
-		// If the status of the consumed app is terminated, we will never
-		// get an orderly exit of units from scope so force the issue.
-		// TODO(wallyworld) - this should be in a force cleanup job after giving things a change to complete normally.
-		destroyOps, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, remoteApp, op.r, !op.Force)
-		if err != nil && err != jujutxn.ErrNoOperations {
-			return nil, errors.Trace(err)
-		}
-		ops = append(ops, destroyOps...)
-		// On the offering side, if this is the last relation to the consumer proxy, we may need to remove it also,
-		// but only if the unit count is already 0. This is just a backstop to allow force to fully clean up; normally
-		// unit count is not 0 so this doesn't get run.
-		if remoteApp.IsConsumerProxy() && remoteApp.doc.RelationCount <= 1 && (op.Force || rel.doc.UnitCount == 0) {
-			logger.Debugf(context.TODO(), "removing cross model consumer proxy and last relation %d: %v", op.r.doc.Id, op.r.doc.Key)
-			removeRelOps, err := rel.removeOps("", "", &op.ForcedOperation)
-			if err != nil && err != jujutxn.ErrNoOperations {
-				return nil, errors.Trace(err)
-			}
-			ops = append(ops, removeRelOps...)
-			var hasLastRefs bson.D
-			if !op.Force {
-				hasLastRefs = bson.D{{"life", remoteApp.doc.Life}, {"relationcount", remoteApp.doc.RelationCount}}
-			}
-			removeAppOps, err := remoteApp.removeOps(hasLastRefs)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return append(ops, removeAppOps...), nil
-		}
-	}
 
 	// In this context, aborted transactions indicate that the number of units
 	// in scope have changed between 0 and not-0. The chances of 5 successive
@@ -484,35 +413,18 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 		if ep.ApplicationName == ignoreApplication {
 			continue
 		}
-		app, err := applicationByName(r.st, ep.ApplicationName)
+
+		// When 'force' is set, this call will return both needed operations
+		// as well as all operational errors encountered.
+		// If the 'force' is not set, any error will be fatal and no operations will be returned.
+		epOps, err := r.removeLocalEndpointOps(ep, departingUnitName, op)
 		if err != nil {
 			op.AddError(err)
-		} else {
-			if app.IsRemote() {
-				epOps, err := r.removeRemoteEndpointOps(ep, departingUnitName != "")
-				if err != nil {
-					op.AddError(err)
-				}
-				ops = append(ops, epOps...)
-			} else {
-				// When 'force' is set, this call will return both needed operations
-				// as well as all operational errors encountered.
-				// If the 'force' is not set, any error will be fatal and no operations will be returned.
-				epOps, err := r.removeLocalEndpointOps(ep, departingUnitName, op)
-				if err != nil {
-					op.AddError(err)
-				}
-				ops = append(ops, epOps...)
-			}
 		}
+		ops = append(ops, epOps...)
 	}
 	ops = append(ops, removeStatusOp(r.st, r.globalScope()))
 	ops = append(ops, removeRelationNetworksOps(r.st, r.doc.Key)...)
-	re := r.st.RemoteEntities()
-	tokenOps := re.removeRemoteEntityOps(r.Tag())
-	ops = append(ops, tokenOps...)
-	offerOps := removeOfferConnectionsForRelationOps(r.Id())
-	ops = append(ops, offerOps...)
 
 	// Reimplement in dqlite.
 	//secretPermissionsOps, err := r.st.removeScopedSecretPermissionOps(r.Tag())
@@ -577,51 +489,6 @@ func (r *Relation) removeLocalEndpointOps(ep relation.Endpoint, departingUnitNam
 	}}, cleanupOps...), nil
 }
 
-func (r *Relation) removeRemoteEndpointOps(ep relation.Endpoint, unitDying bool) ([]txn.Op, error) {
-	var asserts bson.D
-	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
-	if !unitDying {
-		// We're constructing a destroy operation, either of the relation
-		// or one of its application, and can therefore be assured that both
-		// applications are Alive.
-		asserts = append(hasRelation, isAliveDoc...)
-	} else {
-		// The remote application may require immediate removal if all relations are being
-		// removed and it's either dying or on the offering side as a consumer proxy.
-		applications, closer := r.st.db().GetCollection(remoteApplicationsC)
-		defer closer()
-
-		app := &RemoteApplication{st: r.st}
-		hasLastRef := bson.D{{"relationcount", 1}}
-		shouldRemove := bson.D{{"$or", []bson.D{
-			{{"life", bson.D{{"$ne", Alive}}}},
-			{{"is-consumer-proxy", true}},
-		}}}
-
-		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
-		removable = append(removable, shouldRemove...)
-		if err := applications.Find(removable).One(&app.doc); err == nil {
-			removeOps, err := app.removeOps(hasLastRef)
-			return removeOps, errors.Trace(err)
-		} else if err != mgo.ErrNotFound {
-			return nil, err
-		}
-		// If not, we must check that this is still the case when the
-		// transaction is applied.
-		asserts = bson.D{{"$or", []bson.D{
-			{{"life", Alive}},
-			{{"is-consumer-proxy", false}},
-			{{"relationcount", bson.D{{"$gt", 1}}}},
-		}}}
-	}
-	return []txn.Op{{
-		C:      remoteApplicationsC,
-		Id:     r.st.docID(ep.ApplicationName),
-		Assert: asserts,
-		Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
-	}}, nil
-}
-
 // Id returns the integer internal relation key. This is exposed
 // because the unit agent needs to expose a value derived from this
 // (as JUJU_RELATION_ID) to allow relation hooks to differentiate
@@ -677,78 +544,6 @@ func (r *Relation) RelatedEndpoints(applicationname string) ([]relation.Endpoint
 func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 	const isLocalUnit = true
 	return r.unit(u.Name(), u.doc.Principal, u.IsPrincipal(), isLocalUnit)
-}
-
-// RemoteUnit returns a RelationUnit for the supplied unit
-// of a remote application.
-func (r *Relation) RemoteUnit(unitName string) (*RelationUnit, error) {
-	// Verify that the unit belongs to a remote application.
-	appName, err := names.UnitApplication(unitName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if _, err := r.st.RemoteApplication(appName); err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Only non-subordinate applications may be offered for remote
-	// relation, so all remote units are principals.
-	const principal = ""
-	const isPrincipal = true
-	const isLocalUnit = false
-	return r.unit(unitName, principal, isPrincipal, isLocalUnit)
-}
-
-// AllRemoteUnits returns all the RelationUnits for the remote
-// application units for a given application.
-func (r *Relation) AllRemoteUnits(appName string) ([]*RelationUnit, error) {
-	// Verify that the unit belongs to a remote application.
-	if _, err := r.st.RemoteApplication(appName); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	relationScopes, closer := r.st.db().GetCollection(relationScopesC)
-	defer closer()
-
-	ep, err := r.Endpoint(appName)
-	if err != nil {
-		return nil, err
-	}
-	scope := r.globalScope()
-	parts := []string{"^" + scope, string(ep.Role), appName + "/"}
-	ruRegex := strings.Join(parts, "#")
-
-	var docs []relationScopeDoc
-	if err := relationScopes.Find(bson.D{{"key", bson.D{{"$regex", ruRegex}}}}).All(&docs); err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]*RelationUnit, len(docs))
-	for i, doc := range docs {
-		result[i] = &RelationUnit{
-			st:          r.st,
-			relation:    r,
-			unitName:    doc.unitName(),
-			isPrincipal: true,
-			isLocalUnit: false,
-			endpoint:    ep,
-			scope:       scope,
-		}
-	}
-	return result, nil
-}
-
-// RemoteApplication returns the remote application if
-// this relation is a cross-model relation, and a bool
-// indicating if it cross-model or not.
-func (r *Relation) RemoteApplication() (*RemoteApplication, bool, error) {
-	for _, ep := range r.Endpoints() {
-		app, err := r.st.RemoteApplication(ep.ApplicationName)
-		if err == nil {
-			return app, true, nil
-		} else if !errors.Is(err, errors.NotFound) {
-			return nil, false, errors.Trace(err)
-		}
-	}
-	return nil, false, nil
 }
 
 func (r *Relation) unit(

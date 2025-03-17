@@ -14,6 +14,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/arch"
@@ -539,7 +540,7 @@ type statusContext struct {
 	linkLayerDevices map[string][]*state.LinkLayerDevice
 
 	// remote applications: application name -> application
-	consumerRemoteApplications map[string]*state.RemoteApplication
+	consumerRemoteApplications map[string]commoncrossmodel.RemoteApplication
 
 	// allOpenPortRanges: all open port ranges in the model, grouped by unit name.
 	allOpenPortRanges port.UnitGroupedPortRanges
@@ -805,8 +806,8 @@ func fetchAllApplicationsAndUnits(ctx context.Context, applicationService Applic
 }
 
 // fetchConsumerRemoteApplications returns a map from application name to remote application.
-func fetchConsumerRemoteApplications(st Backend) (map[string]*state.RemoteApplication, error) {
-	appMap := make(map[string]*state.RemoteApplication)
+func fetchConsumerRemoteApplications(st Backend) (map[string]commoncrossmodel.RemoteApplication, error) {
+	appMap := make(map[string]commoncrossmodel.RemoteApplication)
 	applications, err := st.AllRemoteApplications()
 	if err != nil {
 		return nil, err

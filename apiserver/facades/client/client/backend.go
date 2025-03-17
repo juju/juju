@@ -11,8 +11,8 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
 
+	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
@@ -21,8 +21,7 @@ import (
 // allowing stubs to be created for testing.
 type Backend interface {
 	AllApplications() ([]*state.Application, error)
-	AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error)
-	AllRemoteApplications() ([]*state.RemoteApplication, error)
+	AllRemoteApplications() ([]commoncrossmodel.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
@@ -33,8 +32,6 @@ type Backend interface {
 	Machine(string) (*state.Machine, error)
 	ModelTag() names.ModelTag
 	ModelUUID() string
-	RemoteApplication(string) (*state.RemoteApplication, error)
-	RemoteConnectionStatus(string) (*state.RemoteConnectionStatus, error)
 	Unit(string) (Unit, error)
 }
 
@@ -54,8 +51,13 @@ type Unit interface {
 // removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	model   *state.Model
-	session MongoSession
+	model      *state.Model
+	session    MongoSession
+	cmrBackend commoncrossmodel.Backend
+}
+
+func (s *stateShim) AllRemoteApplications() ([]commoncrossmodel.RemoteApplication, error) {
+	return s.cmrBackend.AllRemoteApplications()
 }
 
 func (s *stateShim) Unit(name string) (Unit, error) {
@@ -64,11 +66,6 @@ func (s *stateShim) Unit(name string) (Unit, error) {
 		return nil, err
 	}
 	return u, nil
-}
-
-func (s *stateShim) AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error) {
-	offers := state.NewApplicationOffers(s.State)
-	return offers.AllApplicationOffers()
 }
 
 func (s stateShim) ModelTag() names.ModelTag {

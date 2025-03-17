@@ -22,7 +22,7 @@ type CrossModelRelationsState interface {
 
 	// AddOfferConnection creates a new offer connection record, which records details about a
 	// relation made from a remote model to an offer in the local model.
-	AddOfferConnection(state.AddOfferConnectionParams) (common.OfferConnection, error)
+	AddOfferConnection(common.AddOfferConnectionParams) (common.OfferConnection, error)
 
 	// IsMigrationActive returns true if the current model is
 	// in the process of being migrated to another controller.
@@ -37,16 +37,18 @@ type stateShim struct {
 }
 
 func (st stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
-	oa := state.NewApplicationOffers(st.st)
-	return oa.ApplicationOfferForUUID(offerUUID)
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
-func (st stateShim) AddOfferConnection(arg state.AddOfferConnectionParams) (common.OfferConnection, error) {
-	return st.st.AddOfferConnection(arg)
+func (st stateShim) AddOfferConnection(arg common.AddOfferConnectionParams) (common.OfferConnection, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 func (st stateShim) OfferConnectionForRelation(relationKey string) (common.OfferConnection, error) {
-	return st.st.OfferConnectionForRelation(relationKey)
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 // IsMigrationActive returns true if the current model is

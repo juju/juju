@@ -255,15 +255,8 @@ func (api *API) RemoteApplications(ctx context.Context, entities params.Entities
 // returns the watcher ID and initial IDs of remote applications, or an error if
 // watching failed.
 func (api *API) WatchRemoteApplications(ctx context.Context) (params.StringsWatchResult, error) {
-	w := api.st.WatchRemoteApplications()
-	// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
-	if changes, ok := <-w.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: api.resources.Register(w),
-			Changes:          changes,
-		}, nil
-	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(w)
+	return params.StringsWatchResult{}, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 // WatchLocalRelationChanges starts a RemoteRelationWatcher for each
@@ -323,31 +316,8 @@ func (api *API) WatchLocalRelationChanges(ctx context.Context, args params.Entit
 // and initial values, or an error if the services' relations could not be
 // watched.
 func (api *API) WatchRemoteApplicationRelations(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	results := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		applicationTag, err := names.ParseApplicationTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		appName := applicationTag.Id()
-		w, err := api.st.WatchRemoteApplicationRelations(appName)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
-		changes, ok := <-w.Changes()
-		if !ok {
-			results.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
-			continue
-		}
-		results.Results[i].StringsWatcherId = api.resources.Register(w)
-		results.Results[i].Changes = changes
-	}
-	return results, nil
+	return params.StringsWatchResults{}, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 // WatchRemoteRelations starts a strings watcher that notifies of the addition,
@@ -355,15 +325,8 @@ func (api *API) WatchRemoteApplicationRelations(ctx context.Context, args params
 // returns the watcher ID and initial IDs of remote relations, or an error if
 // watching failed.
 func (api *API) WatchRemoteRelations(ctx context.Context) (params.StringsWatchResult, error) {
-	w := api.st.WatchRemoteRelations()
-	// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
-	if changes, ok := <-w.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: api.resources.Register(w),
-			Changes:          changes,
-		}, nil
-	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(w)
+	return params.StringsWatchResult{}, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 // ConsumeRemoteRelationChanges consumes changes to settings originating

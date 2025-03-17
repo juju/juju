@@ -691,12 +691,6 @@ func (st *State) cleanupApplicationsForDyingModel(ctx context.Context, store obj
 	default:
 		return errors.Errorf("expected 0-1 arguments, got %d", n)
 	}
-	if err := st.removeOffersForDyingModel(); err != nil {
-		return err
-	}
-	if err := st.removeRemoteApplicationsForDyingModel(args); err != nil {
-		return err
-	}
 	return st.removeApplicationsForDyingModel(ctx, store, appRemover, args)
 }
 
@@ -727,7 +721,6 @@ func (st *State) removeApplicationsForDyingModel(ctx context.Context, store obje
 			return errors.Annotatef(err, "destroying application %q", application.Name())
 		}
 		op := application.DestroyOperation(store)
-		op.RemoveOffers = true
 		op.Force = force
 		op.MaxWait = args.MaxWait
 		err := st.ApplyOperation(op)
@@ -735,52 +728,6 @@ func (st *State) removeApplicationsForDyingModel(ctx context.Context, store obje
 			logger.Warningf(context.TODO(), "operational errors removing application %v for dying model %v: %v", application.Name(), st.ModelUUID(), op.Errors)
 		} else if err == nil && op.Removed {
 			err = appService.DeleteApplication(ctx, application.Name())
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) (err error) {
-	// This won't miss remote applications, because a Dying model cannot have
-	// applications added to it. But we do have to remove the applications themselves
-	// via individual transactions, because they could be in any state at all.
-	remoteApps, closer := st.db().GetCollection(remoteApplicationsC)
-	defer closer()
-	remoteApp := RemoteApplication{st: st}
-	sel := bson.D{{"life", Alive}}
-	iter := remoteApps.Find(sel).Iter()
-	defer closeIter(iter, &err, "reading remote application document")
-
-	force := args.Force != nil && *args.Force
-	for iter.Next(&remoteApp.doc) {
-		errs, err := remoteApp.DestroyWithForce(force, args.MaxWait)
-		if len(errs) != 0 {
-			logger.Warningf(context.TODO(), "operational errors removing remote application %v for dying model %v: %v", remoteApp.Name(), st.ModelUUID(), errs)
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-func (st *State) removeOffersForDyingModel() (err error) {
-	// This won't miss offers, because a Dying model cannot have offers
-	// added to it. But we do have to remove the offers themselves via
-	// individual transactions, because they could be in any state at all.
-	offers := NewApplicationOffers(st)
-	allOffers, err := offers.AllApplicationOffers()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, offer := range allOffers {
-		// Remove with force so that any connections get cleaned up.
-		err := offers.Remove(offer.OfferName, true)
-		if err != nil {
-			logger.Warningf(context.TODO(), "operational errors removing application offer %v for dying model %v: %v", offer.OfferName, st.ModelUUID(), err)
 		}
 		if err != nil {
 			return errors.Trace(err)
