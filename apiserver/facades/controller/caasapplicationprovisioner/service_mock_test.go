@@ -403,6 +403,21 @@ func (mr *MockApplicationServiceMockRecorder) UpdateCAASUnit(arg0, arg1, arg2 an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCAASUnit", reflect.TypeOf((*MockApplicationService)(nil).UpdateCAASUnit), arg0, arg1, arg2)
 }
 
+// WatchApplication mocks base method.
+func (m *MockApplicationService) WatchApplication(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchApplication", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchApplication indicates an expected call of WatchApplication.
+func (mr *MockApplicationServiceMockRecorder) WatchApplication(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplication", reflect.TypeOf((*MockApplicationService)(nil).WatchApplication), arg0, arg1)
+}
+
 // MockStatusService is a mock of StatusService interface.
 type MockStatusService struct {
 	ctrl     *gomock.Controller

@@ -184,9 +184,9 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to watch for application %q units changes", a.name)
 	}
 
-	var done bool
-
 	var (
+		done                = false // done is true when the app is dead and cleaned up.
+		ready               = false // ready is true when the k8s resources are created.
 		initial             = true
 		scaleChan           <-chan time.Time
 		scaleTries          int
@@ -243,9 +243,10 @@ func (a *appWorker) loop() error {
 			if !a.statusOnly {
 				err = a.ops.AppAlive(ctx, a.name, app, a.password, &a.lastApplied, a.facade, a.clock, a.logger)
 				if errors.Is(err, errors.NotProvisioned) {
+					a.logger.Debugf(ctx, "application %q is not provisioned", a.name)
 					// State not ready for this application to be provisioned yet.
 					// Usually because the charm has not yet been downloaded.
-					break
+					return tryAgain
 				} else if err != nil {
 					return errors.Trace(err)
 				}
@@ -270,6 +271,8 @@ func (a *appWorker) loop() error {
 				}
 				replicaChanges = replicaWatcher.Changes()
 			}
+			a.logger.Debugf(ctx, "application %q is ready", a.name)
+			ready = true
 		case life.Dying:
 			if !a.statusOnly {
 				err = a.ops.AppDying(ctx, a.name, app, a.life, a.facade, a.unitFacade, a.logger)
@@ -277,6 +280,7 @@ func (a *appWorker) loop() error {
 					return errors.Trace(err)
 				}
 			}
+			ready = false
 		case life.Dead:
 			if !a.statusOnly {
 				err = a.ops.AppDying(ctx, a.name, app, a.life, a.facade, a.unitFacade, a.logger)
@@ -289,6 +293,7 @@ func (a *appWorker) loop() error {
 				}
 			}
 			done = true
+			ready = false
 			return nil
 		default:
 			return errors.NotImplementedf("unknown life %q", a.life)
@@ -311,6 +316,11 @@ func (a *appWorker) loop() error {
 		case <-scaleChan:
 			if a.statusOnly {
 				scaleChan = nil
+				break
+			}
+			if !ready {
+				scaleChan = a.clock.After(retryDelay)
+				shouldRefresh = false
 				break
 			}
 			err := a.ops.EnsureScale(ctx, a.name, app, a.life, a.facade, a.unitFacade, a.logger)
@@ -341,6 +351,11 @@ func (a *appWorker) loop() error {
 		case <-trustChan:
 			if a.statusOnly {
 				trustChan = nil
+				break
+			}
+			if !ready {
+				trustChan = a.clock.After(retryDelay)
+				shouldRefresh = false
 				break
 			}
 			err := a.ops.EnsureTrust(ctx, a.name, app, a.unitFacade, a.logger)

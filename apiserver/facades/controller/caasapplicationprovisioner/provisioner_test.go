@@ -229,17 +229,20 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 	defer ctrl.Finish()
 
 	appChanged := make(chan struct{}, 1)
+	legacyAppChanged := make(chan struct{}, 1)
 	portsChanged := make(chan struct{}, 1)
 	modelConfigChanged := make(chan []string, 1)
 	controllerConfigChanged := make(chan []string, 1)
 	s.st.apiHostPortsForAgentsWatcher = watchertest.NewMockNotifyWatcher(portsChanged)
 	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(watchertest.NewMockStringsWatcher(controllerConfigChanged), nil)
 	s.modelConfigService.EXPECT().Watch().Return(watchertest.NewMockStringsWatcher(modelConfigChanged), nil)
+	s.applicationService.EXPECT().WatchApplication(gomock.Any(), "gitlab").Return(watchertest.NewMockNotifyWatcher(appChanged), nil)
 	s.st.app = &mockApplication{
 		life:    state.Alive,
-		watcher: watchertest.NewMockNotifyWatcher(appChanged),
+		watcher: watchertest.NewMockNotifyWatcher(legacyAppChanged),
 	}
 	appChanged <- struct{}{}
+	legacyAppChanged <- struct{}{}
 	portsChanged <- struct{}{}
 	modelConfigChanged <- []string{}
 	controllerConfigChanged <- []string{}
