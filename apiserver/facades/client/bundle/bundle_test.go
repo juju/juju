@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package bundle_test
+package bundle
 
 import (
 	"context"
@@ -15,9 +15,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/bundle"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -26,17 +26,19 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 )
 
 type bundleSuite struct {
 	coretesting.BaseSuite
-	auth               *apiservertesting.FakeAuthorizer
-	facade             *bundle.APIv8
-	st                 *mockState
-	store              *mockObjectStore
-	modelTag           names.ModelTag
-	networkService     *MockNetworkService
-	applicationService *MockApplicationService
+	auth                  *apiservertesting.FakeAuthorizer
+	facade                *APIv8
+	modelTag              names.ModelTag
+	modelMigrationFactory *MockModelMigrationFactory
+	modelExporter         *MockModelExporter
+	networkService        *MockNetworkService
+	applicationService    *MockApplicationService
+	store                 *MockObjectStore
 }
 
 var _ = gc.Suite(&bundleSuite{})
@@ -45,6 +47,15 @@ func (s *bundleSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.store = NewMockObjectStore(ctrl)
+	s.modelMigrationFactory = NewMockModelMigrationFactory(ctrl)
+	s.modelExporter = NewMockModelExporter(ctrl)
+
+	// If this expect fails, change have been made in mock configuration or in
+	// setup test.
+	s.modelMigrationFactory.EXPECT().ModelExporter(gomock.Any(), model.UUID(s.modelTag.Id()),
+		nil).Return(s.modelExporter, nil).AnyTimes()
+
 	return ctrl
 }
 
@@ -55,14 +66,15 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 		Tag: names.NewUserTag("read"),
 	}
 
-	s.st = newMockState()
 	s.modelTag = names.NewModelTag("some-uuid")
 }
 
-func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
-	api, err := bundle.NewBundleAPI(
-		s.st,
-		s.store,
+func (s *bundleSuite) makeAPI(c *gc.C) *APIv8 {
+	api, err := NewBundleAPI(
+		getModelExporter(
+			s.modelMigrationFactory,
+			model.UUID(s.modelTag.Id()),
+			s.store, nil), // legacy Exporter is meant to disappear
 		s.auth,
 		s.modelTag,
 		s.networkService,
@@ -70,10 +82,10 @@ func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &bundle.APIv8{api}
+	return &APIv8{api}
 }
 
-func (s *bundleSuite) assertGetSpaces(c *gc.C, spaces ...network.SpaceInfo) {
+func (s *bundleSuite) expectGetAllSpaces(c *gc.C, spaces ...network.SpaceInfo) {
 	defaultSpaces := network.SpaceInfos{
 		{
 			ID:   network.AlphaSpaceId,
@@ -432,18 +444,18 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *gc.C
 }
 
 func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
-
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	s.expectExportModel(description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
-		CloudRegion: "some-region"})
+		CloudRegion: "some-region"}))
 
-	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
-	c.Assert(err, gc.NotNil)
-	c.Assert(result, gc.Equals, params.StringResult{})
+	// Act.
+	_, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Check(err, gc.ErrorMatches, "nothing to export as there are no applications")
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) minimalApplicationArgs(modelType string) description.ApplicationArgs {
@@ -452,9 +464,8 @@ func (s *bundleSuite) minimalApplicationArgs(modelType string) description.Appli
 	})
 }
 
-func (s *bundleSuite) minimalApplicationArgsWithCharmConfig(modelType string, charmConfig map[string]interface{}) description.ApplicationArgs {
-	s.st.Spaces["1"] = "vlan2"
-	s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
+func (s *bundleSuite) minimalApplicationArgsWithCharmConfig(modelType string,
+	charmConfig map[string]interface{}) description.ApplicationArgs {
 	result := description.ApplicationArgs{
 		Name:                 "ubuntu",
 		Type:                 modelType,
@@ -507,21 +518,25 @@ func minimalStatusArgs() description.StatusArgs {
 }
 
 func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
-	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
+	app := model.AddApplication(s.minimalApplicationArgs(description.IAAS))
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -540,19 +555,20 @@ applications:
       juju-info: vlan2
 `[1:]}
 
+	//  Assert
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
-	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
+	app := model.AddApplication(s.minimalApplicationArgs(description.IAAS))
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 
@@ -572,8 +588,13 @@ func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -594,14 +615,14 @@ applications:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -621,15 +642,20 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 			Size: 2048,
 		},
 	}
-	app := s.st.model.AddApplication(args)
+	app := model.AddApplication(args)
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -652,14 +678,14 @@ applications:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -668,15 +694,20 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 		coreapplication.TrustConfigOptionName: true,
 	}
 
-	app := s.st.model.AddApplication(appArgs)
+	app := model.AddApplication(appArgs)
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -696,18 +727,18 @@ applications:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
-	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
+	app := model.AddApplication(s.minimalApplicationArgs(description.IAAS))
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
@@ -736,12 +767,17 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 	// Add second app without an offer
 	app2Args := s.minimalApplicationArgs(description.IAAS)
 	app2Args.Name = "foo"
-	app2 := s.st.model.AddApplication(app2Args)
+	app2 := model.AddApplication(app2Args)
 	app2.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app2.SetStatus(minimalStatusArgs())
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Arrange.
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -783,18 +819,18 @@ applications:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportBundleWithApplicationCharmConfig(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
-	app := s.st.model.AddApplication(s.minimalApplicationArgsWithCharmConfig(description.IAAS, map[string]interface{}{
+	app := model.AddApplication(s.minimalApplicationArgsWithCharmConfig(description.IAAS, map[string]interface{}{
 		"key": "value",
 		"ssl_ca": `-----BEGIN RSA PRIVATE KEY-----
 Proc-Type: 4,ENCRYPTED
@@ -885,12 +921,17 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 	// Add second app without an offer
 	app2Args := s.minimalApplicationArgs(description.IAAS)
 	app2Args.Name = "foo"
-	app2 := s.st.model.AddApplication(app2Args)
+	app2 := model.AddApplication(app2Args)
 	app2.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app2.SetStatus(minimalStatusArgs())
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -994,22 +1035,22 @@ applications:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
-	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
+	app := model.AddApplication(s.minimalApplicationArgs(description.IAAS))
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	app.SetStatus(minimalStatusArgs())
 
-	remoteApp := s.st.model.AddRemoteApplication(description.RemoteApplicationArgs{
+	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
 		Name: "awesome",
 		URL:  "test:admin/default.awesome",
 	})
@@ -1018,8 +1059,13 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -1041,7 +1087,6 @@ applications:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) addApplicationToModel(model description.Model, name string, numUnits int) string {
@@ -1092,17 +1137,17 @@ func (s *bundleSuite) setEndpointSettings(ep description.Endpoint, units ...stri
 }
 
 func (s *bundleSuite) newModel(modelType string, app1 string, app2 string) description.Model {
-	s.st.model = description.NewModel(description.ModelArgs{
+	model := description.NewModel(description.ModelArgs{
 		Type:        modelType,
 		Owner:       "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
-	appName1 := s.addApplicationToModel(s.st.model, app1, 2)
-	appName2 := s.addApplicationToModel(s.st.model, app2, 1)
+	appName1 := s.addApplicationToModel(model, app1, 2)
+	appName2 := s.addApplicationToModel(model, app2, 1)
 
 	// Add a relation between wordpress and mysql.
-	rel := s.st.model.AddRelation(description.RelationArgs{
+	rel := model.AddRelation(description.RelationArgs{
 		Id:  42,
 		Key: "special key",
 	})
@@ -1122,16 +1167,22 @@ func (s *bundleSuite) newModel(modelType string, app1 string, app2 string) descr
 	})
 	s.setEndpointSettings(app2Endpoint, appName2+"/0")
 
-	return s.st.model
+	return model
 }
 
 func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
-	s.newModel("iaas", "wordpress", "mysql")
+	model := s.newModel("iaas", "wordpress", "mysql")
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -1158,10 +1209,10 @@ relations:
 	expectedResult := params.StringResult{Result: output}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
+	// Arrange.
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
@@ -1178,7 +1229,8 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	})
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
 
 	wordpressCharm := NewMockCharm(ctrl)
 	s.applicationService.EXPECT().GetCharm(gomock.Any(), applicationcharm.CharmLocator{
@@ -1212,7 +1264,10 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	}).Return(mariadbCharm, applicationcharm.CharmLocator{}, true, nil)
 	mariadbCharm.EXPECT().Config().Return(&charm.Config{})
 
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{IncludeCharmDefaults: true})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -1248,7 +1303,6 @@ relations:
 	expectedResult := params.StringResult{Result: output}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) addSubordinateEndpoints(rel description.Relation, app string) (description.Endpoint, description.Endpoint) {
@@ -1268,6 +1322,7 @@ func (s *bundleSuite) addSubordinateEndpoints(rel description.Relation, app stri
 }
 
 func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -1290,8 +1345,13 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 	s.setEndpointSettings(mysqlEndpoint, "mysql/0")
 	s.setEndpointSettings(loggingEndpoint, "logging/2")
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1321,20 +1381,18 @@ relations:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
-	s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
-	s.st.Spaces["2"] = "some-space"
-	application := s.st.model.AddApplication(description.ApplicationArgs{
+	application := model.AddApplication(description.ApplicationArgs{
 		Name:                 "magic",
 		Subordinate:          true,
 		CharmURL:             "ch:magic",
@@ -1362,11 +1420,16 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/18.04/stable"})
 	application.SetStatus(minimalStatusArgs())
 
-	s.assertGetSpaces(c, network.SpaceInfo{
+	s.expectGetAllSpaces(c, network.SpaceInfo{
 		ID:   "2",
 		Name: "some-space",
 	})
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1384,11 +1447,10 @@ applications:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff string) {
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff string) description.Model {
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
@@ -1397,10 +1459,10 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 		"rel-name": all,
 		"another":  all,
 	}
-	app := s.st.model.AddApplication(args)
+	app := model.AddApplication(args)
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 
-	app = s.st.model.AddApplication(description.ApplicationArgs{
+	app = model.AddApplication(description.ApplicationArgs{
 		Name:                 "magic",
 		Subordinate:          true,
 		CharmURL:             "ch:magic",
@@ -1417,16 +1479,23 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 		},
 	})
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/18.04/stable"})
+	return model
 }
 
 func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.setupExportBundleEndpointBindingsPrinted("0", "0")
+	model := s.setupExportBundleEndpointBindingsPrinted("0", "0")
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1450,10 +1519,15 @@ func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.setupExportBundleEndpointBindingsPrinted("0", "1")
+	model := s.setupExportBundleEndpointBindingsPrinted("0", "1")
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Arrange.
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1480,14 +1554,15 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
-	application := s.st.model.AddApplication(description.ApplicationArgs{
+	application := model.AddApplication(description.ApplicationArgs{
 		Name:        "magic",
 		Subordinate: true,
 		CharmURL:    "ch:amd64/zesty/magic",
@@ -1500,10 +1575,15 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/17.04/stable"})
 	application.SetStatus(minimalStatusArgs())
 
-	s.addMinimalMachineWithConstraints(s.st.model, "0")
+	s.addMinimalMachineWithConstraints(model, "0")
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Arrange.
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1518,7 +1598,6 @@ applications:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, id string) {
@@ -1548,6 +1627,7 @@ func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, 
 }
 
 func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -1556,8 +1636,13 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 	s.addMinimalMachineWithConstraints(model, "0")
 	s.addMinimalMachineWithConstraints(model, "1")
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -1586,8 +1671,6 @@ relations:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) addMinimalMachineWithAnnotations(model description.Model, id string) {
@@ -1606,6 +1689,7 @@ func (s *bundleSuite) addMinimalMachineWithAnnotations(model description.Model, 
 }
 
 func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -1614,8 +1698,13 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 	s.addMinimalMachineWithAnnotations(model, "0")
 	s.addMinimalMachineWithAnnotations(model, "1")
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -1646,25 +1735,25 @@ relations:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
-	application0 := s.st.model.AddApplication(description.ApplicationArgs{
+	application0 := model.AddApplication(description.ApplicationArgs{
 		Name:     "wordpress",
 		CharmURL: "ch:wordpress",
 	})
 	application0.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application0.SetStatus(minimalStatusArgs())
 
-	m0 := s.st.model.AddMachine(description.MachineArgs{
+	m0 := model.AddMachine(description.MachineArgs{
 		Id:   "0",
 		Base: "ubuntu@20.04",
 	})
@@ -1680,14 +1769,14 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	})
 	ut0.SetAgentStatus(minimalStatusArgs())
 
-	application1 := s.st.model.AddApplication(description.ApplicationArgs{
+	application1 := model.AddApplication(description.ApplicationArgs{
 		Name:     "mysql",
 		CharmURL: "ch:mysql",
 	})
 	application1.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 	application1.SetStatus(minimalStatusArgs())
 
-	m1 := s.st.model.AddMachine(description.MachineArgs{
+	m1 := model.AddMachine(description.MachineArgs{
 		Id:   "1",
 		Base: "ubuntu@20.04",
 	})
@@ -1704,8 +1793,13 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	})
 	ut.SetAgentStatus(minimalStatusArgs())
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Arrange.
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -1728,20 +1822,20 @@ machines:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestMixedSeries(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
 			"default-base": "ubuntu@20.04",
 		}),
 		CloudRegion: "some-region"})
 
-	application := s.st.model.AddApplication(description.ApplicationArgs{
+	application := model.AddApplication(description.ApplicationArgs{
 		Name:     "magic",
 		CharmURL: "ch:magic",
 	})
@@ -1750,12 +1844,12 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 		Name:    "magic/0",
 		Machine: "0",
 	})
-	s.st.model.AddMachine(description.MachineArgs{
+	model.AddMachine(description.MachineArgs{
 		Id:   "0",
 		Base: "ubuntu@20.04",
 	})
 
-	application = s.st.model.AddApplication(description.ApplicationArgs{
+	application = model.AddApplication(description.ApplicationArgs{
 		Name:     "mojo",
 		CharmURL: "ch:mojo",
 	})
@@ -1764,13 +1858,18 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 		Name:    "mojo/0",
 		Machine: "1",
 	})
-	s.st.model.AddMachine(description.MachineArgs{
+	model.AddMachine(description.MachineArgs{
 		Id:   "1",
 		Base: "ubuntu@22.04",
 	})
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1794,20 +1893,20 @@ machines:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
-	s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+	model := description.NewModel(description.ModelArgs{Owner: "magic",
 		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
 			"default-base": "ubuntu@20.04",
 		}),
 		CloudRegion: "some-region"})
 
-	application := s.st.model.AddApplication(description.ApplicationArgs{
+	application := model.AddApplication(description.ApplicationArgs{
 		Name:     "magic",
 		CharmURL: "ch:magic",
 	})
@@ -1820,12 +1919,12 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 		Name:    "magic/0",
 		Machine: "0",
 	})
-	s.st.model.AddMachine(description.MachineArgs{
+	model.AddMachine(description.MachineArgs{
 		Id:   "0",
 		Base: "ubuntu@21.04",
 	})
 
-	application = s.st.model.AddApplication(description.ApplicationArgs{
+	application = model.AddApplication(description.ApplicationArgs{
 		Name:     "mojo",
 		CharmURL: "ch:mojo",
 	})
@@ -1834,13 +1933,18 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 		Name:    "mojo/0",
 		Machine: "1",
 	})
-	s.st.model.AddMachine(description.MachineArgs{
+	model.AddMachine(description.MachineArgs{
 		Id:   "1",
 		Base: "ubuntu@22.04",
 	})
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1865,16 +1969,21 @@ machines:
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportKubernetesBundle(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
-	s.newModel("caas", "wordpress", "mysql")
+	model := s.newModel("caas", "wordpress", "mysql")
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -1893,16 +2002,21 @@ relations:
 	expectedResult := params.StringResult{Result: output}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportCharmhubBundle(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
-	s.newModel("iaas", "ch:wordpress", "ch:mysql")
+	model := s.newModel("iaas", "ch:wordpress", "ch:mysql")
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -1931,16 +2045,21 @@ relations:
 	expectedResult := params.StringResult{Result: output}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportLocalBundle(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
-	s.newModel("iaas", "local:wordpress", "local:mysql")
+	model := s.newModel("iaas", "local:wordpress", "local:mysql")
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -1967,16 +2086,21 @@ relations:
 	expectedResult := params.StringResult{Result: output}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportLocalBundleWithSeries(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
-	s.newModel("iaas", "local:focal/wordpress", "local:mysql")
+	model := s.newModel("iaas", "local:focal/wordpress", "local:mysql")
 
-	s.assertGetSpaces(c)
+	s.expectGetAllSpaces(c)
+	s.expectExportModel(model)
+
+	// Act.
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -2003,10 +2127,10 @@ relations:
 	expectedResult := params.StringResult{Result: output}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
 func (s *bundleSuite) TestExportBundleWithExposedEndpointSettings(c *gc.C) {
+	// Arrange.
 	defer s.setUpMocks(c).Finish()
 	s.facade = s.makeAPI(c)
 
@@ -2094,14 +2218,12 @@ applications:
 	for i, spec := range specs {
 		c.Logf("%d. %s", i, spec.descr)
 
-		s.st.model = description.NewModel(description.ModelArgs{Owner: "magic",
+		model := description.NewModel(description.ModelArgs{Owner: "magic",
 			Config:      coretesting.FakeConfig(),
 			CloudRegion: "some-region"},
 		)
-		s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
-		s.st.Spaces["2"] = "some-space"
 
-		application := s.st.model.AddApplication(description.ApplicationArgs{
+		application := model.AddApplication(description.ApplicationArgs{
 			Name:                 "magic",
 			CharmURL:             "ch:amd64/focal/magic",
 			Channel:              "stable",
@@ -2117,14 +2239,38 @@ applications:
 		application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 		application.SetStatus(minimalStatusArgs())
 
-		s.assertGetSpaces(c, network.SpaceInfo{
+		s.expectGetAllSpaces(c, network.SpaceInfo{
 			ID:   "2",
 			Name: "some-space",
 		})
+		s.expectExportModel(model)
+
+		// Act.
 		result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
+
+		// Assert.
 		c.Assert(err, jc.ErrorIsNil)
 
 		exp := params.StringResult{Result: spec.expBundle}
 		c.Assert(result, gc.Equals, exp)
 	}
+}
+
+func (s *bundleSuite) expectExportModel(model description.Model) *MockModelExporterExportModelPartialCall {
+	// This is expected configuration while calling export partial model, for
+	//  non regression.
+	exportConfig := state.ExportConfig{
+		SkipActions:              true,
+		SkipCloudImageMetadata:   true,
+		SkipCredentials:          true,
+		SkipIPAddresses:          true,
+		SkipSSHHostKeys:          true,
+		SkipLinkLayerDevices:     true,
+		SkipRelationData:         true,
+		SkipMachineAgentBinaries: true,
+		SkipUnitAgentBinaries:    true,
+		SkipInstanceData:         true,
+		SkipSecrets:              true,
+	}
+	return s.modelExporter.EXPECT().ExportModelPartial(gomock.Any(), exportConfig, s.store).Return(model, nil)
 }

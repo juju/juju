@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
@@ -52,6 +53,18 @@ type ApplicationService interface {
 	GetCharm(ctx context.Context, locator applicationcharm.CharmLocator) (charm.Charm, applicationcharm.CharmLocator, bool, error)
 }
 
+// ModelMigrationFactory defines an interface for getting a model migrator.
+type ModelMigrationFactory interface {
+	// ModelExporter returns a model exporter for the current model.
+	ModelExporter(context.Context, model.UUID, facade.LegacyStateExporter) (facade.ModelExporter, error)
+}
+
+// ObjectStoreFactory defines an interface for accessing the object store.
+type ObjectStoreFactory interface {
+	// ObjectStore returns the object store for the current model.
+	ObjectStore() objectstore.ObjectStore
+}
+
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
 type NetworkService interface {
@@ -73,28 +86,30 @@ type BundleAPI struct {
 	authorizer facade.Authorizer
 	modelTag   names.ModelTag
 
-	// Legacy state access.
-	backend Backend
-
 	// Services.
 	applicationService ApplicationService
 	networkService     NetworkService
 
-	store objectstore.ObjectStore
+	exportModel exportModelFunc
 
 	logger corelogger.Logger
 }
+
+// exportModelFunc is a function type used to export a model's description
+// within a given context. It returns a Model and an error.
+type exportModelFunc func(context.Context) (description.Model, error)
 
 // NewFacade provides the required signature for facade registration.
 func newFacade(ctx facade.ModelContext) (*BundleAPI, error) {
 	authorizer := ctx.Auth()
 	st := ctx.State()
 
+	modelTag := names.NewModelTag(st.ModelUUID())
+
 	return NewBundleAPI(
-		NewStateShim(st),
-		ctx.ObjectStore(),
+		getModelExporter(ctx, model.UUID(st.ModelUUID()), ctx.ObjectStore(), st),
 		authorizer,
-		names.NewModelTag(st.ModelUUID()),
+		modelTag,
 		ctx.DomainServices().Network(),
 		ctx.DomainServices().Application(),
 		ctx.Logger().Child("bundlechanges"),
@@ -103,8 +118,7 @@ func newFacade(ctx facade.ModelContext) (*BundleAPI, error) {
 
 // NewBundleAPI returns the new Bundle API facade.
 func NewBundleAPI(
-	st Backend,
-	store objectstore.ObjectStore,
+	exportModel exportModelFunc,
 	auth facade.Authorizer,
 	tag names.ModelTag,
 	networkService NetworkService,
@@ -116,8 +130,7 @@ func NewBundleAPI(
 	}
 
 	return &BundleAPI{
-		backend:            st,
-		store:              store,
+		exportModel:        exportModel,
 		authorizer:         auth,
 		modelTag:           tag,
 		networkService:     networkService,
@@ -241,8 +254,7 @@ func (b *BundleAPI) ExportBundle(ctx context.Context, arg params.ExportBundlePar
 		return fail(err)
 	}
 
-	exportConfig := b.backend.GetExportConfig()
-	model, err := b.backend.ExportPartial(exportConfig, b.store)
+	model, err := b.exportModel(ctx)
 	if err != nil {
 		return fail(err)
 	}
@@ -783,7 +795,7 @@ func (b *BundleAPI) endpointBindings(bindings map[string]string, spaceLookup net
 	if !printValue {
 		return nil, nil
 	}
-	endpointBindings, err := state.NewBindings(b.backend, bindings)
+	endpointBindings, err := state.NewBindings(nil, bindings)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -843,4 +855,45 @@ func (b *BundleAPI) constraints(cons description.Constraints) []string {
 		result = append(result, "root-disk-source="+rootDiskSource)
 	}
 	return result
+}
+
+// getModelExporter returns a function that exports a model's partial description
+// based on specified configurations.
+func getModelExporter(
+	factory ModelMigrationFactory,
+	modelUUID model.UUID,
+	store objectstore.ObjectStore,
+	legacyExporter facade.LegacyStateExporter,
+) func(ctx context.Context) (description.Model, error) {
+	return func(ctx context.Context) (description.Model, error) {
+		exporter, err := factory.ModelExporter(ctx, modelUUID, legacyExporter)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		exportConfig := state.ExportConfig{
+			IgnoreIncompleteModel:    false,
+			SkipActions:              true,
+			SkipAnnotations:          false,
+			SkipCloudImageMetadata:   true,
+			SkipCredentials:          true,
+			SkipIPAddresses:          true,
+			SkipSettings:             false,
+			SkipSSHHostKeys:          true,
+			SkipLinkLayerDevices:     true,
+			SkipUnitAgentBinaries:    true,
+			SkipMachineAgentBinaries: true,
+			SkipRelationData:         true,
+			SkipInstanceData:         true,
+			SkipApplicationOffers:    false,
+			SkipOfferConnections:     false,
+			SkipSecrets:              true,
+		}
+
+		exported, err := exporter.ExportModelPartial(ctx, exportConfig, store)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return exported, nil
+	}
 }
