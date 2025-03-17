@@ -48,6 +48,13 @@ type WatcherFactory interface {
 	// NewValueWatcher returns a watcher for a particular change value in a
 	// namespace, based on the input change mask.
 	NewValueWatcher(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error)
+
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. Change-log events will be emitted only if
+	// the filter accepts them, and dispatching the notifications via the
+	// Changes channel. A filter option is required, though additional filter
+	// options can be provided.
+	NewNotifyWatcher(eventsource.FilterOption, ...eventsource.FilterOption) (watcher.NotifyWatcher, error)
 }
 
 // WatchableService is a normal [Service] that can also be watched for updates
@@ -197,38 +204,17 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 		)
 	}
 
-	modelKeysWatcher, err := s.watcherFactory.NewValueWatcher(
-		"model_authorized_keys",
-		modelId.String(),
-		changestream.All,
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			"model_authorized_keys",
+			changestream.All,
+			func(s string) bool { return s == modelId.String() },
+		),
+		eventsource.NamespaceFilter(
+			"user_authentication",
+			changestream.All,
+		),
 	)
-	if err != nil {
-		return nil, errors.Errorf(
-			"making watcher for machine %q authorized keys when watching model %q authorized key changes: %w",
-			machineName, modelId, err,
-		)
-	}
-
-	userAuthWatcher, err := s.watcherFactory.NewNamespaceNotifyWatcher(
-		"user_authentication",
-		changestream.All,
-	)
-	if err != nil {
-		return nil, errors.Errorf(
-			"making watcher for machine %q authorized keys when watching user authentication changes: %w",
-			machineName, err,
-		)
-	}
-
-	watcher, err := eventsource.NewMultiNotifyWatcher(ctx, modelKeysWatcher, userAuthWatcher)
-	if err != nil {
-		return nil, errors.Errorf(
-			"making watcher for machine %q when combining user authentication and model authorized keys watcher: %w",
-			machineName, err,
-		)
-	}
-
-	return watcher, nil
 }
 
 // GetInitialAuthorisedKeysForContainer returns the authorised keys to be used

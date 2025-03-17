@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -22,6 +23,8 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventsource -destination watcher_mock_test.go -source=./consume.go
 
 func TestPackage(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	gc.TestingT(t)
 }
 
@@ -127,4 +130,10 @@ func (e changeEvent) Namespace() string {
 
 func (e changeEvent) Changed() string {
 	return e.changed
+}
+
+func matches(match string) func(string) bool {
+	return func(value string) bool {
+		return value == match
+	}
 }
