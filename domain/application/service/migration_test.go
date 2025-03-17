@@ -17,6 +17,7 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -363,7 +364,15 @@ func (s *migrationServiceSuite) TestGetApplicationConfigInvalidApplicationName(c
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
-func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
+func (s *migrationServiceSuite) TestImportIAASApplication(c *gc.C) {
+	s.assertImportApplication(c, coremodel.IAAS)
+}
+
+func (s *migrationServiceSuite) TestImportCAASApplication(c *gc.C) {
+	s.assertImportApplication(c, coremodel.CAAS)
+}
+
+func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType coremodel.ModelType) {
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
@@ -400,14 +409,21 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 		CharmhubIdentifier: "foobar",
 	}
 
-	s.state.EXPECT().GetModelType(gomock.Any()).Return("iaas", nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(modelType, nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 
-	var receivedUnitArgs application.InsertUnitArg
-	s.state.EXPECT().InsertUnit(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args application.InsertUnitArg) error {
-		receivedUnitArgs = args
-		return nil
-	})
+	var receivedUnitArgs []application.InsertUnitArg
+	if modelType == coremodel.IAAS {
+		s.state.EXPECT().InsertMigratingIAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.InsertUnitArg) error {
+			receivedUnitArgs = args
+			return nil
+		})
+	} else {
+		s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.InsertUnitArg) error {
+			receivedUnitArgs = args
+			return nil
+		})
+	}
 	s.charm.EXPECT().Actions().Return(&charm.Actions{})
 	s.charm.EXPECT().Config().Return(&charm.Config{
 		Options: map[string]charm.Option{
@@ -508,7 +524,7 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedUnitArgs := application.InsertUnitArg{
+	expectedUnitArgs := []application.InsertUnitArg{{
 		UnitName:       "ubuntu/666",
 		CloudContainer: nil,
 		Password: ptr(application.PasswordInfo{
@@ -530,7 +546,7 @@ func (s *migrationServiceSuite) TestImportApplication(c *gc.C) {
 			},
 		},
 		StorageParentDir: application.StorageParentDir,
-	}
+	}}
 	c.Check(receivedUnitArgs, gc.DeepEquals, expectedUnitArgs)
 }
 

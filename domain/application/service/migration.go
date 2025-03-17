@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/config"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
@@ -308,19 +309,49 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		return errors.Annotatef(err, "creating application args")
 	}
 
-	units := args.Units
-	numUnits := len(units)
-	appArg.Scale = numUnits
+	appArg.Scale = len(args.Units)
+	unitArgs, err := makeUnitArgs(args.Units)
+	if err != nil {
+		return errors.Annotatef(err, "creating unit args")
+	}
 
-	unitArgs := make([]application.InsertUnitArg, numUnits)
+	appID, err := s.st.CreateApplication(ctx, name, appArg, nil)
+	if err != nil {
+		return errors.Annotatef(err, "creating application %q", name)
+	}
+	if modelType == model.IAAS {
+		err = s.st.InsertMigratingIAASUnits(ctx, appID, unitArgs...)
+	} else {
+		err = s.st.InsertMigratingCAASUnits(ctx, appID, unitArgs...)
+	}
+	if err != nil {
+		return errors.Annotatef(err, "inserting units for application %q", name)
+	}
+
+	if err := s.st.SetDesiredApplicationScale(ctx, appID, args.ScaleState.Scale); err != nil {
+		return errors.Annotatef(err, "setting desired scale for application %q", name)
+	}
+	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.Scaling); err != nil {
+		return errors.Annotatef(err, "setting scale state for application %q", name)
+	}
+
+	if err := s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(args.ApplicationConstraints)); err != nil {
+		return errors.Annotatef(err, "setting application constraints for application %q", name)
+	}
+
+	return nil
+}
+
+func makeUnitArgs(units []ImportUnitArg) ([]application.InsertUnitArg, error) {
+	unitArgs := make([]application.InsertUnitArg, len(units))
 	for i, u := range units {
 		agentStatus, err := encodeUnitAgentStatus(&u.AgentStatus)
 		if err != nil {
-			return errors.Annotatef(err, "encoding agent status for unit %q", u.UnitName)
+			return nil, errors.Annotatef(err, "encoding agent status for unit %q", u.UnitName)
 		}
 		workloadStatus, err := encodeWorkloadStatus(&u.WorkloadStatus)
 		if err != nil {
-			return errors.Annotatef(err, "encoding workload status for unit %q", u.UnitName)
+			return nil, errors.Annotatef(err, "encoding workload status for unit %q", u.UnitName)
 		}
 
 		arg := application.InsertUnitArg{
@@ -342,29 +373,7 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		}
 		unitArgs[i] = arg
 	}
-
-	appID, err := s.st.CreateApplication(ctx, name, appArg, nil)
-	if err != nil {
-		return errors.Annotatef(err, "creating application %q", name)
-	}
-	for _, arg := range unitArgs {
-		if err := s.st.InsertUnit(ctx, appID, arg); err != nil {
-			return errors.Annotatef(err, "inserting unit %q", arg.UnitName)
-		}
-	}
-
-	if err := s.st.SetDesiredApplicationScale(ctx, appID, args.ScaleState.Scale); err != nil {
-		return errors.Annotatef(err, "setting desired scale for application %q", name)
-	}
-	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.Scaling); err != nil {
-		return errors.Annotatef(err, "setting provisioning state for application %q", name)
-	}
-
-	if err := s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(args.ApplicationConstraints)); err != nil {
-		return errors.Annotatef(err, "setting application constraints for application %q", name)
-	}
-
-	return nil
+	return unitArgs, nil
 }
 
 func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {

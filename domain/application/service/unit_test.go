@@ -416,7 +416,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 	}
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
-	s.state.EXPECT().InsertCAASUnit(gomock.Any(), appUUID, p)
+	s.state.EXPECT().RegisterCAASUnit(gomock.Any(), appUUID, p)
 
 	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, jc.ErrorIsNil)

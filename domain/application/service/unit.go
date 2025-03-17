@@ -26,23 +26,37 @@ import (
 // UnitState describes retrieval and persistence methods for
 // units.
 type UnitState interface {
-	// AddUnits adds the specified units to the application.
-	AddUnits(context.Context, string, coreapplication.ID, []application.AddUnitArg) error
+	// AddIAASUnits adds the specified units to the application.
+	// If the application is not found, an error satisfying [applicationerrors.ApplicationNotFound] is returned.
+	// If any of the units already exists, an error satisfying [applicationerrors.UnitAlreadyExists] is returned.
+	AddIAASUnits(context.Context, string, coreapplication.ID, ...application.AddUnitArg) error
 
-	// InsertCAASUnit inserts the specified CAAS application unit, returning an
-	// error satisfying [applicationerrors.UnitAlreadyExists] if the unit
-	// exists.
-	InsertCAASUnit(context.Context, coreapplication.ID, application.RegisterCAASUnitArg) error
+	// AddCAASUnits adds the specified units to the application.
+	// If the application is not found, an error satisfying [applicationerrors.ApplicationNotFound] is returned.
+	// If any of the units already exists, an error satisfying [applicationerrors.UnitAlreadyExists] is returned.
+	AddCAASUnits(context.Context, string, coreapplication.ID, ...application.AddUnitArg) error
+
+	// InsertMigratingIAASUnits inserts the fully formed units for the specified IAAS application.
+	// This is only used when inserting units during model migration.
+	// If the application is not found, an error satisfying [applicationerrors.ApplicationNotFound] is returned.
+	// If any of the units already exists, an error satisfying [applicationerrors.UnitAlreadyExists] is returned.
+	InsertMigratingIAASUnits(context.Context, coreapplication.ID, ...application.InsertUnitArg) error
+
+	// InsertMigratingCAASUnits inserts the fully formed units for the specified CAAS application.
+	// This is only used when inserting units during model migration.
+	// If the application is not found, an error satisfying [applicationerrors.ApplicationNotFound] is returned.
+	// If any of the units already exists, an error satisfying [applicationerrors.UnitAlreadyExists] is returned.
+	InsertMigratingCAASUnits(context.Context, coreapplication.ID, ...application.InsertUnitArg) error
+
+	// RegisterCAASUnit registers the specified CAAS application unit, returning an
+	// error satisfying [applicationerrors.UnitAlreadyExists] if the unit exists,
+	// or [applicationerrors.UnitNotAssigned] if the unit was not assigned.
+	RegisterCAASUnit(context.Context, coreapplication.ID, application.RegisterCAASUnitArg) error
 
 	// UpdateCAASUnit updates the cloud container for specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFoundError]
 	// if the unit doesn't exist.
 	UpdateCAASUnit(context.Context, coreunit.Name, application.UpdateCAASUnitParams) error
-
-	// InsertUnit insert the specified application unit, returning an error
-	// satisfying [applicationerrors.UnitAlreadyExists]
-	// if the unit exists.
-	InsertUnit(context.Context, coreapplication.ID, application.InsertUnitArg) error
 
 	// SetUnitPassword updates the password for the specified unit UUID.
 	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
@@ -412,7 +426,7 @@ func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args app
 	if err != nil {
 		return internalerrors.Errorf("getting application ID: %w", err)
 	}
-	err = s.st.InsertCAASUnit(ctx, appUUID, args)
+	err = s.st.RegisterCAASUnit(ctx, appUUID, args)
 	if err != nil {
 		return internalerrors.Errorf("saving caas unit %q: %w", args.UnitName, err)
 	}

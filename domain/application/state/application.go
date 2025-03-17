@@ -227,34 +227,58 @@ func (st *State) CreateApplication(
 			}
 		}
 
-		modelType, err := st.GetModelType(ctx)
-		if err != nil {
-			return errors.Errorf("getting model type: %w", err)
+		if len(units) == 0 {
+			return nil
 		}
 
-		for _, unit := range units {
-			insertArg := application.InsertUnitArg{
-				UnitName:         unit.UnitName,
-				Constraints:      unit.Constraints,
-				Storage:          args.Storage,
-				StoragePoolKind:  args.StoragePoolKind,
-				StorageParentDir: args.StorageParentDir,
-				UnitStatusArg: application.UnitStatusArg{
-					AgentStatus:    unit.UnitStatusArg.AgentStatus,
-					WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
-				},
-			}
-			if _, err := st.insertUnit(ctx, tx, modelType, appUUID, insertArg); err != nil {
-				return errors.Errorf("adding unit for application %q: %w", appUUID, err)
-			}
+		if err = st.insertApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+			return errors.Errorf("inserting units for application %q: %w", appUUID, err)
 		}
-
 		return nil
 	})
 	if err != nil {
 		return "", errors.Errorf("creating application %q: %w", name, err)
 	}
 	return appUUID, nil
+}
+
+func (st *State) insertApplicationUnits(
+	ctx context.Context, tx *sqlair.TX,
+	appUUID coreapplication.ID, args application.AddApplicationArg, units []application.AddUnitArg,
+) error {
+	insertUnits := make([]application.InsertUnitArg, len(units))
+	for i, unit := range units {
+		insertUnits[i] = application.InsertUnitArg{
+			UnitName:         unit.UnitName,
+			Constraints:      unit.Constraints,
+			Storage:          args.Storage,
+			StoragePoolKind:  args.StoragePoolKind,
+			StorageParentDir: args.StorageParentDir,
+			UnitStatusArg: application.UnitStatusArg{
+				AgentStatus:    unit.UnitStatusArg.AgentStatus,
+				WorkloadStatus: unit.UnitStatusArg.WorkloadStatus,
+			},
+		}
+	}
+
+	modelType, err := st.GetModelType(ctx)
+	if err != nil {
+		return errors.Errorf("getting model type: %w", err)
+	}
+	if modelType == coremodel.IAAS {
+		for _, arg := range insertUnits {
+			if err := st.insertIAASUnit(ctx, tx, appUUID, arg); err != nil {
+				return errors.Errorf("inserting IAAS unit %q: %w", arg.UnitName, err)
+			}
+		}
+	} else {
+		for _, arg := range insertUnits {
+			if err := st.insertCAASUnit(ctx, tx, appUUID, arg); err != nil {
+				return errors.Errorf("inserting CAAS unit %q: %w", arg.UnitName, err)
+			}
+		}
+	}
+	return nil
 }
 
 // DeleteApplication deletes the specified application, returning an error
@@ -838,7 +862,7 @@ WHERE application_uuid = $applicationID.uuid;
 	}
 	var status applicationStatusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, identID); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return jujuerrors.Trace(err)
 		}
 		if err := tx.Query(ctx, query, identID).Get(&status); errors.Is(err, sqlair.ErrNoRows) {
@@ -1559,7 +1583,7 @@ WHERE application_uuid = $applicationID.uuid;`
 	var configs []applicationConfig
 	var settings applicationSettings
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -1619,7 +1643,7 @@ WHERE application_uuid = $applicationID.uuid;`
 
 	var settings applicationSettings
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -1711,7 +1735,7 @@ WHERE application_uuid = $applicationConfigHash.application_uuid;
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
 		if err := st.checkApplicationCharm(ctx, tx, ident, charmIdent); err != nil {
@@ -2011,7 +2035,7 @@ WHERE application_uuid = $applicationID.uuid;
 
 	var hash applicationConfigHash
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -2066,7 +2090,7 @@ WHERE application_uuid = $applicationID.uuid;
 		appPlatformChan applicationPlatformAndChannel
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -2135,7 +2159,7 @@ WHERE application_uuid = $applicationID.uuid;
 
 	var result applicationConstraints
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, ident); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
 
@@ -2263,7 +2287,7 @@ ON CONFLICT (application_uuid) DO NOTHING
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, applicationID{ID: appID}); err != nil {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
 

@@ -9,11 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/domain/application"
@@ -243,11 +245,19 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	modelType, err := state.GetModelType(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	db, err := state.DB()
+	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range units {
-		err := state.InsertUnit(ctx, appID, u)
+		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			if modelType == coremodel.IAAS {
+				return state.insertIAASUnit(ctx, tx, appID, u)
+			}
+			return state.insertCAASUnit(ctx, tx, appID, u)
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
 		if err != nil {

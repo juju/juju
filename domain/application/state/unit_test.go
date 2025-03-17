@@ -14,8 +14,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -41,37 +42,6 @@ func (s *unitStateSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-}
-
-func (s *unitStateSuite) TestInsertUnitCloudContainer(c *gc.C) {
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-		CloudContainer: &application.CloudContainer{
-			ProviderID: "some-id",
-			Ports:      ptr([]string{"666", "667"}),
-			Address: ptr(application.ContainerAddress{
-				Device: application.ContainerDevice{
-					Name:              "placeholder",
-					DeviceTypeID:      linklayerdevice.DeviceTypeUnknown,
-					VirtualPortTypeID: linklayerdevice.NonVirtualPortType,
-				},
-				Value:       "10.6.6.6",
-				AddressType: ipaddress.AddressTypeIPv4,
-				ConfigType:  ipaddress.ConfigTypeDHCP,
-				Scope:       ipaddress.ScopeMachineLocal,
-				Origin:      ipaddress.OriginHost,
-			}),
-		},
-	}
-	ctx := context.Background()
-
-	appID := s.createApplication(c, "foo", life.Alive)
-	err := s.state.InsertUnit(ctx, appID, u)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertContainerAddressValues(c, "foo/666", "some-id", "10.6.6.6",
-		ipaddress.AddressTypeIPv4, ipaddress.OriginHost, ipaddress.ScopeMachineLocal, ipaddress.ConfigTypeDHCP)
-	s.assertContainerPortValues(c, "foo/666", []string{"666", "667"})
-
 }
 
 func (s *unitStateSuite) assertContainerAddressValues(
@@ -269,40 +239,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 	)
 }
 
-func (s *unitStateSuite) TestInsertUnit(c *gc.C) {
-	appID := s.createApplication(c, "foo", life.Alive)
-
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-		CloudContainer: &application.CloudContainer{
-			ProviderID: "some-id",
-		},
-	}
-	ctx := context.Background()
-
-	err := s.state.InsertUnit(ctx, appID, u)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var providerId string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err = tx.QueryRowContext(ctx, `
-SELECT provider_id FROM k8s_pod cc
-JOIN unit u ON cc.unit_uuid = u.uuid
-WHERE u.name=?`,
-			"foo/666").Scan(&providerId)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(providerId, gc.Equals, "some-id")
-
-	err = s.state.InsertUnit(ctx, appID, u)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
-}
-
-func (s *unitStateSuite) TestInsertCAASUnit(c *gc.C) {
+func (s *unitStateSuite) TestRegisterCAASUnit(c *gc.C) {
 	appUUID := s.createScalingApplication(c, "foo", life.Alive, 1)
 
 	unitName := coreunit.Name("foo/666")
@@ -317,7 +254,7 @@ func (s *unitStateSuite) TestInsertCAASUnit(c *gc.C) {
 		OrderedId:        0,
 		StorageParentDir: c.MkDir(),
 	}
-	err := s.state.InsertCAASUnit(context.Background(), appUUID, p)
+	err := s.state.RegisterCAASUnit(context.Background(), appUUID, p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var providerId string
@@ -336,7 +273,7 @@ WHERE u.name=?`,
 	c.Check(providerId, gc.Equals, "some-id")
 }
 
-func (s *unitStateSuite) TestInsertCAASUnitAlreadyExists(c *gc.C) {
+func (s *unitStateSuite) TestRegisterCAASUnitAlreadyExists(c *gc.C) {
 	unitName := coreunit.Name("foo/0")
 
 	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
@@ -353,7 +290,7 @@ func (s *unitStateSuite) TestInsertCAASUnitAlreadyExists(c *gc.C) {
 		OrderedId:        0,
 		StorageParentDir: c.MkDir(),
 	}
-	err := s.state.InsertCAASUnit(context.Background(), "foo", p)
+	err := s.state.RegisterCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -386,10 +323,14 @@ func (s *unitStateSuite) TestSetUnitPassword(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	appID := s.createApplication(c, "foo", life.Alive)
-	unitUUID := s.addUnit(c, appID, u)
+	s.createApplication(c, "foo", life.Alive, u)
+	var unitUUID coreunit.UUID
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := s.state.SetUnitPassword(context.Background(), unitUUID, application.PasswordInfo{
+	err = s.state.SetUnitPassword(context.Background(), unitUUID, application.PasswordInfo{
 		PasswordHash: "secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1303,7 +1244,33 @@ func (s *unitStateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplicat
 	c.Assert(results, gc.HasLen, 0)
 }
 
-func (s *unitStateSuite) TestAddUnits(c *gc.C) {
+func (s *unitStateSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
+	u := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	uuid := testing.GenApplicationUUID(c)
+	err := s.state.AddIAASUnits(context.Background(), c.MkDir(), uuid, u)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *unitStateSuite) TestAddUnitsApplicationNotALive(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Dying)
+	u := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	err := s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, u)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
+}
+
+func (s *unitStateSuite) TestAddIAASUnits(c *gc.C) {
+	s.assertAddUnits(c, model.IAAS)
+}
+
+func (s *unitStateSuite) TestAddCAASUnits(c *gc.C) {
+	s.assertAddUnits(c, model.CAAS)
+}
+
+func (s *unitStateSuite) assertAddUnits(c *gc.C, modelType model.ModelType) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
 	now := ptr(time.Now())
@@ -1326,7 +1293,12 @@ func (s *unitStateSuite) TestAddUnits(c *gc.C) {
 	}
 	ctx := context.Background()
 
-	err := s.state.AddUnits(ctx, c.MkDir(), appID, []application.AddUnitArg{u})
+	var err error
+	if modelType == model.IAAS {
+		err = s.state.AddIAASUnits(ctx, c.MkDir(), appID, u)
+	} else {
+		err = s.state.AddCAASUnits(ctx, c.MkDir(), appID, u)
+	}
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -1383,8 +1355,12 @@ func (s *unitStateSuite) TestSetConstraintFull(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	appID := s.createApplication(c, "foo", life.Alive)
-	unitUUID := s.addUnit(c, appID, u)
+	s.createApplication(c, "foo", life.Alive, u)
+	var unitUUID coreunit.UUID
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.Constraints{
 		Arch:             ptr("amd64"),
@@ -1407,7 +1383,7 @@ func (s *unitStateSuite) TestSetConstraintFull(c *gc.C) {
 		Zones: ptr([]string{"zone0", "zone1"}),
 	}
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		insertSpace0Stmt := `INSERT INTO space (uuid, name) VALUES (?, ?)`
 		_, err := tx.ExecContext(ctx, insertSpace0Stmt, "space0-uuid", "space0")
 		if err != nil {
@@ -1435,13 +1411,17 @@ func (s *unitStateSuite) TestSetConstraintInvalidContainerType(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	appID := s.createApplication(c, "foo", life.Alive)
-	unitUUID := s.addUnit(c, appID, u)
+	s.createApplication(c, "foo", life.Alive, u)
+	var unitUUID coreunit.UUID
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.Constraints{
 		Container: ptr(instance.ContainerType("invalid-container-type")),
 	}
-	err := s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
+	err = s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidUnitConstraints)
 }
 
@@ -1449,15 +1429,19 @@ func (s *unitStateSuite) TestSetConstraintInvalidSpace(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",
 	}
-	appID := s.createApplication(c, "foo", life.Alive)
-	unitUUID := s.addUnit(c, appID, u)
+	s.createApplication(c, "foo", life.Alive, u)
+	var unitUUID coreunit.UUID
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.Constraints{
 		Spaces: ptr([]constraints.SpaceConstraint{
 			{SpaceName: "invalid-space", Exclude: false},
 		}),
 	}
-	err := s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
+	err = s.state.SetUnitConstraints(context.Background(), unitUUID, cons)
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidUnitConstraints)
 }
 
@@ -1537,18 +1521,6 @@ func (s *unitStateSuite) TestDeleteUnitPresence(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(count, gc.Equals, 0)
-}
-
-func (s *unitStateSuite) addUnit(c *gc.C, appID coreapplication.ID, u application.InsertUnitArg) coreunit.UUID {
-	err := s.state.InsertUnit(context.Background(), appID, u)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var unitUUID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return coreunit.UUID(unitUUID)
 }
 
 type applicationSpace struct {

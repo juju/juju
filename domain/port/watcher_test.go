@@ -134,7 +134,7 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit
 	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = applicationSt.AddUnits(ctx, c.MkDir(), appID, []application.AddUnitArg{{UnitName: unitName}})
+	err = applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, application.AddUnitArg{UnitName: unitName})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unitCount++
 

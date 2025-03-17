@@ -306,7 +306,12 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 		return internalerrors.Errorf("making unit args: %w", err)
 	}
 
-	if err := s.st.AddUnits(ctx, storageParentDir, appUUID, args); err != nil {
+	if modelType == coremodel.IAAS {
+		err = s.st.AddIAASUnits(ctx, storageParentDir, appUUID, args...)
+	} else {
+		err = s.st.AddCAASUnits(ctx, storageParentDir, appUUID, args...)
+	}
+	if err != nil {
 		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
 	}
 

@@ -1360,7 +1360,7 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	s.expectEmptyUnitConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args []application.AddUnitArg) error {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args ...application.AddUnitArg) error {
 		received = args
 		return nil
 	})
@@ -1420,7 +1420,7 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 	s.expectAppConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args []application.AddUnitArg) error {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args ...application.AddUnitArg) error {
 		received = args
 		return nil
 	})
@@ -1480,7 +1480,7 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 	s.expectModelConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args []application.AddUnitArg) error {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args ...application.AddUnitArg) error {
 		received = args
 		return nil
 	})
@@ -1527,7 +1527,7 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 	s.expectFullConstraints(c, unitUUID, appUUID)
 
 	var received []application.AddUnitArg
-	s.state.EXPECT().AddUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args []application.AddUnitArg) error {
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), s.storageParentDir, appUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, args ...application.AddUnitArg) error {
 		received = args
 		return nil
 	})

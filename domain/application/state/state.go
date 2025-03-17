@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -1306,16 +1307,35 @@ WHERE name = $applicationDetails.name
 	return nil
 }
 
+// checkApplicationAlive checks if the application exists and is alive.
+//   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
+//   - If the application is not found, [applicationerrors.ApplicationNotFound]
+//     is returned.
+func (st *State) checkApplicationAlive(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) error {
+	return st.checkApplicationLife(ctx, tx, appUUID, domainlife.Alive)
+}
+
 // checkApplicationNotDead checks if the application exists and is not dead. It's
 // possible to access alive and dying applications, but not dead ones.
 //   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
-func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, ident applicationID) error {
+func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) error {
+	return st.checkApplicationLife(ctx, tx, appUUID, domainlife.Dying)
+}
+
+// checkApplicationLife checks if the application exists and its life has not
+// advanced beyond the specified allowed life.
+// Note: this is a helper method and should be called directly.
+// Instead use one of:
+//   - checkApplicationAlive
+//   - checkApplicationNotDead
+func (st *State) checkApplicationLife(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, allowed domainlife.Life) error {
 	type life struct {
 		LifeID domainlife.Life `db:"life_id"`
 	}
 
+	ident := applicationID{ID: appUUID}
 	query := `
 SELECT &life.*
 FROM application
@@ -1336,10 +1356,17 @@ WHERE uuid = $applicationID.uuid;
 
 	switch result.LifeID {
 	case domainlife.Dead:
-		return applicationerrors.ApplicationIsDead
+		if allowed < result.LifeID {
+			return applicationerrors.ApplicationIsDead
+		}
+	case domainlife.Dying:
+		if allowed < result.LifeID {
+			return applicationerrors.ApplicationNotAlive
+		}
 	default:
 		return nil
 	}
+	return nil
 }
 
 func decodeCharmState(state charmState) (charm.Charm, error) {

@@ -140,38 +140,17 @@ type storageTemplate struct {
 	params application.ApplicationStorageArg
 }
 
-// insertUnitStorage inserts the storage records need to record the intent
-// for the specified new unit and storage args. Records include:
-// - storage instance
-// - filesystem
-// - volume
-// - related attachment records
-// TODO(storage) - support attaching existing storage when adding a unit
-func (st *State) insertUnitStorage(
-	ctx context.Context, tx *sqlair.TX,
-	modelType model.ModelType,
-	storageParentDir string,
-	appUUID coreapplication.ID,
-	unitUUID coreunit.UUID,
-	netNodeUUID string,
-	args []application.ApplicationStorageArg, poolKinds map[string]storage.StorageKind,
-) error {
-
-	// Reduce the count of new storage created for each existing storage
-	// being attached.
-	// TODO(storage) - implement this when unit machine storage can be supported
-	// (includes ensureCharmStorageCountChange below)
-
+func (st *State) composeStorageTemplates(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, args []application.ApplicationStorageArg) ([]storageTemplate, error) {
 	templates := make([]storageTemplate, 0, len(args))
 	for _, arg := range args {
 		storageMeta, err := st.getApplicationCharmStorageByName(ctx, tx, appUUID, arg.Name)
 		if errors.Is(err, charmStorageNotFound) {
-			return errors.Errorf(
+			return nil, errors.Errorf(
 				"charm for application %q has no storage called %q",
 				appUUID, arg.Name,
 			).Add(applicationerrors.StorageNameNotSupported)
 		} else if err != nil {
-			return errors.Errorf("getting charm storage metadata for storage name %q application %q: %w", arg.Name, appUUID, err)
+			return nil, errors.Errorf("getting charm storage metadata for storage name %q application %q: %w", arg.Name, appUUID, err)
 		}
 
 		if arg.Count == 0 {
@@ -182,18 +161,49 @@ func (st *State) insertUnitStorage(
 			params: arg,
 		})
 	}
+	return templates, nil
+}
+
+// insertUnitStorage inserts the storage records need to record the intent
+// for the specified new unit and storage args. Records include:
+// - storage instance
+// - filesystem
+// - volume
+// - related attachment records
+// TODO(storage) - support attaching existing storage when adding a unit
+func (st *State) insertUnitStorage(
+	ctx context.Context, tx *sqlair.TX,
+	appUUID coreapplication.ID,
+	unitUUID coreunit.UUID,
+	args []application.ApplicationStorageArg, poolKinds map[string]storage.StorageKind,
+) ([]attachStorageArgs, error) {
+
+	// Reduce the count of new storage created for each existing storage
+	// being attached.
+	// TODO(storage) - implement this when unit machine storage can be supported
+	// (includes ensureCharmStorageCountChange below)
+
+	templates, err := st.composeStorageTemplates(ctx, tx, appUUID, args)
+	if err != nil {
+		return nil, errors.Errorf("composing storage info for application %q: %w", appUUID, err)
+	}
+	if len(templates) == 0 {
+		return nil, nil
+	}
+
+	result := make([]attachStorageArgs, len(templates))
 
 	app := applicationID{ID: appUUID}
 	selectCharmStmt, err := st.Prepare(
 		`SELECT &applicationCharmUUID.charm_uuid FROM application WHERE uuid = $applicationID.uuid`,
 		app, applicationCharmUUID{})
 	if err != nil {
-		return errors.Capture(err)
+		return result, errors.Capture(err)
 	}
 	var appCharm applicationCharmUUID
 	err = tx.Query(ctx, selectCharmStmt, app).Get(&appCharm)
 	if err != nil {
-		return errors.Errorf("getting application charm for %q: %w", appUUID, err)
+		return result, errors.Errorf("getting application charm for %q: %w", appUUID, err)
 	}
 
 	// Storage is either a storage type or a pool name.
@@ -205,24 +215,30 @@ func (st *State) insertUnitStorage(
 	}
 	poolsByName, err := st.loadStoragePoolUUIDByName(ctx, tx, poolNames)
 	if err != nil {
-		return errors.Errorf("loading storage pool UUIDs: %w", err)
+		return result, errors.Errorf("loading storage pool UUIDs: %w", err)
 	}
 
-	for _, t := range templates {
+	for i, t := range templates {
 		if err := ensureCharmStorageCountChange(t.meta, 0, t.params.Count); err != nil {
-			return err
+			return result, errors.Capture(err)
 		}
-		for range t.params.Count {
+		result[i].instArgs = make([]storageInstanceArg, t.params.Count)
+		for c := range t.params.Count {
 			// First create the storage instance records.
 			instUUID, err := corestorage.NewUUID()
 			if err != nil {
-				return errors.Capture(err)
+				return result, errors.Capture(err)
 			}
 			id, err := domainsequence.NextValue(ctx, st, tx, storageNamespace)
 			if err != nil {
-				return errors.Errorf("generating next storage ID: %w", err)
+				return result, errors.Errorf("generating next storage ID: %w", err)
 			}
 			storageID := corestorage.MakeID(t.params.Name, id)
+
+			result[i].instArgs[c] = storageInstanceArg{
+				StorageUUID: instUUID,
+				StorageID:   storageID,
+			}
 
 			inst := storageInstance{
 				StorageUUID:      instUUID,
@@ -241,48 +257,78 @@ func (st *State) insertUnitStorage(
 			}
 
 			if err := st.createUnitStorageInstance(ctx, tx, unitUUID, inst); err != nil {
-				return errors.Capture(err)
+				return result, errors.Capture(err)
 			}
 
 			// TODO(storage) - insert data for the unit's assigned machine when that is implemented
+		}
+		result[i].meta = t.meta
+		result[i].PoolNameOrType = t.params.PoolNameOrType
+	}
+	return result, nil
+}
 
-			// TODO(storage) - refactor this.
-			//  We don't want to make this decision here.
-			// For CAAS models, we create the storage with the unit
-			// as there's no machine for the unit to be assigned to.
-			if modelType != model.CAAS {
-				continue
-			}
+type storageInstanceArg struct {
+	StorageUUID corestorage.UUID
+	StorageID   corestorage.ID
+}
 
-			err = st.attachStorageToUnit(ctx, tx, inst.StorageUUID, unitUUID)
+type attachStorageArgs struct {
+	meta           charmStorage
+	PoolNameOrType string
+	instArgs       []storageInstanceArg
+}
+
+func (st *State) attachUnitStorage(
+	ctx context.Context, tx *sqlair.TX,
+	storageParentDir string,
+	poolKinds map[string]storage.StorageKind,
+	unitUUID coreunit.UUID,
+	netNodeUUID string,
+	args []attachStorageArgs,
+) error {
+
+	// Reduce the count of new storage created for each existing storage
+	// being attached.
+	// TODO(storage) - implement this when unit machine storage can be supported
+	// (includes ensureCharmStorageCountChange below)
+
+	for _, arg := range args {
+		count := uint64(len(arg.instArgs))
+		if err := ensureCharmStorageCountChange(arg.meta, 0, count); err != nil {
+			return err
+		}
+		for _, instArg := range arg.instArgs {
+			storageUUID := instArg.StorageUUID
+			err := st.attachStorageToUnit(ctx, tx, storageUUID, unitUUID)
 			if err != nil {
-				return errors.Errorf("attaching storage %q to unit %q: %w", inst.StorageUUID, unitUUID, err)
+				return errors.Errorf("attaching storage %q to unit %q: %w", storageUUID, unitUUID, err)
 			}
 
 			// Get the info needed to create the necessary filesystem and/or volume attachments to the net node.
 			// The required attachments then inform the creation of the filesystem and/or volume.
-			filesystem, volume, err := st.attachmentParamsForNewStorageInstance(storageParentDir, inst.StorageID, t.params.PoolNameOrType, inst.StorageName, t.meta, poolKinds)
+			filesystem, volume, err := st.attachmentParamsForNewStorageInstance(storageParentDir, instArg.StorageID, arg.PoolNameOrType, arg.meta, poolKinds)
 			if err != nil {
 				return errors.Errorf("creating storage parameters: %w", err)
 			}
 			if filesystem != nil {
-				filesystemUUID, err := st.createFilesystem(ctx, tx, instUUID, netNodeUUID)
+				filesystemUUID, err := st.createFilesystem(ctx, tx, storageUUID, netNodeUUID)
 				if err != nil {
-					return errors.Errorf("creating filesystem for storage %q for unit %q: %w", instUUID, unitUUID, err)
+					return errors.Errorf("creating filesystem for storage %q for unit %q: %w", storageUUID, unitUUID, err)
 				}
 				filesystem.filesystemUUID = filesystemUUID
 				if err := st.attachFilesystemToNode(ctx, tx, netNodeUUID, *filesystem); err != nil {
-					return errors.Errorf("attaching filesystem to storage %q for unit %q: %w", instUUID, unitUUID, err)
+					return errors.Errorf("attaching filesystem to storage %q for unit %q: %w", storageUUID, unitUUID, err)
 				}
 			}
 			if volume != nil {
-				volumeUUID, err := st.createVolume(ctx, tx, instUUID, netNodeUUID)
+				volumeUUID, err := st.createVolume(ctx, tx, storageUUID, netNodeUUID)
 				if err != nil {
-					return errors.Errorf("creating volume for storage %q for unit %q: %w", instUUID, unitUUID, err)
+					return errors.Errorf("creating volume for storage %q for unit %q: %w", storageUUID, unitUUID, err)
 				}
 				volume.volumeUUID = volumeUUID
 				if err := st.attachVolumeToNode(ctx, tx, netNodeUUID, *volume); err != nil {
-					return errors.Errorf("attaching volume to storage %q for unit %q: %w", instUUID, unitUUID, err)
+					return errors.Errorf("attaching volume to storage %q for unit %q: %w", storageUUID, unitUUID, err)
 				}
 			}
 		}
@@ -325,7 +371,6 @@ func (st *State) attachmentParamsForNewStorageInstance(
 	parentDir string,
 	storageID corestorage.ID,
 	poolName string,
-	storageName corestorage.Name,
 	stor charmStorage,
 	poolKinds map[string]storage.StorageKind,
 ) (filesystem *filesystemAttachmentParams, volume *volumeAttachmentParams, _ error) {
@@ -336,7 +381,7 @@ func (st *State) attachmentParamsForNewStorageInstance(
 		if err != nil {
 			return nil, nil, errors.Errorf(
 				"getting filesystem mount point for storage %s: %w",
-				storageName, err,
+				stor.Name, err,
 			).Add(applicationerrors.InvalidStorageMountPoint)
 		}
 		filesystem = &filesystemAttachmentParams{
@@ -630,6 +675,7 @@ WHERE  uuid = $storageUnit.storage_instance_uuid
 	// This only occurs in corner cases where a new pod appears with storage
 	// that needs to be reconciled with the Juju model. It is part of the
 	// UnitIntroduction workflow when a pod appears with volumes already attached.
+	// TODO - this can be removed when ObservedAttachedVolumeIDs are processed.
 	modelType, err := st.GetModelType(ctx)
 	if err != nil {
 		return errors.Errorf("getting model type: %w", err)
