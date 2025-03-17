@@ -49,8 +49,11 @@ type WatcherFactory interface {
 	// namespace, based on the input change mask.
 	NewValueWatcher(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error)
 
-	// NewNotifyWatcher returns a watcher that combines multiple value
-	// watchers into a single watcher.
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. Change-log events will be emitted only if
+	// the filter accepts them, and dispatching the notifications via the
+	// Changes channel. A filter option is required, though additional filter
+	// options can be provided.
 	NewNotifyWatcher(eventsource.FilterOption, ...eventsource.FilterOption) (watcher.NotifyWatcher, error)
 }
 
