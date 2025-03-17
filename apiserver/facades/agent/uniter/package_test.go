@@ -143,21 +143,6 @@ func (s *uniterSuiteBase) newUniterAPIv19(c *gc.C, st *state.State, auth facade.
 	return uniterAPI
 }
 
-func (s *uniterSuiteBase) addRelation(c *gc.C, first, second string) *state.Relation {
-	st := s.ControllerModel(c).State()
-	eps, err := st.InferEndpoints(first, second)
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := st.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-	return rel
-}
-
-func (s *uniterSuiteBase) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
-	ok, err := relUnit.InScope()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, gc.Equals, inScope)
-}
-
 // TODO (manadart 2020-12-07): This should form the basis of a SetUpTest method
 // in a new suite.
 // If we are testing a CAAS model, it is a waste of resources to do preamble
