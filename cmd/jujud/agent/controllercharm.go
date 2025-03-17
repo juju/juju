@@ -34,16 +34,104 @@ import (
 
 const controllerCharmURL = "ch:juju-controller"
 
-func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constraints.Value, charmPath string, channel charm.Channel, isCAAS bool, unitPassword string) (resultErr error) {
+type controllerCharmArgs struct {
+	cons         constraints.Value
+	charmPath    string
+	channel      charm.Channel
+	isCAAS       bool
+	unitPassword string
+}
+
+type controllerCharmDeployer struct {
+	controllerCharmArgs
+
+	// The values below are populated during the deployment process.
+
+	// machine is only populated for IAAS deployments and contains
+	// info about the machine where the controller is deployed.
+	machine           *state.Machine
+	arch              string
+	base              corebase.Base
+	controllerAddress string
+	source            string
+	controllerUnit    *state.Unit
+	dataDir           string
+}
+
+func (c *BootstrapCommand) deployControllerCharm(st *state.State, args controllerCharmArgs) error {
 	arch := corearch.DefaultArchitecture
 	base := jujuversion.DefaultSupportedLTSBase()
-	if cons.HasArch() {
-		arch = *cons.Arch
+	if args.cons.HasArch() {
+		arch = *args.cons.Arch
 	}
 
-	var controllerUnit *state.Unit
-	controllerAddress := ""
-	if isCAAS {
+	ccd := controllerCharmDeployer{
+		controllerCharmArgs: args,
+		arch:                arch,
+		base:                base,
+		dataDir:             c.DataDir(),
+	}
+
+	if err := ccd.deploy(st); err != nil {
+		return err
+	}
+
+	logger.Debugf("Successfully deployed %s Juju controller charm", ccd.source)
+
+	return nil
+}
+
+func (ccd *controllerCharmDeployer) deploy(st *state.State) error {
+	if err := ccd.getControllerDetails(st); err != nil {
+		return err
+	}
+
+	if err := ccd.deployCharm(st); err != nil {
+		return err
+	}
+
+	if err := ccd.finishUnitSetup(st); err != nil {
+		return err
+	}
+
+	logger.Debugf("Successfully deployed %s Juju controller charm", ccd.source)
+
+	return nil
+}
+
+func (ccd *controllerCharmDeployer) deployCharm(st *state.State) error {
+	// First try using a local charm specified at bootstrap time.
+	ccd.source = "local"
+	curl, origin, err := populateLocalControllerCharm(st, ccd.dataDir, ccd.arch, ccd.base)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "deploying local controller charm")
+	}
+	// If no local charm, use the one from charmhub.
+	if err != nil {
+		ccd.source = "store"
+		if curl, origin, err = populateStoreControllerCharm(st, ccd.charmPath, ccd.channel, ccd.arch, ccd.base); err != nil {
+			return errors.Annotate(err, "deploying charmhub controller charm")
+		}
+	}
+	// Always for the controller charm to use the same base as the controller.
+	// This avoids the situation where we cannot deploy a slightly stale
+	// controller charm onto a newer machine at bootstrap.
+	origin.Platform.OS = ccd.base.OS
+	origin.Platform.Channel = ccd.base.Channel.String()
+
+	// Once the charm is added, set up the controller application.
+	ccd.controllerUnit, err = addControllerApplication(
+		st, curl, *origin, ccd.cons, ccd.controllerAddress)
+	if err != nil {
+		return errors.Annotate(err, "cannot add controller application")
+	}
+	return nil
+}
+
+func (ccd *controllerCharmDeployer) getControllerDetails(st *state.State) error {
+	// Force CAAS unit's providerId on CAAS.
+	// TODO(caas): this assumes k8s is the provider
+	if ccd.isCAAS {
 		s, err := st.CloudService(st.ControllerUUID())
 		if err != nil {
 			return errors.Trace(err)
@@ -51,79 +139,45 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 		hp := network.SpaceAddressesWithPort(s.Addresses(), 0)
 		addr := hp.AllMatchingScope(network.ScopeMatchCloudLocal)
 		if len(addr) > 0 {
-			controllerAddress = addr[0]
+			ccd.controllerAddress = addr[0]
 		}
-		logger.Debugf("CAAS controller address %v", controllerAddress)
-		// For k8s, we need to set the charm unit agent password.
-		defer func() {
-			if resultErr == nil && controllerUnit != nil {
-				resultErr = controllerUnit.SetPassword(unitPassword)
-			}
-		}()
+		logger.Debugf("CAAS controller address %v", ccd.controllerAddress)
 	} else {
-		m, err := st.Machine(agent.BootstrapControllerId)
+		var err error
+		ccd.machine, err = st.Machine(agent.BootstrapControllerId)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		defer func() {
-			if resultErr == nil && controllerUnit != nil {
-				resultErr = controllerUnit.AssignToMachine(m)
-			}
-		}()
-		base, err = corebase.ParseBase(m.Base().OS, m.Base().Channel)
+		ccd.base, err = corebase.ParseBase(ccd.machine.Base().OS, ccd.machine.Base().Channel)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		pa, err := m.PublicAddress()
+		pa, err := ccd.machine.PublicAddress()
 		if err != nil && !network.IsNoAddressError(err) {
 			return errors.Trace(err)
 		}
 		if err == nil {
-			controllerAddress = pa.Value
+			ccd.controllerAddress = pa.Value
 		}
 	}
+	return nil
+}
 
-	// First try using a local charm specified at bootstrap time.
-	source := "local"
-	curl, origin, err := populateLocalControllerCharm(st, c.DataDir(), arch, base)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Annotate(err, "deploying local controller charm")
-	}
-	// If no local charm, use the one from charmhub.
-	if err != nil {
-		source = "store"
-		if curl, origin, err = populateStoreControllerCharm(st, charmPath, channel, arch, base); err != nil {
-			return errors.Annotate(err, "deploying charmhub controller charm")
-		}
-	}
-	// Always for the controller charm to use the same base as the controller.
-	// This avoids the situation where we cannot deploy a slightly stale
-	// controller charm onto a newer machine at bootstrap.
-	origin.Platform.OS = base.OS
-	origin.Platform.Channel = base.Channel.String()
-
-	// Once the charm is added, set up the controller application.
-	controllerUnit, err = addControllerApplication(
-		st, curl, *origin, cons, controllerAddress)
-	if err != nil {
-		return errors.Annotate(err, "cannot add controller application")
-	}
-
-	// Force CAAS unit's providerId on CAAS.
-	// TODO(caas): this assumes k8s is the provider
-	if isCAAS {
-		providerID := fmt.Sprintf("controller-%d", controllerUnit.UnitTag().Number())
-		op := controllerUnit.UpdateOperation(state.UnitUpdateProperties{
+func (ccd *controllerCharmDeployer) finishUnitSetup(st *state.State) error {
+	if ccd.isCAAS {
+		providerID := fmt.Sprintf("controller-%d", ccd.controllerUnit.UnitTag().Number())
+		op := ccd.controllerUnit.UpdateOperation(state.UnitUpdateProperties{
 			ProviderId: &providerID,
 		})
-		err = st.ApplyOperation(op)
+		err := st.ApplyOperation(op)
 		if err != nil {
 			return errors.Annotate(err, "cannot update controller unit")
 		}
+		// For k8s, we need to set the charm unit agent password.
+		return ccd.controllerUnit.SetPassword(ccd.unitPassword)
+	} else {
+		return ccd.controllerUnit.AssignToMachine(ccd.machine)
 	}
-
-	logger.Debugf("Successfully deployed %s Juju controller charm", source)
-	return nil
 }
 
 // These are patched for testing.
