@@ -13,7 +13,9 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coredb "github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
@@ -411,6 +413,120 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 	}, nil
 }
 
+// SetRunningAgentBinaryVersion sets the running agent binary version for the
+// provided machine uuid. Any previously set values for this machine uuid will
+// be overwritten by this call.
+//
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [coreerrors.NotSupported] if the architecture is not known to the database.
+func (st *State) SetRunningAgentBinaryVersion(
+	ctx context.Context,
+	machineUUID string,
+	version coreagentbinary.Version,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	type ArchitectureMap struct {
+		ID   int    `db:"id"`
+		Name string `db:"name"`
+	}
+	archMap := ArchitectureMap{Name: version.Arch}
+
+	archMapStmt, err := st.Prepare(`
+SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap.name
+`, archMap)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	type MachineAgentVersion struct {
+		MachineUUID    string `db:"machine_uuid"`
+		Version        string `db:"version"`
+		ArchitectureID int    `db:"architecture_id"`
+	}
+	machineAgentVersion := MachineAgentVersion{
+		MachineUUID: machineUUID,
+		Version:     version.Number.String(),
+	}
+
+	upsertRunningVersionStmt, err := st.Prepare(`
+INSERT INTO machine_agent_version (*) VALUES ($MachineAgentVersion.*)
+ON CONFLICT DO
+UPDATE SET version = excluded.version, architecture_id = excluded.architecture_id
+`, machineAgentVersion)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		machineExists, err := st.checkMachineExists(ctx, tx, machineUUID)
+		if err != nil {
+			return internalerrors.Capture(err)
+		}
+		if !machineExists {
+			return internalerrors.Errorf(
+				"machine %q does not exist", machineUUID,
+			).Add(machineerrors.MachineNotFound)
+		}
+
+		err = tx.Query(ctx, archMapStmt, archMap).Get(&archMap)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return internalerrors.Errorf(
+				"architecture %q is unsupported", version.Arch,
+			).Add(coreerrors.NotSupported)
+		} else if err != nil {
+			return internalerrors.Errorf(
+				"looking up id for architecture %q: %w", version.Arch, err,
+			)
+		}
+
+		machineAgentVersion.ArchitectureID = archMap.ID
+		return tx.Query(ctx, upsertRunningVersionStmt, machineAgentVersion).Run()
+	})
+
+	if err != nil {
+		return internalerrors.Errorf(
+			"setting running agent binary version for machine %q: %w",
+			machineUUID, err,
+		)
+	}
+
+	return nil
+}
+
+// checkMachineExists checks if the machine with the given uuid exists. This is
+// intended as a helper func for state methods to assert the uuid exists first.
+// This is easier and more reliable to use then checking for foreign key errors.
+func (st *State) checkMachineExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid string,
+) (bool, error) {
+	machineUUIDVal := machineUUID{UUID: uuid}
+	stmt, err := st.Prepare(`
+SELECT uuid AS &machineUUID.uuid FROM machine WHERE uuid = $machineUUID.uuid
+`, machineUUIDVal)
+	if err != nil {
+		return false, internalerrors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, machineUUIDVal).Get(&machineUUIDVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, internalerrors.Errorf(
+			"checking if machine %q exists: %w",
+			uuid, err,
+		)
+	}
+
+	return true, nil
+}
+
 // SetMachineStatus sets the status of the specified machine.
 // It returns MachineNotFound if the machine does not exist.
 func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newStatus domainmachine.StatusInfo[domainmachine.MachineStatusType]) error {
@@ -447,9 +563,9 @@ func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newSt
 INSERT INTO machine_status (*)
 VALUES ($setMachineStatus.*)
   ON CONFLICT (machine_uuid)
-  DO UPDATE SET 
-  	status_id = excluded.status_id, 
-	message = excluded.message, 
+  DO UPDATE SET
+  	status_id = excluded.status_id,
+	message = excluded.message,
 	updated_at = excluded.updated_at,
 	data = excluded.data;
 `

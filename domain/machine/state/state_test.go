@@ -16,9 +16,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/blockdevice"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -927,4 +931,61 @@ func (s *stateSuite) TestAppliedLXDProfileNamesNoErrorEmpty(c *gc.C) {
 	profiles, err := s.state.AppliedLXDProfileNames(context.Background(), "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(profiles, gc.HasLen, 0)
+}
+
+// TestSetRunningAgentBinaryVersionSuccess asserts that if we attempt to set the
+// running agent binary version for a machine that doesn't exist we get back
+// an error that satsifies [machineerrors.MachineNotFound].
+func (s *stateSuite) TestSetRunningAgentBinaryVersionMachineNotFound(c *gc.C) {
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetRunningAgentBinaryVersion(
+		context.Background(),
+		machineUUID.String(),
+		coreagentbinary.Version{
+			Number: jujuversion.Current,
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestSetRunningAgentBinaryVersionNotSupportedArch tests that if we provide an
+// architecture that isn't support by the database we get back an error
+// satisfying [coreerrors.NotValid].
+func (s *stateSuite) TestSetRunningAgentBinaryVersionNotSupportedArch(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineUUID, err := s.state.GetMachineUUID(context.Background(), "666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetRunningAgentBinaryVersion(
+		context.Background(),
+		machineUUID,
+		coreagentbinary.Version{
+			Number: jujuversion.Current,
+			Arch:   corearch.Arch("noexist"),
+		},
+	)
+	c.Check(err, jc.ErrorIs, coreerrors.NotSupported)
+}
+
+func (s *stateSuite) TestSetRunningAgentBinaryVersion(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineUUID, err := s.state.GetMachineUUID(context.Background(), "666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetRunningAgentBinaryVersion(
+		context.Background(),
+		machineUUID,
+		coreagentbinary.Version{
+			Number: jujuversion.Current,
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIsNil)
 }
