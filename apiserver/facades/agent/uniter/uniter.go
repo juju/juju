@@ -1448,11 +1448,11 @@ func (u UniterAPI) readOneUnitSettings(
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
-	relTag, err := names.ParseRelationTag(arg.Relation)
+	relKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
-	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, corerelation.Key(relTag.Id()))
+	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
 	if errors.Is(err, errors.NotFound) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
@@ -1521,7 +1521,7 @@ func (u *UniterAPI) ReadLocalApplicationSettings(ctx context.Context, arg params
 	if err != nil {
 		return res, errors.NotValidf("unit tag %q", arg.Unit)
 	}
-	relTag, err := names.ParseRelationTag(arg.Relation)
+	relKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
 	if err != nil {
 		return res, errors.NotValidf("relation tag %q", arg.Relation)
 	}
@@ -1560,7 +1560,7 @@ func (u *UniterAPI) ReadLocalApplicationSettings(ctx context.Context, arg params
 		return res, errors.NotSupportedf("reading local application settings after authenticating as %q", authTag.Kind())
 	}
 
-	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, corerelation.Key(relTag.Id()))
+	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
 	if errors.Is(err, errors.NotFound) {
 		return res, apiservererrors.ErrPerm
 	} else if err != nil {
@@ -1642,13 +1642,12 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
-
-	relationTag, err := names.ParseTag(arg.Relation)
+	relationKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, corerelation.Key(relationTag.Id()))
+	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relationKey)
 	if err != nil {
 		return nil, err
 	}
