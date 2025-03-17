@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
@@ -40,6 +41,7 @@ type controllerCharmArgs struct {
 	channel      charm.Channel
 	isCAAS       bool
 	unitPassword string
+	sshProxyPort int
 }
 
 type controllerCharmDeployer struct {
@@ -91,6 +93,10 @@ func (ccd *controllerCharmDeployer) deploy(st *state.State) error {
 	}
 
 	if err := ccd.finishUnitSetup(st); err != nil {
+		return err
+	}
+
+	if err := ccd.openProxySSHPort(st); err != nil {
 		return err
 	}
 
@@ -178,6 +184,22 @@ func (ccd *controllerCharmDeployer) finishUnitSetup(st *state.State) error {
 	} else {
 		return ccd.controllerUnit.AssignToMachine(ccd.machine)
 	}
+}
+
+func (c *controllerCharmDeployer) openProxySSHPort(st *state.State) error {
+	pcp, err := c.controllerUnit.OpenedPortRanges()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	pcp.Open("", network.PortRange{
+		FromPort: c.sshProxyPort,
+		ToPort:   c.sshProxyPort,
+		Protocol: "tcp",
+	})
+	if err = st.ApplyOperation(pcp.Changes()); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // These are patched for testing.
@@ -396,5 +418,16 @@ func addControllerApplication(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Expose all endpoints of the controller app
+	mappedExposeParams := map[string]state.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
+		},
+	}
+	if err := app.MergeExposeSettings(mappedExposeParams); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return st.Unit(app.Name() + "/0")
 }

@@ -400,6 +400,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		channel:      args.ControllerCharmChannel,
 		isCAAS:       isCAAS,
 		unitPassword: controllerUnitPassword,
+		sshProxyPort: args.ControllerConfig.SSHServerPort(),
 	}
 	if err := c.deployControllerCharm(st, charmArgs); err != nil {
 		return errors.Annotate(err, "cannot deploy controller application")
