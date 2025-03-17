@@ -157,7 +157,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(context.Background(), test.ctx)
 			c.Assert(err, jc.ErrorIsNil)
 
-			ds, err := sync.SelectSourceDatasource(test.ctx)
+			ds, err := sync.SelectSourceDatasource(context.Background(), test.ctx)
 			c.Assert(err, jc.ErrorIsNil)
 
 			// This data source does not require to contain signed data.
@@ -339,7 +339,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectOST
 	s.assertEqualsCurrentVersion(c, t.Version)
 	expectRaw := downloadToolsRaw(c, t)
 
-	list, err := envtools.ReadList(s.targetStorage, stream, jujuversion.Current.Major, jujuversion.Current.Minor)
+	list, err := envtools.ReadList(context.Background(), s.targetStorage, stream, jujuversion.Current.Major, jujuversion.Current.Minor)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list.AllReleases(), jc.SameContents, expectOSTypes)
 	for _, t := range list {

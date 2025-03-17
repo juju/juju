@@ -78,9 +78,9 @@ func findPackagedTools(
 			vers = &agentVersion
 		}
 	}
-	logger.Infof(context.TODO(), "looking for bootstrap agent binaries: version=%v", vers)
+	logger.Infof(ctx, "looking for bootstrap agent binaries: version=%v", vers)
 	toolsList, findToolsErr := findBootstrapTools(ctx, env, ss, vers, arch, base)
-	logger.Infof(context.TODO(), "found %d packaged agent binaries", len(toolsList))
+	logger.Infof(ctx, "found %d packaged agent binaries", len(toolsList))
 	if findToolsErr != nil {
 		return nil, findToolsErr
 	}

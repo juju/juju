@@ -4,8 +4,6 @@
 package bootstrap
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -254,7 +252,7 @@ func prepare(
 		if len(args.Cloud.CACertificates) > 0 && args.Cloud.CACertificates[0] != "" {
 			return cfg, details, errors.NotValidf("cloud with both skip-TLS-verify=true and CA certificates")
 		}
-		logger.Warningf(context.TODO(), "controller %v is configured to skip validity checks on the server's certificate", args.ControllerName)
+		logger.Warningf(ctx, "controller %v is configured to skip validity checks on the server's certificate", args.ControllerName)
 	}
 
 	return cfg, details, nil

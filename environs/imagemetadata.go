@@ -43,7 +43,7 @@ func RegisterUserImageDataSourceFunc(id string, f ImageDataSourceFunc) {
 			return
 		}
 	}
-	logger.Debugf(context.TODO(), "new user image datasource registered: %v", id)
+	logger.Debugf(context.Background(), "new user image datasource registered: %v", id)
 	datasourceFuncs = append([]datasourceFuncId{{id, f}}, datasourceFuncs...)
 }
 
@@ -59,7 +59,7 @@ func RegisterImageDataSourceFunc(id string, f ImageDataSourceFunc) {
 			return
 		}
 	}
-	logger.Debugf(context.TODO(), "new model image datasource registered: %v", id)
+	logger.Debugf(context.Background(), "new model image datasource registered: %v", id)
 	datasourceFuncs = append(datasourceFuncs, datasourceFuncId{id, f})
 }
 
@@ -104,7 +104,7 @@ func ImageMetadataSources(env BootstrapEnviron, dataSourceFactory simplestreams.
 		sources = append(sources, dataSource)
 	}
 
-	envDataSources, err := environmentDataSources(env)
+	envDataSources, err := environmentDataSources(context.TODO(), env)
 	if err != nil {
 		return nil, err
 	}
@@ -130,13 +130,13 @@ func ImageMetadataSources(env BootstrapEnviron, dataSourceFactory simplestreams.
 // environmentDataSources returns simplestreams datasources for the environment
 // by calling the functions registered in RegisterImageDataSourceFunc.
 // The datasources returned will be in the same order the functions were registered.
-func environmentDataSources(bootstrapEnviron BootstrapEnviron) ([]simplestreams.DataSource, error) {
+func environmentDataSources(ctx context.Context, bootstrapEnviron BootstrapEnviron) ([]simplestreams.DataSource, error) {
 	datasourceFuncsMu.RLock()
 	defer datasourceFuncsMu.RUnlock()
 	var datasources []simplestreams.DataSource
 	env, ok := bootstrapEnviron.(Environ)
 	if !ok {
-		logger.Debugf(context.TODO(), "environmentDataSources is supported for IAAS, environ %#v is not Environ", bootstrapEnviron)
+		logger.Debugf(ctx, "environmentDataSources is supported for IAAS, environ %#v is not Environ", bootstrapEnviron)
 		// ignore for CAAS
 		return datasources, nil
 	}

@@ -35,7 +35,7 @@ func DisableFinishBootstrap() func() {
 		*instancecfg.InstanceConfig,
 		environs.BootstrapDialOpts,
 	) error {
-		logger.Infof(context.TODO(), "provider/common.FinishBootstrap is disabled")
+		logger.Infof(context.Background(), "provider/common.FinishBootstrap is disabled")
 		return nil
 	}
 	return testing.PatchValue(&common.FinishBootstrap, f)

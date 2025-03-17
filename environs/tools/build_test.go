@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -96,7 +97,7 @@ func (b *buildSuite) TestFindExecutable(c *gc.C) {
 		execFile:   "non-existent-exec-file",
 		errorMatch: `could not find "non-existent-exec-file" in the path`,
 	}} {
-		result, err := tools.FindExecutable(test.execFile)
+		result, err := tools.FindExecutable(context.Background(), test.execFile)
 		if test.errorMatch == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(result, gc.Equals, test.expected)
@@ -323,7 +324,9 @@ func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) 
 		return version.Binary{}, true, nil
 	}
 
-	_, _, official, _, err := tools.BundleToolsForTest(true, bundleFile,
+	_, _, official, _, err := tools.BundleToolsForTest(
+		context.Background(),
+		true, bundleFile,
 		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
 		jujudVersion)
 	c.Assert(err, gc.ErrorMatches, `cannot build agent for official build`)
@@ -340,7 +343,9 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
 		return version.Binary{}, true, nil
 	}
 
-	_, forceVersion, official, _, err := tools.BundleToolsForTest(false, bundleFile,
+	_, forceVersion, official, _, err := tools.BundleToolsForTest(
+		context.Background(),
+		false, bundleFile,
 		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
 		jujudVersion)
 	c.Assert(err, jc.ErrorIsNil)

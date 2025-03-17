@@ -22,8 +22,10 @@ import (
 
 var logger = internallogger.GetLogger("juju.environs.tools")
 
-func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, majorVersion, minorVersion int,
-	filter coretools.Filter) (*ToolsConstraint, error) {
+func makeToolsConstraint(ctx context.Context,
+	cloudSpec simplestreams.CloudSpec, stream string, majorVersion, minorVersion int,
+	filter coretools.Filter,
+) (*ToolsConstraint, error) {
 
 	var toolsConstraint *ToolsConstraint
 	if filter.Number != version.Zero {
@@ -46,7 +48,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 	if filter.Arch != "" {
 		toolsConstraint.Arches = []string{filter.Arch}
 	} else {
-		logger.Tracef(context.TODO(), "no architecture specified when finding agent binaries, looking for any")
+		logger.Tracef(ctx, "no architecture specified when finding agent binaries, looking for any")
 		toolsConstraint.Arches = arch.AllSupportedArches
 	}
 	var osToSearch []string
@@ -54,7 +56,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 		osToSearch = []string{filter.OSType}
 	} else {
 		osToSearch = []string{corebase.UbuntuOS}
-		logger.Tracef(context.TODO(), "no os type specified when finding agent binaries, looking for ubuntu")
+		logger.Tracef(ctx, "no os type specified when finding agent binaries, looking for ubuntu")
 	}
 	toolsConstraint.Releases = osToSearch
 	return toolsConstraint, nil
@@ -81,24 +83,24 @@ func FindTools(ctx context.Context, ss SimplestreamsFetcher, env environs.Bootst
 		return nil, errors.New("cannot find agent binaries without a complete cloud configuration")
 	}
 
-	logger.Debugf(context.TODO(), "finding agent binaries in stream: %q", strings.Join(streams, ", "))
+	logger.Debugf(ctx, "finding agent binaries in stream: %q", strings.Join(streams, ", "))
 	if minorVersion >= 0 {
-		logger.Debugf(context.TODO(), "reading agent binaries with major.minor version %d.%d", majorVersion, minorVersion)
+		logger.Debugf(ctx, "reading agent binaries with major.minor version %d.%d", majorVersion, minorVersion)
 	} else if majorVersion > 0 {
-		logger.Debugf(context.TODO(), "reading agent binaries with major version %d", majorVersion)
+		logger.Debugf(ctx, "reading agent binaries with major version %d", majorVersion)
 	}
 	defer convertToolsError(&err)
 
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	if filter.Number != version.Zero {
-		logger.Debugf(context.TODO(), "filtering agent binaries by version: %s", filter.Number)
+		logger.Debugf(ctx, "filtering agent binaries by version: %s", filter.Number)
 	}
 	if filter.OSType != "" {
-		logger.Debugf(context.TODO(), "filtering agent binaries by os type: %s", filter.OSType)
+		logger.Debugf(ctx, "filtering agent binaries by os type: %s", filter.OSType)
 	}
 	if filter.Arch != "" {
-		logger.Debugf(context.TODO(), "filtering agent binaries by architecture: %s", filter.Arch)
+		logger.Debugf(ctx, "filtering agent binaries by architecture: %s", filter.Arch)
 	}
 
 	sources, err := GetMetadataSources(env, ss)
@@ -123,7 +125,7 @@ func FindToolsForCloud(ctx context.Context, ss SimplestreamsFetcher,
 		seenBinary = make(map[version.Binary]bool)
 	)
 	for _, stream := range streams {
-		toolsConstraint, err := makeToolsConstraint(cloudSpec, stream, majorVersion, minorVersion, filter)
+		toolsConstraint, err := makeToolsConstraint(ctx, cloudSpec, stream, majorVersion, minorVersion, filter)
 		if err != nil {
 			return nil, err
 		}
@@ -170,7 +172,7 @@ func FindToolsForCloud(ctx context.Context, ss SimplestreamsFetcher,
 
 // FindExactTools returns only the tools that match the supplied version.
 func FindExactTools(ctx context.Context, ss SimplestreamsFetcher, env environs.Environ, vers version.Number, osType string, arch string) (_ *coretools.Tools, err error) {
-	logger.Debugf(context.TODO(), "finding exact version %s", vers)
+	logger.Debugf(ctx, "finding exact version %s", vers)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	filter := coretools.Filter{
@@ -179,7 +181,7 @@ func FindExactTools(ctx context.Context, ss SimplestreamsFetcher, env environs.E
 		Arch:   arch,
 	}
 	streams := PreferredStreams(&vers, env.Config().Development(), env.Config().AgentStream())
-	logger.Debugf(context.TODO(), "looking for agent binaries in streams %v", streams)
+	logger.Debugf(ctx, "looking for agent binaries in streams %v", streams)
 	availableTools, err := FindTools(ctx, ss, env, vers.Major, vers.Minor, streams, filter)
 	if err != nil {
 		return nil, err

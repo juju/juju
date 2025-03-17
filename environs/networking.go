@@ -181,7 +181,7 @@ func SupportsContainerAddresses(ctx envcontext.ProviderCallContext, env Bootstra
 	ok, err := netEnv.SupportsContainerAddresses(ctx)
 	if err != nil {
 		if !errors.Is(err, errors.NotSupported) {
-			logger.Errorf(context.TODO(), "checking model container address support failed with: %v", err)
+			logger.Errorf(ctx, "checking model container address support failed with: %v", err)
 		}
 		return false
 	}

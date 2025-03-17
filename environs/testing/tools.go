@@ -120,7 +120,7 @@ func PrimeTools(c *gc.C, stor storage.Storage, dataDir, toolsDir string, vers ve
 }
 
 func uploadFakeToolsVersion(stor storage.Storage, toolsDir string, vers version.Binary) (*coretools.Tools, error) {
-	logger.Infof(context.TODO(), "uploading FAKE tools %s", vers)
+	logger.Infof(context.Background(), "uploading FAKE tools %s", vers)
 	tgz, checksum := makeFakeTools(vers)
 	size := int64(len(tgz))
 	name := envtools.StorageName(vers, toolsDir)
@@ -157,7 +157,7 @@ func makeFakeTools(vers version.Binary) ([]byte, string) {
 func UploadFakeToolsVersions(store storage.Storage, toolsDir, stream string, versions ...version.Binary) ([]*coretools.Tools, error) {
 	// Leave existing tools alone.
 	existingTools := make(map[version.Binary]*coretools.Tools)
-	existing, _ := envtools.ReadList(store, toolsDir, 1, -1)
+	existing, _ := envtools.ReadList(context.Background(), store, toolsDir, 1, -1)
 	for _, tools := range existing {
 		existingTools[tools.Version] = tools
 	}

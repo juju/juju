@@ -209,7 +209,7 @@ func (h *urlDataSource) fetch(ctx context.Context, path string) (io.ReadCloser, 
 		// Callers of this mask the actual error.  Therefore warn here.
 		// This is called multiple times when a machine is created, we
 		// only need one success for images and one for tools.
-		logger.Warningf(context.TODO(), "Got error requesting %q: %v", path, err)
+		logger.Warningf(ctx, "Got error requesting %q: %v", path, err)
 		return nil, fmt.Errorf("cannot access URL %q: %w", path, err)
 	}
 	if resp.StatusCode != http.StatusOK {

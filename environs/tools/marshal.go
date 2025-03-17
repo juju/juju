@@ -28,7 +28,7 @@ func ProductMetadataPath(stream string) string {
 // MarshalToolsMetadataJSON marshals tools metadata to index and products JSON.
 // updated is the time at which the JSON file was updated.
 func MarshalToolsMetadataJSON(metadata map[string][]*ToolsMetadata, updated time.Time) (index, legacyIndex []byte, products map[string][]byte, err error) {
-	if index, legacyIndex, err = marshalToolsMetadataIndexJSON(metadata, updated); err != nil {
+	if index, legacyIndex, err = marshalToolsMetadataIndexJSON(context.TODO(), metadata, updated); err != nil {
 		return nil, nil, nil, err
 	}
 	if products, err = MarshalToolsMetadataProductsJSON(metadata, updated); err != nil {
@@ -39,7 +39,7 @@ func MarshalToolsMetadataJSON(metadata map[string][]*ToolsMetadata, updated time
 
 // marshalToolsMetadataIndexJSON marshals tools metadata to index JSON.
 // updated is the time at which the JSON file was updated.
-func marshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, updated time.Time) (out, outlegacy []byte, err error) {
+func marshalToolsMetadataIndexJSON(ctx context.Context, streamMetadata map[string][]*ToolsMetadata, updated time.Time) (out, outlegacy []byte, err error) {
 	var indices simplestreams.Indices
 	indices.Updated = updated.Format(time.RFC1123Z)
 	indices.Format = simplestreams.IndexFormat
@@ -55,7 +55,7 @@ func marshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, u
 			id, err := t.productId()
 			if err != nil {
 				if errors.Is(err, errors.NotValid) {
-					logger.Infof(context.TODO(), "ignoring tools metadata with unknown os type %q", t.Release)
+					logger.Infof(ctx, "ignoring tools metadata with unknown os type %q", t.Release)
 					continue
 				}
 				return nil, nil, err

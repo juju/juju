@@ -939,7 +939,7 @@ func (s *bootstrapSuite) TestBootstrapToolsVersion(c *gc.C) {
 		err = env.SetConfig(context.Background(), cfg)
 		c.Assert(err, jc.ErrorIsNil)
 		s.PatchValue(&jujuversion.Current, t.currentVersion)
-		tools, err := bootstrap.GetBootstrapToolsVersion(availableTools)
+		tools, err := bootstrap.GetBootstrapToolsVersion(context.Background(), availableTools)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tools, gc.Not(gc.HasLen), 0)
 		toolsVersion, _ := tools.Newest()

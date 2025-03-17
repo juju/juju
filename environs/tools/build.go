@@ -121,8 +121,8 @@ func closeErrorCheck(errp *error, c io.Closer) {
 	}
 }
 
-func findExecutable(execFile string) (string, error) {
-	logger.Debugf(context.TODO(), "looking for: %s", execFile)
+func findExecutable(ctx context.Context, execFile string) (string, error) {
+	logger.Debugf(ctx, "looking for: %s", execFile)
 	if filepath.IsAbs(execFile) {
 		return execFile, nil
 	}
@@ -153,16 +153,16 @@ func findExecutable(execFile string) (string, error) {
 	return filepath.Clean(filepath.Join(cwd, execFile)), nil
 }
 
-func copyFileWithMode(from, to string, mode os.FileMode) error {
+func copyFileWithMode(ctx context.Context, from, to string, mode os.FileMode) error {
 	source, err := os.Open(from)
 	if err != nil {
-		logger.Infof(context.TODO(), "open source failed: %v", err)
+		logger.Infof(ctx, "open source failed: %v", err)
 		return err
 	}
 	defer source.Close()
 	destination, err := os.OpenFile(to, os.O_RDWR|os.O_TRUNC|os.O_CREATE, mode)
 	if err != nil {
-		logger.Infof(context.TODO(), "open destination failed: %v", err)
+		logger.Infof(ctx, "open destination failed: %v", err)
 		return err
 	}
 	defer destination.Close()
@@ -179,7 +179,7 @@ var ExistingJujuLocation = existingJujuLocation
 // ExistingJujuLocation returns the directory where 'juju' is running, and where
 // we expect to find 'jujuc' and 'jujud'.
 func existingJujuLocation() (string, error) {
-	jujuLocation, err := findExecutable(os.Args[0])
+	jujuLocation, err := findExecutable(context.TODO(), os.Args[0])
 	if err != nil {
 		logger.Infof(context.TODO(), "%v", err)
 		return "", err
@@ -194,36 +194,36 @@ func existingJujuLocation() (string, error) {
 // tests.)
 var VersionFileFallbackDir = "/usr/lib/juju"
 
-func copyExistingJujus(dir string, skipCopyVersionFile bool) error {
+func copyExistingJujus(ctx context.Context, dir string, skipCopyVersionFile bool) error {
 	// Assume that the user is running juju.
 	jujuDir, err := ExistingJujuLocation()
 	if err != nil {
-		logger.Infof(context.TODO(), "couldn't find existing jujud: %v", err)
+		logger.Infof(ctx, "couldn't find existing jujud: %v", err)
 		return errors.Trace(err)
 	}
 	jujudLocation := filepath.Join(jujuDir, names.Jujud)
-	logger.Debugf(context.TODO(), "checking: %s", jujudLocation)
+	logger.Debugf(ctx, "checking: %s", jujudLocation)
 	info, err := os.Stat(jujudLocation)
 	if err != nil {
-		logger.Infof(context.TODO(), "couldn't find existing jujud: %v", err)
+		logger.Infof(ctx, "couldn't find existing jujud: %v", err)
 		return errors.Trace(err)
 	}
-	logger.Infof(context.TODO(), "Found agent binary to upload (%s)", jujudLocation)
+	logger.Infof(ctx, "Found agent binary to upload (%s)", jujudLocation)
 	target := filepath.Join(dir, names.Jujud)
-	logger.Infof(context.TODO(), "target: %v", target)
-	err = copyFileWithMode(jujudLocation, target, info.Mode())
+	logger.Infof(ctx, "target: %v", target)
+	err = copyFileWithMode(ctx, jujudLocation, target, info.Mode())
 	if err != nil {
 		return errors.Trace(err)
 	}
 	jujucLocation := filepath.Join(jujuDir, names.Jujuc)
 	jujucTarget := filepath.Join(dir, names.Jujuc)
 	if _, err = os.Stat(jujucLocation); os.IsNotExist(err) {
-		logger.Infof(context.TODO(), "jujuc not found at %s, not including", jujucLocation)
+		logger.Infof(ctx, "jujuc not found at %s, not including", jujucLocation)
 	} else if err != nil {
 		return errors.Trace(err)
 	} else {
-		logger.Infof(context.TODO(), "target jujuc: %v", jujucTarget)
-		err = copyFileWithMode(jujucLocation, jujucTarget, info.Mode())
+		logger.Infof(ctx, "target jujuc: %v", jujucTarget)
+		err = copyFileWithMode(ctx, jujucLocation, jujucTarget, info.Mode())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -246,14 +246,14 @@ func copyExistingJujus(dir string, skipCopyVersionFile bool) error {
 		} else if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Infof(context.TODO(), "including versions file %q", versionPath)
-		return errors.Trace(copyFileWithMode(versionPath, versionTarget, info.Mode()))
+		logger.Infof(ctx, "including versions file %q", versionPath)
+		return errors.Trace(copyFileWithMode(ctx, versionPath, versionTarget, info.Mode()))
 	}
 	return nil
 }
 
-func buildJujus(dir string) error {
-	logger.Infof(context.TODO(), "building jujud")
+func buildJujus(ctx context.Context, dir string) error {
+	logger.Infof(ctx, "building jujud")
 
 	// Determine if we are in tree of juju and if to prefer
 	// vendor or readonly mod deps.
@@ -302,21 +302,21 @@ func buildJujus(dir string) error {
 			return fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
 		}
 		if logger.IsLevelEnabled(corelogger.TRACE) {
-			logger.Tracef(context.TODO(), "Built jujud:\n%s", out)
+			logger.Tracef(ctx, "Built jujud:\n%s", out)
 		}
 	}
 	return nil
 }
 
-func packageLocalTools(toolsDir string, buildAgent bool) error {
+func packageLocalTools(ctx context.Context, toolsDir string, buildAgent bool) error {
 	if !buildAgent {
-		if err := copyExistingJujus(toolsDir, true); err != nil {
+		if err := copyExistingJujus(ctx, toolsDir, true); err != nil {
 			return errors.New("no prepackaged agent available and no jujud binary can be found")
 		}
 		return nil
 	}
-	logger.Infof(context.TODO(), "Building agent binary to upload (%s)", jujuversion.Current.String())
-	if err := buildJujus(toolsDir); err != nil {
+	logger.Infof(ctx, "Building agent binary to upload (%s)", jujuversion.Current.String())
+	if err := buildJujus(ctx, toolsDir); err != nil {
 		return errors.Annotate(err, "cannot build jujud agent binary from source")
 	}
 	return nil
@@ -334,13 +334,14 @@ var BundleTools BundleToolsFunc = func(
 	build bool, w io.Writer,
 	getForceVersion func(version.Number) version.Number,
 ) (version.Binary, version.Number, bool, string, error) {
-	return bundleTools(build, w, getForceVersion, JujudVersion)
+	return bundleTools(context.TODO(), build, w, getForceVersion, JujudVersion)
 }
 
 // bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer. A FORCE-VERSION file is included in
 // the tools bundle so it will lie about its current version number.
 func bundleTools(
+	ctx context.Context,
 	build bool, w io.Writer,
 	getForceVersion func(version.Number) version.Number,
 	jujudVersion func(dir string) (version.Binary, bool, error),
@@ -363,7 +364,7 @@ func bundleTools(
 		return version.Binary{}, version.Number{}, official, "", errors.Errorf("cannot build agent for official build")
 	}
 
-	if err := packageLocalTools(dir, build); err != nil {
+	if err := packageLocalTools(ctx, dir, build); err != nil {
 		return version.Binary{}, version.Number{}, false, "", err
 	}
 
@@ -373,10 +374,10 @@ func bundleTools(
 		return version.Binary{}, version.Number{}, false, "", errors.Trace(err)
 	}
 	if official {
-		logger.Debugf(context.TODO(), "using official version %s", tvers)
+		logger.Debugf(ctx, "using official version %s", tvers)
 	}
 	forceVersion := getForceVersion(tvers.Number)
-	logger.Debugf(context.TODO(), "forcing version to %s", forceVersion)
+	logger.Debugf(ctx, "forcing version to %s", forceVersion)
 	if err := os.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
 		return version.Binary{}, version.Number{}, false, "", err
 	}

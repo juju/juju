@@ -132,7 +132,7 @@ func (c *generateAgentsCommand) Run(context *cmd.Context) error {
 	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 
 	fmt.Fprintf(context.Stdout, "Finding agent binaries in %s for stream %s.\n", c.metadataDir, c.stream)
-	toolsList, err := envtools.ReadList(sourceStorage, c.stream, -1, -1)
+	toolsList, err := envtools.ReadList(context, sourceStorage, c.stream, -1, -1)
 	if err == envtools.ErrNoTools {
 		if c.preventFallback {
 			return errors.Trace(err)

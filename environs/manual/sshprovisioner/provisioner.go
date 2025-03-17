@@ -21,13 +21,13 @@ var (
 func ProvisionMachine(ctx context.Context, args manual.ProvisionMachineArgs) (machineId string, err error) {
 	defer func() {
 		if machineId != "" && err != nil {
-			logger.Errorf(context.TODO(), "provisioning failed, removing machine %v: %v", machineId, err)
+			logger.Errorf(ctx, "provisioning failed, removing machine %v: %v", machineId, err)
 			results, cleanupErr := args.Client.DestroyMachinesWithParams(ctx, false, false, false, nil, machineId)
 			if cleanupErr == nil {
 				cleanupErr = results[0].Error
 			}
 			if cleanupErr != nil {
-				logger.Errorf(context.TODO(), "error cleaning up machine: %s", cleanupErr)
+				logger.Errorf(ctx, "error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""
 		}
@@ -60,7 +60,7 @@ func ProvisionMachine(ctx context.Context, args manual.ProvisionMachineArgs) (ma
 	})
 
 	if err != nil {
-		logger.Errorf(context.TODO(), "cannot obtain provisioning script")
+		logger.Errorf(ctx, "cannot obtain provisioning script")
 		return "", err
 	}
 
@@ -70,6 +70,6 @@ func ProvisionMachine(ctx context.Context, args manual.ProvisionMachineArgs) (ma
 		return machineId, err
 	}
 
-	logger.Infof(context.TODO(), "Provisioned machine %v", machineId)
+	logger.Infof(ctx, "Provisioned machine %v", machineId)
 	return machineId, nil
 }
