@@ -215,6 +215,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Secret backends are per controller.
 		secretBackendsC,
 		secretBackendsRotateC,
+
+		// sshConnRequestsC is a new collection and doesn't need to be
+		// migrated.
+		sshConnRequestsC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
