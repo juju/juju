@@ -202,8 +202,9 @@ func (s *Service) SetReportedMachineAgentVersion(
 
 	if err := s.st.SetRunningAgentBinaryVersion(ctx, machineUUID, reportedVersion); err != nil {
 		return interrors.Errorf(
-			"setting machine %q reported agent version in state: %w",
+			"setting machine %q reported agent version (%s) in state: %w",
 			machineUUID,
+			reportedVersion.Number.String(),
 			err,
 		)
 	}
