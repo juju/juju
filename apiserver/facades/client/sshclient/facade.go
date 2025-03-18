@@ -6,6 +6,7 @@ package sshclient
 import (
 	stdcontext "context"
 	"sort"
+	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -77,6 +78,21 @@ func (facade *Facade) checkIsModelAdmin() error {
 	}
 
 	return facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
+}
+
+func (facade *Facade) checkIsModelReader() error {
+	// Check if superuser, if it's not a missing perm error, the user may have
+	// a lower level of permission (Write, Read) for the model.
+	err := facade.authorizer.HasPermission(permission.SuperuserAccess, facade.backend.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return errors.Trace(err)
+	}
+
+	if err == nil {
+		return nil
+	}
+
+	return facade.authorizer.HasPermission(permission.ReadAccess, facade.backend.ModelTag())
 }
 
 // VirtualHostname is not implemented in v4.
@@ -323,6 +339,58 @@ func (facade *Facade) getExecSecretToken(cloudSpec environscloudspec.CloudSpec, 
 		return "", errors.Annotate(err, "failed to open kubernetes client")
 	}
 	return broker.GetSecretToken(k8sprovider.ExecRBACResourceName)
+}
+
+// PublicHostKeyForTarget returns the host key for the target host. In addition, it also returns
+// the jump server's host key.
+func (facade *Facade) PublicHostKeyForTarget(arg params.SSHHostKeyRequestArg) params.PublicSSHHostKeyResult {
+	var res params.PublicSSHHostKeyResult
+
+	// Check if superuser or at least model reader
+	if err := facade.checkIsModelReader(); err != nil {
+		res.Error = apiservererrors.ServerError(err)
+		return res
+	}
+
+	info, err := virtualhostname.Parse(arg.Hostname)
+	if err != nil {
+		res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to parse hostname"))
+		return res
+	}
+
+	var hostkey string
+	switch info.Target() {
+	case virtualhostname.MachineTarget:
+		machineId, _ := info.Machine()
+		hostkey, err = facade.backend.MachineVirtualPublicHostKeyPEM(strconv.Itoa(machineId))
+		if err != nil {
+			res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get machine host key"))
+			return res
+		}
+	case virtualhostname.ContainerTarget, virtualhostname.UnitTarget:
+		unitName, _ := info.Unit()
+		hostkey, err = facade.backend.UnitVirtualPublicHostKeyPEM(unitName)
+		if err != nil {
+			res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get unit host key"))
+			return res
+		}
+	default:
+		res.Error = apiservererrors.ServerError(errors.NotValidf("unsupported target: %v", info.Target()))
+		return res
+	}
+
+	res.HostKey = hostkey
+
+	// Get controller jumpserver hostkey.
+	jumpHostKey, err := facade.backend.SSHServerHostKey()
+	if err != nil {
+		res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get controller jumpserver host key"))
+		return res
+	}
+
+	res.JumpServerHostKey = jumpHostKey
+
+	return res
 }
 
 // getVirtualHostnameForEntity returns the virtual hostname for the given entity. It parses the tag string to

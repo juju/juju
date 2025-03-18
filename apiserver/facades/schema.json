@@ -14104,6 +14104,17 @@
                         }
                     }
                 },
+                "PublicHostKeyForTarget": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SSHHostKeyRequestArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/PublicSSHHostKeyResult"
+                        }
+                    }
+                },
                 "PublicKeys": {
                     "type": "object",
                     "properties": {
@@ -14261,6 +14272,25 @@
                         "code"
                     ]
                 },
+                "PublicSSHHostKeyResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "host-key": {
+                            "type": "string"
+                        },
+                        "jump-server-host-key": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "host-key",
+                        "jump-server-host-key"
+                    ]
+                },
                 "SSHAddressResult": {
                     "type": "object",
                     "properties": {
@@ -14319,6 +14349,18 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "SSHHostKeyRequestArg": {
+                    "type": "object",
+                    "properties": {
+                        "hostname": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "hostname"
                     ]
                 },
                 "SSHProxyResult": {

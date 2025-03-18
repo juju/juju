@@ -443,74 +443,21 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mo
 	})
 }
 
-func (s *facadeSuite) TestGetVirtualHostnameForEntity(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	backend := mocks.NewMockBackend(ctrl)
-	authorizer := mocks.NewMockAuthorizer(ctrl)
-	broker := mocks.NewMockBroker(ctrl)
-
-	backend.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
-	backend.EXPECT().ControllerTag().Return(testing.ControllerTag).AnyTimes()
-	authorizer.EXPECT().AuthClient().Return(true).Times(1)
-
-	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
-		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
-			return broker, nil
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	container := "container"
-	tests := []struct {
-		name          string
-		tag           string
-		container     *string
-		expected      string
-		expectedError string
-	}{
-		{
-			name:     "test with machine tag",
-			tag:      names.NewMachineTag("0").String(),
-			expected: fmt.Sprintf("0.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
-		},
-		{
-			name:     "test with unit tag",
-			tag:      names.NewUnitTag("unit/0").String(),
-			expected: fmt.Sprintf("0.unit.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
-		},
-		{
-			name:      "test with unit tag and container",
-			tag:       names.NewUnitTag("unit/0").String(),
-			container: &container,
-			expected:  fmt.Sprintf("container.0.unit.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
-		},
-		{
-			name:          "test with error",
-			tag:           "error-tag",
-			expectedError: "\"error-tag\" is not a valid tag",
-		},
-	}
-	for _, t := range tests {
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission).Times(1)
-		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil).Times(1)
-		c.Log(t.name)
-		res, err := facade.VirtualHostname(params.VirtualHostnameTargetArg{
-			Tag:       t.tag,
-			Container: t.container,
-		})
-		if t.expectedError != "" {
-			c.Assert(err, gc.ErrorMatches, t.expectedError)
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(res.Address, gc.Equals, t.expected)
-		}
-
-	}
-}
-
 type mockBackend struct {
 	stub     jujutesting.Stub
 	proxySSH bool
+}
+
+func (backend *mockBackend) SSHServerHostKey() (string, error) {
+	return "", errors.NotImplementedf("SSHServerHostKey")
+}
+
+func (backend *mockBackend) UnitVirtualPublicHostKeyPEM(unitID string) (string, error) {
+	return "", errors.NotImplementedf("UnitVirtualHostKeyPEM")
+}
+
+func (backend *mockBackend) MachineVirtualPublicHostKeyPEM(machineID string) (string, error) {
+	return "", errors.NotImplementedf("MachineVirtualHostKey")
 }
 
 func (backend *mockBackend) ModelTag() names.ModelTag {
@@ -613,4 +560,235 @@ func (m *mockMachine) AllDeviceSpaceAddresses() (network.SpaceAddresses, error) 
 
 func (m *mockMachine) Addresses() network.SpaceAddresses {
 	return m.addresses
+}
+
+type facadeSuiteNewMocks struct {
+	testing.BaseSuite
+
+	callContext environscontext.ProviderCallContext
+
+	mockBackend    *mocks.MockBackend
+	mockAuthoriser *mocks.MockAuthorizer
+	mockBroker     *mocks.MockBroker
+}
+
+var _ = gc.Suite(&facadeSuiteNewMocks{})
+
+func (s *facadeSuiteNewMocks) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.mockBackend = mocks.NewMockBackend(ctrl)
+	s.mockAuthoriser = mocks.NewMockAuthorizer(ctrl)
+	s.mockBroker = mocks.NewMockBroker(ctrl)
+
+	return ctrl
+}
+
+func (s *facadeSuiteNewMocks) TestGetVirtualHostnameForEntity(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	s.mockBackend.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
+	s.mockBackend.EXPECT().ControllerTag().Return(testing.ControllerTag).AnyTimes()
+	s.mockAuthoriser.EXPECT().AuthClient().Return(true).Times(1)
+
+	facade, err := sshclient.InternalFacade(s.mockBackend, nil, s.mockAuthoriser, s.callContext,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.mockBroker, nil
+		},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	container := "container"
+	tests := []struct {
+		name          string
+		tag           string
+		container     *string
+		expected      string
+		expectedError string
+	}{
+		{
+			name:     "test with machine tag",
+			tag:      names.NewMachineTag("0").String(),
+			expected: fmt.Sprintf("0.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
+		},
+		{
+			name:     "test with unit tag",
+			tag:      names.NewUnitTag("unit/0").String(),
+			expected: fmt.Sprintf("0.unit.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
+		},
+		{
+			name:      "test with unit tag and container",
+			tag:       names.NewUnitTag("unit/0").String(),
+			container: &container,
+			expected:  fmt.Sprintf("container.0.unit.%s.%s", testing.ModelTag.Id(), virtualhostname.Domain),
+		},
+		{
+			name:          "test with error",
+			tag:           "error-tag",
+			expectedError: "\"error-tag\" is not a valid tag",
+		},
+	}
+	for _, t := range tests {
+		s.mockAuthoriser.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission).Times(1)
+		s.mockAuthoriser.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil).Times(1)
+		c.Log(t.name)
+		res, err := facade.VirtualHostname(params.VirtualHostnameTargetArg{
+			Tag:       t.tag,
+			Container: t.container,
+		})
+		if t.expectedError != "" {
+			c.Assert(err, gc.ErrorMatches, t.expectedError)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(res.Address, gc.Equals, t.expected)
+		}
+	}
+}
+
+func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	s.mockAuthoriser.EXPECT().AuthClient().Return(true).Times(1)
+
+	facade, err := sshclient.InternalFacade(s.mockBackend, nil, s.mockAuthoriser, s.callContext,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.mockBroker, nil
+		},
+	)
+	c.Assert(err, gc.IsNil)
+
+	// Set superuser for all calls.
+	controllerTag := names.NewControllerTag("controller00-0000-0000-000000000000")
+	s.mockBackend.EXPECT().ControllerTag().Return(controllerTag).AnyTimes()
+	s.mockAuthoriser.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).AnyTimes()
+
+	// Test container target hits correct methods.
+	gomock.InOrder(
+		s.mockBackend.EXPECT().UnitVirtualPublicHostKeyPEM("postgresql/1").Return("postgres-container-host-key", nil).Times(1),
+		s.mockBackend.EXPECT().SSHServerHostKey().Return("server-host-key", nil).Times(1),
+	)
+	res := facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+		Hostname: "charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+	})
+	c.Assert(res, gc.Equals, params.PublicSSHHostKeyResult{
+		Error:             nil,
+		HostKey:           "postgres-container-host-key",
+		JumpServerHostKey: "server-host-key",
+	})
+
+	// Test unit target hits correct methods.
+	gomock.InOrder(
+		s.mockBackend.EXPECT().UnitVirtualPublicHostKeyPEM("openfga/1").Return("openfga-container-host-key", nil).Times(1),
+		s.mockBackend.EXPECT().SSHServerHostKey().Return("server-host-key", nil).Times(1),
+	)
+	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+	})
+	c.Assert(res, gc.Equals, params.PublicSSHHostKeyResult{
+		Error:             nil,
+		HostKey:           "openfga-container-host-key",
+		JumpServerHostKey: "server-host-key",
+	})
+
+	// Test machine target hits correct methods.
+	gomock.InOrder(
+		s.mockBackend.EXPECT().MachineVirtualPublicHostKeyPEM("1").Return("machine-host-key", nil).Times(1),
+		s.mockBackend.EXPECT().SSHServerHostKey().Return("server-host-key", nil).Times(1),
+	)
+	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+		Hostname: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+	})
+	c.Assert(res, gc.Equals, params.PublicSSHHostKeyResult{
+		Error:             nil,
+		HostKey:           "machine-host-key",
+		JumpServerHostKey: "server-host-key",
+	})
+}
+
+func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	s.mockAuthoriser.EXPECT().AuthClient().Return(true).Times(1)
+
+	facade, err := sshclient.InternalFacade(s.mockBackend, nil, s.mockAuthoriser, s.callContext,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.mockBroker, nil
+		},
+	)
+	c.Assert(err, gc.IsNil)
+
+	// Set superuser for all calls.
+	controllerTag := names.NewControllerTag("controller00-0000-0000-000000000000")
+	s.mockBackend.EXPECT().ControllerTag().Return(controllerTag).AnyTimes()
+	s.mockAuthoriser.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).AnyTimes()
+
+	// Test failure to parse hostname.
+	res := facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+		Hostname: "BLAAAH 1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+	})
+	c.Assert(res.Error, gc.ErrorMatches, "failed to parse hostname: could not parse hostname")
+
+	// Test MachineVirtualHostKey fail.
+	gomock.InOrder(
+		s.mockBackend.EXPECT().MachineVirtualPublicHostKeyPEM("1").Return("", errors.New("an-error")).Times(1),
+	)
+	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+		Hostname: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+	})
+	c.Assert(res.Error, gc.ErrorMatches, "failed to get machine host key: an-error")
+
+	// Test UnitVirtualHostKey fail.
+	gomock.InOrder(
+		s.mockBackend.EXPECT().UnitVirtualPublicHostKeyPEM("openfga/1").Return("", errors.New("an-error")).Times(1),
+	)
+	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+	})
+	c.Assert(res.Error, gc.ErrorMatches, "failed to get unit host key: an-error")
+
+	// Test SSHServerHostKey fail.
+	gomock.InOrder(
+		s.mockBackend.EXPECT().UnitVirtualPublicHostKeyPEM("postgresql/1").Return("postgres-container-host-key", nil).Times(1),
+		s.mockBackend.EXPECT().SSHServerHostKey().Return("", errors.New("an-error")).Times(1),
+	)
+	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+		Hostname: "charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+	})
+	c.Assert(res.Error, gc.ErrorMatches, "failed to get controller jumpserver host key: an-error")
+}
+
+func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetUserAuth(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	s.mockAuthoriser.EXPECT().AuthClient().Return(true).Times(1)
+
+	facade, err := sshclient.InternalFacade(s.mockBackend, nil, s.mockAuthoriser, s.callContext,
+		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
+			return s.mockBroker, nil
+		},
+	)
+	c.Assert(err, gc.IsNil)
+
+	controllerTag := names.NewControllerTag("controller00-0000-0000-000000000000")
+	s.mockBackend.EXPECT().ControllerTag().Return(controllerTag).AnyTimes()
+
+	// Test a none ErrorEntityMissingPermission error on superuser check and is unrelated
+	// to permission errors.
+	s.mockAuthoriser.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).Return(errors.New("an-error")).Times(1)
+	res := facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+	})
+	c.Assert(res.Error, gc.ErrorMatches, "an-error")
+
+	// Test second has permission for model reader is called and also has no permission/returns error.
+	modelTag := names.NewModelTag("model000-0000-0000-0000-000000000000")
+
+	s.mockAuthoriser.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).Return(authentication.ErrorEntityMissingPermission).Times(1)
+	s.mockBackend.EXPECT().ModelTag().Return(modelTag)
+	s.mockAuthoriser.EXPECT().HasPermission(permission.ReadAccess, modelTag).Return(authentication.ErrorEntityMissingPermission).Times(1)
+
+	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+	})
+	c.Assert(*res.Error, gc.ErrorMatches, "entity missing permission")
 }

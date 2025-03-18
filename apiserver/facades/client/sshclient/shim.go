@@ -23,6 +23,19 @@ type Backend interface {
 	ControllerTag() names.ControllerTag
 	Model() (Model, error)
 	CloudSpec() (environscloudspec.CloudSpec, error)
+
+	// SSHServerHostKey returns the public host key for the SSH server.
+	// This key was set during the controller bootstrap process via
+	// bootstrap-state and is currently a FIXED value.
+	SSHServerHostKey() (string, error)
+
+	// UnitVirtualPublicHostKeyPEM calls the underlying UnitVirtualHostKey state method
+	// and encodes the result into a PEM string.
+	UnitVirtualPublicHostKeyPEM(unitID string) (string, error)
+
+	// MachineVirtualPublicHostKeyPEM calls the underlying MachineVirtualHostKey state method
+	// and encodes the result into a PEM string.
+	MachineVirtualPublicHostKeyPEM(machineID string) (string, error)
 }
 
 // Model defines a point of use interface for the model from state.
@@ -133,4 +146,28 @@ func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
 	default:
 		return nil, errors.Errorf("unsupported entity: %q", tagString)
 	}
+}
+
+// UnitVirtualPublicHostKey calls the underlying UnitVirtualHostKey state method
+// and encodes the result into a PEM string.
+func (b *backend) UnitVirtualPublicHostKeyPEM(unitID string) (string, error) {
+	// The keys are persisted PEM encoded.
+	vhk, err := b.State.UnitVirtualHostKey(unitID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return string(vhk.HostKey()), nil
+}
+
+// MachineVirtualPublicHostKey calls the underlying MachineVirtualHostKey state method
+// and encodes the result into a PEM string.
+func (b *backend) MachineVirtualPublicHostKeyPEM(machineID string) (string, error) {
+	// The keys are persisted PEM encoded.
+	vhk, err := b.State.MachineVirtualHostKey(machineID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return string(vhk.HostKey()), nil
 }
