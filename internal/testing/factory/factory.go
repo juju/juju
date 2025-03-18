@@ -710,41 +710,6 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	return unit, params.Password
 }
 
-// MakeRelation create a relation with specified params, filling in sane
-// defaults for missing values.
-// If params is not specified, defaults are used.
-// Deprecated: Testing factory is being removed and should not be used in new
-// tests.
-func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Relation {
-	if params == nil {
-		params = &RelationParams{}
-	}
-	if len(params.Endpoints) == 0 {
-		s1 := factory.MakeApplication(c, &ApplicationParams{
-			Charm: factory.MakeCharm(c, &CharmParams{
-				Name: "mysql",
-			}),
-		})
-		e1, err := s1.Endpoint("server")
-		c.Assert(err, jc.ErrorIsNil)
-
-		s2 := factory.MakeApplication(c, &ApplicationParams{
-			Charm: factory.MakeCharm(c, &CharmParams{
-				Name: "wordpress",
-			}),
-		})
-		e2, err := s2.Endpoint("db")
-		c.Assert(err, jc.ErrorIsNil)
-
-		params.Endpoints = []relation.Endpoint{e1, e2}
-	}
-
-	relation, err := factory.st.AddRelation(params.Endpoints...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return relation
-}
-
 // MakeModel creates an model with specified params,
 // filling in sane defaults for missing values. If params is nil,
 // defaults are used for all values.
