@@ -909,6 +909,48 @@ func (s *secretsSuite) TestRemoveSecretsByLabel(c *gc.C) {
 	})
 }
 
+func (s *secretsSuite) TestRemoveSecretsForModelAdminFromJujuBackend(c *gc.C) {
+	// Test that we correctly delete secrets held in the Juju backend rather than an external provider.
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Data needed for mocks
+	uri := coresecrets.NewURI()
+	userTag := names.NewUserTag("foo")
+	// Secret that lives only in the Juju database, not a backend
+	revisionMetadata := &coresecrets.SecretRevisionMetadata{
+		Revision: 5,
+	}
+
+	removeState := mocks.NewMockSecretsRemoveState(ctrl)
+	// removeState.GetSecret always confirms a secrets exist
+	removeState.EXPECT().GetSecret(gomock.Any()).AnyTimes().Return(&coresecrets.SecretMetadata{}, nil)
+	removeState.EXPECT().GetSecretRevision(uri, 5).Return(revisionMetadata, nil)
+	removeState.EXPECT().DeleteSecret(uri, []int{5}).Return([]coresecrets.ValueRef{}, nil)
+
+	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+		return &provider.ModelBackendConfigInfo{}, nil
+	}
+
+	results, err := secrets.RemoveUserSecrets(
+		removeState, adminConfigGetter,
+		userTag,
+		params.DeleteSecretArgs{
+			Args: []params.DeleteSecretArg{{
+				URI:       (*uri).String(),
+				Revisions: []int{5},
+			}},
+		},
+		coretesting.ModelTag.Id(),
+		func(*coresecrets.URI) error { return nil },
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+
+}
+
 func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
