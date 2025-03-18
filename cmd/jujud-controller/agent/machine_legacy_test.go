@@ -15,12 +15,10 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/utils/v4/symlink"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
@@ -36,28 +34,21 @@ import (
 	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud-controller/agent/model"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/worker/instancepoller"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -91,6 +82,16 @@ type MachineLegacySuite struct {
 }
 
 var _ = gc.Suite(&MachineLegacySuite{})
+
+func (s *MachineLegacySuite) TestStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+- Testing that the controller runs the cleaner worker by removing an application and watching it's unit disapear.
+  This is a very silly test.
+- Testing that the controller runs the instance poller by doing a great song and dance to add tools, deploy units of an
+  application etc using the dummy provider. It then checks that the deployed machine's addresses are updated by said
+  poller. This is also a very silly test.
+`)
+}
 
 func (s *MachineLegacySuite) SetUpTest(c *gc.C) {
 	c.Skip(`
@@ -546,46 +547,6 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExit
 	)
 }
 
-func (s *MachineLegacySuite) TestManageModelRunsCleaner(c *gc.C) {
-	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
-
-	s.assertJob(c, state.JobManageModel, nil, func(conf agent.Config, a *MachineAgent) {
-		// Create an application and unit, and destroy the app.
-		f, release := s.NewFactory(c, s.ControllerModelUUID())
-		defer release()
-		app := f.MakeApplication(c, &factory.ApplicationParams{
-			Name:  "wordpress",
-			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-		})
-		unit, err := app.AddUnit(state.AddUnitParams{})
-		c.Assert(err, jc.ErrorIsNil)
-		err = app.Destroy(testing.NewObjectStore(c, s.ControllerModelUUID()))
-		c.Assert(err, jc.ErrorIsNil)
-
-		// Check the unit was not yet removed.
-		err = unit.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		w := unit.Watch()
-		defer worker.Stop(w)
-
-		// Wait for the unit to be removed.
-		timeout := time.After(coretesting.LongWait)
-		for done := false; !done; {
-			select {
-			case <-timeout:
-				c.Fatalf("unit not cleaned up")
-			case <-w.Changes():
-				err := unit.Refresh()
-				if errors.Is(err, errors.NotFound) {
-					done = true
-				} else {
-					c.Assert(err, jc.ErrorIsNil)
-				}
-			}
-		}
-	})
-}
-
 func (s *MachineLegacySuite) TestControllerModelWorkers(c *gc.C) {
 	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
 
@@ -619,118 +580,6 @@ func (s *MachineLegacySuite) TestModelWorkersRespectSingularResponsibilityFlag(c
 	s.assertJob(c, state.JobManageModel, nil, func(agent.Config, *MachineAgent) {
 		agenttest.WaitMatch(c, matcher.Check, longerWait)
 	})
-}
-
-func (s *MachineLegacySuite) TestManageModelRunsInstancePoller(c *gc.C) {
-	c.Skip("These rely on model databases, which aren't available in the agent tests. See addendum.")
-
-	jujutesting.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
-	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
-	s.AgentSuite.PatchValue(&instancepoller.ShortPollCap, 500*time.Millisecond)
-
-	stream := s.Environ.Config().AgentStream()
-	usefulVersion := version.Binary{
-		Number:  jujuversion.Current,
-		Arch:    arch.HostArch(),
-		Release: "ubuntu",
-	}
-	envtesting.AssertUploadFakeToolsVersions(c, s.agentStorage, stream, stream, usefulVersion)
-
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-
-	s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
-		Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
-	}).AnyTimes().Return(&exec.ExecResponse{Code: 0}, nil)
-
-	defer func() { _ = a.Stop() }()
-	go func() {
-		c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil)
-	}()
-
-	// Wait for the workers to start. This ensures that the central
-	// hub referred to in startAddressPublisher has been assigned,
-	// and we will not fail race tests with concurrent access.
-	select {
-	case <-a.WorkersStarted():
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for agent workers to start")
-	}
-
-	startAddressPublisher(s, c, a)
-
-	// Add one unit to an application;
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	arch := arch.HostArch()
-	app := f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "test-application",
-		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-hub",
-			Platform: &state.Platform{
-				Architecture: arch,
-				OS:           "ubuntu",
-				Channel:      "22.04",
-			}},
-		Constraints: constraints.MustParse("arch=" + arch),
-	})
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.ControllerModel(c).State().AssignUnit(unit)
-	c.Assert(err, jc.ErrorIsNil)
-
-	m, instId := s.waitProvisioned(c, unit)
-	insts, err := s.Environ.Instances(envcontext.WithoutCredentialInvalidator(context.Background()), []instance.Id{instId})
-	c.Assert(err, jc.ErrorIsNil)
-
-	dummy.SetInstanceStatus(insts[0], "running")
-
-	strategy := &utils.AttemptStrategy{
-		Total: 60 * time.Second,
-		Delay: coretesting.ShortWait,
-	}
-	for attempt := strategy.Start(); attempt.Next(); {
-		if !attempt.HasNext() {
-			c.Logf("final machine addresses: %#v", m.Addresses())
-			c.Fatalf("timed out waiting for machine to get address")
-		}
-		err := m.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		instStatus, err := m.InstanceStatus()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
-
-		// The dummy provider always returns 3 devices with one address each.
-		// We don't care what they are, just that the instance-poller retrieved
-		// them and set them against the machine in state.
-		if len(m.Addresses()) == 3 && instStatus.Message == "running" {
-			break
-		}
-		c.Logf("waiting for machine %q address to be updated", m.Id())
-	}
-}
-
-func (s *MachineLegacySuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
-	c.Logf("waiting for unit %q to be provisioned", unit)
-	machineId, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.ControllerModel(c).State().Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	w := m.Watch()
-	defer worker.Stop(w)
-	timeout := time.After(longerWait)
-	for {
-		select {
-		case <-timeout:
-			c.Fatalf("timed out waiting for provisioning")
-		case _, ok := <-w.Changes():
-			c.Assert(ok, jc.IsTrue)
-			err := m.Refresh()
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
 }
 
 func (s *MachineLegacySuite) assertJob(
