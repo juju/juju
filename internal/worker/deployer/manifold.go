@@ -65,7 +65,6 @@ func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCall
 	contextConfig := ContextConfig{
 		Agent:            a,
 		Clock:            config.Clock,
-		Hub:              config.Hub,
 		Logger:           config.Logger,
 		UnitEngineConfig: config.UnitEngineConfig,
 		SetupLogging:     config.SetupLogging,

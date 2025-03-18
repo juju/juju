@@ -164,7 +164,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"api-server",
 			"audit-config-updater",
 			"bootstrap",
-			"caas-units-manager",
 			"central-hub",
 			"certificate-watcher",
 			"change-stream-pruner",
@@ -2329,12 +2328,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"valid-credential-flag": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-	},
-
-	"caas-units-manager": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

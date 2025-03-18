@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
@@ -25,7 +24,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/internal/pubsub/agent"
 	"github.com/juju/juju/internal/worker/introspection"
 	_ "github.com/juju/juju/state"
 )
@@ -48,10 +46,9 @@ func (s *suite) TestConfigValidation(c *gc.C) {
 	w, err = introspection.NewWorker(introspection.Config{
 		SocketName:         "socket",
 		PrometheusGatherer: newPrometheusGatherer(),
-		LocalHub:           pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{}),
 	})
-	c.Check(w, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "nil Clock not valid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(w, gc.Not(gc.IsNil))
 }
 
 func (s *suite) TestStartStop(c *gc.C) {
@@ -75,9 +72,7 @@ type introspectionSuite struct {
 	worker     worker.Worker
 	reporter   introspection.DepEngineReporter
 	gatherer   prometheus.Gatherer
-	localHub   *pubsub.SimpleHub
 	centralHub introspection.StructuredHub
-	clock      *testclock.Clock
 }
 
 var _ = gc.Suite(&introspectionSuite{})
@@ -90,9 +85,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 	s.reporter = nil
 	s.worker = nil
 	s.gatherer = newPrometheusGatherer()
-	s.localHub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{Logger: loggo.GetLogger("test.localhub")})
 	s.centralHub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{Logger: loggo.GetLogger("test.centralhub")})
-	s.clock = testclock.NewClock(time.Now())
 	s.startWorker(c)
 }
 
@@ -102,8 +95,6 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 		SocketName:         s.name,
 		DepEngine:          s.reporter,
 		PrometheusGatherer: s.gatherer,
-		Clock:              s.clock,
-		LocalHub:           s.localHub,
 		CentralHub:         s.centralHub,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,17 +111,6 @@ func (s *introspectionSuite) call(c *gc.C, path string) *http.Response {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp, err := client.Get(targetURL.String())
-	c.Assert(err, jc.ErrorIsNil)
-	return resp
-}
-
-func (s *introspectionSuite) post(c *gc.C, path string, values url.Values) *http.Response {
-	client := unixSocketHTTPClient(s.name)
-	c.Assert(strings.HasPrefix(path, "/"), jc.IsTrue)
-	targetURL, err := url.Parse("http://unix.socket" + path)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resp, err := client.PostForm(targetURL.String(), values)
 	c.Assert(err, jc.ErrorIsNil)
 	return resp
 }
@@ -229,107 +209,6 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
 	s.assertContains(c, body, "# HELP tau Tau")
 	s.assertContains(c, body, "# TYPE tau counter")
 	s.assertContains(c, body, "tau 6.283185")
-}
-
-func (s *introspectionSuite) TestUnitMissingAction(c *gc.C) {
-	response := s.call(c, "/units")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
-	s.assertBody(c, response, "missing action")
-}
-
-func (s *introspectionSuite) TestUnitUnknownAction(c *gc.C) {
-	response := s.post(c, "/units", url.Values{"action": {"foo"}})
-	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
-	s.assertBody(c, response, `unknown action: "foo"`)
-}
-
-func (s *introspectionSuite) TestUnitStartWithGet(c *gc.C) {
-	response := s.call(c, "/units?action=start")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
-	s.assertBody(c, response, `start requires a POST request, got "GET"`)
-}
-
-func (s *introspectionSuite) TestUnitStartMissingUnits(c *gc.C) {
-	response := s.post(c, "/units", url.Values{"action": {"start"}})
-	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
-	s.assertBody(c, response, "missing unit")
-}
-
-func (s *introspectionSuite) TestUnitStartUnits(c *gc.C) {
-	unsub := s.localHub.Subscribe(agent.StartUnitTopic, func(topic string, data interface{}) {
-		_, ok := data.(agent.Units)
-		if !ok {
-			c.Fatalf("bad data type: %T", data)
-			return
-		}
-		s.localHub.Publish(agent.StartUnitResponseTopic, agent.StartStopResponse{
-			"one": "started",
-			"two": "not found",
-		})
-	})
-	defer unsub()
-
-	response := s.post(c, "/units", url.Values{"action": {"start"}, "unit": {"one", "two"}})
-	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
-	s.assertBody(c, response, "one: started\ntwo: not found")
-}
-
-func (s *introspectionSuite) TestUnitStopWithGet(c *gc.C) {
-	response := s.call(c, "/units?action=stop")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
-	s.assertBody(c, response, `stop requires a POST request, got "GET"`)
-}
-
-func (s *introspectionSuite) TestUnitStopMissingUnits(c *gc.C) {
-	response := s.post(c, "/units", url.Values{"action": {"stop"}})
-	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
-	s.assertBody(c, response, "missing unit")
-}
-
-func (s *introspectionSuite) TestUnitStopUnits(c *gc.C) {
-	unsub := s.localHub.Subscribe(agent.StopUnitTopic, func(topic string, data interface{}) {
-		_, ok := data.(agent.Units)
-		if !ok {
-			c.Fatalf("bad data type: %T", data)
-			return
-		}
-		s.localHub.Publish(agent.StopUnitResponseTopic, agent.StartStopResponse{
-			"one": "stopped",
-			"two": "not found",
-		})
-	})
-	defer unsub()
-
-	response := s.post(c, "/units", url.Values{"action": {"stop"}, "unit": {"one", "two"}})
-	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
-	s.assertBody(c, response, "one: stopped\ntwo: not found")
-}
-
-func (s *introspectionSuite) TestUnitStatus(c *gc.C) {
-	unsub := s.localHub.Subscribe(agent.UnitStatusTopic, func(string, interface{}) {
-		s.localHub.Publish(agent.UnitStatusResponseTopic, agent.Status{
-			"one": "running",
-			"two": "stopped",
-		})
-	})
-	defer unsub()
-
-	response := s.call(c, "/units?action=status")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
-	s.assertBody(c, response, `
-one: running
-two: stopped`[1:])
-}
-
-func (s *introspectionSuite) TestUnitStatusTimeout(c *gc.C) {
-	unsub := s.localHub.Subscribe(agent.UnitStatusTopic, func(string, interface{}) {
-		s.clock.WaitAdvance(10*time.Second, time.Second, 1)
-	})
-	defer unsub()
-
-	response := s.call(c, "/units?action=status")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusInternalServerError)
-	s.assertBody(c, response, "response timed out")
 }
 
 type reporter struct {

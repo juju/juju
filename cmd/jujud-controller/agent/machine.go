@@ -673,7 +673,6 @@ func (a *MachineAgent) makeEngineCreator(
 			PrometheusGatherer: a.prometheusRegistry,
 			WorkerFunc:         introspection.NewWorker,
 			Clock:              clock.WallClock,
-			LocalHub:           localHub,
 			CentralHub:         a.centralHub,
 			Logger:             logger.Child("introspection"),
 		}); err != nil {

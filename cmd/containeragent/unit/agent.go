@@ -308,7 +308,6 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		PrometheusGatherer: c.prometheusRegistry,
 		WorkerFunc:         introspection.NewWorker,
 		Clock:              c.clk,
-		LocalHub:           localHub,
 		Logger:             logger.Child("introspection"),
 	}); err != nil {
 		// If the introspection worker failed to start, we just log error

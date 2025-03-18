@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"runtime"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -20,14 +19,14 @@ import (
 
 	"github.com/juju/juju/core/machinelock"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/pubsub/agent"
 	"github.com/juju/juju/internal/worker/introspection/pprof"
 	"github.com/juju/juju/juju/sockets"
 )
 
 var logger = internallogger.GetLogger("juju.worker.introspection")
 
-// DepEngineReporter provides insight into the running dependency engine of the agent.
+// DepEngineReporter provides insight into the running dependency engine of the
+// agent.
 type DepEngineReporter interface {
 	// Report returns a map describing the state of the receiver. It is expected
 	// to be goroutine-safe.
@@ -38,18 +37,6 @@ type DepEngineReporter interface {
 // worker will output for the entity.
 type Reporter interface {
 	IntrospectionReport() string
-}
-
-// Clock represents the ability to wait for a bit.
-type Clock interface {
-	Now() time.Time
-	After(time.Duration) <-chan time.Time
-}
-
-// SimpleHub is a pubsub hub used for internal messaging.
-type SimpleHub interface {
-	Publish(topic string, data interface{}) func()
-	Subscribe(topic string, handler func(string, interface{})) func()
 }
 
 // StructuredHub is a pubsub hub used for messaging within the HA
@@ -67,8 +54,6 @@ type Config struct {
 	PubSub             Reporter
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
-	Clock              Clock
-	LocalHub           SimpleHub
 	CentralHub         StructuredHub
 }
 
@@ -79,9 +64,6 @@ func (c *Config) Validate() error {
 	}
 	if c.PrometheusGatherer == nil {
 		return errors.NotValidf("nil PrometheusGatherer")
-	}
-	if c.LocalHub != nil && c.Clock == nil {
-		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -95,8 +77,6 @@ type socketListener struct {
 	pubsub             Reporter
 	machineLock        machinelock.Lock
 	prometheusGatherer prometheus.Gatherer
-	clock              Clock
-	localHub           SimpleHub
 	centralHub         StructuredHub
 	done               chan struct{}
 }
@@ -127,8 +107,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		pubsub:             config.PubSub,
 		machineLock:        config.MachineLock,
 		prometheusGatherer: config.PrometheusGatherer,
-		clock:              config.Clock,
-		localHub:           config.LocalHub,
 		centralHub:         config.CentralHub,
 		done:               make(chan struct{}),
 	}
@@ -218,11 +196,6 @@ func (w *socketListener) RegisterHTTPHandlers(
 	} else {
 		handle("/pubsub", notSupportedHandler{"PubSub Report"})
 	}
-	if w.localHub != nil {
-		handle("/units", unitsHandler{w.clock, w.localHub, w.done})
-	} else {
-		handle("/units", notSupportedHandler{"Units"})
-	}
 	// TODO(leases) - add metrics
 	handle("/leases", notSupportedHandler{"Leases"})
 }
@@ -306,78 +279,4 @@ func (h introspectionReporterHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 
 	fmt.Fprintf(w, "%s:\n\n", h.name)
 	fmt.Fprint(w, h.reporter.IntrospectionReport())
-}
-
-type unitsHandler struct {
-	clock Clock
-	hub   SimpleHub
-	done  <-chan struct{}
-}
-
-// ServeHTTP is part of the http.Handler interface.
-func (h unitsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	switch action := r.Form.Get("action"); action {
-	case "":
-		http.Error(w, "missing action", http.StatusBadRequest)
-	case "start":
-		h.publishUnitsAction(w, r, "start", agent.StartUnitTopic, agent.StartUnitResponseTopic)
-	case "stop":
-		h.publishUnitsAction(w, r, "stop", agent.StopUnitTopic, agent.StopUnitResponseTopic)
-	case "status":
-		h.status(w, r)
-	default:
-		http.Error(w, fmt.Sprintf("unknown action: %q", action), http.StatusBadRequest)
-	}
-}
-
-func (h unitsHandler) publishUnitsAction(w http.ResponseWriter, r *http.Request,
-	action, topic, responseTopic string) {
-	if r.Method != http.MethodPost {
-		http.Error(w, fmt.Sprintf("%s requires a POST request, got %q", action, r.Method), http.StatusMethodNotAllowed)
-		return
-	}
-
-	units := r.Form["unit"]
-	if len(units) == 0 {
-		http.Error(w, "missing unit", http.StatusBadRequest)
-		return
-	}
-
-	h.publishAndAwaitResponse(w, topic, responseTopic, agent.Units{Names: units})
-}
-
-func (h unitsHandler) status(w http.ResponseWriter, r *http.Request) {
-	h.publishAndAwaitResponse(w, agent.UnitStatusTopic, agent.UnitStatusResponseTopic, nil)
-}
-
-func (h unitsHandler) publishAndAwaitResponse(w http.ResponseWriter, topic, responseTopic string, data interface{}) {
-	response := make(chan interface{})
-	unsubscribe := h.hub.Subscribe(responseTopic, func(topic string, body interface{}) {
-		select {
-		case response <- body:
-		case <-h.done:
-		}
-	})
-	defer unsubscribe()
-
-	h.hub.Publish(topic, data)
-
-	select {
-	case message := <-response:
-		bytes, err := yaml.Marshal(message)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
-			return
-		}
-		_, _ = w.Write(bytes)
-	case <-h.done:
-		http.Error(w, "introspection worker stopping", http.StatusServiceUnavailable)
-	case <-h.clock.After(10 * time.Second):
-		http.Error(w, "response timed out", http.StatusInternalServerError)
-	}
 }
