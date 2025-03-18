@@ -123,6 +123,9 @@ type Ensurer interface {
 
 	// WithLeader ensures that the input unit holds leadership of the input
 	// application for the duration of execution of the input function.
+	//
+	// Returns an error satisfying [corelease.ErrNotHeld] if the unit is not
+	// the leader.
 	WithLeader(ctx context.Context, appName, unitName string, fn func(context.Context) error) error
 }
 

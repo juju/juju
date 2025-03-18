@@ -128,26 +128,18 @@ type ApplicationService interface {
 // StatusService describes the ability to retrieve and persist
 // application statuses
 type StatusService interface {
-	// GetUnitWorkloadStatus returns the workload status of the specified unit,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if the
-	// unit doesn't exist.
+	// GetUnitWorkloadStatus returns the workload status of the specified unit
 	GetUnitWorkloadStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
 
-	// SetUnitWorkloadStatus sets the workload status of the specified unit,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if the
-	// unit doesn't exist.
+	// SetUnitWorkloadStatus sets the workload status of the specified unit
 	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
 
-	// SetUnitAgentStatus sets the agent status of the specified unit, returning
-	// an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
-	// exist.
+	// SetUnitAgentStatus sets the agent status of the specified unit.
 	SetUnitAgentStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
 
 	// GetApplicationAndUnitStatusesForUnitWithLeader returns the display status
 	// of the application the specified unit belongs to, and the workload statuses
 	// of all the units that belong to that application, indexed by unit name.
-	// If no application is found for the unit name, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned
 	GetApplicationAndUnitStatusesForUnitWithLeader(
 		context.Context,
 		coreunit.Name,
@@ -158,9 +150,7 @@ type StatusService interface {
 	)
 
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses of
-	// all units in the specified application, indexed by unit name, returning
-	// an error satisfying [applicationerrors.ApplicationNotFound] if the
-	// application doesn't exist.
+	// all units in the specified application, indexed by unit name
 	GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error)
 }
 

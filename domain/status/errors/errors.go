@@ -27,4 +27,8 @@ const (
 	// UnitStatusNotFound describes an error that occurs when the unit being
 	// operated on does not have a status.
 	UnitStatusNotFound = errors.ConstError("unit status not found")
+
+	// UnitNotLeader describes an error that occurs when performing an operation
+	// that requires the leader unit with a unit which is not the leader
+	UnitNotLeader = errors.ConstError("unit is not the leader")
 )

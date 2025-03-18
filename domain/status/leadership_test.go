@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
-	"github.com/juju/juju/domain/secretbackend/errors"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/domain/status/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -104,7 +104,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *g
 		return nil
 	})
 	s.leadership.EXPECT().Token("foo", "foo/666").Return(leaseToken{
-		error: errors.NotValid,
+		error: lease.ErrNotHeld,
 	})
 
 	svc := s.setupService(c, nil)
@@ -117,7 +117,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *g
 	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", &status.StatusInfo{
 		Status: status.Active,
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotLeader)
 
 	close(done)
 }
