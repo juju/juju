@@ -935,7 +935,7 @@ func (s *stateSuite) TestAppliedLXDProfileNamesNoErrorEmpty(c *gc.C) {
 
 // TestSetRunningAgentBinaryVersionSuccess asserts that if we attempt to set the
 // running agent binary version for a machine that doesn't exist we get back
-// an error that satsifies [machineerrors.MachineNotFound].
+// an error that satisfies [machineerrors.MachineNotFound].
 func (s *stateSuite) TestSetRunningAgentBinaryVersionMachineNotFound(c *gc.C) {
 	machineUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
