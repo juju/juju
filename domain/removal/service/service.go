@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	
+	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
@@ -25,7 +27,9 @@ type State interface {
 	// RelationAdvanceLifeAndScheduleRemoval advances the life cycle of the
 	// relation with the input UUID to dying if it is alive, and schedules a
 	// removal job for the relation, qualified with the input force boolean.
-	RelationAdvanceLifeAndScheduleRemoval(ctx context.Context, removalUUID, relUUID string, force bool) error
+	RelationAdvanceLifeAndScheduleRemoval(
+		ctx context.Context, removalUUID, relUUID string, force bool,
+	) error
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -37,7 +41,9 @@ type WatcherFactory interface {
 
 // Service provides the API for working with entity removal.
 type Service struct {
-	st     State
+	st State
+
+	clock  clock.Clock
 	logger logger.Logger
 }
 
@@ -61,7 +67,9 @@ func (s *Service) RemoveRelation(ctx context.Context, relUUID corerelation.UUID,
 		return "", errors.Capture(err)
 	}
 
-	if err := s.st.RelationAdvanceLifeAndScheduleRemoval(ctx, jobUUID.String(), relUUID.String(), force); err != nil {
+	if err := s.st.RelationAdvanceLifeAndScheduleRemoval(
+		ctx, jobUUID.String(), relUUID.String(), force,
+	); err != nil {
 		return "", errors.Errorf("removing relation %q: %w", relUUID, err)
 	}
 
@@ -81,11 +89,13 @@ type WatchableService struct {
 func NewWatchableService(
 	st State,
 	watcherFactory WatcherFactory,
+	clock clock.Clock,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
 			st:     st,
+			clock:  clock,
 			logger: logger,
 		},
 		watcherFactory: watcherFactory,
