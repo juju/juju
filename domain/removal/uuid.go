@@ -22,15 +22,6 @@ func NewUUID() (UUID, error) {
 	return UUID(id.String()), nil
 }
 
-// MustNewUUID returns a new UUID or panics.
-func MustNewUUID() UUID {
-	id, err := NewUUID()
-	if err != nil {
-		panic(err)
-	}
-	return id
-}
-
 // Validate ensures the consistency of the UUID.
 func (u UUID) Validate() error {
 	if u == "" {
