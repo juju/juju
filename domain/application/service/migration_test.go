@@ -644,6 +644,34 @@ func (s *migrationServiceSuite) TestGetUnitAgentStatusInvalidUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
+func (s *migrationServiceSuite) TestGetApplicationsForExport(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	apps := []application.ExportApplication{
+		{
+			Name: "foo",
+		},
+	}
+
+	s.state.EXPECT().GetApplicationsForExport(gomock.Any()).Return(apps, nil)
+
+	res, err := s.service.GetApplicationsForExport(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.DeepEquals, apps)
+}
+
+func (s *migrationServiceSuite) TestGetApplicationsForExportNoApplications(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	apps := []application.ExportApplication{}
+
+	s.state.EXPECT().GetApplicationsForExport(gomock.Any()).Return(apps, nil)
+
+	res, err := s.service.GetApplicationsForExport(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.DeepEquals, apps)
+}
+
 func (s *migrationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 

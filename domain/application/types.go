@@ -4,6 +4,7 @@
 package application
 
 import (
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -15,6 +16,7 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -331,3 +333,14 @@ type UnitWorkloadStatuses map[coreunit.Name]UnitStatusInfo[WorkloadStatusType]
 // UnitCloudContainerStatuses represents the cloud container statuses of a collection
 // of units. The statuses are indexed by unit name.
 type UnitCloudContainerStatuses map[coreunit.Name]StatusInfo[CloudContainerStatusType]
+
+// ExportApplication contains parameters for exporting an application.
+type ExportApplication struct {
+	UUID         application.ID
+	Name         string
+	CharmUUID    charm.ID
+	Life         life.Life
+	PasswordHash string
+	Exposed      bool
+	Subordinate  bool
+}

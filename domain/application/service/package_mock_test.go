@@ -926,6 +926,45 @@ func (c *MockStateGetApplicationUnitLifeCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetApplicationsForExport mocks base method.
+func (m *MockState) GetApplicationsForExport(ctx context.Context) ([]application0.ExportApplication, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationsForExport", ctx)
+	ret0, _ := ret[0].([]application0.ExportApplication)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationsForExport indicates an expected call of GetApplicationsForExport.
+func (mr *MockStateMockRecorder) GetApplicationsForExport(ctx any) *MockStateGetApplicationsForExportCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationsForExport", reflect.TypeOf((*MockState)(nil).GetApplicationsForExport), ctx)
+	return &MockStateGetApplicationsForExportCall{Call: call}
+}
+
+// MockStateGetApplicationsForExportCall wrap *gomock.Call
+type MockStateGetApplicationsForExportCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationsForExportCall) Return(arg0 []application0.ExportApplication, arg1 error) *MockStateGetApplicationsForExportCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationsForExportCall) Do(f func(context.Context) ([]application0.ExportApplication, error)) *MockStateGetApplicationsForExportCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationsForExportCall) DoAndReturn(f func(context.Context) ([]application0.ExportApplication, error)) *MockStateGetApplicationsForExportCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationsForRevisionUpdater mocks base method.
 func (m *MockState) GetApplicationsForRevisionUpdater(ctx context.Context) ([]application0.RevisionUpdaterApplication, error) {
 	m.ctrl.T.Helper()

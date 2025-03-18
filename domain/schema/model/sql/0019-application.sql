@@ -240,3 +240,19 @@ SELECT
     c.source_id
 FROM application AS a
 JOIN charm AS c ON a.charm_uuid = c.uuid;
+
+CREATE VIEW v_application_export AS
+SELECT
+    a.uuid,
+    a.name,
+    a.life_id,
+    a.charm_uuid,
+    a.charm_modified_version,
+    a.charm_upgrade_on_error,
+    a.exposed,
+    a.placement,
+    a.password_hash,
+    cm.subordinate
+FROM application AS a
+JOIN charm AS c ON a.charm_uuid = c.uuid
+JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
