@@ -29,11 +29,11 @@ type Backend interface {
 	// bootstrap-state and is currently a FIXED value.
 	SSHServerHostKey() (string, error)
 
-	// UnitVirtualHostKey calls the underlying UnitVirtualHostKey state method
+	// UnitVirtualPublicHostKeyPEM calls the underlying UnitVirtualHostKey state method
 	// and encodes the result into a PEM string.
 	UnitVirtualPublicHostKeyPEM(unitID string) (string, error)
 
-	// MachineVirtualPublicHostKey calls the underlying MachineVirtualHostKey state method
+	// MachineVirtualPublicHostKeyPEM calls the underlying MachineVirtualHostKey state method
 	// and encodes the result into a PEM string.
 	MachineVirtualPublicHostKeyPEM(machineID string) (string, error)
 }
