@@ -159,7 +159,7 @@ func (st *State) ImportExternalControllers(ctx context.Context, infos []crossmod
 
 // NamespaceForWatchExternalController returns the namespace identifier
 // used by watchers for external controller updates.
-func (st *State) NamespaceForWatchExternalController() string {
+func (*State) NamespaceForWatchExternalController() string {
 	return "external_controller"
 }
 

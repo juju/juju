@@ -284,13 +284,13 @@ DELETE FROM net_node WHERE uuid IN
 
 // InitialWatchModelMachinesStatement returns the table and the initial watch
 // statement for watching life changes of non-container machines.
-func (st *State) InitialWatchModelMachinesStatement() (string, string) {
+func (*State) InitialWatchModelMachinesStatement() (string, string) {
 	return "machine", "SELECT name FROM machine WHERE name NOT LIKE '%/%'"
 }
 
 // InitialWatchStatement returns the table and the initial watch statement
 // for the machines.
-func (st *State) InitialWatchStatement() (string, string) {
+func (*State) InitialWatchStatement() (string, string) {
 	return "machine", "SELECT name FROM machine"
 }
 
@@ -1026,18 +1026,18 @@ VALUES      ($lxdProfile.*)`, lxdProfile{})
 
 // NamespaceForWatchMachineCloudInstance returns the namespace for watching
 // machine cloud instance changes.
-func (st *State) NamespaceForWatchMachineCloudInstance() string {
+func (*State) NamespaceForWatchMachineCloudInstance() string {
 	return "machine_cloud_instance"
 }
 
 // NamespaceForWatchMachineLXDProfiles returns the namespace for watching
 // machine LXD profile changes.
-func (st *State) NamespaceForWatchMachineLXDProfiles() string {
+func (*State) NamespaceForWatchMachineLXDProfiles() string {
 	return "machine_lxd_profile"
 }
 
 // NamespaceForWatchMachineReboot returns the namespace string used for
 // tracking machine reboot events in the model.
-func (st *State) NamespaceForWatchMachineReboot() string {
+func (*State) NamespaceForWatchMachineReboot() string {
 	return "machine_requires_reboot"
 }

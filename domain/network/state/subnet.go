@@ -80,7 +80,7 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 
 // NamespaceForWatchSubnet returns the namespace identifier used for
 // observing changes to subnets.
-func (st *State) NamespaceForWatchSubnet() string {
+func (*State) NamespaceForWatchSubnet() string {
 	return "subnet"
 }
 

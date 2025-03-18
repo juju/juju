@@ -2380,19 +2380,19 @@ ON CONFLICT (application_uuid) DO NOTHING
 
 // NamespaceForWatchApplication returns the namespace identifier
 // for application change watchers.
-func (st *State) NamespaceForWatchApplication() string {
+func (*State) NamespaceForWatchApplication() string {
 	return "application"
 }
 
 // NamespaceForWatchApplicationConfig returns a namespace string identifier
 // for application configuration changes.
-func (st *State) NamespaceForWatchApplicationConfig() string {
+func (*State) NamespaceForWatchApplicationConfig() string {
 	return "application_config_hash"
 }
 
 // NamespaceForWatchApplicationScale returns the namespace identifier
 // for application scale change watchers.
-func (st *State) NamespaceForWatchApplicationScale() string {
+func (*State) NamespaceForWatchApplicationScale() string {
 	return "application_scale"
 }
 

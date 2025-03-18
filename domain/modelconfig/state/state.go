@@ -287,7 +287,7 @@ WHERE key = excluded.key
 
 // NamespaceForWatchModelConfig returns the namespace identifier used for
 // watching model configuration changes.
-func (st *State) NamespaceForWatchModelConfig() string {
+func (*State) NamespaceForWatchModelConfig() string {
 	return "model_config"
 }
 

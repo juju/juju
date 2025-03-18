@@ -161,6 +161,6 @@ func (st *State) GetTargetAgentVersion(ctx context.Context) (version.Number, err
 
 // NamespaceForWatchAgentVersion returns the namespace identifier
 // to watch for the agent version.
-func (st *State) NamespaceForWatchAgentVersion() string {
+func (*State) NamespaceForWatchAgentVersion() string {
 	return "agent_version"
 }

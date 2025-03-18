@@ -18,14 +18,14 @@ import (
 )
 
 // NamespaceForWatchOpenedPort returns the name of the table that should be watched
-func (st *State) NamespaceForWatchOpenedPort() string {
+func (*State) NamespaceForWatchOpenedPort() string {
 	return "port_range"
 }
 
 // InitialWatchMachineOpenedPortsStatement returns the name of the table
 // that should be watched and the query to load the
 // initial event for the WatchMachineOpenedPorts watcher
-func (st *State) InitialWatchMachineOpenedPortsStatement() (string, string) {
+func (*State) InitialWatchMachineOpenedPortsStatement() (string, string) {
 	// It looks strange that we don't return the same namespace than the table
 	// returned in the initial statement, but it is actually ok.
 	// We want an event stream with machine names, but call site will compute
