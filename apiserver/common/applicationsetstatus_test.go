@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/testing"
 )
@@ -32,6 +31,14 @@ func (s *serviceStatusSetterSuite) SetUpTest(c *gc.C) {
 	c.Skip("skipping factory based tests. TODO: Re-write without factories")
 	s.badTag = nil
 	s.leadershipChecker = &fakeLeadershipChecker{isLeader: true}
+}
+
+func (s *serviceStatusSetterSuite) TestStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+- Veryfying that setting application status when identifying as an application fails.
+- Veryfying that setting application status as leader unit works and affects the unit's reported status.
+- Verifying that setting application status as a non-leader fails.
+`)
 }
 
 func (s *serviceStatusSetterSuite) TestUnauthorized(c *gc.C) {
@@ -77,67 +84,6 @@ func (s *serviceStatusSetterSuite) TestSetMachineStatus(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	// Can't call set service status on a machine.
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-}
-
-func (s *serviceStatusSetterSuite) TestSetServiceStatus(c *gc.C) {
-	// TODO: the correct way to fix this is to have the authorizer on the
-	// simple status setter to check to see if the unit (authTag) is a leader
-	// and able to set the service status. However, that is for another day.
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
-		Status: status.Maintenance,
-	}})
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    service.Tag().String(),
-		Status: status.Active.String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	// Can't call set service status on a service. Weird I know, but the only
-	// way is to go through the unit leader.
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-}
-
-func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
-	// If the unit isn't the leader, it can't set it.
-	s.leadershipChecker.isLeader = false
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
-		Status: status.Maintenance,
-	}})
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    unit.Tag().String(),
-		Status: status.Active.String(),
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	status := result.Results[0]
-	c.Assert(status.Error, gc.ErrorMatches, "not leader")
-}
-
-func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
-		Status: status.Maintenance,
-	}})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: service,
-		Status: &status.StatusInfo{
-			Status: status.Maintenance,
-		}})
-	// No need to claim leadership - the checker passed in in setup
-	// always returns true.
-	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
-		Tag:    unit.Tag().String(),
-		Status: status.Active.String(),
-	}}})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	err = service.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	unitStatus, err := service.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus.Status, gc.Equals, status.Active)
 }
 
 func (s *serviceStatusSetterSuite) TestBulk(c *gc.C) {
