@@ -982,7 +982,8 @@ func (s *uniterRelationSuite) expectGetRelationDetailsForUnit(
 	relUUID corerelation.UUID,
 	details relation.RelationDetails,
 ) {
-	s.relationService.EXPECT().GetRelationDetailsForUnit(gomock.Any(), relUUID, s.wordpressUnitTag.Id()).Return(details, nil)
+	unitName := coreunit.Name(s.wordpressUnitTag.Id())
+	s.relationService.EXPECT().GetRelationDetailsForUnit(gomock.Any(), relUUID, unitName).Return(details, nil)
 }
 
 func (s *uniterRelationSuite) expectGetRelationDetailsNotFound(relID int) {
@@ -1030,7 +1031,7 @@ func (s *uniterRelationSuite) expectGetRemoteRelationApplicationSettings(uuid co
 }
 
 func (s *uniterRelationSuite) expectGetRelationUnit(relUUID corerelation.UUID, uuid corerelation.UnitUUID, unitTagID string) {
-	s.relationService.EXPECT().GetRelationUnit(gomock.Any(), relUUID, unitTagID).Return(uuid, nil)
+	s.relationService.EXPECT().GetRelationUnit(gomock.Any(), relUUID, coreunit.Name(unitTagID)).Return(uuid, nil)
 }
 
 func (s *uniterRelationSuite) expectGetRelationUnitSettings(uuid corerelation.UnitUUID, settings map[string]string) {
