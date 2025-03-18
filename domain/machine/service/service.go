@@ -99,7 +99,7 @@ type State interface {
 	SetMachineCloudInstance(context.Context, string, instance.Id, string, *instance.HardwareCharacteristics) error
 
 	// SetRunningAgentBinaryVersion sets the running agent version for the machine.
-	// A MachineNotFound error if the machine does not exist.
+	// A MachineNotFound error will be returned if the machine does not exist.
 	SetRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
 
 	// DeleteMachineCloudInstance removes an entry in the machine cloud instance

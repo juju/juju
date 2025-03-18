@@ -787,11 +787,13 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionInvalid(c *gc.C) {
 
 // TestSetReportedMachineAgentVersionSuccess asserts that if try to set the
 // reported agent version for a machine that doesn't exist we get an error
-// satisfying [machineerrors.MachineNotFound]
+// satisfying [machineerrors.MachineNotFound]. Because the service relied on
+// state for producing this error we need to simulate this in two different
+// locations to assert the full functionality.
 func (s *serviceSuite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// MachineNotFound error location 1
+	// MachineNotFound error location 1.
 	s.state.EXPECT().GetMachineUUID(gomock.Any(), cmachine.Name("0")).Return(
 		"", machineerrors.MachineNotFound,
 	)
@@ -806,6 +808,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
 	)
 	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 
+	// MachineNotFound error location 2.
 	machineUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
