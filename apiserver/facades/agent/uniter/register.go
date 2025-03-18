@@ -56,6 +56,7 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 		stdCtx, ctx,
 		Services{
 			ApplicationService:      domainServices.Application(),
+			StatusService:           domainServices.Status(),
 			CloudService:            domainServices.Cloud(),
 			ControllerConfigService: domainServices.ControllerConfig(),
 			CredentialService:       domainServices.Credential(),
@@ -163,7 +164,7 @@ func newUniterAPIWithServices(
 
 	statusAPI := NewStatusAPI(
 		st,
-		services.ApplicationService,
+		services.StatusService,
 		accessUnitOrApplication,
 		leadershipChecker,
 		aClock,
@@ -203,6 +204,7 @@ func newUniterAPIWithServices(
 		watcherRegistry:          watcherRegistry,
 
 		applicationService:      services.ApplicationService,
+		statusService:           services.StatusService,
 		cloudService:            services.CloudService,
 		controllerConfigService: services.ControllerConfigService,
 		credentialService:       services.CredentialService,

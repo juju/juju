@@ -72,6 +72,7 @@ type UniterAPI struct {
 	watcherRegistry          facade.WatcherRegistry
 
 	applicationService      ApplicationService
+	statusService           StatusService
 	cloudService            CloudService
 	controllerConfigService ControllerConfigService
 	credentialService       CredentialService
@@ -2306,7 +2307,7 @@ func (u *UniterAPI) goalStateUnits(ctx context.Context, app *state.Application, 
 		return nil, errors.Trace(err)
 	}
 
-	unitWorkloadStatuses, err := u.applicationService.GetUnitWorkloadStatusesForApplication(ctx, appID)
+	unitWorkloadStatuses, err := u.statusService.GetUnitWorkloadStatusesForApplication(ctx, appID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %q", app.Name())
 	} else if err != nil {

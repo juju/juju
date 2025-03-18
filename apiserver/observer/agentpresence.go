@@ -16,7 +16,7 @@ import (
 
 // ApplicationService provides methods to interact with the application
 // model.
-type ApplicationService interface {
+type StatusService interface {
 	// SetUnitPresence marks the presence of the unit in the model. It is called by
 	// the unit agent accesses the API server. If the unit is not found, an error
 	// satisfying [applicationerrors.UnitNotFound] is returned. The unit life is not
@@ -31,7 +31,7 @@ type ApplicationService interface {
 
 // ModelService provides methods to interact with the model.
 type ModelService interface {
-	ApplicationService() ApplicationService
+	StatusService() StatusService
 }
 
 // DomainServicesGetter is the service getter to use to get domain services.
@@ -91,7 +91,7 @@ func (n *AgentPresence) Login(ctx context.Context, entity names.Tag, modelTag na
 
 	switch t := entity.(type) {
 	case names.UnitTag:
-		err := n.modelService.ApplicationService().SetUnitPresence(ctx, unit.Name(t.Id()))
+		err := n.modelService.StatusService().SetUnitPresence(ctx, unit.Name(t.Id()))
 		if err != nil {
 			n.logger.Infof(ctx, "recording presence for agent %s: unable to set unit presence: %v", entity, err)
 		}
@@ -115,7 +115,7 @@ func (n *AgentPresence) Leave(ctx context.Context) {
 
 	switch t := n.AgentTag().(type) {
 	case names.UnitTag:
-		err := n.modelService.ApplicationService().DeleteUnitPresence(ctx, unit.Name(t.Id()))
+		err := n.modelService.StatusService().DeleteUnitPresence(ctx, unit.Name(t.Id()))
 		if err != nil {
 			n.logger.Infof(ctx, "recording presence for agent %s: unable to set unit presence: %v", t, err)
 		}

@@ -74,12 +74,6 @@ type ApplicationService interface {
 	RemoveUnit(context.Context, unit.Name, leadership.Revoker) error
 	UpdateCAASUnit(context.Context, unit.Name, service.UpdateCAASUnitParams) error
 
-	// GetUnitWorkloadStatusesForApplication returns the workload statuses of all
-	// units in the specified application, indexed by unit name, returning an error
-	// satisfying [applicationerrors.ApplicationNotFound] if the application doesn't
-	// exist.
-	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[unit.Name]status.StatusInfo, error)
-
 	// GetApplicationIDByName returns an application ID by application name. It
 	// returns an error if the application can not be found by the name.
 	//
@@ -94,4 +88,12 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
+}
+
+type StatusService interface {
+	// GetUnitWorkloadStatusesForApplication returns the workload statuses of all
+	// units in the specified application, indexed by unit name, returning an error
+	// satisfying [applicationerrors.ApplicationNotFound] if the application doesn't
+	// exist.
+	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[unit.Name]status.StatusInfo, error)
 }

@@ -24,12 +24,12 @@ func newFacade(ctx facade.ModelContext) (*API, error) {
 	domainServices := ctx.DomainServices()
 
 	return &API{
-		st:                 stateShim{State: st},
-		machineService:     domainServices.Machine(),
-		networkService:     domainServices.Network(),
-		applicationService: domainServices.Application(),
-		stubService:        domainServices.Stub(),
-		clock:              ctx.Clock(),
-		res:                ctx.Resources(),
+		st:             stateShim{State: st},
+		machineService: domainServices.Machine(),
+		networkService: domainServices.Network(),
+		statusService:  domainServices.Status(),
+		stubService:    domainServices.Stub(),
+		clock:          ctx.Clock(),
+		res:            ctx.Resources(),
 	}, nil
 }

@@ -18,7 +18,7 @@ import (
 	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService,ApplicationService,OperationExporter,Coordinator,ModelAgentService,CharmService
+//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService,ApplicationService,StatusService,OperationExporter,Coordinator,ModelAgentService,CharmService
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServicesGetter,DomainServices
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination storage_mock_test.go github.com/juju/juju/core/storage ModelStorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination description_mock_test.go github.com/juju/description/v9 Model
@@ -33,6 +33,7 @@ type precheckBaseSuite struct {
 
 	upgradeService     *MockUpgradeService
 	applicationService *MockApplicationService
+	statusService      *MockStatusService
 	agentService       *MockModelAgentService
 
 	server        *upgradevalidationmocks.MockServer
@@ -40,18 +41,18 @@ type precheckBaseSuite struct {
 }
 
 func (s *precheckBaseSuite) checkRebootRequired(c *gc.C, runPrecheck precheckRunner) {
-	err := runPrecheck(newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService, s.applicationService, s.agentService)
+	err := runPrecheck(newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, gc.ErrorMatches, "machine 0 is scheduled to reboot")
 }
 
 func (s *precheckBaseSuite) checkAgentVersionError(c *gc.C, runPrecheck precheckRunner, agentService migration.ModelAgentService) {
 	backend := &fakeBackend{}
-	err := runPrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, agentService)
+	err := runPrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, agentService)
 	c.Assert(err, gc.ErrorMatches, "retrieving model version: boom")
 }
 
 func (s *precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck precheckRunner, agentService migration.ModelAgentService) {
-	err := runPrecheck(newBackendWithMismatchingTools(), &fakeCredentialService{}, s.upgradeService, s.applicationService, agentService)
+	err := runPrecheck(newBackendWithMismatchingTools(), &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, agentService)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent binaries don't match model (1.3.1 != 1.2.3)")
 }
 
@@ -65,6 +66,7 @@ func (s *precheckBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.upgradeService = NewMockUpgradeService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
 	s.agentService = NewMockModelAgentService(ctrl)
 
 	s.server = upgradevalidationmocks.NewMockServer(ctrl)
@@ -78,11 +80,11 @@ func (s *precheckBaseSuite) expectApplicationLife(appName string, l life.Value) 
 }
 
 func (s *precheckBaseSuite) expectUnitWorkloadStatus(unitName string, status status.StatusInfo) {
-	s.applicationService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name(unitName)).Return(&status, nil)
+	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name(unitName)).Return(&status, nil)
 }
 
 func (s *precheckBaseSuite) expectUnitAgentStatus(unitName string, status status.StatusInfo) {
-	s.applicationService.EXPECT().GetUnitAgentStatus(gomock.Any(), coreunit.Name(unitName)).Return(&status, nil)
+	s.statusService.EXPECT().GetUnitAgentStatus(gomock.Any(), coreunit.Name(unitName)).Return(&status, nil)
 }
 
 func (s *precheckBaseSuite) expectIsUpgrade(upgrading bool) {

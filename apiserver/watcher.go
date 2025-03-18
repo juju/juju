@@ -301,18 +301,20 @@ func (w *srvRelationStatusWatcher) Next(ctx context.Context) (params.RelationLif
 }
 
 type ApplicationService interface {
+	// GetApplicationIDByName returns an application ID by application name. It
+	// returns an error if the application can not be found by the name.
+	//
+	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationIDByName(context.Context, string) (coreapplication.ID, error)
+}
+
+type StatusService interface {
 	// GetApplicationDisplayStatus returns the display status of the specified application.
 	// The display status is equal to the application status if it is set, otherwise it is
 	// derived from the unit display statuses.
 	// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
 	// is returned.
 	GetApplicationDisplayStatus(context.Context, coreapplication.ID) (*corestatus.StatusInfo, error)
-
-	// GetApplicationIDByName returns an application ID by application name. It
-	// returns an error if the application can not be found by the name.
-	//
-	// Returns [applicationerrors.ApplicationNotFound] if the application is not found.
-	GetApplicationIDByName(context.Context, string) (coreapplication.ID, error)
 }
 
 // srvOfferStatusWatcher defines the API wrapping a
@@ -321,6 +323,7 @@ type srvOfferStatusWatcher struct {
 	watcherCommon
 	st                 *state.State
 	applicationService ApplicationService
+	statusService      StatusService
 	watcher            crossmodelrelations.OfferWatcher
 }
 
@@ -343,6 +346,7 @@ func newOfferStatusWatcher(_ context.Context, context facade.ModelContext) (faca
 		watcherCommon:      newWatcherCommon(context),
 		st:                 context.State(),
 		applicationService: context.DomainServices().Application(),
+		statusService:      context.DomainServices().Status(),
 		watcher:            watcher,
 	}, nil
 }
@@ -356,7 +360,7 @@ func (w *srvOfferStatusWatcher) Next(ctx context.Context) (params.OfferStatusWat
 		return params.OfferStatusWatchResult{}, errors.Trace(err)
 	}
 	change, err := crossmodel.GetOfferStatusChange(ctx,
-		crossmodel.GetBackend(w.st), w.applicationService,
+		crossmodel.GetBackend(w.st), w.applicationService, w.statusService,
 		w.watcher.OfferUUID(), w.watcher.OfferName())
 	if err != nil {
 		// For the specific case where we are informed that a migration is

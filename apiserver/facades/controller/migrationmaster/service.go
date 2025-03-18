@@ -54,6 +54,9 @@ type ApplicationService interface {
 	// GetApplicationLife returns the life value of the application with the
 	// given name.
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+}
+
+type StatusService interface {
 	// GetUnitWorkloadStatus returns the workload status of the specified unit.
 	// Returns [applicationerrors.UnitNotFound] if the unit does not exist.
 	GetUnitWorkloadStatus(context.Context, unit.Name) (*status.StatusInfo, error)

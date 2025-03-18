@@ -29,6 +29,7 @@ import (
 // Services represents all the services that the uniter facade requires.
 type Services struct {
 	ApplicationService      ApplicationService
+	StatusService           StatusService
 	CloudService            CloudService
 	ControllerConfigService ControllerConfigService
 	CredentialService       CredentialService
@@ -110,14 +111,23 @@ type ApplicationService interface {
 	// found.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
 
-	// GetApplicationDisplayStatus returns the display status of the specified
-	// application. The display status is equal to the application status if it
-	// is set, otherwise it is derived from the unit display statuses.
-	//
-	// If no application is found, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationDisplayStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error)
+	// GetCharmModifiedVersion looks up the charm modified version of the given
+	// application.
+	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
 
+	// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm
+	// archive for the given charm name, source and revision. If the charm is
+	// not available, [applicationerrors.CharmNotResolved] is returned.
+	GetAvailableCharmArchiveSHA256(ctx context.Context, locator charm.CharmLocator) (string, error)
+
+	// GetCharmLXDProfile returns the LXD profile along with the revision of the
+	// charm using the charm name, source and revision.
+	GetCharmLXDProfile(ctx context.Context, locator charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
+}
+
+// StatusService describes the ability to retrieve and persist
+// application statuses
+type StatusService interface {
 	// GetUnitWorkloadStatus returns the workload status of the specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the
 	// unit doesn't exist.
@@ -128,19 +138,10 @@ type ApplicationService interface {
 	// unit doesn't exist.
 	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
 
-	// GetUnitAgentStatus returns the agent status of the specified unit,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if the
-	// unit doesn't exist.
-	GetUnitAgentStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
-
 	// SetUnitAgentStatus sets the agent status of the specified unit, returning
 	// an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
 	// exist.
 	SetUnitAgentStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
-
-	// GetCharmModifiedVersion looks up the charm modified version of the given
-	// application.
-	GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error)
 
 	// GetApplicationAndUnitStatusesForUnitWithLeader returns the display status
 	// of the application the specified unit belongs to, and the workload statuses
@@ -161,15 +162,6 @@ type ApplicationService interface {
 	// an error satisfying [applicationerrors.ApplicationNotFound] if the
 	// application doesn't exist.
 	GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error)
-
-	// GetAvailableCharmArchiveSHA256 returns the SHA256 hash of the charm
-	// archive for the given charm name, source and revision. If the charm is
-	// not available, [applicationerrors.CharmNotResolved] is returned.
-	GetAvailableCharmArchiveSHA256(ctx context.Context, locator charm.CharmLocator) (string, error)
-
-	// GetCharmLXDProfile returns the LXD profile along with the revision of the
-	// charm using the charm name, source and revision.
-	GetCharmLXDProfile(ctx context.Context, locator charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
 }
 
 // UnitStateService describes the ability to retrieve and persist

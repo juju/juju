@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application_test
+package status_test
 
 import (
 	context "context"
@@ -14,24 +14,20 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
-	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
-	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/testing"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
-	"github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/domain/application/state"
+	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/secretbackend/errors"
-	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/domain/status/service"
+	"github.com/juju/juju/domain/status/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -76,10 +72,10 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
 
 	svc := s.setupService(c, nil)
 
-	u1 := service.AddUnitArg{
+	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
-	appID := s.createApplication(c, svc, "foo", u1)
+	appID := s.createApplication(c, "foo", u1)
 
 	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", &status.StatusInfo{
 		Status: status.Active,
@@ -113,10 +109,10 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *g
 
 	svc := s.setupService(c, nil)
 
-	u1 := service.AddUnitArg{
+	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, svc, "foo", u1)
+	s.createApplication(c, "foo", u1)
 
 	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", &status.StatusInfo{
 		Status: status.Active,
@@ -142,10 +138,10 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *gc.C
 
 	svc := s.setupService(c, nil)
 
-	u1 := service.AddUnitArg{
+	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
-	s.createApplication(c, svc, "foo", u1)
+	s.createApplication(c, "foo", u1)
 
 	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", &status.StatusInfo{
 		Status: status.Active,
@@ -153,31 +149,19 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *gc.C
 	c.Assert(err, jc.ErrorIs, context.Canceled)
 }
 
-func (s *leadershipSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.ProviderService {
+func (s *leadershipSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.Service {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 
-	return service.NewProviderService(
+	return service.NewService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewLeaseService(leaseGetter{
 			Checker: s.leadership,
 		}),
-		corestorage.ConstModelStorageRegistry(func() storage.ProviderRegistry {
-			return provider.CommonStorageProviders()
-		}),
-		model.UUID(s.ModelUUID()),
-		nil,
-		func(ctx context.Context) (service.Provider, error) {
-			return serviceProvider{}, nil
-		},
-		func(ctx context.Context) (service.SupportedFeatureProvider, error) {
-			return serviceProvider{}, nil
-		},
-		nil,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 	)
 }
 
@@ -191,24 +175,78 @@ func (s *leadershipSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *leadershipSuite) createApplication(c *gc.C, svc *service.ProviderService, name string, units ...service.AddUnitArg) coreapplication.ID {
+func (s *leadershipSuite) createApplication(c *gc.C, name string, units ...application.AddUnitArg) coreapplication.ID {
+	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	platform := application.Platform{
+		Channel:      "22.04/stable",
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &application.Channel{
+		Track:  "track",
+		Risk:   "stable",
+		Branch: "branch",
+	}
 	ctx := context.Background()
-	appID, err := svc.CreateApplication(ctx, name, &stubCharm{}, corecharm.Origin{
-		Source: corecharm.CharmHub,
-		Platform: corecharm.Platform{
-			Channel:      "24.04",
-			OS:           "ubuntu",
-			Architecture: "amd64",
+
+	appID, err := appState.CreateApplication(ctx, name, application.AddApplicationArg{
+		Platform: platform,
+		Channel:  channel,
+		Charm: charm.Charm{
+			Metadata: charm.Metadata{
+				Name: name,
+				Provides: map[string]charm.Relation{
+					"endpoint": {
+						Name:  "endpoint",
+						Key:   "endpoint",
+						Role:  charm.RoleProvider,
+						Scope: charm.ScopeGlobal,
+					},
+					"misc": {
+						Name:  "misc",
+						Key:   "misc",
+						Role:  charm.RoleProvider,
+						Scope: charm.ScopeGlobal,
+					},
+				},
+			},
+			Manifest:      s.minimalManifest(c),
+			ReferenceName: name,
+			Source:        charm.CharmHubSource,
+			Revision:      42,
+			Hash:          "hash",
 		},
-	}, service.AddApplicationArgs{
-		ReferenceName: name,
-		DownloadInfo: &charm.DownloadInfo{
-			Provenance:  charm.ProvenanceDownload,
-			DownloadURL: "http://example.com",
+		CharmDownloadInfo: &charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident",
+			DownloadURL:        "https://example.com",
+			DownloadSize:       42,
 		},
-	}, units...)
+		Scale: len(units),
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	for _, u := range units {
+		err := appState.AddIAASUnits(ctx, "", appID, u)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
 	return appID
+}
+
+func (s *leadershipSuite) minimalManifest(c *gc.C) charm.Manifest {
+	return charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.RiskStable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}
 }
 
 type leaseGetter struct {
@@ -225,13 +263,4 @@ type leaseToken struct {
 
 func (l leaseToken) Check() error {
 	return l.error
-}
-
-type serviceProvider struct {
-	service.Provider
-	service.SupportedFeatureProvider
-}
-
-func (serviceProvider) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
-	return nil, nil
 }

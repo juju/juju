@@ -1,0 +1,951 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package state
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"time"
+
+	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	coreapplication "github.com/juju/juju/core/application"
+	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/domain/application/charm"
+	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/life"
+	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/domain/status"
+	statuserrors "github.com/juju/juju/domain/status/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
+)
+
+type stateSuite struct {
+	schematesting.ModelSuite
+
+	state *State
+}
+
+var _ = gc.Suite(&stateSuite{})
+
+func (s *stateSuite) SetUpTest(c *gc.C) {
+	s.ModelSuite.SetUpTest(c)
+
+	modelUUID := uuid.MustNewUUID()
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
+			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
+		`, modelUUID.String(), coretesting.ControllerTag.Id())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+}
+
+func (s *stateSuite) TestGetApplicationIDByName(c *gc.C) {
+	id, _ := s.createApplication(c, "foo", life.Alive)
+
+	gotID, err := s.state.GetApplicationIDByName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotID, gc.Equals, id)
+}
+
+func (s *stateSuite) TestGetApplicationIDByNameNotFound(c *gc.C) {
+	_, err := s.state.GetApplicationIDByName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
+}
+
+func (s *stateSuite) TestGetApplicationIDAndNameByUnitName(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	expectedAppUUID, _ := s.createApplication(c, "foo", life.Alive, u1)
+
+	appUUID, appName, err := s.state.GetApplicationIDAndNameByUnitName(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(appUUID, gc.Equals, expectedAppUUID)
+	c.Check(appName, gc.Equals, "foo")
+}
+
+func (s *stateSuite) TestGetApplicationIDAndNameByUnitNameNotFound(c *gc.C) {
+	_, _, err := s.state.GetApplicationIDAndNameByUnitName(context.Background(), "failme")
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestSetApplicationStatus(c *gc.C) {
+	id, _ := s.createApplication(c, "foo", life.Alive)
+
+	now := time.Now().UTC()
+	expected := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "message",
+		Data:    []byte("data"),
+		Since:   ptr(now),
+	}
+
+	err := s.state.SetApplicationStatus(context.Background(), id, expected)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := s.state.GetApplicationStatus(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status, jc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetApplicationStatusMultipleTimes(c *gc.C) {
+	id, _ := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.SetApplicationStatus(context.Background(), id, &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusBlocked,
+		Message: "blocked",
+		Since:   ptr(time.Now().UTC()),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	now := time.Now().UTC()
+	expected := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "message",
+		Data:    []byte("data"),
+		Since:   ptr(now),
+	}
+
+	err = s.state.SetApplicationStatus(context.Background(), id, expected)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := s.state.GetApplicationStatus(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status, jc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetApplicationStatusWithNoData(c *gc.C) {
+	id, _ := s.createApplication(c, "foo", life.Alive)
+
+	now := time.Now().UTC()
+	expected := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "message",
+		Since:   ptr(now),
+	}
+
+	err := s.state.SetApplicationStatus(context.Background(), id, expected)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := s.state.GetApplicationStatus(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(status, jc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetApplicationStatusApplicationNotFound(c *gc.C) {
+	now := time.Now().UTC()
+	expected := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "message",
+		Data:    []byte("data"),
+		Since:   ptr(now),
+	}
+
+	err := s.state.SetApplicationStatus(context.Background(), "foo", expected)
+	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
+}
+
+func (s *stateSuite) TestSetApplicationStatusInvalidStatus(c *gc.C) {
+	id, _ := s.createApplication(c, "foo", life.Alive)
+
+	expected := status.StatusInfo[status.WorkloadStatusType]{
+		Status: status.WorkloadStatusType(99),
+	}
+
+	err := s.state.SetApplicationStatus(context.Background(), id, &expected)
+	c.Assert(err, gc.ErrorMatches, `unknown status.*`)
+}
+
+func (s *stateSuite) TestGetApplicationStatusApplicationNotFound(c *gc.C) {
+	_, err := s.state.GetApplicationStatus(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
+}
+
+func (s *stateSuite) TestGetApplicationStatusNotSet(c *gc.C) {
+	id, _ := s.createApplication(c, "foo", life.Alive)
+
+	sts, err := s.state.GetApplicationStatus(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sts, gc.DeepEquals, &status.StatusInfo[status.WorkloadStatusType]{
+		Status: status.WorkloadStatusUnset,
+	})
+}
+
+func (s *stateSuite) TestSetCloudContainerStatus(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	status := status.StatusInfo[status.CloudContainerStatusType]{
+		Status:  status.CloudContainerStatusRunning,
+		Message: "it's running",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, &status)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUnitStatus(
+		c, "k8s_pod", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
+}
+
+func (s *stateSuite) TestSetUnitAgentStatus(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	status := status.StatusInfo[status.UnitAgentStatusType]{
+		Status:  status.UnitAgentStatusExecuting,
+		Message: "it's executing",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err := s.state.SetUnitAgentStatus(context.Background(), unitUUID, &status)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUnitStatus(
+		c, "unit_agent", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
+}
+
+func (s *stateSuite) TestSetUnitAgentStatusNotFound(c *gc.C) {
+	status := status.StatusInfo[status.UnitAgentStatusType]{
+		Status:  status.UnitAgentStatusExecuting,
+		Message: "it's executing",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	err := s.state.SetUnitAgentStatus(context.Background(), unitUUID, &status)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestGetUnitAgentStatusUnset(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	_, err := s.state.GetUnitAgentStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitStatusNotFound)
+}
+
+func (s *stateSuite) TestGetUnitAgentStatusDead(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, u1)
+	unitUUID := unitUUIDs[0]
+
+	_, err := s.state.GetUnitAgentStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitIsDead)
+}
+
+func (s *stateSuite) TestGetUnitAgentStatus(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	status := &status.StatusInfo[status.UnitAgentStatusType]{
+		Status:  status.UnitAgentStatusExecuting,
+		Message: "it's executing",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err := s.state.SetUnitAgentStatus(context.Background(), unitUUID, status)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotStatus, err := s.state.GetUnitAgentStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(gotStatus.Present, jc.IsFalse)
+	assertStatusInfoEqual(c, &gotStatus.StatusInfo, status)
+}
+
+func (s *stateSuite) TestGetUnitAgentStatusPresent(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	status := &status.StatusInfo[status.UnitAgentStatusType]{
+		Status:  status.UnitAgentStatusExecuting,
+		Message: "it's executing",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err := s.state.SetUnitAgentStatus(context.Background(), unitUUID, status)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetUnitPresence(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotStatus, err := s.state.GetUnitAgentStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(gotStatus.Present, jc.IsTrue)
+	assertStatusInfoEqual(c, &gotStatus.StatusInfo, status)
+
+	err = s.state.DeleteUnitPresence(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotStatus, err = s.state.GetUnitAgentStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(gotStatus.Present, jc.IsFalse)
+	assertStatusInfoEqual(c, &gotStatus.StatusInfo, status)
+}
+
+func (s *stateSuite) TestGetUnitWorkloadStatusUnitNotFound(c *gc.C) {
+	_, err := s.state.GetUnitWorkloadStatus(context.Background(), "missing-uuid")
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestGetUnitWorkloadStatusDead(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, u1)
+	unitUUID := unitUUIDs[0]
+
+	_, err := s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitIsDead)
+}
+
+func (s *stateSuite) TestGetUnitWorkloadStatusUnsetStatus(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	_, err := s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitStatusNotFound)
+}
+
+func (s *stateSuite) TestSetWorkloadStatus(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	sts := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "it's active!",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err := s.state.SetUnitWorkloadStatus(context.Background(), unitUUID, sts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotStatus, err := s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotStatus.Present, jc.IsFalse)
+	assertStatusInfoEqual(c, &gotStatus.StatusInfo, sts)
+
+	// Run SetUnitWorkloadStatus followed by GetUnitWorkloadStatus to ensure that
+	// the new status overwrites the old one.
+	sts = &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusTerminated,
+		Message: "it's terminated",
+		Data:    []byte(`{"bar": "foo"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err = s.state.SetUnitWorkloadStatus(context.Background(), unitUUID, sts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotStatus, err = s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotStatus.Present, jc.IsFalse)
+	assertStatusInfoEqual(c, &gotStatus.StatusInfo, sts)
+}
+
+func (s *stateSuite) TestSetWorkloadStatusPresent(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	sts := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "it's active!",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err := s.state.SetUnitWorkloadStatus(context.Background(), unitUUID, sts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetUnitPresence(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotStatus, err := s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotStatus.Present, jc.IsTrue)
+	assertStatusInfoEqual(c, &gotStatus.StatusInfo, sts)
+
+	// Run SetUnitWorkloadStatus followed by GetUnitWorkloadStatus to ensure that
+	// the new status overwrites the old one.
+	sts = &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusTerminated,
+		Message: "it's terminated",
+		Data:    []byte(`{"bar": "foo"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err = s.state.SetUnitWorkloadStatus(context.Background(), unitUUID, sts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotStatus, err = s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotStatus.Present, jc.IsTrue)
+	assertStatusInfoEqual(c, &gotStatus.StatusInfo, sts)
+}
+
+func (s *stateSuite) TestSetUnitWorkloadStatusNotFound(c *gc.C) {
+	status := status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusTerminated,
+		Message: "it's terminated",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+
+	err := s.state.SetUnitWorkloadStatus(context.Background(), "missing-uuid", &status)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestGetUnitCloudContainerStatusUnset(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	_, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitStatusNotFound)
+}
+
+func (s *stateSuite) TestGetUnitCloudContainerStatusUnitNotFound(c *gc.C) {
+	_, err := s.state.GetUnitCloudContainerStatus(context.Background(), "missing-uuid")
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestGetUnitCloudContainerStatusDead(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, u1)
+	unitUUID := unitUUIDs[0]
+
+	_, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitIsDead)
+}
+
+func (s *stateSuite) TestGetUnitCloudContainerStatus(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	now := time.Now()
+
+	s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, &status.StatusInfo[status.CloudContainerStatusType]{
+			Status:  status.CloudContainerStatusRunning,
+			Message: "it's running",
+			Data:    []byte(`{"foo": "bar"}`),
+			Since:   &now,
+		})
+	})
+
+	sts, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	assertStatusInfoEqual(c, sts, &status.StatusInfo[status.CloudContainerStatusType]{
+		Status:  status.CloudContainerStatusRunning,
+		Message: "it's running",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   &now,
+	})
+}
+
+func (s *stateSuite) TestGetUnitWorkloadStatusesForApplication(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	status := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "it's active!",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+	err := s.state.SetUnitWorkloadStatus(context.Background(), unitUUID, status)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, gc.HasLen, 1)
+	result, ok := results["foo/666"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(result.Present, jc.IsFalse)
+	assertStatusInfoEqual(c, &result.StatusInfo, status)
+}
+
+func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1, u2)
+	unitUUID1 := unitUUIDs[0]
+	unitUUID2 := unitUUIDs[1]
+
+	status1 := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "it's active!",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+	err := s.state.SetUnitWorkloadStatus(context.Background(), unitUUID1, status1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status2 := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusTerminated,
+		Message: "it's terminated",
+		Data:    []byte(`{"bar": "foo"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.state.SetUnitWorkloadStatus(context.Background(), unitUUID2, status2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2, gc.Commentf("expected 2, got %d", len(results)))
+
+	result1, ok := results["foo/666"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(result1.Present, jc.IsFalse)
+	assertStatusInfoEqual(c, &result1.StatusInfo, status1)
+
+	result2, ok := results["foo/667"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(result2.Present, jc.IsFalse)
+	assertStatusInfoEqual(c, &result2.StatusInfo, status2)
+}
+
+func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsPresent(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1, u2)
+	unitUUID1 := unitUUIDs[0]
+	unitUUID2 := unitUUIDs[1]
+
+	status1 := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "it's active!",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+	err := s.state.SetUnitWorkloadStatus(context.Background(), unitUUID1, status1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status2 := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusTerminated,
+		Message: "it's terminated",
+		Data:    []byte(`{"bar": "foo"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.state.SetUnitWorkloadStatus(context.Background(), unitUUID2, status2)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.SetUnitPresence(context.Background(), coreunit.Name("foo/667"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2, gc.Commentf("expected 2, got %d", len(results)))
+
+	result1, ok := results["foo/666"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(result1.Present, jc.IsFalse)
+	assertStatusInfoEqual(c, &result1.StatusInfo, status1)
+
+	result2, ok := results["foo/667"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(result2.Present, jc.IsTrue)
+	assertStatusInfoEqual(c, &result2.StatusInfo, status2)
+}
+
+func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationNotFound(c *gc.C) {
+	_, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), "missing")
+	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
+}
+
+func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationNoUnits(c *gc.C) {
+	appId, _ := s.createApplication(c, "foo", life.Alive)
+
+	results, err := s.state.GetUnitWorkloadStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplication(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	workloadStatus := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "it's active",
+		Data:    []byte(`{"bar": "foo"}`),
+		Since:   ptr(time.Now()),
+	}
+	cloudContainerStatus := &status.StatusInfo[status.CloudContainerStatusType]{
+		Status:  status.CloudContainerStatusRunning,
+		Message: "it's running",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := s.state.setCloudContainerStatus(ctx, tx, unitUUID, cloudContainerStatus)
+		if err != nil {
+			return err
+		}
+		return s.state.setUnitWorkloadStatus(ctx, tx, unitUUID, workloadStatus)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	workloadResults, containerResults, err := s.state.GetUnitWorkloadAndCloudContainerStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(workloadResults, gc.HasLen, 1)
+	workloadResult, ok := workloadResults["foo/666"]
+	c.Assert(ok, jc.IsTrue)
+
+	c.Assert(containerResults, gc.HasLen, 1)
+	containerResult, ok := containerResults["foo/666"]
+	c.Assert(ok, jc.IsTrue)
+
+	assertStatusInfoEqual(c, &workloadResult.StatusInfo, workloadStatus)
+	assertStatusInfoEqual(c, &containerResult, cloudContainerStatus)
+}
+
+func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1, u2)
+	unitUUID1 := unitUUIDs[0]
+	unitUUID2 := unitUUIDs[1]
+
+	status1 := &status.StatusInfo[status.CloudContainerStatusType]{
+		Status:  status.CloudContainerStatusRunning,
+		Message: "it's running!",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID1, status1)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	status2 := &status.StatusInfo[status.CloudContainerStatusType]{
+		Status:  status.CloudContainerStatusBlocked,
+		Message: "it's blocked",
+		Data:    []byte(`{"bar": "foo"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID2, status2)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, results, err := s.state.GetUnitWorkloadAndCloudContainerStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+
+	result1, ok := results["foo/666"]
+	c.Assert(ok, jc.IsTrue)
+	assertStatusInfoEqual(c, &result1, status1)
+
+	result2, ok := results["foo/667"]
+	c.Assert(ok, jc.IsTrue)
+	assertStatusInfoEqual(c, &result2, status2)
+}
+
+func (s *stateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplicationNotFound(c *gc.C) {
+	_, _, err := s.state.GetUnitWorkloadAndCloudContainerStatusesForApplication(context.Background(), "missing")
+	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
+}
+
+func (s *stateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplicationNoUnits(c *gc.C) {
+	appId, _ := s.createApplication(c, "foo", life.Alive)
+
+	_, results, err := s.state.GetUnitWorkloadAndCloudContainerStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplicationUnitsWithoutStatuses(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	appId, _ := s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	_, results, err := s.state.GetUnitWorkloadAndCloudContainerStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestSetUnitPresence(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	err := s.state.SetUnitPresence(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var lastSeen time.Time
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT last_seen FROM v_unit_agent_presence WHERE name=?", "foo/666").Scan(&lastSeen); err != nil {
+			return err
+		}
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(lastSeen.IsZero(), jc.IsFalse)
+	c.Check(lastSeen.After(time.Now().Add(-time.Minute)), jc.IsTrue)
+}
+
+func (s *stateSuite) TestSetUnitPresenceNotFound(c *gc.C) {
+	err := s.state.SetUnitPresence(context.Background(), "foo/665")
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestDeleteUnitPresenceNotFound(c *gc.C) {
+	err := s.state.DeleteUnitPresence(context.Background(), "foo/665")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestDeleteUnitPresence(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	err := s.state.SetUnitPresence(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var lastSeen time.Time
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT last_seen FROM v_unit_agent_presence WHERE name=?", "foo/666").Scan(&lastSeen); err != nil {
+			return err
+		}
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(lastSeen.IsZero(), jc.IsFalse)
+	c.Check(lastSeen.After(time.Now().Add(-time.Minute)), jc.IsTrue)
+
+	err = s.state.DeleteUnitPresence(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var count int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM v_unit_agent_presence WHERE name=?", "foo/666").Scan(&count); err != nil {
+			return err
+		}
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(count, gc.Equals, 0)
+}
+
+func (s *stateSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.AddUnitArg) (coreapplication.ID, []coreunit.UUID) {
+	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	platform := application.Platform{
+		Channel:      "22.04/stable",
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &application.Channel{
+		Track:  "track",
+		Risk:   "stable",
+		Branch: "branch",
+	}
+	ctx := context.Background()
+
+	appID, err := appState.CreateApplication(ctx, name, application.AddApplicationArg{
+		Platform: platform,
+		Channel:  channel,
+		Charm: charm.Charm{
+			Metadata: charm.Metadata{
+				Name: name,
+				Provides: map[string]charm.Relation{
+					"endpoint": {
+						Name:  "endpoint",
+						Key:   "endpoint",
+						Role:  charm.RoleProvider,
+						Scope: charm.ScopeGlobal,
+					},
+					"misc": {
+						Name:  "misc",
+						Key:   "misc",
+						Role:  charm.RoleProvider,
+						Scope: charm.ScopeGlobal,
+					},
+				},
+			},
+			Manifest:      s.minimalManifest(c),
+			ReferenceName: name,
+			Source:        charm.CharmHubSource,
+			Revision:      42,
+			Hash:          "hash",
+		},
+		CharmDownloadInfo: &charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident",
+			DownloadURL:        "https://example.com",
+			DownloadSize:       42,
+		},
+		Scale: len(units),
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, u := range units {
+		err := appState.AddIAASUnits(ctx, "", appID, u)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	var unitUUIDs = make([]coreunit.UUID, len(units))
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE application_uuid = ?", l, appID)
+		if err != nil {
+			return err
+		}
+
+		for i, u := range units {
+			var uuid coreunit.UUID
+			err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&uuid)
+			if err != nil {
+				return err
+			}
+			unitUUIDs[i] = uuid
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return appID, unitUUIDs
+}
+
+func (s *stateSuite) minimalManifest(c *gc.C) charm.Manifest {
+	return charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.RiskStable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}
+}
+
+func (s *stateSuite) assertUnitStatus(c *gc.C, statusType, unitUUID coreunit.UUID, statusID int, message string, since *time.Time, data []byte) {
+	var (
+		gotStatusID int
+		gotMessage  string
+		gotSince    *time.Time
+		gotData     []byte
+	)
+	queryInfo := fmt.Sprintf(`SELECT status_id, message, data, updated_at FROM %s_status WHERE unit_uuid = ?`, statusType)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, queryInfo, unitUUID).
+			Scan(&gotStatusID, &gotMessage, &gotData, &gotSince); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotStatusID, gc.Equals, statusID)
+	c.Check(gotMessage, gc.Equals, message)
+	c.Check(gotSince, jc.DeepEquals, since)
+	c.Check(gotData, jc.DeepEquals, data)
+}
+
+func assertStatusInfoEqual[T status.StatusID](c *gc.C, got, want *status.StatusInfo[T]) {
+	c.Check(got.Status, gc.Equals, want.Status)
+	c.Check(got.Message, gc.Equals, want.Message)
+	c.Check(got.Data, jc.DeepEquals, want.Data)
+	c.Check(got.Since.Sub(*want.Since), gc.Equals, time.Duration(0))
+}
+
+func ptr[T any](v T) *T {
+	return &v
+}

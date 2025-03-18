@@ -16,14 +16,14 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
 type unitStatusSuite struct {
-	applicationService *mocks.MockApplicationService
-	now                time.Time
-	clock              *mocks.MockClock
+	statusService *mocks.MockStatusService
+	now           time.Time
+	clock         *mocks.MockClock
 
 	badTag names.Tag
 }
@@ -34,7 +34,7 @@ func (s *unitStatusSuite) SetUpTest(c *gc.C) {
 
 func (s *unitStatusSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.applicationService = mocks.NewMockApplicationService(ctrl)
+	s.statusService = mocks.NewMockStatusService(ctrl)
 
 	s.now = time.Now()
 	s.clock = mocks.NewMockClock(ctrl)
@@ -59,7 +59,7 @@ func (s *unitSetStatusSuite) TestSetStatusUnauthorised(c *gc.C) {
 	tag := names.NewUnitTag("ubuntu/42")
 	s.badTag = tag
 
-	setter := common.NewUnitStatusSetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	setter := common.NewUnitStatusSetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
@@ -74,7 +74,7 @@ func (s *unitSetStatusSuite) TestSetStatusUnauthorised(c *gc.C) {
 func (s *unitSetStatusSuite) TestSetStatusNotATag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	setter := common.NewUnitStatusSetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	setter := common.NewUnitStatusSetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
@@ -91,7 +91,7 @@ func (s *unitSetStatusSuite) TestSetStatusNotAUnitTag(c *gc.C) {
 
 	tag := names.NewMachineTag("42")
 
-	setter := common.NewUnitStatusSetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	setter := common.NewUnitStatusSetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
@@ -108,9 +108,9 @@ func (s *unitSetStatusSuite) TestSetStatusUnitNotFound(c *gc.C) {
 
 	tag := names.NewUnitTag("ubuntu/42")
 
-	s.applicationService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), gomock.Any()).Return(applicationerrors.UnitNotFound)
+	s.statusService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), gomock.Any()).Return(statuserrors.UnitNotFound)
 
-	setter := common.NewUnitStatusSetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	setter := common.NewUnitStatusSetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
@@ -137,9 +137,9 @@ func (s *unitSetStatusSuite) TestSetStatus(c *gc.C) {
 		Since: &s.now,
 	}
 
-	s.applicationService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), &sInfo).Return(nil)
+	s.statusService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), &sInfo).Return(nil)
 
-	setter := common.NewUnitStatusSetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	setter := common.NewUnitStatusSetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 
@@ -168,7 +168,7 @@ func (s *unitGetStatusSuite) TestStatusUnauthorised(c *gc.C) {
 	tag := names.NewUnitTag("ubuntu/42")
 	s.badTag = tag
 
-	getter := common.NewUnitStatusGetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
@@ -182,7 +182,7 @@ func (s *unitGetStatusSuite) TestStatusUnauthorised(c *gc.C) {
 func (s *unitGetStatusSuite) TestStatusNotATag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	getter := common.NewUnitStatusGetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
@@ -198,7 +198,7 @@ func (s *unitGetStatusSuite) TestStatusNotAUnitTag(c *gc.C) {
 
 	tag := names.NewMachineTag("42")
 
-	getter := common.NewUnitStatusGetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
@@ -214,9 +214,9 @@ func (s *unitGetStatusSuite) TestStatusUnitNotFound(c *gc.C) {
 
 	tag := names.NewUnitTag("ubuntu/42")
 
-	s.applicationService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(nil, applicationerrors.UnitNotFound)
+	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(nil, statuserrors.UnitNotFound)
 
-	getter := common.NewUnitStatusGetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{
@@ -232,7 +232,7 @@ func (s *unitGetStatusSuite) TestStatus(c *gc.C) {
 
 	tag := names.NewUnitTag("ubuntu/42")
 
-	s.applicationService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(&status.StatusInfo{
+	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(&status.StatusInfo{
 		Status:  status.Active,
 		Message: "msg",
 		Data: map[string]interface{}{
@@ -241,7 +241,7 @@ func (s *unitGetStatusSuite) TestStatus(c *gc.C) {
 		Since: &s.now,
 	}, nil)
 
-	getter := common.NewUnitStatusGetter(s.applicationService, s.clock, func() (common.AuthFunc, error) {
+	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 	result, err := getter.Status(context.Background(), params.Entities{Entities: []params.Entity{{

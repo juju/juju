@@ -64,6 +64,8 @@ import (
 	secretstate "github.com/juju/juju/domain/secret/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
+	statusservice "github.com/juju/juju/domain/status/service"
+	statusstate "github.com/juju/juju/domain/status/state"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storagestate "github.com/juju/juju/domain/storage/state"
 	stubservice "github.com/juju/juju/domain/stub"
@@ -193,6 +195,18 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		domain.NewStatusHistory(logger, s.clock),
 		s.clock,
 		logger,
+	)
+}
+
+// Status returns the application status service.
+func (s *ModelServices) Status() *statusservice.Service {
+	logger := s.logger.Child("status")
+	return statusservice.NewService(
+		statusstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
+		domain.NewLeaseService(s.leaseManager),
+		s.clock,
+		logger,
+		domain.NewStatusHistory(logger, s.clock),
 	)
 }
 

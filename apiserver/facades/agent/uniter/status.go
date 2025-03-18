@@ -24,7 +24,7 @@ import (
 // status from different entities, this particular separation from
 // base is because we have a shim to support unit/agent split.
 type StatusAPI struct {
-	applicationService ApplicationService
+	statusService StatusService
 
 	unitSetter        *common.UnitStatusSetter
 	unitGetter        *common.UnitStatusGetter
@@ -33,18 +33,18 @@ type StatusAPI struct {
 }
 
 // NewStatusAPI creates a new server-side Status setter API facade.
-func NewStatusAPI(st *state.State, applicationService ApplicationService, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker, clock clock.Clock) *StatusAPI {
+func NewStatusAPI(st *state.State, statusService StatusService, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker, clock clock.Clock) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
-	unitSetter := common.NewUnitStatusSetter(applicationService, clock, getCanModify)
-	unitGetter := common.NewUnitStatusGetter(applicationService, clock, getCanModify)
+	unitSetter := common.NewUnitStatusSetter(statusService, clock, getCanModify)
+	unitGetter := common.NewUnitStatusGetter(statusService, clock, getCanModify)
 	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
 	return &StatusAPI{
-		applicationService: applicationService,
-		unitSetter:         unitSetter,
-		unitGetter:         unitGetter,
-		applicationSetter:  applicationSetter,
-		getCanModify:       getCanModify,
+		statusService:     statusService,
+		unitSetter:        unitSetter,
+		unitGetter:        unitGetter,
+		applicationSetter: applicationSetter,
+		getCanModify:      getCanModify,
 	}
 }
 
@@ -78,7 +78,7 @@ func (s *StatusAPI) SetAgentStatus(ctx context.Context, args params.SetStatus) (
 			continue
 		}
 
-		if err := s.applicationService.SetUnitAgentStatus(ctx, unit.Name(tag.Id()), &status.StatusInfo{
+		if err := s.statusService.SetUnitAgentStatus(ctx, unit.Name(tag.Id()), &status.StatusInfo{
 			Status:  status.Status(arg.Status),
 			Message: arg.Info,
 			Data:    arg.Data,
@@ -140,7 +140,7 @@ func (s *StatusAPI) ApplicationStatus(ctx context.Context, args params.Entities)
 			continue
 		}
 
-		appStatus, unitStatuses, err := s.applicationService.GetApplicationAndUnitStatusesForUnitWithLeader(ctx, unitName)
+		appStatus, unitStatuses, err := s.statusService.GetApplicationAndUnitStatusesForUnitWithLeader(ctx, unitName)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", unitName.Application()))
 			continue

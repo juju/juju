@@ -65,6 +65,13 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		}
 		return svc.Application(), nil
 	}
+	statusServiceGetter := func(c context.Context, modelID model.UUID) (StatusService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Status(), nil
+	}
 	blockCommandServiceGetter := func(c context.Context, modelID model.UUID) (BlockCommandService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelID)
 		if err != nil {
@@ -99,6 +106,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		domainServices.ModelInfo(),
 		domainServices.BlockCommand(),
 		applicationServiceGetter,
+		statusServiceGetter,
 		modelAgentServiceGetter,
 		modelConfigServiceGetter,
 		blockCommandServiceGetter,

@@ -23,7 +23,7 @@ type AgentPresenceSuite struct {
 
 	domainServicesGetter *MockDomainServicesGetter
 	modelService         *MockModelService
-	applicationService   *MockApplicationService
+	statusService        *MockStatusService
 }
 
 var _ = gc.Suite(&AgentPresenceSuite{})
@@ -34,8 +34,8 @@ func (s *AgentPresenceSuite) TestLoginForUnit(c *gc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
-	s.modelService.EXPECT().ApplicationService().Return(s.applicationService)
-	s.applicationService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
+	s.modelService.EXPECT().StatusService().Return(s.statusService)
+	s.statusService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
 
 	observer := s.newObserver(c)
 	observer.Login(context.Background(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
@@ -70,9 +70,9 @@ func (s *AgentPresenceSuite) TestLeaveForUnit(c *gc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), uuid).Return(s.modelService, nil)
-	s.modelService.EXPECT().ApplicationService().Return(s.applicationService).Times(2)
-	s.applicationService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
-	s.applicationService.EXPECT().DeleteUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
+	s.modelService.EXPECT().StatusService().Return(s.statusService).Times(2)
+	s.statusService.EXPECT().SetUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
+	s.statusService.EXPECT().DeleteUnitPresence(gomock.Any(), unit.Name("foo/666")).Return(nil)
 
 	observer := s.newObserver(c)
 	observer.Login(context.Background(), names.NewUnitTag("foo/666"), names.NewModelTag("bar"), uuid, false, "user data")
@@ -108,7 +108,7 @@ func (s *AgentPresenceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
 	s.modelService = NewMockModelService(ctrl)
-	s.applicationService = NewMockApplicationService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
 
 	return ctrl
 }

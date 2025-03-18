@@ -62,20 +62,20 @@ type StubService interface {
 
 // ApplicationService is the interface that is used to interact with the
 // application domain.
-type ApplicationService interface {
+type StatusService interface {
 	// SetUnitAgentStatus sets the status of the agent of the given unit.
 	SetUnitAgentStatus(ctx context.Context, name unit.Name, status *status.StatusInfo) error
 }
 
 // API implements the functionality for assigning units to machines.
 type API struct {
-	st                 assignerState
-	machineService     MachineService
-	networkService     NetworkService
-	applicationService ApplicationService
-	stubService        StubService
-	clock              clock.Clock
-	res                facade.Resources
+	st             assignerState
+	machineService MachineService
+	networkService NetworkService
+	statusService  StatusService
+	stubService    StubService
+	clock          clock.Clock
+	res            facade.Resources
 }
 
 // AssignUnits assigns the units with the given ids to the correct machine. The
@@ -194,7 +194,7 @@ func (a *API) SetAgentStatus(ctx context.Context, args params.SetStatus) (params
 			continue
 		}
 
-		if err := a.applicationService.SetUnitAgentStatus(ctx, unit.Name(tag.Id()), &status.StatusInfo{
+		if err := a.statusService.SetUnitAgentStatus(ctx, unit.Name(tag.Id()), &status.StatusInfo{
 			Status:  status.Status(arg.Status),
 			Message: arg.Info,
 			Data:    arg.Data,

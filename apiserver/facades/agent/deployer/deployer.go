@@ -37,7 +37,15 @@ type ApplicationService interface {
 	GetUnitLife(context.Context, coreunit.Name) (life.Value, error)
 	EnsureUnitDead(context.Context, coreunit.Name, leadership.Revoker) error
 	RemoveUnit(context.Context, coreunit.Name, leadership.Revoker) error
+}
+
+type StatusService interface {
+	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	GetUnitWorkloadStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
+
+	// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
 }
 
@@ -65,6 +73,7 @@ type DeployerAPI struct {
 func NewDeployerAPI(
 	controllerConfigGetter ControllerConfigGetter,
 	applicationService ApplicationService,
+	statusService StatusService,
 	authorizer facade.Authorizer,
 	st *state.State,
 	store objectstore.ObjectStore,
@@ -104,7 +113,7 @@ func NewDeployerAPI(
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),
 		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getCanWatch),
-		unitStatusSetter:       common.NewUnitStatusSetter(applicationService, clock, getAuthFunc),
+		unitStatusSetter:       common.NewUnitStatusSetter(statusService, clock, getAuthFunc),
 		controllerConfigGetter: controllerConfigGetter,
 		applicationService:     applicationService,
 		leadershipRevoker:      leadershipRevoker,

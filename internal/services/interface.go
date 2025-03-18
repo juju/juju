@@ -39,6 +39,7 @@ import (
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	statusservice "github.com/juju/juju/domain/status/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	stubservice "github.com/juju/juju/domain/stub"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
@@ -96,6 +97,8 @@ type ModelDomainServices interface {
 	BlockDevice() *blockdeviceservice.WatchableService
 	// Application returns the application service.
 	Application() *applicationservice.WatchableService
+	// Status returns the application status service.
+	Status() *statusservice.Service
 	// KeyManager returns the key manager service.
 	KeyManager() *keymanagerservice.Service
 	// KeyManagerWithImporter returns they manager service that is capable of importing keys

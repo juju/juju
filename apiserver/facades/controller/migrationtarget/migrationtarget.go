@@ -67,6 +67,9 @@ type ApplicationService interface {
 	// GetApplicationLife returns the life value of the application with the
 	// given name.
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+}
+
+type StatusService interface {
 	// GetUnitWorkloadStatus returns the workload status of the specified unit.
 	// Returns [applicationerrors.UnitNotFound] if the unit does not exist.
 	GetUnitWorkloadStatus(context.Context, unit.Name) (*status.StatusInfo, error)
@@ -126,6 +129,7 @@ type API struct {
 	upgradeService UpgradeService
 
 	applicationService          ApplicationService
+	statusService               StatusService
 	controllerConfigService     ControllerConfigService
 	externalControllerService   ExternalControllerService
 	modelAgentServiceGetter     ModelAgentServiceGetter
@@ -147,6 +151,7 @@ func NewAPI(
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
 	applicationService ApplicationService,
+	statusService StatusService,
 	upgradeService UpgradeService,
 	modelAgentServiceGetter ModelAgentServiceGetter,
 	modelMigrationServiceGetter ModelMigrationServiceGetter,
@@ -160,6 +165,7 @@ func NewAPI(
 		controllerConfigService:         controllerConfigService,
 		externalControllerService:       externalControllerService,
 		applicationService:              applicationService,
+		statusService:                   statusService,
 		upgradeService:                  upgradeService,
 		modelAgentServiceGetter:         modelAgentServiceGetter,
 		modelMigrationServiceGetter:     modelMigrationServiceGetter,
@@ -268,6 +274,7 @@ with an earlier version of the target controller and try again.
 		},
 		api.upgradeService,
 		api.applicationService,
+		api.statusService,
 		modelAgentService,
 	); err != nil {
 		return errors.Errorf("migration target prechecks failed: %w", err)

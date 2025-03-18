@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -33,6 +34,7 @@ import (
 	domainsecret "github.com/juju/juju/domain/secret"
 	secretstate "github.com/juju/juju/domain/secret/state"
 	domaintesting "github.com/juju/juju/domain/testing"
+	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -854,4 +856,13 @@ func (s *serviceSuite) createApplication(c *gc.C, name string, units ...service.
 	}, units...)
 	c.Assert(err, jc.ErrorIsNil)
 	return appID
+}
+
+type serviceProvider struct {
+	service.Provider
+	service.SupportedFeatureProvider
+}
+
+func (serviceProvider) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
+	return nil, nil
 }

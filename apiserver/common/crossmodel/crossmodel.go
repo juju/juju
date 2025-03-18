@@ -576,7 +576,7 @@ type offerGetter interface {
 // error to indicate the migration-in-progress is returned.
 // This is interpreted upstream as a watcher error and propagated to the
 // remote CMR consumer.
-func GetOfferStatusChange(ctx context.Context, st offerGetter, appService ApplicationService, offerUUID, offerName string) (*params.OfferStatusChange, error) {
+func GetOfferStatusChange(ctx context.Context, st offerGetter, appService ApplicationService, statusService StatusService, offerUUID, offerName string) (*params.OfferStatusChange, error) {
 	migrating, err := st.IsMigrationActive()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -605,7 +605,7 @@ func GetOfferStatusChange(ctx context.Context, st offerGetter, appService Applic
 		return nil, errors.Trace(err)
 	}
 
-	sts, err := appService.GetApplicationDisplayStatus(ctx, appID)
+	sts, err := statusService.GetApplicationDisplayStatus(ctx, appID)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return handleNotFound(migrating, offerName)
 	} else if err != nil {

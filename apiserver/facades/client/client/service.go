@@ -39,6 +39,13 @@ type ApplicationService interface {
 	// [applicationerrors.ApplicationNotFound] if the application is not found.
 	GetApplicationIDByName(ctx context.Context, name string) (application.ID, error)
 
+	// GetApplicationScale returns the desired scale of an application, returning an error
+	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
+	// This is used on CAAS models.
+	GetApplicationScale(ctx context.Context, appName string) (int, error)
+}
+
+type StatusService interface {
 	// GetApplicationDisplayStatus returns the display status of the specified
 	// application. The display status is equal to the application status if it
 	// is set, otherwise it is derived from the unit display statuses. If no
@@ -56,11 +63,6 @@ type ApplicationService interface {
 	// returns an error satisfying [applicationerrors.UnitNotFound] if the unit
 	// doesn't exist.
 	GetUnitAgentStatus(context.Context, unit.Name) (*status.StatusInfo, error)
-
-	// GetApplicationScale returns the desired scale of an application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-	// This is used on CAAS models.
-	GetApplicationScale(ctx context.Context, appName string) (int, error)
 
 	// GetUnitAndAgentDisplayStatus returns the unit and agent display status of
 	// the specified unit. The display status a function of both the unit
