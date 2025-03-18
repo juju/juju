@@ -5,7 +5,8 @@ package service
 
 import (
 	"context"
-	
+	"time"
+
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/changestream"
@@ -28,7 +29,7 @@ type State interface {
 	// relation with the input UUID to dying if it is alive, and schedules a
 	// removal job for the relation, qualified with the input force boolean.
 	RelationAdvanceLifeAndScheduleRemoval(
-		ctx context.Context, removalUUID, relUUID string, force bool,
+		ctx context.Context, removalUUID, relUUID string, force bool, when time.Time,
 	) error
 }
 
@@ -68,7 +69,7 @@ func (s *Service) RemoveRelation(ctx context.Context, relUUID corerelation.UUID,
 	}
 
 	if err := s.st.RelationAdvanceLifeAndScheduleRemoval(
-		ctx, jobUUID.String(), relUUID.String(), force,
+		ctx, jobUUID.String(), relUUID.String(), force, s.clock.Now().UTC(),
 	); err != nil {
 		return "", errors.Errorf("removing relation %q: %w", relUUID, err)
 	}
