@@ -46,6 +46,9 @@ CREATE TABLE machine_parent (
 CREATE TABLE machine_agent_version (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     version TEXT NOT NULL,
+    -- We don't want to link architecture here with that of the architecture
+    -- that is on the machine. While correlation can be applied one deals with
+    -- what should be the case and this field deals with what is running.
     architecture_id INT NOT NULL,
     CONSTRAINT fk_machine_agent_version_machine
     FOREIGN KEY (machine_uuid)
