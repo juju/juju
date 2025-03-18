@@ -22,6 +22,9 @@ type ProviderState interface {
 	AllKeysQuery() string
 	// ModelConfig returns the currently set config for the model.
 	ModelConfig(context.Context) (map[string]string, error)
+	// NamespaceForWatchModelConfig returns the namespace identifier used for
+	// watching model configuration changes.
+	NamespaceForWatchModelConfig() string
 }
 
 // ProviderService defines the service for interacting with ModelConfig.
@@ -78,7 +81,7 @@ func NewWatchableProviderService(
 // config.
 func (s *WatchableProviderService) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher(
-		"model_config", changestream.All,
+		s.st.NamespaceForWatchModelConfig(), changestream.All,
 		eventsource.InitialNamespaceChanges(s.st.AllKeysQuery()),
 	)
 }

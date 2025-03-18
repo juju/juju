@@ -27,6 +27,10 @@ type State interface {
 	// AllKeysQuery is used to get the initial state
 	// for the controller configuration watcher.
 	AllKeysQuery() string
+
+	// NamespaceForWatchControllerConfig returns the namespace identifier
+	// used for watching controller configuration changes.
+	NamespaceForWatchControllerConfig() string
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -257,5 +261,6 @@ var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
 // Watch returns a watcher that returns keys for any changes to controller
 // config.
 func (s *WatchableService) WatchControllerConfig() (watcher.StringsWatcher, error) {
-	return s.watcherFactory.NewNamespaceWatcher("controller_config", changestream.All, InitialNamespaceChanges(s.st.AllKeysQuery()))
+	return s.watcherFactory.NewNamespaceWatcher(s.st.NamespaceForWatchControllerConfig(), changestream.All,
+		InitialNamespaceChanges(s.st.AllKeysQuery()))
 }

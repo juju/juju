@@ -477,6 +477,44 @@ func (c *MockStateListSecretBackendsForModelCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// NamespaceForWatchModelSecretBackend mocks base method.
+func (m *MockState) NamespaceForWatchModelSecretBackend() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchModelSecretBackend")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchModelSecretBackend indicates an expected call of NamespaceForWatchModelSecretBackend.
+func (mr *MockStateMockRecorder) NamespaceForWatchModelSecretBackend() *MockStateNamespaceForWatchModelSecretBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchModelSecretBackend", reflect.TypeOf((*MockState)(nil).NamespaceForWatchModelSecretBackend))
+	return &MockStateNamespaceForWatchModelSecretBackendCall{Call: call}
+}
+
+// MockStateNamespaceForWatchModelSecretBackendCall wrap *gomock.Call
+type MockStateNamespaceForWatchModelSecretBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchModelSecretBackendCall) Return(arg0 string) *MockStateNamespaceForWatchModelSecretBackendCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchModelSecretBackendCall) Do(f func() string) *MockStateNamespaceForWatchModelSecretBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchModelSecretBackendCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchModelSecretBackendCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SecretBackendRotated mocks base method.
 func (m *MockState) SecretBackendRotated(arg0 context.Context, arg1 string, arg2 time.Time) error {
 	m.ctrl.T.Helper()

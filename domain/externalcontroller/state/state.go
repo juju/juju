@@ -157,6 +157,12 @@ func (st *State) ImportExternalControllers(ctx context.Context, infos []crossmod
 	return errors.Trace(err)
 }
 
+// NamespaceForWatchExternalController returns the namespace identifier
+// used by watchers for external controller updates.
+func (*State) NamespaceForWatchExternalController() string {
+	return "external_controller"
+}
+
 func (st *State) updateExternalControllerTx(
 	ctx context.Context,
 	tx *sqlair.TX,

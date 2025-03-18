@@ -56,13 +56,14 @@ type WatcherFactory interface {
 
 // WatcherState describes the methods that the service needs for its watchers.
 type WatcherState interface {
-	// WatchOpenedPortsTable returns the name of the table that should be
+	// NamespaceForWatchOpenedPort returns the name of the table that should be
 	// watched
-	WatchOpenedPortsTable() string
+	NamespaceForWatchOpenedPort() string
 
-	// InitialWatchMachineOpenedPortsStatement returns the query to load the
+	// InitialWatchMachineOpenedPortsStatement returns the name of the table
+	// that should be watched and the query to load the
 	// initial event for the WatchMachineOpenedPorts watcher
-	InitialWatchMachineOpenedPortsStatement() string
+	InitialWatchMachineOpenedPortsStatement() (string, string)
 
 	// GetMachineNamesForUnits returns map from endpoint uuids to the uuids of
 	// the machines which host that endpoint for each provided endpoint uuid.
@@ -78,10 +79,11 @@ type WatcherState interface {
 // event contains the machine name which is associated with the changed port
 // range.
 func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
+	table, statement := s.st.InitialWatchMachineOpenedPortsStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
-		s.st.WatchOpenedPortsTable(),
+		table,
 		changestream.All,
-		eventsource.InitialNamespaceChanges(s.st.InitialWatchMachineOpenedPortsStatement()),
+		eventsource.InitialNamespaceChanges(statement),
 		s.endpointToMachineMapper,
 	)
 }
@@ -91,7 +93,7 @@ func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher
 // with the given application
 func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (watcher.NotifyWatcher, error) {
 	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		s.st.WatchOpenedPortsTable(),
+		s.st.NamespaceForWatchOpenedPort(),
 		changestream.All,
 		s.filterForApplication(applicationUUID),
 	)

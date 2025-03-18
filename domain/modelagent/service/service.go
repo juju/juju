@@ -30,6 +30,10 @@ type State interface {
 
 	// GetTargetAgentVersion returns the target agent version for this model.
 	GetTargetAgentVersion(context.Context) (version.Number, error)
+
+	// NamespaceForWatchAgentVersion returns the namespace identifier
+	// to watch for the agent version.
+	NamespaceForWatchAgentVersion() string
 }
 
 // WatcherFactory provides a factory for constructing new watchers.
@@ -158,7 +162,7 @@ func (s *Service) WatchUnitTargetAgentVersion(
 // version of this model and reporting when a change has happened in the
 // version.
 func (s *Service) WatchModelTargetAgentVersion(ctx context.Context) (watcher.NotifyWatcher, error) {
-	w, err := s.watcherFactory.NewNamespaceNotifyWatcher("agent_version", changestream.All)
+	w, err := s.watcherFactory.NewNamespaceNotifyWatcher(s.st.NamespaceForWatchAgentVersion(), changestream.All)
 	if err != nil {
 		return nil, errors.Errorf("creating watcher for agent version: %w", err)
 	}

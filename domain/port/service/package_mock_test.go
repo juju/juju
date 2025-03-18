@@ -319,11 +319,12 @@ func (c *MockStateGetUnitUUIDCall) DoAndReturn(f func(context.Context, unit.Name
 }
 
 // InitialWatchMachineOpenedPortsStatement mocks base method.
-func (m *MockState) InitialWatchMachineOpenedPortsStatement() string {
+func (m *MockState) InitialWatchMachineOpenedPortsStatement() (string, string) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchMachineOpenedPortsStatement")
 	ret0, _ := ret[0].(string)
-	return ret0
+	ret1, _ := ret[1].(string)
+	return ret0, ret1
 }
 
 // InitialWatchMachineOpenedPortsStatement indicates an expected call of InitialWatchMachineOpenedPortsStatement.
@@ -339,19 +340,57 @@ type MockStateInitialWatchMachineOpenedPortsStatementCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateInitialWatchMachineOpenedPortsStatementCall) Return(arg0 string) *MockStateInitialWatchMachineOpenedPortsStatementCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockStateInitialWatchMachineOpenedPortsStatementCall) Return(arg0, arg1 string) *MockStateInitialWatchMachineOpenedPortsStatementCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchMachineOpenedPortsStatementCall) Do(f func() string) *MockStateInitialWatchMachineOpenedPortsStatementCall {
+func (c *MockStateInitialWatchMachineOpenedPortsStatementCall) Do(f func() (string, string)) *MockStateInitialWatchMachineOpenedPortsStatementCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchMachineOpenedPortsStatementCall) DoAndReturn(f func() string) *MockStateInitialWatchMachineOpenedPortsStatementCall {
+func (c *MockStateInitialWatchMachineOpenedPortsStatementCall) DoAndReturn(f func() (string, string)) *MockStateInitialWatchMachineOpenedPortsStatementCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceForWatchOpenedPort mocks base method.
+func (m *MockState) NamespaceForWatchOpenedPort() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchOpenedPort")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchOpenedPort indicates an expected call of NamespaceForWatchOpenedPort.
+func (mr *MockStateMockRecorder) NamespaceForWatchOpenedPort() *MockStateNamespaceForWatchOpenedPortCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchOpenedPort", reflect.TypeOf((*MockState)(nil).NamespaceForWatchOpenedPort))
+	return &MockStateNamespaceForWatchOpenedPortCall{Call: call}
+}
+
+// MockStateNamespaceForWatchOpenedPortCall wrap *gomock.Call
+type MockStateNamespaceForWatchOpenedPortCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchOpenedPortCall) Return(arg0 string) *MockStateNamespaceForWatchOpenedPortCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchOpenedPortCall) Do(f func() string) *MockStateNamespaceForWatchOpenedPortCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchOpenedPortCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchOpenedPortCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -390,44 +429,6 @@ func (c *MockStateUpdateUnitPortsCall) Do(f func(context.Context, unit.UUID, net
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateUpdateUnitPortsCall) DoAndReturn(f func(context.Context, unit.UUID, network.GroupedPortRanges, network.GroupedPortRanges) error) *MockStateUpdateUnitPortsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchOpenedPortsTable mocks base method.
-func (m *MockState) WatchOpenedPortsTable() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchOpenedPortsTable")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// WatchOpenedPortsTable indicates an expected call of WatchOpenedPortsTable.
-func (mr *MockStateMockRecorder) WatchOpenedPortsTable() *MockStateWatchOpenedPortsTableCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchOpenedPortsTable", reflect.TypeOf((*MockState)(nil).WatchOpenedPortsTable))
-	return &MockStateWatchOpenedPortsTableCall{Call: call}
-}
-
-// MockStateWatchOpenedPortsTableCall wrap *gomock.Call
-type MockStateWatchOpenedPortsTableCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateWatchOpenedPortsTableCall) Return(arg0 string) *MockStateWatchOpenedPortsTableCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateWatchOpenedPortsTableCall) Do(f func() string) *MockStateWatchOpenedPortsTableCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateWatchOpenedPortsTableCall) DoAndReturn(f func() string) *MockStateWatchOpenedPortsTableCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

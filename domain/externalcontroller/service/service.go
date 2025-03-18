@@ -35,6 +35,10 @@ type State interface {
 	// The resulting MigrationControllerInfo contains the list of models
 	// for each controller.
 	ControllersForModels(ctx context.Context, modelUUIDs ...string) ([]crossmodel.ControllerInfo, error)
+
+	// NamespaceForWatchExternalController returns the namespace identifier
+	// used by watchers for external controller updates.
+	NamespaceForWatchExternalController() string
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -144,7 +148,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	if s.watcherFactory != nil {
 		return s.watcherFactory.NewUUIDsWatcher(
-			"external_controller",
+			s.st.NamespaceForWatchExternalController(),
 			changestream.Changed,
 		)
 	}

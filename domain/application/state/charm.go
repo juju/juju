@@ -1124,3 +1124,8 @@ func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 
 	return nil
 }
+
+// NamespaceForWatchCharm return the namespace used to listen charm changes
+func (s *State) NamespaceForWatchCharm() string {
+	return "charm"
+}

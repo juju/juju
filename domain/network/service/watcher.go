@@ -44,7 +44,7 @@ func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch 
 	filter := subnetUUIDsFilter(subnetUUIDsToWatch)
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
-		"subnet",
+		s.st.NamespaceForWatchSubnet(),
 		changestream.All,
 		s.st.AllSubnetsQuery,
 		eventsource.FilterEvents(filter),

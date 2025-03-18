@@ -2378,6 +2378,24 @@ ON CONFLICT (application_uuid) DO NOTHING
 
 }
 
+// NamespaceForWatchApplication returns the namespace identifier
+// for application change watchers.
+func (*State) NamespaceForWatchApplication() string {
+	return "application"
+}
+
+// NamespaceForWatchApplicationConfig returns a namespace string identifier
+// for application configuration changes.
+func (*State) NamespaceForWatchApplicationConfig() string {
+	return "application_config_hash"
+}
+
+// NamespaceForWatchApplicationScale returns the namespace identifier
+// for application scale change watchers.
+func (*State) NamespaceForWatchApplicationScale() string {
+	return "application_scale"
+}
+
 // decodeConstraints flattens and maps the list of rows of applicatioConstraint
 // to get a single constraints.Constraints. The flattening is needed because of the
 // spaces, tags and zones constraints which are slices. We can safely assume

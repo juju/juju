@@ -78,6 +78,12 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 	})
 }
 
+// NamespaceForWatchSubnet returns the namespace identifier used for
+// observing changes to subnets.
+func (*State) NamespaceForWatchSubnet() string {
+	return "subnet"
+}
+
 func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetInfo network.SubnetInfo) error {
 	spaceUUIDValue := subnetInfo.SpaceID
 	if subnetInfo.SpaceID == "" {

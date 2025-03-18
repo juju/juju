@@ -1679,6 +1679,7 @@ func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 	mockNotifyWatcher.EXPECT().Wait().Return(nil).AnyTimes()
 	mockNotifyWatcher.EXPECT().Kill().AnyTimes()
 
+	s.mockState.EXPECT().NamespaceForWatchModelSecretBackend().Return("model_secret_backend")
 	s.mockWatcherFactory.EXPECT().NewValueWatcher("model_secret_backend", modelUUID.String(), changestream.Changed).Return(mockNotifyWatcher, nil)
 
 	w, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)

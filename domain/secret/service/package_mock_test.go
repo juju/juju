@@ -2031,6 +2031,82 @@ func (c *MockStateListUserSecretsToDrainCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// NamespaceForWatchSecretMetadata mocks base method.
+func (m *MockState) NamespaceForWatchSecretMetadata() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchSecretMetadata")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchSecretMetadata indicates an expected call of NamespaceForWatchSecretMetadata.
+func (mr *MockStateMockRecorder) NamespaceForWatchSecretMetadata() *MockStateNamespaceForWatchSecretMetadataCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchSecretMetadata", reflect.TypeOf((*MockState)(nil).NamespaceForWatchSecretMetadata))
+	return &MockStateNamespaceForWatchSecretMetadataCall{Call: call}
+}
+
+// MockStateNamespaceForWatchSecretMetadataCall wrap *gomock.Call
+type MockStateNamespaceForWatchSecretMetadataCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchSecretMetadataCall) Return(arg0 string) *MockStateNamespaceForWatchSecretMetadataCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchSecretMetadataCall) Do(f func() string) *MockStateNamespaceForWatchSecretMetadataCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchSecretMetadataCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchSecretMetadataCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceForWatchSecretRevisionObsolete mocks base method.
+func (m *MockState) NamespaceForWatchSecretRevisionObsolete() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchSecretRevisionObsolete")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchSecretRevisionObsolete indicates an expected call of NamespaceForWatchSecretRevisionObsolete.
+func (mr *MockStateMockRecorder) NamespaceForWatchSecretRevisionObsolete() *MockStateNamespaceForWatchSecretRevisionObsoleteCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchSecretRevisionObsolete", reflect.TypeOf((*MockState)(nil).NamespaceForWatchSecretRevisionObsolete))
+	return &MockStateNamespaceForWatchSecretRevisionObsoleteCall{Call: call}
+}
+
+// MockStateNamespaceForWatchSecretRevisionObsoleteCall wrap *gomock.Call
+type MockStateNamespaceForWatchSecretRevisionObsoleteCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchSecretRevisionObsoleteCall) Return(arg0 string) *MockStateNamespaceForWatchSecretRevisionObsoleteCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchSecretRevisionObsoleteCall) Do(f func() string) *MockStateNamespaceForWatchSecretRevisionObsoleteCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchSecretRevisionObsoleteCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchSecretRevisionObsoleteCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RevokeAccess mocks base method.
 func (m *MockState) RevokeAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.AccessParams) error {
 	m.ctrl.T.Helper()

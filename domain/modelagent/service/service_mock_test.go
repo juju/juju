@@ -155,3 +155,41 @@ func (c *MockStateGetTargetAgentVersionCall) DoAndReturn(f func(context.Context)
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// NamespaceForWatchAgentVersion mocks base method.
+func (m *MockState) NamespaceForWatchAgentVersion() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchAgentVersion")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchAgentVersion indicates an expected call of NamespaceForWatchAgentVersion.
+func (mr *MockStateMockRecorder) NamespaceForWatchAgentVersion() *MockStateNamespaceForWatchAgentVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchAgentVersion", reflect.TypeOf((*MockState)(nil).NamespaceForWatchAgentVersion))
+	return &MockStateNamespaceForWatchAgentVersionCall{Call: call}
+}
+
+// MockStateNamespaceForWatchAgentVersionCall wrap *gomock.Call
+type MockStateNamespaceForWatchAgentVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchAgentVersionCall) Return(arg0 string) *MockStateNamespaceForWatchAgentVersionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchAgentVersionCall) Do(f func() string) *MockStateNamespaceForWatchAgentVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchAgentVersionCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchAgentVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

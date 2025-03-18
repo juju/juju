@@ -138,6 +138,14 @@ type State interface {
 	AllSecretConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
 	AllSecretRemoteConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
 	AllRemoteSecrets(ctx context.Context) ([]domainsecret.RemoteSecretInfo, error)
+
+	// NamespaceForWatchSecretMetadata returns namespace identifier for
+	// secret metadata watcher.
+	NamespaceForWatchSecretMetadata() string
+
+	// NamespaceForWatchSecretRevisionObsolete returns namespace identifier for
+	// obsolete secret revision watcher.
+	NamespaceForWatchSecretRevisionObsolete() string
 }
 
 // SecretBackendReferenceMutator describes methods

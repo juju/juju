@@ -113,6 +113,18 @@ FROM model
 	return model.UUID(modelUUIDVal.UUID), nil
 }
 
+// NamespaceForWatchUserAuthentication returns the namespace used to
+// monitor user authentication changes.
+func (s *State) NamespaceForWatchUserAuthentication() string {
+	return "user_authentication"
+}
+
+// NamespaceForWatchModelAuthorizationKeys returns the namespace used to
+// monitor authorization keys for the current model.
+func (s *State) NamespaceForWatchModelAuthorizationKeys() string {
+	return "model_authorized_keys"
+}
+
 // NewState constructs a new state for interacting with the underlying
 // authorised keys of a model.
 func NewState(factory database.TxnRunnerFactory) *State {

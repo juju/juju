@@ -162,6 +162,82 @@ func (c *MockStateCreateUpgradeCall) DoAndReturn(f func(context.Context, version
 	return c
 }
 
+// NamespaceForWatchUpgradeReady mocks base method.
+func (m *MockState) NamespaceForWatchUpgradeReady() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchUpgradeReady")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchUpgradeReady indicates an expected call of NamespaceForWatchUpgradeReady.
+func (mr *MockStateMockRecorder) NamespaceForWatchUpgradeReady() *MockStateNamespaceForWatchUpgradeReadyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchUpgradeReady", reflect.TypeOf((*MockState)(nil).NamespaceForWatchUpgradeReady))
+	return &MockStateNamespaceForWatchUpgradeReadyCall{Call: call}
+}
+
+// MockStateNamespaceForWatchUpgradeReadyCall wrap *gomock.Call
+type MockStateNamespaceForWatchUpgradeReadyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchUpgradeReadyCall) Return(arg0 string) *MockStateNamespaceForWatchUpgradeReadyCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchUpgradeReadyCall) Do(f func() string) *MockStateNamespaceForWatchUpgradeReadyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchUpgradeReadyCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchUpgradeReadyCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NamespaceForWatchUpgradeState mocks base method.
+func (m *MockState) NamespaceForWatchUpgradeState() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchUpgradeState")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchUpgradeState indicates an expected call of NamespaceForWatchUpgradeState.
+func (mr *MockStateMockRecorder) NamespaceForWatchUpgradeState() *MockStateNamespaceForWatchUpgradeStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchUpgradeState", reflect.TypeOf((*MockState)(nil).NamespaceForWatchUpgradeState))
+	return &MockStateNamespaceForWatchUpgradeStateCall{Call: call}
+}
+
+// MockStateNamespaceForWatchUpgradeStateCall wrap *gomock.Call
+type MockStateNamespaceForWatchUpgradeStateCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchUpgradeStateCall) Return(arg0 string) *MockStateNamespaceForWatchUpgradeStateCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchUpgradeStateCall) Do(f func() string) *MockStateNamespaceForWatchUpgradeStateCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchUpgradeStateCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchUpgradeStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetControllerDone mocks base method.
 func (m *MockState) SetControllerDone(arg0 context.Context, arg1 upgrade0.UUID, arg2 string) error {
 	m.ctrl.T.Helper()

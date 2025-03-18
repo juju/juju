@@ -2370,6 +2370,18 @@ AND    (sp.subject_type_id <> $secretPermission.subject_type_id
 	return errors.Trace(err)
 }
 
+// NamespaceForWatchSecretMetadata returns namespace identifier for
+// secret metadata watcher.
+func (st State) NamespaceForWatchSecretMetadata() string {
+	return "secret_metadata"
+}
+
+// NamespaceForWatchSecretRevisionObsolete returns namespace identifier for
+// obsolete secret revision watcher.
+func (st State) NamespaceForWatchSecretRevisionObsolete() string {
+	return "secret_revision_obsolete"
+}
+
 const (
 	selectUnitUUID        = `SELECT uuid AS &entityRef.uuid FROM unit WHERE name=$entityRef.id`
 	selectApplicationUUID = `SELECT uuid AS &entityRef.uuid FROM application WHERE name=$entityRef.id`
