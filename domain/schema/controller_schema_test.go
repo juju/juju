@@ -126,6 +126,9 @@ func (s *controllerSchemaSuite) TestControllerTables(c *gc.C) {
 		// cloud image metadata
 		"architecture",
 		"cloud_image_metadata",
+
+		// Agent binary metadata.
+		"agent_binary_metadata",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)

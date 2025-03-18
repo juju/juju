@@ -271,6 +271,9 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Sequence
 		"sequence",
+
+		// Agent binary metadata.
+		"agent_binary_metadata",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
