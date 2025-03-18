@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/controller"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -671,4 +672,39 @@ func (s *EnableHASuite) TestRemoveControllerMachineRace(c *gc.C) {
 	c.Check(node.HasVote(), jc.IsFalse)
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
 	c.Check(m0.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageModel})
+}
+
+func (s *EnableHASuite) TestEnableHAOpensSSHProxyPort(c *gc.C) {
+	state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("20.04"), "controller",
+		state.AddTestingCharmMultiSeries(c, s.State, "juju-controller"))
+	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
+
+	controllerApp, err := s.State.Application(bootstrap.ControllerApplicationName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := controllerApp.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 3)
+
+	config, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedPort := config.SSHServerPort()
+
+	for _, unit := range units {
+		ports, err := unit.OpenedPortRanges()
+		c.Assert(err, jc.ErrorIsNil)
+		openPorts := ports.UniquePortRanges()
+
+		foundSSHProxyPort := false
+		for _, portRange := range openPorts {
+			if portRange.FromPort <= expectedPort && portRange.ToPort >= expectedPort {
+				foundSSHProxyPort = true
+				break
+			}
+		}
+
+		c.Assert(foundSSHProxyPort, jc.IsTrue)
+	}
 }

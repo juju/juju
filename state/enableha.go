@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 	sshkeys "github.com/juju/juju/pki/ssh"
@@ -153,7 +154,43 @@ func (st *State) EnableHA(
 		err = errors.Annotatef(err, "failed to enable HA with %d controllers", numControllers)
 		return ControllersChanges{}, err
 	}
+	// Failing to open the SSH proxy port shouldn't block enabling HA.
+	// The user can always open the port manually.
+	if err := st.openSSHProxyPort(); err != nil {
+		logger.Errorf("cannot open ssh proxy port: %v", err)
+	}
 	return change, nil
+}
+
+// openSSHProxyPort opens the ssh proxy port on all controller units.
+func (st *State) openSSHProxyPort() error {
+	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
+	if err != nil {
+		return err
+	}
+	config, err := st.ControllerConfig()
+	if err != nil {
+		return err
+	}
+	units, err := controllerApp.AllUnits()
+	if err != nil {
+		return err
+	}
+	for _, unit := range units {
+		pcp, err := unit.OpenedPortRanges()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		pcp.Open("", network.PortRange{
+			FromPort: config.SSHServerPort(),
+			ToPort:   config.SSHServerPort(),
+			Protocol: "tcp",
+		})
+		if err = st.ApplyOperation(pcp.Changes()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // Change in controllers after the ensure availability txn has committed.
