@@ -32,6 +32,7 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.removal_type_id != OLD.removal_type_id OR
 	NEW.entity_uuid != OLD.entity_uuid OR
+	NEW.force != OLD.force OR
 	NEW.scheduled_for != OLD.scheduled_for OR
 	(NEW.arg != OLD.arg OR (NEW.arg IS NOT NULL AND OLD.arg IS NULL) OR (NEW.arg IS NULL AND OLD.arg IS NOT NULL)) 
 BEGIN
