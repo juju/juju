@@ -95,7 +95,6 @@ type ApplicationParams struct {
 	Charm                   state.CharmRefFull
 	CharmURL                string
 	CharmOrigin             *state.CharmOrigin
-	Status                  *status.StatusInfo
 	ApplicationConfig       map[string]interface{}
 	ApplicationConfigFields configschema.Fields
 	CharmConfig             map[string]interface{}

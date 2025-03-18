@@ -585,17 +585,24 @@ func (a *API) SetOperatorStatus(ctx context.Context, args params.SetStatus) (par
 			Message: arg.Info,
 			Data:    arg.Data,
 		}
-		results.Results[i].Error = apiservererrors.ServerError(a.setStatus(tag, info))
+		appID, err := a.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", tag.Id()))
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		err = a.statusService.SetApplicationStatus(ctx, appID, &info)
+		if errors.Is(err, statuserrors.ApplicationNotFound) {
+			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", tag.Id()))
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
 	return results, nil
-}
-
-func (a *API) setStatus(tag names.ApplicationTag, info status.StatusInfo) error {
-	app, err := a.state.Application(tag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return app.SetOperatorStatus(info)
 }
 
 // Units returns all the units for each application specified.
@@ -973,16 +980,28 @@ func (a *API) UpdateApplicationsUnits(ctx context.Context, args params.UpdateApp
 			a.logger.Debugf(context.TODO(), "ignoring unit updates for dying application: %v", app.Name())
 			continue
 		}
+
 		appStatus := appUpdate.Status
 		if appStatus.Status != "" && appStatus.Status != status.Unknown {
 			now := a.clock.Now()
-			err = app.SetOperatorStatus(status.StatusInfo{
+			appID, err := a.applicationService.GetApplicationIDByName(ctx, appTag.Id())
+			if errors.Is(err, applicationerrors.ApplicationNotFound) {
+				result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", appTag.Id()))
+				continue
+			} else if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			err = a.statusService.SetApplicationStatus(ctx, appID, &status.StatusInfo{
 				Status:  appStatus.Status,
 				Message: appStatus.Info,
 				Data:    appStatus.Data,
 				Since:   &now,
 			})
-			if err != nil {
+			if errors.Is(err, statuserrors.ApplicationNotFound) {
+				result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", appTag.Id()))
+				continue
+			} else if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}

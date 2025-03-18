@@ -270,16 +270,6 @@ func (a *mockApplication) Base() state.Base {
 	return a.base
 }
 
-func (a *mockApplication) SetOperatorStatus(statusInfo status.StatusInfo) error {
-	a.MethodCall(a, "SetOperatorStatus", statusInfo)
-	return a.NextErr()
-}
-
-func (a *mockApplication) SetStatus(statusInfo status.StatusInfo) error {
-	a.MethodCall(a, "SetStatus", statusInfo)
-	return a.NextErr()
-}
-
 func (a *mockApplication) CharmModifiedVersion() int {
 	a.MethodCall(a, "CharmModifiedVersion")
 	return a.charmModifiedVersion

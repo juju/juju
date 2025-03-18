@@ -657,6 +657,44 @@ func (c *MockStatusServiceGetUnitWorkloadStatusesForApplicationCall) DoAndReturn
 	return c
 }
 
+// SetApplicationStatusForUnitLeader mocks base method.
+func (m *MockStatusService) SetApplicationStatusForUnitLeader(arg0 context.Context, arg1 unit.Name, arg2 *status.StatusInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetApplicationStatusForUnitLeader", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetApplicationStatusForUnitLeader indicates an expected call of SetApplicationStatusForUnitLeader.
+func (mr *MockStatusServiceMockRecorder) SetApplicationStatusForUnitLeader(arg0, arg1, arg2 any) *MockStatusServiceSetApplicationStatusForUnitLeaderCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationStatusForUnitLeader", reflect.TypeOf((*MockStatusService)(nil).SetApplicationStatusForUnitLeader), arg0, arg1, arg2)
+	return &MockStatusServiceSetApplicationStatusForUnitLeaderCall{Call: call}
+}
+
+// MockStatusServiceSetApplicationStatusForUnitLeaderCall wrap *gomock.Call
+type MockStatusServiceSetApplicationStatusForUnitLeaderCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStatusServiceSetApplicationStatusForUnitLeaderCall) Return(arg0 error) *MockStatusServiceSetApplicationStatusForUnitLeaderCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStatusServiceSetApplicationStatusForUnitLeaderCall) Do(f func(context.Context, unit.Name, *status.StatusInfo) error) *MockStatusServiceSetApplicationStatusForUnitLeaderCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStatusServiceSetApplicationStatusForUnitLeaderCall) DoAndReturn(f func(context.Context, unit.Name, *status.StatusInfo) error) *MockStatusServiceSetApplicationStatusForUnitLeaderCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetUnitAgentStatus mocks base method.
 func (m *MockStatusService) SetUnitAgentStatus(arg0 context.Context, arg1 unit.Name, arg2 *status.StatusInfo) error {
 	m.ctrl.T.Helper()

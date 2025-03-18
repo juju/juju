@@ -163,7 +163,6 @@ func newUniterAPIWithServices(
 	)
 
 	statusAPI := NewStatusAPI(
-		st,
 		services.StatusService,
 		accessUnitOrApplication,
 		leadershipChecker,
@@ -181,9 +180,7 @@ func newUniterAPIWithServices(
 		RebootRequester:    common.NewRebootRequester(services.MachineService, accessMachine),
 		UnitStateAPI:       extUnitState,
 		lxdProfileAPI:      extLXDProfile,
-		// TODO(fwereade): so *every* unit should be allowed to get/set its
-		// own status *and* its application's? This is not a pleasing arrangement.
-		StatusAPI: statusAPI,
+		StatusAPI:          statusAPI,
 
 		environConfigGetterModel: m,
 		st:                       st,

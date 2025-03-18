@@ -219,9 +219,6 @@ type Application interface {
 
 	// EndpointBindings returns the Bindings object for this application.
 	EndpointBindings() (Bindings, error)
-
-	// Status returns the status of the application.
-	Status() (status.StatusInfo, error)
 }
 
 // Bindings defines a subset of the functionality provided by the

@@ -93,7 +93,12 @@ type ApplicationService interface {
 type StatusService interface {
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses of all
 	// units in the specified application, indexed by unit name, returning an error
-	// satisfying [applicationerrors.ApplicationNotFound] if the application doesn't
+	// satisfying [statuserrors.ApplicationNotFound] if the application doesn't
 	// exist.
 	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (map[unit.Name]status.StatusInfo, error)
+
+	// SetApplicationStatus saves the given application status, overwriting any
+	// current status data. If returns an error satisfying
+	// [statuserrors.ApplicationNotFound] if the application doesn't exist.
+	SetApplicationStatus(context.Context, coreapplication.ID, *status.StatusInfo) error
 }
