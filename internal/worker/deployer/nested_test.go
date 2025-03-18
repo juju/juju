@@ -26,7 +26,6 @@ import (
 	jv "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jt "github.com/juju/juju/internal/testing"
-	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/deployer"
 )
 
@@ -225,53 +224,6 @@ func waitForFile(filePath string) error {
 	}
 
 	return errors.New("file not found after 10 attempts")
-}
-
-func (s *NestedContextSuite) TestErrTerminateAgentFromAgentWorker(c *gc.C) {
-	_ = s.errTerminateAgentFromAgentWorker(c)
-}
-
-func (s *NestedContextSuite) errTerminateAgentFromAgentWorker(c *gc.C) deployer.Context {
-	s.workers.workerError = jworker.ErrTerminateAgent
-	ctx := s.newContext(c)
-	unitName := "something/0"
-	err := ctx.DeployUnit(unitName, "password")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Wait for unit to start.
-	s.workers.waitForStart(c, unitName)
-
-	// Unit is marked as stopped. There is a potential race due to the
-	// number of goroutines that need to fire to get the information back
-	// to the nested context.
-	report := s.waitForStoppedCount(c, ctx, 1)
-
-	c.Assert(report, jc.DeepEquals, map[string]interface{}{
-		"deployed": []string{"something/0"},
-		"stopped":  []string{"something/0"},
-		"units": map[string]interface{}{
-			"workers": map[string]interface{}{},
-		},
-	})
-	return ctx
-}
-
-func (s *NestedContextSuite) waitForStoppedCount(c *gc.C, ctx deployer.Context, length int) map[string]interface{} {
-	report := ctx.Report()
-	maxTime := time.After(testing.LongWait)
-	for {
-		stopped := report["stopped"]
-		if stopped != nil && len(stopped.([]string)) == length {
-			break
-		}
-		select {
-		case <-time.After(veryShortWait):
-			report = ctx.Report()
-		case <-maxTime:
-			c.Fatal("unit not stopped")
-		}
-	}
-	return report
 }
 
 func (s *NestedContextSuite) deployThreeUnits(c *gc.C, ctx deployer.Context) {
