@@ -43,7 +43,10 @@ func (s *stateSuite) TestRelationRemovalNormalSuccess(c *gc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.RelationAdvanceLifeAndScheduleRemoval(context.Background(), "removal-uuid", "some-relation-uuid", false)
+	when := time.Now().UTC()
+	err = st.RelationAdvanceLifeAndScheduleRemoval(
+		context.Background(), "removal-uuid", "some-relation-uuid", false, when,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Relation had life "alive" and should now be "dying".
@@ -70,7 +73,7 @@ func (s *stateSuite) TestRelationRemovalNormalSuccess(c *gc.C) {
 	c.Check(removalTypeID, gc.Equals, 0)
 	c.Check(rUUID, gc.Equals, "some-relation-uuid")
 	c.Check(force, gc.Equals, false)
-	c.Check(scheduledFor, jc.TimeBetween(time.Time{}, time.Now()))
+	c.Check(scheduledFor, gc.Equals, when)
 }
 func (s *stateSuite) TestRelationRemovalForcedDeadSuccess(c *gc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
@@ -79,7 +82,10 @@ func (s *stateSuite) TestRelationRemovalForcedDeadSuccess(c *gc.C) {
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.RelationAdvanceLifeAndScheduleRemoval(context.Background(), "removal-uuid", "some-relation-uuid", true)
+	when := time.Now().UTC()
+	err = st.RelationAdvanceLifeAndScheduleRemoval(
+		context.Background(), "removal-uuid", "some-relation-uuid", true, when,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Relation had life "dead", which should be unchanged.
@@ -106,5 +112,5 @@ func (s *stateSuite) TestRelationRemovalForcedDeadSuccess(c *gc.C) {
 	c.Check(removalTypeID, gc.Equals, 0)
 	c.Check(rUUID, gc.Equals, "some-relation-uuid")
 	c.Check(force, gc.Equals, true)
-	c.Check(scheduledFor, jc.TimeBetween(time.Time{}, time.Now()))
+	c.Check(scheduledFor, gc.Equals, when)
 }

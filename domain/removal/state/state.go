@@ -68,7 +68,7 @@ WHERE  uuid = $entityUUID.uuid`, relationUUID)
 // - it should have been validated prior to calling this method,
 // - the removal job executor will handle that fact.
 func (st *State) RelationAdvanceLifeAndScheduleRemoval(
-	ctx context.Context, removalUUID, relUUID string, force bool,
+	ctx context.Context, removalUUID, relUUID string, force bool, when time.Time,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -90,7 +90,7 @@ AND    life_id = 0`, relationUUID)
 		RemovalTypeID: 0,
 		EntityUUID:    relUUID,
 		Force:         force,
-		ScheduledFor:  time.Now(),
+		ScheduledFor:  when,
 	}
 
 	removalStmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removal.*)", removalRec)
