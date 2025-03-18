@@ -134,9 +134,6 @@ func (ctrl *Controller) Import(
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
 	}
-	if err := restore.relationNetworks(); err != nil {
-		return nil, nil, errors.Annotate(err, "relationnetworks")
-	}
 	if err := restore.linklayerdevices(); err != nil {
 		return nil, nil, errors.Annotate(err, "linklayerdevices")
 	}
@@ -162,8 +159,6 @@ func (ctrl *Controller) Import(
 // Running the state migration visits all the migrations and exits upon seeing
 // the first error from the migration.
 type ImportStateMigration struct {
-	src        description.Model
-	dst        Database
 	migrations []func() error
 }
 
@@ -1165,26 +1160,6 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 		doc.UnitCount += ep.UnitCount()
 	}
 	return doc
-}
-
-func (i *importer) relationNetworks() error {
-	i.logger.Debugf(context.TODO(), "importing relation networks")
-	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
-	}
-	migration.Add(func() error {
-		m := ImportRelationNetworks{}
-		return m.Execute(stateModelNamspaceShim{
-			Model: migration.src,
-			st:    i.st,
-		}, migration.dst)
-	})
-	if err := migration.Run(); err != nil {
-		return errors.Trace(err)
-	}
-	i.logger.Debugf(context.TODO(), "importing relation networks succeeded")
-	return nil
 }
 
 func (i *importer) linklayerdevices() error {

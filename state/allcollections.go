@@ -350,13 +350,6 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
-		// relationNetworksC holds required ingress or egress cidrs for remote relations.
-		relationNetworksC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
-			}},
-		},
-
 		// cloudContainersC holds the CAAS container (pod) information
 		// for units, eg address, ports.
 		cloudContainersC: {
@@ -433,9 +426,6 @@ const (
 	volumeAttachmentsC     = "volumeattachments"
 	volumeAttachmentPlanC  = "volumeattachmentplan"
 	volumesC               = "volumes"
-
-	// Cross model relations
-	relationNetworksC = "relationNetworks"
 )
 
 // watcherIgnoreList contains all the collections in mongo that should not be watched by the

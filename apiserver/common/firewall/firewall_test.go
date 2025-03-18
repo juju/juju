@@ -58,6 +58,7 @@ func (s *FirewallSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
+	c.Skip("Re-enable this test whenever CMR will be fully implemented and the related watcher rewired.")
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 

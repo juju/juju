@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	statewatcher "github.com/juju/juju/state/watcher"
 )
 
 // ControllerConfigService is an interface that provides access to the
@@ -327,39 +326,8 @@ func (f *FirewallerAPI) WatchEgressAddressesForRelations(ctx context.Context, re
 // WatchIngressAddressesForRelations creates a watcher that returns the ingress networks
 // that have been recorded against the specified relations.
 func (f *FirewallerAPI) WatchIngressAddressesForRelations(ctx context.Context, relations params.Entities) (params.StringsWatchResults, error) {
-	results := params.StringsWatchResults{
-		make([]params.StringsWatchResult, len(relations.Entities)),
-	}
-
-	one := func(tag string) (id string, changes []string, _ error) {
-		f.logger.Debugf(context.TODO(), "Watching ingress addresses for %+v from model %v", tag, f.st.ModelUUID())
-
-		relationTag, err := names.ParseRelationTag(tag)
-		if err != nil {
-			return "", nil, errors.Errorf("parsing relation tag %q: %w", tag, err)
-		}
-		rel, err := f.st.KeyRelation(relationTag.Id())
-		if err != nil {
-			return "", nil, errors.Errorf("getting relation %q: %w", relationTag.Id(), err)
-		}
-		w := rel.WatchRelationIngressNetworks()
-		changes, ok := <-w.Changes()
-		if !ok {
-			return "", nil, apiservererrors.ServerError(statewatcher.EnsureErr(w))
-		}
-		return f.resources.Register(w), changes, nil
-	}
-
-	for i, e := range relations.Entities {
-		watcherId, changes, err := one(e.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[i].StringsWatcherId = watcherId
-		results.Results[i].Changes = changes
-	}
-	return results, nil
+	return params.StringsWatchResults{}, jujuerrors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 // MacaroonForRelations returns the macaroon for the specified relations.

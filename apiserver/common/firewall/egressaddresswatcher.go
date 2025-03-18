@@ -112,10 +112,8 @@ func (w *EgressAddressWatcher) loop() error {
 		return errors.Trace(err)
 	}
 
-	rw := w.rel.WatchRelationEgressNetworks()
-	if err := w.catacomb.Add(rw); err != nil {
-		return errors.Trace(err)
-	}
+	// todo(gfouillet): cross model relation disabled and removed from state,
+	//    Egress networks watcher has been removed.
 
 	var (
 		changed       bool
@@ -194,21 +192,8 @@ func (w *EgressAddressWatcher) loop() error {
 				w.knownModelEgress = egress
 			}
 
-		case changes, ok := <-rw.Changes():
-			if !ok {
-				return w.catacomb.ErrDying()
-			}
-			haveInitialRelationEgressNetworks = true
-			egress := set.NewStrings(changes...)
-			if !setEquals(egress, w.knownRelationEgress) {
-				logger.Debugf(context.TODO(),
-					"relation egress subnets changed to %s (was %s)",
-					egress.SortedValues(),
-					w.knownRelationEgress.SortedValues(),
-				)
-				changed = true
-				w.knownRelationEgress = egress
-			}
+		// todo(gfouillet): cross model relation disabled and removed from state,
+		//    Egress networks watcher has been removed.
 
 		case c, ok := <-ruw.Changes():
 			if !ok {

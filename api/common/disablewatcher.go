@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package remoterelations
+package common
 
 import (
 	"gopkg.in/tomb.v2"
@@ -16,7 +16,9 @@ import (
 //   This follow the same technical decision done for relation watcher in uniter:
 //   api/agent/uniter/unit.go.
 
-func newDisabledWatcher() watcher.StringsWatcher {
+// NewDisabledWatcher creates a watcher that emits a single empty slice and
+// no further events, then wait until dying.
+func NewDisabledWatcher() watcher.StringsWatcher {
 	out := make(chan []string)
 	w := &disabledWatcher{out: out}
 	emptySlice := []string{}

@@ -118,7 +118,8 @@ func (s *firewallerSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
 	c.Check(callCount, gc.Equals, 1)
 }
 
-func (s *firewallerSuite) TestWatchInressAddressesForRelation(c *gc.C) {
+func (s *firewallerSuite) TestWatchIngressAddressesForRelation(c *gc.C) {
+	c.Skip("Re-enable this test whenever CMR will be fully implemented and the related watcher rewired.")
 	var callCount int
 	relationTag := names.NewRelationTag("mediawiki:db mysql:db")
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

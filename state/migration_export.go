@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/relation"
-	"github.com/juju/juju/state/migrations"
 )
 
 // The following exporter type is being refactored. This is to better model the
@@ -145,9 +144,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 	if err := export.relations(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.relationNetworks(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := export.ipAddresses(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -182,8 +178,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 // Running the state migration visits all the migrations and exits upon seeing
 // the first error from the migration.
 type ExportStateMigration struct {
-	src        *State
-	dst        description.Model
 	migrations []func() error
 }
 
@@ -786,38 +780,6 @@ func (e *exporter) relationUnit(
 	exEndPoint.SetUnitSettings(unitName, settingsDoc.Settings)
 
 	return nil
-}
-
-func (e *exporter) relationNetworks() error {
-	e.logger.Debugf(context.TODO(), "reading relation networks")
-	migration := &ExportStateMigration{
-		src: e.st,
-		dst: e.model,
-	}
-	migration.Add(func() error {
-		m := migrations.ExportRelationNetworks{}
-		return m.Execute(relationNetworksShim{st: migration.src}, migration.dst)
-	})
-	return migration.Run()
-}
-
-// relationNetworksShim is to handle the fact that go doesn't handle covariance
-// and the tight abstraction around the new migration export work ensures that
-// we handle our dependencies up front.
-type relationNetworksShim struct {
-	st *State
-}
-
-func (s relationNetworksShim) AllRelationNetworks() ([]migrations.MigrationRelationNetworks, error) {
-	entities, err := NewRelationNetworks(s.st).AllRelationNetworks()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]migrations.MigrationRelationNetworks, len(entities))
-	for k, v := range entities {
-		result[k] = v
-	}
-	return result, nil
 }
 
 func (e *exporter) linklayerdevices() error {
