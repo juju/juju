@@ -110,7 +110,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/provider/lxd/lxdnames",
 		"internal/proxy",
 		"internal/proxy/config",
-		"internal/pubsub/agent",
 		"internal/rpcreflect",
 		"internal/scriptrunner",
 		"internal/service/common",

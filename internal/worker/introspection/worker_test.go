@@ -47,8 +47,8 @@ func (s *suite) TestConfigValidation(c *gc.C) {
 		SocketName:         "socket",
 		PrometheusGatherer: newPrometheusGatherer(),
 	})
-	c.Check(w, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "nil Clock not valid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(w, gc.Not(gc.IsNil))
 }
 
 func (s *suite) TestStartStop(c *gc.C) {
@@ -111,17 +111,6 @@ func (s *introspectionSuite) call(c *gc.C, path string) *http.Response {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp, err := client.Get(targetURL.String())
-	c.Assert(err, jc.ErrorIsNil)
-	return resp
-}
-
-func (s *introspectionSuite) post(c *gc.C, path string, values url.Values) *http.Response {
-	client := unixSocketHTTPClient(s.name)
-	c.Assert(strings.HasPrefix(path, "/"), jc.IsTrue)
-	targetURL, err := url.Parse("http://unix.socket" + path)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resp, err := client.PostForm(targetURL.String(), values)
 	c.Assert(err, jc.ErrorIsNil)
 	return resp
 }
@@ -220,30 +209,6 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
 	s.assertContains(c, body, "# HELP tau Tau")
 	s.assertContains(c, body, "# TYPE tau counter")
 	s.assertContains(c, body, "tau 6.283185")
-}
-
-func (s *introspectionSuite) TestUnitMissingAction(c *gc.C) {
-	response := s.call(c, "/units")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
-	s.assertBody(c, response, "missing action")
-}
-
-func (s *introspectionSuite) TestUnitUnknownAction(c *gc.C) {
-	response := s.post(c, "/units", url.Values{"action": {"foo"}})
-	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
-	s.assertBody(c, response, `unknown action: "foo"`)
-}
-
-func (s *introspectionSuite) TestUnitStartWithGet(c *gc.C) {
-	response := s.call(c, "/units?action=start")
-	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
-	s.assertBody(c, response, `start requires a POST request, got "GET"`)
-}
-
-func (s *introspectionSuite) TestUnitStartMissingUnits(c *gc.C) {
-	response := s.post(c, "/units", url.Values{"action": {"start"}})
-	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
-	s.assertBody(c, response, "missing unit")
 }
 
 type reporter struct {
