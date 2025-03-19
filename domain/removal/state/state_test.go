@@ -96,20 +96,22 @@ func (s *stateSuite) TestRelationRemovalForcedDeadSuccess(c *gc.C) {
 	c.Check(lifeID, gc.Equals, 2)
 
 	// We should have a removal job scheduled immediately.
-	row = s.DB().QueryRow(
-		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal where uuid = ?",
-		"removal-uuid",
+	row = s.DB().QueryRow(`
+SELECT t.name, r.entity_uuid, r.force, r.scheduled_for 
+FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
+where  r.uuid = ?`, "removal-uuid",
 	)
+
 	var (
-		removalTypeID int
-		rUUID         string
-		force         bool
-		scheduledFor  time.Time
+		removalType  string
+		rUUID        string
+		force        bool
+		scheduledFor time.Time
 	)
-	err = row.Scan(&removalTypeID, &rUUID, &force, &scheduledFor)
+	err = row.Scan(&removalType, &rUUID, &force, &scheduledFor)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(removalTypeID, gc.Equals, 0)
+	c.Check(removalType, gc.Equals, "relation")
 	c.Check(rUUID, gc.Equals, "some-relation-uuid")
 	c.Check(force, gc.Equals, true)
 	c.Check(scheduledFor, gc.Equals, when)
