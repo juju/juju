@@ -455,7 +455,7 @@ SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap
 
 	upsertRunningVersionStmt, err := st.Prepare(`
 INSERT INTO machine_agent_version (*) VALUES ($MachineAgentVersion.*)
-ON CONFLICT DO
+ON CONFLICT (machine_uuid) DO
 UPDATE SET version = excluded.version, architecture_id = excluded.architecture_id
 `, machineAgentVersion)
 	if err != nil {

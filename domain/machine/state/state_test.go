@@ -972,6 +972,8 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionNotSupportedArch(c *gc.C) {
 	c.Check(err, jc.ErrorIs, coreerrors.NotSupported)
 }
 
+// TestSetRunningAgentBinaryVersion asserts setting the initial agent binary
+// version (happy path).
 func (s *stateSuite) TestSetRunningAgentBinaryVersion(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
@@ -988,4 +990,87 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersion(c *gc.C) {
 		},
 	)
 	c.Check(err, jc.ErrorIsNil)
+
+	var (
+		obtainedMachineUUID string
+		obtainedVersion     string
+		obtainedArch        string
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `
+SELECT machine_uuid,
+       version,
+       name
+FROM machine_agent_version
+INNER JOIN architecture ON machine_agent_version.architecture_id = architecture.id
+WHERE machine_uuid = ?
+	`
+
+		return tx.QueryRowContext(ctx, stmt, machineUUID).Scan(
+			&obtainedMachineUUID,
+			&obtainedVersion,
+			&obtainedArch,
+		)
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(obtainedMachineUUID, gc.Equals, machineUUID)
+	c.Check(obtainedVersion, gc.Equals, jujuversion.Current.String())
+	c.Check(obtainedArch, gc.Equals, string(corearch.ARM64))
+}
+
+// TestSetRunningAgentBinaryVersion asserts setting the initial agent binary
+// version (happy path) and then updating the value.
+func (s *stateSuite) TestSetRunningAgentBinaryVersionUpdate(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineUUID, err := s.state.GetMachineUUID(context.Background(), "666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetRunningAgentBinaryVersion(
+		context.Background(),
+		machineUUID,
+		coreagentbinary.Version{
+			Number: jujuversion.Current,
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIsNil)
+
+	var (
+		obtainedMachineUUID string
+		obtainedVersion     string
+		obtainedArch        string
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `
+SELECT machine_uuid,
+       version,
+       name
+FROM machine_agent_version
+INNER JOIN architecture ON machine_agent_version.architecture_id = architecture.id
+WHERE machine_uuid = ?
+	`
+
+		return tx.QueryRowContext(ctx, stmt, machineUUID).Scan(
+			&obtainedMachineUUID,
+			&obtainedVersion,
+			&obtainedArch,
+		)
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(obtainedMachineUUID, gc.Equals, machineUUID)
+	c.Check(obtainedVersion, gc.Equals, jujuversion.Current.String())
+
+	// Update
+	err = s.state.SetRunningAgentBinaryVersion(
+		context.Background(),
+		machineUUID,
+		coreagentbinary.Version{
+			Number: jujuversion.Current,
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(obtainedArch, gc.Equals, string(corearch.ARM64))
 }
