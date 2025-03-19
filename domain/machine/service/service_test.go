@@ -785,7 +785,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionInvalid(c *gc.C) {
 	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-// TestSetReportedMachineAgentVersionSuccess asserts that if try to set the
+// TestSetReportedMachineAgentVersionSuccess asserts that if we try to set the
 // reported agent version for a machine that doesn't exist we get an error
 // satisfying [machineerrors.MachineNotFound]. Because the service relied on
 // state for producing this error we need to simulate this in two different

@@ -175,7 +175,7 @@ func NewService(st State) *Service {
 }
 
 // SetReportedMachineAgentVersion sets the reported agent version for the
-// supplied machine name. reported agent version is the version that the agent
+// supplied machine name. Reported agent version is the version that the agent
 // binary on this machine has reported it is running.
 //
 // The following errors are possible:

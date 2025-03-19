@@ -952,8 +952,8 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionMachineNotFound(c *gc.C) {
 }
 
 // TestSetRunningAgentBinaryVersionNotSupportedArch tests that if we provide an
-// architecture that isn't support by the database we get back an error
-// satisfying [coreerrors.NotValid].
+// architecture that isn't supported by the database we get back an error
+// that satisfies [coreerrors.NotValid].
 func (s *stateSuite) TestSetRunningAgentBinaryVersionNotSupportedArch(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
 	c.Assert(err, jc.ErrorIsNil)
