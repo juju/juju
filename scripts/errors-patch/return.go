@@ -1,3 +1,6 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -117,7 +120,7 @@ func gatherAllFuncNodes(root ast.Node) []ast.Node {
 // The stop condition for this check is as follows:
 // 1. No more parents of returnStmt to traverse
 // 2. The error assignment statement is found before any if err != nil checks
-// 3. If statment checking the error for nil is found.
+// 3. If statement checking the error for nil is found.
 func isErrReturnProtected(
 	errArgsName string,
 	returnStmt *ast.ReturnStmt,
@@ -214,7 +217,7 @@ func main() {
 	fset := token.NewFileSet()
 	dir := os.Args[1]
 
-	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -276,6 +279,11 @@ func main() {
 		}
 		return nil
 	})
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error walking dir %q: %v", dir, err)
+		os.Exit(1)
+	}
 }
 
 func Write(
@@ -386,7 +394,6 @@ func processFuncNode(funcNode ast.Node, errPkgAlias string) bool {
 			if ident.Name != errPkgAlias {
 				continue
 			}
-			//pkgCallSites = append(pkgCallSites, node)
 
 			if !errorFuncsToFix()[sel.Sel.Name] {
 				continue
@@ -394,6 +401,11 @@ func processFuncNode(funcNode ast.Node, errPkgAlias string) bool {
 
 			if len(callExp.Args) < 1 {
 				continue
+			}
+
+			embedCallExp, is := callExp.Args[0].(*ast.CallExpr)
+			if is {
+				moveEmbeddedErrorFunc(embedCallExp, callExp, retStmt, parentMap)
 			}
 
 			// We always assume that the first argument to the function is the
@@ -415,6 +427,56 @@ func processFuncNode(funcNode ast.Node, errPkgAlias string) bool {
 		return true
 	})
 	return modified
+}
+
+// moveEmbeddedErrorFunc is responsible for moving emembbed calls to functions
+// that error out of the errors pkg call. Somthing like:
+//
+//	return errors.Annotate(funcThatErrors(), "error")
+//
+// becomes:
+//
+//	    	autoErr := funcThatErrors()
+//		   	return errors.Annotate(autoErr, "error")
+func moveEmbeddedErrorFunc(
+	errCall *ast.CallExpr,
+	callExp *ast.CallExpr,
+	n *ast.ReturnStmt,
+	parentMap map[ast.Node]ast.Node,
+) {
+	parent := parentMap[n]
+	if parent == nil {
+		return
+	}
+
+	// We always assume that the parent of the return statement is a block
+	// statement.
+	blkStmt, ok := parent.(*ast.BlockStmt)
+	if !ok {
+		return
+	}
+
+	assignStmt := &ast.AssignStmt{
+		Lhs: []ast.Expr{ast.NewIdent("autoErr")},
+		Tok: token.DEFINE,
+		Rhs: []ast.Expr{
+			errCall,
+		},
+	}
+
+	callExp.Args[0] = ast.NewIdent("autoErr")
+
+	for i, stmt := range blkStmt.List {
+		if stmt != n {
+			continue
+		}
+
+		blkStmt.List = slices.Insert(
+			blkStmt.List,
+			i,
+			ast.Stmt(assignStmt),
+		)
+	}
 }
 
 func protectErrReturn(

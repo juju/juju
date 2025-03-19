@@ -1,3 +1,6 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -377,6 +380,53 @@ func Test() (string, bool, error) {
 	e := Error()
 	if e != nil && !errors.Is(e, testErr) {
 		return "test", 1 != 2, errors.Annotate(e, "")
+	}
+	return "test", false, nil
+}
+`[1:],
+	},
+	{
+		Name: "embedded functions that error",
+		Input: `
+package main
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/domain/model/service"
+)
+
+func Error() error {
+	return errors.New("some err")
+}
+
+func Test() (string, bool, error) {
+	return "test", false, errors.Annotate(Error(), "something")
+}
+`[1:],
+		Expected: `
+package main
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/domain/model/service"
+)
+
+func Error() error {
+	return errors.New("some err")
+}
+
+func Test() (string, bool, error) {
+	autoErr := Error()
+	if autoErr != nil {
+		return "test", false, errors.Annotate(autoErr, "something")
 	}
 	return "test", false, nil
 }
