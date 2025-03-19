@@ -908,7 +908,7 @@ func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	failRelTag := names.NewRelationTag("postgresql:database wordpress:mysql")
-	s.expectGetRelationUUIDFromKey(corerelation.Key(failRelTag.Id()), "", errors.NotFound)
+	s.expectGetRelationUUIDFromKey(corerelation.Key(failRelTag.Id()), "", relationerrors.RelationNotFound)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -961,7 +961,8 @@ func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID,
+	s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
+	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()),
 		relationerrors.PotentialRelationUnitNotValid)
 
 	// act
@@ -983,7 +984,8 @@ func (s *uniterRelationSuite) TestLeaveScopeFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	failRelTag := names.NewRelationTag("postgresql:database wordpress:mysql")
-	s.expectGetRelationUUIDFromKey(corerelation.Key(failRelTag.Id()), "", errors.NotFound)
+	s.expectGetRelationUUIDFromKey(corerelation.Key(failRelTag.Id()), "",
+		relationerrors.RelationNotFound)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{

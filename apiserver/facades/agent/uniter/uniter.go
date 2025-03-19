@@ -1317,8 +1317,7 @@ func (u *UniterAPI) ProviderType(ctx context.Context) (params.StringResult, erro
 }
 
 // EnterScope ensures each unit has entered its scope in the relation,
-// for all of the given relation/unit pairs. See also
-// state.RelationUnit.EnterScope().
+// for all of the given relation/unit pairs.
 func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.RelationUnits)),
@@ -1353,7 +1352,7 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 	}
 
 	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
-	if errors.Is(err, errors.NotFound) {
+	if internalerrors.Is(err, relationerrors.RelationNotFound) {
 		return apiservererrors.ErrPerm
 	} else if err != nil {
 		return internalerrors.Capture(err)
@@ -1403,8 +1402,7 @@ func (u *UniterAPI) oneLeaveScope(ctx context.Context, canAccess common.AuthFunc
 		return apiservererrors.ErrPerm
 	}
 	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
-	if errors.Is(err, errors.NotFound) {
-		// TODO: update error type once it exists in the domain.
+	if internalerrors.Is(err, relationerrors.RelationNotFound) {
 		return apiservererrors.ErrPerm
 	} else if err != nil {
 		return internalerrors.Capture(err)

@@ -262,6 +262,8 @@ func (s *Service) GetRelationUUIDByID(ctx context.Context, relationID int) (core
 }
 
 // GetRelationUUIDFromKey returns a relation UUID for the given Key.
+// The following error types can be expected:
+// - [relationerrors.RelationNotFound]: when no relation exists for the given key.
 func (s *Service) GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error) {
 	return "", errors.NotImplemented
 }
