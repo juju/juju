@@ -36,7 +36,59 @@ Displays log messages for a model.
 
 ## Examples
 
-Exclude all machine 0 messages; show a maximum of 100 lines; and continue to
+
+Begin with all the log messages:
+
+    juju debug-log --replay
+
+Begin with the last 500 lines, using grep as a text filter:
+
+    juju debug-log -n 500 | grep amd64
+
+Begin with the last 30 log messages:
+
+    juju debug-log -n 30
+
+Begin with the last 20 log messages for the 'lxd-pilot' model:
+
+    juju debug-log -m lxd-pilot -n 20
+
+Begin with the last 1000 lines and exclude messages from machine 3:
+
+    juju debug-log -n 1000 --exclude machine-3
+
+Select all the messages emitted from a particular unit (you can also write it as
+ mysql/0) and a particular machine in the entire log:
+
+juju debug-log --replay --include unit-mysql-0 --include machine-1
+
+View all WARNING and ERROR messages in the entire log:
+
+    juju debug-log --replay --level WARNING
+
+View all WARNING and ERROR messages and then continue showing any
+new WARNING and ERROR messages as they are logged:
+
+    juju debug-log --replay --level WARNING
+
+View all logs on the cmr topic (label):
+
+    juju debug-log --include-labels cmr
+
+Progressively exclude more content from the entire log:
+
+    juju debug-log --replay --exclude-module juju.state.apiserver
+    juju debug-log --replay --exclude-module juju.state
+    juju debug-log --replay --exclude-module juju
+
+Begin with the last 2000 lines and include messages pertaining to both the
+juju.cmd and the juju.worker modules:
+
+    juju debug-log --lines 2000 \
+        --include-module juju.cmd \
+        --include-module juju.worker
+
+Exclude all messages from machine 0 ; show a maximum of 100 lines; and continue to
 append filtered messages:
 
     juju debug-log --exclude machine-0 --lines 100
@@ -66,25 +118,6 @@ machine-3 or machine-4, and then stop:
         --exclude machine-3 \
         --exclude machine-4
 
-To see all WARNING and ERROR messages and then continue showing any
-new WARNING and ERROR messages as they are logged:
-
-    juju debug-log --replay --level WARNING
-
-To see logs from all models hosted on the controller, use the --firehose option.
-
-    juju debug-log --firehose
-
-In the HA case, debug-log can be configured to stream messages from a selected controller.
-Use juju show-controller to see the available controller numbers.
-
-    juju debug-log --controller 2
-
-You can also stream messages from all controllers - a best effort will be made to correctly
-interleave them so they are ordered by timestamp.
-
-    juju debug-log --controller all
-
 
 ## Details
 
@@ -93,7 +126,7 @@ basis. By default, the logs for the currently select model are shown.
 
 Each log line is emitted in this format:
 
-  &lt;entity&gt; &lt;timestamp&gt; &lt;log-level&gt; &lt;module&gt;:&lt;line-no&gt; &lt;message&gt;
+    <entity> <timestamp> <log-level> <module>:<line-no> <message>
 
 The "entity" is the source of the message: a machine or unit. The names for
 machines and units can be seen in the output of `juju status`.
@@ -132,7 +165,7 @@ The '--lines' and '--limit' options control the number of log lines displayed:
 The '--replay' option displays log lines starting from the beginning.
 
 Behavior when combining --replay with other options:
-* --replay and --limit prints the specified number of lines from the beginning of the log. 
+* --replay and --limit prints the specified number of lines from the beginning of the log.
 * --replay and --lines is invalid as it causes confusion by skipping logs between the replayed lines and the current tailing point.
 
 Given the above, the following flag combinations are incompatible and cannot be specified together:

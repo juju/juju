@@ -40,7 +40,7 @@ kubectl exec <pod> -itc <container> -n <namespace> -- bash
 ````
 
 
-
+(view-details-about-an-application)=
 ## View details about an application
 
 To view more information about a deployed application, run the `show-application` command followed by the application name or alias:
@@ -58,7 +58,7 @@ By specifying various flags you can also specify a model, or an output format or
 ## Set the machine base for an application
 > Only for machine clouds.
 
-You can set the base for the machines provisioned by Juju for your application's units either during deployment or after. 
+You can set the base for the machines provisioned by Juju for your application's units either during deployment or after.
 
 **Set the machine base during deployment.** To set the machine base during deployment, run the `deploy` command with the `--base` flag followed by the desired compatible base. For example:
 
@@ -67,11 +67,13 @@ You can set the base for the machines provisioned by Juju for your application's
 juju deploy ubuntu --base ubuntu@20.04
 ```
 
-**Set the machine base after deployment.** (*starting with Juju 4.0, this is no longer possible*) To set the machine base after deployment, run the `set-application-base` command followed by the name of the application and the desired compatible base. (This will affect any future units added to the application.) For example:
+**Set the machine base after deployment.** (*starting with Juju 4.0, this is no longer possible*) To set the machine base after deployment (i.e., for machines provisioned for future units of the application, if any), run the `set-application-base` command followed by the name of the application and the desired compatible base. (This will affect any future units added to the application.) For example:
 
 ```text
 juju set-application-base ubuntu ubuntu@20.04
 ```
+
+Note that the charm's current revision must support the base you want to switch to.
 
 > See more: {ref}`command-juju-set-application-base`
 
@@ -79,7 +81,7 @@ juju set-application-base ubuntu ubuntu@20.04
 ## Trust an application with a credential
 
 
-Some applications may require access to the backing cloud in order to fulfil their purpose (e.g., storage-related tasks). In such cases, the remote credential associated with the current model would need to be shared with the application. When the Juju administrator allows this to occur the application is said to be *trusted*. 
+Some applications may require access to the backing cloud in order to fulfil their purpose (e.g., storage-related tasks). In such cases, the remote credential associated with the current model would need to be shared with the application. When the Juju administrator allows this to occur the application is said to be *trusted*.
 
 An application can be trusted during deployment or after deployment.
 
@@ -100,7 +102,7 @@ juju trust <application>
 By specifying various flags, you can also use this command to remove trust from an application, or to give an application deployed on a Kubernetes model access to the full Kubernetes cluster, etc.
 
 > See more: {ref}`command-juju-trust`
-	
+
 
 ## Run an application action
 
@@ -121,7 +123,7 @@ Most charms ship with a sensible default configuration out of the box. However, 
 
 **Get values.** The way to view the existing configuration for an application depends on whether the application has been deployed or not.
 
-- To view the configuration options of an application that you have not yet deployed, 
+- To view the configuration options of an application that you have not yet deployed,
     - if its charm is on Charmhub, inspect its Configurations page; for example: https://charmhub.io/mediawiki/configure.
     - if its charm is local on your machine, inspect its `config.yaml` file.
 
@@ -179,7 +181,7 @@ settings:
 
 > See more: {ref}`command-juju-config`
 
-**Set values.** You can set configuration values for an application during deployment or later. 
+**Set values.** You can set configuration values for an application during deployment or later.
 
 - To set configuration values for an application during deployment, run the `deploy` command with the `--config` flag followed by the relevant key=value pair. For example, [the `mediawiki` charm allows users to configure the `name` of the deployed application](https://charmhub.io/mediawiki/configure); below, we set it to `my media wiki`:
 
@@ -211,7 +213,7 @@ By exploring various options you can also use this command to pass the pairs fro
 ### Scale an application vertically
 
 To scale an application vertically, set constraints for the resources that the application's units will be deployed on.
- 
+
 > See more: {ref}`manage-constraints-for-an-application`
 
 (scale-an-application-horizontally)=
@@ -225,7 +227,7 @@ To scale an application horizontally, control the number of units.
 ## Make an application highly available
 > See also: {ref}`high-availability`
 
-1. Find out if the charm delivering the application supports high availability natively or not. If the latter, find out what you need to do. This could mean integrating with a load balancing reverse proxy, configuring storage etc. 
+1. Find out if the charm delivering the application supports high availability natively or not. If the latter, find out what you need to do. This could mean integrating with a load balancing reverse proxy, configuring storage etc.
 
 > See more: [Charmhub > `<your charm of interest`](https://charmhub.io/)
 
@@ -262,8 +264,8 @@ juju expose haproxy
 # Get the proxy's IP address:
 juju status haproxy
 
-# Finally, scale mediawiki up horizontally 
-# (since it's a machine charm, use 'add-unit') 
+# Finally, scale mediawiki up horizontally
+# (since it's a machine charm, use 'add-unit')
 # by adding a few more units:
 juju add-unit -n 5 mediawiki
 
@@ -273,7 +275,7 @@ juju add-unit -n 5 mediawiki
 
 
 
-Every time a unit is added to an application, Juju will spread out that application's units, distributing them evenly as supported by the provider (e.g., across multiple availability zones) to best ensure high availability. So long as a cloud's availability zones don't all fail at once, and the charm and the charm's application are well written (changing leaders, coordinating across units, etc.), you can rest assured that cloud downtime will not affect your application. 
+Every time a unit is added to an application, Juju will spread out that application's units, distributing them evenly as supported by the provider (e.g., across multiple availability zones) to best ensure high availability. So long as a cloud's availability zones don't all fail at once, and the charm and the charm's workload are well-written (changing leaders, coordinating across units, etc.), you can rest assured that cloud downtime will not affect your application.
 
 > See more: [Charmhub | `wordpress`](https://charmhub.io/wordpress), [Charmhub | `mediawiki`](https://charmhub.io/mediawiki), [Charmhub | `haproxy`](https://charmhub.io/haproxy)
 
@@ -302,7 +304,7 @@ When running `juju status`, its output will not only indicate whether an applica
 
 ```text
 App        Version  Status  Scale  Charm      Rev  Exposed  Message
-mariadb    10.1.36  active      1  mariadb      7  no       
+mariadb    10.1.36  active      1  mariadb      7  no
 wordpress           active      1  wordpress    5  yes      exposed
 
 Unit          Workload  Agent  Machine  Public address  Ports   Message
@@ -480,7 +482,7 @@ To migrate an application from one controller to another, migrate the model that
 (upgrade-an-application)=
 ## Upgrade an application
 
-To upgrade an application, update its charm. 
+To upgrade an application, update its charm.
 
 > See more: {ref}`update-a-charm`
 
@@ -492,7 +494,7 @@ To upgrade an application, update its charm.
 To remove an application, run the `remove-application` command followed by the name of the application. For example:
 
 ```{caution}
-Removing an application which has relations with another application will terminate that relation. This may adversely affect the other application. 
+Removing an application which has relations with another application will terminate that relation. This may adversely affect the other application.
 ```
 
 
@@ -500,9 +502,9 @@ Removing an application which has relations with another application will termin
 juju remove-application kafka
 ```
 
-This will issue a warning with a list of all the pieces to be removed and a request to confirm removal; once you've confirmed, this will remove all of the application's units. 
+This will issue a warning with a list of all the pieces to be removed and a request to confirm removal; once you've confirmed, this will remove all of the application's units.
 
-All associated resources will also be removed, provided they are not hosting containers or another application's units. 
+All associated resources will also be removed, provided they are not hosting containers or another application's units.
 
 If persistent storage is in use by the application it will be detached and left in the model; however, if you wish to destroy that as well, you can use the `--destroy-storage` option.
 
@@ -543,6 +545,6 @@ Behind the scenes, the application removal consists of multiple different stages
   - Prepare any backup(s) of the application that are required for restore
     purposes.
 - The application and all its units are then removed.
-- In the case that this leaves machines with no running applications, the machines are also removed. 
+- In the case that this leaves machines with no running applications, the machines are also removed.
 
 

@@ -1,0 +1,2 @@
+ops ~= 2.17
+requests

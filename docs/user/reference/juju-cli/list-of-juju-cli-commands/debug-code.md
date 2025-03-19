@@ -43,16 +43,14 @@ Debug the 'leader-elected' hook and set 'JUJU_DEBUG_AT' variable to 'hook':
 
 ## Details
 
-The command launches a tmux session that will intercept matching hooks and/or 
-actions. 
+The command launches a tmux session that will intercept matching hooks and/or
+actions.
 
 Initially, the tmux session will take you to '/var/lib/juju' or '/home/ubuntu'.
 As soon as a matching hook or action is fired, the hook or action is executed
 and the JUJU_DEBUG_AT variable is set. Charms implementing support for this
 should set debug breakpoints based on the environment variable. Charms written
-with the Charmed Operator Framework Ops automatically provide support for this.
-
-For more details on debugging charm code, see the charm SDK documentation.
+with the Ops library automatically provide support for this.
 
 Valid unit identifiers are:
   a standard unit ID, such as mysql/0 or;
