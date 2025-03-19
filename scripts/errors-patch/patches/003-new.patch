@@ -1,0 +1,18 @@
+# Patch for swapping calls to errors.New to interrors.New
+@@
+var errors identifier
+@@
+import errors "github.com/juju/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.New(...)
++interrors.New(...)
+
+@@
+var errors identifier
+@@
+import errors "errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.New(...)
++interrors.New(...)
