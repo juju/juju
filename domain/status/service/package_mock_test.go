@@ -80,6 +80,45 @@ func (c *MockStateDeleteUnitPresenceCall) DoAndReturn(f func(context.Context, un
 	return c
 }
 
+// GetAllFullUnitStatuses mocks base method.
+func (m *MockState) GetAllFullUnitStatuses(arg0 context.Context) (status.FullUnitStatuses, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllFullUnitStatuses", arg0)
+	ret0, _ := ret[0].(status.FullUnitStatuses)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllFullUnitStatuses indicates an expected call of GetAllFullUnitStatuses.
+func (mr *MockStateMockRecorder) GetAllFullUnitStatuses(arg0 any) *MockStateGetAllFullUnitStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllFullUnitStatuses", reflect.TypeOf((*MockState)(nil).GetAllFullUnitStatuses), arg0)
+	return &MockStateGetAllFullUnitStatusesCall{Call: call}
+}
+
+// MockStateGetAllFullUnitStatusesCall wrap *gomock.Call
+type MockStateGetAllFullUnitStatusesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllFullUnitStatusesCall) Return(arg0 status.FullUnitStatuses, arg1 error) *MockStateGetAllFullUnitStatusesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllFullUnitStatusesCall) Do(f func(context.Context) (status.FullUnitStatuses, error)) *MockStateGetAllFullUnitStatusesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllFullUnitStatusesCall) DoAndReturn(f func(context.Context) (status.FullUnitStatuses, error)) *MockStateGetAllFullUnitStatusesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationIDAndNameByUnitName mocks base method.
 func (m *MockState) GetApplicationIDAndNameByUnitName(ctx context.Context, name unit.Name) (application.ID, string, error) {
 	m.ctrl.T.Helper()

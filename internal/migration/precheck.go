@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
-	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -46,6 +45,10 @@ func SourcePrecheck(
 	}
 
 	if err := c.checkMachines(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := statusService.CheckUnitStatusesReadyForMigration(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -311,10 +314,6 @@ func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplicatio
 			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
 		}
 
-		if err := c.checkUnitAgentStatus(ctx, unit); err != nil {
-			return errors.Trace(err)
-		}
-
 		if modelType == state.ModelTypeIAAS {
 			if err := checkAgentTools(modelVersion, unit, "unit "+unit.Name()); err != nil {
 				return errors.Trace(err)
@@ -326,33 +325,6 @@ func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplicatio
 			return errors.Errorf("unit %s is upgrading", unit.Name())
 		}
 	}
-	return nil
-}
-
-func (c *precheckContext) checkUnitAgentStatus(ctx context.Context, unit PrecheckUnit) error {
-	unitName, err := coreunit.NewName(unit.Name())
-	if err != nil {
-		return internalerrors.Errorf("parsing unit name %q: %w", unit.Name(), err)
-	}
-
-	agentStatus, err := c.statusService.GetUnitAgentStatus(ctx, unitName)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return errors.NotFoundf("unit %s", unit.Name())
-	} else if err != nil {
-		return internalerrors.Errorf("retrieving unit %s agent status: %w", unit.Name(), err)
-	} else if !status.IsAgentPresent(*agentStatus) {
-		return newStatusError("unit %s not idle or executing", unit.Name(), agentStatus.Status)
-	}
-
-	workloadStatus, err := c.statusService.GetUnitWorkloadStatus(ctx, unitName)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return errors.NotFoundf("unit %s", unit.Name())
-	} else if err != nil {
-		return internalerrors.Errorf("retrieving unit %s workload status: %w", unit.Name(), err)
-	} else if !status.IsUnitWorkloadPresent(*workloadStatus) {
-		return newStatusError("unit %s not active or viable", unit.Name(), workloadStatus.Status)
-	}
-
 	return nil
 }
 

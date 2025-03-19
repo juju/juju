@@ -82,6 +82,19 @@ type statusInfoAndUnitNameAndPresence struct {
 	Present   bool          `db:"present"`
 }
 
+type fullUnitStatus struct {
+	UnitName          coreunit.Name `db:"unit_name"`
+	WorkloadStatusID  *int          `db:"workload_status_id"`
+	WorkloadMessage   *string       `db:"workload_message"`
+	WorkloadData      []byte        `db:"workload_data"`
+	WorkloadUpdatedAt *time.Time    `db:"workload_updated_at"`
+	AgentStatusID     *int          `db:"agent_status_id"`
+	AgentMessage      *string       `db:"agent_message"`
+	AgentData         []byte        `db:"agent_data"`
+	AgentUpdatedAt    *time.Time    `db:"agent_updated_at"`
+	Present           bool          `db:"present"`
+}
+
 func encodeCloudContainerStatus(s status.CloudContainerStatusType) (int, error) {
 	switch s {
 	case status.CloudContainerStatusWaiting:

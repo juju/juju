@@ -35,6 +35,14 @@ type UnitStatusInfo[T UnitStatusID] struct {
 	Present bool
 }
 
+// FullUnitStatus holds details about the workload and agent status of a unit.
+type FullUnitStatus struct {
+	WorkloadStatus StatusInfo[WorkloadStatusType]
+	AgentStatus    StatusInfo[UnitAgentStatusType]
+	// Present is true if the unit agent logged into the API server.
+	Present bool
+}
+
 // UnsetStatusType represents the status of an entity that has not been set.
 type UnsetStatusType int
 
@@ -88,3 +96,6 @@ type UnitWorkloadStatuses map[coreunit.Name]UnitStatusInfo[WorkloadStatusType]
 // UnitCloudContainerStatuses represents the cloud container statuses of a collection
 // of units. The statuses are indexed by unit name.
 type UnitCloudContainerStatuses map[coreunit.Name]StatusInfo[CloudContainerStatusType]
+
+// FullUnitStatuses represents the workload and agent statuses of a collection of units.
+type FullUnitStatuses map[coreunit.Name]FullUnitStatus

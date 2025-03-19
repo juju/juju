@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/unit"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
@@ -57,16 +56,9 @@ type ApplicationService interface {
 }
 
 type StatusService interface {
-
-	// GetUnitWorkloadStatus returns the workload status of the specified unit,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if the
-	// unit doesn't exist.
-	GetUnitWorkloadStatus(context.Context, unit.Name) (*status.StatusInfo, error)
-
-	// GetUnitAgentStatus returns the agent status of the specified unit,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if the
-	// unit doesn't exist.
-	GetUnitAgentStatus(context.Context, unit.Name) (*status.StatusInfo, error)
+	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
+	// in the model indicate they can be migrated.
+	CheckUnitStatusesReadyForMigration(context.Context) error
 }
 
 // ControllerConfigService describes the method needed to get the

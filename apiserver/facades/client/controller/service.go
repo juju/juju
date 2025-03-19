@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/access"
@@ -103,12 +101,9 @@ type ApplicationService interface {
 }
 
 type StatusService interface {
-	// GetUnitWorkloadStatus returns the workload status of the specified unit.
-	// Returns [applicationerrors.UnitNotFound] if the unit does not exist.
-	GetUnitWorkloadStatus(context.Context, unit.Name) (*status.StatusInfo, error)
-	// GetUnitAgentStatus returns the agent status of the specified unit.
-	// Returns [applicationerrors.UnitNotFound] if the unit does not exist.
-	GetUnitAgentStatus(context.Context, unit.Name) (*status.StatusInfo, error)
+	// CheckUnitStatusesReadyForMigration returns true is the statuses of all units
+	// in the model indicate they can be migrated.
+	CheckUnitStatusesReadyForMigration(context.Context) error
 }
 
 // ProxyService provides access to the proxy service.

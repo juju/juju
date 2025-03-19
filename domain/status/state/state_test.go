@@ -746,6 +746,135 @@ func (s *stateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplicationU
 	c.Assert(results, gc.HasLen, 0)
 }
 
+func (s *stateSuite) TestGetAllFullUnitStatusesEmptyModel(c *gc.C) {
+	res, err := s.state.GetAllFullUnitStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetAllFullUnitStatusesNotFound(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+
+	_, err := s.state.GetAllFullUnitStatuses(context.Background())
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitStatusNotFound)
+}
+
+func (s *stateSuite) TestGetAllFullUnitStatuses(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	u3 := application.AddUnitArg{
+		UnitName: "bar/0",
+	}
+	_, fooUnitUUIDs := s.createApplication(c, "foo", life.Alive, u1, u2)
+	u1UUID := fooUnitUUIDs[0]
+	u2UUID := fooUnitUUIDs[1]
+	_, barUnitUUIDs := s.createApplication(c, "bar", life.Alive, u3)
+	u3UUID := barUnitUUIDs[0]
+
+	u1Workload := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "u1 is active!",
+		Data:    []byte(`{"u1": "workload"}`),
+		Since:   ptr(time.Now()),
+	}
+	err := s.state.SetUnitWorkloadStatus(context.Background(), u1UUID, u1Workload)
+	c.Assert(err, jc.ErrorIsNil)
+
+	u1Agent := &status.StatusInfo[status.UnitAgentStatusType]{
+		Status:  status.UnitAgentStatusIdle,
+		Message: "u1 is idle!",
+		Data:    []byte(`{"u1": "agent"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.state.SetUnitAgentStatus(context.Background(), u1UUID, u1Agent)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetUnitPresence(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	u2Workload := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusBlocked,
+		Message: "u2 is blocked!",
+		Data:    []byte(`{"u2": "workload"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.state.SetUnitWorkloadStatus(context.Background(), u2UUID, u2Workload)
+	c.Assert(err, jc.ErrorIsNil)
+
+	u2Agent := &status.StatusInfo[status.UnitAgentStatusType]{
+		Status:  status.UnitAgentStatusAllocating,
+		Message: "u2 is allocating!",
+		Data:    []byte(`{"u2": "agent"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.state.SetUnitAgentStatus(context.Background(), u2UUID, u2Agent)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetUnitPresence(context.Background(), "foo/667")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.DeleteUnitPresence(context.Background(), "foo/667")
+	c.Assert(err, jc.ErrorIsNil)
+
+	u3Workload := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusMaintenance,
+		Message: "u3 is maintenance!",
+		Data:    []byte(`{"u3": "workload"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.state.SetUnitWorkloadStatus(context.Background(), u3UUID, u3Workload)
+	c.Assert(err, jc.ErrorIsNil)
+
+	u3Agent := &status.StatusInfo[status.UnitAgentStatusType]{
+		Status:  status.UnitAgentStatusRebooting,
+		Message: "u3 is rebooting!",
+		Data:    []byte(`{"u3": "agent"}`),
+		Since:   ptr(time.Now()),
+	}
+	err = s.state.SetUnitAgentStatus(context.Background(), u3UUID, u3Agent)
+	c.Assert(err, jc.ErrorIsNil)
+
+	res, err := s.state.GetAllFullUnitStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.HasLen, 3)
+
+	u1Full, ok := res["foo/666"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(u1Full.WorkloadStatus.Status, gc.Equals, status.WorkloadStatusActive)
+	c.Check(u1Full.WorkloadStatus.Message, gc.Equals, "u1 is active!")
+	c.Check(u1Full.WorkloadStatus.Data, gc.DeepEquals, []byte(`{"u1": "workload"}`))
+	c.Check(u1Full.AgentStatus.Status, gc.Equals, status.UnitAgentStatusIdle)
+	c.Check(u1Full.AgentStatus.Message, gc.Equals, "u1 is idle!")
+	c.Check(u1Full.AgentStatus.Data, gc.DeepEquals, []byte(`{"u1": "agent"}`))
+	c.Check(u1Full.Present, gc.Equals, true)
+
+	u2Full, ok := res["foo/667"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(u2Full.WorkloadStatus.Status, gc.Equals, status.WorkloadStatusBlocked)
+	c.Check(u2Full.WorkloadStatus.Message, gc.Equals, "u2 is blocked!")
+	c.Check(u2Full.WorkloadStatus.Data, gc.DeepEquals, []byte(`{"u2": "workload"}`))
+	c.Check(u2Full.AgentStatus.Status, gc.Equals, status.UnitAgentStatusAllocating)
+	c.Check(u2Full.AgentStatus.Message, gc.Equals, "u2 is allocating!")
+	c.Check(u2Full.AgentStatus.Data, gc.DeepEquals, []byte(`{"u2": "agent"}`))
+	c.Check(u2Full.Present, gc.Equals, false)
+
+	u3Full, ok := res["bar/0"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(u3Full.WorkloadStatus.Status, gc.Equals, status.WorkloadStatusMaintenance)
+	c.Check(u3Full.WorkloadStatus.Message, gc.Equals, "u3 is maintenance!")
+	c.Check(u3Full.WorkloadStatus.Data, gc.DeepEquals, []byte(`{"u3": "workload"}`))
+	c.Check(u3Full.AgentStatus.Status, gc.Equals, status.UnitAgentStatusRebooting)
+	c.Check(u3Full.AgentStatus.Message, gc.Equals, "u3 is rebooting!")
+	c.Check(u3Full.AgentStatus.Data, gc.DeepEquals, []byte(`{"u3": "agent"}`))
+	c.Check(u3Full.Present, gc.Equals, false)
+}
+
 func (s *stateSuite) TestSetUnitPresence(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",

@@ -486,6 +486,68 @@ func (st *State) GetUnitWorkloadAndCloudContainerStatusesForApplication(
 	return workloadStatuses, cloudContainerStatuses, nil
 }
 
+// GetAllFullUnitStatuses retrieves the presence, workload status, and agent status
+// of every unit in the model. Returns an error satisfying [statuserrors.UnitStatusNotFound]
+// if any units do not have statuses.
+func (st *State) GetAllFullUnitStatuses(ctx context.Context) (status.FullUnitStatuses, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query, err := st.Prepare(`SELECT &fullUnitStatus.* FROM v_full_unit_status`, fullUnitStatus{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var statuses []fullUnitStatus
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query).GetAll(&statuses)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ret := make(status.FullUnitStatuses, len(statuses))
+	for _, s := range statuses {
+		if s.WorkloadStatusID == nil {
+			return nil, errors.Errorf("workload status for unit %q not found%w", s.UnitName, jujuerrors.Hide(statuserrors.UnitStatusNotFound))
+		}
+		if s.AgentStatusID == nil {
+			return nil, errors.Errorf("agent status for unit %q not found%w", s.UnitName, jujuerrors.Hide(statuserrors.UnitStatusNotFound))
+		}
+		workloadStatusID, err := decodeWorkloadStatus(*s.WorkloadStatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding workload status for unit %q: %w", s.UnitName, err)
+		}
+		agentStatusID, err := decodeAgentStatus(*s.AgentStatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding workload status for unit %q: %w", s.UnitName, err)
+		}
+
+		ret[s.UnitName] = status.FullUnitStatus{
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  workloadStatusID,
+				Message: *s.WorkloadMessage,
+				Data:    s.WorkloadData,
+				Since:   s.WorkloadUpdatedAt,
+			},
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  agentStatusID,
+				Message: *s.AgentMessage,
+				Data:    s.AgentData,
+				Since:   s.AgentUpdatedAt,
+			},
+			Present: s.Present,
+		}
+	}
+	return ret, nil
+}
+
 // SetUnitPresence marks the presence of the specified unit, returning an error
 // satisfying [statuserrors.UnitNotFound] if the unit doesn't exist.
 // The unit life is not considered when making this query.
