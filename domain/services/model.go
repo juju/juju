@@ -415,6 +415,7 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 	return removalservice.NewWatchableService(
 		removalstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
 		s.modelWatcherFactory("removal"),
+		s.clock,
 		log,
 	)
 }

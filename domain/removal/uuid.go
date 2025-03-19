@@ -1,7 +1,7 @@
-// Copyright 2023 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package upgrade
+package removal
 
 import (
 	"github.com/juju/errors"
@@ -10,16 +10,16 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// UUID represents a upgrade unique identifier.
+// UUID is a unique removal job identifier.
 type UUID string
 
 // NewUUID returns a new UUID.
 func NewUUID() (UUID, error) {
-	uuid, err := uuid.NewUUID()
+	id, err := uuid.NewUUID()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return UUID(uuid.String()), nil
+	return UUID(id.String()), nil
 }
 
 // Validate ensures the consistency of the UUID.
@@ -33,7 +33,7 @@ func (u UUID) Validate() error {
 	return nil
 }
 
-// String implements the stringer interface for UUID.
+// String returns the UUID in string form.
 func (u UUID) String() string {
 	return string(u)
 }

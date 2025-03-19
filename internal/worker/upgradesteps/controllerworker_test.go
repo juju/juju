@@ -417,7 +417,9 @@ func (s *controllerWorkerSuite) newWorker(c *gc.C) *controllerWorker {
 func (s *controllerWorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
-	s.upgradeUUID = domainupgrade.MustNewUUID()
+	var err error
+	s.upgradeUUID, err = domainupgrade.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.upgradeService = NewMockUpgradeService(ctrl)
 
