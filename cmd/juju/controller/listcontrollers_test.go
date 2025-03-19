@@ -338,6 +338,12 @@ another controller that you have been given access to using "juju register".
 	s.assertListControllersFailed(c)
 }
 
+func (s *ListControllersSuite) TestListControllersManagedFlag(c *gc.C) {
+	s.createTestClientStore(c)
+	_, err := s.runListControllers(c, "--managed")
+	c.Assert(err, jc.ErrorIs, cmd.ErrCommandMissing)
+}
+
 func (s *ListControllersSuite) runListControllers(c *gc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, controller.NewListControllersCommandForTest(s.store, s.api), args...)
 }

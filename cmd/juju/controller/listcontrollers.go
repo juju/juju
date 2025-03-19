@@ -60,10 +60,20 @@ func (c *listControllersCommand) Info() *cmd.Info {
 	})
 }
 
+// Init implements Command.
+func (c *listControllersCommand) Init(args []string) error {
+	if c.managed {
+		return cmd.ErrCommandMissing
+	}
+
+	return cmd.CheckEmpty(args)
+}
+
 // SetFlags implements Command.SetFlags.
 func (c *listControllersCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.refresh, "refresh", false, "Connect to each controller to download the latest details")
+	f.BoolVar(&c.managed, "managed", false, "Show controllers managed by JAAS")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -218,4 +228,7 @@ type listControllersCommand struct {
 	api     func(controllerName string) ControllerAccessAPI
 	refresh bool
 	mu      sync.Mutex
+	// managed is useful when JAAS is available and lists
+	// controllers managed by JAAS.
+	managed bool
 }
