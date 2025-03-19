@@ -1729,6 +1729,14 @@ func (s *stateSuite) createModelUser(
 }
 
 func (m *stateSuite) createTestModel(c *gc.C, modelSt *State, name string, creatorUUID user.UUID) coremodel.UUID {
+	modelUUID := m.createTestModelWithoutActivation(c, modelSt, name, creatorUUID)
+	c.Assert(modelSt.Activate(context.Background(), modelUUID), jc.ErrorIsNil)
+	return modelUUID
+}
+
+func (m *stateSuite) createTestModelWithoutActivation(
+	c *gc.C, modelSt *State, name string, creatorUUID user.UUID) coremodel.UUID {
+
 	modelUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
@@ -1748,7 +1756,6 @@ func (m *stateSuite) createTestModel(c *gc.C, modelSt *State, name string, creat
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelSt.Activate(context.Background(), modelUUID), jc.ErrorIsNil)
 	return modelUUID
 }
 
@@ -1871,4 +1878,43 @@ func (s *stateSuite) TestGetControllerModelUUIDNotFound(c *gc.C) {
 	modelSt := NewState(s.TxnRunnerFactory())
 	_, err := modelSt.GetControllerModelUUID(context.Background())
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestGetActivatedModelUUIDs asserts the behavior of
+// [State.GetActivatedModelUUIDs] to ensure that only activated model UUIDs
+// are returned. It verifies cases for activated, non-activated, and
+// non-existent model UUIDs.
+func (s *stateSuite) TestGetActivatedModelUUIDs(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Test no input model UUIDs.
+	activatedModelUUIDs, err := st.GetActivatedModelUUIDs(context.Background(), []coremodel.UUID{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(activatedModelUUIDs, gc.HasLen, 0)
+
+	// Test activated model UUID.
+	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []coremodel.UUID{s.uuid})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(activatedModelUUIDs, gc.HasLen, 1)
+	c.Check(activatedModelUUIDs[0], gc.Equals, s.uuid)
+
+	// Test non-activated model UUID.
+	unactivatedModelUUID := s.createTestModelWithoutActivation(c, st, "my-unactivated-model", s.userUUID)
+	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []coremodel.UUID{unactivatedModelUUID})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(activatedModelUUIDs, gc.HasLen, 0)
+
+	// Test non-existent model UUID.
+	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(), []coremodel.UUID{"non-existent-uuid"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(activatedModelUUIDs, gc.HasLen, 0)
+
+	// Test activated, non-activated and non-existent model UUIDs.
+	activatedModelUUID := s.createTestModel(c, st, "my-activated-model", s.userUUID)
+	activatedModelUUIDs, err = st.GetActivatedModelUUIDs(context.Background(),
+		[]coremodel.UUID{s.uuid, activatedModelUUID, unactivatedModelUUID, "non-existent-uuid"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(activatedModelUUIDs, gc.HasLen, 2)
+	c.Check(activatedModelUUIDs[0], gc.Equals, s.uuid)
+	c.Check(activatedModelUUIDs[1], gc.Equals, activatedModelUUID)
 }

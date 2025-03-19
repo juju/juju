@@ -10,10 +10,14 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -117,6 +121,13 @@ type State interface {
 
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
+
+	// GetActivatedModelUUIDs returns the subset of model UUIDS from the supplied list that are activated.
+	// If no model uuids are activated then an empty slice is returned.
+	GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.UUID) ([]coremodel.UUID, error)
+
+	// InitialWatchActivatedModelsStatement returns a SQL statement that will get all the activated models UUIDS in the controller.
+	InitialWatchActivatedModelsStatement() string
 }
 
 // ModelDeleter is an interface for deleting models.
@@ -148,6 +159,42 @@ func NewService(
 		st:           st,
 		modelDeleter: modelDeleter,
 		logger:       logger,
+	}
+}
+
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNamespaceWatcher returns a new namespace watcher for events based on the input change mask.
+	// The initialStateQuery ensures the watcher starts with the current state of the system,
+	// preventing data loss from prior events.
+	NewNamespaceMapperWatcher(
+		namespace string, changeMask changestream.ChangeType,
+		initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper,
+	) (watcher.StringsWatcher, error)
+}
+
+// WatchableService extends Service to provide interactions with model state
+// and integrates a watcher factory for monitoring changes.
+type WatchableService struct {
+	// Service is the inherited model service to extend upon.
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService provides a new Service for interacting with the underlying
+// state and the ability to create watchers.
+func NewWatchableService(st State,
+	modelDeleter ModelDeleter,
+	logger logger.Logger,
+	watcherFactory WatcherFactory,
+) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st:           st,
+			modelDeleter: modelDeleter,
+			logger:       logger,
+		},
+		watcherFactory: watcherFactory,
 	}
 }
 
@@ -541,4 +588,65 @@ func (s *Service) UpdateCredential(
 	}
 
 	return s.st.UpdateCredential(ctx, uuid, key)
+}
+
+// getWatchActivatedModelsMapper returns a mapper function that filters change events to
+// include only those associated with activated models.
+// The subset of changes returned is maintained in the same order as they are received.
+func getWatchActivatedModelsMapper(st State) func(ctx context.Context, db database.TxnRunner,
+	changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+
+	return func(ctx context.Context, db database.TxnRunner,
+		changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+
+		modelUUIDs := make([]coremodel.UUID, len(changes))
+		for i, change := range changes {
+			modelUUIDs[i] = coremodel.UUID(change.Changed())
+		}
+
+		// Retrieve all activate status of all models with associated uuids
+		activatedModelUUIDs, err := st.GetActivatedModelUUIDs(ctx, modelUUIDs)
+
+		// There will be no errors returned if there are no activated models found.
+		if err != nil {
+			return nil, err
+		}
+
+		if len(activatedModelUUIDs) == 0 {
+			return nil, nil
+		}
+
+		activatedModelUUIDToChangeEventMap := make(map[coremodel.UUID]struct{}, len(activatedModelUUIDs))
+		for _, activatedModelUUID := range activatedModelUUIDs {
+			activatedModelUUIDToChangeEventMap[activatedModelUUID] = struct{}{}
+		}
+
+		activatedModelChangeEvents := make([]changestream.ChangeEvent, 0, len(changes))
+
+		// Add all events associated with activated model UUIDs
+		for _, change := range changes {
+			uuid := coremodel.UUID(change.Changed())
+			if _, exists := activatedModelUUIDToChangeEventMap[uuid]; exists {
+				activatedModelChangeEvents = append(activatedModelChangeEvents, change)
+			}
+		}
+
+		return activatedModelChangeEvents, nil
+	}
+}
+
+// WatchActivatedModels returns a watcher that emits an event containing the model UUID
+// when a model becomes activated or an activated model receives an update.
+// The events returned are maintained in the same order as they are received.
+// Newly created models will not be reported since they are not activated at creation.
+// Deletion of activated models is also not reported.
+func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error) {
+	mapper := getWatchActivatedModelsMapper(s.st)
+	query := s.st.InitialWatchActivatedModelsStatement()
+
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		"model", changestream.Changed,
+		eventsource.InitialNamespaceChanges(query),
+		mapper,
+	)
 }

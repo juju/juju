@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,6 +17,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	changestream "github.com/juju/juju/core/changestream"
+	changestreammock "github.com/juju/juju/core/changestream/mocks"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -28,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
@@ -41,8 +45,11 @@ type serviceSuite struct {
 	state    *dummyState
 	deleter  *dummyDeleter
 
-	mockModelDeleter *MockModelDeleter
-	mockState        *MockState
+	mockModelDeleter   *MockModelDeleter
+	mockState          *MockState
+	mockWatcherFactory *MockWatcherFactory
+	mockStringsWatcher *MockStringsWatcher[[]string]
+	changestreamtesting.ControllerSuite
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -74,6 +81,9 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockModelDeleter = NewMockModelDeleter(ctrl)
 	s.mockState = NewMockState(ctrl)
+	s.mockWatcherFactory = NewMockWatcherFactory(ctrl)
+	s.mockStringsWatcher = NewMockStringsWatcher[[]string](ctrl)
+
 	return ctrl
 }
 
@@ -1111,4 +1121,95 @@ func (s *serviceSuite) TestDefaultModelCloudNameAndCredential(c *gc.C) {
 		Owner: usertesting.GenNewName(c, "admin"),
 		Name:  "test-cred",
 	})
+}
+
+// TestWatchActivatedModels verifies that WatchActivatedModels correctly sets up a watcher
+// that emits events for activated models when the watcher receives change events.
+func (s *serviceSuite) TestWatchActivatedModels(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	ctx := context.Background()
+	svc := NewWatchableService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+		s.mockWatcherFactory,
+	)
+
+	// Set up necessary mock return values.
+	s.mockState.EXPECT().InitialWatchActivatedModelsStatement().Return(
+		"SELECT uuid from model WHERE activated = true",
+	)
+
+	changes := make(chan []string, 1)
+	activatedModelUUID1 := modeltesting.GenModelUUID(c)
+	activatedModelUUID2 := modeltesting.GenModelUUID(c)
+	activatedModelUUIDs := []coremodel.UUID{activatedModelUUID1, activatedModelUUID2}
+	activatedModelUUIDsStr := transform.Slice(activatedModelUUIDs, func(uuid coremodel.UUID) string {
+		return uuid.String()
+	})
+	changes <- activatedModelUUIDsStr
+	close(changes)
+	s.mockStringsWatcher.EXPECT().Changes().AnyTimes().Return(changes)
+
+	s.mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher("model", changestream.Changed,
+		gomock.Any(), gomock.Any()).Return(s.mockStringsWatcher, nil)
+
+	// Verifies that the service returns a watcher with the correct model UUIDs string.
+	watcher, err := svc.WatchActivatedModels(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(<-watcher.Changes(), gc.DeepEquals, activatedModelUUIDsStr)
+}
+
+func (s *serviceSuite) createMockChangeEventsFromUUIDs(ctrl *gomock.Controller, uuids ...coremodel.UUID) []changestream.ChangeEvent {
+	events := make([]changestream.ChangeEvent, len(uuids))
+	for i, uuid := range uuids {
+		event := changestreammock.NewMockChangeEvent(ctrl)
+		event.EXPECT().Changed().AnyTimes().Return(
+			uuid.String(),
+		)
+		events[i] = event
+	}
+	return events
+}
+
+// TestWatchActivatedModelsMapper verifies that the WatchActivatedModelsMapper correctly
+// filters change events to include only those associated with activated models and that
+// the subset of changes returned is maintained in the same order as they are received.
+func (s *serviceSuite) TestWatchActivatedModelsMapper(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	ctx := context.Background()
+
+	activatedModelUUID1 := modeltesting.GenModelUUID(c)
+	activatedModelUUID2 := modeltesting.GenModelUUID(c)
+	activatedModelUUID3 := modeltesting.GenModelUUID(c)
+	activatedModelUUID4 := modeltesting.GenModelUUID(c)
+	activatedModelUUID5 := modeltesting.GenModelUUID(c)
+	duplicateActivatedModelUUID := activatedModelUUID1
+	unactivatedModelUUID1 := modeltesting.GenModelUUID(c)
+	unactivatedModelUUID2 := modeltesting.GenModelUUID(c)
+
+	inputModelUUIDs := []coremodel.UUID{activatedModelUUID1, activatedModelUUID2, unactivatedModelUUID1,
+		activatedModelUUID3, unactivatedModelUUID2, activatedModelUUID4, activatedModelUUID5, duplicateActivatedModelUUID}
+	activatedModelUUIDs := []coremodel.UUID{activatedModelUUID1, activatedModelUUID2, activatedModelUUID3,
+		activatedModelUUID4, activatedModelUUID5, duplicateActivatedModelUUID}
+
+	s.mockState.EXPECT().GetActivatedModelUUIDs(gomock.Any(), inputModelUUIDs).Return(
+		activatedModelUUIDs, nil,
+	)
+
+	// // Change events received by the watcher mapper.
+	inputChangeEvents := s.createMockChangeEventsFromUUIDs(s.mockWatcherFactory.ctrl, inputModelUUIDs...)
+
+	// Change events containing model UUIDs of activated models retrieved from the database.
+	// The order of returned events should be maintained after filter.
+	expectedChangeEvents := s.createMockChangeEventsFromUUIDs(s.mockWatcherFactory.ctrl, activatedModelUUIDs...)
+
+	// Tests if mapper correctly filters changes
+	mapper := getWatchActivatedModelsMapper(s.mockState)
+
+	// Use service mapper to retrieve change events containing only model UUIDs of activated models.
+	retrievedChangeEvents, err := mapper(ctx, s.ControllerTxnRunner(), inputChangeEvents)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(retrievedChangeEvents, gc.DeepEquals, expectedChangeEvents)
 }

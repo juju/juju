@@ -174,26 +174,8 @@ func CreateTestModel(
 
 // DeleteTestModel is responsible for cleaning up a testing mode previously
 // created with [CreateTestModel].
-func DeleteTestModel(
-	c *gc.C,
-	txnRunner database.TxnRunnerFactory,
-	uuid coremodel.UUID,
-) {
-	runner, err := txnRunner()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			DELETE FROM model_agent where model_uuid = ?
-		`, uuid)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-			DELETE FROM model WHERE uuid = ?
-		`, uuid)
-		return err
-	})
+func DeleteTestModel(c *gc.C, ctx context.Context, txnRunner database.TxnRunnerFactory, modelUUID coremodel.UUID) {
+	modelSt := modelstate.NewState(txnRunner)
+	err := modelSt.Delete(ctx, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 }

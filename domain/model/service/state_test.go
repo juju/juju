@@ -339,3 +339,11 @@ func (d *dummyState) ListAllModelSummaries(_ context.Context) ([]coremodel.Model
 	}
 	return rval, nil
 }
+
+func (d *dummyState) InitialWatchActivatedModelsStatement() string {
+	return "SELECT activated from model"
+}
+
+func (d *dummyState) GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.UUID) ([]coremodel.UUID, error) {
+	return nil, nil
+}

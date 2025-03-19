@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
@@ -1801,4 +1802,51 @@ AND    ot.type = $dbPermission.object_type
 		return errors.Errorf("creating model permission metadata, expected 1 row to be inserted, got %d", num)
 	}
 	return nil
+}
+
+// InitialWatchActivatedModelsStatement returns a SQL statement that will get all the activated models uuids in the controller.
+func (st *State) InitialWatchActivatedModelsStatement() string {
+	return "SELECT uuid from model WHERE activated = true"
+}
+
+// GetActivatedModelUUIDs returns the subset of model uuids from the supplied list that are activated.
+// If no models associated with the uuids are activated then an empty slice is returned.
+func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.UUID) ([]coremodel.UUID, error) {
+	if len(uuids) == 0 {
+		return nil, nil
+	}
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type modelUUID struct {
+		UUID coremodel.UUID `db:"uuid"`
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &modelUUID.*
+FROM   v_model
+WHERE uuid IN ($S[:])
+`, sqlair.S{}, modelUUID{})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	args := sqlair.S(transform.Slice(uuids, func(s coremodel.UUID) any { return s }))
+	modelUUIDs := []modelUUID{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, args).GetAll(&modelUUIDs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting activated model UUIDs: %w", err)
+	}
+
+	res := transform.Slice(modelUUIDs, func(m modelUUID) coremodel.UUID { return m.UUID })
+	return res, nil
 }
