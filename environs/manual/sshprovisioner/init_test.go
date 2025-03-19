@@ -31,7 +31,7 @@ func (s *initialisationSuite) TestDetectBase(c *gc.C) {
 		"processor: 0",
 	}, "\n")
 	defer installFakeSSH(c, sshprovisioner.DetectionScript, response, 0)()
-	_, base, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("whatever")
+	_, base, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("whatever", "vmuser")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(base, gc.Equals, corebase.MustParseBaseFromString("ubuntu@6.10"))
 }
@@ -47,11 +47,11 @@ func (s *initialisationSuite) TestDetectionError(c *gc.C) {
 	// if the script fails for whatever reason, then checkProvisioned
 	// will return an error. stderr will be included in the error message.
 	defer installFakeSSH(c, sshprovisioner.DetectionScript, []string{scriptResponse, "oh noes"}, 33)()
-	_, _, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("hostname")
+	_, _, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("hostname", "vmuser")
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 33 \\(oh noes\\)")
 	// if the script doesn't fail, stderr is simply ignored.
 	defer installFakeSSH(c, sshprovisioner.DetectionScript, []string{scriptResponse, "non-empty-stderr"}, 0)()
-	hc, _, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("hostname")
+	hc, _, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("hostname", "vmuser")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc.String(), gc.Equals, "arch=ppc64el cores=1 mem=4M")
 }
@@ -123,7 +123,7 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 		c.Logf("test %d: %s", i, test.summary)
 		scriptResponse := strings.Join(test.scriptResponse, "\n")
 		defer installFakeSSH(c, sshprovisioner.DetectionScript, scriptResponse, 0)()
-		hc, _, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("hostname")
+		hc, _, err := sshprovisioner.DetectBaseAndHardwareCharacteristics("hostname", "vmuser")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(hc.String(), gc.Equals, test.expectedHc)
 	}
@@ -132,30 +132,30 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
 	listCmd := service.ListServicesScript()
 	defer installFakeSSH(c, listCmd, "", 0)()
-	provisioned, err := sshprovisioner.CheckProvisioned("example.com")
+	provisioned, err := sshprovisioner.CheckProvisioned("example.com", "vmuser")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsFalse)
 
 	defer installFakeSSH(c, listCmd, "snap.juju.fetch-oci", 0)()
-	provisioned, err = sshprovisioner.CheckProvisioned("example.com")
+	provisioned, err = sshprovisioner.CheckProvisioned("example.com", "vmuser")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsFalse)
 
 	defer installFakeSSH(c, listCmd, "jujud-machine-42", 0)()
-	provisioned, err = sshprovisioner.CheckProvisioned("example.com")
+	provisioned, err = sshprovisioner.CheckProvisioned("example.com", "vmuser")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsTrue)
 
 	// stderr should not affect result.
 	defer installFakeSSH(c, listCmd, []string{"", "non-empty-stderr"}, 0)()
-	provisioned, err = sshprovisioner.CheckProvisioned("example.com")
+	provisioned, err = sshprovisioner.CheckProvisioned("example.com", "vmuser")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsFalse)
 
 	// if the script fails for whatever reason, then checkProvisioned
 	// will return an error. stderr will be included in the error message.
 	defer installFakeSSH(c, listCmd, []string{"non-empty-stdout", "non-empty-stderr"}, 255)()
-	_, err = sshprovisioner.CheckProvisioned("example.com")
+	_, err = sshprovisioner.CheckProvisioned("example.com", "vmuser")
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 255 \\(non-empty-stderr\\)")
 }
 

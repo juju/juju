@@ -98,10 +98,7 @@ func (e *manualEnviron) Config() *config.Config {
 
 // PrepareForBootstrap is part of the Environ interface.
 func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
-	if err := ensureBootstrapUbuntuUser(ctx, e.host, e.user, e.envConfig()); err != nil {
-		return err
-	}
-	return nil
+	return nil // noop
 }
 
 // Create is part of the Environ interface.
@@ -111,12 +108,15 @@ func (e *manualEnviron) Create(envcontext.ProviderCallContext, environs.CreatePa
 
 // Bootstrap is part of the Environ interface.
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	provisioned, err := sshprovisioner.CheckProvisioned(e.host)
+	provisioned, err := sshprovisioner.CheckProvisioned(e.host, e.user)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to check provisioned status")
 	}
 	if provisioned {
 		return nil, manual.ErrProvisioned
+	}
+	if err := ensureBootstrapUbuntuUser(ctx, e.host, e.user, args.AuthorizedKeys); err != nil {
+		return nil, errors.Annotate(err, "failed to ensure the ubuntu user exists")
 	}
 	hw, base, err := e.baseAndHardwareCharacteristics()
 	if err != nil {
@@ -299,8 +299,12 @@ exit 0
 		mongo.ServiceName,
 	)
 	logger.Tracef(ctx, "destroy controller script: %s", script)
+	host := e.host
+	if e.user != "" {
+		host = e.user + "@" + host
+	}
 	stdout, stderr, err := runSSHCommand(
-		"ubuntu@"+e.host,
+		host,
 		[]string{"sudo", "/bin/bash"}, script,
 	)
 	logger.Debugf(ctx, "script stdout: \n%s", stdout)
@@ -359,7 +363,7 @@ func (e *manualEnviron) baseAndHardwareCharacteristics() (*instance.HardwareChar
 	if e.hw != nil {
 		return e.hw, e.base, nil
 	}
-	hw, base, err := sshprovisioner.DetectBaseAndHardwareCharacteristics(e.host)
+	hw, base, err := sshprovisioner.DetectBaseAndHardwareCharacteristics(e.host, e.user)
 	if err != nil {
 		return nil, corebase.Base{}, errors.Trace(err)
 	}

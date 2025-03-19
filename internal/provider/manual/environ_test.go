@@ -85,7 +85,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	var resultStdout string
 	var resultErr error
 	runSSHCommandTesting := func(host string, command []string, stdin string) (string, string, error) {
-		c.Assert(host, gc.Equals, "ubuntu@hostname")
+		c.Assert(host, gc.Equals, "hostname")
 		c.Assert(command, gc.DeepEquals, []string{"sudo", "/bin/bash"})
 		c.Assert(stdin, gc.Equals, `
 # Signal the jujud process to stop, then check it has done so.
@@ -151,7 +151,7 @@ exit 0
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	s.PatchValue(&sshprovisioner.DetectBaseAndHardwareCharacteristics,
-		func(string) (instance.HardwareCharacteristics, base.Base, error) {
+		func(string, string) (instance.HardwareCharacteristics, base.Base, error) {
 			amd64 := "amd64"
 			return instance.HardwareCharacteristics{
 				Arch: &amd64,
