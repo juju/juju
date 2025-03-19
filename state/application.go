@@ -692,8 +692,6 @@ func (a *Application) MergeExposeSettings(exposedEndpoints map[string]ExposedEnd
 			return errors.NotFoundf("endpoint %q", endpoint)
 		}
 
-		// TODO(nvinuesa): When we move to dqlite we have to make sure
-		// that the exposed spaces really exist.
 		exposeParams.ExposeToCIDRs = uniqueSortedStrings(exposeParams.ExposeToCIDRs)
 		for _, cidr := range exposeParams.ExposeToCIDRs {
 			if _, _, err := net.ParseCIDR(cidr); err != nil {

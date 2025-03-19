@@ -493,6 +493,44 @@ func (c *MockStateDetachStorageForUnitCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// EndpointsExist mocks base method.
+func (m *MockState) EndpointsExist(ctx context.Context, appID application.ID, endpoints set.Strings) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EndpointsExist", ctx, appID, endpoints)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EndpointsExist indicates an expected call of EndpointsExist.
+func (mr *MockStateMockRecorder) EndpointsExist(ctx, appID, endpoints any) *MockStateEndpointsExistCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndpointsExist", reflect.TypeOf((*MockState)(nil).EndpointsExist), ctx, appID, endpoints)
+	return &MockStateEndpointsExistCall{Call: call}
+}
+
+// MockStateEndpointsExistCall wrap *gomock.Call
+type MockStateEndpointsExistCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateEndpointsExistCall) Return(arg0 error) *MockStateEndpointsExistCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateEndpointsExistCall) Do(f func(context.Context, application.ID, set.Strings) error) *MockStateEndpointsExistCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateEndpointsExistCall) DoAndReturn(f func(context.Context, application.ID, set.Strings) error) *MockStateEndpointsExistCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationCharmOrigin mocks base method.
 func (m *MockState) GetApplicationCharmOrigin(ctx context.Context, appID application.ID) (application0.CharmOrigin, error) {
 	m.ctrl.T.Helper()
@@ -3225,6 +3263,44 @@ func (c *MockStateSetUnitPasswordCall) Do(f func(context.Context, unit.UUID, app
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetUnitPasswordCall) DoAndReturn(f func(context.Context, unit.UUID, application0.PasswordInfo) error) *MockStateSetUnitPasswordCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SpacesExist mocks base method.
+func (m *MockState) SpacesExist(ctx context.Context, spaceUUIDs set.Strings) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SpacesExist", ctx, spaceUUIDs)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SpacesExist indicates an expected call of SpacesExist.
+func (mr *MockStateMockRecorder) SpacesExist(ctx, spaceUUIDs any) *MockStateSpacesExistCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpacesExist", reflect.TypeOf((*MockState)(nil).SpacesExist), ctx, spaceUUIDs)
+	return &MockStateSpacesExistCall{Call: call}
+}
+
+// MockStateSpacesExistCall wrap *gomock.Call
+type MockStateSpacesExistCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSpacesExistCall) Return(arg0 error) *MockStateSpacesExistCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSpacesExistCall) Do(f func(context.Context, set.Strings) error) *MockStateSpacesExistCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSpacesExistCall) DoAndReturn(f func(context.Context, set.Strings) error) *MockStateSpacesExistCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
