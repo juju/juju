@@ -431,7 +431,7 @@ func (s *Service) storeResource(
 	}
 
 	path := args.ResourceUUID.String()
-	storageUUID, err := store.Put(
+	storageUUID, size, fingerprint, err := store.Put(
 		ctx,
 		path,
 		args.Reader,
@@ -463,8 +463,8 @@ func (s *Service) storeResource(
 			RetrievedByType:               args.RetrievedByType,
 			ResourceType:                  res.Type,
 			IncrementCharmModifiedVersion: incrementCharmModifiedVersion,
-			Size:                          args.Size,
-			SHA384:                        args.Fingerprint.String(),
+			Size:                          size,
+			SHA384:                        fingerprint.String(),
 		},
 	)
 	if err != nil {
@@ -502,12 +502,16 @@ func (s *Service) OpenResource(
 	// TODO(aflynn): ideally this would be finding the resource via the
 	// resources storageID, however the object store does not currently have a
 	// method for this.
-	reader, _, err := store.Get(ctx, resourceUUID.String())
+	reader, size, err := store.Get(ctx, resourceUUID.String())
 	if errors.Is(err, objectstoreerrors.ObjectNotFound) ||
 		errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataNotFound) {
 		return coreresource.Resource{}, nil, resourceerrors.StoredResourceNotFound
 	} else if err != nil {
 		return coreresource.Resource{}, nil, errors.Errorf("getting resource from store: %w", err)
+	}
+
+	if res.Size != size {
+		return coreresource.Resource{}, nil, errors.Errorf("unexpected size for stored resource %s: expected %d, got %d", res.Name, res.Size, size)
 	}
 
 	return res, reader, nil

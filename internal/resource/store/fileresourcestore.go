@@ -29,35 +29,38 @@ func (f fileResourceStore) Get(
 }
 
 // Put the given resource in the object store using the storage key as the
-// storage path. It returns the UUID of the object store metadata.
+// storage path. It returns the UUID of the object store metadata and the size
+// and fingerprint of the resource.
+// If the size/fingerprint arguments do not match the size/fingerprint of the
+// blob the object store should return an error.
 func (f fileResourceStore) Put(
 	ctx context.Context,
 	storageKey string,
 	r io.Reader,
 	size int64,
 	fingerprint store.Fingerprint,
-) (store.ID, error) {
+) (store.ID, int64, store.Fingerprint, error) {
 	if storageKey == "" {
-		return store.ID{}, errors.Errorf("storage key empty")
+		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("storage key empty")
 	}
 	if r == nil {
-		return store.ID{}, errors.Errorf("validating resource: reader is nil")
+		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("validating resource: reader is nil")
 	}
 	if size == 0 {
-		return store.ID{}, errors.Errorf("validating resource size: size is 0")
+		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("validating resource size: size is 0")
 	}
 	if err := fingerprint.Validate(); err != nil {
-		return store.ID{}, errors.Errorf("validating resource fingerprint: %w", err)
+		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("validating resource fingerprint: %w", err)
 	}
 	uuid, err := f.objectStore.PutAndCheckHash(ctx, storageKey, r, size, fingerprint.String())
 	if err != nil {
-		return store.ID{}, errors.Capture(err)
+		return store.ID{}, 0, store.Fingerprint{}, errors.Capture(err)
 	}
 	id, err := store.NewFileResourceID(uuid)
 	if err != nil {
-		return store.ID{}, errors.Capture(err)
+		return store.ID{}, 0, store.Fingerprint{}, errors.Capture(err)
 	}
-	return id, nil
+	return id, size, fingerprint, nil
 }
 
 // Remove the specified resource from the object store.

@@ -301,6 +301,7 @@ func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
 	reader := bytes.NewBufferString("spamspamspam")
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
+	storeFP := coreresourcestore.NewFingerprint(fp.Fingerprint)
 	size := int64(42)
 
 	retrievedBy := "bob"
@@ -322,8 +323,8 @@ func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
 		resourceUUID.String(),
 		reader,
 		size,
-		coreresourcestore.NewFingerprint(fp.Fingerprint),
-	).Return(storageID, nil)
+		storeFP,
+	).Return(storageID, size, storeFP, nil)
 	s.state.EXPECT().RecordStoredResource(gomock.Any(), resource.RecordStoredResourceArgs{
 		ResourceUUID:                  resourceUUID,
 		StorageID:                     storageID,
@@ -358,6 +359,7 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *gc.C) {
 	reader := bytes.NewBufferString("spamspamspam")
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
+	storeFP := coreresourcestore.NewFingerprint(fp.Fingerprint)
 	size := int64(42)
 
 	retrievedBy := "bob"
@@ -379,8 +381,8 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *gc.C) {
 		resourceUUID.String(),
 		reader,
 		size,
-		coreresourcestore.NewFingerprint(fp.Fingerprint),
-	).Return(storageID, nil)
+		storeFP,
+	).Return(storageID, size, storeFP, nil)
 
 	// Return an error from recording the stored resource.
 	expectedErr := errors.New("recording failed with massive error")
@@ -440,7 +442,8 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobContain
 		reader,
 		int64(0),
 		coreresourcestore.NewFingerprint(fp.Fingerprint),
-	).Return(coreresourcestore.ID{}, containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored)
+	).Return(coreresourcestore.ID{}, 0, coreresourcestore.Fingerprint{},
+		containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored)
 
 	// Act:
 	err = s.service.StoreResource(
@@ -483,7 +486,8 @@ func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobFile(c 
 		reader,
 		int64(0),
 		coreresourcestore.NewFingerprint(fp.Fingerprint),
-	).Return(coreresourcestore.ID{}, objectstoreerrors.ObjectAlreadyExists)
+	).Return(coreresourcestore.ID{}, 0, coreresourcestore.Fingerprint{},
+		objectstoreerrors.ObjectAlreadyExists)
 
 	// Act:
 	err = s.service.StoreResource(
@@ -601,6 +605,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 	reader := bytes.NewBufferString("spamspamspam")
 	fp, err := charmresource.NewFingerprint(fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
+	storeFP := coreresourcestore.NewFingerprint(fp.Fingerprint)
 	size := int64(42)
 
 	retrievedBy := "bob"
@@ -622,8 +627,8 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 		resourceUUID.String(),
 		reader,
 		size,
-		coreresourcestore.NewFingerprint(fp.Fingerprint),
-	).Return(storageID, nil)
+		storeFP,
+	).Return(storageID, size, storeFP, nil)
 	s.state.EXPECT().RecordStoredResource(gomock.Any(), resource.RecordStoredResourceArgs{
 		ResourceUUID:                  resourceUUID,
 		StorageID:                     storageID,
@@ -826,6 +831,36 @@ func (s *resourceServiceSuite) TestOpenResourceContainerImageNotFound(c *gc.C) {
 
 	_, _, err = s.service.OpenResource(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceNotFound)
+}
+
+// TestOpenResourceUnexpectedSize checks that an error is returned if the size
+// of the resource in the object store is not what was expected.
+func (s *resourceServiceSuite) TestOpenResourceUnexpectedSize(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	id := resourcetesting.GenResourceUUID(c)
+	resourceType := charmresource.TypeContainerImage
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	size := int64(42)
+	res := coreresource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Type: resourceType,
+			},
+			Fingerprint: fp,
+			Size:        size,
+		},
+	}
+
+	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Get(
+		gomock.Any(),
+		id.String(),
+	).Return(nil, size-1, nil)
+
+	_, _, err = s.service.OpenResource(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, "unexpected size for stored resource.*")
 }
 
 func (s *resourceServiceSuite) TestOpenResourceBadID(c *gc.C) {
