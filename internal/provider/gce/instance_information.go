@@ -4,6 +4,7 @@
 package gce
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -13,9 +14,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/internal/provider/gce/google"
 )
 
 var (
@@ -41,7 +40,7 @@ func ensureDefaultConstraints(c constraints.Value) constraints.Value {
 }
 
 // InstanceTypes implements InstanceTypesFetcher
-func (env *environ) InstanceTypes(ctx envcontext.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (env *environ) InstanceTypes(ctx context.Context, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	allInstanceTypes, err := env.getAllInstanceTypes(ctx, clock.WallClock)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
@@ -55,7 +54,7 @@ func (env *environ) InstanceTypes(ctx envcontext.ProviderCallContext, c constrai
 
 // getAllInstanceTypes fetches and memoizes the list of available GCE instances
 // for the AZs associated with the current region.
-func (env *environ) getAllInstanceTypes(ctx envcontext.ProviderCallContext, clock clock.Clock) ([]instances.InstanceType, error) {
+func (env *environ) getAllInstanceTypes(ctx context.Context, clock clock.Clock) ([]instances.InstanceType, error) {
 	env.instTypeListLock.Lock()
 	defer env.instTypeListLock.Unlock()
 
@@ -69,7 +68,7 @@ func (env *environ) getAllInstanceTypes(ctx envcontext.ProviderCallContext, cloc
 	}
 	zones, err := env.gce.AvailabilityZones(reg.Region)
 	if err != nil {
-		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	resultUnique := map[string]instances.InstanceType{}
 
@@ -79,7 +78,7 @@ func (env *environ) getAllInstanceTypes(ctx envcontext.ProviderCallContext, cloc
 		}
 		machines, err := env.gce.ListMachineTypes(z.Name())
 		if err != nil {
-			return nil, google.HandleCredentialError(errors.Trace(err), ctx)
+			return nil, env.HandleCredentialError(ctx, err)
 		}
 		for _, m := range machines {
 			i := instances.InstanceType{

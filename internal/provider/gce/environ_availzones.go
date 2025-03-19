@@ -4,6 +4,8 @@
 package gce
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
@@ -15,10 +17,10 @@ import (
 )
 
 // AvailabilityZones returns all availability zones in the environment.
-func (env *environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+func (env *environ) AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
 	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
 	if err != nil {
-		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 
 	var result network.AvailabilityZones
@@ -67,7 +69,7 @@ func (env *environ) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, 
 func (env *environ) availZone(ctx envcontext.ProviderCallContext, name string) (*google.AvailabilityZone, error) {
 	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
 	if err != nil {
-		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	for _, z := range zones {
 		if z.Name() == name {

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/container/lxd"
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -164,7 +163,7 @@ func (p *environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p *environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
+func (p *environProvider) Ping(_ context.Context, endpoint string) error {
 	// if the endpoint is empty, then don't ping, as we can assume we're using
 	// local lxd
 	if endpoint == "" {

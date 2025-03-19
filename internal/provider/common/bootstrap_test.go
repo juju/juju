@@ -300,7 +300,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 		deriveAvailabilityZones: func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+		availabilityZones: func(ctx context.Context) (network.AvailabilityZones, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", false}
 			z2 := &mockAvailabilityZone{"z2", true}
@@ -341,7 +341,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *gc.C) {
 		deriveAvailabilityZones: func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+		availabilityZones: func(ctx context.Context) (network.AvailabilityZones, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", true}
 			z2 := &mockAvailabilityZone{"z2", true}
@@ -386,7 +386,7 @@ func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *gc.C) {
 		deriveAvailabilityZones: func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+		availabilityZones: func(ctx context.Context) (network.AvailabilityZones, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", true}
 			z2 := &mockAvailabilityZone{"z2", true}
@@ -431,7 +431,7 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 		deriveAvailabilityZones: func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+		availabilityZones: func(ctx context.Context) (network.AvailabilityZones, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
 			z1 := &mockAvailabilityZone{"z1", true}
 			return network.AvailabilityZones{z0, z1}, nil
@@ -469,7 +469,7 @@ func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *gc.C) {
 		deriveAvailabilityZones: func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
 			return nil, nil
 		},
-		availabilityZones: func(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+		availabilityZones: func(ctx context.Context) (network.AvailabilityZones, error) {
 			z0 := &mockAvailabilityZone{"z0", false}
 			return network.AvailabilityZones{z0}, nil
 		},
@@ -574,7 +574,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		startInstance: startInstance,
 		config:        getConfig,
 		setConfig:     setConfig,
-		instances: func(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+		instances: func(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 			instancesMu.Lock()
 			defer instancesMu.Unlock()
 			return []instances.Instance{inst}, nil
@@ -671,7 +671,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	env := &mockEnviron{
 		startInstance: startInstance,
 		config:        configGetter(c),
-		instances: func(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+		instances: func(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 			instancesMu.Lock()
 			defer instancesMu.Unlock()
 			return []instances.Instance{inst}, nil

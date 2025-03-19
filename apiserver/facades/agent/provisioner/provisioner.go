@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -33,7 +32,6 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/network/containerizer"
 	"github.com/juju/juju/internal/ssh"
@@ -60,26 +58,25 @@ type ProvisionerAPI struct {
 	*common.ToolsGetter
 	*networkingcommon.NetworkConfigAPI
 
-	networkService              NetworkService
-	st                          *state.State
-	controllerConfigService     ControllerConfigService
-	cloudImageMetadataService   CloudImageMetadataService
-	agentProvisionerService     AgentProvisionerService
-	keyUpdaterService           KeyUpdaterService
-	modelConfigService          ModelConfigService
-	modelInfoService            ModelInfoService
-	machineService              MachineService
-	applicationService          ApplicationService
-	resources                   facade.Resources
-	authorizer                  facade.Authorizer
-	storageProviderRegistry     storage.ProviderRegistry
-	storagePoolGetter           StoragePoolGetter
-	configGetter                environs.EnvironConfigGetter
-	getAuthFunc                 common.GetAuthFunc
-	getCanModify                common.GetAuthFunc
-	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
-	toolsFinder                 common.ToolsFinder
-	logger                      logger.Logger
+	networkService            NetworkService
+	st                        *state.State
+	controllerConfigService   ControllerConfigService
+	cloudImageMetadataService CloudImageMetadataService
+	agentProvisionerService   AgentProvisionerService
+	keyUpdaterService         KeyUpdaterService
+	modelConfigService        ModelConfigService
+	modelInfoService          ModelInfoService
+	machineService            MachineService
+	applicationService        ApplicationService
+	resources                 facade.Resources
+	authorizer                facade.Authorizer
+	storageProviderRegistry   storage.ProviderRegistry
+	storagePoolGetter         StoragePoolGetter
+	configGetter              environs.EnvironConfigGetter
+	getAuthFunc               common.GetAuthFunc
+	getCanModify              common.GetAuthFunc
+	toolsFinder               common.ToolsFinder
+	logger                    logger.Logger
 
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
@@ -189,27 +186,26 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 			domainServices.ControllerConfig(),
 			domainServices.ExternalController(),
 		),
-		NetworkConfigAPI:            netConfigAPI,
-		networkService:              ctx.DomainServices().Network(),
-		st:                          st,
-		controllerConfigService:     domainServices.ControllerConfig(),
-		agentProvisionerService:     domainServices.AgentProvisioner(),
-		cloudImageMetadataService:   domainServices.CloudImageMetadata(),
-		keyUpdaterService:           domainServices.KeyUpdater(),
-		modelConfigService:          domainServices.Config(),
-		modelInfoService:            modelInfoService,
-		machineService:              domainServices.Machine(),
-		applicationService:          domainServices.Application(),
-		resources:                   resources,
-		authorizer:                  authorizer,
-		configGetter:                configGetter,
-		storageProviderRegistry:     storageProviderRegistry,
-		storagePoolGetter:           domainServices.Storage(),
-		getAuthFunc:                 getAuthFunc,
-		getCanModify:                getCanModify,
-		credentialInvalidatorGetter: credentialcommon.CredentialInvalidatorGetter(ctx),
-		controllerUUID:              ctx.ControllerUUID(),
-		logger:                      ctx.Logger().Child("provisioner"),
+		NetworkConfigAPI:          netConfigAPI,
+		networkService:            ctx.DomainServices().Network(),
+		st:                        st,
+		controllerConfigService:   domainServices.ControllerConfig(),
+		agentProvisionerService:   domainServices.AgentProvisioner(),
+		cloudImageMetadataService: domainServices.CloudImageMetadata(),
+		keyUpdaterService:         domainServices.KeyUpdater(),
+		modelConfigService:        domainServices.Config(),
+		modelInfoService:          modelInfoService,
+		machineService:            domainServices.Machine(),
+		applicationService:        domainServices.Application(),
+		resources:                 resources,
+		authorizer:                authorizer,
+		configGetter:              configGetter,
+		storageProviderRegistry:   storageProviderRegistry,
+		storagePoolGetter:         domainServices.Storage(),
+		getAuthFunc:               getAuthFunc,
+		getCanModify:              getCanModify,
+		controllerUUID:            ctx.ControllerUUID(),
+		logger:                    ctx.Logger().Child("provisioner"),
 	}
 	if isCaasModel {
 		return api, nil
@@ -917,7 +913,7 @@ type perContainerHandler interface {
 	// into ServerError and handed to SetError
 	ProcessOneContainer(
 		ctx context.Context,
-		env environs.Environ, callContext envcontext.ProviderCallContext,
+		env environs.Environ,
 		policy BridgePolicy, idx int, host, guest Machine,
 		hostInstanceID, guestInstanceID instance.Id,
 		allSubnets network.SubnetInfos,
@@ -968,12 +964,6 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		return errors.Trace(err)
 	}
 
-	invalidatorFunc, err := api.credentialInvalidatorGetter()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-
 	allSubnets, err := api.networkService.GetAllSubnets(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -1003,7 +993,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		}
 		if err := handler.ProcessOneContainer(
 			ctx,
-			env, callCtx, policy, i,
+			env, policy, i,
 			NewMachine(hostMachine),
 			NewMachine(guest),
 			hostInstanceID,
@@ -1036,7 +1026,7 @@ func (h *prepareOrGetHandler) ConfigType() string {
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (h *prepareOrGetHandler) ProcessOneContainer(
 	ctx context.Context,
-	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy,
+	env environs.Environ, policy BridgePolicy,
 	idx int, host, guest Machine, hostInstanceID, guestInstanceID instance.Id, _ network.SubnetInfos,
 ) error {
 	if h.maintain {
@@ -1056,7 +1046,7 @@ func (h *prepareOrGetHandler) ProcessOneContainer(
 		return errors.Trace(err)
 	}
 	if !hostIsManual {
-		askProviderForAddress = environs.SupportsContainerAddresses(callContext, env)
+		askProviderForAddress = environs.SupportsContainerAddresses(ctx, env)
 	}
 
 	preparedInfo, err := policy.PopulateContainerLinkLayerDevices(host, guest, askProviderForAddress)
@@ -1069,7 +1059,7 @@ func (h *prepareOrGetHandler) ProcessOneContainer(
 		// supportContainerAddresses already checks that we can cast to an environ.Networking
 		networking := env.(environs.Networking)
 		allocatedInfo, err = networking.AllocateContainerAddresses(
-			callContext, hostInstanceID, guest.MachineTag(), preparedInfo)
+			ctx, hostInstanceID, guest.MachineTag(), preparedInfo)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1133,10 +1123,10 @@ type hostChangesHandler struct {
 	result params.HostNetworkChangeResults
 }
 
-// Implements perContainerHandler.ProcessOneContainer
+// ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (h *hostChangesHandler) ProcessOneContainer(
-	ctx context.Context,
-	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy,
+	_ context.Context,
+	_ environs.Environ, policy BridgePolicy,
 	idx int, host, guest Machine, _, _ instance.Id, allSubnets network.SubnetInfos,
 ) error {
 	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
@@ -1189,10 +1179,10 @@ type containerProfileHandler struct {
 	logger             logger.Logger
 }
 
-// Implements perContainerHandler.ProcessOneContainer
+// ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (h *containerProfileHandler) ProcessOneContainer(
 	ctx context.Context,
-	_ environs.Environ, _ envcontext.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, _, _ instance.Id, _ network.SubnetInfos,
+	_ environs.Environ, _ BridgePolicy, idx int, _, guest Machine, _, _ instance.Id, _ network.SubnetInfos,
 ) error {
 	units, err := guest.Units()
 	if err != nil {

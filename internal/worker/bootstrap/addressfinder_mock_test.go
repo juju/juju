@@ -10,10 +10,10 @@
 package bootstrap
 
 import (
+	context "context"
 	reflect "reflect"
 
 	instance "github.com/juju/juju/core/instance"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,7 +42,7 @@ func (m *MockInstanceLister) EXPECT() *MockInstanceListerMockRecorder {
 }
 
 // Instances mocks base method.
-func (m *MockInstanceLister) Instances(arg0 envcontext.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
+func (m *MockInstanceLister) Instances(arg0 context.Context, arg1 []instance.Id) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -69,13 +69,13 @@ func (c *MockInstanceListerInstancesCall) Return(arg0 []instances.Instance, arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInstanceListerInstancesCall) Do(f func(envcontext.ProviderCallContext, []instance.Id) ([]instances.Instance, error)) *MockInstanceListerInstancesCall {
+func (c *MockInstanceListerInstancesCall) Do(f func(context.Context, []instance.Id) ([]instances.Instance, error)) *MockInstanceListerInstancesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInstanceListerInstancesCall) DoAndReturn(f func(envcontext.ProviderCallContext, []instance.Id) ([]instances.Instance, error)) *MockInstanceListerInstancesCall {
+func (c *MockInstanceListerInstancesCall) DoAndReturn(f func(context.Context, []instance.Id) ([]instances.Instance, error)) *MockInstanceListerInstancesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

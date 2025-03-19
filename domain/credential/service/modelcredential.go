@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 )
 
@@ -53,7 +52,7 @@ type Machine interface {
 // CloudProvider defines methods needed from the cloud provider to perform the check.
 type CloudProvider interface {
 	// AllInstances returns all instances currently known to the cloud provider.
-	AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error)
+	AllInstances(ctx context.Context) ([]instances.Instance, error)
 }
 
 // CredentialValidationContext provides access to artefacts needed to
@@ -188,8 +187,7 @@ func checkMachineInstances(ctx context.Context, machineState MachineState, machi
 
 	// Check that we can see all machines' instances regardless of their state as perceived by the cloud, i.e.
 	// this call will return all non-terminated instances.
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-	instances, err := provider.AllInstances(callCtx)
+	instances, err := provider.AllInstances(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

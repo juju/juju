@@ -72,10 +72,10 @@ func (s *baseStorageSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.poolsInUse = []string{}
 
 	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.blockDeviceGetter,
-		s.storageService, s.storageRegistryGetter, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter,
+		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
 	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.blockDeviceGetter,
-		s.storageService, s.storageRegistryGetter, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter,
+		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
 
 	return ctrl

@@ -42,18 +42,19 @@ var (
 	NewOpenstackStorage       = &newOpenstackStorage
 )
 
-func NewCinderVolumeSource(s OpenstackStorage, env common.ZonedEnviron) storage.VolumeSource {
-	return NewCinderVolumeSourceForModel(s, testing.ModelTag.Id(), env)
+func NewCinderVolumeSource(s OpenstackStorage, env common.ZonedEnviron, invalidator common.CredentialInvalidator) storage.VolumeSource {
+	return NewCinderVolumeSourceForModel(s, testing.ModelTag.Id(), env, invalidator)
 }
 
-func NewCinderVolumeSourceForModel(s OpenstackStorage, modelUUID string, env common.ZonedEnviron) storage.VolumeSource {
+func NewCinderVolumeSourceForModel(s OpenstackStorage, modelUUID string, env common.ZonedEnviron, invalidator common.CredentialInvalidator) storage.VolumeSource {
 	const envName = "testmodel"
 	return &cinderVolumeSource{
-		storageAdaptor: s,
-		envName:        envName,
-		modelUUID:      modelUUID,
-		namespace:      fakeNamespace{},
-		zonedEnv:       env,
+		storageAdaptor:        s,
+		envName:               envName,
+		modelUUID:             modelUUID,
+		namespace:             fakeNamespace{},
+		zonedEnv:              env,
+		credentialInvalidator: invalidator,
 	}
 }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -75,7 +74,6 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 			ModelTag:   names.NewModelTag(model.UUID.String()),
 			Authorizer: ctx.Auth(),
 		},
-		credentialcommon.CredentialInvalidatorGetter(ctx),
 		ctx.Resources(),
 		leadership,
 		logger,

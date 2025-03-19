@@ -11,8 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/environs/envcontext"
 )
 
 type fetchInstanceClientFunc func(context.Context, *ec2.DescribeInstanceTypesInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypesOutput, error)
@@ -55,7 +53,7 @@ func (s *instanceSuite) TestFetchInstanceTypeInfoPagnation(c *gc.C) {
 	}
 
 	res, err := FetchInstanceTypeInfo(
-		envcontext.WithoutCredentialInvalidator(context.Background()),
+		context.Background(),
 		fetchInstanceClientFunc(client),
 	)
 	c.Assert(err, jc.ErrorIsNil)

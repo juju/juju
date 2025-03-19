@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/simplestreams"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
@@ -65,7 +64,7 @@ func (p environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
+func (p environProvider) Ping(_ context.Context, _ string) error {
 	return errors.NotImplementedf("Ping")
 }
 

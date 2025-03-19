@@ -392,7 +392,7 @@ type StubZonedEnviron struct {
 
 var _ providercommon.ZonedEnviron = (*StubZonedEnviron)(nil)
 
-func (se *StubZonedEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+func (se *StubZonedEnviron) AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
 	se.MethodCall(se, "AvailabilityZones", ctx)
 	if err := se.NextErr(); err != nil {
 		return nil, err
@@ -480,7 +480,7 @@ func (se *StubZonedNetworkingEnviron) Subnets(
 	return ProviderInstance.Subnets, nil
 }
 
-func (se *StubZonedNetworkingEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+func (se *StubZonedNetworkingEnviron) AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
 	se.MethodCall(se, "AvailabilityZones", ctx)
 	if err := se.NextErr(); err != nil {
 		return nil, err

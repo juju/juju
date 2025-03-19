@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes"
 	providerstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/environs"
-	environscontext "github.com/juju/juju/environs/envcontext"
 )
 
 // newLabelRequirements creates a list of k8s node label requirements.
@@ -101,7 +100,7 @@ func toCaaSStorageProvisioner(sc *storagev1.StorageClass) *kubernetes.StoragePro
 // ValidateCloudEndpoint returns nil if the current model can talk to the kubernetes
 // endpoint.  Used as validation during model upgrades.
 // Implements environs.CloudEndpointChecker
-func (k *kubernetesClient) ValidateCloudEndpoint(ctx environscontext.ProviderCallContext) error {
+func (k *kubernetesClient) ValidateCloudEndpoint(ctx context.Context) error {
 	_, err := k.GetClusterMetadata(ctx, "")
 	return errors.Trace(err)
 }

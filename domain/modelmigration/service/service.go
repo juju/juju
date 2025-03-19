@@ -20,7 +20,7 @@ import (
 // InstanceProvider describes the interface that is needed from the cloud provider to
 // implement the model migration service.
 type InstanceProvider interface {
-	AllInstances(envcontext.ProviderCallContext) ([]instances.Instance, error)
+	AllInstances(context.Context) ([]instances.Instance, error)
 }
 
 // ResourceProvider describes a provider for managing cloud resources on behalf
@@ -140,7 +140,7 @@ func (s *Service) CheckMachines(
 		return nil, nil
 	}
 
-	providerInstances, err := provider.AllInstances(envcontext.WithoutCredentialInvalidator(ctx))
+	providerInstances, err := provider.AllInstances(ctx)
 	if err != nil {
 		return nil, errors.Errorf(
 			"cannot get all provider instances for model when checking machines: %w",

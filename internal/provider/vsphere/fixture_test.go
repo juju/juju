@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/vsphere"
 	"github.com/juju/juju/internal/provider/vsphere/internal/ovatest"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -42,12 +43,19 @@ func (s *ProviderFixture) SetUpTest(c *gc.C) {
 	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
+type credentialInvalidator func(ctx context.Context, reason environs.CredentialInvalidReason) error
+
+func (c credentialInvalidator) InvalidateCredentials(ctx context.Context, reason environs.CredentialInvalidReason) error {
+	return c(ctx, reason)
+}
+
 type EnvironFixture struct {
 	ProviderFixture
 	imageServer         *httptest.Server
 	imageServerRequests []*http.Request
 	env                 environs.Environ
 	callCtx             envcontext.ProviderCallContext
+	invalidator         credentialInvalidator
 }
 
 func (s *EnvironFixture) SetUpTest(c *gc.C) {
@@ -59,12 +67,17 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 		s.imageServer.Close()
 	})
 
+	s.invalidator = func(ctx context.Context, reason environs.CredentialInvalidReason) error {
+		s.ProviderFixture.client.invalid = true
+		s.ProviderFixture.client.invalidReason = string(reason)
+		return nil
+	}
 	env, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServer.URL,
 		}),
-	}, environs.NoopCredentialInvalidator())
+	}, common.NewCredentialInvalidator(s.invalidator, vsphere.IsAuthorisationFailure))
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 
@@ -138,12 +151,8 @@ func AssertInvalidatesCredential(c *gc.C, client *mockClient, f func(envcontext.
 			Fault types.AnyType `xml:",any,typeattr"`
 		}{Fault: types.NoPermission{}},
 	}), errors.New("find folder failed"))
-	var called bool
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
-		called = true
-		return nil
-	})
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	err := f(ctx)
 	c.Assert(err, gc.ErrorMatches, ".*ServerFaultCode: No way José$")
-	c.Assert(called, gc.Equals, true)
+	c.Assert(client.invalid, jc.IsTrue)
 }

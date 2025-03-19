@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 	"github.com/juju/juju/internal/provider/common"
@@ -150,7 +149,7 @@ func (p azureEnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p azureEnvironProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
+func (p azureEnvironProvider) Ping(_ context.Context, _ string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -176,7 +175,7 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 // verify the configured credentials. If verification fails, a user-friendly
 // error will be returned, and the original error will be logged at debug
 // level.
-var verifyCredentials = func(e *azureEnviron, ctx envcontext.ProviderCallContext) error {
+var verifyCredentials = func(e *azureEnviron, ctx context.Context) error {
 	// This is used at bootstrap - the ctx invalid credential callback will log
 	// a suitable message.
 	_, err := e.credential.GetToken(ctx, policy.TokenRequestOptions{

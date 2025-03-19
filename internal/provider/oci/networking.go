@@ -18,9 +18,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	envcontext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
-	providerCommon "github.com/juju/juju/internal/provider/oci/common"
 )
 
 const (
@@ -393,14 +392,12 @@ func (e *Environ) ensureSubnets(
 ) (map[string][]ociCore.Subnet, error) {
 	az, err := e.AvailabilityZones(ctx)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
-		return nil, errors.Trace(err)
+		return nil, e.HandleCredentialError(ctx, err)
 	}
 
 	allSubnets, err := e.allSubnets(ctx, controllerUUID, modelUUID, vcn.Id)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
-		return nil, errors.Trace(err)
+		return nil, e.HandleCredentialError(ctx, err)
 	}
 	existingCidrBlocks := map[string]bool{}
 	missing := map[string]bool{}
@@ -422,14 +419,12 @@ func (e *Environ) ensureSubnets(
 		for ad := range missing {
 			newIPNet, err := e.getFreeSubnet(existingCidrBlocks)
 			if err != nil {
-				providerCommon.HandleCredentialError(err, ctx)
-				return nil, errors.Trace(err)
+				return nil, e.HandleCredentialError(ctx, err)
 			}
 			newSubnet, err := e.createSubnet(
 				controllerUUID, modelUUID, ad, newIPNet, vcn.Id, []string{*secList.Id}, routeTableId)
 			if err != nil {
-				providerCommon.HandleCredentialError(err, ctx)
-				return nil, errors.Trace(err)
+				return nil, e.HandleCredentialError(ctx, err)
 			}
 			allSubnets[ad] = []ociCore.Subnet{
 				newSubnet,
@@ -927,8 +922,7 @@ func (e *Environ) Subnets(
 
 	allSubnets, err := e.allSubnetsAsMap(e.Config().UUID())
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
-		return nil, errors.Trace(err)
+		return nil, e.HandleCredentialError(ctx, err)
 	}
 	hasSubnetList := false
 	if len(subIdSet) > 0 {
@@ -937,14 +931,12 @@ func (e *Environ) Subnets(
 	if id != instance.UnknownId {
 		oInst, err := e.getOCIInstance(ctx, id)
 		if err != nil {
-			providerCommon.HandleCredentialError(err, ctx)
-			return nil, errors.Trace(err)
+			return nil, e.HandleCredentialError(ctx, err)
 		}
 
 		vnics, err := oInst.getVnics()
 		if err != nil {
-			providerCommon.HandleCredentialError(err, ctx)
-			return nil, errors.Trace(err)
+			return nil, e.HandleCredentialError(ctx, err)
 		}
 		for _, nic := range vnics {
 			if nic.Vnic.SubnetId == nil {
@@ -1029,20 +1021,17 @@ func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContext, instId instance.Id) (network.InterfaceInfos, error) {
 	oInst, err := e.getOCIInstance(ctx, instId)
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
-		return nil, errors.Trace(err)
+		return nil, e.HandleCredentialError(ctx, err)
 	}
 
 	info := network.InterfaceInfos{}
 	vnics, err := oInst.getVnics()
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
-		return nil, errors.Trace(err)
+		return nil, e.HandleCredentialError(ctx, err)
 	}
 	subnets, err := e.allSubnetsAsMap(e.Config().UUID())
 	if err != nil {
-		providerCommon.HandleCredentialError(err, ctx)
-		return nil, errors.Trace(err)
+		return nil, e.HandleCredentialError(ctx, err)
 	}
 	for _, iface := range vnics {
 		if iface.Vnic.Id == nil || iface.Vnic.MacAddress == nil || iface.Vnic.SubnetId == nil {

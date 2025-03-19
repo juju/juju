@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 )
 
@@ -66,7 +65,7 @@ func (p ManualProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p ManualProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
+func (p ManualProvider) Ping(_ context.Context, endpoint string) error {
 	if p.ping != nil {
 		return p.ping(endpoint)
 	}

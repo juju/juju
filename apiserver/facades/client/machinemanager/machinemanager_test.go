@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	instance "github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -94,7 +94,6 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		common.NewResources(),
 		nil,
 		loggertesting.WrapCheckLog(c),
@@ -250,7 +249,6 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		nil,
 		nil,
 		s.leadership,
 		loggertesting.WrapCheckLog(c),
@@ -783,7 +781,6 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller
 		ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		common.NewResources(),
 		nil,
 		loggertesting.WrapCheckLog(c),

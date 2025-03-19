@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/configschema"
 )
 
@@ -42,7 +41,7 @@ func (environProvider) Open(ctx context.Context, args environs.OpenParams, inval
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	env, err := newEnviron(ctx, args.Cloud, args.Config)
+	env, err := newEnviron(ctx, args.Cloud, args.Config, invalidator)
 	return env, errors.Trace(err)
 }
 
@@ -53,7 +52,7 @@ func (p environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
+func (p environProvider) Ping(_ context.Context, _ string) error {
 	return errors.NotImplementedf("Ping")
 }
 

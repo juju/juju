@@ -4,14 +4,12 @@
 package vsphere
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-
-	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/internal/provider/common"
 )
 
 const (
@@ -45,20 +43,21 @@ func IsAuthorisationFailure(err error) bool {
 	return strings.Contains(fault.String, loginErrorFragment)
 }
 
-// HandleCredentialError marks the current credential as invalid if
+// handleCredentialError marks the current credential as invalid if
 // the passed vsphere error indicates it should be.
-func HandleCredentialError(err error, env *sessionEnviron, ctx envcontext.ProviderCallContext) {
+func (env *sessionEnviron) handleCredentialError(ctx context.Context, err error) error {
 	if err == nil {
-		return
+		return nil
 	}
 	// LP #1849194: fell into a situation where we can either have an invalid
 	// credential OR user issued a VM spec that has no rights to, e.g. on a
 	// Resource Pool that it has no permissions on using "zone" on add-machine.
 	// To discover if the credentials are valid, run a command that MUST return
 	// OK: find folder defined on vm-folder credentials
-	_, errfind := env.client.FindFolder(env.ctx, env.getVMFolder())
-	if errfind != nil {
+	_, errFind := env.client.FindFolder(env.ctx, env.getVMFolder())
+	if errFind != nil {
 		// This is a credential issue. Now, move to mark credentials as invalid
-		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return env.HandleCredentialError(ctx, err)
 	}
+	return err
 }

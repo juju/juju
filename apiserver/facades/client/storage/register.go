@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -45,5 +44,5 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 		stateShim{st}, model.Type(),
 		storageAccessor, domainServices.BlockDevice(), storageService,
 		storageService.GetStorageRegistry, authorizer,
-		credentialcommon.CredentialInvalidatorGetter(ctx), domainServices.BlockCommand()), nil
+		domainServices.BlockCommand()), nil
 }

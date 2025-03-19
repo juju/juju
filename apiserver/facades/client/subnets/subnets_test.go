@@ -89,7 +89,7 @@ func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 	s.mockNetworkService = subnets.NewMockNetworkService(ctrl)
 
 	var err error
-	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, apiservertesting.NoopModelCredentialInvalidatorGetter, s.mockResource, s.mockAuthorizer, loggertesting.WrapCheckLog(c), s.mockNetworkService)
+	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, s.mockResource, s.mockAuthorizer, loggertesting.WrapCheckLog(c), s.mockNetworkService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -124,7 +124,6 @@ func (s *SubnetsSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	var err error
 	s.facade, err = subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},
-		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
@@ -178,7 +177,6 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
 	facade, err := subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},
-		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
@@ -194,7 +192,6 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},
-		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources,
 		agentAuthorizer,
 		loggertesting.WrapCheckLog(c),

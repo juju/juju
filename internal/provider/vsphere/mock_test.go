@@ -43,6 +43,8 @@ type mockClient struct {
 	datastores              []mo.Datastore
 	vmFolder                *object.Folder
 	hasPrivilege            bool
+	invalid                 bool
+	invalidReason           string
 }
 
 type mockTemplateVM struct {

@@ -18,7 +18,6 @@ import (
 	environs "github.com/juju/juju/environs"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -200,7 +199,7 @@ func (c *MockTestCloudProviderFinalizeCredentialCall) DoAndReturn(f func(environ
 }
 
 // Ping mocks base method.
-func (m *MockTestCloudProvider) Ping(arg0 envcontext.ProviderCallContext, arg1 string) error {
+func (m *MockTestCloudProvider) Ping(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Ping", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -226,13 +225,13 @@ func (c *MockTestCloudProviderPingCall) Return(arg0 error) *MockTestCloudProvide
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockTestCloudProviderPingCall) Do(f func(envcontext.ProviderCallContext, string) error) *MockTestCloudProviderPingCall {
+func (c *MockTestCloudProviderPingCall) Do(f func(context.Context, string) error) *MockTestCloudProviderPingCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockTestCloudProviderPingCall) DoAndReturn(f func(envcontext.ProviderCallContext, string) error) *MockTestCloudProviderPingCall {
+func (c *MockTestCloudProviderPingCall) DoAndReturn(f func(context.Context, string) error) *MockTestCloudProviderPingCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

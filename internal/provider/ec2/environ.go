@@ -334,7 +334,7 @@ func (z *ec2AvailabilityZone) Available() bool {
 
 // AvailabilityZones returns a slice of availability zones
 // for the configured region.
-func (e *environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+func (e *environ) AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
 	filter := makeFilter("region-name", e.cloud.Region)
 	resp, err := ec2AvailabilityZones(e.ec2Client, ctx, &ec2.DescribeAvailabilityZonesInput{
 		Filters: []types.Filter{filter},
@@ -1260,7 +1260,7 @@ func isNotFoundError(err error) bool {
 }
 
 // Instances is part of the environs.Environ interface.
-func (e *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (e *environ) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -1764,7 +1764,7 @@ func (e *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerU
 }
 
 // AllInstances is part of the environs.InstanceBroker interface.
-func (e *environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (e *environ) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	// We want to return everything we find here except for instances that are
 	// "shutting-down" - they are on the way to be terminated - or already "terminated".
 	// From https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
@@ -1772,13 +1772,13 @@ func (e *environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.
 }
 
 // AllRunningInstances is part of the environs.InstanceBroker interface.
-func (e *environ) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (e *environ) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
 	return e.allInstancesByState(ctx, aliveInstanceStates...)
 }
 
 // allInstancesByState returns all instances in the environment
 // with one of the specified instance states.
-func (e *environ) allInstancesByState(ctx envcontext.ProviderCallContext, states ...string) ([]instances.Instance, error) {
+func (e *environ) allInstancesByState(ctx context.Context, states ...string) ([]instances.Instance, error) {
 	filters := []types.Filter{
 		makeFilter("instance-state-name", states...),
 		makeModelFilter(e.uuid()),
@@ -1836,7 +1836,7 @@ func (e *environ) allInstanceIDs(ctx envcontext.ProviderCallContext, filters []t
 	return ids, nil
 }
 
-func (e *environ) allInstances(ctx envcontext.ProviderCallContext, filters []types.Filter) ([]instances.Instance, error) {
+func (e *environ) allInstances(ctx context.Context, filters []types.Filter) ([]instances.Instance, error) {
 	resp, err := e.ec2Client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
 		Filters: filters,
 	})

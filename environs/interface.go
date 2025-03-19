@@ -50,7 +50,7 @@ type EnvironProvider interface {
 	CloudSchema() *jsonschema.Schema
 
 	// Ping tests the connection to the cloud, to verify the endpoint is valid.
-	Ping(ctx envcontext.ProviderCallContext, endpoint string) error
+	Ping(ctx context.Context, endpoint string) error
 
 	// ValidateCloud returns an error if the supplied cloud spec is not
 	// valid for use by the provider. This is called for the controller
@@ -460,7 +460,7 @@ type InstanceLister interface {
 	// some but not all the instances were found, the returned slice
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
-	Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
+	Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error)
 }
 
 // PrecheckInstanceParams contains the parameters for
@@ -530,7 +530,7 @@ type InstanceTagger interface {
 // InstanceTypesFetcher is an interface that allows for instance information from
 // a provider to be obtained.
 type InstanceTypesFetcher interface {
-	InstanceTypes(envcontext.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error)
+	InstanceTypes(context.Context, constraints.Value) (instances.InstanceTypesWithCostMetadata, error)
 }
 
 // Upgrader is an interface that can be used for upgrading Environs. If an
@@ -651,7 +651,7 @@ type SupportedFeatureEnumerator interface {
 // CloudEndpointChecker.
 type CheckProvider interface {
 	// AllInstances returns all instances currently known to the broker.
-	AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error)
+	AllInstances(ctx context.Context) ([]instances.Instance, error)
 }
 
 // CloudEndpointChecker defines a method for cloud endpoint validation.
@@ -662,5 +662,5 @@ type CheckProvider interface {
 type CloudEndpointChecker interface {
 	// ValidateCloudEndpoint validates connectivity with the cloud's
 	// endpoint and returns nil if no problems.
-	ValidateCloudEndpoint(ctx envcontext.ProviderCallContext) error
+	ValidateCloudEndpoint(ctx context.Context) error
 }

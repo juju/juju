@@ -207,7 +207,7 @@ func (env *environ) newRawInstance(
 		// We currently treat all AddInstance failures
 		// as being zone-specific, so we'll retry in
 		// another zone.
-		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 
 	return inst, nil
@@ -291,7 +291,7 @@ func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, ins
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *environ) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	// We want all statuses here except for "terminated" - these instances are truly dead to us.
 	// According to https://cloud.google.com/compute/docs/instances/instance-life-cycle
 	// there are now only "provisioning", "staging", "running", "stopping" and "terminated" states.
@@ -311,7 +311,7 @@ func (env *environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instance
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
-func (env *environ) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *environ) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
 	instances, err := getInstances(env, ctx)
 	return instances, errors.Trace(err)
 }
@@ -325,5 +325,5 @@ func (env *environ) StopInstances(ctx envcontext.ProviderCallContext, instances 
 
 	prefix := env.namespace.Prefix()
 	err := env.gce.RemoveInstances(prefix, ids...)
-	return google.HandleCredentialError(errors.Trace(err), ctx)
+	return env.HandleCredentialError(ctx, err)
 }

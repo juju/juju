@@ -119,7 +119,7 @@ func (s *modelUpgradeSuite) newFacade(c *gc.C) *modelupgrader.ModelUpgraderAPI {
 		func(ctx context.Context) (environs.BootstrapEnviron, error) {
 			return s.bootstrapEnviron, nil
 		},
-		s.blockChecker, s.authoriser, apiservertesting.NoopModelCredentialInvalidatorGetter,
+		s.blockChecker, s.authoriser,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return s.registryProvider, nil
 		},

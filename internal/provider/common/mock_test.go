@@ -20,8 +20,8 @@ import (
 	jujustorage "github.com/juju/juju/internal/storage"
 )
 
-type allInstancesFunc func(envcontext.ProviderCallContext) ([]instances.Instance, error)
-type instancesFunc func(envcontext.ProviderCallContext, []instance.Id) ([]instances.Instance, error)
+type allInstancesFunc func(ctx context.Context) ([]instances.Instance, error)
+type instancesFunc func(context.Context, []instance.Id) ([]instances.Instance, error)
 type startInstanceFunc func(envcontext.ProviderCallContext, environs.StartInstanceParams) (instances.Instance, *instance.HardwareCharacteristics, network.InterfaceInfos, error)
 type stopInstancesFunc func(envcontext.ProviderCallContext, []instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
@@ -46,15 +46,15 @@ func (env *mockEnviron) Storage() storage.Storage {
 	return env.storage
 }
 
-func (env *mockEnviron) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *mockEnviron) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	return env.allInstances(ctx)
 }
 
-func (env *mockEnviron) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *mockEnviron) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
 	return env.allInstances(ctx)
 }
 
-func (env *mockEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (env *mockEnviron) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 	return env.instances(ctx, ids)
 }
 
@@ -114,7 +114,7 @@ func (env *mockEnviron) ModelIngressRules(_ envcontext.ProviderCallContext) (fir
 	return nil, fmt.Errorf("mock method not implemented")
 }
 
-type availabilityZonesFunc func(envcontext.ProviderCallContext) (network.AvailabilityZones, error)
+type availabilityZonesFunc func(ctx context.Context) (network.AvailabilityZones, error)
 type instanceAvailabilityZoneNamesFunc func(envcontext.ProviderCallContext, []instance.Id) (map[instance.Id]string, error)
 type deriveAvailabilityZonesFunc func(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error)
 
@@ -125,7 +125,7 @@ type mockZonedEnviron struct {
 	deriveAvailabilityZones       deriveAvailabilityZonesFunc
 }
 
-func (env *mockZonedEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+func (env *mockZonedEnviron) AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
 	return env.availabilityZones(ctx)
 }
 

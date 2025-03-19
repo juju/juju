@@ -110,6 +110,12 @@ func MakeTestCredential() cloud.Credential {
 	)
 }
 
+type credentialInvalidator func(ctx context.Context, reason environs.CredentialInvalidReason) error
+
+func (c credentialInvalidator) InvalidateCredentials(ctx context.Context, reason environs.CredentialInvalidReason) error {
+	return c(ctx, reason)
+}
+
 type BaseSuiteUnpatched struct {
 	jujutesting.IsolationSuite
 
@@ -128,6 +134,9 @@ type BaseSuiteUnpatched struct {
 	InstanceType   instances.InstanceType
 
 	Rules firewall.IngressRules
+
+	credentialInvalidator  credentialInvalidator
+	InvalidatedCredentials bool
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -141,6 +150,16 @@ func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.initEnv(c)
 	s.initInst(c)
 	s.initNet(c)
+
+	s.credentialInvalidator = func(ctx context.Context, reason environs.CredentialInvalidReason) error {
+		s.InvalidatedCredentials = true
+		return nil
+	}
+}
+
+func (s *BaseSuiteUnpatched) TearDownTest(c *gc.C) {
+	s.IsolationSuite.TearDownTest(c)
+	s.InvalidatedCredentials = false
 }
 
 func (s *BaseSuiteUnpatched) Prefix() string {
@@ -149,8 +168,9 @@ func (s *BaseSuiteUnpatched) Prefix() string {
 
 func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 	s.Env = &environ{
-		name:  "google",
-		cloud: MakeTestCloudSpec(),
+		CredentialInvalidator: common.NewCredentialInvalidator(s.credentialInvalidator, google.IsAuthorisationFailure),
+		name:                  "google",
+		cloud:                 MakeTestCloudSpec(),
 	}
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(c, cfg)
@@ -314,8 +334,7 @@ type BaseSuite struct {
 	FakeCommon  *fakeCommon
 	FakeEnviron *fakeEnviron
 
-	CallCtx                envcontext.ProviderCallContext
-	InvalidatedCredentials bool
+	CallCtx envcontext.ProviderCallContext
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -338,15 +357,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
 	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
 
-	s.CallCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
-		s.InvalidatedCredentials = true
-		return nil
-	})
-}
-
-func (s *BaseSuite) TearDownTest(c *gc.C) {
-	s.BaseSuiteUnpatched.TearDownTest(c)
-	s.InvalidatedCredentials = false
+	s.CallCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
@@ -427,7 +438,7 @@ type fakeEnviron struct {
 	Spec  *instances.InstanceSpec
 }
 
-func (fe *fakeEnviron) GetInstances(env *environ, ctx envcontext.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
+func (fe *fakeEnviron) GetInstances(env *environ, ctx context.Context, statusFilters ...string) ([]instances.Instance, error) {
 	fe.addCall("GetInstances", FakeCallArgs{
 		"switch": env,
 	})

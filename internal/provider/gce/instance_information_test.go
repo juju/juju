@@ -4,6 +4,7 @@
 package gce
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -26,7 +27,8 @@ func (s *instanceInformationSuite) TestInstanceTypesCacheExpiration(c *gc.C) {
 
 	now := time.Now()
 	clk := testclock.NewClock(now)
-	allInstTypes, err := s.Env.getAllInstanceTypes(s.CallCtx, clk)
+	ctx := context.Background()
+	allInstTypes, err := s.Env.getAllInstanceTypes(ctx, clk)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Cache miss
@@ -34,7 +36,7 @@ func (s *instanceInformationSuite) TestInstanceTypesCacheExpiration(c *gc.C) {
 	c.Assert(cacheExpAt.After(now), jc.IsTrue, gc.Commentf("expected a cache expiration time to be set"))
 
 	// Cache hit
-	cachedInstTypes, err := s.Env.getAllInstanceTypes(s.CallCtx, clk)
+	cachedInstTypes, err := s.Env.getAllInstanceTypes(ctx, clk)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allInstTypes, gc.DeepEquals, cachedInstTypes, gc.Commentf("expected to get cached instance list"))
 	c.Assert(s.Env.instCacheExpireAt, gc.Equals, cacheExpAt, gc.Commentf("expected cache expiration timestamp not to be modified"))
@@ -44,7 +46,7 @@ func (s *instanceInformationSuite) TestInstanceTypesCacheExpiration(c *gc.C) {
 	// warning but that's a false positive; we just want to advance the clock
 	// to test the cache expiry logic.
 	clk.Advance(11 * time.Minute)
-	_, err = s.Env.getAllInstanceTypes(s.CallCtx, clk)
+	_, err = s.Env.getAllInstanceTypes(ctx, clk)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.Env.instCacheExpireAt.After(cacheExpAt), jc.IsTrue, gc.Commentf("expected cache expiration to be updated"))
 	c.Assert(s.Env.instCacheExpireAt.After(clk.Now()), jc.IsTrue, gc.Commentf("expected cache expiration to be in the future"))

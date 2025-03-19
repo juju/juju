@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -797,7 +796,7 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 		Tag: names.NewUserTag("superuserfoo"),
 	}
 	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, nil,
-		s.storageService, s.storageRegistryGetter, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter,
+		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
 
 	// Sanity check before running test:
@@ -821,7 +820,7 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 		Tag: names.NewUserTag("userfoo"),
 	}
 	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, nil,
-		s.storageService, s.storageRegistryGetter, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter,
+		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
 
 	// Sanity check before running test:
@@ -842,7 +841,7 @@ type filesystemImporter struct {
 }
 
 // ImportFilesystem is part of the storage.FilesystemImporter interface.
-func (f filesystemImporter) ImportFilesystem(_ envcontext.ProviderCallContext, providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
+func (f filesystemImporter) ImportFilesystem(_ context.Context, providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
 	f.MethodCall(f, "ImportFilesystem", providerId, tags)
 	return storage.FilesystemInfo{
 		FilesystemId: providerId,
@@ -855,7 +854,7 @@ type volumeImporter struct {
 }
 
 // ImportVolume is part of the storage.VolumeImporter interface.
-func (v volumeImporter) ImportVolume(_ envcontext.ProviderCallContext, providerId string, tags map[string]string) (storage.VolumeInfo, error) {
+func (v volumeImporter) ImportVolume(_ context.Context, providerId string, tags map[string]string) (storage.VolumeInfo, error) {
 	v.MethodCall(v, "ImportVolume", providerId, tags)
 	return storage.VolumeInfo{
 		VolumeId:   providerId,

@@ -580,14 +580,9 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceLoginErrorInvalidatesCreds(c
 		Code:   "ServerFaultCode",
 		String: "You passed an incorrect user name or password, bucko.",
 	}))
-	var passedReason string
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, reason string) error {
-		passedReason = reason
-		return nil
-	})
-	_, err := s.env.StartInstance(ctx, s.createStartInstanceArgs(c))
+	_, err := s.env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
 	c.Assert(err, gc.ErrorMatches, "dialing client: ServerFaultCode: You passed an incorrect user name or password, bucko.")
-	c.Assert(passedReason, gc.Equals, "cloud denied access: ServerFaultCode: You passed an incorrect user name or password, bucko.")
+	c.Assert(s.client.invalidReason, gc.Equals, "cloud denied access: ServerFaultCode: You passed an incorrect user name or password, bucko.")
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstancePermissionError(c *gc.C) {

@@ -4,17 +4,18 @@
 package maas
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 )
 
 var _ environs.InstanceTypesFetcher = (*maasEnviron)(nil)
 
-func (env *maasEnviron) InstanceTypes(ctx envcontext.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (env *maasEnviron) InstanceTypes(ctx context.Context, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	result := instances.InstanceTypesWithCostMetadata{}
 	return result, errors.NotSupportedf("InstanceTypes")
 }

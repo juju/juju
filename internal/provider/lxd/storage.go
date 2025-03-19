@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -555,7 +556,7 @@ func (s *lxdFilesystemSource) detachFilesystem(
 
 // ImportFilesystem is part of the storage.FilesystemImporter interface.
 func (s *lxdFilesystemSource) ImportFilesystem(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	filesystemId string,
 	tags map[string]string,
 ) (storage.FilesystemInfo, error) {

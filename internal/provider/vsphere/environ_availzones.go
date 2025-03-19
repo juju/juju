@@ -4,6 +4,7 @@
 package vsphere
 
 import (
+	"context"
 	"sort"
 	"strings"
 
@@ -35,7 +36,7 @@ func (z *vmwareAvailZone) Available() bool {
 }
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (zones network.AvailabilityZones, err error) {
+func (env *environ) AvailabilityZones(ctx context.Context) (zones network.AvailabilityZones, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		zones, err = env.AvailabilityZones(ctx)
 		return err
@@ -44,7 +45,7 @@ func (env *environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (zones
 }
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+func (env *sessionEnviron) AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
 	if len(env.zones) > 0 {
 		// This is relatively expensive to compute, so cache it on the session
 		return env.zones, nil
@@ -52,8 +53,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext)
 
 	folders, err := env.client.Folders(env.ctx)
 	if err != nil {
-		HandleCredentialError(err, env, ctx)
-		return nil, errors.Trace(err)
+		return nil, env.handleCredentialError(ctx, err)
 	}
 	logger.Tracef(ctx, "host folder InventoryPath=%q, Name=%q",
 		folders.HostFolder.InventoryPath, folders.HostFolder.Name())
@@ -61,8 +61,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext)
 
 	computeResources, err := env.client.ComputeResources(env.ctx)
 	if err != nil {
-		HandleCredentialError(err, env, ctx)
-		return nil, errors.Trace(err)
+		return nil, env.handleCredentialError(ctx, err)
 	}
 	var zones network.AvailabilityZones
 	for _, cr := range computeResources {
@@ -75,8 +74,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext)
 		// resource
 		pools, err := env.client.ResourcePools(env.ctx, cr.Path+"/...")
 		if err != nil {
-			HandleCredentialError(err, env, ctx)
-			return nil, errors.Trace(err)
+			return nil, env.handleCredentialError(ctx, err)
 		}
 		for _, pool := range pools {
 			zone := &vmwareAvailZone{
