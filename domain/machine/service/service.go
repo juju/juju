@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
@@ -17,6 +18,7 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
+	interrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -95,6 +97,10 @@ type State interface {
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
 	SetMachineCloudInstance(context.Context, string, instance.Id, string, *instance.HardwareCharacteristics) error
+
+	// SetRunningAgentBinaryVersion sets the running agent version for the machine.
+	// A MachineNotFound error will be returned if the machine does not exist.
+	SetRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
 
 	// DeleteMachineCloudInstance removes an entry in the machine cloud instance
 	// table along with the instance tags and the link to a lxd profile if any.
@@ -178,6 +184,44 @@ func NewService(st State) *Service {
 	return &Service{
 		st: st,
 	}
+}
+
+// SetReportedMachineAgentVersion sets the reported agent version for the
+// supplied machine name. Reported agent version is the version that the agent
+// binary on this machine has reported it is running.
+//
+// The following errors are possible:
+// - [coreerrors.NotValid] if the reportedVersion is not valid.
+// - [coreerrors.NotSupported] if the architecture is not supported.
+// - [machineerrors.MachineNotFound] - when the machine does not exist.
+func (s *Service) SetReportedMachineAgentVersion(
+	ctx context.Context,
+	machineName machine.Name,
+	reportedVersion coreagentbinary.Version,
+) error {
+	if err := reportedVersion.Validate(); err != nil {
+		return interrors.Errorf("reported agent version %v is not valid: %w", reportedVersion, err)
+	}
+
+	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	if err != nil {
+		return interrors.Errorf(
+			"getting machine UUID for machine %q: %w",
+			machineName,
+			err,
+		)
+	}
+
+	if err := s.st.SetRunningAgentBinaryVersion(ctx, machineUUID, reportedVersion); err != nil {
+		return interrors.Errorf(
+			"setting machine %q reported agent version (%s) in state: %w",
+			machineUUID,
+			reportedVersion.Number.String(),
+			err,
+		)
+	}
+
+	return nil
 }
 
 // CreateMachine creates the specified machine.

@@ -9,15 +9,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	corearch "github.com/juju/juju/core/arch"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	cmachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -762,4 +767,102 @@ func (s *serviceSuite) TestSetLXDProfilesError(c *gc.C) {
 
 	err := NewService(s.state).SetAppliedLXDProfileNames(context.Background(), "666", []string{"profile1", "profile2"})
 	c.Check(err, jc.ErrorIs, rErr)
+}
+
+// TestSetReportedMachineAgentVersionInvalid is here to assert that if pass a
+// junk agent binary version to [Service.SetReportedMachineAgentVersion] we get
+// back an error that satisfies [coreerrors.NotValid].
+func (s *serviceSuite) TestSetReportedMachineAgentVersionInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := NewService(s.state).SetReportedMachineAgentVersion(
+		context.Background(),
+		cmachine.Name("0"),
+		coreagentbinary.Version{
+			Number: version.Zero,
+		},
+	)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestSetReportedMachineAgentVersionSuccess asserts that if we try to set the
+// reported agent version for a machine that doesn't exist we get an error
+// satisfying [machineerrors.MachineNotFound]. Because the service relied on
+// state for producing this error we need to simulate this in two different
+// locations to assert the full functionality.
+func (s *serviceSuite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// MachineNotFound error location 1.
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), cmachine.Name("0")).Return(
+		"", machineerrors.MachineNotFound,
+	)
+
+	err := NewService(s.state).SetReportedMachineAgentVersion(
+		context.Background(),
+		cmachine.Name("0"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+
+	// MachineNotFound error location 2.
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), cmachine.Name("0")).Return(
+		machineUUID.String(), nil,
+	)
+
+	s.state.EXPECT().SetRunningAgentBinaryVersion(
+		gomock.Any(),
+		machineUUID.String(),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	).Return(machineerrors.MachineNotFound)
+
+	err = NewService(s.state).SetReportedMachineAgentVersion(
+		context.Background(),
+		cmachine.Name("0"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestSetReportedMachineAgentVersion asserts the happy path of
+// [Service.SetReportedMachineAgentVersion].
+func (s *serviceSuite) TestSetReportedMachineAgentVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), cmachine.Name("0")).Return(
+		machineUUID.String(), nil,
+	)
+	s.state.EXPECT().SetRunningAgentBinaryVersion(
+		gomock.Any(),
+		machineUUID.String(),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	).Return(nil)
+
+	err = NewService(s.state).SetReportedMachineAgentVersion(
+		context.Background(),
+		cmachine.Name("0"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIsNil)
 }
