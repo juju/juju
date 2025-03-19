@@ -108,16 +108,17 @@ func (ssw *serverWrapperWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	port, _, err := ssw.getLatestControllerConfig()
+	port, maxConns, err := ssw.getLatestControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
-		Logger:               ssw.config.Logger,
-		JumpHostKey:          jumpHostKey,
-		Port:                 port,
-		NewSSHServerListener: ssw.config.NewSSHServerListener,
+		Logger:                   ssw.config.Logger,
+		JumpHostKey:              jumpHostKey,
+		Port:                     port,
+		MaxConcurrentConnections: maxConns,
+		NewSSHServerListener:     ssw.config.NewSSHServerListener,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -132,12 +133,12 @@ func (ssw *serverWrapperWorker) loop() error {
 		case <-ssw.catacomb.Dying():
 			return ssw.catacomb.ErrDying()
 		case <-controllerConfigWatcher.Changes():
-			newPort, _, err := ssw.getLatestControllerConfig()
+			newPort, newMaxConnections, err := ssw.getLatestControllerConfig()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if port == newPort {
-				ssw.config.Logger.Debugf("controller configuration changed, but SSH port is the same, ignoring")
+			if port == newPort && newMaxConnections == maxConns {
+				ssw.config.Logger.Debugf("controller configuration changed, but nothing changed for the ssh server.")
 				continue
 			}
 			return errors.New("changes detected, stopping SSH server worker")

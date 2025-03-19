@@ -150,3 +150,59 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	// from server side.
 	workertest.CleanKill(c, server)
 }
+
+func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
+	// Firstly, start the server on an in-memory listener
+	listener := bufconn.Listen(8 * 1024)
+	maxConcurrentConnections := 10
+	_, err := sshserver.NewServerWorker(sshserver.ServerWorkerConfig{
+		Logger:                   loggo.GetLogger("test"),
+		Listener:                 listener,
+		MaxConcurrentConnections: maxConcurrentConnections,
+		JumpHostKey:              jujutesting.SSHServerHostKey,
+		NewSSHServerListener:     newTestingSSHServerListener,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// the reason we repeat this test 2 times is to make sure that closing the connections on
+	// the first iteration completely resets the counter on the ssh server side.
+	for i := range 2 {
+		c.Logf("Run %d for TestSSHServerMaxConnections", i)
+		clients := make([]*ssh.Client, 0, maxConcurrentConnections)
+		config := &ssh.ClientConfig{
+			User:            "ubuntu",
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			Auth: []ssh.AuthMethod{
+				ssh.PublicKeys(s.userSigner),
+			},
+		}
+		for range maxConcurrentConnections {
+			client := inMemoryDial(c, listener, config)
+			_, err := client.Dial("tcp", "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local:20")
+			c.Assert(err, jc.ErrorIsNil)
+			clients = append(clients, client)
+		}
+		jumpServerConn, err := listener.Dial()
+		c.Assert(err, jc.ErrorIsNil)
+
+		_, _, _, err = ssh.NewClientConn(jumpServerConn, "", config)
+		c.Assert(err, gc.ErrorMatches, ".*handshake failed: EOF.*")
+
+		// close the connections
+		for _, client := range clients {
+			client.Close()
+		}
+		// check the next connection is accepted
+		client := inMemoryDial(c, listener, config)
+		client.Close()
+	}
+}
+
+// inMemoryDial returns and SSH connection that uses an in-memory transport.
+func inMemoryDial(c *gc.C, listener *bufconn.Listener, config *ssh.ClientConfig) *ssh.Client {
+	jumpServerConn, err := listener.Dial()
+	c.Assert(err, jc.ErrorIsNil)
+
+	sshConn, newChan, reqs, err := ssh.NewClientConn(jumpServerConn, "", config)
+	c.Assert(err, jc.ErrorIsNil)
+	return ssh.NewClient(sshConn, newChan, reqs)
+}

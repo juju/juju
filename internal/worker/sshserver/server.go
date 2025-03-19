@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/gliderlabs/ssh"
@@ -35,6 +36,10 @@ type ServerWorkerConfig struct {
 	// Port holds the port the server will listen on. If you provide your own
 	// listener this can be left zeroed.
 	Port int
+
+	// MaxConcurrentConnections is the maximum number of concurrent connections
+	// we accept for our ssh server.
+	MaxConcurrentConnections int
 
 	// NewSSHServerListener is a function that returns a listener and a
 	// closeAllowed channel.
@@ -74,6 +79,7 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 
 	s := &ServerWorker{config: config}
 	s.Server = &ssh.Server{
+		ConnCallback: connCallback(config.MaxConcurrentConnections, config.Logger),
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 			return true
 		},
@@ -242,4 +248,32 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 
 	server.AddHostKey(signer)
 	server.HandleConn(terminatingServerPipe)
+}
+
+// connCallback returns a connCallback function that limits the number of concurrent connections.
+func connCallback(maxConcurrentConnections int, logger Logger) ssh.ConnCallback {
+	n := atomic.Int32{}
+	return func(ctx ssh.Context, conn net.Conn) net.Conn {
+		current := n.Add(1)
+		go func() {
+			<-ctx.Done()
+			n.Add(-1)
+		}()
+		if int(current) > maxConcurrentConnections {
+			// set the deadline because we don't want to block the connection to write an error.
+			err := conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
+			if err != nil {
+				logger.Errorf("failed to set write deadline: %v", err)
+			}
+			_, err = conn.Write([]byte("too many connections.\n"))
+			if err != nil {
+				logger.Errorf("failed to write to connection: %v", err)
+			}
+			// The connection is close before returning, otherwise
+			// the context is not cancelled and the counter is not decremented.
+			conn.Close()
+			return conn
+		}
+		return conn
+	}
 }
