@@ -214,7 +214,7 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 		rSvr.EXPECT().GetImage("foo-remote-target").Return(&image, lxdtesting.ETag, nil),
 		iSvr.EXPECT().CopyImage(rSvr, image, copyReq).Return(copyOp, nil),
 		iSvr.EXPECT().GetImageAliases().Return(nil, nil),
-		iSvr.EXPECT().DeleteImageAlias("16.04/amd64").Return(nil),
+		iSvr.EXPECT().DeleteImageAlias("16.04/"+s.Arch()).Return(nil),
 	)
 
 	s.expectAlias(iSvr, "16.04/"+s.Arch(), "fingerprint")
