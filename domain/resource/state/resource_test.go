@@ -903,7 +903,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-app"
 	retrievedByType := coreresource.Application
-	droppedHash, err := s.state.RecordStoredResource(
+	err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -916,7 +916,6 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImage(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Assert(droppedHash, gc.Equals, "")
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -958,7 +957,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 	// Act: store the resource blob.
 	retrievedBy := "retrieved-by-unit"
 	retrievedByType := coreresource.Unit
-	droppedHash, err := s.state.RecordStoredResource(
+	err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -971,7 +970,6 @@ func (s *resourceSuite) TestRecordStoredResourceWithFile(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Assert(droppedHash, gc.Equals, "")
 
 	// Assert: Check that the resource has been linked to the stored blob
 	var (
@@ -1015,7 +1013,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 	initialCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
 
 	// Act: store the resource and increment the CMV.
-	_, err := s.state.RecordStoredResource(
+	err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:                  resID,
@@ -1030,7 +1028,7 @@ func (s *resourceSuite) TestRecordStoredResourceIncrementCharmModifiedVersion(c 
 
 	foundCharmModifiedVersion1 := s.getCharmModifiedVersion(c, resID.String())
 
-	_, err = s.state.RecordStoredResource(
+	err = s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:                  resID2,
@@ -1059,7 +1057,7 @@ func (s *resourceSuite) TestRecordStoredResourceDoNotIncrementCharmModifiedVersi
 	initialCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String())
 
 	// Act: store the resource.
-	_, err := s.state.RecordStoredResource(
+	err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -1083,7 +1081,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 	retrievedByType1 := coreresource.Unit
 
 	// Arrange: store the first resource.
-	droppedHash1, err := s.state.RecordStoredResource(
+	err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -1096,7 +1094,6 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Check(droppedHash1, gc.Equals, "")
 
 	storageKey2 := "storage-key-2"
 	storeID2 := resourcestoretesting.GenContainerImageMetadataResourceID(c, storageKey2)
@@ -1108,7 +1105,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add container image: %v", errors.ErrorStack(err)))
 
 	// Act: try to store a second resource.
-	droppedHash2, err := s.state.RecordStoredResource(
+	err = s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -1120,25 +1117,7 @@ func (s *resourceSuite) TestRecordStoredResourceWithContainerImageAlreadyStored(
 			RetrievedByType: retrievedByType2,
 		},
 	)
-	// Assert: Check the hash of the first blob was returned and changed to the
-	// second hash in the database.
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(droppedHash2, gc.DeepEquals, hash1)
-	var foundStoreUUID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow(`
-SELECT store_storage_key FROM resource_image_store
-WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
-	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_image_store table not updated: %v", errors.ErrorStack(err)))
-	storeID, err := storeID2.ContainerImageMetadataStoreID()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(foundStoreUUID, gc.Equals, storeID)
-
-	// Assert: Check that the retrievedBy was also updated.
-	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resID)
-	c.Check(foundRetrievedBy, gc.Equals, retrievedBy2)
-	c.Check(foundRetrievedByType, gc.Equals, retrievedByType2)
+	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceAlreadyExists)
 }
 
 func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
@@ -1148,7 +1127,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	retrievedByType1 := coreresource.Unit
 
 	// Arrange: store the first resource.
-	droppedHash1, err := s.state.RecordStoredResource(
+	err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -1161,7 +1140,6 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Assert(droppedHash1, gc.Equals, "")
 
 	objectStoreUUID2 := objectstoretesting.GenObjectStoreUUID(c)
 	storeID2 := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID2)
@@ -1173,7 +1151,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
 
 	// Act: try and store the second resource.
-	droppedHash2, err := s.state.RecordStoredResource(
+	err = s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resID,
@@ -1185,25 +1163,7 @@ func (s *resourceSuite) TestStoreWithFileResourceAlreadyStored(c *gc.C) {
 			Size:            size2,
 		},
 	)
-	// Assert: Check the hash of the first blob was returned and changed to the
-	// second hash in the database.
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(droppedHash2, gc.DeepEquals, hash1)
-	var foundStoreUUID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow(`
-SELECT store_uuid FROM resource_file_store
-WHERE resource_uuid = ?`, resID).Scan(&foundStoreUUID)
-	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) resource_file_store table not updated: %v", errors.ErrorStack(err)))
-	objectStoreUUID, err := storeID2.ObjectStoreUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(foundStoreUUID, gc.Equals, objectStoreUUID.String())
-
-	// Assert: Check that the retrievedBy was also updated.
-	foundRetrievedBy, foundRetrievedByType := s.getRetrievedByType(c, resID)
-	c.Check(foundRetrievedBy, gc.Equals, retrievedBy2)
-	c.Check(foundRetrievedByType, gc.Equals, retrievedByType2)
+	c.Assert(err, jc.ErrorIs, resourceerrors.StoredResourceAlreadyExists)
 }
 
 func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerImage(c *gc.C) {
@@ -1211,7 +1171,7 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerIm
 	resID, storeID, size, hash := s.createContainerImageResourceAndBlob(c)
 
 	// Arrange: store the first resource.
-	droppedHash1, err := s.state.RecordStoredResource(
+	err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -1222,10 +1182,9 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerIm
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Check(droppedHash1, gc.Equals, "")
 
-	// Act: try to store a second resource.
-	droppedHash2, err := s.state.RecordStoredResource(
+	// Act: try to store the same resource again.
+	err = s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -1236,9 +1195,8 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredContainerIm
 		},
 	)
 	// Assert: That when record a blob twice, the second recording does not
-	// return its own hash to drop.
+	// return an error.
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(droppedHash2, gc.Equals, "")
 }
 
 func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredFile(c *gc.C) {
@@ -1246,7 +1204,7 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredFile(c *gc.
 	resID, storeID, size, hash := s.createFileResourceAndBlob(c)
 
 	// Arrange: store the first resource.
-	droppedHash1, err := s.state.RecordStoredResource(
+	err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -1257,22 +1215,21 @@ func (s *resourceSuite) TestRecordStoredResourceSameBlobAlreadyStoredFile(c *gc.
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to execute RecordStoredResource: %v", errors.ErrorStack(err)))
-	c.Check(droppedHash1, gc.Equals, "")
 
-	// Act: try to store a second resource.
-	droppedHash2, err := s.state.RecordStoredResource(
+	// Act: try to store the same resource again.
+	err = s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
 			StorageID:    storeID,
 			ResourceType: charmresource.TypeFile,
 			SHA384:       hash,
+			Size:         size,
 		},
 	)
 	// Assert: That when record a blob twice, the second recording does not
-	// return its own hash to drop.
+	// return an error.
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(droppedHash2, gc.Equals, "")
 }
 
 func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObjectStore(c *gc.C) {
@@ -1284,7 +1241,7 @@ func (s *resourceSuite) TestRecordStoredResourceFileStoredResourceNotFoundInObje
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
 
 	// Act: try and store the resource.
-	_, err := s.state.RecordStoredResource(
+	err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -1301,7 +1258,7 @@ func (s *resourceSuite) TestRecordStoredResourceContainerImageStoredResourceNotF
 	storeID := resourcestoretesting.GenContainerImageMetadataResourceID(c, "bad-storage-key")
 
 	// Act: try and store the resource.
-	_, err := s.state.RecordStoredResource(
+	err := s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID: resID,
@@ -2269,11 +2226,10 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionFile(c *g
 		Revision:     5,
 	}
 
-	droppedHash, obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
+	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
 
-	c.Check(droppedHash, gc.Equals, expected.Fingerprint.String())
 	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
 	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
 	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), "store", 5)
@@ -2337,11 +2293,10 @@ func (s *resourceSuite) TestUpdateResourceRevisionAndDeletePriorVersionImage(c *
 		Revision:     5,
 	}
 
-	droppedHash, obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
+	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
 
-	c.Check(droppedHash, gc.Equals, expected.Fingerprint.String())
 	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
 	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
 	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), charmresource.OriginStore.String(), 5)
@@ -2388,11 +2343,10 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	})
 	c.Assert(err, jc.ErrorIs, sqlair.ErrNoRows)
 
-	droppedHash, obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
+	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
 
-	c.Check(droppedHash, gc.Equals, "")
 	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
 	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
 	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), charmresource.OriginStore.String(), 5)
@@ -2424,11 +2378,10 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	})
 	c.Check(err, gc.ErrorMatches, "sql: no rows in result set")
 
-	droppedHash, obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
+	obtainedUUID, err := s.state.UpdateResourceRevisionAndDeletePriorVersion(context.Background(), args, charmresource.TypeContainerImage)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtainedUUID, gc.Not(gc.Equals), resID)
 
-	c.Check(droppedHash, gc.Equals, "")
 	obtainedCharmModifiedVersion := s.getCharmModifiedVersion(c, obtainedUUID.String())
 	c.Check(obtainedCharmModifiedVersion, gc.Equals, expectedCharmModifiedVersion)
 	s.checkResourceOriginAndRevision(c, obtainedUUID.String(), "store", 5)
@@ -2474,11 +2427,10 @@ func (s *resourceSuite) testUpdateUploadResourceAndDeletePriorVersion(c *gc.C, o
 	}
 
 	// Act: update resource to expect upload.
-	droppedHash, obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(context.Background(), args)
+	obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(context.Background(), args)
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to update resource: %v", errors.ErrorStack(err)))
-	c.Check(droppedHash, gc.Equals, fp.String())
 
 	// Assert check the application resource was updated to the newly inserted
 	// record and that it has the correct origin and revision.
@@ -2533,11 +2485,10 @@ func (s *resourceSuite) TestUpdateUploadResourceAndDeletePriorVersionFileStore(c
 	}
 
 	// Act: update resource to expect upload.
-	droppedHash, obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(context.Background(), args)
+	obtainedUUID, err := s.state.UpdateUploadResourceAndDeletePriorVersion(context.Background(), args)
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) failed to update resource: %v", errors.ErrorStack(err)))
-	c.Check(droppedHash, gc.Equals, fp.String())
 
 	// Assert check the application resource was updated to the newly inserted
 	// record and that it has the correct origin and revision.
@@ -3427,7 +3378,7 @@ func (s *resourceSuite) setWithRetrievedBy(
 	storeID := resourcestoretesting.GenFileResourceStoreID(c, objectStoreUUID)
 	err := s.addObjectStoreBlobMetadata(objectStoreUUID)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) failed to add object store blob: %v", errors.ErrorStack(err)))
-	_, err = s.state.RecordStoredResource(
+	err = s.state.RecordStoredResource(
 		context.Background(),
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:    resourceUUID,
