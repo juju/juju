@@ -90,11 +90,12 @@ func (s *ControllerServices) ControllerNode() *controllernodeservice.Service {
 }
 
 // Model returns the model service.
-func (s *ControllerServices) Model() *modelservice.Service {
-	return modelservice.NewService(
+func (s *ControllerServices) Model() *modelservice.WatchableService {
+	return modelservice.NewWatchableService(
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.dbDeleter,
 		s.logger,
+		s.controllerWatcherFactory("model"),
 	)
 }
 
