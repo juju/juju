@@ -155,3 +155,42 @@ func (s *SSHReqConnReqSuite) TestSSHConnReqWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
+
+func (s *SSHReqConnReqSuite) TestCleanupExpiredSSHConnRequest(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, nil)
+	req1 := state.SSHConnRequestArg{
+		TunnelID:           "tunnelid-1",
+		ModelUUID:          s.Model.UUID(),
+		UnitName:           unit.Name(),
+		Expires:            time.Now().Add(-time.Minute),
+		Username:           "test",
+		Password:           "test-password",
+		UnitPort:           22,
+		EphemeralPublicKey: []byte{},
+	}
+	err := s.State.InsertSSHConnRequest(
+		req1,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	req2 := state.SSHConnRequestArg{
+		TunnelID:           "tunnelid-2",
+		ModelUUID:          s.Model.UUID(),
+		UnitName:           unit.Name(),
+		Expires:            time.Now().Add(time.Minute),
+		Username:           "test",
+		Password:           "test-password",
+		UnitPort:           22,
+		EphemeralPublicKey: []byte{},
+	}
+	err = s.State.InsertSSHConnRequest(
+		req2,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.Cleanup(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.GetSSHConnRequest(state.SSHReqConnKeyID(req1.UnitName, req1.TunnelID))
+	c.Assert(err, gc.ErrorMatches, "sshreqconn key \".*\" not found")
+	_, err = s.State.GetSSHConnRequest(state.SSHReqConnKeyID(req2.UnitName, req2.TunnelID))
+	c.Assert(err, jc.ErrorIsNil)
+}
