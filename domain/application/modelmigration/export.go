@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
-	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -64,11 +63,6 @@ type ExportService interface {
 	// is set for the application, an empty config is returned.
 	GetApplicationConfigAndSettings(ctx context.Context, name string) (config.ConfigAttributes, application.ApplicationSettings, error)
 
-	// GetApplicationStatus returns the status of the specified application. If
-	// the application does not exist, a [applicationerrors.ApplicationNotFound]
-	// error is returned.
-	GetApplicationStatus(ctx context.Context, name string) (*corestatus.StatusInfo, error)
-
 	// GetApplicationConstraints returns the application constraints for the
 	// specified application name.
 	// Empty constraints are returned if no constraints exist for the given
@@ -86,16 +80,6 @@ type ExportService interface {
 	// application, returning an error satisfying
 	// [applicationerrors.ApplicationNotFound] if the application is not found.
 	GetApplicationScaleState(ctx context.Context, name string) (application.ScaleState, error)
-
-	// GetUnitWorkloadStatus returns the workload status of the specified unit,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if the
-	// unit doesn't exist.
-	GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (*corestatus.StatusInfo, error)
-
-	// GetUnitAgentStatus returns the agent status of the specified unit,
-	// returning an error satisfying [applicationerrors.UnitNotFound] if the
-	// unit doesn't exist.
-	GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (*corestatus.StatusInfo, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -154,15 +138,6 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			coreapplication.TrustConfigOptionName: settings.Trust,
 		})
 
-		status, err := e.service.GetApplicationStatus(ctx, app.Name())
-		if err != nil {
-			return errors.Errorf("getting application status for %q: %v", app.Name(), err)
-		}
-		// Application status is optional.
-		if status != nil {
-			app.SetStatus(e.exportStatus(status))
-		}
-
 		charm, _, err := e.service.GetCharmByApplicationName(ctx, app.Name())
 		if err != nil {
 			return errors.Errorf("getting charm %v", err)
@@ -192,26 +167,6 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	return nil
-}
-
-func (e *exportOperation) exportStatus(status *corestatus.StatusInfo) description.StatusArgs {
-	if status == nil {
-		return description.StatusArgs{
-			Value: corestatus.Unset.String(),
-		}
-	}
-
-	now := e.clock.Now().UTC()
-	if status.Since != nil {
-		now = *status.Since
-	}
-
-	return description.StatusArgs{
-		Value:   status.Status.String(),
-		Message: status.Message,
-		Data:    status.Data,
-		Updated: now,
-	}
 }
 
 func (e *exportOperation) exportApplicationScaleState(scaleState application.ScaleState) *description.ProvisioningStateArgs {

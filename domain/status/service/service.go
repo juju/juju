@@ -6,8 +6,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 
 	"github.com/juju/clock"
@@ -156,45 +154,6 @@ func NewService(
 	}
 }
 
-// GetApplicationStatus looks up the status of the specified application,
-// returning an error satisfying [statuserrors.ApplicationNotFound] if the
-// application is not found.
-func (s *Service) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error) {
-	if err := appID.Validate(); err != nil {
-		return nil, errors.Errorf("application ID: %w", err)
-	}
-
-	applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	} else if applicationStatus == nil {
-		return nil, errors.Errorf("application has no status")
-	}
-	if applicationStatus.Status != status.WorkloadStatusUnset {
-		return decodeApplicationStatus(applicationStatus)
-	}
-
-	// The application status is unset. However, we can still derive the status
-	// of the application using the workload statuses of all the application's
-	// units.
-	//
-	// NOTE: It is possible that between these two calls to state someone else
-	// calls SetApplicationStatus and changes the status. This would potentially
-	// lead to an out of date status being returned here. In this specific case,
-	// we don't mind so long as we have 'eventual' (i.e. milliseconds) consistency.
-
-	unitStatuses, err := s.st.GetUnitWorkloadStatusesForApplication(ctx, appID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	derivedApplicationStatus, err := reduceUnitWorkloadStatuses(slices.Collect(maps.Values(unitStatuses)))
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return derivedApplicationStatus, nil
-}
-
 // SetApplicationStatus saves the given application status, overwriting any
 // current status data. If returns an error satisfying
 // [statuserrors.ApplicationNotFound] if the application doesn't exist.
@@ -326,9 +285,9 @@ func (s *Service) GetApplicationAndUnitStatusesForUnitWithLeader(
 	ctx context.Context,
 	unitName coreunit.Name,
 ) (
-	*corestatus.StatusInfo,
-	map[coreunit.Name]corestatus.StatusInfo,
-	error,
+	applicationDisplayStatus *corestatus.StatusInfo,
+	unitWorkloadStatuses map[coreunit.Name]corestatus.StatusInfo,
+	err error,
 ) {
 	if err := unitName.Validate(); err != nil {
 		return nil, nil, errors.Errorf("unit name: %w", err)
@@ -340,8 +299,6 @@ func (s *Service) GetApplicationAndUnitStatusesForUnitWithLeader(
 		return nil, nil, errors.Errorf("getting application id: %w", err)
 	}
 
-	var applicationDisplayStatus *corestatus.StatusInfo
-	var unitWorkloadStatuses map[coreunit.Name]corestatus.StatusInfo
 	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
 		applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
 		if err != nil {

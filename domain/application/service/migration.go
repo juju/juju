@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -181,33 +180,6 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 	return result, settings, nil
 }
 
-// GetApplicationStatus returns the status of the specified application.
-// If the application does not exist, a [applicationerrors.ApplicationNotFound]
-// error is returned.
-func (s *MigrationService) GetApplicationStatus(ctx context.Context, name string) (*corestatus.StatusInfo, error) {
-	if !isValidApplicationName(name) {
-		return nil, applicationerrors.ApplicationNameNotValid
-	}
-
-	appID, err := s.st.GetApplicationIDByName(ctx, name)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	status, err := s.st.GetApplicationStatus(ctx, appID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	} else if status == nil {
-		return nil, errors.Errorf("application %q has no status", name)
-	}
-
-	decodedStatus, err := decodeApplicationStatus(status)
-	if err != nil {
-		return nil, errors.Errorf("decoding workload status: %w", err)
-	}
-	return decodedStatus, nil
-}
-
 // GetApplicationConstraints returns the application constraints for the
 // specified application name.
 // Empty constraints are returned if no constraints exist for the given
@@ -253,47 +225,6 @@ func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name st
 	}
 
 	return s.st.GetApplicationScaleState(ctx, appID)
-}
-
-// GetUnitWorkloadStatus returns the workload status of the specified unit,
-// returning an error satisfying [applicationerrors.UnitNotFound] if the unit
-// doesn't exist.
-func (s *MigrationService) GetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID) (*corestatus.StatusInfo, error) {
-	if err := unitUUID.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return decodeUnitWorkloadStatus(workloadStatus)
-}
-
-// GetUnitAgentStatus returns the agent status of the specified unit, returning
-// an error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
-// exist.
-func (s *MigrationService) GetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID) (*corestatus.StatusInfo, error) {
-	if err := unitUUID.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-	agentStatus, err := s.st.GetUnitAgentStatus(ctx, unitUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// If the agent isn't present then we need to modify the status for the
-	// agent.
-	if !agentStatus.Present {
-		return &corestatus.StatusInfo{
-			Status:  corestatus.Lost,
-			Message: "agent is not communicating with the server",
-			Since:   agentStatus.Since,
-		}, nil
-	}
-
-	return decodeUnitAgentStatus(agentStatus)
 }
 
 // ImportApplication imports the specified application and units if required,

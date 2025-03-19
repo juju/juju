@@ -839,56 +839,6 @@ INSERT INTO k8s_service (*) VALUES ($cloudService.*)
 	return nil
 }
 
-// GetApplicationStatus looks up the status of the specified application,
-// returning an error satisfying [applicationerrors.ApplicationNotFound] if the
-// application is not found.
-func (st *State) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*application.StatusInfo[application.WorkloadStatusType], error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	identID := applicationID{ID: appID}
-	query, err := st.Prepare(`
-SELECT &applicationStatusInfo.*
-FROM application_status
-WHERE application_uuid = $applicationID.uuid;
-`, identID, applicationStatusInfo{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	var status applicationStatusInfo
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
-			return errors.Capture(err)
-		}
-		if err := tx.Query(ctx, query, identID).Get(&status); errors.Is(err, sqlair.ErrNoRows) {
-			// If the application status is not set, then it's up to the
-			// the caller to either return that information or use derive
-			// the status from the units.
-			return nil
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	statusType, err := decodeWorkloadStatus(status.StatusID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return &application.StatusInfo[application.WorkloadStatusType]{
-		Status:  statusType,
-		Message: status.Message,
-		Data:    status.Data,
-		Since:   status.UpdatedAt,
-	}, nil
-}
-
 // InitialWatchStatementApplicationsWithPendingCharms returns the initial
 // namespace query for the applications with pending charms watcher.
 func (st *State) InitialWatchStatementApplicationsWithPendingCharms() (string, eventsource.NamespaceQuery) {
