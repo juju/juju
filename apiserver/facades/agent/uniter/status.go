@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/unit"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // StatusAPI is the uniter part that deals with setting/getting
@@ -26,25 +25,22 @@ import (
 type StatusAPI struct {
 	statusService StatusService
 
-	unitSetter        *common.UnitStatusSetter
-	unitGetter        *common.UnitStatusGetter
-	applicationSetter *common.ApplicationStatusSetter
-	getCanModify      common.GetAuthFunc
+	unitSetter   *common.UnitStatusSetter
+	unitGetter   *common.UnitStatusGetter
+	getCanModify common.GetAuthFunc
 }
 
 // NewStatusAPI creates a new server-side Status setter API facade.
-func NewStatusAPI(st *state.State, statusService StatusService, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker, clock clock.Clock) *StatusAPI {
+func NewStatusAPI(statusService StatusService, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker, clock clock.Clock) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
 	unitSetter := common.NewUnitStatusSetter(statusService, clock, getCanModify)
 	unitGetter := common.NewUnitStatusGetter(statusService, clock, getCanModify)
-	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
 	return &StatusAPI{
-		statusService:     statusService,
-		unitSetter:        unitSetter,
-		unitGetter:        unitGetter,
-		applicationSetter: applicationSetter,
-		getCanModify:      getCanModify,
+		statusService: statusService,
+		unitSetter:    unitSetter,
+		unitGetter:    unitGetter,
+		getCanModify:  getCanModify,
 	}
 }
 
@@ -102,7 +98,50 @@ func (s *StatusAPI) SetUnitStatus(ctx context.Context, args params.SetStatus) (p
 // SetApplicationStatus sets the status for all the Applications in args if the given Unit is
 // the leader.
 func (s *StatusAPI) SetApplicationStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	return s.applicationSetter.SetStatus(ctx, args)
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+
+	canModify, err := s.getCanModify()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+
+	for i, arg := range args.Entities {
+		unitTag, err := names.ParseUnitTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if !canModify(unitTag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		unitName, err := unit.NewName(unitTag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		if err := s.statusService.SetApplicationStatusForUnitLeader(ctx, unitName, &status.StatusInfo{
+			Status:  status.Status(arg.Status),
+			Message: arg.Info,
+			Data:    arg.Data,
+		}); errors.Is(err, statuserrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
+			continue
+		} else if errors.Is(err, statuserrors.UnitNotLeader) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return result, nil
 }
 
 // UnitStatus returns the workload status information for the unit.
@@ -122,9 +161,6 @@ func (s *StatusAPI) ApplicationStatus(ctx context.Context, args params.Entities)
 	}
 
 	for i, arg := range args.Entities {
-		// TODO(fwereade): the auth is basically nonsense, and basically only
-		// works by coincidence (and is happening at the wrong layer anyway).
-		// Read carefully.
 		unitTag, err := names.ParseUnitTag(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
 )
@@ -216,8 +215,6 @@ type Action interface {
 
 // ApplicationEntity represents a local or remote application.
 type ApplicationEntity interface {
-	status.StatusGetter
-
 	// Life returns the life status of the application.
 	Life() Life
 

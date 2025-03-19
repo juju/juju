@@ -440,3 +440,17 @@ func (mr *MockStatusServiceMockRecorder) GetUnitWorkloadStatusesForApplication(a
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatusesForApplication", reflect.TypeOf((*MockStatusService)(nil).GetUnitWorkloadStatusesForApplication), arg0, arg1)
 }
+
+// SetApplicationStatus mocks base method.
+func (m *MockStatusService) SetApplicationStatus(arg0 context.Context, arg1 application.ID, arg2 *status.StatusInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetApplicationStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetApplicationStatus indicates an expected call of SetApplicationStatus.
+func (mr *MockStatusServiceMockRecorder) SetApplicationStatus(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationStatus", reflect.TypeOf((*MockStatusService)(nil).SetApplicationStatus), arg0, arg1, arg2)
+}

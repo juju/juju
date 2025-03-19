@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -45,7 +44,6 @@ type Model interface {
 }
 
 type Application interface {
-	SetOperatorStatus(status.StatusInfo) error
 	AllUnits() ([]Unit, error)
 	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
 	StorageConstraints() (map[string]state.StorageConstraints, error)
@@ -53,7 +51,6 @@ type Application interface {
 	Name() string
 	Life() state.Life
 	Base() state.Base
-	SetStatus(statusInfo status.StatusInfo) error
 	CharmModifiedVersion() int
 	CharmURL() (curl *string, force bool)
 	ApplicationConfig() (coreconfig.ConfigAttributes, error)

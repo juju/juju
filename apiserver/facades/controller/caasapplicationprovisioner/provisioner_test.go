@@ -261,9 +261,10 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	s.st.app = &mockApplication{
-		life: state.Alive,
-	}
+	appID := applicationtesting.GenApplicationUUID(c)
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(appID, nil)
+	s.statusService.EXPECT().SetApplicationStatus(gomock.Any(), appID, &status.StatusInfo{Status: status.Started})
+
 	result, err := s.api.SetOperatorStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
 			Tag:    "application-gitlab",
@@ -272,9 +273,6 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	s.st.app.CheckCallNames(c, "SetOperatorStatus")
-	c.Assert(s.st.app.Calls()[0].Args[0], gc.DeepEquals, status.StatusInfo{Status: "started"})
 }
 
 func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
@@ -480,6 +478,15 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "another message"},
 	})
 
+	appID := applicationtesting.GenApplicationUUID(c)
+	now := s.clock.Now()
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(appID, nil)
+	s.statusService.EXPECT().SetApplicationStatus(gomock.Any(), appID, &status.StatusInfo{
+		Status:  status.Active,
+		Message: "working",
+		Since:   &now,
+	})
+
 	results, err := s.api.UpdateApplicationsUnits(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0], gc.DeepEquals, params.UpdateApplicationUnitResult{
@@ -490,10 +497,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 			},
 		},
 	})
-	s.st.app.CheckCallNames(c, "Life", "SetOperatorStatus", "AllUnits", "UpdateUnits", "Name")
-	now := s.clock.Now()
-	s.st.app.CheckCall(c, 1, "SetOperatorStatus",
-		status.StatusInfo{Status: status.Active, Message: "working", Since: &now})
+	s.st.app.CheckCallNames(c, "Life", "AllUnits", "UpdateUnits", "Name")
 	s.st.app.units[0].CheckCallNames(c, "UpdateOperation")
 	s.st.app.units[0].CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("gitlab-0"),

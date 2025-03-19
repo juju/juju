@@ -2526,68 +2526,6 @@ func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) 
 	return cons, nil
 }
 
-// Status returns the status of the application.
-// Only unit leaders are allowed to set the status of the application.
-// If no status is recorded, then there are no unit leaders and the
-// status is derived from the unit status values.
-func (a *Application) Status() (status.StatusInfo, error) {
-	info, err := getStatus(a.st.db(), a.globalKey(), "application")
-	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
-	}
-	return info, nil
-}
-
-// SetStatus sets the status for the application.
-func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
-	if !status.ValidWorkloadStatus(statusInfo.Status) {
-		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
-	}
-
-	return setStatus(a.st.db(), setStatusParams{
-		badge:      "application",
-		statusKind: a.Kind(),
-		statusId:   a.Name(),
-		globalKey:  a.globalKey(),
-		status:     statusInfo.Status,
-		message:    statusInfo.Message,
-		rawData:    statusInfo.Data,
-		updated:    timeOrNow(statusInfo.Since, a.st.clock()),
-	})
-}
-
-// SetOperatorStatus sets the operator status for an application.
-// This is used on CAAS models.
-func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
-	m, err := a.st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if m.Type() != ModelTypeCAAS {
-		return errors.NotSupportedf("caas operation on non-caas model")
-	}
-
-	err = setStatus(a.st.db(), setStatusParams{
-		badge:      "operator",
-		statusKind: a.Kind(),
-		statusId:   a.Name(),
-		globalKey:  applicationGlobalOperatorKey(a.Name()),
-		status:     sInfo.Status,
-		message:    sInfo.Message,
-		rawData:    sInfo.Data,
-		updated:    timeOrNow(sInfo.Since, a.st.clock()),
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// OperatorStatus returns the operator status for an application.
-func (a *Application) OperatorStatus() (status.StatusInfo, error) {
-	return getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "application operator")
-}
-
 type addApplicationOpsArgs struct {
 	applicationDoc    *applicationDoc
 	statusDoc         statusDoc

@@ -128,6 +128,10 @@ type ApplicationService interface {
 // StatusService describes the ability to retrieve and persist
 // application statuses
 type StatusService interface {
+	// SetApplicationStatusForUnitLeader sets the application status using the
+	// leader unit of the application.
+	SetApplicationStatusForUnitLeader(context.Context, coreunit.Name, *corestatus.StatusInfo) error
+
 	// GetUnitWorkloadStatus returns the workload status of the specified unit
 	GetUnitWorkloadStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
 

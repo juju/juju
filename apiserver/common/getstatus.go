@@ -40,8 +40,11 @@ func (s *StatusGetter) getEntityStatus(tag names.Tag) params.StatusResult {
 		return result
 	}
 	switch getter := entity.(type) {
-	// Use UnitStatusSetter for setting unit status.
+	// Use UnitStatusSetter for getting unit status.
 	case *state.Unit:
+		return params.StatusResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}
+	// Use the domain to get application statuses
+	case *state.Application:
 		return params.StatusResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}
 	case status.StatusGetter:
 		statusInfo, err := getter.Status()
