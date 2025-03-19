@@ -31,6 +31,7 @@ type ConnSuite struct {
 	applications *mgo.Collection
 	units        *mgo.Collection
 	controllers  *mgo.Collection
+	sshconnreqs  *mgo.Collection
 	policy       statetesting.MockPolicy
 	modelTag     names.ModelTag
 }
@@ -61,6 +62,7 @@ func (s *ConnSuite) SetUpTest(c *gc.C) {
 	s.applications = jujuDB.C("applications")
 	s.units = jujuDB.C("units")
 	s.controllers = jujuDB.C("controllers")
+	s.sshconnreqs = jujuDB.C(state.SSHConnRequestsC)
 }
 
 func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {

@@ -57,6 +57,7 @@ const (
 	SettingsC         = settingsC
 	UnitsC            = unitsC
 	VirtualHostKeysC  = virtualHostKeysC
+	SSHConnRequestsC  = sshConnRequestsC
 )
 
 var (
@@ -71,6 +72,7 @@ var (
 	NewEntityWatcher              = newEntityWatcher
 	ApplicationHasConnectedOffers = applicationHasConnectedOffers
 	NewActionNotificationWatcher  = newActionNotificationWatcher
+	SSHReqConnKeyID               = sshReqConnKeyID
 )
 
 type (

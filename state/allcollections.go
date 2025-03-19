@@ -660,6 +660,15 @@ func allCollections() CollectionSchema {
 			}},
 		},
 
+		// sshConnRequestsC holds the ssh connection requests.
+		// The documents are added/removed by the controller, and units are watching
+		// the collection to start a ssh connection to controllers.
+		sshConnRequestsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "_id"},
+			}},
+		},
+
 		// ----------------------
 
 		// Raw-access collections
@@ -736,6 +745,7 @@ const (
 	refcountsC                 = "refcounts"
 	resourcesC                 = "resources"
 	sshHostKeysC               = "sshhostkeys"
+	sshConnRequestsC           = "sshrequests"
 	spacesC                    = "spaces"
 	statusesC                  = "statuses"
 	statusesHistoryC           = "statuseshistory"
