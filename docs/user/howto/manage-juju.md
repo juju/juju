@@ -158,7 +158,7 @@ juju_33 status
 
 This method allows you to install the Juju client on systems that do not support snaps.
 
-1. Visit the project's [downloads](https://launchpad.net/juju/+download) page and select the binary  that matches your system's architecture and the version that you want to install.
+1. Visit the project's [downloads](https://launchpad.net/juju/+download) page and select the binary that matches your system's architecture and the version that you want to install.
 
 For example, to download the 2.9.38 client for amd64:
 
@@ -229,7 +229,7 @@ brew install juju
 
 `````{tab} Windows
 
-Visit the project's [downloads](https://launchpad.net/juju/+download) page and select the signed  installer for the Juju version you wish to install.
+Visit the project's [downloads](https://launchpad.net/juju/+download) page and select the signed installer for the Juju version you wish to install.
 
 `````
 
@@ -314,13 +314,15 @@ sudo snap refresh juju --channel 3/stable
 
 `````{tab} macOS
 
-TBA
+To upgrade Juju to the latest stable release, run
+```text
+brew upgrade juju
 
 `````
 
 `````{tab} Windows
 
-TBA
+Visit the project's [downloads](https://launchpad.net/juju/+download) page and select the signed installer for the latest stable version of Juju you wish to install.
 
 `````
 ``````
@@ -341,13 +343,15 @@ sudo snap remove juju
 
 `````{tab} macOS
 
-TBA
+```text
+brew uninstall juju
+```
 
 `````
 
 `````{tab} Windows
 
-TBA
+Uninstall the juju client application using your system's application management settings.
 
 `````
 ``````
