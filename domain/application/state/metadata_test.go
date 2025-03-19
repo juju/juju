@@ -198,15 +198,15 @@ var metadataDecodeTestCases = [...]struct {
 		input: charmMetadata{},
 		inputArgs: decodeMetadataArgs{
 			extraBindings: []charmExtraBinding{
-				{Key: "alpha", Name: "foo"},
-				{Key: "beta", Name: "baz"},
+				{Name: "foo"},
+				{Name: "baz"},
 			},
 		},
 		output: charm.Metadata{
 			RunAs: charm.RunAsDefault,
 			ExtraBindings: map[string]charm.ExtraBinding{
-				"alpha": {Name: "foo"},
-				"beta":  {Name: "baz"},
+				"foo": {Name: "foo"},
+				"baz": {Name: "baz"},
 			},
 		},
 	},

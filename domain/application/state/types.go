@@ -378,15 +378,15 @@ type setCharmRelation struct {
 
 // charmExtraBinding is used to get the extra bindings of a charm.
 type charmExtraBinding struct {
+	UUID      string `db:"uuid"`
 	CharmUUID string `db:"charm_uuid"`
-	Key       string `db:"key"`
 	Name      string `db:"name"`
 }
 
 // setCharmExtraBinding is used to set the extra bindings of a charm.
 type setCharmExtraBinding struct {
+	UUID      string `db:"uuid"`
 	CharmUUID string `db:"charm_uuid"`
-	Key       string `db:"key"`
 	Name      string `db:"name"`
 }
 
