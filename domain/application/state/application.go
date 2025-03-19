@@ -718,13 +718,13 @@ func (st *State) SetApplicationScalingState(ctx context.Context, appName string,
 		ScaleTarget: targetScale,
 	}
 
-	upsertApplicationScale := fmt.Sprintf(`
+	upsertApplicationScale := `
 UPDATE application_scale SET
     scale = $applicationScale.scale,
     scaling = $applicationScale.scaling,
     scale_target = $applicationScale.scale_target
 WHERE application_uuid = $applicationScale.application_uuid
-`)
+`
 
 	upsertStmt, err := st.Prepare(upsertApplicationScale, scaleDetails)
 	if err != nil {
