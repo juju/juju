@@ -1140,3 +1140,39 @@ type exportApplication struct {
 	Exposed      bool               `db:"exposed"`
 	Subordinate  bool               `db:"subordinate"`
 }
+
+type setExposedSpace struct {
+	ApplicationUUID string `db:"application_uuid"`
+	EndpointName    string `db:"endpoint"`
+	SpaceUUID       string `db:"space_uuid"`
+}
+
+type setExposedCIDR struct {
+	ApplicationUUID string `db:"application_uuid"`
+	EndpointName    string `db:"endpoint"`
+	CIDR            string `db:"cidr"`
+}
+
+// endpointCIDR is a struct used to retrieve rows when joining
+// application_exposed_endpoint_cidr, application_endpoint and charm_relation
+// tables to retrieve all the CIDRs exposed for an endpoint.
+type endpointCIDR struct {
+	EndpointName sql.NullString `db:"name"`
+	CIDR         string         `db:"cidr"`
+}
+
+// endpointSpace is a struct used to retrieve rows when joining
+// application_exposed_endpoint_cidr, application_endpoint and charm_relation
+// tables to retrieve all the Spaces exposed for an endpoint.
+type endpointSpace struct {
+	EndpointName sql.NullString `db:"name"`
+	SpaceUUID    string         `db:"space_uuid"`
+}
+
+type endpointName struct {
+	Name sql.NullString `db:"name"`
+}
+
+type setEndpointName struct {
+	Name string `db:"name"`
+}
