@@ -218,6 +218,9 @@ func (st *State) CreateApplication(
 		if err := st.insertApplicationStatus(ctx, tx, appDetails.UUID, args.Status); err != nil {
 			return errors.Errorf("inserting status for application %q: %w", name, err)
 		}
+		if err = st.insertApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+			return errors.Errorf("inserting units for application %q: %w", appUUID, err)
+		}
 
 		// The channel is optional for local charms. Although, it would be
 		// nice to have a channel for local charms, it's not a requirement.
@@ -225,14 +228,6 @@ func (st *State) CreateApplication(
 			if err := tx.Query(ctx, createChannelStmt, channelInfo).Run(); err != nil {
 				return errors.Errorf("inserting channel row for application %q: %w", name, err)
 			}
-		}
-
-		if len(units) == 0 {
-			return nil
-		}
-
-		if err = st.insertApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
-			return errors.Errorf("inserting units for application %q: %w", appUUID, err)
 		}
 		return nil
 	})
@@ -246,6 +241,9 @@ func (st *State) insertApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID, args application.AddApplicationArg, units []application.AddUnitArg,
 ) error {
+	if len(units) == 0 {
+		return nil
+	}
 	insertUnits := make([]application.InsertUnitArg, len(units))
 	for i, unit := range units {
 		insertUnits[i] = application.InsertUnitArg{
