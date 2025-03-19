@@ -9,10 +9,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
-	coreapplication "github.com/juju/juju/core/application"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/life"
 )
 
 // ExportApplications returns all the applications in the model.
@@ -55,14 +52,4 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 		}
 	}
 	return exportApps, nil
-}
-
-type exportApplication struct {
-	UUID         coreapplication.ID `db:"uuid"`
-	Name         string             `db:"name"`
-	CharmUUID    corecharm.ID       `db:"charm_uuid"`
-	Life         life.Life          `db:"life_id"`
-	PasswordHash string             `db:"password_hash"`
-	Exposed      bool               `db:"exposed"`
-	Subordinate  bool               `db:"subordinate"`
 }

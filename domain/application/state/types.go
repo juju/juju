@@ -8,6 +8,7 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -1147,4 +1148,14 @@ type applicationPlatformAndChannel struct {
 type applicationOrigin struct {
 	ReferenceName string `db:"reference_name"`
 	SourceID      int    `db:"source_id"`
+}
+
+type exportApplication struct {
+	UUID         coreapplication.ID `db:"uuid"`
+	Name         string             `db:"name"`
+	CharmUUID    corecharm.ID       `db:"charm_uuid"`
+	Life         life.Life          `db:"life_id"`
+	PasswordHash string             `db:"password_hash"`
+	Exposed      bool               `db:"exposed"`
+	Subordinate  bool               `db:"subordinate"`
 }
