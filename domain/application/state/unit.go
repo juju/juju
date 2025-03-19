@@ -10,8 +10,10 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -557,6 +559,89 @@ func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreappli
 		}
 		return nil
 	})
+}
+
+// SetRunningAgentBinaryVersion sets the running agent binary version for the
+// provided unit uuid. Any previously set values for this unit uuid will
+// be overwritten by this call.
+//
+// The following errors can be expected:
+// - [errors.UnitNotFound] if the unit does not exist.
+// - [coreerrors.NotSupported] if the architecture is not known to the database.
+func (st *State) SetRunningAgentBinaryVersion(ctx context.Context, uuid string, version coreagentbinary.Version) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type ArchitectureMap struct {
+		ID   int    `db:"id"`
+		Name string `db:"name"`
+	}
+	archMap := ArchitectureMap{Name: version.Arch}
+
+	archMapStmt, err := st.Prepare(`
+SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap.name
+`, archMap)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type UnitAgentVersion struct {
+		UnitUUID      string `db:"unit_uuid"`
+		Version       string `db:"version"`
+		ArchtectureID int    `db:"architecture_id"`
+	}
+	unitAgentVersion := UnitAgentVersion{
+		UnitUUID: uuid,
+		Version:  version.Number.String(),
+	}
+
+	upsertRunningVersionStmt, err := st.Prepare(`
+INSERT INTO unit_agent_version (*)
+VALUES ($UnitAgentVersion.*)
+ON CONFLICT (unit_uuid) DO
+UPDATE SET version = excluded.version,
+           architecture_id = excluded.architecture_id
+`, unitAgentVersion)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+
+		// Check if unit exists
+		err := st.checkUnitNotDead(ctx, tx, unitUUID{UnitUUID: coreunit.UUID(uuid)})
+		if err != nil {
+			return errors.Errorf(
+				"unit %q does not exist", uuid,
+			).Add(applicationerrors.UnitNotFound)
+		}
+
+		// Look up architecture ID
+		err = tx.Query(ctx, archMapStmt, archMap).Get(&archMap)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"architecture %q is unsupported", version.Arch,
+			).Add(coreerrors.NotSupported)
+		} else if err != nil {
+			return errors.Errorf(
+				"looking up id for architecture %q: %w", version.Arch, err,
+			)
+		}
+
+		unitAgentVersion.ArchtectureID = archMap.ID
+		return tx.Query(ctx, upsertRunningVersionStmt, unitAgentVersion).Run()
+	})
+
+	if err != nil {
+		return errors.Errorf(
+			"setting running agent binary version for unit %q: %w",
+			uuid, err,
+		)
+	}
+
+	return nil
 }
 
 // GetUnitUUIDByName returns the UUID for the named unit, returning an error

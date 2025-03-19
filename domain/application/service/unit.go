@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
@@ -110,6 +111,10 @@ type UnitState interface {
 	// If the unit is dead, an error satisfying [applicationerrors.UnitIsDead]
 	// is returned.
 	SetUnitConstraints(ctx context.Context, inUnitUUID coreunit.UUID, cons constraints.Constraints) error
+
+	// SetRunningAgentBinaryVersion sets the running agent version for the unit.
+	// A [applicationerrors.UnitNotFound] error will be returned if the unit does not exist.
+	SetRunningAgentBinaryVersion(context.Context, string, agentbinary.Version) error
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -223,6 +228,40 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	if err := s.st.UpdateCAASUnit(ctx, unitName, cassUnitUpdate); err != nil {
 		return errors.Errorf("updating caas unit %q: %w", unitName, err)
 	}
+	return nil
+}
+
+// SetReportedUnitAgentVersion sets the reported agent version for the
+// supplied unit name. Reported agent version is the version that the agent
+// binary on this unit has reported it is running.
+//
+// The following errors are possible:
+// - [coreerrors.NotValid] if the reportedVersion is not valid.
+// - [coreerrors.NotSupported] if the architecture is not supported.
+// - [applicationerrors.UnitNotFound] - when the unit does not exist.
+func (s *Service) SetReportedUnitAgentVersion(ctx context.Context, unitName coreunit.Name, reportedVersion agentbinary.Version) error {
+	if err := reportedVersion.Validate(); err != nil {
+		return errors.Errorf("reported agent version %v is not valid: %w", reportedVersion, err)
+	}
+
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return errors.Errorf(
+			"getting unit UUID for unit %q: %w",
+			unitName,
+			err,
+		)
+	}
+
+	if err := s.st.SetRunningAgentBinaryVersion(ctx, unitUUID.String(), reportedVersion); err != nil {
+		return errors.Errorf(
+			"setting unit %q reported agent version (%s) in state: %w",
+			unitName,
+			reportedVersion.Number.String(),
+			err,
+		)
+	}
+
 	return nil
 }
 
