@@ -794,6 +794,44 @@ func (m *MockRelationService) EXPECT() *MockRelationServiceMockRecorder {
 	return m.recorder
 }
 
+// EnterScope mocks base method.
+func (m *MockRelationService) EnterScope(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnterScope", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnterScope indicates an expected call of EnterScope.
+func (mr *MockRelationServiceMockRecorder) EnterScope(arg0, arg1, arg2 any) *MockRelationServiceEnterScopeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnterScope", reflect.TypeOf((*MockRelationService)(nil).EnterScope), arg0, arg1, arg2)
+	return &MockRelationServiceEnterScopeCall{Call: call}
+}
+
+// MockRelationServiceEnterScopeCall wrap *gomock.Call
+type MockRelationServiceEnterScopeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceEnterScopeCall) Return(arg0 error) *MockRelationServiceEnterScopeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceEnterScopeCall) Do(f func(context.Context, relation.UUID, unit.Name) error) *MockRelationServiceEnterScopeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceEnterScopeCall) DoAndReturn(f func(context.Context, relation.UUID, unit.Name) error) *MockRelationServiceEnterScopeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetLocalRelationApplicationSettings mocks base method.
 func (m *MockRelationService) GetLocalRelationApplicationSettings(arg0 context.Context, arg1 unit.Name, arg2 relation.UUID, arg3 application.ID) (map[string]string, error) {
 	m.ctrl.T.Helper()
@@ -1180,6 +1218,44 @@ func (c *MockRelationServiceGetRemoteRelationApplicationSettingsCall) Do(f func(
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRelationServiceGetRemoteRelationApplicationSettingsCall) DoAndReturn(f func(context.Context, relation.UUID, application.ID) (map[string]string, error)) *MockRelationServiceGetRemoteRelationApplicationSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// LeaveScope mocks base method.
+func (m *MockRelationService) LeaveScope(arg0 context.Context, arg1 relation.UnitUUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LeaveScope", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LeaveScope indicates an expected call of LeaveScope.
+func (mr *MockRelationServiceMockRecorder) LeaveScope(arg0, arg1 any) *MockRelationServiceLeaveScopeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeaveScope", reflect.TypeOf((*MockRelationService)(nil).LeaveScope), arg0, arg1)
+	return &MockRelationServiceLeaveScopeCall{Call: call}
+}
+
+// MockRelationServiceLeaveScopeCall wrap *gomock.Call
+type MockRelationServiceLeaveScopeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceLeaveScopeCall) Return(arg0 error) *MockRelationServiceLeaveScopeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceLeaveScopeCall) Do(f func(context.Context, relation.UnitUUID) error) *MockRelationServiceLeaveScopeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceLeaveScopeCall) DoAndReturn(f func(context.Context, relation.UnitUUID) error) *MockRelationServiceLeaveScopeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

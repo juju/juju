@@ -478,20 +478,6 @@ func (s *uniterLegacySuite) TestProviderType(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringResult{Result: modelInfo.CloudType})
 }
 
-func (s *uniterLegacySuite) TestEnterScope(c *gc.C) {
-	c.Skip("TODO: reimplement when EnterScope moved to relation domain")
-	// Set wordpressUnit's private address first.
-
-	// Verify the scope changes and settings.
-}
-
-func (s *uniterLegacySuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
-}
-
-func (s *uniterLegacySuite) TestLeaveScope(c *gc.C) {
-	c.Skip("TODO: reimplement when LeaveScope moved to relation domain")
-}
-
 func (s *uniterLegacySuite) TestWatchRelationUnits(c *gc.C) {
 	// Add a relation between wordpress and mysql and enter scope with
 	// mysqlUnit.

@@ -27,7 +27,9 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -901,6 +903,116 @@ func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 	c.Check(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
+func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	failRelTag := names.NewRelationTag("postgresql:database wordpress:mysql")
+	s.expectGetRelationUUIDFromKey(corerelation.Key(failRelTag.Id()), "", relationerrors.RelationNotFound)
+
+	// act
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		// relation tag not parsable
+		{Relation: "relation-42", Unit: "unit-wordpress-0"},
+		// not found relation key
+		{Relation: failRelTag.String(), Unit: "unit-wordpress-0"},
+		// authorization on unit tag fails
+		{Relation: relTag.String(), Unit: "unit-mysql-0"},
+	}}
+	result, err := s.uniter.EnterScope(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+}
+
+func (s *uniterRelationSuite) TestEnterScope(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
+	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()), nil)
+
+	// act
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()},
+	}}
+	result, err := s.uniter.EnterScope(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	emptyErrorResults := params.ErrorResults{Results: []params.ErrorResult{{}}}
+	c.Assert(result, gc.DeepEquals, emptyErrorResults)
+}
+
+// TestEnterScopeReturnsPotentialRelationUnitNotValid tests that if EnterScope
+// returns PotentialRelationUnitNotValid the facade method still returns no
+// error.
+func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
+	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()),
+		relationerrors.PotentialRelationUnitNotValid)
+
+	// act
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: relTag.String(), Unit: s.wordpressUnitTag.String()},
+	}}
+	result, err := s.uniter.EnterScope(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	emptyErrorResults := params.ErrorResults{Results: []params.ErrorResult{{}}}
+	c.Assert(result, gc.DeepEquals, emptyErrorResults)
+}
+
+// TestLeaveScopeFails tests for unauthorized errors, unit tag
+// validation, and ensures the method works in bulk.
+func (s *uniterRelationSuite) TestLeaveScopeFails(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	failRelTag := names.NewRelationTag("postgresql:database wordpress:mysql")
+	s.expectGetRelationUUIDFromKey(corerelation.Key(failRelTag.Id()), "",
+		relationerrors.RelationNotFound)
+
+	// act
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		// Not the authorized unit
+		{Relation: "relation-42", Unit: "unit-foo-0"},
+		// Invalid relation tag
+		{Relation: "relation-42", Unit: s.wordpressUnitTag.String()},
+		// Relation key not found
+		{Relation: failRelTag.String(), Unit: s.wordpressUnitTag.String()},
+		// Invalid unit tag
+		{Relation: relTag.String(), Unit: "application-wordpress"},
+	}}
+	result, err := s.uniter.LeaveScope(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+			{&params.Error{Message: `"application-wordpress" is not a valid unit tag`}},
+		},
+	})
+
+}
+
 func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -929,6 +1041,7 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 		accessApplication: appAuthFunc,
 		accessUnit:        unitAuthFunc,
 		auth:              authorizer,
+		logger:            loggertesting.WrapCheckLog(c),
 
 		applicationService: s.applicationService,
 		modelInfoService:   s.modelInfoService,
@@ -1067,4 +1180,8 @@ func (s *uniterRelationSuite) expectSetRelationStatus(unitName string, relUUID c
 
 func (s *uniterRelationSuite) expectGetRelationStatus(uuid corerelation.UUID, currentStatus status.StatusInfo) {
 	s.relationService.EXPECT().GetRelationStatus(gomock.Any(), uuid).Return(currentStatus, nil)
+}
+
+func (s *uniterRelationSuite) expectEnterScope(uuid corerelation.UUID, name coreunit.Name, err error) {
+	s.relationService.EXPECT().EnterScope(gomock.Any(), uuid, name).Return(err)
 }

@@ -16,6 +16,13 @@ const (
 	// being operated on does not exist.
 	ApplicationNotFound = errors.ConstError("application not found")
 
+	// PotentialRelationUnitNotValid describes an error that occurs during
+	// EnterScope pre-checks to ensure the created relation unit will be valid.
+	//
+	// This is not a fatal error. It replaces a boolean return value from a
+	// prior implementation.
+	PotentialRelationUnitNotValid = errors.ConstError("potential relation unit not valid")
+
 	// RelationEndpointNotFound describes an error that occurs when the specified
 	// relation endpoint does not exist.
 	RelationEndpointNotFound = errors.ConstError("relation endpoint not found")

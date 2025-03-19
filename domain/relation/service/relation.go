@@ -89,8 +89,8 @@ func (s *Service) ApplicationRelations(ctx context.Context, id application.ID) (
 }
 
 // ApplicationRelationsInfo returns all EndpointRelationData for an application.
-// Note: Replaces the functionality of the relationData method in the application facade. Used
-// for UnitInfo call.
+// Note: Replaces the functionality of the relationData method in the application
+// facade. Used for UnitInfo call.
 func (s *Service) ApplicationRelationsInfo(
 	ctx context.Context,
 	applicationID application.ID,
@@ -98,8 +98,20 @@ func (s *Service) ApplicationRelationsInfo(
 	return nil, errors.NotImplemented
 }
 
-// EnterScope updates the given relation to indicate it is in scope.
-func (s *Service) EnterScope(ctx context.Context, relationID corerelation.UnitUUID) error {
+// EnterScope indicates that the provided unit has joined the relation.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
+//     scope is a subordinate and the endpoint scope is charm.ScopeContainer
+//     where the other application is a principal, but not in the current
+//     relation.
+func (s *Service) EnterScope(
+	ctx context.Context,
+	relationID corerelation.UUID,
+	unitName unit.Name,
+) error {
+	// Before entering scope, validate the proposed relation unit based on
+	// RelationUnit.Valid().
 	return errors.NotImplemented
 }
 
@@ -250,6 +262,8 @@ func (s *Service) GetRelationUUIDByID(ctx context.Context, relationID int) (core
 }
 
 // GetRelationUUIDFromKey returns a relation UUID for the given Key.
+// The following error types can be expected:
+// - [relationerrors.RelationNotFound]: when no relation exists for the given key.
 func (s *Service) GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error) {
 	return "", errors.NotImplemented
 }
@@ -337,15 +351,24 @@ func (s *Service) SetRelationSuspended(
 	return errors.NotImplemented
 }
 
+// SetRelationApplicationSettings records settings for a specific application
+// relation combination.
 func (s *Service) SetRelationApplicationSettings(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	applicationID application.ID,
 	settings map[string]string,
 ) error {
+	// TODO: (hml) 17-Mar-2025
+	// Implement leadership checking here: e.g.
+	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
+	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
+	//	})
 	return errors.NotImplemented
 }
 
+// SetRelationUnitSettings records settings for a specific unit
+// relation combination.
 func (s *Service) SetRelationUnitSettings(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
