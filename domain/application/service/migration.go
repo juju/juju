@@ -29,6 +29,12 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
+// MigrationState is the state required for migrating applications.
+type MigrationState interface {
+	// ExportApplications returns all the applications in the model.
+	GetApplicationsForExport(ctx context.Context) ([]application.ExportApplication, error)
+}
+
 // MigrationService provides the API for migrating applications.
 type MigrationService struct {
 	st                    State
@@ -140,6 +146,11 @@ func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name s
 		&actions,
 		&lxdProfile,
 	), locator, nil
+}
+
+// ExportApplications returns all the applications in the model.
+func (s *MigrationService) GetApplicationsForExport(ctx context.Context) ([]application.ExportApplication, error) {
+	return s.st.GetApplicationsForExport(ctx)
 }
 
 // GetApplicationConfigAndSettings returns the application config and settings

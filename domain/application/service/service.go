@@ -46,6 +46,7 @@ type State interface {
 	CharmState
 	StorageState
 	UnitState
+	MigrationState
 }
 
 const (
