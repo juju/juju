@@ -309,15 +309,14 @@ ON charm_relation (charm_uuid);
 CREATE TABLE charm_extra_binding (
     uuid TEXT NOT NULL PRIMARY KEY,
     charm_uuid TEXT NOT NULL,
-    "key" TEXT NOT NULL,
-    name TEXT,
+    name TEXT NOT NULL,
     CONSTRAINT fk_charm_extra_binding_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid)
 );
 
 CREATE INDEX idx_charm_extra_binding_charm
-ON charm_extra_binding (charm_uuid, "key", name);
+ON charm_extra_binding (charm_uuid, name);
 
 -- charm_category is a limited set of categories that a charm can be tagged
 -- for the charmhub store. This is free form and driven by the charmhub store.
