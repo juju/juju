@@ -74,7 +74,7 @@ func (s *Service) RemoveRelation(ctx context.Context, relUUID corerelation.UUID,
 		return "", errors.Errorf("removing relation %q: %w", relUUID, err)
 	}
 
-	s.logger.Infof(ctx, "sheduled cleanup job %q for relation %q", jobUUID, relUUID)
+	s.logger.Infof(ctx, "scheduled cleanup job %q for relation %q", jobUUID, relUUID)
 	return jobUUID, nil
 }
 

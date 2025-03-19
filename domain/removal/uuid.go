@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// UUID represents a upgrade unique identifier.
+// UUID is a unique removal job identifier.
 type UUID string
 
 // NewUUID returns a new UUID.
@@ -33,7 +33,7 @@ func (u UUID) Validate() error {
 	return nil
 }
 
-// String implements the stringer interface for UUID.
+// String returns the UUID in string form.
 func (u UUID) String() string {
 	return string(u)
 }
