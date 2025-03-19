@@ -4,6 +4,8 @@
 package application
 
 import (
+	"github.com/juju/collections/set"
+
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
@@ -343,4 +345,17 @@ type ExportApplication struct {
 	PasswordHash string
 	Exposed      bool
 	Subordinate  bool
+}
+
+// ExposedEndpoint encapsulates the expose-related details of a particular
+// application endpoint with respect to the sources (CIDRs or space IDs) that
+// should be able to access the ports opened by the application charm for an
+// endpoint.
+type ExposedEndpoint struct {
+	// A list of spaces that should be able to reach the opened ports
+	// for an exposed application's endpoint.
+	ExposeToSpaceIDs set.Strings
+	// A list of CIDRs that should be able to reach the opened ports
+	// for an exposed application's endpoint.
+	ExposeToCIDRs set.Strings
 }

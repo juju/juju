@@ -270,6 +270,39 @@ type ApplicationState interface {
 	// NamespaceForWatchApplicationScale returns the namespace identifier
 	// for application scale change watchers.
 	NamespaceForWatchApplicationScale() string
+
+	// ApplicationExposed returns whether the provided application is exposed or
+	// not.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	ApplicationExposed(ctx context.Context, appID coreapplication.ID) (bool, error)
+
+	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
+	// value which represents all endpoints) and values are ExposedEndpoint
+	// instances that specify which sources (spaces or CIDRs) can access the
+	// opened ports for each endpoint once the application is exposed.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetExposedEndpoints(ctx context.Context, appID coreapplication.ID) (map[string]application.ExposedEndpoint, error)
+
+	// UnsetExposeSettings removes the expose settings for the provided list of
+	// endpoint names. If the resulting exposed endpoints map for the application
+	// becomes empty after the settings are removed, the application will be
+	// automatically unexposed.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	UnsetExposeSettings(ctx context.Context, appID coreapplication.ID, exposedEndpoints set.Strings) error
+
+	// MergeExposeSettings marks the application as exposed and merges the provided
+	// ExposedEndpoint details into the current set of expose settings. The merge
+	// operation will overwrite expose settings for each existing endpoint name.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	MergeExposeSettings(ctx context.Context, appID coreapplication.ID, exposedEndpoints map[string]application.ExposedEndpoint) error
 }
 
 func validateCharmAndApplicationParams(
