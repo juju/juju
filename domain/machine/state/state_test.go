@@ -1015,7 +1015,7 @@ WHERE machine_uuid = ?
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(obtainedMachineUUID, gc.Equals, machineUUID)
 	c.Check(obtainedVersion, gc.Equals, jujuversion.Current.String())
-	c.Check(obtainedArch, gc.Equals, string(corearch.ARM64))
+	c.Check(obtainedArch, gc.Equals, corearch.ARM64)
 }
 
 // TestSetRunningAgentBinaryVersion asserts setting the initial agent binary
@@ -1072,5 +1072,5 @@ WHERE machine_uuid = ?
 		},
 	)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(obtainedArch, gc.Equals, string(corearch.ARM64))
+	c.Check(obtainedArch, gc.Equals, corearch.ARM64)
 }
