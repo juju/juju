@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/domain/blockcommand/service"
 	"github.com/juju/juju/domain/blockcommand/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -63,11 +63,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	for k, msg := range blocks {
 		t, err := importMigrationValue(k)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		if err := i.service.SwitchBlockOn(ctx, t, msg); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	}
 	return nil

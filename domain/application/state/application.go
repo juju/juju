@@ -17,7 +17,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
-	jujuerrors "github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -45,13 +44,13 @@ import (
 func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	var result modelInfo
 	stmt, err := st.Prepare("SELECT &modelInfo.type FROM model", result)
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -79,17 +78,17 @@ func (st *State) CreateApplication(
 ) (coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	appUUID, err := coreapplication.NewID()
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	charmID, err := corecharm.NewID()
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	appDetails := applicationDetails{
@@ -102,7 +101,7 @@ func (st *State) CreateApplication(
 	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`
 	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	scaleInfo := applicationScale{
@@ -112,7 +111,7 @@ func (st *State) CreateApplication(
 	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
 	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	platformInfo := applicationPlatform{
@@ -124,7 +123,7 @@ func (st *State) CreateApplication(
 	createPlatform := `INSERT INTO application_platform (*) VALUES ($applicationPlatform.*)`
 	createPlatformStmt, err := st.Prepare(createPlatform, platformInfo)
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	var (
@@ -146,19 +145,19 @@ func (st *State) CreateApplication(
 		}
 		createChannel := `INSERT INTO application_channel (*) VALUES ($applicationChannel.*)`
 		if createChannelStmt, err = st.Prepare(createChannel, channelInfo); err != nil {
-			return "", jujuerrors.Trace(err)
+			return "", errors.Capture(err)
 		}
 	}
 
 	configHash, err := hashConfigAndSettings(args.Config, args.Settings)
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the application already exists.
 		if err := st.checkApplicationNameAvailable(ctx, tx, name); err != nil {
-			return fmt.Errorf("checking if application %q exists: %w", name, err)
+			return errors.Errorf("checking if application %q exists: %w", name, err)
 		}
 
 		shouldInsertCharm := true
@@ -166,7 +165,7 @@ func (st *State) CreateApplication(
 		// Check if the charm already exists.
 		existingCharmID, err := st.checkCharmReferenceExists(ctx, tx, referenceName, revision)
 		if err != nil && !errors.Is(err, applicationerrors.CharmAlreadyExists) {
-			return fmt.Errorf("checking if charm %q exists: %w", charmName, err)
+			return errors.Errorf("checking if charm %q exists: %w", charmName, err)
 		} else if errors.Is(err, applicationerrors.CharmAlreadyExists) {
 			// We already have an existing charm, in this case we just want
 			// to point the application to the existing charm.
@@ -286,7 +285,7 @@ func (st *State) insertApplicationUnits(
 func (st *State) DeleteApplication(ctx context.Context, name string) error {
 	db, err := st.DB()
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -306,7 +305,7 @@ FROM unit
 WHERE application_uuid = $applicationDetails.uuid
 `, countResult{}, app)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// NOTE: This is a work around because teardown is not implemented yet. Ideally,
@@ -320,17 +319,17 @@ WHERE application_uuid = $applicationDetails.uuid
 `
 	deleteSecretOwnerStmt, err := st.Prepare(deleteSecretOwner, app)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	deleteApplicationStmt, err := st.Prepare(`DELETE FROM application WHERE name = $applicationDetails.name`, app)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	appUUID, err := st.lookupApplication(ctx, tx, name)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 	app.UUID = appUUID
 
@@ -341,7 +340,7 @@ WHERE application_uuid = $applicationDetails.uuid
 		return errors.Errorf("querying units for application %q: %w", name, err)
 	}
 	if numUnits := result.Count; numUnits > 0 {
-		return errors.Errorf("cannot delete application %q as it still has %d unit(s)%w", name, numUnits, jujuerrors.Hide(applicationerrors.ApplicationHasUnits))
+		return errors.Errorf("cannot delete application %q as it still has %d unit(s)", name, numUnits).Add(applicationerrors.ApplicationHasUnits)
 	}
 
 	if err := tx.Query(ctx, deleteSecretOwnerStmt, app).Run(); err != nil {
@@ -380,7 +379,7 @@ DELETE FROM net_node WHERE uuid IN (
     WHERE application_uuid = $applicationDetails.uuid
 )`, app)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	deleteCloudServiceStmt, err := st.Prepare(`
@@ -388,11 +387,11 @@ DELETE FROM k8s_service
 WHERE application_uuid = $applicationDetails.uuid
 `, app)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	if err := tx.Query(ctx, deleteCloudServiceStmt, app).Run(); err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 	if err := tx.Query(ctx, deleteNodeStmt, app).Run(); err != nil {
 		return errors.Errorf("deleting net node for cloud service application %q: %w", appUUID, err)
@@ -418,7 +417,7 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		deleteApplicationReference := fmt.Sprintf(`DELETE FROM %s WHERE application_uuid = $applicationID.uuid`, table)
 		deleteApplicationReferenceStmt, err := st.Prepare(deleteApplicationReference, app)
 		if err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		if err := tx.Query(ctx, deleteApplicationReferenceStmt, app).Run(); err != nil {
@@ -434,7 +433,7 @@ func (st *State) StorageDefaults(ctx context.Context) (domainstorage.StorageDefa
 
 	db, err := st.DB()
 	if err != nil {
-		return rval, jujuerrors.Trace(err)
+		return rval, errors.Capture(err)
 	}
 
 	attrs := []string{application.StorageDefaultBlockSourceKey, application.StorageDefaultFilesystemSourceKey}
@@ -443,7 +442,7 @@ func (st *State) StorageDefaults(ctx context.Context) (domainstorage.StorageDefa
 SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
 `, sqlair.S{}, KeyValue{})
 	if err != nil {
-		return rval, jujuerrors.Trace(err)
+		return rval, errors.Capture(err)
 	}
 
 	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -453,7 +452,7 @@ SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return nil
 			}
-			return fmt.Errorf("getting model config attrs for storage defaults: %w", err)
+			return errors.Errorf("getting model config attrs for storage defaults: %w", err)
 		}
 
 		for _, kv := range values {
@@ -475,7 +474,7 @@ SELECT &KeyValue.* FROM model_config WHERE key IN ($S[:])
 func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error) {
 	db, err := st.DB()
 	if err != nil {
-		return domainstorage.StoragePoolDetails{}, jujuerrors.Trace(err)
+		return domainstorage.StoragePoolDetails{}, errors.Capture(err)
 	}
 	return storagestate.GetStoragePoolByName(ctx, db, name)
 }
@@ -485,7 +484,7 @@ func (st *State) GetStoragePoolByName(ctx context.Context, name string) (domains
 func (st *State) GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
-		return -1, jujuerrors.Trace(err)
+		return -1, errors.Capture(err)
 	}
 
 	var life life.Life
@@ -509,7 +508,7 @@ WHERE name = $minimalUnit.name
 `
 	queryUnitStmt, err := st.Prepare(queryUnit, unit)
 	if err != nil {
-		return -1, jujuerrors.Trace(err)
+		return -1, errors.Capture(err)
 	}
 
 	err = tx.Query(ctx, queryUnitStmt, unit).Get(&unit)
@@ -527,7 +526,7 @@ WHERE name = $minimalUnit.name
 func (st *State) GetApplicationScaleState(ctx context.Context, appUUID coreapplication.ID) (application.ScaleState, error) {
 	db, err := st.DB()
 	if err != nil {
-		return application.ScaleState{}, jujuerrors.Trace(err)
+		return application.ScaleState{}, errors.Capture(err)
 	}
 
 	var appScale application.ScaleState
@@ -551,7 +550,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 `
 	queryScaleStmt, err := st.Prepare(queryScale, appScale)
 	if err != nil {
-		return application.ScaleState{}, jujuerrors.Trace(err)
+		return application.ScaleState{}, errors.Capture(err)
 	}
 
 	err = tx.Query(ctx, queryScaleStmt, appScale).Get(&appScale)
@@ -570,7 +569,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 func (st *State) GetApplicationLife(ctx context.Context, appName string) (coreapplication.ID, life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", -1, jujuerrors.Trace(err)
+		return "", -1, errors.Capture(err)
 	}
 
 	var app applicationDetails
@@ -581,7 +580,7 @@ func (st *State) GetApplicationLife(ctx context.Context, appName string) (coreap
 		}
 		return nil
 	})
-	return app.UUID, app.LifeID, jujuerrors.Trace(err)
+	return app.UUID, app.LifeID, errors.Capture(err)
 }
 
 func (st *State) getApplicationDetails(ctx context.Context, tx *sqlair.TX, appName string) (applicationDetails, error) {
@@ -593,7 +592,7 @@ WHERE name = $applicationDetails.name
 `
 	stmt, err := st.Prepare(query, app)
 	if err != nil {
-		return applicationDetails{}, jujuerrors.Trace(err)
+		return applicationDetails{}, errors.Capture(err)
 	}
 
 	err = tx.Query(ctx, stmt, app).Get(&app)
@@ -610,7 +609,7 @@ WHERE name = $applicationDetails.name
 func (st *State) SetApplicationLife(ctx context.Context, appUUID coreapplication.ID, l life.Life) error {
 	db, err := st.DB()
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	lifeQuery := `
@@ -623,7 +622,7 @@ AND life_id <= $applicationIDAndLife.life_id
 	app := applicationIDAndLife{ID: appUUID, LifeID: l}
 	lifeStmt, err := st.Prepare(lifeQuery, app)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -633,7 +632,7 @@ AND life_id <= $applicationIDAndLife.life_id
 		}
 		return nil
 	})
-	return jujuerrors.Trace(err)
+	return errors.Capture(err)
 }
 
 // SetDesiredApplicationScale updates the desired scale of the specified
@@ -641,7 +640,7 @@ AND life_id <= $applicationIDAndLife.life_id
 func (st *State) SetDesiredApplicationScale(ctx context.Context, appUUID coreapplication.ID, scale int) error {
 	db, err := st.DB()
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	scaleDetails := applicationScale{
@@ -655,12 +654,12 @@ WHERE application_uuid = $applicationScale.application_uuid
 
 	upsertStmt, err := st.Prepare(upsertApplicationScale, scaleDetails)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, upsertStmt, scaleDetails).Run()
 	})
-	return jujuerrors.Trace(err)
+	return errors.Capture(err)
 }
 
 // UpdateApplicationScale updates the desired scale of an application by a
@@ -670,7 +669,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 func (st *State) UpdateApplicationScale(ctx context.Context, appUUID coreapplication.ID, delta int) (int, error) {
 	db, err := st.DB()
 	if err != nil {
-		return -1, jujuerrors.Trace(err)
+		return -1, errors.Capture(err)
 	}
 
 	upsertApplicationScale := `
@@ -679,13 +678,13 @@ WHERE application_uuid = $applicationScale.application_uuid
 `
 	upsertStmt, err := st.Prepare(upsertApplicationScale, applicationScale{})
 	if err != nil {
-		return -1, jujuerrors.Trace(err)
+		return -1, errors.Capture(err)
 	}
 	var newScale int
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		currentScaleState, err := st.getApplicationScaleState(ctx, tx, appUUID)
 		if err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		newScale = currentScaleState.Scale + delta
@@ -700,7 +699,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 		}
 		return tx.Query(ctx, upsertStmt, scaleDetails).Run()
 	})
-	return newScale, jujuerrors.Trace(err)
+	return newScale, errors.Capture(err)
 }
 
 // SetApplicationScalingState sets the scaling details for the given caas
@@ -708,7 +707,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 func (st *State) SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error {
 	db, err := st.DB()
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	scaleDetails := applicationScale{
@@ -726,18 +725,18 @@ WHERE application_uuid = $applicationScale.application_uuid
 
 	upsertStmt, err := st.Prepare(upsertApplicationScale, scaleDetails)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
 		if err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		}
 		scaleDetails.ApplicationID = appDetails.UUID
 
 		currentScaleState, err := st.getApplicationScaleState(ctx, tx, appDetails.UUID)
 		if err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		if scaling {
@@ -760,7 +759,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 
 		return tx.Query(ctx, upsertStmt, scaleDetails).Run()
 	})
-	return jujuerrors.Trace(err)
+	return errors.Capture(err)
 }
 
 // UpsertCloudService updates the cloud service for the specified application,
@@ -769,7 +768,7 @@ WHERE application_uuid = $applicationScale.application_uuid
 func (st *State) UpsertCloudService(ctx context.Context, applicationName, providerID string, sAddrs network.SpaceAddresses) error {
 	db, err := st.DB()
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// TODO(units) - handle addresses
@@ -782,34 +781,34 @@ SELECT &cloudService.* FROM k8s_service
 WHERE application_uuid = $cloudService.application_uuid
 AND provider_id = $cloudService.provider_id`, serviceInfo)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	createNodeStmt, err := st.Prepare(`
 INSERT INTO net_node (uuid) VALUES ($cloudService.net_node_uuid)
 `, serviceInfo)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	insertStmt, err := st.Prepare(`
 INSERT INTO k8s_service (*) VALUES ($cloudService.*)
 `, serviceInfo)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		appUUID, err := st.lookupApplication(ctx, tx, applicationName)
 		if err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		}
 		serviceInfo.ApplicationUUID = appUUID
 
 		// First see if the cloud service for the app and provider id already exists.
 		// If so, it's a no-op.
 		err = tx.Query(ctx, queryExistingStmt, serviceInfo).Get(&serviceInfo)
-		if err != nil && !jujuerrors.Is(err, sqlair.ErrNoRows) {
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"querying cloud service for application %q and provider id %q: %w", applicationName, providerID, err)
 		}
@@ -820,7 +819,7 @@ INSERT INTO k8s_service (*) VALUES ($cloudService.*)
 		// Nothing already exists so create a new net node for the cloud service.
 		nodeUUID, err := uuid.NewUUID()
 		if err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		}
 		serviceInfo.NetNodeUUID = nodeUUID.String()
 		if err := tx.Query(ctx, createNodeStmt, serviceInfo).Run(); err != nil {
@@ -829,7 +828,7 @@ INSERT INTO k8s_service (*) VALUES ($cloudService.*)
 		serviceInfo.ProviderID = providerID
 		uuid, err := uuid.NewUUID()
 		if err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		}
 		serviceInfo.UUID = uuid.String()
 		return tx.Query(ctx, insertStmt, serviceInfo).Run()
@@ -846,7 +845,7 @@ INSERT INTO k8s_service (*) VALUES ($cloudService.*)
 func (st *State) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*application.StatusInfo[application.WorkloadStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, jujuerrors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	identID := applicationID{ID: appID}
@@ -856,12 +855,12 @@ FROM application_status
 WHERE application_uuid = $applicationID.uuid;
 `, identID, applicationStatusInfo{})
 	if err != nil {
-		return nil, jujuerrors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	var status applicationStatusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		}
 		if err := tx.Query(ctx, query, identID).Get(&status); errors.Is(err, sqlair.ErrNoRows) {
 			// If the application status is not set, then it's up to the
@@ -869,7 +868,7 @@ WHERE application_uuid = $applicationID.uuid;
 			// the status from the units.
 			return nil
 		} else if err != nil {
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -879,7 +878,7 @@ WHERE application_uuid = $applicationID.uuid;
 
 	statusType, err := decodeWorkloadStatus(status.StatusID)
 	if err != nil {
-		return nil, jujuerrors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return &application.StatusInfo[application.WorkloadStatusType]{
@@ -901,7 +900,7 @@ JOIN charm c ON a.charm_uuid = c.uuid
 WHERE c.available = FALSE
 `, applicationID{})
 		if err != nil {
-			return nil, jujuerrors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 
 		var results []applicationID
@@ -910,7 +909,7 @@ WHERE c.available = FALSE
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return nil
 			}
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		})
 		if err != nil {
 			return nil, errors.Errorf("querying requested applications that have pending charms: %w", err)
@@ -935,7 +934,7 @@ JOIN application a ON a.uuid = ach.application_uuid
 WHERE a.name = $applicationName.name
 `, app, applicationConfigHash{})
 		if err != nil {
-			return nil, jujuerrors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		var result []applicationConfigHash
 		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -943,7 +942,7 @@ WHERE a.name = $applicationName.name
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return nil
 			}
-			return jujuerrors.Trace(err)
+			return errors.Capture(err)
 		})
 		if err != nil {
 			return nil, errors.Errorf("querying unit IDs for %q: %w", appName, err)
@@ -962,7 +961,7 @@ WHERE a.name = $applicationName.name
 func (st *State) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, jujuerrors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	type applicationIDs []coreapplication.ID
@@ -974,7 +973,7 @@ JOIN charm AS c ON a.charm_uuid = c.uuid
 WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
 `, applicationID{}, applicationIDs{})
 	if err != nil {
-		return nil, jujuerrors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	var results []applicationID
@@ -983,7 +982,7 @@ WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	})
 	if err != nil {
 		return nil, errors.Errorf("querying requested applications that have pending charms: %w", err)
@@ -1005,7 +1004,7 @@ WHERE a.uuid IN ($applicationIDs[:]) AND c.available = FALSE
 func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (corecharm.ID, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	query, err := st.Prepare(`
@@ -1055,7 +1054,7 @@ WHERE uuid = $applicationID.uuid
 
 		return nil
 	}); err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	return corecharm.ParseID(result.UUID)
@@ -1074,7 +1073,7 @@ WHERE uuid = $applicationID.uuid
 func (st *State) GetCharmByApplicationID(ctx context.Context, appUUID coreapplication.ID) (charm.Charm, error) {
 	db, err := st.DB()
 	if err != nil {
-		return charm.Charm{}, jujuerrors.Trace(err)
+		return charm.Charm{}, errors.Capture(err)
 	}
 
 	query, err := st.Prepare(`
@@ -1119,7 +1118,7 @@ WHERE uuid = $applicationID.uuid
 		}
 		return nil
 	}); err != nil {
-		return ch, jujuerrors.Trace(err)
+		return ch, errors.Capture(err)
 	}
 
 	return ch, nil
@@ -1297,7 +1296,7 @@ WHERE application_uuid = $applicationID.uuid
 
 	provenance, err := decodeProvenance(info.Provenance)
 	if err != nil {
-		return application.CharmDownloadInfo{}, fmt.Errorf("decoding charm provenance: %w", err)
+		return application.CharmDownloadInfo{}, errors.Errorf("decoding charm provenance: %w", err)
 	}
 
 	return application.CharmDownloadInfo{
@@ -1355,7 +1354,7 @@ SET
 WHERE uuid = $charmID.uuid;`
 	charmStmt, err := st.Prepare(charmQuery, charmUUID, chState)
 	if err != nil {
-		return fmt.Errorf("preparing query: %w", err)
+		return errors.Errorf("preparing query: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1378,7 +1377,7 @@ WHERE uuid = $charmID.uuid;`
 		}
 
 		if err := tx.Query(ctx, charmStmt, charmUUID, chState).Run(); err != nil {
-			return fmt.Errorf("updating charm state: %w", err)
+			return errors.Errorf("updating charm state: %w", err)
 		}
 
 		return nil
@@ -2473,7 +2472,7 @@ FROM application
 WHERE name = $applicationIDAndName.name
 `, app)
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
 	if errors.Is(err, sqlair.ErrNoRows) {

@@ -8,12 +8,12 @@ import (
 	"fmt"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -41,7 +41,7 @@ type PoolAttrs map[string]any
 func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) error {
 	err := s.validateConfig(ctx, name, providerType, attrs)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	attrsToSave := transform.Map(attrs, func(k string, v any) (string, string) { return k, fmt.Sprint(v) })
@@ -51,7 +51,10 @@ func (s *StoragePoolService) CreateStoragePool(ctx context.Context, name string,
 		Attrs:    attrsToSave,
 	}
 	err = s.st.CreateStoragePool(ctx, sp)
-	return errors.Annotatef(err, "creating storage pool %q", name)
+	if err != nil {
+		return errors.Errorf("creating storage pool %q: %w", name, err)
+	}
+	return nil
 }
 
 func (s *StoragePoolService) validateConfig(ctx context.Context, name string, providerType storage.ProviderType, attrs map[string]interface{}) error {
@@ -59,7 +62,7 @@ func (s *StoragePoolService) validateConfig(ctx context.Context, name string, pr
 		return storageerrors.MissingPoolNameError
 	}
 	if !storage.IsValidPoolName(name) {
-		return fmt.Errorf("pool name %q not valid%w", name, errors.Hide(storageerrors.InvalidPoolNameError))
+		return errors.Errorf("pool name %q not valid", name).Add(storageerrors.InvalidPoolNameError)
 	}
 	if providerType == "" {
 		return storageerrors.MissingPoolTypeError
@@ -67,22 +70,22 @@ func (s *StoragePoolService) validateConfig(ctx context.Context, name string, pr
 
 	cfg, err := storage.NewConfig(name, providerType, attrs)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// GetStorageRegistry result for a given model will be cached after the
 	// initial call, so this should be cheap to call.
 	registry, err := s.registryGetter.GetStorageRegistry(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	p, err := registry.StorageProvider(providerType)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	if err := p.ValidateConfig(cfg); err != nil {
-		return errors.Annotate(err, "validating storage provider config")
+		return errors.Errorf("validating storage provider config: %w", err)
 	}
 	return nil
 }
@@ -118,7 +121,10 @@ func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string)
 		}
 	*/
 	err := s.st.DeleteStoragePool(ctx, name)
-	return errors.Annotatef(err, "deleting storage pool %q", name)
+	if err != nil {
+		return errors.Errorf("deleting storage pool %q: %w", name, err)
+	}
+	return nil
 }
 
 // ReplaceStoragePool replaces an existing storage pool, returning an error
@@ -128,14 +134,14 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 	if providerType == "" {
 		existingConfig, err := s.st.GetStoragePoolByName(ctx, name)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		providerType = storage.ProviderType(existingConfig.Provider)
 	}
 
 	err := s.validateConfig(ctx, name, providerType, attrs)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	attrsToSave := transform.Map(attrs, func(k string, v any) (string, string) { return k, fmt.Sprint(v) })
@@ -145,7 +151,10 @@ func (s *StoragePoolService) ReplaceStoragePool(ctx context.Context, name string
 		Attrs:    attrsToSave,
 	}
 	err = s.st.ReplaceStoragePool(ctx, sp)
-	return errors.Annotatef(err, "replacing storage pool %q", name)
+	if err != nil {
+		return errors.Errorf("replacing storage pool %q: %w", name, err)
+	}
+	return nil
 }
 
 // AllStoragePools returns the all storage pools.
@@ -156,17 +165,17 @@ func (s *StoragePoolService) AllStoragePools(ctx context.Context) ([]*storage.Co
 // ListStoragePools returns the storage pools matching the specified filter.
 func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) ([]*storage.Config, error) {
 	if err := s.validatePoolListFilterTerms(ctx, names, providers); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	pools, err := domainstorage.BuiltInStoragePools()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	sp, err := s.st.ListStoragePools(ctx, names, providers)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	pools = append(pools, sp...)
 
@@ -174,7 +183,7 @@ func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domains
 	for i, p := range pools {
 		results[i], err = s.storageConfig(ctx, p)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 	}
 	return results, nil
@@ -182,10 +191,10 @@ func (s *StoragePoolService) ListStoragePools(ctx context.Context, names domains
 
 func (s *StoragePoolService) validatePoolListFilterTerms(ctx context.Context, names domainstorage.Names, providers domainstorage.Providers) error {
 	if err := s.validateProviderCriteria(ctx, providers); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	if err := s.validateNameCriteria(names); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	return nil
 }
@@ -193,7 +202,7 @@ func (s *StoragePoolService) validatePoolListFilterTerms(ctx context.Context, na
 func (s *StoragePoolService) validateNameCriteria(names []string) error {
 	for _, n := range names {
 		if !storage.IsValidPoolName(n) {
-			return fmt.Errorf("pool name %q not valid%w", n, errors.Hide(storageerrors.InvalidPoolNameError))
+			return errors.Errorf("pool name %q not valid", n).Add(storageerrors.InvalidPoolNameError)
 		}
 	}
 	return nil
@@ -204,13 +213,13 @@ func (s *StoragePoolService) validateProviderCriteria(ctx context.Context, provi
 	// initial call, so this should be cheap to call.
 	registry, err := s.registryGetter.GetStorageRegistry(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	for _, p := range providers {
 		_, err := registry.StorageProvider(storage.ProviderType(p))
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	}
 	return nil
@@ -220,12 +229,12 @@ func (s *StoragePoolService) validateProviderCriteria(ctx context.Context, provi
 // satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
 func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error) {
 	if !storage.IsValidPoolName(name) {
-		return nil, fmt.Errorf("pool name %q not valid%w", name, errors.Hide(storageerrors.InvalidPoolNameError))
+		return nil, errors.Errorf("pool name %q not valid", name).Add(storageerrors.InvalidPoolNameError)
 	}
 
 	builtIn, err := domainstorage.BuiltInStoragePools()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	for _, p := range builtIn {
 		if p.Name == name {
@@ -235,7 +244,7 @@ func (s *StoragePoolService) GetStoragePoolByName(ctx context.Context, name stri
 
 	sp, err := s.st.GetStoragePoolByName(ctx, name)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return s.storageConfig(ctx, sp)
 }
@@ -245,7 +254,7 @@ func (s *StoragePoolService) storageConfig(ctx context.Context, sp domainstorage
 	// initial call, so this should be cheap to call.
 	registry, err := s.registryGetter.GetStorageRegistry(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	var attr map[string]any
@@ -254,14 +263,14 @@ func (s *StoragePoolService) storageConfig(ctx context.Context, sp domainstorage
 	}
 	cfg, err := storage.NewConfig(sp.Name, storage.ProviderType(sp.Provider), attr)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	p, err := registry.StorageProvider(cfg.Provider())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	if err := p.ValidateConfig(cfg); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return cfg, nil
 }

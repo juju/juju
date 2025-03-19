@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
@@ -136,7 +135,7 @@ func (st *State) GetTargetAgentVersion(ctx context.Context) (version.Number, err
 
 	stmt, err := st.Prepare("SELECT &dbAgentVersion.target_version FROM agent_version", res)
 	if err != nil {
-		return version.Zero, fmt.Errorf("preparing agent version query: %w", err)
+		return version.Zero, errors.Errorf("preparing agent version query: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -144,7 +143,7 @@ func (st *State) GetTargetAgentVersion(ctx context.Context) (version.Number, err
 		if errors.Is(err, sql.ErrNoRows) {
 			return modelerrors.AgentVersionNotFound
 		} else if err != nil {
-			return fmt.Errorf("getting agent version: %w", err)
+			return errors.Errorf("getting agent version: %w", err)
 		}
 		return nil
 	})
@@ -154,7 +153,7 @@ func (st *State) GetTargetAgentVersion(ctx context.Context) (version.Number, err
 
 	vers, err := version.Parse(res.TargetAgentVersion)
 	if err != nil {
-		return version.Zero, fmt.Errorf("parsing agent version: %w", err)
+		return version.Zero, errors.Errorf("parsing agent version: %w", err)
 	}
 	return vers, nil
 }

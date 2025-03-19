@@ -7,8 +7,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
@@ -16,6 +14,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -67,13 +66,13 @@ type dbModel struct {
 func (m *dbModel) toCoreModel() (coremodel.Model, error) {
 	ownerName, err := user.NewName(m.OwnerName)
 	if err != nil {
-		return coremodel.Model{}, errors.Trace(err)
+		return coremodel.Model{}, errors.Capture(err)
 	}
 	var credOwnerName user.Name
 	if m.CredentialOwnerName != "" {
 		credOwnerName, err = user.NewName(m.CredentialOwnerName)
 		if err != nil {
-			return coremodel.Model{}, errors.Trace(err)
+			return coremodel.Model{}, errors.Capture(err)
 		}
 	}
 
@@ -211,7 +210,7 @@ type dbModelSummary struct {
 func (m dbModelSummary) decodeUserModelSummary() (coremodel.UserModelSummary, error) {
 	ms, err := m.decodeModelSummary()
 	if err != nil {
-		return coremodel.UserModelSummary{}, errors.Trace(err)
+		return coremodel.UserModelSummary{}, errors.Capture(err)
 	}
 	return coremodel.UserModelSummary{
 		ModelSummary:       ms,
@@ -224,13 +223,13 @@ func (m dbModelSummary) decodeUserModelSummary() (coremodel.UserModelSummary, er
 func (m dbModelSummary) decodeModelSummary() (coremodel.ModelSummary, error) {
 	ownerName, err := user.NewName(m.OwnerName)
 	if err != nil {
-		return coremodel.ModelSummary{}, errors.Trace(err)
+		return coremodel.ModelSummary{}, errors.Capture(err)
 	}
 	var credOwnerName user.Name
 	if m.CloudCredentialOwnerName != "" {
 		credOwnerName, err = user.NewName(m.CloudCredentialOwnerName)
 		if err != nil {
-			return coremodel.ModelSummary{}, errors.Trace(err)
+			return coremodel.ModelSummary{}, errors.Capture(err)
 		}
 	}
 	return coremodel.ModelSummary{
@@ -282,7 +281,7 @@ type dbModelUserInfo struct {
 func (info *dbModelUserInfo) toModelUserInfo() (coremodel.ModelUserInfo, error) {
 	name, err := user.NewName(info.Name)
 	if err != nil {
-		return coremodel.ModelUserInfo{}, errors.Trace(err)
+		return coremodel.ModelUserInfo{}, errors.Capture(err)
 	}
 
 	return coremodel.ModelUserInfo{

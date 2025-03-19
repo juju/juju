@@ -5,11 +5,11 @@ package testing
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/juju/core/changestream"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/testing"
+	"github.com/juju/juju/internal/errors"
 )
 
 // MemoryState implements an in memory representation of the state required for
@@ -37,7 +37,7 @@ func (s *MemoryState) AllKeysQuery() string {
 // then an error is returned.
 func (s *MemoryState) KeysQuery(query string) ([]string, error) {
 	if query != allKeysQuery {
-		return []string{}, fmt.Errorf("unexpected all keys query %q", query)
+		return []string{}, errors.Errorf("unexpected all keys query %q", query)
 	}
 
 	keys := make([]string, 0, len(s.Config))
@@ -94,7 +94,7 @@ func (s *MemoryState) SetModelConfig(
 
 	changes, err := s.KeysQuery(allKeysQuery)
 	if err != nil {
-		return fmt.Errorf("getting model config keys")
+		return errors.Errorf("getting model config keys")
 	}
 	return s.FeedChange(ctx, "model_config", changestream.Changed, changes)
 }
@@ -121,7 +121,7 @@ func (s *MemoryState) UpdateModelConfig(
 	// update changes. For now this will do.
 	changes, err := s.KeysQuery(allKeysQuery)
 	if err != nil {
-		return fmt.Errorf("getting model config keys")
+		return errors.Errorf("getting model config keys")
 	}
 	changes = append(changes, remove...)
 	return s.FeedChange(ctx, "model_config", changestream.Changed, changes)

@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -236,7 +235,7 @@ WHERE name=$unitName.name`, u)
 	}
 	err = tx.Query(ctx, selectUnitUUIDStmt, u).Get(&u)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", fmt.Errorf("%s %w", name, porterrors.UnitNotFound)
+		return "", errors.Errorf("%s %w", name, porterrors.UnitNotFound)
 	}
 	if err != nil {
 		return "", errors.Errorf("looking up unit UUID for %q: %w", name, err)

@@ -5,23 +5,22 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelconfig"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // keysForContainerConfig lists the model config keys that we need to determine
@@ -98,7 +97,7 @@ func (s *Service) ContainerManagerConfigForType(
 
 	modelID, err := s.st.ModelID(ctx)
 	if err != nil {
-		return rval, fmt.Errorf("getting ID for current model: %w", err)
+		return rval, errors.Errorf("getting ID for current model: %w", err)
 	}
 
 	cfg, err := s.st.GetModelConfigKeyValues(ctx,
@@ -108,10 +107,10 @@ func (s *Service) ContainerManagerConfigForType(
 		config.ContainerImageStreamKey,
 	)
 	if err != nil {
-		return rval, fmt.Errorf(
+		return rval, errors.Errorf(
 			"cannot get model config keys when calculating container manager config: %w",
-			err,
-		)
+			err)
+
 	}
 
 	rval.ModelID = modelID
@@ -131,7 +130,7 @@ func (s *Service) ContainerManagerConfigForType(
 func (s *Service) ContainerNetworkingMethod(ctx context.Context) (containermanager.NetworkingMethod, error) {
 	cfg, err := s.st.GetModelConfigKeyValues(ctx, config.ContainerNetworkingMethodKey)
 	if err != nil {
-		return "", fmt.Errorf("getting container networking method from model config: %w", err)
+		return "", errors.Errorf("getting container networking method from model config: %w", err)
 	}
 
 	method := modelconfig.ContainerNetworkingMethod(cfg[config.ContainerNetworkingMethodKey])
@@ -143,28 +142,28 @@ func (s *Service) ContainerNetworkingMethod(ctx context.Context) (containermanag
 	case modelconfig.ContainerNetworkingMethodAuto:
 		// Auto-configure container networking method below
 	default:
-		return "", fmt.Errorf("unable to deduce container networking method %q from model config", method)
+		return "", errors.Errorf("unable to deduce container networking method %q from model config", method)
 	}
 
 	provider, err := s.providerGetter(ctx)
-	if errors.Is(err, errors.NotSupported) {
+	if errors.Is(err, coreerrors.NotSupported) {
 		// Provider doesn't have the SupportsContainerAddresses method
 		return containermanager.NetworkingMethodLocal, nil
 	} else if err != nil {
-		return "", fmt.Errorf(
+		return "", errors.Errorf(
 			"cannot get networking provider for model: %w",
-			err,
-		)
+			err)
+
 	}
 
 	supports, err := provider.SupportsContainerAddresses(envcontext.WithoutCredentialInvalidator(ctx))
-	if errors.Is(err, errors.NotSupported) {
+	if errors.Is(err, coreerrors.NotSupported) {
 		return containermanager.NetworkingMethodLocal, nil
 	} else if err != nil {
-		return "", fmt.Errorf(
+		return "", errors.Errorf(
 			"cannot determine if provider supports container addresses: %w",
-			err,
-		)
+			err)
+
 	}
 	if supports {
 		return containermanager.NetworkingMethodProvider, nil
@@ -178,10 +177,10 @@ func (s *Service) ContainerConfig(ctx context.Context) (container.Config, error)
 
 	modelConfig, err := s.st.GetModelConfigKeyValues(ctx, keysForContainerConfig...)
 	if err != nil {
-		return result, fmt.Errorf(
+		return result, errors.Errorf(
 			"cannot get model config keys when calculating container config: %w",
-			err,
-		)
+			err)
+
 	}
 
 	result.EnableOSRefreshUpdate, _ = strconv.ParseBool(modelConfig[config.EnableOSRefreshUpdateKey])
@@ -218,7 +217,7 @@ func (s *Service) ContainerConfig(ctx context.Context) (container.Config, error)
 
 	var ciud map[string]any
 	if err = yaml.Unmarshal([]byte(modelConfig[config.CloudInitUserDataKey]), &ciud); err != nil {
-		return container.Config{}, internalerrors.Capture(err)
+		return container.Config{}, errors.Capture(err)
 	}
 	result.CloudInitUserData = ensureStringKeyedMaps(ciud).(map[string]any)
 

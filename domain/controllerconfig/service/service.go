@@ -6,13 +6,13 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ModificationValidatorFunc is a function that validates a modification
@@ -62,11 +62,11 @@ func NewService(st State) *Service {
 func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, error) {
 	ctrlConfigMap, err := s.st.ControllerConfig(ctx)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unable to get controller config")
+		return nil, errors.Errorf("unable to get controller config: %w", err)
 	}
 	coerced, err := deserializeMap(ctrlConfigMap)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unable to coerce controller config")
+		return nil, errors.Errorf("unable to coerce controller config: %w", err)
 	}
 
 	// Get the controller UUID and CA cert from the config, so we can generate
@@ -76,30 +76,33 @@ func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, erro
 		ok               bool
 	)
 	if ctrlUUID, ok = coerced[controller.ControllerUUIDKey].(string); !ok {
-		return nil, errors.NotFoundf("controller UUID")
+		return nil, errors.Errorf("controller UUID %w", coreerrors.NotFound)
 	}
 	if caCert, ok = coerced[controller.CACertKey].(string); !ok {
-		return nil, errors.NotFoundf("controller CACert")
+		return nil, errors.Errorf("controller CACert %w", coreerrors.NotFound)
 	}
 
 	// Make a new controller config based on the coerced controller config map
 	// returned from state.
 	ctrlConfig, err := controller.NewConfig(ctrlUUID, caCert, coerced)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unable to create controller config")
+		return nil, errors.Errorf("unable to create controller config: %w", err)
 	}
-	return ctrlConfig, errors.Annotate(err, "getting controller config state")
+	if err != nil {
+		return ctrlConfig, errors.Errorf("getting controller config state: %w", err)
+	}
+	return ctrlConfig, nil
 }
 
 // UpdateControllerConfig updates the controller config.
 func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error {
 	coerced, err := controller.EncodeToString(updateAttrs)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	err = validateConfig(coerced, removeAttrs)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// Drop controller UUID, as we don't need to set it and it will be validated
@@ -114,35 +117,38 @@ func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs contro
 		// For example, is it possible to move from filestorage to s3storage.
 		// But it is not possible to move from s3storage to filestorage.
 		if err := validObjectStoreProgression(current, updateAttrs, removeAttrs); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
 	})
-	return errors.Annotate(err, "updating controller config state")
+	if err != nil {
+		return errors.Errorf("updating controller config state: %w", err)
+	}
+	return nil
 }
 
 // validateConfig validates the given updateAttrs and removeAttrs.
 func validateConfig(updateAttrs map[string]string, removeAttrs []string) error {
 	fields, _, err := controller.ConfigSchema.ValidationSchema()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	for k := range updateAttrs {
 		if err := validateConfigField(k); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		if field, ok := fields[k]; ok {
 			_, err := field.Coerce(updateAttrs[k], []string{k})
 			if err != nil {
-				return errors.Annotatef(err, "unable to coerce controller config key %q", k)
+				return errors.Errorf("unable to coerce controller config key %q: %w", k, err)
 			}
 		}
 	}
 	for _, r := range removeAttrs {
 		if err := validateConfigField(r); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	}
 	return nil
@@ -164,7 +170,7 @@ func validateConfigField(name string) error {
 func deserializeMap(m map[string]string) (map[string]any, error) {
 	fields, _, err := controller.ConfigSchema.ValidationSchema()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	result := make(map[string]any, len(m))
@@ -172,7 +178,7 @@ func deserializeMap(m map[string]string) (map[string]any, error) {
 		if field, ok := fields[key]; ok {
 			v, err := field.Coerce(m[key], []string{key})
 			if err != nil {
-				return nil, errors.Annotatef(err, "unable to coerce controller config key %q", key)
+				return nil, errors.Errorf("unable to coerce controller config key %q: %w", key, err)
 			}
 			result[key] = v
 			continue
@@ -211,7 +217,7 @@ func validObjectStoreProgression(current map[string]string, updateAttrs controll
 		// This is rather expensive, but it's the only way to be sure that we
 		// can change from filestorage to s3storage.
 		if err := updateCompletesS3Config(current, updateAttrs); err != nil {
-			return errors.Annotatef(err, "can not change %q from %q to %q without complete s3 config", controller.ObjectStoreType, cur, upd)
+			return errors.Errorf("can not change %q from %q to %q without complete s3 config: %w", controller.ObjectStoreType, cur, upd, err)
 		}
 		return nil
 	}

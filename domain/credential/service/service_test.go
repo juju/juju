@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -14,10 +13,12 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -209,7 +210,7 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(nil, errors.NotFound)
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), key).Return(nil, coreerrors.NotFound)
 
 	var invalid = true
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), key, cred).Return(&invalid, nil)
@@ -251,7 +252,7 @@ func (s *serviceSuite) TestUpdateCredentialsModelsError(c *gc.C) {
 	var legacyUpdated bool
 	service := s.service(c).
 		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
-			return errors.NotImplemented
+			return coreerrors.NotImplemented
 		})
 
 	results, err := service.CheckAndUpdateCredential(context.Background(), key, cred, false)
@@ -340,7 +341,7 @@ func (s *serviceSuite) TestRevokeCredentialsModelsError(c *gc.C) {
 	var legacyUpdated bool
 	service := s.service(c).
 		WithLegacyRemover(func(tag names.CloudCredentialTag) error {
-			return errors.NotImplemented
+			return coreerrors.NotImplemented
 		})
 
 	err := service.CheckAndRevokeCredential(context.Background(), key, false)

@@ -5,9 +5,9 @@ package service
 
 import (
 	"encoding/json"
-	"fmt"
 
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 func decodeLXDProfile(profile []byte) (internalcharm.LXDProfile, error) {
@@ -17,7 +17,7 @@ func decodeLXDProfile(profile []byte) (internalcharm.LXDProfile, error) {
 
 	var result lxdProfile
 	if err := json.Unmarshal(profile, &result); err != nil {
-		return internalcharm.LXDProfile{}, fmt.Errorf("unmarshal lxd profile: %w", err)
+		return internalcharm.LXDProfile{}, errors.Errorf("unmarshal lxd profile: %w", err)
 	}
 
 	return internalcharm.LXDProfile{
@@ -38,7 +38,7 @@ func encodeLXDProfile(profile *internalcharm.LXDProfile) ([]byte, error) {
 		Devices:     profile.Devices,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("marshal lxd profile: %w", err)
+		return nil, errors.Errorf("marshal lxd profile: %w", err)
 	}
 
 	return result, nil

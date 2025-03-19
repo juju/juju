@@ -4,16 +4,16 @@
 package model
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -52,17 +52,17 @@ type GlobalModelCreationArgs struct {
 // is returned.
 func (m GlobalModelCreationArgs) Validate() error {
 	if m.Cloud == "" {
-		return fmt.Errorf("%w cloud cannot be empty", errors.NotValid)
+		return errors.Errorf("%w cloud cannot be empty", coreerrors.NotValid)
 	}
 	if m.Name == "" {
-		return fmt.Errorf("%w name cannot be empty", errors.NotValid)
+		return errors.Errorf("%w name cannot be empty", coreerrors.NotValid)
 	}
 	if err := m.Owner.Validate(); err != nil {
-		return fmt.Errorf("%w owner: %w", errors.NotValid, err)
+		return errors.Errorf("%w owner: %w", coreerrors.NotValid, err)
 	}
 	if !m.Credential.IsZero() {
 		if err := m.Credential.Validate(); err != nil {
-			return fmt.Errorf("credential: %w", err)
+			return errors.Errorf("credential: %w", err)
 		}
 	}
 	return nil
@@ -136,11 +136,11 @@ type ModelImportArgs struct {
 // satisfying [errors.NotValid] is returned.
 func (m ModelImportArgs) Validate() error {
 	if err := m.GlobalModelCreationArgs.Validate(); err != nil {
-		return fmt.Errorf("GlobalModelCreationArgs %w", err)
+		return errors.Errorf("GlobalModelCreationArgs %w", err)
 	}
 
 	if err := m.ID.Validate(); err != nil {
-		return fmt.Errorf("validating model import args id: %w", err)
+		return errors.Errorf("validating model import args id: %w", err)
 	}
 
 	return nil

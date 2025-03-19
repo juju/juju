@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"errors"
 
 	"github.com/juju/description/v9"
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/internal/errors"
 )
 
 type importSuite struct {

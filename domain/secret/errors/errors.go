@@ -3,9 +3,7 @@
 
 package errors
 
-import (
-	"github.com/juju/errors"
-)
+import "github.com/juju/juju/internal/errors"
 
 const (
 	// PermissionDenied describes an error that occurs when the secret being operated on

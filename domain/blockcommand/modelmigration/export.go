@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/domain/blockcommand/service"
 	"github.com/juju/juju/domain/blockcommand/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
@@ -56,7 +56,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
 	blocks, err := e.service.GetBlocks(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	migration := make(map[string]string)

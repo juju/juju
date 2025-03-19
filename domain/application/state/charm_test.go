@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -44,7 +44,7 @@ func (s *charmStateSuite) TestGetCharmIDCharmhubCharm(c *gc.C) {
 INSERT INTO charm (uuid, reference_name, architecture_id, revision) 
 VALUES (?, 'foo', 0, 1)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -52,7 +52,7 @@ INSERT INTO charm_metadata (charm_uuid, name)
 VALUES (?, 'foo')
 `, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -74,14 +74,14 @@ func (s *charmStateSuite) TestGetCharmIDLocalCharm(c *gc.C) {
 INSERT INTO charm (uuid, reference_name, architecture_id, revision, source_id) 
 VALUES (?, 'foo', 0, 1, 0)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_metadata (charm_uuid, name) 
 VALUES (?, 'foo')`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -133,7 +133,7 @@ INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		ch, err := st.getCharmState(ctx, tx, charmID{UUID: id.String()})
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		resultObjectStoreUUID = ch.ObjectStoreUUID
 		return nil
@@ -173,7 +173,7 @@ func (s *charmStateSuite) TestSetCharmWithoutObjectStoreUUID(c *gc.C) {
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		ch, err := st.getCharmState(ctx, tx, charmID{UUID: id.String()})
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		resultObjectStoreUUID = ch.ObjectStoreUUID
 		return nil
@@ -282,12 +282,12 @@ func (s *charmStateSuite) TestIsControllerCharmWithControllerCharm(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'juju-controller')`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -306,12 +306,12 @@ func (s *charmStateSuite) TestIsControllerCharmWithNoControllerCharm(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'ubuntu')`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -339,12 +339,12 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithSubordinateCharm(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name, subordinate) VALUES (?, 'ubuntu', true)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -363,12 +363,12 @@ func (s *charmStateSuite) TestIsSubordinateCharmWithNoSubordinateCharm(c *gc.C) 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name, subordinate) VALUES (?, 'ubuntu', false)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -397,22 +397,22 @@ func (s *charmStateSuite) TestSupportsContainersWithContainers(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'ubuntu')`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_container (charm_uuid, "key") VALUES (?, 'ubuntu@22.04')`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_container (charm_uuid, "key") VALUES (?, 'ubuntu@20.04')`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -431,12 +431,12 @@ func (s *charmStateSuite) TestSupportsContainersWithNoContainers(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, 'ubuntu', 0)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name, subordinate) VALUES (?, 'ubuntu', false)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -464,12 +464,12 @@ func (s *charmStateSuite) TestIsCharmAvailableWithAvailable(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id, available) VALUES (?, 'ubuntu', 0, true)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'ubuntu')`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -488,12 +488,12 @@ func (s *charmStateSuite) TestIsCharmAvailableWithNotAvailable(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id, available) VALUES (?, 'ubuntu', 0, false)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'ubuntu')`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -521,12 +521,12 @@ func (s *charmStateSuite) TestSetCharmAvailable(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, available, reference_name, architecture_id) VALUES (?, false, 'ubuntu', 0)`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'ubuntu')`, id.String())
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -561,7 +561,7 @@ func (s *charmStateSuite) TestGetCharmMetadata(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -648,7 +648,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithTagsAndCategories(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -656,7 +656,7 @@ INSERT INTO charm_category (charm_uuid, array_index, value)
 VALUES (?, 0, 'data'), (?, 1, 'kubernetes'), (?, 2, 'kubernetes')
 `, uuid, uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -664,7 +664,7 @@ INSERT INTO charm_tag (charm_uuid, array_index, value)
 VALUES (?, 0, 'foo'), (?, 1, 'foo'), (?, 2,'bar')
 `, uuid, uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -693,7 +693,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithTerms(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -701,7 +701,7 @@ INSERT INTO charm_term (charm_uuid, array_index, value)
 VALUES (?, 0, 'alpha'), (?, 1, 'beta'), (?, 2, 'beta')
 `, uuid, uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -729,7 +729,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithRelation(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if expected, err = insertCharmMetadata(ctx, c, tx, charmUUID); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -745,7 +745,7 @@ VALUES
 			uuid.MustNewUUID().String(), charmUUID,
 		)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -800,7 +800,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithExtraBindings(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -810,7 +810,7 @@ VALUES
     (?, 'fred', 'baz');`,
 			uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -845,7 +845,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithStorageWithNoProperties(c *gc.
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -865,7 +865,7 @@ INSERT INTO charm_storage (
     (?, 'fred', 'description 2', 0, false, false, 4, 5, 6, '/var/mount');`,
 			uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -922,7 +922,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithStorageWithProperties(c *gc.C)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -942,7 +942,7 @@ INSERT INTO charm_storage (
     (?, 'fred', 'description 2', 0, false, false, 4, 5, 6, '/var/mount');`,
 			uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -957,7 +957,7 @@ INSERT INTO charm_storage_property (
     (?, 'foo', 2, 'beta');`,
 			uuid, uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -1013,7 +1013,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithDevices(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -1030,7 +1030,7 @@ INSERT INTO charm_device (
     (?, 'fred', 'baz', 'description 2', 'tpu', 3, 4);`,
 			uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -1071,7 +1071,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithResources(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -1086,7 +1086,7 @@ INSERT INTO charm_resource (
     (?, 'bar', 1, 'hub.docker.io/jujusolutions', 'description 2');`,
 			uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -1131,7 +1131,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithContainersWithNoMounts(c *gc.C
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -1146,7 +1146,7 @@ INSERT INTO charm_container (
     (?, 'fred', 'ubuntu@20.04', -1, -1);`,
 			uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -1181,7 +1181,7 @@ func (s *charmStateSuite) TestGetCharmMetadataWithContainersWithMounts(c *gc.C) 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -1196,7 +1196,7 @@ INSERT INTO charm_container (
     (?, 'fred', 'ubuntu@20.04', -1, -1);`,
 			uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -1212,7 +1212,7 @@ INSERT INTO charm_container_mount (
     (?, 0, 'fred', 'file', '/var/log');`,
 			uuid, uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -2360,7 +2360,7 @@ func (s *charmStateSuite) TestGetCharmManifest(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var err error
 		if expected, err = insertCharmManifest(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err = tx.ExecContext(ctx, `
@@ -2380,7 +2380,7 @@ INSERT INTO charm_manifest_base (
     (?, 2, 0, 0, '4.0', 'beta', 'baz', 2);`,
 			uuid, uuid, uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -2499,7 +2499,7 @@ func (s *charmStateSuite) TestGetCharmLXDProfile(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err := tx.ExecContext(ctx, `
@@ -2508,7 +2508,7 @@ SET lxd_profile = ?
 WHERE uuid = ?
 `, `{"profile": []}`, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -2545,7 +2545,7 @@ func (s *charmStateSuite) TestGetCharmLXDProfileLXDProfileNotFound(c *gc.C) {
 INSERT INTO charm (uuid, available, reference_name, architecture_id) 
 VALUES (?, false, 'ubuntu', 0)`, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -2563,7 +2563,7 @@ func (s *charmStateSuite) TestGetCharmConfig(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err := tx.ExecContext(ctx, `
@@ -2582,7 +2582,7 @@ INSERT INTO charm_config (
 	(?, 'shh', 4, 'secret', 'this is a secret');`,
 			uuid, uuid, uuid, uuid, uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -2707,7 +2707,7 @@ func (s *charmStateSuite) TestGetCharmConfigEmpty(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -2728,7 +2728,7 @@ func (s *charmStateSuite) TestGetCharmActions(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		_, err := tx.ExecContext(ctx, `
@@ -2744,7 +2744,7 @@ INSERT INTO charm_action (
     (?, 'bar', 'description2', false, 'group2', null);`,
 			uuid, uuid)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -2832,7 +2832,7 @@ func (s *charmStateSuite) TestGetCharmActionsEmpty(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -3356,7 +3356,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharm(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -3381,7 +3381,7 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmForAnotherArch(c *gc.
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -3405,10 +3405,10 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithMultipleCharms(c 
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertCharmStateWithRevision(ctx, c, tx, uuid0, 2); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		if err := insertCharmStateWithRevision(ctx, c, tx, uuid1, 1); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -3440,15 +3440,15 @@ func (s *charmStateSuite) TestGetLatestPendingCharmhubCharmWithAssignedApplicati
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertCharmStateWithRevision(ctx, c, tx, uuid0, 2); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		if err := insertCharmStateWithRevision(ctx, c, tx, uuid1, 1); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		if err := insertMinimalApplication(ctx, c, tx, appUUID, uuid1); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
@@ -3474,7 +3474,7 @@ func (s *charmStateSuite) TestGetCharmLocatorForLatestPendingCharmhubCharm(c *gc
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -3509,7 +3509,7 @@ func (s *charmStateSuite) TestGetCharmLocatorByID(c *gc.C) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
@@ -3535,14 +3535,14 @@ INSERT INTO charm (uuid, archive_path, available, reference_name, revision, vers
 VALUES (?, 'archive', false, 'ubuntu', ?, 'deadbeef', 0)
 `, uuid, revision)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_metadata (charm_uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes)
 VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	return nil
@@ -3550,7 +3550,7 @@ VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
 
 func insertCharmMetadata(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) (charm.Metadata, error) {
 	if err := insertCharmState(ctx, c, tx, uuid); err != nil {
-		return charm.Metadata{}, errors.Trace(err)
+		return charm.Metadata{}, errors.Capture(err)
 	}
 
 	return charm.Metadata{
@@ -3566,7 +3566,7 @@ func insertCharmMetadata(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) 
 
 func insertCharmManifest(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) (charm.Manifest, error) {
 	if err := insertCharmState(ctx, c, tx, uuid); err != nil {
-		return charm.Manifest{}, errors.Trace(err)
+		return charm.Manifest{}, errors.Capture(err)
 	}
 
 	return charm.Manifest{}, nil
@@ -3600,7 +3600,7 @@ INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorith
 VALUES (?, ?, 'ubuntu', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');
 `, uuid, charm_uuid)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	return nil
 }
@@ -3612,7 +3612,7 @@ func assertTableEmpty(c *gc.C, runner coredatabase.TxnRunner, table string) {
 	err := runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", table)).Scan(&count)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil

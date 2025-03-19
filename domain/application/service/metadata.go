@@ -5,7 +5,6 @@ package service
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -26,47 +25,47 @@ import (
 func decodeMetadata(metadata charm.Metadata) (internalcharm.Meta, error) {
 	provides, err := decodeMetadataRelation(metadata.Provides)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("decode provides relation: %w", err)
+		return internalcharm.Meta{}, errors.Errorf("decode provides relation: %w", err)
 	}
 
 	requires, err := decodeMetadataRelation(metadata.Requires)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("decode requires relation: %w", err)
+		return internalcharm.Meta{}, errors.Errorf("decode requires relation: %w", err)
 	}
 
 	peers, err := decodeMetadataRelation(metadata.Peers)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("decode peers relation: %w", err)
+		return internalcharm.Meta{}, errors.Errorf("decode peers relation: %w", err)
 	}
 
 	storage, err := decodeMetadataStorage(metadata.Storage)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("decode storage: %w", err)
+		return internalcharm.Meta{}, errors.Errorf("decode storage: %w", err)
 	}
 
 	devices, err := decodeMetadataDevices(metadata.Devices)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("decode devices: %w", err)
+		return internalcharm.Meta{}, errors.Errorf("decode devices: %w", err)
 	}
 
 	resources, err := decodeMetadataResources(metadata.Resources)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("decode resources: %w", err)
+		return internalcharm.Meta{}, errors.Errorf("decode resources: %w", err)
 	}
 
 	containers, err := decodeMetadataContainers(metadata.Containers)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("decode containers: %w", err)
+		return internalcharm.Meta{}, errors.Errorf("decode containers: %w", err)
 	}
 
 	assumes, err := decodeMetadataAssumes(metadata.Assumes)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("parse assumes: %w", err)
+		return internalcharm.Meta{}, errors.Errorf("parse assumes: %w", err)
 	}
 
 	charmUser, err := decodeMetadataRunAs(metadata.RunAs)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("decode charm user: %w", err)
+		return internalcharm.Meta{}, errors.Errorf("decode charm user: %w", err)
 	}
 
 	return internalcharm.Meta{
@@ -100,12 +99,12 @@ func decodeMetadataRelation(relations map[string]charm.Relation) (map[string]int
 	for k, v := range relations {
 		role, err := decodeMetadataRole(v.Role)
 		if err != nil {
-			return nil, fmt.Errorf("decode role: %w", err)
+			return nil, errors.Errorf("decode role: %w", err)
 		}
 
 		scope, err := decodeMetadataScope(v.Scope)
 		if err != nil {
-			return nil, fmt.Errorf("decode scope: %w", err)
+			return nil, errors.Errorf("decode scope: %w", err)
 		}
 
 		result[k] = internalcharm.Relation{
@@ -167,7 +166,7 @@ func decodeMetadataStorage(storage map[string]charm.Storage) (map[string]interna
 	for k, v := range storage {
 		storeType, err := decodeMetadataStorageType(v.Type)
 		if err != nil {
-			return nil, fmt.Errorf("decode storage type: %w", err)
+			return nil, errors.Errorf("decode storage type: %w", err)
 		}
 
 		result[k] = internalcharm.Storage{
@@ -224,7 +223,7 @@ func decodeMetadataResources(resources map[string]charm.Resource) (map[string]re
 	for k, v := range resources {
 		resourceType, err := decodeMetadataResourceType(v.Type)
 		if err != nil {
-			return nil, fmt.Errorf("decode resource type: %w", err)
+			return nil, errors.Errorf("decode resource type: %w", err)
 		}
 
 		result[k] = resource.Meta{
@@ -259,7 +258,7 @@ func decodeMetadataContainers(containers map[string]charm.Container) (map[string
 	for k, v := range containers {
 		mounts, err := decodeMetadataMounts(v.Mounts)
 		if err != nil {
-			return nil, fmt.Errorf("decode mounts: %w", err)
+			return nil, errors.Errorf("decode mounts: %w", err)
 		}
 
 		result[k] = internalcharm.Container{
@@ -328,52 +327,52 @@ func encodeMetadata(metadata *internalcharm.Meta) (charm.Metadata, error) {
 
 	provides, err := encodeMetadataRelation(metadata.Provides)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("encode provides relation: %w", err)
+		return charm.Metadata{}, errors.Errorf("encode provides relation: %w", err)
 	}
 
 	requires, err := encodeMetadataRelation(metadata.Requires)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("encode requires relation: %w", err)
+		return charm.Metadata{}, errors.Errorf("encode requires relation: %w", err)
 	}
 
 	peers, err := encodeMetadataRelation(metadata.Peers)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("encode peers relation: %w", err)
+		return charm.Metadata{}, errors.Errorf("encode peers relation: %w", err)
 	}
 
 	err = verifyRelations(metadata, provides, requires, peers)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("verifying charm relations: %w", err)
+		return charm.Metadata{}, errors.Errorf("verifying charm relations: %w", err)
 	}
 
 	storage, err := encodeMetadataStorage(metadata.Storage)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("encode storage: %w", err)
+		return charm.Metadata{}, errors.Errorf("encode storage: %w", err)
 	}
 
 	devices, err := encodeMetadataDevices(metadata.Devices)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("encode devices: %w", err)
+		return charm.Metadata{}, errors.Errorf("encode devices: %w", err)
 	}
 
 	resources, err := encodeMetadataResources(metadata.Resources)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("encode resources: %w", err)
+		return charm.Metadata{}, errors.Errorf("encode resources: %w", err)
 	}
 
 	containers, err := encodeMetadataContainers(metadata.Containers)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("encode containers: %w", err)
+		return charm.Metadata{}, errors.Errorf("encode containers: %w", err)
 	}
 
 	assumes, err := encodeMetadataAssumes(metadata.Assumes)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("encode assumes: %w", err)
+		return charm.Metadata{}, errors.Errorf("encode assumes: %w", err)
 	}
 
 	charmUser, err := encodeMetadataRunAs(metadata.CharmUser)
 	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("encode charm user: %w", err)
+		return charm.Metadata{}, errors.Errorf("encode charm user: %w", err)
 	}
 
 	return charm.Metadata{
@@ -411,12 +410,12 @@ func encodeMetadataRelation(relations map[string]internalcharm.Relation) (map[st
 
 		role, err := encodeMetadataRole(v.Role)
 		if err != nil {
-			return nil, fmt.Errorf("encode role: %w", err)
+			return nil, errors.Errorf("encode role: %w", err)
 		}
 
 		scope, err := encodeMetadataScope(v.Scope)
 		if err != nil {
-			return nil, fmt.Errorf("encode scope: %w", err)
+			return nil, errors.Errorf("encode scope: %w", err)
 		}
 
 		result[name] = charm.Relation{
@@ -578,7 +577,7 @@ func encodeMetadataStorage(storage map[string]internalcharm.Storage) (map[string
 	for k, v := range storage {
 		storeType, err := encodeMetadataStorageType(v.Type)
 		if err != nil {
-			return nil, fmt.Errorf("encode storage type: %w", err)
+			return nil, errors.Errorf("encode storage type: %w", err)
 		}
 
 		result[k] = charm.Storage{
@@ -635,7 +634,7 @@ func encodeMetadataResources(resources map[string]resource.Meta) (map[string]cha
 	for k, v := range resources {
 		resourceType, err := encodeMetadataResourceType(v.Type)
 		if err != nil {
-			return nil, fmt.Errorf("encode resource type: %w", err)
+			return nil, errors.Errorf("encode resource type: %w", err)
 		}
 
 		result[k] = charm.Resource{
@@ -669,7 +668,7 @@ func encodeMetadataContainers(containers map[string]internalcharm.Container) (ma
 	for k, v := range containers {
 		mounts, err := encodeMetadataMounts(v.Mounts)
 		if err != nil {
-			return nil, fmt.Errorf("encode mounts: %w", err)
+			return nil, errors.Errorf("encode mounts: %w", err)
 		}
 
 		result[k] = charm.Container{

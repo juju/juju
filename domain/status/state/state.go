@@ -9,7 +9,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
-	jujuerrors "github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
@@ -222,7 +221,7 @@ WHERE name = $unitName.name
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, query, unitName).Get(&unitUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("unit %q not found%w", name, jujuerrors.Hide(statuserrors.UnitNotFound))
+			return errors.Errorf("unit %q not found", name).Add(statuserrors.UnitNotFound)
 		}
 		return err
 	})
@@ -260,7 +259,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unit
 
 		err = tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&unitStatusInfo)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("agent status for unit %q not found%w", unitUUID, jujuerrors.Hide(statuserrors.UnitStatusNotFound))
+			return errors.Errorf("agent status for unit %q not found", unitUUID).Add(statuserrors.UnitStatusNotFound)
 		}
 		return err
 	})
@@ -329,7 +328,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $u
 
 		err = tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&unitStatusInfo)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("workload status for unit %q not found%w", unitUUID, jujuerrors.Hide(statuserrors.UnitStatusNotFound))
+			return errors.Errorf("workload status for unit %q not found", unitUUID).Add(statuserrors.UnitStatusNotFound)
 		}
 		return err
 	})
@@ -401,7 +400,7 @@ WHERE  unit_uuid = $unitUUID.uuid
 
 		err = tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&containerStatusInfo)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("workload status for unit %q not found%w", unitUUID, jujuerrors.Hide(statuserrors.UnitStatusNotFound))
+			return errors.Errorf("workload status for unit %q not found", unitUUID).Add(statuserrors.UnitStatusNotFound)
 		}
 		return errors.Capture(err)
 	})
@@ -644,7 +643,7 @@ FROM application
 WHERE name = $applicationIDAndName.name
 `, app)
 	if err != nil {
-		return "", jujuerrors.Trace(err)
+		return "", errors.Capture(err)
 	}
 	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
 	if errors.Is(err, sqlair.ErrNoRows) {
@@ -920,7 +919,7 @@ func (st *State) setCloudContainerStatus(
 
 	statusID, err := encodeCloudContainerStatus(status.Status)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	statusInfo := unitStatusInfo{
@@ -939,13 +938,13 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
     data = excluded.data;
 `, statusInfo)
 	if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
 		return errors.Errorf("%w: %q", statuserrors.UnitNotFound, unitUUID)
 	} else if err != nil {
-		return jujuerrors.Trace(err)
+		return errors.Capture(err)
 	}
 	return nil
 }

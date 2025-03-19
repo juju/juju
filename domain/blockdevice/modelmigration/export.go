@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/blockdevice/service"
 	"github.com/juju/juju/domain/blockdevice/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
@@ -56,7 +56,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
 	blockDevices, err := e.service.AllBlockDevices(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	for machineId, bd := range blockDevices {
 		err := model.AddBlockDevice(machineId, description.BlockDeviceArgs{
@@ -74,7 +74,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			MountPoint:     bd.MountPoint,
 		})
 		if err != nil {
-			return errors.Annotatef(err, "adding block device for machine %q", machineId)
+			return errors.Errorf("adding block device for machine %q: %w", machineId, err)
 		}
 	}
 	return nil

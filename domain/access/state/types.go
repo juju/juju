@@ -6,10 +6,9 @@ package state
 import (
 	"time"
 
-	"github.com/juju/errors"
-
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/errors"
 )
 
 // user represents a user in the state layer with the associated fields in the
@@ -56,13 +55,13 @@ type dbUser struct {
 func (u dbUser) toCoreUser() (coreuser.User, error) {
 	name, err := coreuser.NewName(u.Name)
 	if err != nil {
-		return coreuser.User{}, errors.Annotate(err, "user name from db")
+		return coreuser.User{}, errors.Errorf("user name from db: %w", err)
 	}
 	var creatorName coreuser.Name
 	if u.CreatorName != "" {
 		creatorName, err = coreuser.NewName(u.CreatorName)
 		if err != nil {
-			return coreuser.User{}, errors.Annotate(err, "creator name from db")
+			return coreuser.User{}, errors.Errorf("creator name from db: %w", err)
 		}
 	}
 	return coreuser.User{
@@ -114,13 +113,13 @@ type dbPermissionUser struct {
 func (u dbPermissionUser) toCoreUserAccess() (corepermission.UserAccess, error) {
 	name, err := coreuser.NewName(u.Name)
 	if err != nil {
-		return corepermission.UserAccess{}, errors.Trace(err)
+		return corepermission.UserAccess{}, errors.Capture(err)
 	}
 	var creatorName coreuser.Name
 	if u.CreatorName != "" {
 		creatorName, err = coreuser.NewName(u.CreatorName)
 		if err != nil {
-			return corepermission.UserAccess{}, errors.Trace(err)
+			return corepermission.UserAccess{}, errors.Capture(err)
 		}
 	}
 
@@ -158,7 +157,7 @@ type dbPermission struct {
 func (r dbPermission) toUserAccess(u dbPermissionUser) (corepermission.UserAccess, error) {
 	userAccess, err := u.toCoreUserAccess()
 	if err != nil {
-		return corepermission.UserAccess{}, errors.Trace(err)
+		return corepermission.UserAccess{}, errors.Capture(err)
 	}
 
 	userAccess.PermissionID = r.UUID

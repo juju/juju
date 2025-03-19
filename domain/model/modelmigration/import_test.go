@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/modelmigration"
@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -63,7 +64,7 @@ func (i *importSuite) TestModelMetadataInvalid(c *gc.C) {
 		},
 	})
 	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 
 	// model name of wrong type
 	model = description.NewModel(description.ModelArgs{
@@ -73,7 +74,7 @@ func (i *importSuite) TestModelMetadataInvalid(c *gc.C) {
 		},
 	})
 	err = importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 
 	// uuid not defined
 	model = description.NewModel(description.ModelArgs{
@@ -82,7 +83,7 @@ func (i *importSuite) TestModelMetadataInvalid(c *gc.C) {
 		},
 	})
 	err = importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 
 	// uuid of wrong type
 	model = description.NewModel(description.ModelArgs{
@@ -92,7 +93,7 @@ func (i *importSuite) TestModelMetadataInvalid(c *gc.C) {
 		},
 	})
 	err = importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestModelOwnerNoExist is asserting that if we try and import a model where

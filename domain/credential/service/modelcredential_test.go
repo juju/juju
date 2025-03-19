@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -15,12 +14,14 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	usertesting "github.com/juju/juju/core/user/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/errors"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -261,7 +262,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machine1 := createTestMachine("2", "")
-	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.NotProvisionedf("machine 2") }
+	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.Errorf("machine 2 %w", coreerrors.NotProvisioned) }
 	s.machineState.EXPECT().AllMachines().Return([]Machine{s.machine, machine1}, nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)

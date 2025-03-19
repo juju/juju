@@ -5,9 +5,7 @@ package service
 
 import (
 	"context"
-	"fmt"
 
-	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
@@ -18,6 +16,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/resource"
@@ -1204,9 +1203,9 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *gc.C) {
 
 func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
-		return s.provider, jujuerrors.NotSupported
+		return s.provider, coreerrors.NotSupported
 	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, jujuerrors.NotSupported
+		return s.supportedFeaturesProvider, coreerrors.NotSupported
 	})
 	defer ctrl.Finish()
 
@@ -1241,9 +1240,9 @@ func (s *providerServiceSuite) TestSetApplicationConstraintsInvalidAppID(c *gc.C
 
 func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
-		return s.provider, jujuerrors.NotSupported
+		return s.provider, coreerrors.NotSupported
 	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, jujuerrors.NotSupported
+		return s.supportedFeaturesProvider, coreerrors.NotSupported
 	})
 	defer ctrl.Finish()
 
@@ -1592,7 +1591,7 @@ func (s *providerServiceSuite) TestAddUnitsGetModelTypeError(c *gc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 
-	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", fmt.Errorf("boom"))
+	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", errors.Errorf("boom"))
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 
 	a := AddUnitArg{
@@ -1605,10 +1604,10 @@ func (s *providerServiceSuite) TestAddUnitsGetModelTypeError(c *gc.C) {
 func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSupported(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, jujuerrors.NotSupportedf("not supported"))
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, errors.Errorf("not supported %w", coreerrors.NotSupported))
 
 	_, err := s.service.mergeApplicationAndModelConstraints(context.Background(), constraints.Constraints{})
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotSupported)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNilValidator(c *gc.C) {

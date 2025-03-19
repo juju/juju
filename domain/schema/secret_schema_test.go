@@ -6,12 +6,12 @@ package schema
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/errors"
 )
 
 type secretSchemaSuite struct {
@@ -169,7 +169,7 @@ WHERE edit_type_id = ? AND namespace_id = ?;`[1:], editType, namespaceID)
 		defer func() { _ = rows.Close() }()
 
 		if !rows.Next() {
-			return fmt.Errorf("no rows returned")
+			return errors.Errorf("no rows returned")
 		}
 		return rows.Scan(&count)
 	})

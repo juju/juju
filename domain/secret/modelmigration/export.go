@@ -5,18 +5,18 @@ package modelmigration
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
@@ -65,7 +65,7 @@ func ownerTagFromOwner(owner secrets.Owner) (names.Tag, error) {
 	case secrets.ModelOwner:
 		return names.NewModelTag(owner.ID), nil
 	}
-	return nil, errors.NotValidf("owner kind %q", owner.Kind)
+	return nil, errors.Errorf("owner kind %q %w", owner.Kind, coreerrors.NotValid)
 }
 
 func scopeTagFromAccessScope(scope service.SecretAccessScope) (names.Tag, error) {
@@ -79,7 +79,7 @@ func scopeTagFromAccessScope(scope service.SecretAccessScope) (names.Tag, error)
 	case service.ModelAccessScope:
 		return names.NewModelTag(scope.ID), nil
 	}
-	return nil, errors.NotValidf("scope kind %q", scope.Kind)
+	return nil, errors.Errorf("scope kind %q %w", scope.Kind, coreerrors.NotValid)
 }
 
 func accessorTagFromAccessor(subject service.SecretAccessor) (names.Tag, error) {
@@ -93,36 +93,36 @@ func accessorTagFromAccessor(subject service.SecretAccessor) (names.Tag, error) 
 	case service.RemoteApplicationAccessor:
 		return names.NewApplicationTag(subject.ID), nil
 	}
-	return nil, errors.NotValidf("subject kind %q", subject.Kind)
+	return nil, errors.Errorf("subject kind %q %w", subject.Kind, coreerrors.NotValid)
 }
 
 // Execute exports any secrets to the specified model.
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
 	allSecrets, err := e.service.GetSecretsForExport(ctx)
 	if err != nil {
-		return errors.Annotate(err, "failed to list secrets for export")
+		return errors.Errorf("failed to list secrets for export: %w", err)
 	}
 
 	accessArgsByID, err := e.collateAccess(allSecrets.Access)
 	if err != nil {
-		return errors.Annotatef(err, "collating secret access args")
+		return errors.Errorf("collating secret access args: %w", err)
 	}
 
 	consumersByID, err := e.collateConsumers(allSecrets.Consumers)
 	if err != nil {
-		return errors.Annotatef(err, "collating secret consumer args")
+		return errors.Errorf("collating secret consumer args: %w", err)
 	}
 
 	remoteConsumersByID, err := e.collateRemoteConsumers(allSecrets.RemoteConsumers)
 	if err != nil {
-		return errors.Annotatef(err, "collating secret remote consumer args")
+		return errors.Errorf("collating secret remote consumer args: %w", err)
 	}
 
 	for _, md := range allSecrets.Secrets {
 		ownerTag, err := ownerTagFromOwner(md.Owner)
 		if err != nil {
 			// Should never happen.
-			return errors.Annotatef(err, "invalid secret owner %q", md.Owner.ID)
+			return errors.Errorf("invalid secret owner %q: %w", md.Owner.ID, err)
 		}
 
 		revisionArgsByID := make(map[string][]description.SecretRevisionArgs)
@@ -143,7 +143,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 					RevisionID: rev.ValueRef.RevisionID,
 				}
 			} else {
-				return fmt.Errorf("missing secret content to export for secret %q", md.URI.ID)
+				return errors.Errorf("missing secret content to export for secret %q", md.URI.ID)
 			}
 			revisionArgsByID[md.URI.ID] = append(revisionArgsByID[md.URI.ID], revArg)
 		}
@@ -172,7 +172,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		consumerTag, err := accessorTagFromAccessor(rs.Accessor)
 		if err != nil {
 			// Should never happen.
-			return errors.Annotatef(err, "invalid remote secret accessor %q", rs.Accessor.ID)
+			return errors.Errorf("invalid remote secret accessor %q: %w", rs.Accessor.ID, err)
 		}
 		arg := description.RemoteSecretArgs{
 			ID:              rs.URI.ID,
@@ -194,7 +194,7 @@ func (e *exportOperation) collateConsumers(consumers map[string][]service.Consum
 			consumerTag, err := accessorTagFromAccessor(info.Accessor)
 			if err != nil {
 				// Should never happen.
-				return nil, errors.Annotatef(err, "invalid secret consumer %q", info.Accessor.ID)
+				return nil, errors.Errorf("invalid secret consumer %q: %w", info.Accessor.ID, err)
 			}
 			consumerArg := description.SecretConsumerArgs{
 				Consumer:        consumerTag,
@@ -214,7 +214,7 @@ func (e *exportOperation) collateRemoteConsumers(consumers map[string][]service.
 			consumerTag, err := accessorTagFromAccessor(info.Accessor)
 			if err != nil {
 				// Should never happen.
-				return nil, errors.Annotatef(err, "invalid remote secret consumer %q", info.Accessor.ID)
+				return nil, errors.Errorf("invalid remote secret consumer %q: %w", info.Accessor.ID, err)
 			}
 			consumerArg := description.SecretRemoteConsumerArgs{
 				Consumer:        consumerTag,
@@ -233,7 +233,7 @@ func (e *exportOperation) collateAccess(access map[string][]service.SecretAccess
 			scopeTag, err := scopeTagFromAccessScope(perm.Scope)
 			if err != nil {
 				// Should never happen.
-				return nil, errors.Annotatef(err, "invalid secret access scope %q", perm.Scope.ID)
+				return nil, errors.Errorf("invalid secret access scope %q: %w", perm.Scope.ID, err)
 			}
 			accessArg := description.SecretAccessArgs{
 				Scope: scopeTag.String(),
@@ -247,7 +247,7 @@ func (e *exportOperation) collateAccess(access map[string][]service.SecretAccess
 			accessorTag, err := accessorTagFromAccessor(perm.Subject)
 			if err != nil {
 				// Should never happen.
-				return nil, errors.Annotatef(err, "invalid secret accessor %q", perm.Subject.ID)
+				return nil, errors.Errorf("invalid secret accessor %q: %w", perm.Subject.ID, err)
 			}
 			access[accessorTag.String()] = accessArg
 		}

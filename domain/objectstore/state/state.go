@@ -5,17 +5,16 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 )
 
 // State implements the domain objectstore state.
@@ -34,7 +33,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 func (s *State) GetMetadata(ctx context.Context, path string) (coreobjectstore.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Trace(err)
+		return coreobjectstore.Metadata{}, errors.Capture(err)
 	}
 
 	metadata := dbMetadata{Path: path}
@@ -44,7 +43,7 @@ SELECT &dbMetadata.*
 FROM v_object_store_metadata
 WHERE path = $dbMetadata.path`, metadata)
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Annotate(err, "preparing select metadata statement")
+		return coreobjectstore.Metadata{}, errors.Errorf("preparing select metadata statement: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -53,12 +52,12 @@ WHERE path = $dbMetadata.path`, metadata)
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return objectstoreerrors.ErrNotFound
 			}
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata %s", path)
+		return coreobjectstore.Metadata{}, errors.Errorf("retrieving metadata %s: %w", path, err)
 	}
 	return decodeDbMetadata(metadata), nil
 }
@@ -68,7 +67,7 @@ WHERE path = $dbMetadata.path`, metadata)
 func (s *State) GetMetadataBySHA256(ctx context.Context, sha256 string) (coreobjectstore.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Trace(err)
+		return coreobjectstore.Metadata{}, errors.Capture(err)
 	}
 
 	sha256Ident := sha256Ident{SHA256: sha256}
@@ -79,7 +78,7 @@ SELECT &dbMetadata.*
 FROM v_object_store_metadata
 WHERE sha_256 = $sha256Ident.sha_256`, metadata, sha256Ident)
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Annotate(err, "preparing select metadata statement")
+		return coreobjectstore.Metadata{}, errors.Errorf("preparing select metadata statement: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -88,12 +87,12 @@ WHERE sha_256 = $sha256Ident.sha_256`, metadata, sha256Ident)
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return objectstoreerrors.ErrNotFound
 			}
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata with sha256 %s", sha256)
+		return coreobjectstore.Metadata{}, errors.Errorf("retrieving metadata with sha256 %s: %w", sha256, err)
 	}
 
 	return decodeDbMetadata(metadata), nil
@@ -104,7 +103,7 @@ WHERE sha_256 = $sha256Ident.sha_256`, metadata, sha256Ident)
 func (s *State) GetMetadataBySHA256Prefix(ctx context.Context, sha256 string) (coreobjectstore.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Trace(err)
+		return coreobjectstore.Metadata{}, errors.Capture(err)
 	}
 
 	sha256IdentPrefix := sha256IdentPrefix{SHA256Prefix: sha256}
@@ -115,7 +114,7 @@ SELECT &dbMetadata.*
 FROM v_object_store_metadata
 WHERE sha_256 LIKE $sha256IdentPrefix.sha_256_prefix || '%'`, metadata, sha256IdentPrefix)
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Annotate(err, "preparing select metadata statement")
+		return coreobjectstore.Metadata{}, errors.Errorf("preparing select metadata statement: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -124,12 +123,12 @@ WHERE sha_256 LIKE $sha256IdentPrefix.sha_256_prefix || '%'`, metadata, sha256Id
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return objectstoreerrors.ErrNotFound
 			}
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	})
 	if err != nil {
-		return coreobjectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata with sha256 %s", sha256)
+		return coreobjectstore.Metadata{}, errors.Errorf("retrieving metadata with sha256 %s: %w", sha256, err)
 	}
 
 	return decodeDbMetadata(metadata), nil
@@ -146,19 +145,19 @@ func (s *State) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, e
 SELECT &dbMetadata.*
 FROM v_object_store_metadata`, dbMetadata{})
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing select metadata statement")
+		return nil, errors.Errorf("preparing select metadata statement: %w", err)
 	}
 
 	var metadata []dbMetadata
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&metadata)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotate(err, "retrieving metadata")
+			return errors.Errorf("retrieving metadata: %w", err)
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return transform.Slice(metadata, decodeDbMetadata), nil
 }
@@ -167,7 +166,7 @@ FROM v_object_store_metadata`, dbMetadata{})
 func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) (coreobjectstore.UUID, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	uuid, err := coreobjectstore.NewUUID()
@@ -193,14 +192,14 @@ VALUES ($dbMetadata.*)
 ON CONFLICT (sha_256) DO NOTHING
 ON CONFLICT (sha_384) DO NOTHING`, dbMetadata)
 	if err != nil {
-		return "", errors.Annotate(err, "preparing insert metadata statement")
+		return "", errors.Errorf("preparing insert metadata statement: %w", err)
 	}
 
 	pathStmt, err := s.Prepare(`
 INSERT INTO object_store_metadata_path (path, metadata_uuid)
 VALUES ($dbMetadataPath.*)`, dbMetadataPath)
 	if err != nil {
-		return "", errors.Annotate(err, "preparing insert metadata path statement")
+		return "", errors.Errorf("preparing insert metadata path statement: %w", err)
 	}
 
 	metadataLookupStmt, err := s.Prepare(`
@@ -212,18 +211,18 @@ WHERE  (
 )
 AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 	if err != nil {
-		return "", errors.Annotate(err, "preparing select metadata statement")
+		return "", errors.Errorf("preparing select metadata statement: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var outcome sqlair.Outcome
 		err := tx.Query(ctx, metadataStmt, dbMetadata).Get(&outcome)
 		if err != nil {
-			return errors.Annotatef(err, "inserting metadata")
+			return errors.Errorf("inserting metadata: %w", err)
 		}
 
 		if rows, err := outcome.Result().RowsAffected(); err != nil {
-			return errors.Annotatef(err, "inserting metadata")
+			return errors.Errorf("inserting metadata: %w", err)
 		} else if rows != 1 {
 			// If the rows affected is 0, then the metadata already exists.
 			// We need to get the uuid for the metadata, so that we can insert
@@ -232,13 +231,13 @@ AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return objectstoreerrors.ErrHashAndSizeAlreadyExists
 			} else if err != nil {
-				return errors.Annotatef(err, "inserting metadata")
+				return errors.Errorf("inserting metadata: %w", err)
 			}
 			// At this point we need to update the uuid that we'll
 			// return back to be the one that was already in the db.
 			uuid, err = coreobjectstore.ParseUUID(dbMetadataPath.UUID)
 			if err != nil {
-				return errors.Annotatef(err, "parsing present uuid in metadata")
+				return errors.Errorf("parsing present uuid in metadata: %w", err)
 			}
 		}
 
@@ -246,17 +245,17 @@ AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 		if database.IsErrConstraintPrimaryKey(err) {
 			return objectstoreerrors.ErrPathAlreadyExistsDifferentHash
 		} else if err != nil {
-			return errors.Annotatef(err, "inserting metadata path")
+			return errors.Errorf("inserting metadata path: %w", err)
 		}
 		if rows, err := outcome.Result().RowsAffected(); err != nil {
-			return errors.Annotatef(err, "inserting metadata path")
+			return errors.Errorf("inserting metadata path: %w", err)
 		} else if rows != 1 {
-			return fmt.Errorf("metadata path not inserted")
+			return errors.Errorf("metadata path not inserted")
 		}
 		return nil
 	})
 	if err != nil {
-		return "", errors.Annotatef(err, "adding path %s", metadata.Path)
+		return "", errors.Errorf("adding path %s: %w", metadata.Path, err)
 	}
 	return uuid, nil
 }
@@ -265,7 +264,7 @@ AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 func (s *State) RemoveMetadata(ctx context.Context, path string) error {
 	db, err := s.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	dbMetadataPath := dbMetadataPath{
@@ -277,13 +276,13 @@ SELECT &dbMetadataPath.metadata_uuid
 FROM object_store_metadata_path 
 WHERE path = $dbMetadataPath.path`, dbMetadataPath)
 	if err != nil {
-		return errors.Annotate(err, "preparing select metadata statement")
+		return errors.Errorf("preparing select metadata statement: %w", err)
 	}
 	pathStmt, err := s.Prepare(`
 DELETE FROM object_store_metadata_path 
 WHERE path = $dbMetadataPath.path`, dbMetadataPath)
 	if err != nil {
-		return errors.Annotate(err, "preparing delete metadata path statement")
+		return errors.Errorf("preparing delete metadata path statement: %w", err)
 	}
 
 	metadataStmt, err := s.Prepare(`
@@ -295,7 +294,7 @@ AND NOT EXISTS (
   WHERE  metadata_uuid = object_store_metadata.uuid
 )`, dbMetadataPath)
 	if err != nil {
-		return errors.Annotate(err, "preparing delete metadata statement")
+		return errors.Errorf("preparing delete metadata statement: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -305,21 +304,21 @@ AND NOT EXISTS (
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return objectstoreerrors.ErrNotFound
 		} else if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		if err := tx.Query(ctx, pathStmt, dbMetadataPath).Run(); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		if err := tx.Query(ctx, metadataStmt, dbMetadataPath).Run(); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		return nil
 	})
 	if err != nil {
-		return errors.Annotatef(err, "removing path %s", path)
+		return errors.Errorf("removing path %s: %w", path, err)
 	}
 	return nil
 }

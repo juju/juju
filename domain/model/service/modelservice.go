@@ -5,10 +5,8 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/clock"
-	jujuerrors "github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	coreconstraints "github.com/juju/juju/core/constraints"
@@ -187,7 +185,7 @@ func (s *ModelService) CreateModelForVersion(
 	}
 
 	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
-		return fmt.Errorf("creating model %q with agent version %q: %w", m.Name, agentVersion, err)
+		return errors.Errorf("creating model %q with agent version %q: %w", m.Name, agentVersion, err)
 	}
 
 	args := model.ModelDetailArgs{
@@ -324,7 +322,7 @@ func (s *ProviderModelService) CreateModel(
 	}
 
 	env, err := s.providerGetter(ctx)
-	if errors.Is(err, jujuerrors.NotSupported) {
+	if errors.Is(err, coreerrors.NotSupported) {
 		// Exit early if the provider does not support creating model resources for the new model.
 		return nil
 	}
@@ -382,26 +380,26 @@ func validateAgentVersion(
 	switch {
 	// agentVersion is greater than that of the current version.
 	case n > 0:
-		return fmt.Errorf(
+		return errors.Errorf(
 			"%w %q cannot be greater then the controller version %q",
 			modelerrors.AgentVersionNotSupported,
-			agentVersion.String(), jujuversion.Current.String(),
-		)
+			agentVersion.String(), jujuversion.Current.String())
+
 	// agentVersion is less than that of the current version.
 	case n < 0:
 		has, err := agentFinder.HasBinariesForVersion(agentVersion)
 		if err != nil {
-			return fmt.Errorf(
+			return errors.Errorf(
 				"validating agent version %q for available tools: %w",
-				agentVersion.String(), err,
-			)
+				agentVersion.String(), err)
+
 		}
 		if !has {
-			return fmt.Errorf(
+			return errors.Errorf(
 				"%w %q no agent binaries found",
 				modelerrors.AgentVersionNotSupported,
-				agentVersion,
-			)
+				agentVersion)
+
 		}
 	}
 

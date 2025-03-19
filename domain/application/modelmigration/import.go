@@ -11,13 +11,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
@@ -32,7 +32,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -128,7 +128,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 		chURL, err := internalcharm.ParseURL(app.CharmURL())
 		if err != nil {
-			return internalerrors.Errorf("parsing charm URL %q: %w", app.CharmURL(), err)
+			return errors.Errorf("parsing charm URL %q: %w", app.CharmURL(), err)
 		}
 
 		charm, err := i.importCharm(ctx, charmData{
@@ -138,22 +138,22 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			Config:   app.CharmConfigs(),
 		})
 		if err != nil {
-			return internalerrors.Errorf("importing model application %q charm: %w", app.Name(), err)
+			return errors.Errorf("importing model application %q charm: %w", app.Name(), err)
 		}
 
 		origin, err := i.importCharmOrigin(app)
 		if err != nil {
-			return internalerrors.Errorf("parsing charm origin %v: %w", app.CharmOrigin(), err)
+			return errors.Errorf("parsing charm origin %v: %w", app.CharmOrigin(), err)
 		}
 
 		applicationConfig, err := i.importApplicationConfig(app)
 		if err != nil {
-			return internalerrors.Errorf("importing application config: %w", err)
+			return errors.Errorf("importing application config: %w", err)
 		}
 
 		applicationSettings, err := i.importApplicationSettings(app)
 		if err != nil {
-			return internalerrors.Errorf("importing application settings: %w", err)
+			return errors.Errorf("importing application settings: %w", err)
 		}
 
 		applicationStatus := i.importStatus(app.Status())
@@ -193,7 +193,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			},
 		})
 		if err != nil {
-			return internalerrors.Errorf(
+			return errors.Errorf(
 				"import model application %q with %d units: %w",
 				app.Name(), len(app.Units()), err,
 			)
@@ -217,7 +217,7 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 	if len(errs) == 0 {
 		return nil
 	}
-	return internalerrors.Errorf("rollback failed: %w", internalerrors.Join(errs...))
+	return errors.Errorf("rollback failed: %w", errors.Join(errs...))
 }
 
 func (i *importOperation) importApplicationConfig(app description.Application) (config.ConfigAttributes, error) {
@@ -233,7 +233,7 @@ func (i *importOperation) importApplicationConfig(app description.Application) (
 		// Potentially, we could relax this error to a warning and just ignore
 		// the config, but it's better to be strict and ensure that the charm
 		// config is present.
-		return nil, internalerrors.Errorf("charm config is empty, but application %q has config", app.Name())
+		return nil, errors.Errorf("charm config is empty, but application %q has config", app.Name())
 	}
 
 	charmCfg := charmConfig.Configs()
@@ -244,7 +244,7 @@ func (i *importOperation) importApplicationConfig(app description.Application) (
 			// This shouldn't happen, and could be a warning like above, but
 			// it's better to be strict and ensure that the charm config is
 			// present.
-			return nil, internalerrors.Errorf("config %q not found in charm config", k)
+			return nil, errors.Errorf("config %q not found in charm config", k)
 		}
 
 		result[k] = v
@@ -259,7 +259,7 @@ func (i *importOperation) importApplicationSettings(app description.Application)
 	if len(appSettings) == 0 {
 		return application.ApplicationSettings{}, nil
 	} else if len(appSettings) > 1 {
-		return application.ApplicationSettings{}, internalerrors.Errorf("application %q has multiple settings, expected only one", app.Name())
+		return application.ApplicationSettings{}, errors.Errorf("application %q has multiple settings, expected only one", app.Name())
 	}
 
 	var trust bool
@@ -269,12 +269,12 @@ func (i *importOperation) importApplicationSettings(app description.Application)
 	case string:
 		var err error
 		if trust, err = strconv.ParseBool(t); err != nil {
-			return application.ApplicationSettings{}, internalerrors.Errorf("parsing trust value %q: %w", t, err)
+			return application.ApplicationSettings{}, errors.Errorf("parsing trust value %q: %w", t, err)
 		}
 	case bool:
 		trust = t
 	default:
-		return application.ApplicationSettings{}, internalerrors.Errorf("trust value %q is not a boolean", trustValue)
+		return application.ApplicationSettings{}, errors.Errorf("trust value %q is not a boolean", trustValue)
 	}
 
 	return application.ApplicationSettings{
@@ -364,11 +364,11 @@ func (i *importOperation) importApplicationConstraints(app description.Applicati
 func (i *importOperation) importCharmOrigin(a description.Application) (corecharm.Origin, error) {
 	sourceOrigin := a.CharmOrigin()
 	if sourceOrigin == nil {
-		return corecharm.Origin{}, internalerrors.Errorf("nil charm origin importing application %q", a.Name())
+		return corecharm.Origin{}, errors.Errorf("nil charm origin importing application %q", a.Name())
 	}
 	_, err := internalcharm.ParseURL(a.CharmURL())
 	if err != nil {
-		return corecharm.Origin{}, errors.Trace(err)
+		return corecharm.Origin{}, errors.Capture(err)
 	}
 
 	var channel *internalcharm.Channel
@@ -376,7 +376,7 @@ func (i *importOperation) importCharmOrigin(a description.Application) (corechar
 	if serialized != "" && corecharm.CharmHub.Matches(sourceOrigin.Source()) {
 		c, err := internalcharm.ParseChannelNormalize(serialized)
 		if err != nil {
-			return corecharm.Origin{}, errors.Trace(err)
+			return corecharm.Origin{}, errors.Capture(err)
 		}
 		track := c.Track
 		if track == "" {
@@ -391,7 +391,7 @@ func (i *importOperation) importCharmOrigin(a description.Application) (corechar
 
 	p, err := corecharm.ParsePlatformNormalize(sourceOrigin.Platform())
 	if err != nil {
-		return corecharm.Origin{}, errors.Trace(err)
+		return corecharm.Origin{}, errors.Capture(err)
 	}
 	platform := corecharm.Platform{
 		Architecture: p.Architecture,
@@ -420,7 +420,7 @@ func (i *importOperation) importCharmOrigin(a description.Application) (corechar
 			Channel:  channel,
 		}
 	} else {
-		return corecharm.Origin{}, internalerrors.Errorf("unrecognised charm origin %q", sourceOrigin.Source())
+		return corecharm.Origin{}, errors.Errorf("unrecognised charm origin %q", sourceOrigin.Source())
 	}
 	return origin, nil
 }
@@ -471,27 +471,27 @@ func (i *importOperation) importCharm(ctx context.Context, data charmData) (inte
 
 	metadata, err := i.importCharmMetadata(data.Metadata)
 	if err != nil {
-		return nil, internalerrors.Errorf("import charm metadata: %w", err)
+		return nil, errors.Errorf("import charm metadata: %w", err)
 	}
 
 	manifest, err := i.importCharmManifest(data.Manifest)
 	if err != nil {
-		return nil, internalerrors.Errorf("import charm manifest: %w", err)
+		return nil, errors.Errorf("import charm manifest: %w", err)
 	}
 
 	lxdProfile, err := i.importCharmLXDProfile(data.Metadata)
 	if err != nil {
-		return nil, internalerrors.Errorf("import charm lxd profile: %w", err)
+		return nil, errors.Errorf("import charm lxd profile: %w", err)
 	}
 
 	config, err := i.importCharmConfig(data.Config)
 	if err != nil {
-		return nil, internalerrors.Errorf("import charm config: %w", err)
+		return nil, errors.Errorf("import charm config: %w", err)
 	}
 
 	actions, err := i.importCharmActions(data.Actions)
 	if err != nil {
-		return nil, internalerrors.Errorf("import charm actions: %w", err)
+		return nil, errors.Errorf("import charm actions: %w", err)
 	}
 
 	// Return a valid charm base that can then be used to create the
@@ -501,7 +501,7 @@ func (i *importOperation) importCharm(ctx context.Context, data charmData) (inte
 
 func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*internalcharm.Meta, error) {
 	if data == nil {
-		return nil, internalerrors.Errorf("import charm metadata: %w", errors.NotValid)
+		return nil, errors.Errorf("import charm metadata: %w", coreerrors.NotValid)
 	}
 
 	var (
@@ -509,52 +509,52 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 		runsAs internalcharm.RunAs
 	)
 	if runsAs, err = importCharmUser(data); err != nil {
-		return nil, internalerrors.Errorf("import charm user: %w", err)
+		return nil, errors.Errorf("import charm user: %w", err)
 	}
 
 	var assumes *assumes.ExpressionTree
 	if assumes, err = importAssumes(data.Assumes()); err != nil {
-		return nil, internalerrors.Errorf("import charm assumes: %w", err)
+		return nil, errors.Errorf("import charm assumes: %w", err)
 	}
 
 	var minJujuVersion version.Number
 	if minJujuVersion, err = importMinJujuVersion(data.MinJujuVersion()); err != nil {
-		return nil, internalerrors.Errorf("import min juju version: %w", err)
+		return nil, errors.Errorf("import min juju version: %w", err)
 	}
 
 	var provides map[string]internalcharm.Relation
 	if provides, err = importRelations(data.Provides()); err != nil {
-		return nil, internalerrors.Errorf("import provides relations: %w", err)
+		return nil, errors.Errorf("import provides relations: %w", err)
 	}
 
 	var requires map[string]internalcharm.Relation
 	if requires, err = importRelations(data.Requires()); err != nil {
-		return nil, internalerrors.Errorf("import requires relations: %w", err)
+		return nil, errors.Errorf("import requires relations: %w", err)
 	}
 
 	var peers map[string]internalcharm.Relation
 	if peers, err = importRelations(data.Peers()); err != nil {
-		return nil, internalerrors.Errorf("import peers relations: %w", err)
+		return nil, errors.Errorf("import peers relations: %w", err)
 	}
 
 	var storage map[string]internalcharm.Storage
 	if storage, err = importStorage(data.Storage()); err != nil {
-		return nil, internalerrors.Errorf("import storage: %w", err)
+		return nil, errors.Errorf("import storage: %w", err)
 	}
 
 	var devices map[string]internalcharm.Device
 	if devices, err = importDevices(data.Devices()); err != nil {
-		return nil, internalerrors.Errorf("import devices: %w", err)
+		return nil, errors.Errorf("import devices: %w", err)
 	}
 
 	var containers map[string]internalcharm.Container
 	if containers, err = importContainers(data.Containers()); err != nil {
-		return nil, internalerrors.Errorf("import containers: %w", err)
+		return nil, errors.Errorf("import containers: %w", err)
 	}
 
 	var resources map[string]resource.Meta
 	if resources, err = importResources(data.Resources()); err != nil {
-		return nil, internalerrors.Errorf("import resources: %w", err)
+		return nil, errors.Errorf("import resources: %w", err)
 	}
 
 	return &internalcharm.Meta{
@@ -582,12 +582,12 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 func (i *importOperation) importCharmManifest(data description.CharmManifest) (*internalcharm.Manifest, error) {
 	charmBases := data.Bases()
 	if data == nil || len(charmBases) == 0 {
-		return nil, internalerrors.Errorf("manifest empty")
+		return nil, errors.Errorf("manifest empty")
 	}
 
 	bases, err := importManifestBases(charmBases)
 	if err != nil {
-		return nil, internalerrors.Errorf("import manifest bases: %w", err)
+		return nil, errors.Errorf("import manifest bases: %w", err)
 	}
 	return &internalcharm.Manifest{
 		Bases: bases,
@@ -606,7 +606,7 @@ func (i *importOperation) importCharmLXDProfile(data description.CharmMetadata) 
 
 	var profile internalcharm.LXDProfile
 	if err := json.Unmarshal([]byte(lxdProfile), &profile); err != nil {
-		return nil, internalerrors.Errorf("unmarshal lxd profile: %w", err)
+		return nil, errors.Errorf("unmarshal lxd profile: %w", err)
 	}
 
 	return &profile, nil
@@ -649,7 +649,7 @@ func (i *importOperation) importCharmActions(data description.CharmActions) (*in
 	for name, a := range descriptionActions {
 		parameters, err := importCharmParameters(a.Parameters())
 		if err != nil {
-			return nil, internalerrors.Errorf("import charm parameters: %w", err)
+			return nil, errors.Errorf("import charm parameters: %w", err)
 		}
 
 		actions[name] = internalcharm.ActionSpec{
@@ -676,7 +676,7 @@ func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error
 	case runAsNonRoot:
 		return internalcharm.RunAsNonRoot, nil
 	default:
-		return internalcharm.RunAsDefault, internalerrors.Errorf("unknown run-as value %q: %w", data.RunAs(), errors.NotValid)
+		return internalcharm.RunAsDefault, errors.Errorf("unknown run-as value %q: %w", data.RunAs(), coreerrors.NotValid)
 	}
 }
 
@@ -693,7 +693,7 @@ func importAssumes(data string) (*assumes.ExpressionTree, error) {
 
 	tree := new(assumes.ExpressionTree)
 	if err := tree.UnmarshalJSON([]byte(data)); err != nil {
-		return nil, internalerrors.Errorf("unmarshal assumes: %w: %w", err, errors.NotValid)
+		return nil, errors.Errorf("unmarshal assumes: %w: %w", err, coreerrors.NotValid)
 	}
 	return tree, nil
 }
@@ -707,7 +707,7 @@ func importMinJujuVersion(data string) (version.Number, error) {
 
 	ver, err := version.Parse(data)
 	if err != nil {
-		return version.Number{}, internalerrors.Errorf("parse min juju version: %w: %w", err, errors.NotValid)
+		return version.Number{}, errors.Errorf("parse min juju version: %w: %w", err, coreerrors.NotValid)
 	}
 	return ver, nil
 }
@@ -717,12 +717,12 @@ func importRelations(data map[string]description.CharmMetadataRelation) (map[str
 	for name, rel := range data {
 		role, err := importRelationRole(rel.Role())
 		if err != nil {
-			return nil, internalerrors.Errorf("import relation role: %w", err)
+			return nil, errors.Errorf("import relation role: %w", err)
 		}
 
 		scope, err := importRelationScope(rel.Scope())
 		if err != nil {
-			return nil, internalerrors.Errorf("import relation scope: %w", err)
+			return nil, errors.Errorf("import relation scope: %w", err)
 		}
 
 		relations[name] = internalcharm.Relation{
@@ -746,7 +746,7 @@ func importRelationRole(data string) (internalcharm.RelationRole, error) {
 	case roleRequirer:
 		return internalcharm.RoleRequirer, nil
 	default:
-		return "", internalerrors.Errorf("unknown relation role %q: %w", data, errors.NotValid)
+		return "", errors.Errorf("unknown relation role %q: %w", data, coreerrors.NotValid)
 	}
 }
 
@@ -757,7 +757,7 @@ func importRelationScope(data string) (internalcharm.RelationScope, error) {
 	case scopeContainer:
 		return internalcharm.ScopeContainer, nil
 	default:
-		return "", internalerrors.Errorf("unknown relation scope %q: %w", data, errors.NotValid)
+		return "", errors.Errorf("unknown relation scope %q: %w", data, coreerrors.NotValid)
 	}
 }
 
@@ -776,7 +776,7 @@ func importStorage(data map[string]description.CharmMetadataStorage) (map[string
 	for name, s := range data {
 		typ, err := importStorageType(s.Type())
 		if err != nil {
-			return nil, internalerrors.Errorf("import storage type: %w", err)
+			return nil, errors.Errorf("import storage type: %w", err)
 		}
 
 		storage[name] = internalcharm.Storage{
@@ -802,7 +802,7 @@ func importStorageType(data string) (internalcharm.StorageType, error) {
 	case storageFilesystem:
 		return internalcharm.StorageFilesystem, nil
 	default:
-		return "", internalerrors.Errorf("unknown storage type %q: %w", data, errors.NotValid)
+		return "", errors.Errorf("unknown storage type %q: %w", data, coreerrors.NotValid)
 	}
 }
 
@@ -847,7 +847,7 @@ func importResources(data map[string]description.CharmMetadataResource) (map[str
 	for name, r := range data {
 		typ, err := importResourceType(r.Type())
 		if err != nil {
-			return nil, internalerrors.Errorf("import resource type: %w", err)
+			return nil, errors.Errorf("import resource type: %w", err)
 		}
 
 		resources[name] = resource.Meta{
@@ -867,7 +867,7 @@ func importResourceType(data string) (resource.Type, error) {
 	case resourceContainer:
 		return resource.TypeContainerImage, nil
 	default:
-		return -1, internalerrors.Errorf("unknown resource type %q: %w", data, errors.NotValid)
+		return -1, errors.Errorf("unknown resource type %q: %w", data, coreerrors.NotValid)
 	}
 }
 
@@ -882,7 +882,7 @@ func importManifestBases(data []description.CharmManifestBase) ([]internalcharm.
 	for i, base := range data {
 		channel, err := importBaseChannel(base.Channel())
 		if err != nil {
-			return nil, internalerrors.Errorf("import channel for %q: %w", base.Name(), err)
+			return nil, errors.Errorf("import channel for %q: %w", base.Name(), err)
 		}
 
 		bases[i] = internalcharm.Base{
@@ -918,7 +918,7 @@ func importCharmParameters(parameters map[string]any) (map[string]any, error) {
 		case map[any]any:
 			nested, err := convertNestedMap(value)
 			if err != nil {
-				return nil, internalerrors.Errorf("convert nested map: %w", err)
+				return nil, errors.Errorf("convert nested map: %w", err)
 			}
 			result[key] = nested
 		default:
@@ -940,14 +940,14 @@ func convertNestedMap(nested map[any]any) (map[string]any, error) {
 	for key, value := range nested {
 		coercedKey, err := convertKey(key)
 		if err != nil {
-			return nil, internalerrors.Errorf("convert key %v: %w", key, err)
+			return nil, errors.Errorf("convert key %v: %w", key, err)
 		}
 
 		switch value := value.(type) {
 		case map[any]any:
 			nested, err := convertNestedMap(value)
 			if err != nil {
-				return nil, internalerrors.Errorf("convert nested map: %w", err)
+				return nil, errors.Errorf("convert nested map: %w", err)
 			}
 			result[coercedKey] = nested
 		default:
@@ -972,6 +972,6 @@ func convertKey(key any) (string, error) {
 	case bool:
 		return strconv.FormatBool(key), nil
 	default:
-		return "", internalerrors.Errorf("key can not be converted to a string: %w", errors.NotValid)
+		return "", errors.Errorf("key can not be converted to a string: %w", coreerrors.NotValid)
 	}
 }

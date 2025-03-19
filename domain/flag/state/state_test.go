@@ -7,11 +7,12 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -31,7 +32,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 
 func (s *stateSuite) TestGetFlagNotFound(c *gc.C) {
 	value, err := s.state.GetFlag(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 	c.Assert(value, jc.IsFalse)
 }
 
@@ -55,11 +56,11 @@ SELECT (value, description) AS (&dbFlag.*)
 FROM   flag 
 WHERE  name = 'foo'`, flag)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		err = tx.Query(ctx, stmt).Get(&flag)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		if !flag.Value {
 			return errors.Errorf("unexpected value: %v", flag.Value)

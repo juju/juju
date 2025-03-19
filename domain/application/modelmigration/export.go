@@ -5,11 +5,9 @@ package modelmigration
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -26,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
@@ -144,7 +143,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		// source of applications.
 		config, settings, err := e.service.GetApplicationConfigAndSettings(ctx, app.Name())
 		if err != nil {
-			return fmt.Errorf("getting application config for %q: %v", app.Name(), err)
+			return errors.Errorf("getting application config for %q: %v", app.Name(), err)
 		}
 
 		// The naming of these methods are esoteric, essentially the charm
@@ -157,7 +156,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 
 		status, err := e.service.GetApplicationStatus(ctx, app.Name())
 		if err != nil {
-			return fmt.Errorf("getting application status for %q: %v", app.Name(), err)
+			return errors.Errorf("getting application status for %q: %v", app.Name(), err)
 		}
 		// Application status is optional.
 		if status != nil {
@@ -166,29 +165,29 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 
 		charm, _, err := e.service.GetCharmByApplicationName(ctx, app.Name())
 		if err != nil {
-			return fmt.Errorf("getting charm %v", err)
+			return errors.Errorf("getting charm %v", err)
 		}
 
 		if err := e.exportCharm(ctx, app, charm); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		appCons, err := e.service.GetApplicationConstraints(ctx, app.Name())
 		if err != nil {
-			return fmt.Errorf("getting application constraints %q: %v", app.Name(), err)
+			return errors.Errorf("getting application constraints %q: %v", app.Name(), err)
 		}
 		app.SetConstraints(e.exportApplicationConstraints(appCons))
 
 		scaleState, err := e.service.GetApplicationScaleState(ctx, app.Name())
 		if err != nil {
-			return fmt.Errorf("getting application scale state for %q: %v", app.Name(), err)
+			return errors.Errorf("getting application scale state for %q: %v", app.Name(), err)
 		}
 		app.SetProvisioningState(e.exportApplicationScaleState(scaleState))
 		app.SetDesiredScale(scaleState.Scale)
 
 		err = e.exportApplicationUnits(ctx, app)
 		if err != nil {
-			return fmt.Errorf("exporting application units %q: %v", app.Name(), err)
+			return errors.Errorf("exporting application units %q: %v", app.Name(), err)
 		}
 	}
 
@@ -301,7 +300,7 @@ func exportRelations(relations map[string]internalcharm.Relation) (map[string]de
 	for name, relation := range relations {
 		args, err := exportRelation(relation)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		result[name] = args
 	}
@@ -311,12 +310,12 @@ func exportRelations(relations map[string]internalcharm.Relation) (map[string]de
 func exportRelation(relation internalcharm.Relation) (description.CharmMetadataRelation, error) {
 	role, err := exportCharmRole(relation.Role)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	scope, err := exportCharmScope(relation.Scope)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return relationType{
@@ -387,7 +386,7 @@ func exportStorage(storage map[string]internalcharm.Storage) (map[string]descrip
 	for name, storage := range storage {
 		typ, err := exportStorageType(storage)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 
 		result[name] = storageType{
@@ -472,7 +471,7 @@ func exportResources(resources map[string]resource.Meta) (map[string]description
 	for name, resource := range resources {
 		typ, err := exportResourceType(resource.Type)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 
 		result[name] = resourceType{

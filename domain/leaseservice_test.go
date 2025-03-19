@@ -5,7 +5,6 @@ package domain
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/testing"
@@ -68,7 +67,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitReturnsError(c *gc.C) {
 
 	s.leaseChecker.EXPECT().WaitUntilExpired(gomock.Any(), "leaseName", gomock.Any()).DoAndReturn(
 		func(ctx context.Context, leaseName string, start chan<- struct{}) error {
-			return fmt.Errorf("not holding lease")
+			return errors.Errorf("not holding lease")
 		},
 	)
 
@@ -103,7 +102,7 @@ func (s *leaseServiceSuite) TestWithLeaderWaitHasLeaseChange(c *gc.C) {
 
 			close(done)
 
-			return fmt.Errorf("not holding lease")
+			return errors.Errorf("not holding lease")
 		},
 	)
 

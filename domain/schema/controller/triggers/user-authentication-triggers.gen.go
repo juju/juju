@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForUserAuthentication generates the triggers for the
 // user_authentication table.
 func ChangeLogTriggersForUserAuthentication(columnName string, namespaceID int) func() schema.Patch {
@@ -44,4 +43,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

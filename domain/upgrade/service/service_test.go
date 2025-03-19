@@ -6,15 +6,16 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	coreupgrade "github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher/watchertest"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 type serviceSuite struct {
@@ -62,10 +63,10 @@ func (s *serviceSuite) TestCreateUpgradeAlreadyExists(c *gc.C) {
 
 func (s *serviceSuite) TestCreateUpgradeInvalidVersions(c *gc.C) {
 	_, err := s.service.CreateUpgrade(context.Background(), version.MustParse("3.0.1"), version.MustParse("3.0.0"))
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 
 	_, err = s.service.CreateUpgrade(context.Background(), version.MustParse("3.0.1"), version.MustParse("3.0.1"))
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *serviceSuite) TestSetControllerReady(c *gc.C) {
@@ -118,7 +119,7 @@ func (s *serviceSuite) TestActiveUpgrade(c *gc.C) {
 func (s *serviceSuite) TestActiveUpgradeNoUpgrade(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.Trace(upgradeerrors.NotFound))
+	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.Capture(upgradeerrors.NotFound))
 
 	_, err := s.service.ActiveUpgrade(context.Background())
 	c.Assert(err, jc.ErrorIs, upgradeerrors.NotFound)
@@ -188,7 +189,7 @@ func (s *serviceSuite) TestIsUpgrade(c *gc.C) {
 func (s *serviceSuite) TestIsUpgradeNoUpgrade(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.Trace(upgradeerrors.NotFound))
+	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.Capture(upgradeerrors.NotFound))
 
 	upgrading, err := s.service.IsUpgrading(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

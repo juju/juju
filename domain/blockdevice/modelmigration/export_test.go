@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
+	coreerrors "github.com/juju/juju/core/errors"
 )
 
 type exportSuite struct {
@@ -102,5 +102,5 @@ func (s *exportSuite) TestExportMachineNotFound(c *gc.C) {
 
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }

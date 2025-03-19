@@ -5,15 +5,13 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
-
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // GetSecretGrants returns the subjects which have the specified access to the secret.
@@ -21,7 +19,7 @@ import (
 func (s *SecretService) GetSecretGrants(ctx context.Context, uri *secrets.URI, role secrets.SecretRole) ([]SecretAccess, error) {
 	accessors, err := s.secretState.GetSecretGrants(ctx, uri, role)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	result := make([]SecretAccess, len(accessors))
 	for i, accessor := range accessors {
@@ -77,7 +75,7 @@ func (s *SecretService) GetSecretAccessScope(ctx context.Context, uri *secrets.U
 	}
 	accessScope, err := s.secretState.GetSecretAccessScope(ctx, uri, ap)
 	if err != nil {
-		return SecretAccessScope{}, errors.Trace(err)
+		return SecretAccessScope{}, errors.Capture(err)
 	}
 	result := SecretAccessScope{
 		ID: accessScope.ScopeID,
@@ -113,7 +111,7 @@ func (s *SecretService) getSecretAccess(ctx context.Context, uri *secrets.URI, a
 	}
 	role, err := s.secretState.GetSecretAccess(ctx, uri, ap)
 	if err != nil {
-		return secrets.RoleNone, errors.Trace(err)
+		return secrets.RoleNone, errors.Capture(err)
 	}
 	// "none" is db value, secret enum is "".
 	if role == "none" {
@@ -130,7 +128,7 @@ func (s *SecretService) getSecretAccess(ctx context.Context, uri *secrets.URI, a
 func (s *SecretService) GrantSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	return withCaveat(ctx, func(innerCtx context.Context) error {
@@ -173,7 +171,7 @@ func grantParams(in SecretAccessParams) domainsecret.GrantParams {
 func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI, params SecretAccessParams) error {
 	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	p := domainsecret.AccessParams{
@@ -209,7 +207,7 @@ func (s *SecretService) getManagementCaveat(
 	hasRole, err := s.getSecretAccess(ctx, uri, accessor)
 	if err != nil {
 		// Typically not found error.
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	if hasRole.Allowed(secrets.RoleManage) {
 		return func(ctx context.Context, fn func(context.Context) error) error {
@@ -220,7 +218,7 @@ func (s *SecretService) getManagementCaveat(
 	if accessor.Kind == UnitAccessor {
 		unitName, err := unit.NewName(accessor.ID)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		appName := unitName.Application()
 		if err := s.leaderEnsurer.LeadershipCheck(appName, accessor.ID).Check(); err == nil {
@@ -230,7 +228,7 @@ func (s *SecretService) getManagementCaveat(
 			})
 			if err != nil {
 				// Typically not found error.
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			if hasRole.Allowed(secrets.RoleManage) {
@@ -240,8 +238,9 @@ func (s *SecretService) getManagementCaveat(
 			}
 		}
 	}
-	return nil, fmt.Errorf(
-		"%q is not allowed to manage this secret %w", accessor.ID, errors.Hide(secreterrors.PermissionDenied))
+	return nil, errors.Errorf(
+		"%q is not allowed to manage this secret", accessor.ID).Add(secreterrors.PermissionDenied)
+
 }
 
 // canRead checks that the accessor can read the secret.
@@ -250,13 +249,13 @@ func (s *SecretService) canRead(ctx context.Context, uri *secrets.URI, accessor 
 	hasRole, err := s.getSecretAccess(ctx, uri, accessor)
 	if err != nil {
 		// Typically not found error.
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	if hasRole.Allowed(secrets.RoleView) {
 		return nil
 	}
 
-	notAllowedErr := fmt.Errorf("%q is not allowed to read this secret%w", accessor.ID, errors.Hide(secreterrors.PermissionDenied))
+	notAllowedErr := errors.Errorf("%q is not allowed to read this secret", accessor.ID).Add(secreterrors.PermissionDenied)
 
 	if accessor.Kind != UnitAccessor {
 		return notAllowedErr
@@ -264,7 +263,7 @@ func (s *SecretService) canRead(ctx context.Context, uri *secrets.URI, accessor 
 	// All units can read secrets owned by application.
 	unitName, err := unit.NewName(accessor.ID)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	appName := unitName.Application()
 	kind := ApplicationAccessor
@@ -279,7 +278,7 @@ func (s *SecretService) canRead(ctx context.Context, uri *secrets.URI, accessor 
 	})
 	if err != nil {
 		// Typically not found error.
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	if hasRole.Allowed(secrets.RoleView) {
 		return nil

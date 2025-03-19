@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	coreerrors "github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -26,6 +26,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/state/watcher/watchertest"
 	"github.com/juju/juju/testcharms"
 )
@@ -1508,7 +1509,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedRe
 		SHA256: "sha-256",
 		SHA384: "sha-384",
 		Size:   42,
-	}, errors.NotValidf("failed to read"))
+	}, errors.Errorf("failed to read %w", coreerrors.NotValid))
 
 	_, err := s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
@@ -1518,7 +1519,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedRe
 		Revision:     1,
 		Name:         "test",
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSetCharm(c *gc.C) {
@@ -1554,7 +1555,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 				}, nil
 		})
 	s.state.EXPECT().SetCharm(gomock.Any(), gomock.Any(), downloadInfo, true).DoAndReturn(func(_ context.Context, _ charm.Charm, _ *charm.DownloadInfo, _ bool) (corecharm.ID, charm.CharmLocator, error) {
-		return charmID, charm.CharmLocator{}, errors.NotValidf("failed to set charm")
+		return charmID, charm.CharmLocator{}, errors.Errorf("failed to set charm %w", coreerrors.NotValid)
 	})
 
 	_, err = s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
@@ -1565,7 +1566,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmNotImportingFailedSe
 		Revision:     -1,
 		Name:         "test",
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImporting(c *gc.C) {
@@ -1679,7 +1680,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedStore
 		SHA256: "sha-256",
 		SHA384: "sha-384",
 		Size:   stat.Size(),
-	}, errors.NotValidf("failed to store"))
+	}, errors.Errorf("failed to store %w", coreerrors.NotValid))
 
 	_, err = s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
@@ -1690,7 +1691,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedStore
 		Name:         "test",
 		Importing:    true,
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResolve(c *gc.C) {
@@ -1736,7 +1737,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 		Revision:     1,
 		Source:       charm.LocalSource,
 		Architecture: architecture.AMD64,
-	}, errors.NotValidf("failed to resolve"))
+	}, errors.Errorf("failed to resolve %w", coreerrors.NotValid))
 
 	_, err = s.service.ResolveUploadCharm(context.Background(), charm.ResolveUploadCharm{
 		Source:       corecharm.Local,
@@ -1747,7 +1748,7 @@ func (s *charmServiceSuite) TestResolveUploadCharmLocalCharmImportingFailedResol
 		Name:         "test",
 		Importing:    true,
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *charmServiceSuite) TestReserveCharmRevision(c *gc.C) {

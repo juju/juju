@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForRelationApplicationSetting generates the triggers for the
 // relation_application_setting table.
 func ChangeLogTriggersForRelationApplicationSetting(columnName string, namespaceID int) func() schema.Patch {
@@ -45,4 +44,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

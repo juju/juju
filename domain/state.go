@@ -5,13 +5,12 @@ package domain
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/errors"
 )
 
 // TxnRunner is an interface that provides a method for executing a closure
@@ -75,7 +74,7 @@ func (st *StateBase) DB() (TxnRunner, error) {
 
 	db, err := st.getDB()
 	if err != nil {
-		return nil, errors.Annotate(err, "invoking getDB")
+		return nil, errors.Errorf("invoking getDB: %w", err)
 	}
 	st.db = &txnRunner{runner: db}
 	return st.db, nil
@@ -108,7 +107,7 @@ func (st *StateBase) Prepare(query string, typeSamples ...any) (*sqlair.Statemen
 
 	stmt, err := sqlair.Prepare(query, typeSamples...)
 	if err != nil {
-		return nil, errors.Annotate(err, "preparing:")
+		return nil, errors.Errorf("preparing:: %w", err)
 	}
 
 	st.statements[query] = stmt
@@ -125,7 +124,7 @@ func (st *StateBase) Prepare(query string, typeSamples ...any) (*sqlair.Statemen
 func (st *StateBase) RunAtomic(ctx context.Context, fn func(AtomicContext) error) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Annotate(err, "getting database")
+		return errors.Errorf("getting database: %w", err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -177,7 +176,7 @@ func Run(ctx AtomicContext, fn func(context.Context, *sqlair.TX) error) error {
 		// If you're seeing this error, it means that the atomicContext was not
 		// created by RunAtomic. This is a programming error. Did you attempt to
 		// wrap the context in a custom context and pass it to Run?
-		return fmt.Errorf("programmatic error: AtomicContext is not a *atomicContext: %T", ctx)
+		return errors.Errorf("programmatic error: AtomicContext is not a *atomicContext: %T", ctx)
 	}
 
 	// Ensure that we can lock the context for the duration of the run function.
@@ -193,7 +192,7 @@ func Run(ctx AtomicContext, fn func(context.Context, *sqlair.TX) error) error {
 		// created by RunAtomic. This is a programming error. Did you capture
 		// the AtomicContext from a RunAtomic closure and try to use it outside
 		// of the closure?
-		return fmt.Errorf("programmatic error: AtomicContext does not have a transaction")
+		return errors.Errorf("programmatic error: AtomicContext does not have a transaction")
 	}
 
 	// Execute the function with the transaction.

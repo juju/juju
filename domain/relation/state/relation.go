@@ -90,16 +90,17 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 			}
 			var errs []error
 			if !appFound {
-				errs = append(errs, fmt.Errorf("%w: %s", relationerrors.ApplicationNotFound, args.ApplicationID))
+				errs = append(errs, errors.Errorf("%w: %s", relationerrors.ApplicationNotFound, args.ApplicationID))
 			}
 			if !relationFound {
-				errs = append(errs, fmt.Errorf("%w: %s", relationerrors.RelationNotFound, args.RelationUUID))
+				errs = append(errs, errors.Errorf("%w: %s", relationerrors.RelationNotFound, args.RelationUUID))
 			}
 			if len(errs) > 0 {
 				return errors.Join(errs...)
 			}
-			return fmt.Errorf("relationUUID %q with applicationID %q: %w",
+			return errors.Errorf("relationUUID %q with applicationID %q: %w",
 				args.RelationUUID, args.ApplicationID, relationerrors.RelationEndpointNotFound)
+
 		}
 		return errors.Capture(err)
 	})

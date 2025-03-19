@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -105,10 +105,10 @@ func (s *serviceSuite) TestCreateMachineWithParentError(c *gc.C) {
 func (s *serviceSuite) TestCreateMachineWithParentParentNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), cmachine.Name("666"), cmachine.Name("parent"), gomock.Any(), gomock.Any()).Return(errors.NotFound)
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), cmachine.Name("666"), cmachine.Name("parent"), gomock.Any(), gomock.Any()).Return(coreerrors.NotFound)
 
 	_, err := NewService(s.state).CreateMachineWithParent(context.Background(), cmachine.Name("666"), cmachine.Name("parent"))
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 // TestCreateMachineWithParentMachineAlreadyExists asserts that the state layer
@@ -179,11 +179,11 @@ func (s *serviceSuite) TestGetLifeError(c *gc.C) {
 func (s *serviceSuite) TestGetLifeNotFoundError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineLife(gomock.Any(), cmachine.Name("666")).Return(nil, errors.NotFound)
+	s.state.EXPECT().GetMachineLife(gomock.Any(), cmachine.Name("666")).Return(nil, coreerrors.NotFound)
 
 	l, err := NewService(s.state).GetMachineLife(context.Background(), "666")
 	c.Check(l, gc.IsNil)
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 // TestSetMachineLifeSuccess asserts the happy path of the SetMachineLife
@@ -216,10 +216,10 @@ func (s *serviceSuite) TestSetMachineLifeError(c *gc.C) {
 func (s *serviceSuite) TestSetMachineLifeMachineDontExist(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().SetMachineLife(gomock.Any(), cmachine.Name("nonexistent"), life.Alive).Return(errors.NotFound)
+	s.state.EXPECT().SetMachineLife(gomock.Any(), cmachine.Name("nonexistent"), life.Alive).Return(coreerrors.NotFound)
 
 	err := NewService(s.state).SetMachineLife(context.Background(), "nonexistent", life.Alive)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 // TestEnsureDeadMachineSuccess asserts the happy path of the EnsureDeadMachine
@@ -460,10 +460,10 @@ func (s *serviceSuite) TestIsControllerError(c *gc.C) {
 func (s *serviceSuite) TestIsControllerNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().IsMachineController(gomock.Any(), cmachine.Name("666")).Return(false, errors.NotFound)
+	s.state.EXPECT().IsMachineController(gomock.Any(), cmachine.Name("666")).Return(false, coreerrors.NotFound)
 
 	isController, err := NewService(s.state).IsMachineController(context.Background(), cmachine.Name("666"))
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
 	c.Check(isController, jc.IsFalse)
 }
 
@@ -574,10 +574,10 @@ func (s *serviceSuite) TestGetMachineParentUUIDError(c *gc.C) {
 func (s *serviceSuite) TestGetMachineParentUUIDNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("", errors.NotFound)
+	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), "666").Return("", coreerrors.NotFound)
 
 	parentUUID, err := NewService(s.state).GetMachineParentUUID(context.Background(), "666")
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
 	c.Check(parentUUID, gc.Equals, "")
 }
 
@@ -723,10 +723,10 @@ func (s *serviceSuite) TestGetMachineUUIDSuccess(c *gc.C) {
 func (s *serviceSuite) TestGetMachineUUIDNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineUUID(gomock.Any(), cmachine.Name("666")).Return("", errors.NotFound)
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), cmachine.Name("666")).Return("", coreerrors.NotFound)
 
 	uuid, err := NewService(s.state).GetMachineUUID(context.Background(), "666")
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
 	c.Check(uuid, gc.Equals, "")
 }
 

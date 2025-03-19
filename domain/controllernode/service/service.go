@@ -5,11 +5,10 @@ package service
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // State describes retrieval and persistence
@@ -34,14 +33,20 @@ func NewService(st State) *Service {
 // controller node records according to the input slices.
 func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) error {
 	err := s.st.CurateNodes(ctx, toAdd, toRemove)
-	return errors.Annotatef(err, "curating controller codes; adding %v, removing %v", toAdd, toRemove)
+	if err != nil {
+		return errors.Errorf("curating controller codes; adding %v, removing %v: %w", toAdd, toRemove, err)
+	}
+	return nil
 }
 
 // UpdateDqliteNode sets the Dqlite node ID and bind address for the input
 // controller ID.
 func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
 	err := s.st.UpdateDqliteNode(ctx, controllerID, nodeID, addr)
-	return errors.Annotatef(err, "updating Dqlite node details for %q", controllerID)
+	if err != nil {
+		return errors.Errorf("updating Dqlite node details for %q: %w", controllerID, err)
+	}
+	return nil
 }
 
 // IsKnownDatabaseNamespace reports if the namespace is known to the controller.
@@ -49,13 +54,13 @@ func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nod
 // returned.
 func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string) (bool, error) {
 	if namespace == "" {
-		return false, fmt.Errorf("namespace %q is %w, cannot be empty", namespace, errors.NotValid)
+		return false, errors.Errorf("namespace %q is %w, cannot be empty", namespace, coreerrors.NotValid)
 	}
 
 	ns, err := s.st.SelectDatabaseNamespace(ctx, namespace)
 	if err != nil {
 		if !errors.Is(err, controllernodeerrors.NotFound) {
-			return false, errors.Annotatef(err, "determining namespace existence")
+			return false, errors.Errorf("determining namespace existence: %w", err)
 		}
 	}
 

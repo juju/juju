@@ -5,13 +5,11 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
-
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -22,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/internal/errors"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -75,23 +74,23 @@ func (d *dummyState) Create(
 	args model.GlobalModelCreationArgs,
 ) error {
 	if _, exists := d.models[modelID]; exists {
-		return fmt.Errorf("%w %q", modelerrors.AlreadyExists, modelID)
+		return errors.Errorf("%w %q", modelerrors.AlreadyExists, modelID)
 	}
 
 	for _, v := range d.models {
 		if v.Name == args.Name && v.Owner == args.Owner {
-			return fmt.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, v.Name, v.Owner)
+			return errors.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, v.Name, v.Owner)
 		}
 	}
 
 	cloud, exists := d.clouds[args.Cloud]
 	if !exists {
-		return fmt.Errorf("%w cloud %q", errors.NotFound, args.Cloud)
+		return errors.Errorf("%w cloud %q", coreerrors.NotFound, args.Cloud)
 	}
 
 	userName, exists := d.users[user.UUID(args.Owner.String())]
 	if !exists {
-		return fmt.Errorf("%w for owner %q", usererrors.UserNotFound, args.Owner)
+		return errors.Errorf("%w for owner %q", usererrors.UserNotFound, args.Owner)
 	}
 
 	hasRegion := false
@@ -101,12 +100,12 @@ func (d *dummyState) Create(
 		}
 	}
 	if !hasRegion {
-		return fmt.Errorf("%w cloud %q region %q", errors.NotFound, args.Cloud, args.CloudRegion)
+		return errors.Errorf("%w cloud %q region %q", coreerrors.NotFound, args.Cloud, args.CloudRegion)
 	}
 
 	if !args.Credential.IsZero() {
 		if _, exists := cloud.Credentials[args.Credential.String()]; !exists {
-			return fmt.Errorf("%w credential %q", errors.NotFound, args.Credential.String())
+			return errors.Errorf("%w credential %q", coreerrors.NotFound, args.Credential.String())
 		}
 	}
 
@@ -157,7 +156,7 @@ func (d *dummyState) GetModel(
 ) (coremodel.Model, error) {
 	info, exists := d.models[uuid]
 	if !exists {
-		return coremodel.Model{}, fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
+		return coremodel.Model{}, errors.Errorf("%w %q", modelerrors.NotFound, uuid)
 	}
 	return info, nil
 }
@@ -191,7 +190,7 @@ func (d *dummyState) GetModelType(
 ) (coremodel.ModelType, error) {
 	info, exists := d.models[uuid]
 	if !exists {
-		return "", fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
+		return "", errors.Errorf("%w %q", modelerrors.NotFound, uuid)
 	}
 	return info.ModelType, nil
 }
@@ -201,7 +200,7 @@ func (d *dummyState) Delete(
 	uuid coremodel.UUID,
 ) error {
 	if _, exists := d.models[uuid]; !exists {
-		return fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
+		return errors.Errorf("%w %q", modelerrors.NotFound, uuid)
 	}
 	delete(d.models, uuid)
 	return nil
@@ -263,20 +262,20 @@ func (d *dummyState) UpdateCredential(
 ) error {
 	info, exists := d.models[uuid]
 	if !exists {
-		return fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
+		return errors.Errorf("%w %q", modelerrors.NotFound, uuid)
 	}
 
 	cloud, exists := d.clouds[credentialKey.Cloud]
 	if !exists {
-		return fmt.Errorf("%w cloud %q", errors.NotFound, credentialKey.Cloud)
+		return errors.Errorf("%w cloud %q", coreerrors.NotFound, credentialKey.Cloud)
 	}
 
 	if _, exists := cloud.Credentials[credentialKey.String()]; !exists {
-		return fmt.Errorf("%w credential %q", errors.NotFound, credentialKey.String())
+		return errors.Errorf("%w credential %q", coreerrors.NotFound, credentialKey.String())
 	}
 
 	if info.Cloud != credentialKey.Cloud {
-		return fmt.Errorf("%w credential cloud is different to that of the model", errors.NotValid)
+		return errors.Errorf("%w credential cloud is different to that of the model", coreerrors.NotValid)
 	}
 
 	return nil

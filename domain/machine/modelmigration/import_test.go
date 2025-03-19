@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"errors"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 

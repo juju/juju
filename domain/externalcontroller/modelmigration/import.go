@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/externalcontroller/service"
 	"github.com/juju/juju/domain/externalcontroller/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -70,5 +70,8 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	err := i.service.ImportExternalControllers(ctx, controllers)
-	return errors.Annotatef(err, "cannot import external controllers")
+	if err != nil {
+		return errors.Errorf("cannot import external controllers: %w", err)
+	}
+	return nil
 }

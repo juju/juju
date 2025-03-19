@@ -4,9 +4,8 @@
 package state
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/internal/errors"
 )
 
 // These structs represent the persistent storage pool entity schema in the database.

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -159,7 +160,7 @@ func (s *credentialSuite) TestUpdateCloudCredentialMissingName(c *gc.C) {
 	}
 	ctx := context.Background()
 	_, err := st.UpsertCloudCredential(ctx, corecredential.Key{Cloud: "stratus", Owner: s.userName}, credInfo)
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(errors.Is(err, coreerrors.NotValid), jc.IsTrue)
 }
 
 func (s *credentialSuite) TestCreateInvalidCredential(c *gc.C) {
@@ -488,7 +489,7 @@ func (s *credentialSuite) TestInvalidateCloudCredentialNotFound(c *gc.C) {
 	key := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
 	ctx := context.Background()
 	err := st.InvalidateCloudCredential(ctx, key, "reason")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 type watcherFunc func(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)

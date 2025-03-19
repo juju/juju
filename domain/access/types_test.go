@@ -4,10 +4,10 @@
 package access
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
 	usertesting "github.com/juju/juju/core/user/testing"
 )
@@ -43,6 +43,6 @@ func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
 		}}
 	for i, args := range argsToTest {
 		c.Logf("Test %d", i)
-		c.Check(args.Validate(), checkers.ErrorIs, errors.NotValid)
+		c.Check(args.Validate(), checkers.ErrorIs, coreerrors.NotValid)
 	}
 }

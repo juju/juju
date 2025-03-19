@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	jujuerrors "github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -23,6 +22,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
+	coreerrors "github.com/juju/juju/core/errors"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	corestorage "github.com/juju/juju/core/storage"
@@ -209,7 +209,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadInvalidApplicationID(c
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.ResolveCharmDownload(context.Background(), "!!!!", application.ResolveCharmDownload{})
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyAvailable(c *gc.C) {
@@ -321,7 +321,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *gc.C) {
 	}
 
 	s.state.EXPECT().GetAsyncCharmDownloadInfo(gomock.Any(), appUUID).Return(info, nil)
-	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return(store.StoreResult{}, jujuerrors.NotFoundf("not found"))
+	s.charmStore.EXPECT().Store(gomock.Any(), path, int64(42), "hash-384").Return(store.StoreResult{}, errors.Errorf("not found %w", coreerrors.NotFound))
 
 	err := s.service.ResolveCharmDownload(context.Background(), appUUID, application.ResolveCharmDownload{
 		CharmUUID: charmUUID,
@@ -330,7 +330,7 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadNotStored(c *gc.C) {
 		Path:      path,
 		Size:      42,
 	})
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *gc.C) {
@@ -475,7 +475,7 @@ func (s *applicationServiceSuite) TestGetApplicationConfigInvalidApplicationID(c
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetApplicationConfig(context.Background(), "!!!")
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationTrustSetting(c *gc.C) {
@@ -494,7 +494,7 @@ func (s *applicationServiceSuite) TestGetApplicationTrustSettingInvalidApplicati
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetApplicationTrustSetting(context.Background(), "!!!")
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestUnsetApplicationConfigKeys(c *gc.C) {
@@ -521,7 +521,7 @@ func (s *applicationServiceSuite) TestUnsetApplicationConfigKeysInvalidApplicati
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.UnsetApplicationConfigKeys(context.Background(), "!!!", []string{"a", "b"})
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestSetApplicationConfig(c *gc.C) {
@@ -655,7 +655,7 @@ func (s *applicationServiceSuite) TestSetApplicationConfigInvalidApplicationID(c
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.SetApplicationConfig(context.Background(), "!!!", nil)
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *gc.C) {
@@ -734,7 +734,7 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigInvalidID(c *g
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetApplicationAndCharmConfig(context.Background(), "!!!")
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationServiceSuite) TestGetApplicationAndCharmConfigNotFound(c *gc.C) {
@@ -946,7 +946,7 @@ func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMa
 	}}
 
 	_, err := s.service.watchApplicationsWithPendingCharmsMapper(context.Background(), changes)
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *applicationWatcherServiceSuite) TestWatchApplicationsWithPendingCharmMapperOrder(c *gc.C) {

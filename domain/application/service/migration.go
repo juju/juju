@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
@@ -26,7 +25,7 @@ import (
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/linklayerdevice"
 	internalcharm "github.com/juju/juju/internal/charm"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // MigrationState is the state required for migrating applications.
@@ -97,39 +96,39 @@ func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name s
 
 	id, err := s.st.GetCharmIDByApplicationName(ctx, name)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	ch, _, err := s.st.GetCharm(ctx, id)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	// The charm needs to be decoded into the internalcharm.Charm type.
 
 	metadata, err := decodeMetadata(ch.Metadata)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	manifest, err := decodeManifest(ch.Manifest)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	actions, err := decodeActions(ch.Actions)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	config, err := decodeConfig(ch.Config)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	lxdProfile, err := decodeLXDProfile(ch.LXDProfile)
 	if err != nil {
-		return nil, charm.CharmLocator{}, errors.Trace(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	locator := charm.CharmLocator{
@@ -167,12 +166,12 @@ func (s *MigrationService) GetApplicationConfigAndSettings(ctx context.Context, 
 
 	appID, err := s.st.GetApplicationIDByName(ctx, name)
 	if err != nil {
-		return nil, application.ApplicationSettings{}, errors.Trace(err)
+		return nil, application.ApplicationSettings{}, errors.Capture(err)
 	}
 
 	cfg, settings, err := s.st.GetApplicationConfigAndSettings(ctx, appID)
 	if err != nil {
-		return nil, application.ApplicationSettings{}, errors.Trace(err)
+		return nil, application.ApplicationSettings{}, errors.Capture(err)
 	}
 
 	result := make(config.ConfigAttributes)
@@ -192,19 +191,19 @@ func (s *MigrationService) GetApplicationStatus(ctx context.Context, name string
 
 	appID, err := s.st.GetApplicationIDByName(ctx, name)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	status, err := s.st.GetApplicationStatus(ctx, appID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	} else if status == nil {
 		return nil, errors.Errorf("application %q has no status", name)
 	}
 
 	decodedStatus, err := decodeApplicationStatus(status)
 	if err != nil {
-		return nil, errors.Annotatef(err, "decoding workload status")
+		return nil, errors.Errorf("decoding workload status: %w", err)
 	}
 	return decodedStatus, nil
 }
@@ -222,11 +221,11 @@ func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name s
 
 	appID, err := s.st.GetApplicationIDByName(ctx, name)
 	if err != nil {
-		return coreconstraints.Value{}, errors.Trace(err)
+		return coreconstraints.Value{}, errors.Capture(err)
 	}
 
 	cons, err := s.st.GetApplicationConstraints(ctx, appID)
-	return constraints.EncodeConstraints(cons), internalerrors.Capture(err)
+	return constraints.EncodeConstraints(cons), errors.Capture(err)
 }
 
 // GetUnitUUIDByName returns the unit UUID for the specified unit name.
@@ -234,7 +233,7 @@ func (s *MigrationService) GetApplicationConstraints(ctx context.Context, name s
 // [applicationerrors.UnitNotFound] is returned.
 func (s *MigrationService) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (coreunit.UUID, error) {
 	if err := name.Validate(); err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	return s.st.GetUnitUUIDByName(ctx, name)
@@ -250,7 +249,7 @@ func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name st
 
 	appID, err := s.st.GetApplicationIDByName(ctx, name)
 	if err != nil {
-		return application.ScaleState{}, errors.Trace(err)
+		return application.ScaleState{}, errors.Capture(err)
 	}
 
 	return s.st.GetApplicationScaleState(ctx, appID)
@@ -261,12 +260,12 @@ func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name st
 // doesn't exist.
 func (s *MigrationService) GetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID) (*corestatus.StatusInfo, error) {
 	if err := unitUUID.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return decodeUnitWorkloadStatus(workloadStatus)
@@ -277,11 +276,11 @@ func (s *MigrationService) GetUnitWorkloadStatus(ctx context.Context, unitUUID c
 // exist.
 func (s *MigrationService) GetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID) (*corestatus.StatusInfo, error) {
 	if err := unitUUID.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	agentStatus, err := s.st.GetUnitAgentStatus(ctx, unitUUID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	// If the agent isn't present then we need to modify the status for the
@@ -302,12 +301,12 @@ func (s *MigrationService) GetUnitAgentStatus(ctx context.Context, unitUUID core
 // if the application already exists.
 func (s *MigrationService) ImportApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
 	if err := validateCharmAndApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin, args.DownloadInfo); err != nil {
-		return errors.Annotatef(err, "invalid application args")
+		return errors.Errorf("invalid application args: %w", err)
 	}
 
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
-		return errors.Annotatef(err, "getting model type")
+		return errors.Errorf("getting model type: %w", err)
 	}
 	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, args.Charm, args.CharmOrigin, AddApplicationArgs{
 		ReferenceName:       args.ReferenceName,
@@ -317,18 +316,18 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		ApplicationStatus:   args.ApplicationStatus,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "creating application args")
+		return errors.Errorf("creating application args: %w", err)
 	}
 
 	appArg.Scale = len(args.Units)
 	unitArgs, err := makeUnitArgs(args.Units)
 	if err != nil {
-		return errors.Annotatef(err, "creating unit args")
+		return errors.Errorf("creating unit args: %w", err)
 	}
 
 	appID, err := s.st.CreateApplication(ctx, name, appArg, nil)
 	if err != nil {
-		return errors.Annotatef(err, "creating application %q", name)
+		return errors.Errorf("creating application %q: %w", name, err)
 	}
 	if modelType == model.IAAS {
 		err = s.st.InsertMigratingIAASUnits(ctx, appID, unitArgs...)
@@ -336,18 +335,18 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		err = s.st.InsertMigratingCAASUnits(ctx, appID, unitArgs...)
 	}
 	if err != nil {
-		return errors.Annotatef(err, "inserting units for application %q", name)
+		return errors.Errorf("inserting units for application %q: %w", name, err)
 	}
 
 	if err := s.st.SetDesiredApplicationScale(ctx, appID, args.ScaleState.Scale); err != nil {
-		return errors.Annotatef(err, "setting desired scale for application %q", name)
+		return errors.Errorf("setting desired scale for application %q: %w", name, err)
 	}
 	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.Scaling); err != nil {
-		return errors.Annotatef(err, "setting scale state for application %q", name)
+		return errors.Errorf("setting scale state for application %q: %w", name, err)
 	}
 
 	if err := s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(args.ApplicationConstraints)); err != nil {
-		return errors.Annotatef(err, "setting application constraints for application %q", name)
+		return errors.Errorf("setting application constraints for application %q: %w", name, err)
 	}
 
 	return nil
@@ -358,11 +357,11 @@ func makeUnitArgs(units []ImportUnitArg) ([]application.InsertUnitArg, error) {
 	for i, u := range units {
 		agentStatus, err := encodeUnitAgentStatus(&u.AgentStatus)
 		if err != nil {
-			return nil, errors.Annotatef(err, "encoding agent status for unit %q", u.UnitName)
+			return nil, errors.Errorf("encoding agent status for unit %q: %w", u.UnitName, err)
 		}
 		workloadStatus, err := encodeWorkloadStatus(&u.WorkloadStatus)
 		if err != nil {
-			return nil, errors.Annotatef(err, "encoding workload status for unit %q", u.UnitName)
+			return nil, errors.Errorf("encoding workload status for unit %q: %w", u.UnitName, err)
 		}
 
 		arg := application.InsertUnitArg{

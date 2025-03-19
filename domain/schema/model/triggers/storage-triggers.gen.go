@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
-
 // ChangeLogTriggersForBlockDevice generates the triggers for the
 // block_device table.
 func ChangeLogTriggersForBlockDevice(columnName string, namespaceID int) func() schema.Patch {
@@ -298,4 +297,3 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
-

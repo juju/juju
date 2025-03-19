@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -413,9 +412,9 @@ WHERE uuid = $dbModel.uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, model).Get(&model)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("%w for uuid %q", modelerrors.NotFound, modelUUID)
+			return errors.Errorf("%w for uuid %q", modelerrors.NotFound, modelUUID)
 		} else if err != nil {
-			return fmt.Errorf("getting model %q: %w", modelUUID, err)
+			return errors.Errorf("getting model %q: %w", modelUUID, err)
 		}
 		return nil
 	})
@@ -436,19 +435,19 @@ WHERE uuid = $dbModel.uuid
 	if owner := model.CredentialOwnerName; owner != "" {
 		info.CredentialOwner, err = user.NewName(owner)
 		if err != nil {
-			return coremodel.ModelInfo{}, fmt.Errorf(
+			return coremodel.ModelInfo{}, errors.Errorf(
 				"parsing model %q owner username %q: %w",
-				model.UUID, owner, err,
-			)
+				model.UUID, owner, err)
+
 		}
 	}
 
 	info.ControllerUUID, err = uuid.UUIDFromString(model.ControllerUUID)
 	if err != nil {
-		return coremodel.ModelInfo{}, fmt.Errorf(
+		return coremodel.ModelInfo{}, errors.Errorf(
 			"parsing controller uuid %q for model %q: %w",
-			model.ControllerUUID, model.UUID, err,
-		)
+			model.ControllerUUID, model.UUID, err)
+
 	}
 
 	return info, nil
