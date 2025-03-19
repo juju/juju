@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	"github.com/juju/juju/core/lease"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -218,7 +218,7 @@ func (s *serviceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *gc.C) {
 
 	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
-			return jujuerrors.NotValidf("not leader")
+			return lease.ErrNotHeld
 		})
 
 	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
@@ -229,7 +229,7 @@ func (s *serviceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *gc.C) {
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
 	})
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotLeader)
 }
 
 func (s *serviceSuite) TestSetApplicationStatusForUnitLeaderInvalidUnitName(c *gc.C) {
@@ -363,11 +363,11 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderNotLead
 
 	s.leadership.EXPECT().WithLeader(gomock.Any(), "foo", unitName.String(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
-			return jujuerrors.NotValidf("not leader")
+			return lease.ErrNotHeld
 		})
 
 	_, _, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotLeader)
 }
 
 func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderInvalidUnitName(c *gc.C) {

@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -17,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -85,7 +84,7 @@ func (s *ApplicationStatusAPISuite) TestNotATag(c *gc.C) {
 func (s *ApplicationStatusAPISuite) TestNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(nil, nil, applicationerrors.ApplicationNotFound)
+	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(nil, nil, statuserrors.ApplicationNotFound)
 
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: names.NewUnitTag("foo/0").String(),
@@ -128,15 +127,14 @@ func (s *ApplicationStatusAPISuite) TestGetUnitStatusNotLeader(c *gc.C) {
 
 	unitTag := names.NewUnitTag("foo/0")
 
-	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(nil, nil, errors.NotValidf("not leader"))
+	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(nil, nil, statuserrors.UnitNotLeader)
 
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: unitTag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results, gc.HasLen, 1)
-	status := result.Results[0]
-	c.Check(status.Error.Code, gc.Equals, "not valid")
+	c.Check(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
@@ -236,7 +234,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatusUnitNotFound(c *gc.C) {
 
 	tag := names.NewUnitTag("ubuntu/42")
 
-	s.statusService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42"), gomock.Any()).Return(applicationerrors.UnitNotFound)
+	s.statusService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42"), gomock.Any()).Return(statuserrors.UnitNotFound)
 
 	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
@@ -318,7 +316,7 @@ func (s *UnitStatusAPISuite) TestUnitStatusUnitNotFound(c *gc.C) {
 
 	tag := names.NewUnitTag("ubuntu/42")
 
-	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42")).Return(nil, applicationerrors.UnitNotFound)
+	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42")).Return(nil, statuserrors.UnitNotFound)
 
 	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),

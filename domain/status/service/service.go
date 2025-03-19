@@ -12,6 +12,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -227,10 +228,10 @@ func (s *Service) SetApplicationStatus(
 }
 
 // SetApplicationStatusForUnitLeader sets the application status using the
-// leader unit of the application. If the application has no leader unit, or
-// the is not the leader unit of the application, an error satisfying
-// [statuserrors.UnitNotLeader] is returned. If the unit is not found, an
-// error satisfying [statuserrors.UnitNotFound] is returned.
+// leader unit of the application. If the specified unit is not the leader of
+// it's application and error satisfying [statuserrors.UnitNotLeader] is
+// returned. If the unit is not found, an error satisfying
+// [statuserrors.UnitNotFound] is returned.
 func (s *Service) SetApplicationStatusForUnitLeader(
 	ctx context.Context,
 	unitName coreunit.Name,
@@ -265,9 +266,15 @@ func (s *Service) SetApplicationStatusForUnitLeader(
 		return errors.Capture(err)
 	}
 
-	return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
+	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
 		return s.st.SetApplicationStatus(ctx, appID, encodedStatus)
 	})
+	if errors.Is(err, corelease.ErrNotHeld) {
+		return statuserrors.UnitNotLeader
+	} else if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }
 
 // GetApplicationDisplayStatus returns the display status of the specified application.
@@ -305,8 +312,9 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appID coreapp
 // GetApplicationAndUnitStatusesForUnitWithLeader returns the display status
 // of the application the specified unit belongs to, and the workload statuses
 // of all the units that belong to that application, indexed by unit name.
-// If no application is found for the unit name, an error satisfying
-// [statuserrors.ApplicationNotFound] is returned
+// If the specified unit is not the leader of it's application and error satisfying
+// [statuserrors.UnitNotLeader] is returned. If no application is found for the
+// unit name, an error satisfying [statuserrors.ApplicationNotFound] is returned.
 func (s *Service) GetApplicationAndUnitStatusesForUnitWithLeader(
 	ctx context.Context,
 	unitName coreunit.Name,
@@ -357,8 +365,10 @@ func (s *Service) GetApplicationAndUnitStatusesForUnitWithLeader(
 		return nil
 
 	})
-	if err != nil {
-		return nil, nil, err
+	if errors.Is(err, corelease.ErrNotHeld) {
+		return nil, nil, statuserrors.UnitNotLeader
+	} else if err != nil {
+		return nil, nil, errors.Capture(err)
 	}
 	return applicationDisplayStatus, unitWorkloadStatuses, nil
 }

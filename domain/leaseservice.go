@@ -46,6 +46,8 @@ func (s *LeaseService) LeadershipCheck(appName, unitName string) leadership.Toke
 // returns.
 // The context must be passed to the closure function to ensure that the
 // cancellation is propagated to the closure.
+//
+// Returns an error satisfying [corelease.ErrNotHeld] if the unit is not the leader.
 func (s *LeaseService) WithLeader(
 	ctx context.Context, appName, unitName string, fn func(context.Context) error,
 ) error {

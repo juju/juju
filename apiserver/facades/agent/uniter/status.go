@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -82,7 +82,7 @@ func (s *StatusAPI) SetAgentStatus(ctx context.Context, args params.SetStatus) (
 			Status:  status.Status(arg.Status),
 			Message: arg.Info,
 			Data:    arg.Data,
-		}); errors.Is(err, applicationerrors.UnitNotFound) {
+		}); errors.Is(err, statuserrors.UnitNotFound) {
 			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
 		} else if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
@@ -141,8 +141,11 @@ func (s *StatusAPI) ApplicationStatus(ctx context.Context, args params.Entities)
 		}
 
 		appStatus, unitStatuses, err := s.statusService.GetApplicationAndUnitStatusesForUnitWithLeader(ctx, unitName)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		if errors.Is(err, statuserrors.ApplicationNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", unitName.Application()))
+			continue
+		} else if errors.Is(err, statuserrors.UnitNotLeader) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
