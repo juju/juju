@@ -199,6 +199,42 @@ func (s *Suite) TestVALIDATION(c *gc.C) {
 	s.stub.CheckCall(c, 5, "Report", "id", migration.VALIDATION, true)
 }
 
+func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.VALIDATION,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.VALIDATION,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.waitForStubCalls(c, []string{
+		"Watch",
+		"Lockdown",
+		"API open",
+		"ValidateMigration",
+		"API close",
+		"Report",
+	})
+
+	s.stub.CheckCall(c, 2, "API open", &api.Info{
+		ModelTag: modelTag,
+		Tag:      agentTag,
+		Password: agentPassword,
+		Addrs:    addrs,
+		CACert:   caCert,
+	})
+	s.stub.CheckCall(c, 5, "Report", "id", migration.VALIDATION, true)
+}
+
 func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
@@ -507,7 +543,7 @@ func (c *stubMinionClient) Report(id string, phase migration.Phase, success bool
 func newStubWatcher() *stubWatcher {
 	return &stubWatcher{
 		Worker:  workertest.NewErrorWorker(nil),
-		changes: make(chan watcher.MigrationStatus, 1),
+		changes: make(chan watcher.MigrationStatus, 2),
 	}
 }
 

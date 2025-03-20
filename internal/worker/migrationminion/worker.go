@@ -90,7 +90,10 @@ func New(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	w := &Worker{config: config}
+	w := &Worker{
+		config:    config,
+		processed: make(map[string]migration.Phase),
+	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
@@ -106,6 +109,8 @@ func New(config Config) (worker.Worker, error) {
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
+
+	processed map[string]migration.Phase
 }
 
 // Kill implements worker.Worker.
@@ -135,6 +140,7 @@ func (w *Worker) loop() error {
 			if !ok {
 				return errors.New("watcher channel closed")
 			}
+
 			if err := w.handle(status); err != nil {
 				w.config.Logger.Errorf("handling migration phase %s failed: %v", status.Phase, err)
 				return errors.Trace(err)
@@ -147,7 +153,18 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 	w.config.Logger.Infof("migration phase is now: %s", status.Phase)
 
 	if !status.Phase.IsRunning() {
+		// If the phase is not running, we can unlock the fortress, but remove
+		// the migration from the processed map first.
+		delete(w.processed, status.MigrationId)
+
 		return w.config.Guard.Unlock()
+	}
+
+	// We've already processed this phase, so we can ignore it.
+	// It's important to do this before we lockdown the fortress, as we want
+	// to pretend that we've never seen this message.
+	if p, ok := w.processed[status.MigrationId]; ok && p == status.Phase {
+		return nil
 	}
 
 	// Ensure that all workers related to migration fortress have
@@ -170,7 +187,21 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 		// The minion doesn't need to do anything for other
 		// migration phases.
 	}
-	return errors.Trace(err)
+
+	// Don't record the processed phase if we get an error. This allows for
+	// retries.
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prevent unbounded growth of the processed map, and remove the phase
+	// from the map if it's terminal.
+	if status.Phase.IsTerminal() {
+		delete(w.processed, status.MigrationId)
+	} else {
+		w.processed[status.MigrationId] = status.Phase
+	}
+	return nil
 }
 
 func (w *Worker) doQUIESCE(status watcher.MigrationStatus) error {
