@@ -290,15 +290,15 @@ func (t *fileObjectStore) loop() error {
 		return errors.Errorf("ensuring file store directories exist: %w", err)
 	}
 
+	ctx, cancel := t.scopedContext()
+	defer cancel()
+
 	// Remove any temporary files that may have been left behind. We don't
 	// provide continuation for these operations, so a retry will be required
 	// if the operation fails.
-	if err := t.cleanupTmpFiles(); err != nil {
+	if err := t.cleanupTmpFiles(ctx); err != nil {
 		return errors.Errorf("cleaning up temp files: %w", err)
 	}
-
-	ctx, cancel := t.scopedContext()
-	defer cancel()
 
 	timer := t.clock.NewTimer(jitter(defaultPruneInterval))
 	defer timer.Stop()
@@ -387,7 +387,7 @@ func (t *fileObjectStore) loop() error {
 			timer.Reset(defaultPruneInterval)
 
 			if err := t.prune(ctx, t.list, t.deleteObject); err != nil {
-				t.logger.Errorf(context.TODO(), "prune: %v", err)
+				t.logger.Errorf(ctx, "prune: %v", err)
 				continue
 			}
 		}
@@ -395,13 +395,12 @@ func (t *fileObjectStore) loop() error {
 }
 
 func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
-	t.logger.Debugf(context.TODO(), "getting object %q from file storage", path)
+	t.logger.Debugf(ctx, "getting object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
 		return nil, -1, errors.Errorf("get metadata: %w", objectstoreerrors.ObjectNotFound)
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, -1, errors.Errorf("get metadata: %w", err)
 	}
 
@@ -409,13 +408,12 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 }
 
 func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
-	t.logger.Debugf(context.TODO(), "getting object with SHA256 %q from file storage", sha256)
+	t.logger.Debugf(ctx, "getting object with SHA256 %q from file storage", sha256)
 
 	metadata, err := t.metadataService.GetMetadataBySHA256(ctx, sha256)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
 		return nil, -1, errors.Errorf("get metadata by SHA256: %w", objectstoreerrors.ObjectNotFound)
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, -1, errors.Errorf("get metadata by SHA256: %w", err)
 	}
 
@@ -423,13 +421,12 @@ func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.Re
 }
 
 func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
-	t.logger.Debugf(context.TODO(), "getting object with SHA256 %q from file storage", sha256)
+	t.logger.Debugf(ctx, "getting object with SHA256 %q from file storage", sha256)
 
 	metadata, err := t.metadataService.GetMetadataBySHA256Prefix(ctx, sha256)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
 		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", objectstoreerrors.ObjectNotFound)
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", err)
 	}
 
@@ -463,7 +460,7 @@ func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectst
 }
 
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) (objectstore.UUID, error) {
-	t.logger.Debugf(context.TODO(), "putting object %q to file storage", path)
+	t.logger.Debugf(ctx, "putting object %q to file storage", path)
 
 	// Charms and resources are coded to use the SHA384 hash. It is possible
 	// to move to the more common SHA256 hash, but that would require a
@@ -552,7 +549,7 @@ func (t *fileObjectStore) persistTmpFile(_ context.Context, tmpFileName, hash st
 }
 
 func (t *fileObjectStore) remove(ctx context.Context, path string) error {
-	t.logger.Debugf(context.TODO(), "removing object %q from file storage", path)
+	t.logger.Debugf(ctx, "removing object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
@@ -573,7 +570,7 @@ func (t *fileObjectStore) filePath(hash string) string {
 }
 
 func (t *fileObjectStore) list(ctx context.Context) ([]objectstore.Metadata, []string, error) {
-	t.logger.Debugf(context.TODO(), "listing objects from file storage")
+	t.logger.Debugf(ctx, "listing objects from file storage")
 
 	metadata, err := t.metadataService.ListMetadata(ctx)
 	if err != nil {
@@ -604,7 +601,7 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 	// File doesn't exist. It was probably already removed. Return early,
 	// nothing we can do in this case.
 	if _, err := os.Stat(filePath); err != nil && errors.Is(err, os.ErrNotExist) {
-		t.logger.Debugf(context.TODO(), "file %q doesn't exist, nothing to do", filePath)
+		t.logger.Debugf(ctx, "file %q doesn't exist, nothing to do", filePath)
 		return nil
 	}
 
@@ -613,7 +610,7 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 	// required to remove the file. We may in the future want to prune the
 	// file store of files that are no longer referenced by metadata.
 	if err := os.Remove(filePath); err != nil {
-		t.logger.Errorf(context.TODO(), "failed to remove file %q: %v", filePath, err)
+		t.logger.Errorf(ctx, "failed to remove file %q: %v", filePath, err)
 	}
 	return nil
 }

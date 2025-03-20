@@ -34,7 +34,7 @@ func newHashFileSystemAccessor(namespace, rootDir string, logger logger.Logger) 
 
 // HashExists checks if the file at hash exists in the file storage.
 func (t *hashFileSystemAccessor) HashExists(ctx context.Context, hash string) error {
-	t.logger.Debugf(context.TODO(), "checking object %q in file storage", hash)
+	t.logger.Debugf(ctx, "checking object %q in file storage", hash)
 
 	_, err := os.Stat(t.filePath(hash))
 	if err == nil {
@@ -49,7 +49,7 @@ func (t *hashFileSystemAccessor) HashExists(ctx context.Context, hash string) er
 // GetByHash returns an io.ReadCloser for data at hash, namespaced to the
 // model.
 func (t *hashFileSystemAccessor) GetByHash(ctx context.Context, hash string) (io.ReadCloser, int64, error) {
-	t.logger.Debugf(context.TODO(), "getting object %q from file storage", hash)
+	t.logger.Debugf(ctx, "getting object %q from file storage", hash)
 
 	file, err := t.fs.Open(hash)
 	if err != nil {
@@ -70,7 +70,7 @@ func (t *hashFileSystemAccessor) GetByHash(ctx context.Context, hash string) (io
 
 // DeleteByHash deletes a file at hash, namespaced to the model.
 func (t *hashFileSystemAccessor) DeleteByHash(ctx context.Context, hash string) error {
-	t.logger.Debugf(context.TODO(), "deleting object %q from file storage", hash)
+	t.logger.Debugf(ctx, "deleting object %q from file storage", hash)
 
 	filePath := t.filePath(hash)
 
