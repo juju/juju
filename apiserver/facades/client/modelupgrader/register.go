@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
@@ -83,7 +82,6 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 		newEnviron,
 		common.NewBlockChecker(domainServices.BlockCommand()),
 		auth,
-		credentialcommon.CredentialInvalidatorGetter(ctx),
 		registry.New,
 		environsCloudSpecGetter,
 		modelAgentServiceGetter,

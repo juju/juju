@@ -4,6 +4,7 @@
 package gce
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/gce/google"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
@@ -76,17 +78,19 @@ func (g *storageProvider) FilesystemSource(providerConfig *storage.Config) (stor
 }
 
 type volumeSource struct {
-	gce       gceConnection
-	envName   string // non-unique, informational only
-	modelUUID string
+	gce                   gceConnection
+	credentialInvalidator common.CredentialInvalidator
+	envName               string // non-unique, informational only
+	modelUUID             string
 }
 
 func (g *storageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
 	environConfig := g.env.Config()
 	source := &volumeSource{
-		gce:       g.env.gce,
-		envName:   environConfig.Name(),
-		modelUUID: environConfig.UUID(),
+		gce:                   g.env.gce,
+		credentialInvalidator: g.env.CredentialInvalidator,
+		envName:               environConfig.Name(),
+		modelUUID:             environConfig.UUID(),
 	}
 	return source, nil
 }
@@ -105,7 +109,7 @@ func (c instanceCache) update(gceClient gceConnection, ctx envcontext.ProviderCa
 	}
 	instances, err := gceClient.Instances("", google.StatusRunning)
 	if err != nil {
-		return google.HandleCredentialError(errors.Annotate(err, "querying instance details"), ctx)
+		return errors.Annotate(err, "querying instance details")
 	}
 	for _, instance := range instances {
 		if _, ok := idMap[instance.ID]; !ok {
@@ -144,7 +148,7 @@ func (v *volumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, params 
 			// the creation of another volume.
 			// ... Unless the error is due to an invalid credential, in which case, continuing with this call
 			// is pointless and creates an unnecessary churn: we know all calls will fail with the same error.
-			if google.HasDenialStatusCode(err) {
+			if denied, _ := v.credentialInvalidator.MaybeInvalidateCredentialError(ctx, err); denied {
 				return results, err
 			}
 		}
@@ -160,7 +164,7 @@ func (v *volumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, params 
 			logger.Errorf(ctx, "could not create one volume (or attach it): %v", err)
 			// ... Unless the error is due to an invalid credential, in which case, continuing with this call
 			// is pointless and creates an unnecessary churn: we know all calls will fail with the same error.
-			if google.HasDenialStatusCode(err) {
+			if denied, _ := v.credentialInvalidator.MaybeInvalidateCredentialError(ctx, err); denied {
 				return results, err
 			}
 			continue
@@ -195,7 +199,7 @@ func (v *volumeSource) createOneVolume(ctx envcontext.ProviderCallContext, p sto
 			return
 		}
 		if err := v.gce.RemoveDisk(zone, volumeName); err != nil {
-			logger.Errorf(ctx, "error cleaning up volume %v: %v", volumeName, google.HandleCredentialError(err, ctx))
+			logger.Errorf(ctx, "error cleaning up volume %v: %v", volumeName, v.credentialInvalidator.HandleCredentialError(ctx, err))
 		}
 	}()
 
@@ -230,7 +234,7 @@ func (v *volumeSource) createOneVolume(ctx envcontext.ProviderCallContext, p sto
 
 	gceDisks, err := v.gce.CreateDisks(zone, []google.DiskSpec{disk})
 	if err != nil {
-		return nil, nil, google.HandleCredentialError(errors.Annotate(err, "cannot create disk"), ctx)
+		return nil, nil, errors.Annotate(v.credentialInvalidator.HandleCredentialError(ctx, err), "cannot create disk")
 	}
 	if len(gceDisks) != 1 {
 		return nil, nil, errors.New(fmt.Sprintf("unexpected number of disks created: %d", len(gceDisks)))
@@ -308,7 +312,7 @@ func (v *volumeSource) destroyOneVolume(ctx envcontext.ProviderCallContext, volN
 		return errors.Annotatef(err, "invalid volume id %q", volName)
 	}
 	if err := v.gce.RemoveDisk(zone, volName); err != nil {
-		return google.HandleCredentialError(errors.Annotatef(err, "cannot destroy volume %q", volName), ctx)
+		return errors.Annotatef(v.credentialInvalidator.HandleCredentialError(ctx, err), "cannot destroy volume %q", volName)
 	}
 	return nil
 }
@@ -320,7 +324,7 @@ func (v *volumeSource) releaseOneVolume(ctx envcontext.ProviderCallContext, volN
 	}
 	disk, err := v.gce.Disk(zone, volName)
 	if err != nil {
-		return google.HandleCredentialError(errors.Trace(err), ctx)
+		return v.credentialInvalidator.HandleCredentialError(ctx, err)
 	}
 	switch disk.Status {
 	case google.StatusReady, google.StatusFailed:
@@ -339,7 +343,8 @@ func (v *volumeSource) releaseOneVolume(ctx envcontext.ProviderCallContext, volN
 	delete(disk.Labels, tags.JujuController)
 	delete(disk.Labels, tags.JujuModel)
 	if err := v.gce.SetDiskLabels(zone, volName, disk.LabelFingerprint, disk.Labels); err != nil {
-		return google.HandleCredentialError(errors.Annotatef(err, "cannot remove labels from volume %q", volName), ctx)
+		return errors.Annotatef(
+			v.credentialInvalidator.HandleCredentialError(ctx, err), "cannot remove labels from volume %q", volName)
 	}
 	return nil
 }
@@ -348,7 +353,7 @@ func (v *volumeSource) ListVolumes(ctx envcontext.ProviderCallContext) ([]string
 	var volumes []string
 	disks, err := v.gce.Disks()
 	if err != nil {
-		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
+		return nil, v.credentialInvalidator.HandleCredentialError(ctx, err)
 	}
 	for _, disk := range disks {
 		if !isValidVolume(disk.Name) {
@@ -363,14 +368,15 @@ func (v *volumeSource) ListVolumes(ctx envcontext.ProviderCallContext) ([]string
 }
 
 // ImportVolume is specified on the storage.VolumeImporter interface.
-func (v *volumeSource) ImportVolume(ctx envcontext.ProviderCallContext, volName string, tags map[string]string) (storage.VolumeInfo, error) {
+func (v *volumeSource) ImportVolume(ctx context.Context, volName string, tags map[string]string) (storage.VolumeInfo, error) {
 	zone, _, err := parseVolumeId(volName)
 	if err != nil {
 		return storage.VolumeInfo{}, errors.Annotatef(err, "cannot get volume %q", volName)
 	}
 	disk, err := v.gce.Disk(zone, volName)
 	if err != nil {
-		return storage.VolumeInfo{}, google.HandleCredentialError(errors.Annotatef(err, "cannot get volume %q", volName), ctx)
+		return storage.VolumeInfo{}, errors.Annotatef(
+			v.credentialInvalidator.HandleCredentialError(ctx, err), "cannot get volume %q", volName)
 	}
 	if disk.Status != google.StatusReady {
 		return storage.VolumeInfo{}, errors.Errorf(
@@ -385,7 +391,8 @@ func (v *volumeSource) ImportVolume(ctx envcontext.ProviderCallContext, volName 
 		disk.Labels[k] = v
 	}
 	if err := v.gce.SetDiskLabels(zone, volName, disk.LabelFingerprint, disk.Labels); err != nil {
-		return storage.VolumeInfo{}, google.HandleCredentialError(errors.Annotatef(err, "cannot update labels on volume %q", volName), ctx)
+		return storage.VolumeInfo{}, errors.Annotatef(
+			v.credentialInvalidator.HandleCredentialError(ctx, err), "cannot update labels on volume %q", volName)
 	}
 	return storage.VolumeInfo{
 		VolumeId:   disk.Name,
@@ -413,7 +420,8 @@ func (v *volumeSource) describeOneVolume(ctx envcontext.ProviderCallContext, vol
 	}
 	disk, err := v.gce.Disk(zone, volName)
 	if err != nil {
-		return storage.DescribeVolumesResult{}, google.HandleCredentialError(errors.Annotatef(err, "cannot get volume %q", volName), ctx)
+		return storage.DescribeVolumesResult{}, errors.Annotatef(
+			v.credentialInvalidator.HandleCredentialError(ctx, err), "cannot get volume %q", volName)
 	}
 	desc := storage.DescribeVolumesResult{
 		&storage.VolumeInfo{
@@ -445,7 +453,7 @@ func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, attachP
 			results[i].Error = err
 			// ... Unless the error is due to an invalid credential, in which case, continuing with this call
 			// is pointless and creates an unnecessary churn: we know all calls will fail with the same error.
-			if google.HasDenialStatusCode(err) {
+			if denied, err := v.credentialInvalidator.MaybeInvalidateCredentialError(ctx, err); denied {
 				return results, err
 			}
 			continue
@@ -471,7 +479,8 @@ func (v *volumeSource) attachOneVolume(ctx envcontext.ProviderCallContext, volum
 	}
 	instanceDisks, err := v.gce.InstanceDisks(zone, instanceId)
 	if err != nil {
-		return nil, google.HandleCredentialError(errors.Annotate(err, "cannot verify if the disk is already in the instance"), ctx)
+		return nil, errors.Annotate(
+			v.credentialInvalidator.HandleCredentialError(ctx, err), "cannot verify if the disk is already in the instance")
 	}
 	// Is it already attached?
 	for _, disk := range instanceDisks {
@@ -482,7 +491,8 @@ func (v *volumeSource) attachOneVolume(ctx envcontext.ProviderCallContext, volum
 
 	attachment, err := v.gce.AttachDisk(zone, volumeName, instanceId, mode)
 	if err != nil {
-		return nil, google.HandleCredentialError(errors.Annotate(err, "cannot attach volume"), ctx)
+		return nil, errors.Annotate(
+			v.credentialInvalidator.HandleCredentialError(ctx, err), "cannot attach volume")
 	}
 	return attachment, nil
 }
@@ -491,7 +501,7 @@ func (v *volumeSource) DetachVolumes(ctx envcontext.ProviderCallContext, attachP
 	result := make([]error, len(attachParams))
 	for i, volumeAttachment := range attachParams {
 		err := v.detachOneVolume(ctx, volumeAttachment)
-		if google.HasDenialStatusCode(err) {
+		if denied, err := v.credentialInvalidator.MaybeInvalidateCredentialError(ctx, err); denied {
 			// no need to continue as we'll keep getting the same invalid credential error.
 			return result, err
 		}
@@ -507,7 +517,11 @@ func (v *volumeSource) detachOneVolume(ctx envcontext.ProviderCallContext, attac
 	if err != nil {
 		return errors.Annotatef(err, "%q is not a valid volume id", volumeName)
 	}
-	return google.HandleCredentialError(v.gce.DetachDisk(zone, string(instId), volumeName), ctx)
+	err = v.gce.DetachDisk(zone, string(instId), volumeName)
+	if err != nil {
+		return v.credentialInvalidator.HandleCredentialError(ctx, err)
+	}
+	return nil
 }
 
 // resourceTagsToDiskLabels translates a set of

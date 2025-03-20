@@ -17,10 +17,9 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
-	envcontext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/common"
-	ocicommon "github.com/juju/juju/internal/provider/oci/common"
 )
 
 const (
@@ -94,7 +93,7 @@ func (o *ociInstance) Id() instance.Id {
 // Status implements instances.Instance
 func (o *ociInstance) Status(ctx envcontext.ProviderCallContext) instance.Status {
 	if err := o.refresh(); err != nil {
-		ocicommon.HandleCredentialError(err, ctx)
+		_ = o.env.HandleCredentialError(ctx, err)
 		return instance.Status{}
 	}
 	state, ok := statusMap[o.raw.LifecycleState]
@@ -162,8 +161,7 @@ func (o *ociInstance) getAddresses() ([]corenetwork.ProviderAddress, error) {
 // Addresses implements instances.Instance
 func (o *ociInstance) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	addresses, err := o.getAddresses()
-	ocicommon.HandleCredentialError(err, ctx)
-	return addresses, err
+	return addresses, o.env.HandleCredentialError(ctx, err)
 }
 
 func (o *ociInstance) isTerminating() bool {
@@ -181,8 +179,7 @@ func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error 
 	for {
 		addresses, err := o.Addresses(ctx)
 		if err != nil {
-			ocicommon.HandleCredentialError(err, ctx)
-			return errors.Trace(err)
+			return o.env.HandleCredentialError(ctx, err)
 		}
 		if iteration >= maxPollIterations {
 			logger.Debugf(ctx, "could not find a public IP after %s. breaking loop", time.Since(startTime))
@@ -218,8 +215,7 @@ func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 	}
 	response, err := o.env.Compute.TerminateInstance(context.Background(), request)
 	if err != nil && !o.env.isNotFound(response.RawResponse) {
-		ocicommon.HandleCredentialError(err, ctx)
-		return err
+		return o.env.HandleCredentialError(ctx, err)
 	}
 	iteration := 0
 	for {
@@ -227,8 +223,7 @@ func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 			if errors.Is(err, errors.NotFound) {
 				break
 			}
-			ocicommon.HandleCredentialError(err, ctx)
-			return err
+			return o.env.HandleCredentialError(ctx, err)
 		}
 		logger.Infof(ctx, "Waiting for machine to transition to Terminating: %s", o.raw.LifecycleState)
 		if o.isTerminating() {

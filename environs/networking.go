@@ -79,13 +79,13 @@ type Networking interface {
 	// SupportsContainerAddresses returns true if the current environment is
 	// able to allocate addresses for containers. If returning false, we also
 	// return an IsNotSupported error.
-	SupportsContainerAddresses(ctx envcontext.ProviderCallContext) (bool, error)
+	SupportsContainerAddresses(ctx context.Context) (bool, error)
 
 	// AllocateContainerAddresses allocates a static address for each of the
 	// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
 	// network config including all allocated addresses on success.
 	AllocateContainerAddresses(
-		ctx envcontext.ProviderCallContext,
+		ctx context.Context,
 		hostInstanceID instance.Id,
 		containerTag names.MachineTag,
 		preparedInfo network.InterfaceInfos,
@@ -139,14 +139,14 @@ type NoContainerAddressesEnviron struct{}
 
 // SupportsContainerAddresses (Networking) indicates that this provider does not
 // support container addresses.
-func (*NoContainerAddressesEnviron) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool, error) {
+func (*NoContainerAddressesEnviron) SupportsContainerAddresses(context.Context) (bool, error) {
 	return false, nil
 }
 
 // AllocateContainerAddresses (Networking) indicates that this provider does
 // not support allocating container addresses.
 func (*NoContainerAddressesEnviron) AllocateContainerAddresses(
-	envcontext.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos,
+	context.Context, instance.Id, names.MachineTag, network.InterfaceInfos,
 ) (network.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("AllocateContainerAddresses")
 }
@@ -173,7 +173,7 @@ func SupportsSpaces(env NetworkingEnviron) bool {
 
 // SupportsContainerAddresses checks if the environment will let us allocate
 // addresses for containers from the host ranges.
-func SupportsContainerAddresses(ctx envcontext.ProviderCallContext, env BootstrapEnviron) bool {
+func SupportsContainerAddresses(ctx context.Context, env BootstrapEnviron) bool {
 	netEnv, ok := supportsNetworking(env)
 	if !ok {
 		return false

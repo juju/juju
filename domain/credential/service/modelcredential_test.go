@@ -20,7 +20,6 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -50,7 +49,7 @@ func (s *CheckMachinesSuite) SetUpTest(c *gc.C) {
 	s.instance = &mockInstance{id: "wind-up"}
 	s.provider = &mockProvider{
 		Stub: &testing.Stub{},
-		allInstancesFunc: func(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+		allInstancesFunc: func(ctx context.Context) ([]instances.Instance, error) {
 			return []instances.Instance{s.instance}, nil
 		},
 	}
@@ -105,7 +104,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesExtraInstances(c *gc.C) {
 	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)
 
 	instance2 := &mockInstance{id: "analyse"}
-	s.provider.allInstancesFunc = func(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+	s.provider.allInstancesFunc = func(ctx context.Context) ([]instances.Instance, error) {
 		return []instances.Instance{s.instance, instance2}, nil
 	}
 
@@ -122,7 +121,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesExtraInstancesWhenMigrating(c *gc.
 	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("wind-up", nil)
 
 	instance2 := &mockInstance{id: "analyse"}
-	s.provider.allInstancesFunc = func(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+	s.provider.allInstancesFunc = func(ctx context.Context) ([]instances.Instance, error) {
 		return []instances.Instance{s.instance, instance2}, nil
 	}
 	results, err := checkMachineInstances(context.Background(), s.machineState, s.machineService, s.provider, true)
@@ -149,7 +148,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(s.machine.Id())).Return("deadbeef", nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), "deadbeef").Return("", errors.New("kaboom"))
 
-	s.provider.allInstancesFunc = func(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+	s.provider.allInstancesFunc = func(ctx context.Context) ([]instances.Instance, error) {
 		return nil, errors.New("kaboom")
 	}
 
@@ -433,7 +432,7 @@ func (s *ModelCredentialSuite) ensureEnvForIAASModel() {
 		return &mockEnviron{
 			mockProvider: &mockProvider{
 				Stub: &testing.Stub{},
-				allInstancesFunc: func(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+				allInstancesFunc: func(ctx context.Context) ([]instances.Instance, error) {
 					return []instances.Instance{}, nil
 				},
 			},
@@ -443,10 +442,10 @@ func (s *ModelCredentialSuite) ensureEnvForIAASModel() {
 
 type mockProvider struct {
 	*testing.Stub
-	allInstancesFunc func(ctx envcontext.ProviderCallContext) ([]instances.Instance, error)
+	allInstancesFunc func(ctx context.Context) ([]instances.Instance, error)
 }
 
-func (m *mockProvider) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (m *mockProvider) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	m.MethodCall(m, "AllInstances", ctx)
 	return m.allInstancesFunc(ctx)
 }
@@ -515,7 +514,7 @@ type mockEnviron struct {
 	*mockProvider
 }
 
-func (m *mockEnviron) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (m *mockEnviron) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	return m.mockProvider.AllInstances(ctx)
 }
 

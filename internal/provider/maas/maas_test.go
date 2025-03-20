@@ -63,7 +63,7 @@ func (suite *maasSuite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *m
 	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := NewEnviron(context.Background(), cloud, cfg, nil)
+	env, err := NewEnviron(context.Background(), cloud, cfg, suite.credentialInvalidator, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 	return env

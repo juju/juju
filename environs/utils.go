@@ -4,6 +4,7 @@
 package environs
 
 import (
+	"context"
 	"net"
 	"strconv"
 	"time"
@@ -95,7 +96,7 @@ func APIInfo(
 
 // CheckProviderAPI returns an error if a simple API call
 // to check a basic response from the specified environ fails.
-func CheckProviderAPI(envOrBroker BootstrapEnviron, ctx envcontext.ProviderCallContext) error {
+func CheckProviderAPI(ctx context.Context, envOrBroker BootstrapEnviron) error {
 	var err error
 	if checker, ok := envOrBroker.(CloudEndpointChecker); ok {
 		err = checker.ValidateCloudEndpoint(ctx)

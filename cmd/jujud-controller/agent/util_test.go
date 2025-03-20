@@ -321,7 +321,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	// Set the addresses in the environ instance as well so that if the instance poller
 	// runs it won't overwrite them.
 	c.Assert(err, jc.ErrorIsNil)
-	insts, err := s.Environ.Instances(envcontext.WithoutCredentialInvalidator(context.Background()), []instance.Id{instanceId})
+	insts, err := s.Environ.Instances(context.Background(), []instance.Id{instanceId})
 	c.Assert(err, jc.ErrorIsNil)
 	dummy.SetInstanceAddresses(insts[0], network.NewMachineAddresses([]string{"0.1.2.3"}).AsProviderAddresses())
 }
@@ -456,11 +456,11 @@ func (e *minModelWorkersEnviron) SetConfig(context.Context, *config.Config) erro
 	return nil
 }
 
-func (e *minModelWorkersEnviron) AllRunningInstances(envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (e *minModelWorkersEnviron) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
 	return nil, nil
 }
 
-func (e *minModelWorkersEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (e *minModelWorkersEnviron) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 	return nil, environs.ErrNoInstances
 }
 

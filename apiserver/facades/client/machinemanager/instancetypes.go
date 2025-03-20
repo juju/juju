@@ -4,11 +4,12 @@
 package machinemanager
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/rpc/params"
 )
@@ -55,7 +56,7 @@ func newInstanceTypeConstraints(
 // getInstanceTypes returns a list of the available instance types according to
 // the [instanceTypeConstraints] passed in.
 func getInstanceTypes(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	cons instanceTypeConstraints,
 ) (params.InstanceTypesResult, error) {
 	instanceTypes, err := cons.fetcher.InstanceTypes(ctx, cons.constraints)

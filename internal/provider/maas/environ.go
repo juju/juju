@@ -66,6 +66,8 @@ func getMAASController(args gomaasapi.ControllerArgs) (gomaasapi.Controller, err
 }
 
 type maasEnviron struct {
+	common.CredentialInvalidator
+
 	name string
 	uuid string
 
@@ -109,16 +111,20 @@ var (
 // the capabilities of a MAAS installation.
 type Capabilities = func(ctx context.Context, client *gomaasapi.MAASObject, serverURL string) (set.Strings, error)
 
-func NewEnviron(ctx context.Context, cloud environscloudspec.CloudSpec, cfg *config.Config, getCaps Capabilities) (*maasEnviron, error) {
+func NewEnviron(
+	ctx context.Context, cloud environscloudspec.CloudSpec, cfg *config.Config,
+	invalidator environs.CredentialInvalidator, getCaps Capabilities,
+) (*maasEnviron, error) {
 	if getCaps == nil {
 		getCaps = getCapabilities
 	}
 	env := &maasEnviron{
-		name:               cfg.Name(),
-		uuid:               cfg.UUID(),
-		GetCapabilities:    getCaps,
-		shortRetryStrategy: defaultShortRetryStrategy,
-		longRetryStrategy:  defaultLongRetryStrategy,
+		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, IsAuthorisationFailure),
+		name:                  cfg.Name(),
+		uuid:                  cfg.UUID(),
+		GetCapabilities:       getCaps,
+		shortRetryStrategy:    defaultShortRetryStrategy,
+		longRetryStrategy:     defaultLongRetryStrategy,
 	}
 	if err := env.SetConfig(ctx, cfg); err != nil {
 		return nil, errors.Trace(err)
@@ -289,7 +295,7 @@ func (env *maasEnviron) SetCloudSpec(_ context.Context, spec environscloudspec.C
 // ValidateCloudEndpoint returns nil if the current model can talk to the maas
 // endpoint.  Used as validation during model upgrades.
 // Implements environs.CloudEndpointChecker
-func (env *maasEnviron) ValidateCloudEndpoint(ctx envcontext.ProviderCallContext) error {
+func (env *maasEnviron) ValidateCloudEndpoint(ctx context.Context) error {
 	_, _, err := env.maasController.APIVersionInfo()
 	return errors.Trace(err)
 }
@@ -300,8 +306,7 @@ func (env *maasEnviron) getSupportedArchitectures(ctx envcontext.ProviderCallCon
 
 	resources, err := env.maasController.BootResources()
 	if err != nil {
-		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, errors.Trace(err)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	architectures := set.NewStrings()
 	for _, resource := range resources {
@@ -321,7 +326,7 @@ func (env *maasEnviron) SupportsSpaceDiscovery() (bool, error) {
 }
 
 // SupportsContainerAddresses is specified on environs.Networking.
-func (env *maasEnviron) SupportsContainerAddresses(ctx envcontext.ProviderCallContext) (bool, error) {
+func (env *maasEnviron) SupportsContainerAddresses(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
@@ -341,16 +346,15 @@ func (z maasAvailabilityZone) Available() bool {
 
 // AvailabilityZones returns a slice of availability zones
 // for the configured region.
-func (env *maasEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
+func (env *maasEnviron) AvailabilityZones(ctx context.Context) (corenetwork.AvailabilityZones, error) {
 	zones, err := env.availabilityZones(ctx)
 	return zones, errors.Trace(err)
 }
 
-func (env *maasEnviron) availabilityZones(ctx envcontext.ProviderCallContext) (corenetwork.AvailabilityZones, error) {
+func (env *maasEnviron) availabilityZones(ctx context.Context) (corenetwork.AvailabilityZones, error) {
 	zones, err := env.maasController.Zones()
 	if err != nil {
-		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, errors.Trace(err)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	availabilityZones := make(corenetwork.AvailabilityZones, len(zones))
 	for i, zone := range zones {
@@ -592,8 +596,7 @@ func (env *maasEnviron) networkSpaceRequirements(ctx envcontext.ProviderCallCont
 			return nil, nil, nil
 		}
 
-		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, nil, errors.Trace(err)
+		return nil, nil, env.HandleCredentialError(ctx, err)
 	}
 
 	// Append required space IDs from constraints.
@@ -644,8 +647,7 @@ func (env *maasEnviron) acquireNode(
 	}
 	machine, constraintMatches, err := env.maasController.AllocateMachine(acquireParams)
 	if err != nil {
-		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, errors.Trace(err)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	return &maasInstance{
 		machine:           machine,
@@ -850,7 +852,7 @@ func (env *maasEnviron) waitForNodeDeployment(ctx envcontext.ProviderCallContext
 		if errors.Is(err, errors.NotProvisioned) {
 			return true
 		}
-		if denied := common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+		if denied, _ := env.MaybeInvalidateCredentialError(ctx, err); denied {
 			return true
 		}
 		return false
@@ -955,7 +957,7 @@ func (env *maasEnviron) releaseNodes(ctx envcontext.ProviderCallContext, ids []i
 	}
 	err := env.maasController.ReleaseMachines(args)
 
-	denied := common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
+	denied, _ := env.MaybeInvalidateCredentialError(ctx, err)
 	switch {
 	case err == nil:
 		return nil
@@ -991,7 +993,7 @@ func (env *maasEnviron) releaseNodesIndividually(ctx envcontext.ProviderCallCont
 		if err != nil {
 			lastErr = err
 			logger.Errorf(ctx, "error while releasing node %v (%v)", id, err)
-			if denied := common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
+			if denied, _ := env.MaybeInvalidateCredentialError(ctx, err); denied {
 				break
 			}
 		}
@@ -1024,7 +1026,7 @@ func (env *maasEnviron) StopInstances(ctx envcontext.ProviderCallContext, ids ..
 // Instances returns the instances.Instance objects corresponding to the given
 // slice of instance.Id.  The error is ErrNoInstances if no instances
 // were found.
-func (env *maasEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (env *maasEnviron) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		// This would be treated as "return all instances" below, so
 		// treat it as a special case.
@@ -1067,7 +1069,7 @@ func (env *maasEnviron) Instances(ctx envcontext.ProviderCallContext, ids []inst
 // The "ids" slice is a filter for specific instance IDs.
 // Due to how this works in the HTTP API, an empty "ids"
 // matches all instances (not none as you might expect).
-func (env *maasEnviron) acquiredInstances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (env *maasEnviron) acquiredInstances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 	args := gomaasapi.MachinesArgs{
 		AgentName: env.uuid,
 		SystemIDs: instanceIdsToSystemIDs(ids),
@@ -1085,11 +1087,10 @@ func (env *maasEnviron) acquiredInstances(ctx envcontext.ProviderCallContext, id
 	return inst, nil
 }
 
-func (env *maasEnviron) instances(ctx envcontext.ProviderCallContext, args gomaasapi.MachinesArgs) ([]*maasInstance, error) {
+func (env *maasEnviron) instances(ctx context.Context, args gomaasapi.MachinesArgs) ([]*maasInstance, error) {
 	machines, err := env.maasController.Machines(args)
 	if err != nil {
-		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, errors.Trace(err)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 
 	inst := make([]*maasInstance, len(machines))
@@ -1139,8 +1140,7 @@ func (env *maasEnviron) subnetToSpaceIds(ctx envcontext.ProviderCallContext) (ma
 func (env *maasEnviron) Spaces(ctx envcontext.ProviderCallContext) (corenetwork.SpaceInfos, error) {
 	spaces, err := env.maasController.Spaces()
 	if err != nil {
-		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, errors.Trace(err)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	var result []corenetwork.SpaceInfo
 	for _, space := range spaces {
@@ -1219,8 +1219,7 @@ func (env *maasEnviron) filteredSubnets2(
 	}
 	machines, err := env.maasController.Machines(args)
 	if err != nil {
-		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, errors.Trace(err)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	if len(machines) == 0 {
 		return nil, errors.NotFoundf("machine %v", instId)
@@ -1267,12 +1266,12 @@ func checkNotFound(subnetIdSet map[string]bool) error {
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *maasEnviron) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *maasEnviron) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	return env.acquiredInstances(ctx, nil)
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
-func (env *maasEnviron) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *maasEnviron) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
 	// We always get all instances here, so "all" is the same as "running".
 	return env.AllInstances(ctx)
 }
@@ -1301,7 +1300,7 @@ func (*maasEnviron) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (env *maasEnviron) AllocateContainerAddresses(ctx envcontext.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
+func (env *maasEnviron) AllocateContainerAddresses(ctx context.Context, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	if len(preparedInfo) == 0 {
 		return nil, errors.Errorf("no prepared info to allocate")
 	}
@@ -1362,8 +1361,7 @@ func (env *maasEnviron) ReleaseContainerAddresses(ctx envcontext.ProviderCallCon
 
 	devices, err := env.maasController.Devices(gomaasapi.DevicesArgs{MACAddresses: hwAddresses})
 	if err != nil {
-		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return errors.Trace(err)
+		return env.HandleCredentialError(ctx, err)
 	}
 	logger.Infof(ctx, "found %d MAAS devices to remove", len(devices))
 
@@ -1431,8 +1429,7 @@ func (*maasEnviron) ProviderSpaceInfo(
 func (env *maasEnviron) Domains(ctx envcontext.ProviderCallContext) ([]string, error) {
 	maasDomains, err := env.maasController.Domains()
 	if err != nil {
-		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return nil, errors.Trace(err)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	var result []string
 	for _, domain := range maasDomains {

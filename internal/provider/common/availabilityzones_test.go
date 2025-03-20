@@ -36,7 +36,7 @@ func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 	for i := range allInstances {
 		allInstances[i] = &mockInstance{id: fmt.Sprintf("inst%d", i)}
 	}
-	s.env.allInstances = func(envcontext.ProviderCallContext) ([]instances.Instance, error) {
+	s.env.allInstances = func(ctx context.Context) ([]instances.Instance, error) {
 		return allInstances, nil
 	}
 
@@ -47,7 +47,7 @@ func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 			available: i > 0,
 		}
 	}
-	s.env.availabilityZones = func(envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+	s.env.availabilityZones = func(ctx context.Context) (network.AvailabilityZones, error) {
 		return availabilityZones, nil
 	}
 }
@@ -79,7 +79,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstanc
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstancesErrors(c *gc.C) {
 	resultErr := fmt.Errorf("oh noes")
-	s.PatchValue(&s.env.allInstances, func(envcontext.ProviderCallContext) ([]instances.Instance, error) {
+	s.PatchValue(&s.env.allInstances, func(context.Context) ([]instances.Instance, error) {
 		return nil, resultErr
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, nil)
@@ -138,7 +138,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) 
 		calls = append(calls, "InstanceAvailabilityZoneNames")
 		return make(map[instance.Id]string, 3), nil
 	})
-	s.PatchValue(&s.env.availabilityZones, func(envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+	s.PatchValue(&s.env.availabilityZones, func(context.Context) (network.AvailabilityZones, error) {
 		calls = append(calls, "AvailabilityZones")
 		return network.AvailabilityZones{}, nil
 	})
@@ -156,7 +156,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *gc.C) {
 		return make(map[instance.Id]string, 3), nil
 	})
 	resultErr := fmt.Errorf("u can haz no az")
-	s.PatchValue(&s.env.availabilityZones, func(envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+	s.PatchValue(&s.env.availabilityZones, func(context.Context) (network.AvailabilityZones, error) {
 		calls = append(calls, "AvailabilityZones")
 		return nil, resultErr
 	})

@@ -23,6 +23,8 @@ import (
 // Note: This provider/environment does *not* implement storage.
 
 type environ struct {
+	common.CredentialInvalidator
+
 	name     string
 	cloud    environscloudspec.CloudSpec
 	provider *environProvider
@@ -37,6 +39,7 @@ type environ struct {
 func newEnviron(
 	ctx context.Context,
 	provider *environProvider,
+	invalidator environs.CredentialInvalidator,
 	cloud environscloudspec.CloudSpec,
 	cfg *config.Config,
 ) (*environ, error) {
@@ -51,25 +54,25 @@ func newEnviron(
 	}
 
 	env := &environ{
-		name:      ecfg.Name(),
-		cloud:     cloud,
-		provider:  provider,
-		ecfg:      ecfg,
-		namespace: namespace,
+		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, IsAuthorisationFailure),
+		name:                  ecfg.Name(),
+		cloud:                 cloud,
+		provider:              provider,
+		ecfg:                  ecfg,
+		namespace:             namespace,
 	}
 	return env, nil
 }
 
-func (env *environ) withClient(ctx context.Context, callCtx callcontext.ProviderCallContext, f func(Client) error) error {
+func (env *environ) withClient(ctx context.Context, f func(Client) error) error {
 	client, err := env.dialClient(ctx)
 	if err != nil {
 		// LP #1849194: this is a case at bootstrap time, where a connection
 		// to vsphere failed. It can be wrong Credentials only, differently
 		// from all the other HandleCredentialError cases
-		common.LegacyHandleCredentialError(IsAuthorisationFailure, err, callCtx)
-		return errors.Annotate(err, "dialing client")
+		return errors.Annotate(env.HandleCredentialError(ctx, err), "dialing client")
 	}
-	defer client.Close(ctx)
+	defer func() { _ = client.Close(ctx) }()
 	return f(client)
 }
 
@@ -160,8 +163,7 @@ func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext
 		controllerFolderName(controllerUUID),
 		env.modelFolderName(),
 	))
-	HandleCredentialError(err, env, ctx)
-	return errors.Trace(err)
+	return errors.Trace(env.handleCredentialError(ctx, err))
 }
 
 // DestroyEnv is exported, because it has to be rewritten in external unit tests.
@@ -181,8 +183,7 @@ func (env *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, c
 		path.Join(env.getVMFolder(), controllerFolderName(controllerUUID)),
 		path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName()),
 	)
-	HandleCredentialError(err, env, ctx)
-	return err
+	return env.handleCredentialError(ctx, err)
 }
 
 // Destroy is part of the environs.Environ interface.
@@ -204,8 +205,7 @@ func (env *sessionEnviron) Destroy(ctx callcontext.ProviderCallContext) error {
 	err := env.client.DestroyVMFolder(env.ctx,
 		path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName()),
 	)
-	HandleCredentialError(err, env, ctx)
-	return err
+	return env.handleCredentialError(ctx, err)
 }
 
 // DestroyController implements the Environ interface.
@@ -224,12 +224,10 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 	if err := env.client.RemoveVirtualMachines(env.ctx,
 		path.Join(env.getVMFolder(), controllerFolderName, modelFolderName("*", "*"), "*"),
 	); err != nil {
-		HandleCredentialError(err, env, ctx)
-		return errors.Annotate(err, "removing VMs")
+		return errors.Annotate(env.handleCredentialError(ctx, err), "removing VMs")
 	}
 	if err := env.client.DestroyVMFolder(env.ctx, path.Join(env.getVMFolder(), controllerFolderName)); err != nil {
-		HandleCredentialError(err, env, ctx)
-		return errors.Annotate(err, "destroying VM folder")
+		return errors.Annotate(env.handleCredentialError(ctx, err), "destroying VM folder")
 	}
 	return nil
 }
@@ -241,8 +239,7 @@ func (env *sessionEnviron) getVMFolder() string {
 func (env *sessionEnviron) accessibleDatastores(ctx callcontext.ProviderCallContext) ([]mo.Datastore, error) {
 	datastores, err := env.client.Datastores(env.ctx)
 	if err != nil {
-		HandleCredentialError(err, env, ctx)
-		return nil, errors.Trace(err)
+		return nil, env.handleCredentialError(ctx, err)
 	}
 	var results []mo.Datastore
 	for _, ds := range datastores {

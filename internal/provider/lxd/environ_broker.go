@@ -414,7 +414,7 @@ func (env *environ) getHardwareCharacteristics(
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *environ) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	environInstances, err := env.allInstances()
 	instances := make([]instances.Instance, len(environInstances))
 	for i, inst := range environInstances {
@@ -427,7 +427,7 @@ func (env *environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instance
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
-func (env *environ) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *environ) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
 	// We can only get Alive containers from lxd api which means that "all" is the same as "running".
 	return env.AllInstances(ctx)
 }

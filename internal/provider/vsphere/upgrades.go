@@ -46,8 +46,7 @@ func (step extraConfigUpgradeStep) Run(ctx envcontext.ProviderCallContext) error
 	return step.env.withSession(ctx, func(env *sessionEnviron) error {
 		vms, err := env.client.VirtualMachines(env.ctx, env.namespace.Prefix()+"*")
 		if err != nil || len(vms) == 0 {
-			HandleCredentialError(err, env, ctx)
-			return err
+			return env.handleCredentialError(ctx, err)
 		}
 		for _, vm := range vms {
 			update := false
@@ -74,8 +73,7 @@ func (step extraConfigUpgradeStep) Run(ctx envcontext.ProviderCallContext) error
 			if err := env.client.UpdateVirtualMachineExtraConfig(
 				env.ctx, vm, metadata,
 			); err != nil {
-				HandleCredentialError(err, env, ctx)
-				return errors.Annotatef(err, "updating VM %s", vm.Name)
+				return errors.Annotatef(env.handleCredentialError(ctx, err), "updating VM %s", vm.Name)
 			}
 		}
 		return nil
@@ -107,16 +105,14 @@ func (step modelFoldersUpgradeStep) Run(ctx envcontext.ProviderCallContext) erro
 			env.getVMFolder(),
 			path.Join(controllerFolderName(step.controllerUUID), env.modelFolderName()),
 		); err != nil {
-			HandleCredentialError(err, env, ctx)
-			return errors.Annotate(err, "creating model folder")
+			return errors.Annotate(env.handleCredentialError(ctx, err), "creating model folder")
 		}
 
 		// List all instances at the top level with the model UUID,
 		// and move them into the folder.
 		vms, err := env.client.VirtualMachines(env.ctx, env.namespace.Prefix()+"*")
 		if err != nil || len(vms) == 0 {
-			HandleCredentialError(err, env, ctx)
-			return err
+			return env.handleCredentialError(ctx, err)
 		}
 		refs := make([]types.ManagedObjectReference, len(vms))
 		for i, vm := range vms {
@@ -124,8 +120,7 @@ func (step modelFoldersUpgradeStep) Run(ctx envcontext.ProviderCallContext) erro
 			refs[i] = vm.Reference()
 		}
 		if err := env.client.MoveVMsInto(env.ctx, modelFolderPath, refs...); err != nil {
-			HandleCredentialError(err, env, ctx)
-			return errors.Annotate(err, "moving VMs into model folder")
+			return errors.Annotate(env.handleCredentialError(ctx, err), "moving VMs into model folder")
 		}
 		return nil
 	})

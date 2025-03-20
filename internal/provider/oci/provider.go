@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/configschema"
 	internallogger "github.com/juju/juju/internal/logger"
+	providercommon "github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/oci/common"
 )
 
@@ -171,7 +171,7 @@ func (e EnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping implements environs.EnvironProvider.
-func (e *EnvironProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
+func (e *EnvironProvider) Ping(_ context.Context, _ string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -246,14 +246,15 @@ func (e *EnvironProvider) Open(ctx context.Context, params environs.OpenParams, 
 	}
 
 	env := &Environ{
-		Compute:    compute,
-		Networking: networking,
-		Storage:    storage,
-		Firewall:   networking,
-		Identity:   identity,
-		ociConfig:  providerConfig,
-		clock:      clock.WallClock,
-		p:          e,
+		CredentialInvalidator: providercommon.NewCredentialInvalidator(invalidator, common.IsAuthorisationFailure),
+		Compute:               compute,
+		Networking:            networking,
+		Storage:               storage,
+		Firewall:              networking,
+		Identity:              identity,
+		ociConfig:             providerConfig,
+		clock:                 clock.WallClock,
+		p:                     e,
 	}
 
 	if err := env.SetConfig(ctx, params.Config); err != nil {

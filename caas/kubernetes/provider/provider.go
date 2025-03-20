@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 // ClusterMetadataStorageChecker provides functionalities for checking k8s cluster storage and pods details.
@@ -202,7 +201,7 @@ func (p kubernetesEnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p kubernetesEnvironProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
+func (p kubernetesEnvironProvider) Ping(_ context.Context, _ string) error {
 	return errors.NotImplementedf("Ping")
 }
 

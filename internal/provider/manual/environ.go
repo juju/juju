@@ -75,12 +75,12 @@ func (*manualEnviron) StopInstances(envcontext.ProviderCallContext, ...instance.
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (e *manualEnviron) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (e *manualEnviron) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	return e.Instances(ctx, []instance.Id{BootstrapInstanceId})
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
-func (e *manualEnviron) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (e *manualEnviron) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
 	// All instances and all running instance is the same for manual.
 	return e.AllInstances(ctx)
 }
@@ -204,7 +204,7 @@ func (e *manualEnviron) SetConfig(ctx context.Context, cfg *config.Config) error
 // This method will only ever return an Instance for the Id
 // BootstrapInstanceId. If any others are specified, then
 // ErrPartialInstances or ErrNoInstances will result.
-func (e *manualEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (e *manualEnviron) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 	result := make([]instances.Instance, len(ids))
 	var found bool
 	var err error

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/internal/provider/gce/google"
 )
 
 type subnetMap map[string]corenetwork.SubnetInfo
@@ -64,7 +63,7 @@ func (e *environ) zoneNames(ctx envcontext.ProviderCallContext) ([]string, error
 func (e *environ) networksByURL(ctx envcontext.ProviderCallContext) (networkMap, error) {
 	networks, err := e.gce.Networks()
 	if err != nil {
-		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
+		return nil, e.HandleCredentialError(ctx, err)
 	}
 	results := make(networkMap)
 	for _, network := range networks {
@@ -78,7 +77,7 @@ func (e *environ) getMatchingSubnets(
 ) ([]corenetwork.SubnetInfo, error) {
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
-		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
+		return nil, e.HandleCredentialError(ctx, err)
 	}
 	networks, err := e.networksByURL(ctx)
 	if err != nil {
@@ -296,7 +295,7 @@ func (e *environ) subnetsByURL(ctx envcontext.ProviderCallContext, urls []string
 	urlSet := includeSet{items: set.NewStrings(urls...)}
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
-		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
+		return nil, e.HandleCredentialError(ctx, err)
 	}
 	results := make(map[string]corenetwork.SubnetInfo)
 	for _, subnet := range allSubnets {

@@ -12,12 +12,11 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	providercommon "github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/rpc/params"
 )
 
-func allZones(ctx envcontext.ProviderCallContext, api Backing, logger corelogger.Logger) (params.ZoneResults, error) {
+func allZones(ctx context.Context, api Backing, logger corelogger.Logger) (params.ZoneResults, error) {
 	var results params.ZoneResults
 
 	zonesAsString := func(zones network.AvailabilityZones) string {
@@ -59,7 +58,7 @@ func allZones(ctx envcontext.ProviderCallContext, api Backing, logger corelogger
 // updateZones attempts to retrieve all availability zones from the environment
 // provider (if supported) and then updates the persisted list of zones in
 // state, returning them as well on success.
-func updateZones(ctx envcontext.ProviderCallContext, api Backing) (network.AvailabilityZones, error) {
+func updateZones(ctx context.Context, api Backing) (network.AvailabilityZones, error) {
 	zoned, err := zonedEnviron(ctx, api)
 	if err != nil {
 		return nil, errors.Trace(err)

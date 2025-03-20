@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/network"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -68,10 +67,9 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 		Results: []params.MachineNetworkConfigResult{{}},
 	}
 	ctx := prepareOrGetHandler{result: res, maintain: false, logger: loggertesting.WrapCheckLog(c)}
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	// ProviderCallContext is not required by this logical path and can be nil
-	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, s.policy, 0, s.host, s.container, instance.Id(""), instance.Id(""), nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, s.policy, 0, s.host, s.container, "", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Config, gc.HasLen, 1)
 
@@ -123,11 +121,9 @@ func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
 		maintain: true,
 		logger:   loggertesting.WrapCheckLog(c),
 	}
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
-
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, instance.Id(""), instance.Id("juju-8ebd6c-0"), nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, nil, 0, s.host, s.container, "", instance.Id("juju-8ebd6c-0"), nil)
 	c.Assert(err, gc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
 }
 
@@ -163,11 +159,9 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
 		modelName:          "testme",
 		logger:             loggertesting.WrapCheckLog(c),
 	}
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
-
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, instance.Id(""), instance.Id(""), nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, nil, 0, s.host, s.container, "", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)
@@ -207,11 +201,9 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
 		modelName:          "testme",
 		logger:             loggertesting.WrapCheckLog(c),
 	}
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
-
 	// ProviderCallContext and BridgePolicy are not
 	// required by this logical path and can be nil.
-	err := ctx.ProcessOneContainer(context.Background(), s.environ, callCtx, nil, 0, s.host, s.container, instance.Id(""), instance.Id(""), nil)
+	err := ctx.ProcessOneContainer(context.Background(), s.environ, nil, 0, s.host, s.container, "", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)

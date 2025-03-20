@@ -74,7 +74,7 @@ func (inst *azureInstance) Status(ctx envcontext.ProviderCallContext) instance.S
 // VirtualMachines are up-to-date, and that there are no concurrent accesses
 // to the instances.
 func (env *azureEnviron) setInstanceAddresses(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	resourceGroup string,
 	instances []*azureInstance,
 ) (err error) {
@@ -97,7 +97,7 @@ func (env *azureEnviron) setInstanceAddresses(
 // group, and returns a mapping from instance ID to the network interfaces
 // associated with that instance.
 func (env *azureEnviron) instanceNetworkInterfaces(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	resourceGroup string,
 ) (map[instance.Id][]*armnetwork.Interface, error) {
 	nicClient, err := env.interfacesClient()
@@ -123,7 +123,7 @@ func (env *azureEnviron) instanceNetworkInterfaces(
 // group, and returns a mapping from instance ID to the public IP addresses
 // associated with that instance.
 func (env *azureEnviron) instancePublicIPAddresses(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	resourceGroup string,
 ) (map[instance.Id][]*armnetwork.PublicIPAddress, error) {
 	pipClient, err := env.publicAddressesClient()

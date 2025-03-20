@@ -4,6 +4,8 @@
 package gce_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -23,7 +25,7 @@ var _ = gc.Suite(&environAZSuite{})
 func (s *environAZSuite) TestAvailabilityZonesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := s.Env.AvailabilityZones(s.CallCtx)
+	_, err := s.Env.AvailabilityZones(context.Background())
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -34,7 +36,7 @@ func (s *environAZSuite) TestAvailabilityZones(c *gc.C) {
 		google.NewZone("b-zone", google.StatusUp, "", ""),
 	}
 
-	zones, err := s.Env.AvailabilityZones(s.CallCtx)
+	zones, err := s.Env.AvailabilityZones(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(zones, gc.HasLen, 2)
@@ -53,7 +55,7 @@ func (s *environAZSuite) TestAvailabilityZonesDeprecated(c *gc.C) {
 func (s *environAZSuite) TestAvailabilityZonesAPI(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{}
 
-	_, err := s.Env.AvailabilityZones(s.CallCtx)
+	_, err := s.Env.AvailabilityZones(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)

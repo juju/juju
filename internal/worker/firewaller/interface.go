@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/models"
 	"github.com/juju/juju/rpc/params"
@@ -103,7 +102,7 @@ type EnvironModelFirewaller interface {
 // EnvironInstances defines methods to allow the worker to perform
 // operations on instances in a Juju cloud environment.
 type EnvironInstances interface {
-	Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
+	Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error)
 }
 
 // EnvironInstance represents an instance with firewall apis.

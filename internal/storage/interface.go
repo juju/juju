@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/instance"
@@ -193,7 +195,7 @@ type FilesystemImporter interface {
 	// filesystem is not in use before allowing the import to proceed.
 	// Once it is imported, it is assumed to be in a detached state.
 	ImportFilesystem(
-		ctx envcontext.ProviderCallContext,
+		ctx context.Context,
 		filesystemId string,
 		resourceTags map[string]string,
 	) (FilesystemInfo, error)
@@ -214,7 +216,7 @@ type VolumeImporter interface {
 	// volume is not in use before allowing the import to proceed.
 	// Once it is imported, it is assumed to be in a detached state.
 	ImportVolume(
-		ctx envcontext.ProviderCallContext,
+		ctx context.Context,
 		volumeId string,
 		resourceTags map[string]string,
 	) (VolumeInfo, error)

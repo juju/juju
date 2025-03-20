@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"sort"
 
 	"github.com/juju/juju/core/instance"
@@ -17,7 +18,7 @@ type ZonedEnviron interface {
 	environs.Environ
 
 	// AvailabilityZones returns all availability zones in the environment.
-	AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error)
+	AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error)
 
 	// InstanceAvailabilityZoneNames returns the names of the availability
 	// zones for the specified instances. The error returned follows the same

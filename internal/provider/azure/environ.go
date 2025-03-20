@@ -233,8 +233,7 @@ func (env *azureEnviron) initEnviron(ctx context.Context) error {
 // PrepareForBootstrap is part of the Environ interface.
 func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, _ string) error {
 	if ctx.ShouldVerifyCredentials() {
-		callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-		if err := verifyCredentials(env, callCtx); err != nil {
+		if err := verifyCredentials(env, ctx); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1554,7 +1553,7 @@ var (
 )
 
 // Instances is specified in the Environ interface.
-func (env *azureEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (env *azureEnviron) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -1595,12 +1594,12 @@ func (env *azureEnviron) Instances(ctx envcontext.ProviderCallContext, ids []ins
 }
 
 // AllInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *azureEnviron) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	return env.allInstances(ctx, env.resourceGroup, true, "")
 }
 
 // AllRunningInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *azureEnviron) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
 	return env.allInstances(ctx, env.resourceGroup, true, "", runningInstStates...)
 }
 
@@ -1609,7 +1608,7 @@ func (env *azureEnviron) AllRunningInstances(ctx envcontext.ProviderCallContext)
 // This function returns environs.ErrPartialInstances if the
 // insts slice has not been completely filled.
 func (env *azureEnviron) gatherInstances(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	ids []instance.Id,
 	insts []instances.Instance,
 	resourceGroup string,
@@ -1647,7 +1646,7 @@ func (env *azureEnviron) gatherInstances(
 // with one of the specified instance states.
 // If no instance states are specified, then return all instances.
 func (env *azureEnviron) allInstances(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	resourceGroup string,
 	refreshAddresses bool,
 	controllerUUID string,
@@ -1701,7 +1700,7 @@ func (env *azureEnviron) allInstances(
 // allQueuedInstances returns any pending or failed machine deployments
 // in the given resource group.
 func (env *azureEnviron) allQueuedInstances(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	resourceGroup string,
 	controllerOnly bool,
 ) ([]*azureInstance, error) {
@@ -1808,7 +1807,7 @@ func isControllerDeployment(deployment *armresources.DeploymentExtended) bool {
 // allProvisionedInstances returns all of the instances
 // in the given resource group.
 func (env *azureEnviron) allProvisionedInstances(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	resourceGroup string,
 	controllerUUID string,
 	instStates ...armresources.ProvisioningState,
@@ -2311,7 +2310,7 @@ func resourceName(tag names.Tag) string {
 
 // getInstanceTypes gets the instance types available for the configured
 // location, keyed by name.
-func (env *azureEnviron) getInstanceTypes(ctx envcontext.ProviderCallContext) (map[string]instances.InstanceType, error) {
+func (env *azureEnviron) getInstanceTypes(ctx context.Context) (map[string]instances.InstanceType, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
 	instanceTypes, err := env.getInstanceTypesLocked(ctx)
@@ -2323,7 +2322,7 @@ func (env *azureEnviron) getInstanceTypes(ctx envcontext.ProviderCallContext) (m
 
 // getInstanceTypesLocked returns the instance types for Azure, by listing the
 // role sizes available to the subscription.
-func (env *azureEnviron) getInstanceTypesLocked(ctx envcontext.ProviderCallContext) (map[string]instances.InstanceType, error) {
+func (env *azureEnviron) getInstanceTypesLocked(ctx context.Context) (map[string]instances.InstanceType, error) {
 	if env.instanceTypes != nil {
 		return env.instanceTypes, nil
 	}

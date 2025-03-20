@@ -11,7 +11,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -22,18 +21,13 @@ func (mm *MachineManagerAPI) InstanceTypes(ctx context.Context, cons params.Mode
 	if err != nil {
 		return params.InstanceTypesResults{}, errors.Trace(err)
 	}
-	invalidatorFunc, err := mm.credentialInvalidatorGetter()
-	if err != nil {
-		return params.InstanceTypesResults{}, errors.Trace(err)
-	}
-	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-	return instanceTypes(callCtx, fetcher, cons)
+	return instanceTypes(ctx, fetcher, cons)
 }
 
 // instanceTypes reports back the results from the provider for what instance
 // types are available for given constraints.
 func instanceTypes(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	fetcher environs.InstanceTypesFetcher,
 	cons params.ModelInstanceTypesConstraints,
 ) (params.InstanceTypesResults, error) {

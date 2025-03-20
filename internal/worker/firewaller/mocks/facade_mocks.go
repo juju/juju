@@ -1215,7 +1215,7 @@ func (m *MockEnvironInstances) EXPECT() *MockEnvironInstancesMockRecorder {
 }
 
 // Instances mocks base method.
-func (m *MockEnvironInstances) Instances(arg0 envcontext.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
+func (m *MockEnvironInstances) Instances(arg0 context.Context, arg1 []instance.Id) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -1242,13 +1242,13 @@ func (c *MockEnvironInstancesInstancesCall) Return(arg0 []instances.Instance, ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironInstancesInstancesCall) Do(f func(envcontext.ProviderCallContext, []instance.Id) ([]instances.Instance, error)) *MockEnvironInstancesInstancesCall {
+func (c *MockEnvironInstancesInstancesCall) Do(f func(context.Context, []instance.Id) ([]instances.Instance, error)) *MockEnvironInstancesInstancesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironInstancesInstancesCall) DoAndReturn(f func(envcontext.ProviderCallContext, []instance.Id) ([]instances.Instance, error)) *MockEnvironInstancesInstancesCall {
+func (c *MockEnvironInstancesInstancesCall) DoAndReturn(f func(context.Context, []instance.Id) ([]instances.Instance, error)) *MockEnvironInstancesInstancesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

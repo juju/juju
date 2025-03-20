@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -32,7 +31,6 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 
 	return newAPIWithBacking(
 		stateShim,
-		credentialcommon.CredentialInvalidatorGetter(ctx),
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Logger().Child("subnets"),

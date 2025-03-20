@@ -31,7 +31,6 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
@@ -162,8 +161,7 @@ type MachineManagerAPI struct {
 	networkService     NetworkService
 	modelConfigService ModelConfigService
 
-	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
-	logger                      corelogger.Logger
+	logger corelogger.Logger
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
@@ -177,7 +175,6 @@ func NewMachineManagerAPI(
 	storageAccess StorageInterface,
 	pool Pool,
 	auth Authorizer,
-	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter,
 	resources facade.Resources,
 	leadership Leadership,
 	logger corelogger.Logger,
@@ -187,24 +184,23 @@ func NewMachineManagerAPI(
 	blockCommandService BlockCommandService,
 ) *MachineManagerAPI {
 	api := &MachineManagerAPI{
-		model:                       model,
-		controllerConfigService:     controllerConfigService,
-		st:                          backend,
-		cloudService:                cloudService,
-		machineService:              machineService,
-		store:                       store,
-		controllerStore:             controllerStore,
-		pool:                        pool,
-		authorizer:                  auth,
-		check:                       common.NewBlockChecker(blockCommandService),
-		credentialInvalidatorGetter: credentialInvalidatorGetter,
-		resources:                   resources,
-		leadership:                  leadership,
-		storageAccess:               storageAccess,
-		logger:                      logger,
-		networkService:              networkService,
-		keyUpdaterService:           keyUpdaterService,
-		modelConfigService:          modelConfigService,
+		model:                   model,
+		controllerConfigService: controllerConfigService,
+		st:                      backend,
+		cloudService:            cloudService,
+		machineService:          machineService,
+		store:                   store,
+		controllerStore:         controllerStore,
+		pool:                    pool,
+		authorizer:              auth,
+		check:                   common.NewBlockChecker(blockCommandService),
+		resources:               resources,
+		leadership:              leadership,
+		storageAccess:           storageAccess,
+		logger:                  logger,
+		networkService:          networkService,
+		keyUpdaterService:       keyUpdaterService,
+		modelConfigService:      modelConfigService,
 	}
 	return api
 }

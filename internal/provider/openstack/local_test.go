@@ -1232,8 +1232,8 @@ func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool
 			}
 		}
 		insts, err := env.Instances(s.callCtx, ids)
-		c.Assert(err, gc.Equals, test.err)
-		if err == environs.ErrNoInstances {
+		c.Assert(err, jc.ErrorIs, test.err)
+		if errors.Is(err, environs.ErrNoInstances) {
 			c.Assert(insts, gc.HasLen, 0)
 		} else {
 			c.Assert(insts, gc.HasLen, len(test.ids))
@@ -2984,7 +2984,7 @@ func (s *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 
 	resultErr = fmt.Errorf("failed to get availability zones")
 	zones, err := env.AvailabilityZones(s.callCtx)
-	c.Assert(err, gc.Equals, resultErr)
+	c.Assert(err, jc.ErrorIs, resultErr)
 	c.Assert(zones, gc.IsNil)
 
 	resultErr = nil
@@ -3501,7 +3501,7 @@ func addVolume(
 	storageAdaptor, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
 	modelUUID := env.Config().UUID()
-	source := openstack.NewCinderVolumeSourceForModel(storageAdaptor, modelUUID, env.(common.ZonedEnviron))
+	source := openstack.NewCinderVolumeSourceForModel(storageAdaptor, modelUUID, env.(common.ZonedEnviron), env.(common.CredentialInvalidator))
 	result, err := source.CreateVolumes(callCtx, []storage.VolumeParams{{
 		Tag: names.NewVolumeTag(name),
 		ResourceTags: tags.ResourceTags(
@@ -3529,7 +3529,7 @@ func (s *localServerSuite) checkInstanceTags(c *gc.C, env environs.Environ, expe
 func (s *localServerSuite) checkVolumeTags(c *gc.C, env environs.Environ, expectedController string) {
 	stor, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
-	source := openstack.NewCinderVolumeSourceForModel(stor, env.Config().UUID(), s.env.(common.ZonedEnviron))
+	source := openstack.NewCinderVolumeSourceForModel(stor, env.Config().UUID(), s.env.(common.ZonedEnviron), s.env.(common.CredentialInvalidator))
 	volumeIds, err := source.ListVolumes(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeIds, gc.Not(gc.HasLen), 0)

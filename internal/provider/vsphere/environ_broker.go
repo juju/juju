@@ -4,6 +4,7 @@
 package vsphere
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"sync"
@@ -271,8 +272,7 @@ func (env *sessionEnviron) newRawInstance(
 		err = environs.ZoneIndependentError(err)
 	}
 	if err != nil {
-		HandleCredentialError(err, env, ctx)
-		return nil, nil, errors.Trace(err)
+		return nil, nil, env.handleCredentialError(ctx, err)
 
 	}
 
@@ -288,7 +288,7 @@ func (env *sessionEnviron) newRawInstance(
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances(ctx envcontext.ProviderCallContext) (instances []instances.Instance, err error) {
+func (env *environ) AllInstances(ctx context.Context) (instances []instances.Instance, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		instances, err = env.AllInstances(ctx)
 		return err
@@ -297,12 +297,11 @@ func (env *environ) AllInstances(ctx envcontext.ProviderCallContext) (instances 
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *sessionEnviron) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *sessionEnviron) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	modelFolderPath := path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName())
 	vms, err := env.client.VirtualMachines(env.ctx, modelFolderPath+"/*")
 	if err != nil {
-		HandleCredentialError(err, env, ctx)
-		return nil, errors.Trace(err)
+		return nil, env.handleCredentialError(ctx, err)
 	}
 
 	var results []instances.Instance
@@ -313,14 +312,14 @@ func (env *sessionEnviron) AllInstances(ctx envcontext.ProviderCallContext) ([]i
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
-func (env *environ) AllRunningInstances(ctx envcontext.ProviderCallContext) (instances []instances.Instance, err error) {
+func (env *environ) AllRunningInstances(ctx context.Context) (instances []instances.Instance, err error) {
 	// AllInstances() already handles all instances irrespective of the state, so
 	// here 'all' is also 'all running'.
 	return env.AllInstances(ctx)
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
-func (env *sessionEnviron) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (env *sessionEnviron) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
 	// AllInstances() already handles all instances irrespective of the state, so
 	// here 'all' is also 'all running'.
 	return env.AllInstances(ctx)
@@ -346,7 +345,7 @@ func (env *sessionEnviron) StopInstances(ctx envcontext.ProviderCallContext, ids
 				env.ctx,
 				path.Join(modelFolderPath, string(id)),
 			)
-			HandleCredentialError(results[i], env, ctx)
+			_ = env.handleCredentialError(ctx, results[i])
 		}(i, id)
 	}
 	wg.Wait()

@@ -80,6 +80,7 @@ type gceConnection interface {
 }
 
 type environ struct {
+	common.CredentialInvalidator
 	environs.NoSpaceDiscoveryEnviron
 	environs.NoContainerAddressesEnviron
 
@@ -112,7 +113,7 @@ var (
 	bootstrap  = common.Bootstrap
 )
 
-func newEnviron(ctx context.Context, cloud environscloudspec.CloudSpec, cfg *config.Config) (*environ, error) {
+func newEnviron(ctx context.Context, cloud environscloudspec.CloudSpec, cfg *config.Config, invalidator environs.CredentialInvalidator) (*environ, error) {
 	ecfg, err := newConfig(ctx, cfg, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
@@ -124,10 +125,11 @@ func newEnviron(ctx context.Context, cloud environscloudspec.CloudSpec, cfg *con
 	}
 
 	e := &environ{
-		name:      ecfg.config.Name(),
-		uuid:      ecfg.config.UUID(),
-		ecfg:      ecfg,
-		namespace: namespace,
+		CredentialInvalidator: common.NewCredentialInvalidator(invalidator, google.IsAuthorisationFailure),
+		name:                  ecfg.config.Name(),
+		uuid:                  ecfg.config.UUID(),
+		ecfg:                  ecfg,
+		namespace:             namespace,
 	}
 	if err = e.SetCloudSpec(ctx, cloud); err != nil {
 		return nil, err
@@ -233,7 +235,7 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controlle
 // Create implements environs.Environ.
 func (env *environ) Create(ctx envcontext.ProviderCallContext, p environs.CreateParams) error {
 	if err := env.gce.VerifyCredentials(); err != nil {
-		return google.HandleCredentialError(errors.Trace(err), ctx)
+		return env.HandleCredentialError(ctx, err)
 	}
 	return nil
 }
@@ -261,7 +263,7 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.
 	}
 
 	if err := env.gce.OpenPorts(env.globalFirewallName(), rules); err != nil {
-		return nil, google.HandleCredentialError(errors.Trace(err), callCtx)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	return bootstrap(ctx, env, callCtx, params)
 }

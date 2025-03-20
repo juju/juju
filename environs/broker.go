@@ -169,10 +169,10 @@ type InstanceBroker interface {
 	StopInstances(envcontext.ProviderCallContext, ...instance.Id) error
 
 	// AllInstances returns all instances currently known to the broker.
-	AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error)
+	AllInstances(ctx context.Context) ([]instances.Instance, error)
 
 	// AllRunningInstances returns all running, available instances currently known to the broker.
-	AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error)
+	AllRunningInstances(ctx context.Context) ([]instances.Instance, error)
 }
 
 // LXDProfiler defines an interface for dealing with lxd profiles used to

@@ -13,7 +13,6 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
@@ -102,11 +101,10 @@ func (s *StorageService) importStorageFromProvider(ctx context.Context, cfg *int
 	// If the storage provider supports filesystems, import the filesystem,
 	// otherwise import a volume which will back a filesystem.
 	var filesystemInfo *storage.FilesystemInfo
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	if provider.Supports(internalstorage.StorageKindFilesystem) {
-		filesystemInfo, err = s.importFilesystemFromProvider(callCtx, provider, cfg, providerID, resourceTags)
+		filesystemInfo, err = s.importFilesystemFromProvider(ctx, provider, cfg, providerID, resourceTags)
 	} else {
-		filesystemInfo, err = s.importVolumeFromProvider(callCtx, provider, cfg, providerID, resourceTags)
+		filesystemInfo, err = s.importVolumeFromProvider(ctx, provider, cfg, providerID, resourceTags)
 	}
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -114,7 +112,7 @@ func (s *StorageService) importStorageFromProvider(ctx context.Context, cfg *int
 	return filesystemInfo, nil
 }
 
-func (s *StorageService) importFilesystemFromProvider(ctx envcontext.ProviderCallContext, provider internalstorage.Provider, cfg *internalstorage.Config, providerID string, resourceTags map[string]string) (*storage.FilesystemInfo, error) {
+func (s *StorageService) importFilesystemFromProvider(ctx context.Context, provider internalstorage.Provider, cfg *internalstorage.Config, providerID string, resourceTags map[string]string) (*storage.FilesystemInfo, error) {
 	filesystemSource, err := provider.FilesystemSource(cfg)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -141,7 +139,7 @@ func (s *StorageService) importFilesystemFromProvider(ctx envcontext.ProviderCal
 }
 
 func (s *StorageService) importVolumeFromProvider(
-	ctx envcontext.ProviderCallContext, provider internalstorage.Provider, cfg *internalstorage.Config,
+	ctx context.Context, provider internalstorage.Provider, cfg *internalstorage.Config,
 	providerID string, resourceTags map[string]string,
 ) (*storage.FilesystemInfo, error) {
 	volumeSource, err := provider.VolumeSource(cfg)

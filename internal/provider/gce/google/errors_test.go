@@ -4,17 +4,13 @@
 package google_test
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/gce/google"
 	"github.com/juju/juju/internal/testing"
 )
@@ -34,73 +30,25 @@ func (s *ErrorSuite) SetUpTest(c *gc.C) {
 	s.googleError = &url.Error{"Get", "http://notforreal.com/", s.internalError}
 }
 
-func (s *ErrorSuite) TestNoValidation(c *gc.C) {
-	err := google.HandleCredentialError(s.googleError, envcontext.WithoutCredentialInvalidator(context.Background()))
-	c.Assert(err, gc.DeepEquals, s.googleError)
-	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
-}
-
-func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		return errors.New("kaboom")
-	})
-	google.HandleCredentialError(s.googleError, ctx)
-	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored google cloud credential on the controller")
-}
-
 func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
-	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		c.Assert(msg, gc.Matches,
-			regexp.QuoteMeta(`google cloud denied access: Get "http://notforreal.com/": 40`)+".*")
-		called = true
-		return nil
-	})
-
 	// First test another status code.
 	s.internalError.SetMessage(http.StatusAccepted, "Accepted")
-	google.HandleCredentialError(s.googleError, ctx)
-	c.Assert(called, jc.IsFalse)
+	denied := google.IsAuthorisationFailure(s.internalError)
+	c.Assert(denied, jc.IsFalse)
 
 	for code, descs := range google.AuthorisationFailureStatusCodes {
 		for _, desc := range descs {
-			called = false
 			s.internalError.SetMessage(code, desc)
-			google.HandleCredentialError(s.googleError, ctx)
-			c.Assert(called, jc.IsTrue)
+			denied = google.IsAuthorisationFailure(s.googleError)
+			c.Assert(denied, jc.IsTrue)
 		}
 	}
 
-	called = false
 	for code := range google.AuthorisationFailureStatusCodes {
 		s.internalError.SetMessage(code, "Some strange error")
-		google.HandleCredentialError(s.googleError, ctx)
-		c.Assert(called, jc.IsFalse)
+		denied = google.IsAuthorisationFailure(s.googleError)
+		c.Assert(denied, jc.IsFalse)
 	}
-}
-
-func (*ErrorSuite) TestNilGoogleError(c *gc.C) {
-	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		called = true
-		return nil
-	})
-	returnedErr := google.HandleCredentialError(nil, ctx)
-	c.Assert(called, jc.IsFalse)
-	c.Assert(returnedErr, jc.ErrorIsNil)
-}
-
-func (*ErrorSuite) TestAnyOtherError(c *gc.C) {
-	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		called = true
-		return nil
-	})
-
-	notinterestingErr := errors.New("not kaboom")
-	returnedErr := google.HandleCredentialError(notinterestingErr, ctx)
-	c.Assert(called, jc.IsFalse)
-	c.Assert(returnedErr, gc.DeepEquals, notinterestingErr)
 }
 
 type googlyError struct {

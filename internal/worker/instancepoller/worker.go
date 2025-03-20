@@ -44,7 +44,7 @@ var (
 // Environ specifies the provider-specific methods needed by the instance
 // poller.
 type Environ interface {
-	Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
+	Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error)
 	NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error)
 }
 

@@ -11,9 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"google.golang.org/api/googleapi"
-
-	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/internal/provider/common"
 )
 
 // InvalidConfigValueError indicates that one of the config values failed validation.
@@ -63,29 +60,8 @@ func (err InvalidConfigValueError) Error() string {
 	return fmt.Sprintf("invalid config value (%s) for %q: %v", err.Value, err.Key, &err.Err)
 }
 
-// HandleCredentialError determines if a given error relates to an invalid credential.
-// If it is, the credential is invalidated. Original error is returned untouched.
-func HandleCredentialError(err error, ctx envcontext.ProviderCallContext) error {
-	maybeInvalidateCredential(err, ctx)
-	return err
-}
-
-func maybeInvalidateCredential(err error, ctx envcontext.ProviderCallContext) bool {
-	if !HasDenialStatusCode(err) {
-		return false
-	}
-
-	converted := fmt.Errorf("google cloud denied access: %w", common.CredentialNotValidError(err))
-	invalidateErr := ctx.InvalidateCredential(converted.Error())
-	if invalidateErr != nil {
-		logger.Warningf(ctx, "could not invalidate stored google cloud credential on the controller: %v", invalidateErr)
-	}
-	return true
-}
-
-// HasDenialStatusCode determines if the given error was caused by an invalid credential, i.e. whether it contains a
-// response status code that indicates an authentication failure.
-func HasDenialStatusCode(err error) bool {
+// IsAuthorisationFailure determines if the given error has an authorisation failure.
+func IsAuthorisationFailure(err error) bool {
 	if err == nil {
 		return false
 	}

@@ -10,6 +10,7 @@
 package service
 
 import (
+	context "context"
 	reflect "reflect"
 
 	envcontext "github.com/juju/juju/environs/envcontext"
@@ -843,7 +844,7 @@ func (m *MockVolumeImporter) EXPECT() *MockVolumeImporterMockRecorder {
 }
 
 // ImportVolume mocks base method.
-func (m *MockVolumeImporter) ImportVolume(arg0 envcontext.ProviderCallContext, arg1 string, arg2 map[string]string) (storage.VolumeInfo, error) {
+func (m *MockVolumeImporter) ImportVolume(arg0 context.Context, arg1 string, arg2 map[string]string) (storage.VolumeInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImportVolume", arg0, arg1, arg2)
 	ret0, _ := ret[0].(storage.VolumeInfo)
@@ -870,13 +871,13 @@ func (c *MockVolumeImporterImportVolumeCall) Return(arg0 storage.VolumeInfo, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockVolumeImporterImportVolumeCall) Do(f func(envcontext.ProviderCallContext, string, map[string]string) (storage.VolumeInfo, error)) *MockVolumeImporterImportVolumeCall {
+func (c *MockVolumeImporterImportVolumeCall) Do(f func(context.Context, string, map[string]string) (storage.VolumeInfo, error)) *MockVolumeImporterImportVolumeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockVolumeImporterImportVolumeCall) DoAndReturn(f func(envcontext.ProviderCallContext, string, map[string]string) (storage.VolumeInfo, error)) *MockVolumeImporterImportVolumeCall {
+func (c *MockVolumeImporterImportVolumeCall) DoAndReturn(f func(context.Context, string, map[string]string) (storage.VolumeInfo, error)) *MockVolumeImporterImportVolumeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1161,7 +1162,7 @@ func (m *MockFilesystemImporter) EXPECT() *MockFilesystemImporterMockRecorder {
 }
 
 // ImportFilesystem mocks base method.
-func (m *MockFilesystemImporter) ImportFilesystem(arg0 envcontext.ProviderCallContext, arg1 string, arg2 map[string]string) (storage.FilesystemInfo, error) {
+func (m *MockFilesystemImporter) ImportFilesystem(arg0 context.Context, arg1 string, arg2 map[string]string) (storage.FilesystemInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImportFilesystem", arg0, arg1, arg2)
 	ret0, _ := ret[0].(storage.FilesystemInfo)
@@ -1188,13 +1189,13 @@ func (c *MockFilesystemImporterImportFilesystemCall) Return(arg0 storage.Filesys
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFilesystemImporterImportFilesystemCall) Do(f func(envcontext.ProviderCallContext, string, map[string]string) (storage.FilesystemInfo, error)) *MockFilesystemImporterImportFilesystemCall {
+func (c *MockFilesystemImporterImportFilesystemCall) Do(f func(context.Context, string, map[string]string) (storage.FilesystemInfo, error)) *MockFilesystemImporterImportFilesystemCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFilesystemImporterImportFilesystemCall) DoAndReturn(f func(envcontext.ProviderCallContext, string, map[string]string) (storage.FilesystemInfo, error)) *MockFilesystemImporterImportFilesystemCall {
+func (c *MockFilesystemImporterImportFilesystemCall) DoAndReturn(f func(context.Context, string, map[string]string) (storage.FilesystemInfo, error)) *MockFilesystemImporterImportFilesystemCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

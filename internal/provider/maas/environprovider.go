@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -63,7 +62,7 @@ func (EnvironProvider) Open(ctx context.Context, args environs.OpenParams, inval
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	env, err := NewEnviron(ctx, args.Cloud, args.Config, nil)
+	env, err := NewEnviron(ctx, args.Cloud, args.Config, invalidator, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating MAAS environ")
 	}
@@ -76,7 +75,7 @@ func (p EnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p EnvironProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
+func (p EnvironProvider) Ping(ctx context.Context, endpoint string) error {
 	var err error
 	base, version, includesVersion := gomaasapi.SplitVersionedURL(endpoint)
 	if includesVersion {

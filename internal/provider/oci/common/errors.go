@@ -6,9 +6,6 @@ package common
 import (
 	"github.com/juju/collections/set"
 	ociCommon "github.com/oracle/oci-go-sdk/v65/common"
-
-	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/internal/provider/common"
 )
 
 // Oracle bundles authorisation errors into HTTP 401, HTTP 404 and
@@ -52,11 +49,4 @@ func IsAuthorisationFailure(err error) bool {
 	}
 
 	return false
-}
-
-// HandleCredentialError marks the current credentials as invalid internally
-//
-//	if Oracle believes that they are expired
-func HandleCredentialError(err error, ctx envcontext.ProviderCallContext) {
-	common.LegacyHandleCredentialError(IsAuthorisationFailure, err, ctx)
 }

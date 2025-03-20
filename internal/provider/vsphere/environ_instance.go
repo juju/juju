@@ -4,6 +4,7 @@
 package vsphere
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -16,7 +17,7 @@ import (
 )
 
 // Instances is part of the environs.Environ interface.
-func (env *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) (instances []instances.Instance, err error) {
+func (env *environ) Instances(ctx context.Context, ids []instance.Id) (instances []instances.Instance, err error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -28,7 +29,7 @@ func (env *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance
 }
 
 // Instances is part of the environs.Environ interface.
-func (env *sessionEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (env *sessionEnviron) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}

@@ -104,7 +104,7 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 	s.instanceBroker = &testInstanceBroker{
 		Stub:      &testing.Stub{},
 		callsChan: make(chan string, 2),
-		allInstancesFunc: func(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+		allInstancesFunc: func(ctx context.Context) ([]instances.Instance, error) {
 			return s.instances, s.instanceBroker.NextErr()
 		},
 	}
@@ -697,7 +697,7 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C)
 	defer ctrl.Finish()
 
 	broker := providermocks.NewMockZonedEnviron(ctrl)
-	broker.EXPECT().AllRunningInstances(s.callCtx).DoAndReturn(func(envcontext.ProviderCallContext) ([]instances.Instance, error) {
+	broker.EXPECT().AllRunningInstances(s.callCtx).DoAndReturn(func(ctx context.Context) ([]instances.Instance, error) {
 		go func() { close(s.setupDone) }()
 		return nil, errors.New("boom")
 	})
@@ -1632,7 +1632,7 @@ type testInstanceBroker struct {
 	*testing.Stub
 
 	callsChan        chan string
-	allInstancesFunc func(ctx envcontext.ProviderCallContext) ([]instances.Instance, error)
+	allInstancesFunc func(ctx context.Context) ([]instances.Instance, error)
 }
 
 func (t *testInstanceBroker) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -1647,13 +1647,13 @@ func (t *testInstanceBroker) StopInstances(ctx envcontext.ProviderCallContext, i
 	return t.NextErr()
 }
 
-func (t *testInstanceBroker) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (t *testInstanceBroker) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	t.AddCall("AllInstances", ctx)
 	t.callsChan <- "AllInstances"
 	return t.allInstancesFunc(ctx)
 }
 
-func (t *testInstanceBroker) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (t *testInstanceBroker) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
 	t.AddCall("AllRunningInstances", ctx)
 	t.callsChan <- "AllRunningInstances"
 	return t.allInstancesFunc(ctx)

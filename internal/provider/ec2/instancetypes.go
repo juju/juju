@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 )
 
@@ -321,7 +320,7 @@ func (c *instanceTypeCache) InstanceTypesInfo(
 }
 
 // InstanceTypes implements InstanceTypesFetcher
-func (e *environ) InstanceTypes(ctx envcontext.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (e *environ) InstanceTypes(ctx context.Context, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	iTypeFilter := allInstanceTypeFilter()
 	iTypes, err := e.supportedInstanceTypes(ctx, iTypeFilter)
 	if err != nil {

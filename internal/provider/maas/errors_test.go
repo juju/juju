@@ -4,15 +4,12 @@
 package maas
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/testing"
 )
@@ -28,22 +25,6 @@ var _ = gc.Suite(&ErrorSuite{})
 func (s *ErrorSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.maasError = gomaasapi.NewPermissionError("denial")
-}
-
-func (s *ErrorSuite) TestNoValidation(c *gc.C) {
-	denied := common.LegacyHandleCredentialError(
-		IsAuthorisationFailure, s.maasError, envcontext.WithoutCredentialInvalidator(context.Background()))
-	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
-	c.Assert(denied, jc.IsTrue)
-}
-
-func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		return errors.New("kaboom")
-	})
-	denied := common.LegacyHandleCredentialError(IsAuthorisationFailure, s.maasError, ctx)
-	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored cloud credential on the controller")
-	c.Assert(denied, jc.IsTrue)
 }
 
 func (s *ErrorSuite) TestHandleCredentialErrorPermissionError(c *gc.C) {
@@ -78,14 +59,6 @@ func (s *ErrorSuite) TestGomaasError(c *gc.C) {
 }
 
 func (s *ErrorSuite) checkMaasPermissionHandling(c *gc.C, handled bool) {
-	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		c.Assert(msg, gc.Matches, "cloud denied access:.*")
-		called = true
-		return nil
-	})
-
-	denied := common.LegacyHandleCredentialError(IsAuthorisationFailure, s.maasError, ctx)
-	c.Assert(called, gc.Equals, handled)
+	denied := IsAuthorisationFailure(s.maasError)
 	c.Assert(denied, gc.Equals, handled)
 }

@@ -1653,7 +1653,7 @@ func (c *MockProviderDestroyControllerCall) DoAndReturn(f func(envcontext.Provid
 }
 
 // InstanceTypes mocks base method.
-func (m *MockProvider) InstanceTypes(arg0 envcontext.ProviderCallContext, arg1 constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (m *MockProvider) InstanceTypes(arg0 context.Context, arg1 constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceTypes", arg0, arg1)
 	ret0, _ := ret[0].(instances.InstanceTypesWithCostMetadata)
@@ -1680,13 +1680,13 @@ func (c *MockProviderInstanceTypesCall) Return(arg0 instances.InstanceTypesWithC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderInstanceTypesCall) Do(f func(envcontext.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error)) *MockProviderInstanceTypesCall {
+func (c *MockProviderInstanceTypesCall) Do(f func(context.Context, constraints.Value) (instances.InstanceTypesWithCostMetadata, error)) *MockProviderInstanceTypesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderInstanceTypesCall) DoAndReturn(f func(envcontext.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error)) *MockProviderInstanceTypesCall {
+func (c *MockProviderInstanceTypesCall) DoAndReturn(f func(context.Context, constraints.Value) (instances.InstanceTypesWithCostMetadata, error)) *MockProviderInstanceTypesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

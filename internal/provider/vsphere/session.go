@@ -7,7 +7,6 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/core/network"
-	callcontext "github.com/juju/juju/environs/envcontext"
 )
 
 // sessionEnviron implements common.ZonedEnviron. An instance of
@@ -33,9 +32,8 @@ type sessionEnviron struct {
 	zones network.AvailabilityZones
 }
 
-func (env *environ) withSession(callCtx callcontext.ProviderCallContext, f func(*sessionEnviron) error) error {
-	ctx := context.Background()
-	return env.withClient(ctx, callCtx, func(client Client) error {
+func (env *environ) withSession(ctx context.Context, f func(*sessionEnviron) error) error {
+	return env.withClient(ctx, func(client Client) error {
 		return f(&sessionEnviron{
 			environ: env,
 			ctx:     ctx,

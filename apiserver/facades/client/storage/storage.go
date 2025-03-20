@@ -20,7 +20,6 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -40,15 +39,14 @@ type storageRegistryGetter func(context.Context) (storage.ProviderRegistry, erro
 
 // StorageAPI implements the latest version (v6) of the Storage API.
 type StorageAPI struct {
-	backend                     backend
-	storageAccess               storageAccess
-	blockDeviceGetter           blockDeviceGetter
-	storageService              StorageService
-	storageRegistryGetter       storageRegistryGetter
-	authorizer                  facade.Authorizer
-	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
-	modelType                   state.ModelType
-	blockCommandService         common.BlockCommandService
+	backend               backend
+	storageAccess         storageAccess
+	blockDeviceGetter     blockDeviceGetter
+	storageService        StorageService
+	storageRegistryGetter storageRegistryGetter
+	authorizer            facade.Authorizer
+	modelType             state.ModelType
+	blockCommandService   common.BlockCommandService
 }
 
 func NewStorageAPI(
@@ -59,19 +57,17 @@ func NewStorageAPI(
 	storageService StorageService,
 	storageRegistryGetter storageRegistryGetter,
 	authorizer facade.Authorizer,
-	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	blockCommandService common.BlockCommandService,
 ) *StorageAPI {
 	return &StorageAPI{
-		backend:                     backend,
-		modelType:                   modelType,
-		storageAccess:               storageAccess,
-		blockDeviceGetter:           blockDeviceGetter,
-		storageService:              storageService,
-		storageRegistryGetter:       storageRegistryGetter,
-		authorizer:                  authorizer,
-		credentialInvalidatorGetter: credentialInvalidatorGetter,
-		blockCommandService:         blockCommandService,
+		backend:               backend,
+		modelType:             modelType,
+		storageAccess:         storageAccess,
+		blockDeviceGetter:     blockDeviceGetter,
+		storageService:        storageService,
+		storageRegistryGetter: storageRegistryGetter,
+		authorizer:            authorizer,
+		blockCommandService:   blockCommandService,
 	}
 }
 
@@ -699,11 +695,6 @@ func (a *StorageAPI) importFilesystem(
 
 	// If the storage provider supports filesystems, import the filesystem,
 	// otherwise import a volume which will back a filesystem.
-	invalidatorFunc, err := a.credentialInvalidatorGetter()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
 	if provider.Supports(storage.StorageKindFilesystem) {
 		filesystemSource, err := provider.FilesystemSource(cfg)
 		if err != nil {
@@ -716,7 +707,7 @@ func (a *StorageAPI) importFilesystem(
 				cfg.Provider(),
 			)
 		}
-		info, err := filesystemImporter.ImportFilesystem(callCtx, arg.ProviderId, resourceTags)
+		info, err := filesystemImporter.ImportFilesystem(ctx, arg.ProviderId, resourceTags)
 		if err != nil {
 			return nil, errors.Annotate(err, "importing filesystem")
 		}
@@ -734,7 +725,7 @@ func (a *StorageAPI) importFilesystem(
 				cfg.Provider(),
 			)
 		}
-		info, err := volumeImporter.ImportVolume(callCtx, arg.ProviderId, resourceTags)
+		info, err := volumeImporter.ImportVolume(ctx, arg.ProviderId, resourceTags)
 		if err != nil {
 			return nil, errors.Annotate(err, "importing volume")
 		}

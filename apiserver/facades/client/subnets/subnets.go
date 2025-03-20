@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -80,12 +79,11 @@ type ModelConfigService interface {
 
 // API provides the subnets API facade for version 5.
 type API struct {
-	backing                     Backing
-	resources                   facade.Resources
-	authorizer                  facade.Authorizer
-	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
-	logger                      corelogger.Logger
-	networkService              NetworkService
+	backing        Backing
+	resources      facade.Resources
+	authorizer     facade.Authorizer
+	logger         corelogger.Logger
+	networkService NetworkService
 }
 
 func (api *API) checkCanRead(ctx context.Context) error {
@@ -96,7 +94,6 @@ func (api *API) checkCanRead(ctx context.Context) error {
 // a common.NetworkBacking
 func newAPIWithBacking(
 	backing Backing,
-	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
@@ -107,12 +104,11 @@ func newAPIWithBacking(
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		backing:                     backing,
-		resources:                   resources,
-		authorizer:                  authorizer,
-		credentialInvalidatorGetter: credentialInvalidatorGetter,
-		logger:                      logger,
-		networkService:              networkService,
+		backing:        backing,
+		resources:      resources,
+		authorizer:     authorizer,
+		logger:         logger,
+		networkService: networkService,
 	}, nil
 }
 
@@ -123,12 +119,7 @@ func (api *API) AllZones(ctx context.Context) (params.ZoneResults, error) {
 	if err := api.checkCanRead(ctx); err != nil {
 		return params.ZoneResults{}, err
 	}
-	invalidator, err := api.credentialInvalidatorGetter()
-	if err != nil {
-		return params.ZoneResults{}, errors.Trace(err)
-	}
-	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidator)
-	return allZones(callCtx, api.backing, api.logger)
+	return allZones(ctx, api.backing, api.logger)
 }
 
 // ListSubnets returns the matching subnets after applying

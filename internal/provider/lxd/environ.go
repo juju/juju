@@ -197,7 +197,7 @@ func (env *environ) Config() *config.Config {
 // ValidateCloudEndpoint returns nil if the current model can talk to the lxd
 // server endpoint.  Used as validation during model upgrades.
 // Implements environs.CloudEndpointChecker
-func (env *environ) ValidateCloudEndpoint(ctx envcontext.ProviderCallContext) error {
+func (env *environ) ValidateCloudEndpoint(ctx context.Context) error {
 	info, err := env.server().GetConnectionInfo()
 	if err != nil {
 		return err
@@ -293,7 +293,7 @@ func (z *lxdAvailabilityZone) Available() bool {
 
 // AvailabilityZones (ZonedEnviron) returns all availability zones in the
 // environment. For LXD, this means the cluster node names.
-func (env *environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+func (env *environ) AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
 	// If we are not using a clustered server (which includes those not
 	// supporting the clustering API) just represent the single server as the
 	// only availability zone.

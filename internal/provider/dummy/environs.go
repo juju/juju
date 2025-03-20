@@ -318,7 +318,7 @@ func (p *environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p *environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
+func (p *environProvider) Ping(_ context.Context, _ string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -718,7 +718,7 @@ func (e *environ) StopInstances(_ envcontext.ProviderCallContext, ids ...instanc
 	return nil
 }
 
-func (e *environ) Instances(_ envcontext.ProviderCallContext, ids []instance.Id) (insts []instances.Instance, err error) {
+func (e *environ) Instances(_ context.Context, ids []instance.Id) (insts []instances.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -869,7 +869,7 @@ func (az azShim) Available() bool {
 }
 
 // AvailabilityZones implements environs.ZonedEnviron.
-func (env *environ) AvailabilityZones(envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
+func (env *environ) AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
 	return network.AvailabilityZones{
 		azShim{"zone1", true},
 		azShim{"zone2", false},
@@ -983,15 +983,15 @@ func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.Su
 	return result, nil
 }
 
-func (e *environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (e *environ) AllInstances(ctx context.Context) ([]instances.Instance, error) {
 	return e.instancesForMethod(ctx, "AllInstances")
 }
 
-func (e *environ) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (e *environ) AllRunningInstances(ctx context.Context) ([]instances.Instance, error) {
 	return e.instancesForMethod(ctx, "AllRunningInstances")
 }
 
-func (e *environ) instancesForMethod(_ envcontext.ProviderCallContext, method string) ([]instances.Instance, error) {
+func (e *environ) instancesForMethod(_ context.Context, method string) ([]instances.Instance, error) {
 	defer delay()
 	if err := e.checkBroken(method); err != nil {
 		return nil, err

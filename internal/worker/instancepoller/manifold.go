@@ -46,7 +46,7 @@ type environWithoutNetworking struct {
 	env environs.Environ
 }
 
-func (e environWithoutNetworking) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (e environWithoutNetworking) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 	return e.env.Instances(ctx, ids)
 }
 

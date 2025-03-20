@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 const (
@@ -116,20 +115,4 @@ func HandleCredentialError(ctx context.Context, invalidator environs.CredentialI
 		return true, err
 	}
 	return false, err
-}
-
-// LegacyHandleCredentialError determines if a given error relates to an invalid
-// credential. If it is, the credential is invalidated and the return bool is
-// true.
-// Deprecated: use HandleCredentialError instead.
-func LegacyHandleCredentialError(isAuthError func(error) bool, err error, ctx envcontext.ProviderCallContext) bool {
-	denied := isAuthError(errors.Cause(err))
-	if denied {
-		converted := fmt.Errorf("cloud denied access: %w", CredentialNotValidError(err))
-		invalidateErr := ctx.InvalidateCredential(converted.Error())
-		if invalidateErr != nil {
-			logger.Warningf(ctx, "could not invalidate stored cloud credential on the controller: %v", invalidateErr)
-		}
-	}
-	return denied
 }

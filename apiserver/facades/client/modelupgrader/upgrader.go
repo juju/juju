@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -54,18 +53,17 @@ type ControllerConfigService interface {
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
 type ModelUpgraderAPI struct {
-	controllerTag               names.ControllerTag
-	statePool                   StatePool
-	check                       common.BlockCheckerInterface
-	authorizer                  facade.Authorizer
-	toolsFinder                 common.ToolsFinder
-	apiUser                     names.UserTag
-	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
-	newEnviron                  common.NewEnvironFunc
-	modelAgentServiceGetter     func(modelID coremodel.UUID) ModelAgentService
-	controllerAgentService      ModelAgentService
-	controllerConfigService     ControllerConfigService
-	upgradeService              UpgradeService
+	controllerTag           names.ControllerTag
+	statePool               StatePool
+	check                   common.BlockCheckerInterface
+	authorizer              facade.Authorizer
+	toolsFinder             common.ToolsFinder
+	apiUser                 names.UserTag
+	newEnviron              common.NewEnvironFunc
+	modelAgentServiceGetter func(modelID coremodel.UUID) ModelAgentService
+	controllerAgentService  ModelAgentService
+	controllerConfigService ControllerConfigService
+	upgradeService          UpgradeService
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 	environsCloudSpecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
@@ -81,7 +79,6 @@ func NewModelUpgraderAPI(
 	newEnviron common.NewEnvironFunc,
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
-	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 	environsCloudSpecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	modelAgentServiceGetter func(modelID coremodel.UUID) ModelAgentService,
@@ -98,21 +95,20 @@ func NewModelUpgraderAPI(
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
 	return &ModelUpgraderAPI{
-		controllerTag:               controllerTag,
-		statePool:                   stPool,
-		check:                       blockChecker,
-		authorizer:                  authorizer,
-		toolsFinder:                 toolsFinder,
-		apiUser:                     apiUser,
-		credentialInvalidatorGetter: credentialInvalidatorGetter,
-		newEnviron:                  newEnviron,
-		registryAPIFunc:             registryAPIFunc,
-		environsCloudSpecGetter:     environsCloudSpecGetter,
-		upgradeService:              upgradeService,
-		modelAgentServiceGetter:     modelAgentServiceGetter,
-		controllerAgentService:      controllerAgentService,
-		controllerConfigService:     controllerConfigService,
-		logger:                      logger,
+		controllerTag:           controllerTag,
+		statePool:               stPool,
+		check:                   blockChecker,
+		authorizer:              authorizer,
+		toolsFinder:             toolsFinder,
+		apiUser:                 apiUser,
+		newEnviron:              newEnviron,
+		registryAPIFunc:         registryAPIFunc,
+		environsCloudSpecGetter: environsCloudSpecGetter,
+		upgradeService:          upgradeService,
+		modelAgentServiceGetter: modelAgentServiceGetter,
+		controllerAgentService:  controllerAgentService,
+		controllerConfigService: controllerConfigService,
+		logger:                  logger,
 	}, nil
 }
 
@@ -240,13 +236,8 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	invalidatorFunc, err := m.credentialInvalidatorGetter()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
 	if err := preCheckEnvironForUpgradeModel(
-		callCtx, envOrBroker, model.IsControllerModel(), currentVersion, targetVersion, m.logger,
+		ctx, envOrBroker, model.IsControllerModel(), currentVersion, targetVersion, m.logger,
 	); err != nil {
 		return result, errors.Trace(err)
 	}
@@ -273,11 +264,11 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 }
 
 func preCheckEnvironForUpgradeModel(
-	ctx envcontext.ProviderCallContext, env environs.BootstrapEnviron,
+	ctx context.Context, env environs.BootstrapEnviron,
 	controllerModel bool, currentVersion, targetVersion version.Number,
 	logger corelogger.Logger,
 ) error {
-	if err := environs.CheckProviderAPI(env, ctx); err != nil {
+	if err := environs.CheckProviderAPI(ctx, env); err != nil {
 		return errors.Trace(err)
 	}
 

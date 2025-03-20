@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/rpc/params"
 )
@@ -54,7 +53,7 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		Constraints: []params.ModelInstanceTypesConstraint{{Value: &itCons}, {Value: &failureCons}, {}},
 	}
 
-	r, err := instanceTypes(envcontext.WithoutCredentialInvalidator(context.Background()), s.instanceTypesFetcher, cons)
+	r, err := instanceTypes(context.Background(), s.instanceTypesFetcher, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 3)
 	expected := []params.InstanceTypesResult{

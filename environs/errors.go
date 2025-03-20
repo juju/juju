@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	// ErrNotInstances represents and error for describing that no instances
+	// ErrNoInstances represents and error for describing that no instances
 	// were found.
 	// NOTE: 2022-04-01 tlm This error carries some technical debt. Ideally it
 	// would be nice to make this a ConstError but it's very unclear if this

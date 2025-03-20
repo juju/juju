@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	instance "github.com/juju/juju/core/instance"
@@ -183,7 +184,7 @@ func (m *MockInstanceBroker) EXPECT() *MockInstanceBrokerMockRecorder {
 }
 
 // AllInstances mocks base method.
-func (m *MockInstanceBroker) AllInstances(arg0 envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockInstanceBroker) AllInstances(arg0 context.Context) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -210,19 +211,19 @@ func (c *MockInstanceBrokerAllInstancesCall) Return(arg0 []instances.Instance, a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInstanceBrokerAllInstancesCall) Do(f func(envcontext.ProviderCallContext) ([]instances.Instance, error)) *MockInstanceBrokerAllInstancesCall {
+func (c *MockInstanceBrokerAllInstancesCall) Do(f func(context.Context) ([]instances.Instance, error)) *MockInstanceBrokerAllInstancesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInstanceBrokerAllInstancesCall) DoAndReturn(f func(envcontext.ProviderCallContext) ([]instances.Instance, error)) *MockInstanceBrokerAllInstancesCall {
+func (c *MockInstanceBrokerAllInstancesCall) DoAndReturn(f func(context.Context) ([]instances.Instance, error)) *MockInstanceBrokerAllInstancesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AllRunningInstances mocks base method.
-func (m *MockInstanceBroker) AllRunningInstances(arg0 envcontext.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockInstanceBroker) AllRunningInstances(arg0 context.Context) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -249,13 +250,13 @@ func (c *MockInstanceBrokerAllRunningInstancesCall) Return(arg0 []instances.Inst
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInstanceBrokerAllRunningInstancesCall) Do(f func(envcontext.ProviderCallContext) ([]instances.Instance, error)) *MockInstanceBrokerAllRunningInstancesCall {
+func (c *MockInstanceBrokerAllRunningInstancesCall) Do(f func(context.Context) ([]instances.Instance, error)) *MockInstanceBrokerAllRunningInstancesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInstanceBrokerAllRunningInstancesCall) DoAndReturn(f func(envcontext.ProviderCallContext) ([]instances.Instance, error)) *MockInstanceBrokerAllRunningInstancesCall {
+func (c *MockInstanceBrokerAllRunningInstancesCall) DoAndReturn(f func(context.Context) ([]instances.Instance, error)) *MockInstanceBrokerAllRunningInstancesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

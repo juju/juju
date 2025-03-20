@@ -27,8 +27,7 @@ func getInstanceAddresses(
 	lister environs.InstanceLister,
 	instanceID instance.Id,
 ) (network.ProviderAddresses, error) {
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-	instances, err := lister.Instances(callCtx, []instance.Id{instanceID})
+	instances, err := lister.Instances(ctx, []instance.Id{instanceID})
 	if err != nil {
 		return nil, fmt.Errorf(
 			"cannot get instance %q from instance lister: %w",
@@ -42,6 +41,7 @@ func getInstanceAddresses(
 			len(instances),
 		)
 	}
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	addrs, err := instances[0].Addresses(callCtx)
 	if err != nil {
 		return nil, fmt.Errorf(

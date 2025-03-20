@@ -4,6 +4,7 @@
 package gce
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -31,7 +32,7 @@ var instStatuses = []string{
 // instances, the result at the corresponding index will be nil. In that
 // case the error will be environs.ErrPartialInstances (or
 // ErrNoInstances if none of the IDs match an instance).
-func (env *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (env *environ) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -67,17 +68,20 @@ func (env *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance
 	return results, err
 }
 
-var getInstances = func(env *environ, ctx envcontext.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
+var getInstances = func(env *environ, ctx context.Context, statusFilters ...string) ([]instances.Instance, error) {
 	return env.instances(ctx, statusFilters...)
 }
 
-func (env *environ) gceInstances(ctx envcontext.ProviderCallContext, statusFilters ...string) ([]google.Instance, error) {
+func (env *environ) gceInstances(ctx context.Context, statusFilters ...string) ([]google.Instance, error) {
 	prefix := env.namespace.Prefix()
 	if len(statusFilters) == 0 {
 		statusFilters = instStatuses
 	}
 	instances, err := env.gce.Instances(prefix, statusFilters...)
-	return instances, google.HandleCredentialError(errors.Trace(err), ctx)
+	if err != nil {
+		return instances, env.HandleCredentialError(ctx, err)
+	}
+	return instances, nil
 }
 
 // instances returns a list of all "alive" instances in the environment.
@@ -85,7 +89,7 @@ func (env *environ) gceInstances(ctx envcontext.ProviderCallContext, statusFilte
 // "juju-<env name>-machine-*". This is important because otherwise juju
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
-func (env *environ) instances(ctx envcontext.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
+func (env *environ) instances(ctx context.Context, statusFilters ...string) ([]instances.Instance, error) {
 	gceInstances, err := env.gceInstances(ctx, statusFilters...)
 	err = errors.Trace(err)
 
@@ -141,7 +145,7 @@ func (env *environ) AdoptResources(ctx envcontext.ProviderCallContext, controlle
 	}
 	err = env.gce.UpdateMetadata(tags.JujuController, controllerUUID, stringIds...)
 	if err != nil {
-		return google.HandleCredentialError(errors.Trace(err), ctx)
+		return env.HandleCredentialError(ctx, err)
 	}
 	return nil
 }
