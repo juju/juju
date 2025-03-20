@@ -221,7 +221,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 	}
 
 	newBroker := func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
-		s.caasBroker = &mockCaasBroker{namespace: args.Config.Name()}
+		s.caasBroker = &mockCaasBroker{}
 		return s.caasBroker, nil
 	}
 

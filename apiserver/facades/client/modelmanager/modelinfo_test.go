@@ -41,7 +41,6 @@ import (
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
@@ -1105,19 +1104,11 @@ type unitRetriever interface {
 	Unit(name string) (*state.Unit, error)
 }
 
+// mockCaasBroker is a CAAS broker placeholder.
+// It's not currently used in tests and can be
+// replaced by a real mock when more tests are fixed.
 type mockCaasBroker struct {
-	jujutesting.Stub
 	caas.Broker
-
-	namespace string
-}
-
-func (m *mockCaasBroker) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
-	m.MethodCall(m, "Create")
-	if m.namespace == "existing-ns" {
-		return errors.AlreadyExistsf("namespace %q", m.namespace)
-	}
-	return nil
 }
 
 type mockState struct {

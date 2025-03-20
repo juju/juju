@@ -356,44 +356,6 @@ func (c *MockBrokerConstraintsValidatorCall) DoAndReturn(f func(envcontext.Provi
 	return c
 }
 
-// Create mocks base method.
-func (m *MockBroker) Create(arg0 envcontext.ProviderCallContext, arg1 environs.CreateParams) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Create indicates an expected call of Create.
-func (mr *MockBrokerMockRecorder) Create(arg0, arg1 any) *MockBrokerCreateCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockBroker)(nil).Create), arg0, arg1)
-	return &MockBrokerCreateCall{Call: call}
-}
-
-// MockBrokerCreateCall wrap *gomock.Call
-type MockBrokerCreateCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBrokerCreateCall) Return(arg0 error) *MockBrokerCreateCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBrokerCreateCall) Do(f func(envcontext.ProviderCallContext, environs.CreateParams) error) *MockBrokerCreateCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerCreateCall) DoAndReturn(f func(envcontext.ProviderCallContext, environs.CreateParams) error) *MockBrokerCreateCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Destroy mocks base method.
 func (m *MockBroker) Destroy(arg0 envcontext.ProviderCallContext) error {
 	m.ctrl.T.Helper()

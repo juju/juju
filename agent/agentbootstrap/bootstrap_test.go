@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
@@ -464,14 +463,6 @@ type fakeEnviron struct {
 	environs.Environ
 	*jujutesting.Stub
 	provider *fakeProvider
-
-	callCtxUsed envcontext.ProviderCallContext
-}
-
-func (e *fakeEnviron) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
-	e.MethodCall(e, "Create", ctx, args)
-	e.callCtxUsed = ctx
-	return e.NextErr()
 }
 
 func (e *fakeEnviron) Provider() environs.EnvironProvider {

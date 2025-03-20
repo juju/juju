@@ -1365,7 +1365,7 @@ func (m *MockResourceCreationProvider) EXPECT() *MockResourceCreationProviderMoc
 }
 
 // Create mocks base method.
-func (m *MockResourceCreationProvider) Create(arg0 envcontext.ProviderCallContext, arg1 environs.CreateParams) error {
+func (m *MockResourceCreationProvider) CreateModelResources(arg0 envcontext.ProviderCallContext, arg1 environs.CreateParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(error)
