@@ -11,11 +11,9 @@ import (
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/changestream"
 	corecloud "github.com/juju/juju/core/cloud"
 	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -24,16 +22,12 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/core/watcher/watchertest"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/internal/changestream/testing"
 	jujudb "github.com/juju/juju/internal/database"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -443,64 +437,6 @@ WHERE cloud.name = ?
 	cloud, err := st.Cloud(context.Background(), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud.Name, gc.Equals, "fluffy")
-}
-
-type watcherFunc func(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)
-
-func (f watcherFunc) NewValueWatcher(
-	namespace, changeValue string, changeMask changestream.ChangeType,
-) (watcher.NotifyWatcher, error) {
-	return f(namespace, changeValue, changeMask)
-}
-
-func (s *stateSuite) watcherFunc(c *gc.C, expectedChangeValue string) watcherFunc {
-	return func(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error) {
-		c.Assert(namespace, gc.Equals, "cloud")
-		c.Assert(changeMask, gc.Equals, changestream.All)
-		c.Assert(changeValue, gc.Equals, expectedChangeValue)
-
-		db, err := s.GetWatchableDB(namespace)
-		c.Assert(err, jc.ErrorIsNil)
-
-		base := eventsource.NewBaseWatcher(db, loggertesting.WrapCheckLog(c))
-		return eventsource.NewValueWatcher(base, namespace, changeValue, changeMask), nil
-	}
-}
-
-func (s *stateSuite) TestWatchCloudNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	ctx := context.Background()
-	_, err := st.WatchCloud(ctx, s.watcherFunc(c, ""), "fluffy")
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
-}
-
-func (s *stateSuite) TestWatchCloud(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	cloudUUID := uuid.MustNewUUID().String()
-
-	cld := testCloud
-	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID, cld)
-	c.Assert(err, jc.ErrorIsNil)
-
-	w, err := st.WatchCloud(context.Background(), s.watcherFunc(c, cloudUUID), "fluffy")
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	wc := watchertest.NewNotifyWatcherC(c, w)
-	wc.AssertChanges(time.Second) // Initial event.
-
-	cld.Endpoint = "https://endpoint2"
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := st.UpdateCloud(ctx, cld)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.AssertChangeStreamIdle(c)
-
-	wc.AssertOneChange()
 }
 
 // TestNullCloudType is a regression test to make sure that we don't allow null

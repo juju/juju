@@ -17,6 +17,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	userstate "github.com/juju/juju/domain/access/state"
 	"github.com/juju/juju/domain/credential"
@@ -223,11 +224,10 @@ ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
 func updateCredentialAttributes(ctx context.Context, tx *sqlair.TX, credentialUUID string, attr credentialAttrs) error {
 	// Delete any keys no longer in the attributes map.
 	// TODO(wallyworld) - sqlair does not support IN operations with a list of values
-	deleteQuery := fmt.Sprintf(`
+	deleteQuery := `
 DELETE FROM  cloud_credential_attributes
 WHERE        cloud_credential_uuid = $M.uuid
--- AND          key NOT IN (?)
-`)
+`
 
 	deleteStmt, err := sqlair.Prepare(deleteQuery, sqlair.M{})
 	if err != nil {
@@ -718,7 +718,10 @@ WHERE  cloud_credential.uuid = $M.uuid
 // WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
 func (st *State) WatchCredential(
 	ctx context.Context,
-	getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
+	getWatcher func(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error),
 	key corecredential.Key,
 ) (watcher.NotifyWatcher, error) {
 	db, err := st.DB()
@@ -735,11 +738,12 @@ func (st *State) WatchCredential(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	result, err := getWatcher("cloud_credential", id.String(), changestream.All)
-	if err != nil {
-		return result, errors.Errorf("watching credential: %w", err)
-	}
-	return result, nil
+	result, err := getWatcher(
+		eventsource.PredicateFilter("cloud_credential", changestream.All, func(s string) bool {
+			return s == id.String()
+		}),
+	)
+	return result, errors.Errorf("watching credential: %w", err)
 }
 
 // ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.

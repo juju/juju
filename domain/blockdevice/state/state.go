@@ -366,9 +366,8 @@ WHERE machine_uuid = $M.machine_uuid
 func (st *State) WatchBlockDevices(
 	ctx context.Context,
 	getWatcher func(
-		namespace, changeValue string,
-		changeMask changestream.ChangeType,
-		mapper eventsource.Mapper,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error),
 	machineId string,
 ) (watcher.NotifyWatcher, error) {
@@ -393,9 +392,11 @@ func (st *State) WatchBlockDevices(
 		return nil, errors.Errorf("cannot watch block devices on dead machine %q", machineId)
 	}
 
-	baseWatcher, err := getWatcher("block_device", machineUUID, changestream.All, eventsource.FilterEvents(func(ce changestream.ChangeEvent) bool {
-		return ce.Changed() == machineUUID
-	}))
+	baseWatcher, err := getWatcher(
+		eventsource.PredicateFilter("block_device", changestream.All, func(s string) bool {
+			return s == machineUUID
+		}),
+	)
 	if err != nil {
 		return nil, errors.Errorf("watching machine %q block devices: %w", machineId, err)
 	}

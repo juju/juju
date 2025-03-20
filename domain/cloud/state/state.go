@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
@@ -757,7 +758,10 @@ VALUES      ($cloudType.*)`, dbCloudType)
 // WatchCloud returns a new NotifyWatcher watching for changes to the specified cloud.
 func (st *State) WatchCloud(
 	ctx context.Context,
-	getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
+	getWatcher func(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error),
 	cloudName string,
 ) (watcher.NotifyWatcher, error) {
 	db, err := st.DB()
@@ -788,9 +792,8 @@ WHERE name = $cloudID.name`, cloud)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	result, err := getWatcher("cloud", cloud.UUID, changestream.All)
-	if err != nil {
-		return result, errors.Errorf("watching cloud: %w", err)
-	}
-	return result, nil
+	result, err := getWatcher(eventsource.PredicateFilter("cloud", changestream.All, func(s string) bool {
+		return s == cloud.UUID
+	}))
+	return result, errors.Errorf("watching cloud: %w", err)
 }

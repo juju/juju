@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -19,7 +19,10 @@ type ProviderState interface {
 	// WatchCloud returns a new NotifyWatcher watching for changes to the specified cloud.
 	WatchCloud(
 		ctx context.Context,
-		getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
+		getWatcher func(
+			filter eventsource.FilterOption,
+			filterOpts ...eventsource.FilterOption,
+		) (watcher.NotifyWatcher, error),
 		name string,
 	) (watcher.NotifyWatcher, error)
 }
@@ -66,5 +69,5 @@ func NewWatchableProviderService(st ProviderState, watcherFactory WatcherFactory
 
 // WatchCloud returns a watcher that observes changes to the specified cloud.
 func (s *WatchableProviderService) WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
-	return s.st.WatchCloud(ctx, s.watcherFactory.NewValueWatcher, name)
+	return s.st.WatchCloud(ctx, s.watcherFactory.NewNotifyWatcher, name)
 }

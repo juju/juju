@@ -157,7 +157,7 @@ func (s *serviceSuite) TestWatchForUpgradeReady(c *gc.C) {
 
 	nw := watchertest.NewMockNotifyWatcher(nil)
 
-	s.watcherFactory.EXPECT().NewValueMapperWatcher(gomock.Any(), s.upgradeUUID.String(), gomock.Any(), gomock.Any()).Return(nw, nil)
+	s.watcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any()).Return(nw, nil)
 
 	watcher, err := s.service.WatchForUpgradeReady(context.Background(), s.upgradeUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -169,7 +169,7 @@ func (s *serviceSuite) TestWatchForUpgradeState(c *gc.C) {
 
 	nw := watchertest.NewMockNotifyWatcher(nil)
 
-	s.watcherFactory.EXPECT().NewValueMapperWatcher(gomock.Any(), s.upgradeUUID.String(), gomock.Any(), gomock.Any()).Return(nw, nil)
+	s.watcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any()).Return(nw, nil)
 
 	watcher, err := s.service.WatchForUpgradeState(context.Background(), s.upgradeUUID, coreupgrade.Started)
 	c.Assert(err, jc.ErrorIsNil)

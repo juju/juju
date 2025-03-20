@@ -51,10 +51,15 @@ type WatcherFactory interface {
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 
-	// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
-	// for events based on the input change mask and mapper.
-	NewNamespaceNotifyMapperWatcher(
-		namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
+	// NewNotifyMapperWatcher returns a new watcher that receives changes from
+	// the input base watcher's db/queue. A single filter option is required,
+	// though additional filter options can be provided. Filtering of values is
+	// done first by the filter, and then subsequently by the mapper. Based on
+	// the mapper's logic a subset of them (or none) may be emitted.
+	NewNotifyMapperWatcher(
+		mapper eventsource.Mapper,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 }
 
@@ -95,10 +100,9 @@ func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher
 // watcher emits events for changes to the opened ports table that are associated
 // with the given application
 func (s *WatchableService) WatchOpenedPortsForApplication(ctx context.Context, applicationUUID coreapplication.ID) (watcher.NotifyWatcher, error) {
-	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		s.st.NamespaceForWatchOpenedPort(),
-		changestream.All,
+	return s.watcherFactory.NewNotifyMapperWatcher(
 		s.filterForApplication(applicationUUID),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchOpenedPort(), changestream.All),
 	)
 }
 

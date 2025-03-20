@@ -9,8 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-
-	"github.com/juju/juju/core/changestream"
 )
 
 // StringsNotifyWatcher wraps a Watcher[[]string] and provides a
@@ -77,63 +75,6 @@ func (w *StringsNotifyWatcher) Err() error {
 func (w *StringsNotifyWatcher) Stop() error {
 	w.Kill()
 	return w.Wait()
-}
-
-// NewValueWatcher returns a new watcher that receives changes from the input
-// base watcher's changes, that occur for a specific changeValue from the input
-// namespace.
-// Deprecated: Use NewFilterWatcher instead.
-func NewValueWatcher(
-	base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType,
-) *NotifyWatcher {
-	return NewValueMapperWatcher(base, namespace, changeValue, changeMask, defaultMapper)
-}
-
-// NewValueMapperWatcher returns a new watcher that receives changes from the
-// input base watcher changes, that occur for a specific changeValue from the
-// input namespace. The mapper is used to filter or modify the events before
-// being emitted.
-// Deprecated: Use NewFilterMapperWatcher instead.
-func NewValueMapperWatcher(
-	base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType, mapper Mapper,
-) *NotifyWatcher {
-	w := &NotifyWatcher{
-		BaseWatcher: base,
-		out:         make(chan struct{}),
-		filterOpts: []changestream.SubscriptionOption{
-			changestream.FilteredNamespace(namespace, changeMask, func(e changestream.ChangeEvent) bool {
-				return e.Changed() == changeValue
-			}),
-		},
-		mapper: mapper,
-	}
-
-	w.tomb.Go(w.loop)
-	return w
-}
-
-// NewNamespaceNotifyWatcher returns a new watcher that receives changes from
-// the input base watcher's db/queue when changes in the namespace occur.
-// Deprecated: Use NewFilterWatcher instead.
-func NewNamespaceNotifyWatcher(base *BaseWatcher, namespace string, changeMask changestream.ChangeType) *NotifyWatcher {
-	return NewNamespaceNotifyMapperWatcher(base, namespace, changeMask, defaultMapper)
-}
-
-// NewNamespaceNotifyMapperWatcher returns a new watcher that receives changes
-// from the input base watcher's db/queue when changes in the namespace occur.
-// Deprecated: Use NewFilterMapperWatcher instead.
-func NewNamespaceNotifyMapperWatcher(
-	base *BaseWatcher, namespace string, changeMask changestream.ChangeType, mapper Mapper,
-) *NotifyWatcher {
-	w := &NotifyWatcher{
-		BaseWatcher: base,
-		out:         make(chan struct{}),
-		filterOpts:  []changestream.SubscriptionOption{changestream.Namespace(namespace, changeMask)},
-		mapper:      mapper,
-	}
-
-	w.tomb.Go(w.loop)
-	return w
 }
 
 // Applier is a function that applies a change to a value.

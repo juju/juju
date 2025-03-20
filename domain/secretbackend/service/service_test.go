@@ -17,7 +17,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -1679,7 +1678,7 @@ func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 	mockNotifyWatcher.EXPECT().Kill().AnyTimes()
 
 	s.mockState.EXPECT().NamespaceForWatchModelSecretBackend().Return("model_secret_backend")
-	s.mockWatcherFactory.EXPECT().NewValueWatcher("model_secret_backend", modelUUID.String(), changestream.Changed).Return(mockNotifyWatcher, nil)
+	s.mockWatcherFactory.EXPECT().NewNotifyWatcher(gomock.Any()).Return(mockNotifyWatcher, nil)
 
 	w, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)

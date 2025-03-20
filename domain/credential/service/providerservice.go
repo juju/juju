@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/internal/errors"
 )
@@ -22,7 +22,10 @@ type ProviderState interface {
 	// WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
 	WatchCredential(
 		ctx context.Context,
-		getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
+		getWatcher func(
+			filter eventsource.FilterOption,
+			filterOpts ...eventsource.FilterOption,
+		) (watcher.NotifyWatcher, error),
 		key corecredential.Key,
 	) (watcher.NotifyWatcher, error)
 }
@@ -82,5 +85,5 @@ func (s *WatchableProviderService) WatchCredential(ctx context.Context, key core
 	if err := key.Validate(); err != nil {
 		return nil, errors.Errorf("invalid id watching cloud credential: %w", err)
 	}
-	return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, key)
+	return s.st.WatchCredential(ctx, s.watcherFactory.NewNotifyWatcher, key)
 }

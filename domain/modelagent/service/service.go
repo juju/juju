@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
@@ -37,9 +38,13 @@ type State interface {
 
 // WatcherFactory provides a factory for constructing new watchers.
 type WatcherFactory interface {
-	// NewNamespaceNotifyWatcher returns a new namespace notify watcher
-	// for events based on the input change mask.
-	NewNamespaceNotifyWatcher(namespace string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
 }
 
 // Service is used to get the target Juju agent version for the current model.
@@ -161,7 +166,9 @@ func (s *Service) WatchUnitTargetAgentVersion(
 // version of this model and reporting when a change has happened in the
 // version.
 func (s *Service) WatchModelTargetAgentVersion(ctx context.Context) (watcher.NotifyWatcher, error) {
-	w, err := s.watcherFactory.NewNamespaceNotifyWatcher(s.st.NamespaceForWatchAgentVersion(), changestream.All)
+	w, err := s.watcherFactory.NewNotifyWatcher(
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchAgentVersion(), changestream.All),
+	)
 	if err != nil {
 		return nil, errors.Errorf("creating watcher for agent version: %w", err)
 	}

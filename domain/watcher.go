@@ -84,9 +84,8 @@ func (f *WatcherFactory) NewNamespaceMapperWatcher(
 }
 
 // NewNotifyWatcher returns a new watcher that filters changes from the input
-// base watcher's db/queue. Change-log events will be emitted only if the filter
-// accepts them, and dispatching the notifications via the Changes channel. A
-// filter option is required, though additional filter options can be provided.
+// base watcher's db/queue. A single filter option is required, though
+// additional filter options can be provided.
 func (f *WatcherFactory) NewNotifyWatcher(
 	filter eventsource.FilterOption,
 	filterOpts ...eventsource.FilterOption,
@@ -100,12 +99,10 @@ func (f *WatcherFactory) NewNotifyWatcher(
 }
 
 // NewNotifyMapperWatcher returns a new watcher that receives changes from the
-// input base watcher's db/queue. Change-log events will be emitted only if the
-// filter accepts them, and dispatching the notifications via the Changes
-// channel, once the mapper has processed them. Filtering of values is done
-// first by the filter, and then by the mapper.
-// A filter option is required, though additional filter options can be
-// provided.
+// input base watcher's db/queue. A single filter option is required, though
+// additional filter options can be provided. Filtering of values is done first
+// by the filter, and then subsequently by the mapper. Based on the mapper's
+// logic a subset of them (or none) may be emitted.
 func (f *WatcherFactory) NewNotifyMapperWatcher(
 	mapper eventsource.Mapper,
 	filter eventsource.FilterOption,
@@ -131,64 +128,4 @@ func (f *WatcherFactory) newBaseWatcher() (*eventsource.BaseWatcher, error) {
 	}
 
 	return eventsource.NewBaseWatcher(f.watchableDB, f.logger), nil
-}
-
-// Everything below is deprecated and will be removed in the future.
-
-// NewNamespaceNotifyWatcher returns a new namespace notify watcher
-// for events based on the input change mask.
-// Deprecated: use NewFilterWatcher instead.
-func (f *WatcherFactory) NewNamespaceNotifyWatcher(
-	namespace string, changeMask changestream.ChangeType,
-) (watcher.NotifyWatcher, error) {
-	base, err := f.newBaseWatcher()
-	if err != nil {
-		return nil, errors.Errorf("creating base watcher: %w", err)
-	}
-
-	return eventsource.NewNamespaceNotifyWatcher(base, namespace, changeMask), nil
-}
-
-// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
-// for events based on the input change mask and mapper.
-// Deprecated: use NewFilterMapperWatcher instead.
-func (f *WatcherFactory) NewNamespaceNotifyMapperWatcher(
-	namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
-) (watcher.NotifyWatcher, error) {
-	base, err := f.newBaseWatcher()
-	if err != nil {
-		return nil, errors.Errorf("creating base watcher: %w", err)
-	}
-
-	return eventsource.NewNamespaceNotifyMapperWatcher(base, namespace, changeMask, mapper), nil
-}
-
-// NewValueWatcher returns a watcher for a particular change value
-// in a namespace, based on the input change mask.
-// Deprecated: use NewFilterWatcher instead.
-func (f *WatcherFactory) NewValueWatcher(
-	namespace, changeValue string, changeMask changestream.ChangeType,
-) (watcher.NotifyWatcher, error) {
-	base, err := f.newBaseWatcher()
-	if err != nil {
-		return nil, errors.Errorf("creating base watcher: %w", err)
-	}
-
-	return eventsource.NewValueWatcher(base, namespace, changeValue, changeMask), nil
-}
-
-// NewValueMapperWatcher returns a watcher for a particular change value
-// in a namespace, based on the input change mask and mapper.
-// Deprecated: use NewFilterMapperWatcher instead.
-func (f *WatcherFactory) NewValueMapperWatcher(
-	namespace, changeValue string,
-	changeMask changestream.ChangeType,
-	mapper eventsource.Mapper,
-) (watcher.NotifyWatcher, error) {
-	base, err := f.newBaseWatcher()
-	if err != nil {
-		return nil, errors.Errorf("creating base watcher: %w", err)
-	}
-
-	return eventsource.NewValueMapperWatcher(base, namespace, changeValue, changeMask, mapper), nil
 }

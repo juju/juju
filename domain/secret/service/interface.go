@@ -8,7 +8,6 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/changestream"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
@@ -203,9 +202,14 @@ type WatcherFactory interface {
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 
-	// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
-	// for events based on the input change mask and mapper.
-	NewNamespaceNotifyMapperWatcher(
-		namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
+	// NewNotifyMapperWatcher returns a new watcher that receives changes from
+	// the input base watcher's db/queue. A single filter option is required,
+	// though additional filter options can be provided. Filtering of values is
+	// done first by the filter, and then subsequently by the mapper. Based on
+	// the mapper's logic a subset of them (or none) may be emitted.
+	NewNotifyMapperWatcher(
+		mapper eventsource.Mapper,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 }

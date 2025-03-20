@@ -13,12 +13,12 @@ import (
 	context "context"
 	reflect "reflect"
 
-	changestream "github.com/juju/juju/core/changestream"
 	credential "github.com/juju/juju/core/credential"
 	machine "github.com/juju/juju/core/machine"
 	model "github.com/juju/juju/core/model"
 	user "github.com/juju/juju/core/user"
 	watcher "github.com/juju/juju/core/watcher"
+	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	credential0 "github.com/juju/juju/domain/credential"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -318,7 +318,7 @@ func (c *MockStateUpsertCloudCredentialCall) DoAndReturn(f func(context.Context,
 }
 
 // WatchCredential mocks base method.
-func (m *MockState) WatchCredential(arg0 context.Context, arg1 func(string, string, changestream.ChangeType) (watcher.Watcher[struct{}], error), arg2 credential.Key) (watcher.Watcher[struct{}], error) {
+func (m *MockState) WatchCredential(arg0 context.Context, arg1 func(eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[struct{}], error), arg2 credential.Key) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchCredential", arg0, arg1, arg2)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
@@ -345,13 +345,13 @@ func (c *MockStateWatchCredentialCall) Return(arg0 watcher.Watcher[struct{}], ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateWatchCredentialCall) Do(f func(context.Context, func(string, string, changestream.ChangeType) (watcher.Watcher[struct{}], error), credential.Key) (watcher.Watcher[struct{}], error)) *MockStateWatchCredentialCall {
+func (c *MockStateWatchCredentialCall) Do(f func(context.Context, func(eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[struct{}], error), credential.Key) (watcher.Watcher[struct{}], error)) *MockStateWatchCredentialCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateWatchCredentialCall) DoAndReturn(f func(context.Context, func(string, string, changestream.ChangeType) (watcher.Watcher[struct{}], error), credential.Key) (watcher.Watcher[struct{}], error)) *MockStateWatchCredentialCall {
+func (c *MockStateWatchCredentialCall) DoAndReturn(f func(context.Context, func(eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[struct{}], error), credential.Key) (watcher.Watcher[struct{}], error)) *MockStateWatchCredentialCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -379,41 +379,46 @@ func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
 }
 
-// NewValueWatcher mocks base method.
-func (m *MockWatcherFactory) NewValueWatcher(arg0, arg1 string, arg2 changestream.ChangeType) (watcher.Watcher[struct{}], error) {
+// NewNotifyWatcher mocks base method.
+func (m *MockWatcherFactory) NewNotifyWatcher(arg0 eventsource.FilterOption, arg1 ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewValueWatcher", arg0, arg1, arg2)
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "NewNotifyWatcher", varargs...)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewValueWatcher indicates an expected call of NewValueWatcher.
-func (mr *MockWatcherFactoryMockRecorder) NewValueWatcher(arg0, arg1, arg2 any) *MockWatcherFactoryNewValueWatcherCall {
+// NewNotifyWatcher indicates an expected call of NewNotifyWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewNotifyWatcher(arg0 any, arg1 ...any) *MockWatcherFactoryNewNotifyWatcherCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewValueWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewValueWatcher), arg0, arg1, arg2)
-	return &MockWatcherFactoryNewValueWatcherCall{Call: call}
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNotifyWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNotifyWatcher), varargs...)
+	return &MockWatcherFactoryNewNotifyWatcherCall{Call: call}
 }
 
-// MockWatcherFactoryNewValueWatcherCall wrap *gomock.Call
-type MockWatcherFactoryNewValueWatcherCall struct {
+// MockWatcherFactoryNewNotifyWatcherCall wrap *gomock.Call
+type MockWatcherFactoryNewNotifyWatcherCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockWatcherFactoryNewValueWatcherCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockWatcherFactoryNewValueWatcherCall {
+func (c *MockWatcherFactoryNewNotifyWatcherCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockWatcherFactoryNewNotifyWatcherCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockWatcherFactoryNewValueWatcherCall) Do(f func(string, string, changestream.ChangeType) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewValueWatcherCall {
+func (c *MockWatcherFactoryNewNotifyWatcherCall) Do(f func(eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewNotifyWatcherCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockWatcherFactoryNewValueWatcherCall) DoAndReturn(f func(string, string, changestream.ChangeType) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewValueWatcherCall {
+func (c *MockWatcherFactoryNewNotifyWatcherCall) DoAndReturn(f func(eventsource.FilterOption, ...eventsource.FilterOption) (watcher.Watcher[struct{}], error)) *MockWatcherFactoryNewNotifyWatcherCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
