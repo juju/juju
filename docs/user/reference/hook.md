@@ -141,12 +141,11 @@ The result is that the events are consumed in the order: `2-1-3`. Beware.
 ## Hook kinds
 
 All hooks share a lot of common behaviour in terms of the environment in which they run, how charms
-are notified that a hook event has occurred, how errors are reported and how a user might respond to
+are notified that a hook event has occurred, how errors are reported, and how a user might respond to
 a unit being in an error state due to a failed hook execution etc.
 
 Some hooks also can be grouped according to the Juju subsystem they represent. The hook kinds are:
 
-* action: used to inform a charm about progress of actions being run
 * relation: used to inform a charm about changes to related applications and units
 * secret: used to inform a charm about changes to secrets it either owns or has consumed
 * storage: used to inform a charm about changes to storage attached to its unit
@@ -155,6 +154,7 @@ Some hooks also can be grouped according to the Juju subsystem they represent. T
 
 The documentation in this section will, where relevant, describe behaviour specific to particular hook kinds. 
 
+(hook-execution)=
 ## Hook execution
 
 Hooks are run with environment variables set by Juju to expose relevant contextual configuration to the charm.
@@ -213,7 +213,7 @@ A charm's lifecycle consists of distinct **phases**:
 * tear down
 
 Generally, no assumptions can be made about the order of hook execution. However, there are some limited guarantees
-about hook sequencing during install, upgrade and relation removal. 
+about hook sequencing during install, upgrade, and relation removal. 
 
 In normal operation, a unit will run at least the `install`, `start`, `config-changed` and `stop` hooks over the course of its lifetime.
 
@@ -263,8 +263,8 @@ The `remove` event is the last event a unit will ever see before being removed.
 
 Hooks should ideally be idempotent, so that they can fail and be re-executed
 from scratch without trouble. Charm code in hooks does not have complete control
-over the times the hook might be stopped: if the unit agent process is killed
-for any reason while running a hook, then when it recovers it will treat that
+over the times the hook might be unexpectedly aborted: if the unit agent process is
+killed for any reason while running a hook, then when it recovers it will treat that
 hook as having failed -- just as if it had returned a non-zero exit code -- and
 request user intervention.
 
@@ -282,14 +282,6 @@ information or advice before signalling the error.
 ## Hooks in detail
 
 This section describes the workflows and associated hook events which are important to the operation of Juju.
-
-(action-hooks)=
-### Action hooks
-
-Action hooks operate in an environment with additional environment variables available:
-
-* JUJU_ACTION_NAME holds the name of the action.
-* JUJU_ACTION_UUID holds the UUID of the action.
 
 (relation-hooks)=
 ### Relation hooks
@@ -410,29 +402,6 @@ Workload hooks operate in an environment with additional environment variables a
 ## List of hooks
 
 > [Source](https://github.com/juju/juju/blob/main/internal/charm/hooks/hooks.go)
-
-(hook-action-action)=
-### `<action>-action`
-
-#### What triggers it?
-
-A charm user invoking the action name from the Juju CLI (`juju run <unit/0> foo`,  `juju run <unit/0> <unit/1> foo`).
-
-#### Which environment variables is it executed with? 
-
-All [common charm hook](#common-charm-hooks) and [action hook](#action-hooks) environment variables.
-
-#### Who gets it?
-
-All the units that the charm user has run the action on.
-
-<!--
-> Note: If hyphens are used in action names, they are replaced with underscores in the corresponding event names. For example, an action named `snapshot-database` would result in an event named `snapshot_database_action` being triggered when the action is invoked.
-
-> Note that the action handler in the charm can in principle cause other events to be fired. For example:
-> - Deferred events will trigger before the action.
-> - If the action handler updates relation data, a `<endpoint name>_relation_changed` will be emitted afterwards on the affected units.
--->
 
 (hook-collect-metrics)=
 ### `collect-metrics` (deprecated)
