@@ -44,6 +44,8 @@ var commonFacadeNames = set.NewStrings(
 
 	// ModelConfig may be used for letting controller commands access provider, for example, juju add-k8s.
 	"ModelConfig",
+
+	"SSHServer",
 )
 
 func controllerFacadesOnly(facadeName, _ string) error {
