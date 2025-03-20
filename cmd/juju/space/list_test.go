@@ -87,10 +87,10 @@ func (s *ListSuite) TestOutputFormats(c *gc.C) {
 	outDir := c.MkDir()
 	expectedYAML := `
 spaces:
-- id: "0"
+- id: 00000001-0000-7000-b000-7a770aed04bc
   name: alpha
   subnets: {}
-- id: "1"
+- id: deadbeef1
   name: space1
   subnets:
     2001:db8::/32:
@@ -105,7 +105,7 @@ spaces:
       status: 'error: invalid subnet CIDR: invalid'
       zones:
       - zone1
-- id: "2"
+- id: deadbeef2
   name: space2
   subnets:
     4.3.2.0/28:
@@ -127,12 +127,12 @@ spaces:
 {
   "spaces": [
     {
-      "id": "0",
+      "id": "00000001-0000-7000-b000-7a770aed04bc",
       "name": "alpha",
       "subnets": {}
     },
     {
-      "id": "1",
+      "id": "deadbeef1",
       "name": "space1",
       "subnets": {
         "2001:db8::/32": {
@@ -154,7 +154,7 @@ spaces:
       }
     },
     {
-      "id": "2",
+      "id": "deadbeef2",
       "name": "space2",
       "subnets": {
         "10.1.2.0/24": {
@@ -204,13 +204,13 @@ spaces:
 `, "") + "\n"
 
 	expectedTabular := `
-Name    Space ID  Subnets      
-alpha   0                      
-space1  1         2001:db8::/32
-                  invalid      
-space2  2         10.1.2.0/24  
-                  4.3.2.0/28   
-                               
+Name    Space ID                              Subnets      
+alpha   00000001-0000-7000-b000-7a770aed04bc               
+space1  deadbeef1                             2001:db8::/32
+                                              invalid      
+space2  deadbeef2                             10.1.2.0/24  
+                                              4.3.2.0/28   
+                                                           
 `[1:]
 
 	expectedShortTabular := `

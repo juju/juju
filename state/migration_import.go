@@ -668,12 +668,19 @@ func (i *importer) parseBindings(bindingsMap map[string]string) (*Bindings, erro
 	if bindingsMap == nil {
 		bindingsMap = make(map[string]string, 1)
 	}
-	if _, exists := bindingsMap[defaultEndpointName]; !exists {
+	spaceID, exists := bindingsMap[defaultEndpointName]
+	if !exists {
 		if defaultMappingsAreIds {
 			bindingsMap[defaultEndpointName] = network.AlphaSpaceId
 		} else {
 			bindingsMap[defaultEndpointName] = network.AlphaSpaceName
 		}
+	} else if spaceID == "0" {
+		// In pre-4.0 versions we used the "0" string as space ID for the
+		// default (alpha) space instad of a UUID. If we find this ID when
+		// importing, then we need to update it to the new default space ID.
+		// This is of course temporary until the whole legacy state is removed.
+		bindingsMap[defaultEndpointName] = network.AlphaSpaceId
 	}
 
 	return NewBindings(i.st, bindingsMap)
