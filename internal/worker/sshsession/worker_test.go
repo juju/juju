@@ -1,0 +1,363 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package sshsession_test
+
+import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
+	"io"
+	"net"
+	"os"
+	"os/user"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/names/v5"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
+	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
+	"golang.org/x/crypto/ssh"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/worker/sshsession"
+)
+
+type workerSuite struct {
+	testing.IsolationSuite
+
+	agentMock        *MockAgent
+	agentConfMock    *MockConfig
+	facadeClientMock *MockFacadeClient
+	watcherMock      *MockStringsWatcher
+	mockLogger       *MockLogger
+}
+
+var _ = gc.Suite(&workerSuite{})
+
+func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.facadeClientMock = NewMockFacadeClient(ctrl)
+	s.agentMock = NewMockAgent(ctrl)
+	s.agentConfMock = NewMockConfig(ctrl)
+	s.watcherMock = NewMockStringsWatcher(ctrl)
+	s.mockLogger = NewMockLogger(ctrl)
+
+	return ctrl
+}
+
+func (s *workerSuite) newWorkerConfig(
+	logger sshsession.Logger,
+	modifier func(*sshsession.WorkerConfig),
+) *sshsession.WorkerConfig {
+	cg, _, _ := newStubConnectionGetter()
+	cfg := &sshsession.WorkerConfig{
+		Logger:           logger,
+		FacadeClient:     s.facadeClientMock,
+		Agent:            s.agentMock,
+		ConnectionGetter: cg,
+	}
+
+	modifier(cfg)
+
+	return cfg
+}
+
+func (s *workerSuite) TestValidate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	l := loggo.GetLogger("test")
+
+	// Test all OK.
+	cfg := s.newWorkerConfig(l, func(wc *sshsession.WorkerConfig) {})
+	c.Assert(cfg.Validate(), jc.ErrorIsNil)
+
+	// Test no Logger.
+	cfg = s.newWorkerConfig(
+		l,
+
+		func(cfg *sshsession.WorkerConfig) {
+			cfg.Logger = nil
+		},
+	)
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	// Test no FacadeClient.
+	cfg = s.newWorkerConfig(
+		l,
+
+		func(cfg *sshsession.WorkerConfig) {
+			cfg.FacadeClient = nil
+		},
+	)
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	// Test no Agent.
+	cfg = s.newWorkerConfig(
+		l,
+
+		func(cfg *sshsession.WorkerConfig) {
+			cfg.Agent = nil
+		},
+	)
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	// Test no ConnectionGetter.
+	cfg = s.newWorkerConfig(
+		l,
+
+		func(cfg *sshsession.WorkerConfig) {
+			cfg.ConnectionGetter = nil
+		},
+	)
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+}
+
+func (s *workerSuite) TestSSHSessionWorkerCanBeKilled(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	l := loggo.GetLogger("test")
+
+	s.agentConfMock.EXPECT().Tag().Return(names.NewMachineTag("0")).Times(1)
+	s.agentMock.EXPECT().CurrentConfig().Return(s.agentConfMock).Times(1)
+
+	stringChan := watcher.StringsChannel(make(chan []string))
+	s.watcherMock.EXPECT().Changes().Return(stringChan).Times(1)
+	s.facadeClientMock.EXPECT().WatchSSHConnRequest("0").Return(s.watcherMock, nil).Times(1)
+
+	connGetter, _, _ := newStubConnectionGetter()
+	defer connGetter.close()
+
+	w, err := sshsession.NewWorker(sshsession.WorkerConfig{
+		Logger:           l,
+		FacadeClient:     s.facadeClientMock,
+		Agent:            s.agentMock,
+		ConnectionGetter: connGetter,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(workertest.CheckKill(c, w), jc.ErrorIsNil)
+}
+
+// TestSSHSessionWorkerFailsToValidateControllerAddress
+func (s *workerSuite) TestSSHSessionWorkerFailsToValidateControllerAddress(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// This is generated because in the event the test fails, we want a new one
+	// so we can run the test again and expect a pass.
+	testPubKey, _, err := generateTestEd25519Keys()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.agentConfMock.EXPECT().APIAddresses().Return([]string{"127.0.0.1:17022"}, nil).Times(1)
+	s.agentConfMock.EXPECT().Tag().Return(names.NewMachineTag("0")).Times(1)
+	s.agentMock.EXPECT().CurrentConfig().Return(s.agentConfMock).Times(2)
+
+	innerChan := make(chan []string)
+	go func() {
+		innerChan <- []string{"machine-0-sshconnectionreq-0"}
+	}()
+	stringChan := watcher.StringsChannel(innerChan)
+
+	s.watcherMock.EXPECT().Changes().Return(stringChan).AnyTimes()
+	s.facadeClientMock.EXPECT().WatchSSHConnRequest("0").Return(s.watcherMock, nil).Times(1)
+	s.facadeClientMock.EXPECT().GetSSHConnRequest("machine-0-sshconnectionreq-0").Return(
+		sshsession.DummyParams{
+			ControllerAddress:  network.NewSpaceAddresses("an unknown address"),
+			EphemeralPublicKey: testPubKey,
+		},
+		nil,
+	)
+
+	// Because we're simply logging this has failed, all we can do is check the log. This is all this
+	// test is checking for, rest is setup.
+	s.mockLogger.EXPECT().Errorf("failed to handle connection %q: %v", gomock.Any(), gomock.Any()).Times(1)
+	s.mockLogger.EXPECT().Errorf("controller address %q not in known addresses %v", "an unknown address", gomock.Any()).Times(1)
+
+	connGetter, _, _ := newStubConnectionGetter()
+	defer connGetter.close()
+
+	w, err := sshsession.NewWorker(sshsession.WorkerConfig{
+		Logger:           s.mockLogger,
+		FacadeClient:     s.facadeClientMock,
+		Agent:            s.agentMock,
+		ConnectionGetter: connGetter,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	// Have a short wait to let the handle run.
+	time.Sleep(testing.ShortWait)
+
+}
+
+// TestSSHSessionWorkerHandlesConnection tests that the worker can at least pipe the
+// connections together using an in-memory net.Pipe. Other than an actual integration
+// test, we cannot test the literal SSH connections to the controller and local SSHD.
+//
+// Additionally, as a side effect, we're testing the ephemeral key is added and deleted.
+// We don't check explicitly for jujussh.AddKeys as it will error on failure anyway.
+// So we only explicitly check that the key has been removed from the authorized_key file
+// on connection closure. We could write whitebox tests for key addition/removal, but we'd
+// really just be testing the package.
+func (s *workerSuite) TestSSHSessionWorkerHandlesConnection(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	l := loggo.GetLogger("test")
+
+	// This is generated because in the event the test fails, we want a new one
+	// so we can run the test again and expect a pass.
+	testPubKey, _, err := generateTestEd25519Keys()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.agentConfMock.EXPECT().APIAddresses().Return([]string{"127.0.0.1:17022"}, nil).Times(1)
+	s.agentConfMock.EXPECT().Tag().Return(names.NewMachineTag("0")).Times(1)
+	s.agentMock.EXPECT().CurrentConfig().Return(s.agentConfMock).Times(2)
+
+	innerChan := make(chan []string)
+	go func() {
+		innerChan <- []string{"machine-0-sshconnectionreq-0"}
+	}()
+	stringChan := watcher.StringsChannel(innerChan)
+
+	s.watcherMock.EXPECT().Changes().Return(stringChan).AnyTimes()
+	s.facadeClientMock.EXPECT().WatchSSHConnRequest("0").Return(s.watcherMock, nil).Times(1)
+	s.facadeClientMock.EXPECT().GetSSHConnRequest("machine-0-sshconnectionreq-0").Return(
+		sshsession.DummyParams{
+			ControllerAddress:  network.NewSpaceAddresses("127.0.0.1:17022"),
+			EphemeralPublicKey: testPubKey,
+		},
+		nil,
+	)
+
+	// Patch the user
+	u, err := user.Current()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.PatchValue(&sshsession.ControllerSSHUser, u.Name)
+
+	// Patch the authorized keys file to be temp
+	keyDir, err := authKeysDir(u.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	keyFilename := "test_authorized_keys"
+	file, err := os.CreateTemp(keyDir, keyFilename)
+	filePathToAuthKeys := file.Name()
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Remove(file.Name())
+	stat, err := file.Stat()
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&sshsession.AuthorizedKeysFile, stat.Name())
+	file.Close()
+
+	// Setup an in-memory conn getter to stub the controller and SSHD side.
+	connGetter, sshConn, sshdConn := newStubConnectionGetter()
+	defer connGetter.close()
+
+	w, err := sshsession.NewWorker(sshsession.WorkerConfig{
+		Logger:           l,
+		FacadeClient:     s.facadeClientMock,
+		Agent:            s.agentMock,
+		ConnectionGetter: connGetter,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	// We wait a while to make sure the connection is being "handled" and we can fire some data
+	// down the pipe to read from the other side.
+	time.Sleep(testing.ShortWait)
+
+	go func() {
+		sshConn.Write([]byte("incoming ssh connection"))
+		// We wait a little whilst the data is copied to the reading side, then we can send
+		// EOF. Not the best but it works.
+		time.Sleep(testing.ShortWait)
+		sshConn.Close()
+	}()
+
+	msg, err := io.ReadAll(sshdConn)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(msg), gc.Equals, "incoming ssh connection")
+
+	// As the connection is done, and we know jujussh.AddKeys MUST succeed, we can simply
+	// check the key has been cleaned up.
+	// We just need a small sleep to let the deferred key clean up run.
+	time.Sleep(testing.ShortWait)
+	f, err := os.Open(filePathToAuthKeys)
+	c.Assert(err, jc.ErrorIsNil)
+	b, err := io.ReadAll(f)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(b), gc.Equals, "\n")
+}
+
+type stubConnectionGetter struct {
+	sshConn  net.Conn
+	sshdConn net.Conn
+}
+
+func newStubConnectionGetter() (*stubConnectionGetter, net.Conn, net.Conn) {
+	p1, p2 := net.Pipe()
+	return &stubConnectionGetter{sshConn: p1, sshdConn: p2}, p1, p2
+}
+
+func (cg *stubConnectionGetter) GetSSHConnection(password, ctrlAddress string) (net.Conn, error) {
+	return cg.sshConn, nil
+
+}
+func (cg *stubConnectionGetter) GetSSHDConnection() (net.Conn, error) {
+	return cg.sshdConn, nil
+}
+
+func (cg *stubConnectionGetter) close() {
+	cg.sshConn.Close()
+	cg.sshdConn.Close()
+}
+
+func generateTestEd25519Keys() ([]byte, []byte, error) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Encode public key for SSH
+	sshPub, err := ssh.NewPublicKey(pub)
+	if err != nil {
+		return nil, nil, err
+	}
+	pubBytes := ssh.MarshalAuthorizedKey(sshPub)
+
+	// Encode private key in PEM format
+	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return nil, nil, err
+	}
+	privPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: privBytes,
+	})
+
+	pubString := strings.TrimSpace(string(pubBytes)) + " " + "testcomment"
+
+	return []byte(pubString), privPEM, nil
+}
+
+func authKeysDir(username string) (string, error) {
+	homeDir, err := utils.UserHomeDir(username)
+	if err != nil {
+		return "", err
+	}
+	homeDir, err = utils.NormalizePath(homeDir)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(homeDir, ".ssh"), nil
+}

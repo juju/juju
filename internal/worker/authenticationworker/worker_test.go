@@ -49,7 +49,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 
 	// Set up an existing key (which is not in the environment) in the ssh authorised_keys file.
 	s.existingKeys = []string{sshtesting.ValidKeyTwo.Key + " existinguser@host"}
-	err := ssh.AddKeys(authenticationworker.SSHUser, s.existingKeys...)
+	err := ssh.AddKeys(authenticationworker.SSHUser, authenticationworker.AuthKeysFile, s.existingKeys...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var apiRoot api.Connection
@@ -90,7 +90,7 @@ func (s *workerSuite) waitSSHKeys(c *gc.C, expected []string) {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authoirsed ssh keys to change")
 		case <-time.After(coretesting.ShortWait):
-			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
+			keys, err := ssh.ListKeys(authenticationworker.SSHUser, authenticationworker.AuthKeysFile, ssh.FullKeys)
 			c.Assert(err, jc.ErrorIsNil)
 			keysStr := strings.Join(keys, "\n")
 			expectedStr := strings.Join(expected, "\n")
