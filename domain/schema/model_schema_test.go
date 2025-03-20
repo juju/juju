@@ -92,7 +92,6 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"virtual_port_type",
 
 		// Network address
-		"net_node_ip_address",
 		"ip_address_scope",
 		"ip_address",
 		"ip_address_type",

@@ -148,6 +148,13 @@ CREATE TABLE ip_address (
     origin_id INT NOT NULL,
     -- one of public, local-cloud, local-machine, link-local etc.
     scope_id INT NOT NULL,
+    -- indicates that this address is not the primary
+    -- address associated with the NIC.
+    is_secondary BOOLEAN DEFAULT false,
+    -- indicates whether this address is a virtual/floating/shadow
+    -- address assigned by a provider rather than being
+    -- associated directly with a device on-machine.
+    is_shadow BOOLEAN DEFAULT false,
 
     CONSTRAINT fk_ip_address_link_layer_device
     FOREIGN KEY (device_uuid)
@@ -167,23 +174,6 @@ CREATE TABLE ip_address (
     CONSTRAINT fk_ip_address_scope
     FOREIGN KEY (scope_id)
     REFERENCES ip_address_scope (id)
-);
-
-CREATE TABLE net_node_ip_address (
-    address_uuid TEXT NOT NULL PRIMARY KEY,
-
-    -- indicates that this address is not the primary.
-    -- address associated with the NIC.
-    is_secondary BOOLEAN DEFAULT false,
-
-    -- indicates whether this address is a virtual/floating/shadow.
-    -- address assigned to a NIC by a provider rather than being
-    -- associated directly with a device on-machine.
-    is_shadow BOOLEAN DEFAULT false,
-
-    CONSTRAINT fk_net_node_ip_address_ip_address
-    FOREIGN KEY (address_uuid)
-    REFERENCES ip_address (uuid)
 );
 
 CREATE TABLE ip_address_dns_server_address (
