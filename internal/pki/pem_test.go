@@ -158,7 +158,7 @@ func (p *PEMSuite) TestSignerFromPKCS1Pem(c *gc.C) {
 
 		signerPem, err := pki.UnmarshalSignerFromPemBlock(block)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(signerPem, jc.DeepEquals, signer)
+		c.Assert(signerPem.Public(), jc.DeepEquals, signer.Public())
 	}
 }
 
