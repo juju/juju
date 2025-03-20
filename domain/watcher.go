@@ -38,16 +38,11 @@ func NewWatcherFactory(watchableDBFactory WatchableDBFactory, logger logger.Logg
 func (f *WatcherFactory) NewUUIDsWatcher(
 	tableName string, changeMask changestream.ChangeType,
 ) (watcher.StringsWatcher, error) {
-<<<<<<< HEAD
 	w, err := f.NewNamespaceWatcher(
 		eventsource.InitialNamespaceChanges("SELECT uuid from "+tableName),
 		eventsource.NamespaceFilter(tableName, changeMask),
 	)
-	return w, errors.Trace(err)
-=======
-	w, err := f.NewNamespaceWatcher(tableName, changeMask, eventsource.InitialNamespaceChanges("SELECT uuid from "+tableName))
 	return w, errors.Capture(err)
->>>>>>> c8c981ca12 (refactor: remove juju/errors from the domain package)
 }
 
 // NewNamespaceWatcher returns a new watcher that filters changes from the input

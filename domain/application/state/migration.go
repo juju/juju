@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ExportApplications returns all the applications in the model.
@@ -32,7 +32,7 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return errors.Annotate(err, "failed to get applications for export")
+			return errors.Errorf("failed to get applications for export: %w", err)
 		}
 		return nil
 	}); err != nil {

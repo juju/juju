@@ -514,10 +514,10 @@ func (st *State) GetAllFullUnitStatuses(ctx context.Context) (status.FullUnitSta
 	ret := make(status.FullUnitStatuses, len(statuses))
 	for _, s := range statuses {
 		if s.WorkloadStatusID == nil {
-			return nil, errors.Errorf("workload status for unit %q not found%w", s.UnitName, jujuerrors.Hide(statuserrors.UnitStatusNotFound))
+			return nil, errors.Errorf("workload status for unit %q not found", s.UnitName).Add(statuserrors.UnitStatusNotFound)
 		}
 		if s.AgentStatusID == nil {
-			return nil, errors.Errorf("agent status for unit %q not found%w", s.UnitName, jujuerrors.Hide(statuserrors.UnitStatusNotFound))
+			return nil, errors.Errorf("agent status for unit %q not found", s.UnitName).Add(statuserrors.UnitStatusNotFound)
 		}
 		workloadStatusID, err := decodeWorkloadStatus(*s.WorkloadStatusID)
 		if err != nil {

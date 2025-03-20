@@ -5,6 +5,7 @@ package testing
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
