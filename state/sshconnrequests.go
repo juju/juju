@@ -16,7 +16,7 @@ import (
 
 type sshConnRequestDoc struct {
 	DocId               string    `bson:"_id"`
-	UnitName            string    `bson:"unit_name"`
+	MachineId           string    `bson:"machine_id"`
 	Expires             time.Time `bson:"expires"`
 	Username            string    `bson:"username"`
 	Password            string    `bson:"password"`
@@ -25,21 +25,36 @@ type sshConnRequestDoc struct {
 	EphemeralPublicKey  []byte    `bson:"controller_public_key"`
 }
 
-// SSHConnRequest represents a ssh connection request.
+// SSHConnRequest represents a ssh connection request. This is persisted statefully such
+// that it may be watched by the machine agent to know when to perform a reverse SSH call
+// back to the controller and contains the details to perform such connection.
 type SSHConnRequest struct {
 	*sshConnRequestDoc
 }
 
 // SSHConnRequestArg holds the necessary info to create a ssh connection requests.
 type SSHConnRequestArg struct {
-	TunnelID           string
-	ModelUUID          string
-	UnitName           string
-	Expires            time.Time
-	Username           string
-	Password           string
-	ControllerAddress  network.SpaceAddresses
-	UnitPort           int
+	// TunnelID holds the ID to associate the connection back to the incoming client.
+	TunnelID string
+	// ModelUUID holds the model UUID.
+	ModelUUID string
+	// MachineId holds the machine ID that we are going to SSH into.
+	MachineId string
+	// Expires holds the time when the request will expire.
+	Expires time.Time
+	// Username holds the username that the machine agent will use to perform reverse SSH back
+	// to the controller's SSH server.
+	Username string
+	// Password holds the password (a JWT) that the machine agent will use to perform reverse SSH back
+	// to the controller's SSH server.
+	Password string
+	// ControllerAddress holds the specific address for this instance of the controller
+	// to route correctly back to from the machine agent when performing the reverse SSH call.
+	ControllerAddress network.SpaceAddresses
+
+	UnitPort int
+	// EphemeralPublicKey holds the ephemeral public key that will be added to the machine's
+	// authorized_keys for the lifetime of this connection.
 	EphemeralPublicKey []byte
 }
 
@@ -47,17 +62,17 @@ type SSHConnRequestArg struct {
 type SSHConnRequestRemoveArg struct {
 	TunnelID  string
 	ModelUUID string
-	UnitName  string
+	MachineId string
 }
 
-func sshReqConnKeyID(unitName string, tunnelID string) string {
-	return "unit" + "-" + unitName + "-" + "sshreqconn" + "-" + tunnelID
+func sshReqConnKeyID(machineId string, tunnelID string) string {
+	return "unit" + "-" + machineId + "-" + "sshreqconn" + "-" + tunnelID
 }
 
 func newSSHConnRequestDoc(arg SSHConnRequestArg) (sshConnRequestDoc, error) {
 	return sshConnRequestDoc{
-		DocId:               ensureModelUUID(arg.ModelUUID, sshReqConnKeyID(arg.UnitName, arg.TunnelID)),
-		UnitName:            arg.UnitName,
+		DocId:               ensureModelUUID(arg.ModelUUID, sshReqConnKeyID(arg.MachineId, arg.TunnelID)),
+		MachineId:           arg.MachineId,
 		UnitPort:            arg.UnitPort,
 		Expires:             arg.Expires,
 		Username:            arg.Username,
@@ -100,7 +115,7 @@ func (st *State) InsertSSHConnRequest(arg SSHConnRequestArg) error {
 func removeSSHConnRequestOps(arg SSHConnRequestRemoveArg) []txn.Op {
 	return []txn.Op{{
 		C:      sshConnRequestsC,
-		Id:     ensureModelUUID(arg.ModelUUID, sshReqConnKeyID(arg.UnitName, arg.TunnelID)),
+		Id:     ensureModelUUID(arg.ModelUUID, sshReqConnKeyID(arg.MachineId, arg.TunnelID)),
 		Remove: true,
 	}}
 }
@@ -132,8 +147,9 @@ func (st *State) GetSSHConnRequest(docID string) (SSHConnRequest, error) {
 }
 
 // WatchSSHConnRequest creates a watcher to get notified on documents being
-// added/modified to the ssh request collection.
-func (st *State) WatchSSHConnRequest(unitName string) StringsWatcher {
+// added/modified to the ssh request collection. The machine agent will be the
+// consumer of this, determining when to initate reverse SSH.
+func (st *State) WatchSSHConnRequest(machineId string) StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{
 		col: sshConnRequestsC,
 		// -1 is for document deleted, 0 added, 1 modified.
@@ -145,7 +161,7 @@ func (st *State) WatchSSHConnRequest(unitName string) StringsWatcher {
 				return false
 			}
 			id := st.localID(sKey)
-			if !strings.Contains(id, unitName) {
+			if !strings.Contains(id, machineId) {
 				return false
 			}
 			return true
