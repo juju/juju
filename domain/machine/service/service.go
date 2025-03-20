@@ -422,18 +422,18 @@ func (s *Service) SetKeepInstance(ctx context.Context, machineName machine.Name,
 
 // RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
 func (s *Service) RequireMachineReboot(ctx context.Context, uuid string) error {
-	autoErr := s.st.RequireMachineReboot(ctx, uuid)
-	if autoErr != nil {
-		return errors.Errorf("requiring a machine reboot for machine with uuid %q: %w", uuid, autoErr)
+	err := s.st.RequireMachineReboot(ctx, uuid)
+	if err != nil {
+		return errors.Errorf("requiring a machine reboot for machine with uuid %q: %w", uuid, err)
 	}
 	return nil
 }
 
 // ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
 func (s *Service) ClearMachineReboot(ctx context.Context, uuid string) error {
-	autoErr := s.st.ClearMachineReboot(ctx, uuid)
-	if autoErr != nil {
-		return errors.Errorf("clear machine reboot flag for machine with uuid %q: %w", uuid, autoErr)
+	err := s.st.ClearMachineReboot(ctx, uuid)
+	if err != nil {
+		return errors.Errorf("clear machine reboot flag for machine with uuid %q: %w", uuid, err)
 	}
 	return nil
 }
@@ -471,9 +471,9 @@ func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (mach
 // MarkMachineForRemoval marks the given machine for removal.
 // It returns a MachineNotFound error if the machine does not exist.
 func (s *Service) MarkMachineForRemoval(ctx context.Context, machineName machine.Name) error {
-	autoErr := s.st.MarkMachineForRemoval(ctx, machineName)
-	if autoErr != nil {
-		return errors.Errorf("marking machine %q for removal: %w", machineName, autoErr)
+	err := s.st.MarkMachineForRemoval(ctx, machineName)
+	if err != nil {
+		return errors.Errorf("marking machine %q for removal: %w", machineName, err)
 	}
 	return nil
 }

@@ -61,9 +61,9 @@ func (s *Service) SetMachineCloudInstance(
 	displayName string,
 	hardwareCharacteristics *instance.HardwareCharacteristics,
 ) error {
-	autoErr := s.st.SetMachineCloudInstance(ctx, machineUUID, instanceID, displayName, hardwareCharacteristics)
-	if autoErr != nil {
-		return errors.Errorf("setting machine cloud instance for machine %q: %w", machineUUID, autoErr)
+	err := s.st.SetMachineCloudInstance(ctx, machineUUID, instanceID, displayName, hardwareCharacteristics)
+	if err != nil {
+		return errors.Errorf("setting machine cloud instance for machine %q: %w", machineUUID, err)
 	}
 	return nil
 }
@@ -72,10 +72,9 @@ func (s *Service) SetMachineCloudInstance(
 // table along with the instance tags and the link to a lxd profile if any, as
 // well as any associated status data.
 func (s *Service) DeleteMachineCloudInstance(ctx context.Context, machineUUID string) error {
-	autoErr := s.st.DeleteMachineCloudInstance(ctx, machineUUID)
-	if autoErr != nil {
-		return errors.Errorf("deleting machine cloud instance for machine %q: %w", machineUUID, autoErr)
+	err := s.st.DeleteMachineCloudInstance(ctx, machineUUID)
+	if err != nil {
+		return errors.Errorf("deleting machine cloud instance for machine %q: %w", machineUUID, err)
 	}
 	return nil
-
 }
