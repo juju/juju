@@ -1450,7 +1450,7 @@ func (u UniterAPI) readOneUnitSettings(
 		return nil, apiservererrors.ErrPerm
 	}
 	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, relationerrors.RelationNotFound) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, internalerrors.Capture(err)
@@ -1558,7 +1558,7 @@ func (u *UniterAPI) ReadLocalApplicationSettings(ctx context.Context, arg params
 	}
 
 	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, relationerrors.RelationNotFound) {
 		return res, apiservererrors.ErrPerm
 	} else if err != nil {
 		return res, internalerrors.Capture(err)
@@ -1794,7 +1794,7 @@ func (u *UniterAPI) oneSetRelationStatus(
 ) error {
 	// Verify the relation exist before continuing.
 	relationUUID, err := u.relationService.GetRelationUUIDByID(ctx, relID)
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, relationerrors.RelationNotFound) {
 		return apiservererrors.ErrPerm
 	} else if err != nil {
 		return internalerrors.Capture(err)
@@ -1951,7 +1951,7 @@ func (u *UniterAPI) getOneRelation(
 		return nothing, apiservererrors.ErrPerm
 	}
 	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, corerelation.Key(relTag.Id()))
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, relationerrors.RelationNotFound) {
 		return nothing, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nothing, err

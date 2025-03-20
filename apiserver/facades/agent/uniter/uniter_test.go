@@ -887,7 +887,7 @@ func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	relID := 42
 	relationUUID := relationtesting.GenRelationUUID(c)
-	s.expectGetRelationUUIDByID(relID, relationUUID, errors.NotFound)
+	s.expectGetRelationUUIDByID(relID, relationUUID, relationerrors.RelationNotFound)
 
 	// act
 	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
