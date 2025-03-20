@@ -24,6 +24,7 @@ import (
 	charm "github.com/juju/juju/domain/application/charm"
 	relation0 "github.com/juju/juju/domain/relation"
 	charm0 "github.com/juju/juju/internal/charm"
+	relation1 "github.com/juju/juju/internal/relation"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -1028,7 +1029,7 @@ func (c *MockRelationServiceGetRelationUUIDByIDCall) DoAndReturn(f func(context.
 }
 
 // GetRelationUUIDFromKey mocks base method.
-func (m *MockRelationService) GetRelationUUIDFromKey(arg0 context.Context, arg1 relation.Key) (relation.UUID, error) {
+func (m *MockRelationService) GetRelationUUIDFromKey(arg0 context.Context, arg1 relation1.Key) (relation.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRelationUUIDFromKey", arg0, arg1)
 	ret0, _ := ret[0].(relation.UUID)
@@ -1055,13 +1056,13 @@ func (c *MockRelationServiceGetRelationUUIDFromKeyCall) Return(arg0 relation.UUI
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceGetRelationUUIDFromKeyCall) Do(f func(context.Context, relation.Key) (relation.UUID, error)) *MockRelationServiceGetRelationUUIDFromKeyCall {
+func (c *MockRelationServiceGetRelationUUIDFromKeyCall) Do(f func(context.Context, relation1.Key) (relation.UUID, error)) *MockRelationServiceGetRelationUUIDFromKeyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceGetRelationUUIDFromKeyCall) DoAndReturn(f func(context.Context, relation.Key) (relation.UUID, error)) *MockRelationServiceGetRelationUUIDFromKeyCall {
+func (c *MockRelationServiceGetRelationUUIDFromKeyCall) DoAndReturn(f func(context.Context, relation1.Key) (relation.UUID, error)) *MockRelationServiceGetRelationUUIDFromKeyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

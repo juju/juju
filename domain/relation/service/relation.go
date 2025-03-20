@@ -232,7 +232,7 @@ func (s *Service) GetRelationID(ctx context.Context, relationUUID corerelation.U
 // GetRelationKey returns a key identifier for the given relation UUID.
 // The key describes the relation defined by endpoints in sorted order.
 // Note: See the state.relationKey() function.
-func (s *Service) GetRelationKey(ctx context.Context, relationUUID corerelation.UUID) (corerelation.Key, error) {
+func (s *Service) GetRelationKey(ctx context.Context, relationUUID corerelation.UUID) (internalrelation.Key, error) {
 	return "", nil
 }
 
@@ -294,7 +294,7 @@ func (s *Service) GetRelationUUIDByID(ctx context.Context, relationID int) (core
 // GetRelationUUIDFromKey returns a relation UUID for the given Key.
 // The following error types can be expected:
 // - [relationerrors.RelationNotFound]: when no relation exists for the given key.
-func (s *Service) GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error) {
+func (s *Service) GetRelationUUIDFromKey(ctx context.Context, relationKey internalrelation.Key) (corerelation.UUID, error) {
 	return "", coreerrors.NotImplemented
 }
 

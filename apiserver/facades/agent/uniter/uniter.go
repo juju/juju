@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
+	internalrelation "github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -1346,7 +1347,7 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return apiservererrors.ErrPerm
 	}
 
-	relKey, err := corerelation.ParseKeyFromTagString(relTagStr)
+	relKey, err := internalrelation.ParseKeyFromTagString(relTagStr)
 	if err != nil {
 		return apiservererrors.ErrPerm
 	}
@@ -1397,7 +1398,7 @@ func (u *UniterAPI) oneLeaveScope(ctx context.Context, canAccess common.AuthFunc
 	if !canAccess(unit) {
 		return apiservererrors.ErrPerm
 	}
-	relKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
+	relKey, err := internalrelation.ParseKeyFromTagString(arg.Relation)
 	if err != nil {
 		return apiservererrors.ErrPerm
 	}
@@ -1445,7 +1446,7 @@ func (u UniterAPI) readOneUnitSettings(
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
-	relKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
+	relKey, err := internalrelation.ParseKeyFromTagString(arg.Relation)
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -1518,7 +1519,7 @@ func (u *UniterAPI) ReadLocalApplicationSettings(ctx context.Context, arg params
 	if err != nil {
 		return res, errors.NotValidf("unit tag %q", arg.Unit)
 	}
-	relKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
+	relKey, err := internalrelation.ParseKeyFromTagString(arg.Relation)
 	if err != nil {
 		return res, errors.NotValidf("relation tag %q", arg.Relation)
 	}
@@ -1639,7 +1640,7 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
-	relationKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
+	relationKey, err := internalrelation.ParseKeyFromTagString(arg.Relation)
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -1950,7 +1951,7 @@ func (u *UniterAPI) getOneRelation(
 	if err != nil {
 		return nothing, apiservererrors.ErrPerm
 	}
-	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, corerelation.Key(relTag.Id()))
+	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, internalrelation.Key(relTag.Id()))
 	if errors.Is(err, relationerrors.RelationNotFound) {
 		return nothing, apiservererrors.ErrPerm
 	} else if err != nil {

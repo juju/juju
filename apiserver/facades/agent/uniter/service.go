@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
+	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 // Services represents all the services that the uniter facade requires.
@@ -283,7 +284,7 @@ type RelationService interface {
 	// endpoint names of a the relation.
 	// The following error types can be expected:
 	// - [relationerrors.RelationNotFound]: when no relation exists for the given key.
-	GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error)
+	GetRelationUUIDFromKey(ctx context.Context, relationKey internalrelation.Key) (corerelation.UUID, error)
 
 	// GetRelationByID returns the relation uuid based on the relation ID.
 	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
