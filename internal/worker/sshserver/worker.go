@@ -15,7 +15,22 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
-	pkissh "github.com/juju/juju/internal/pki/ssh"
+)
+
+const (
+	// TODO(ale8k): Use generated hostkey from initialise()
+	// As of right now, the generated host key is in mongo.
+	// The initialisation logic needs migrating over to DQLite and then
+	// a domain service should call the method to retrieve the generated
+	// host key here. For now, we're hardcoding it it to stop the server bouncing.
+	temporaryJumpHostKey = `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
+c2gtZWQyNTUxOQAAACBT8UidoqUmpUFFCGEhZhHWGE7VHoJY7LZ7yXzuWlSVYAAA
+AIiZq0wRmatMEQAAAAtzc2gtZWQyNTUxOQAAACBT8UidoqUmpUFFCGEhZhHWGE7V
+HoJY7LZ7yXzuWlSVYAAAAEBYRsJTytYJUidtOuv3s3tdjyDA+4TSdCz9+hFKjyqz
+v1PxSJ2ipSalQUUIYSFmEdYYTtUegljstnvJfO5aVJVgAAAAAAECAwQF
+-----END OPENSSH PRIVATE KEY-----
+`
 )
 
 // ControllerConfigService is the interface that the worker uses to get the
@@ -116,22 +131,10 @@ func (ssw *serverWrapperWorker) loop() error {
 
 	port := config.SSHServerPort()
 
-	// TODO(ale8k): As of right now, the generated host key is in mongo.
-	// The initialisation logic needs migrating over to DQLite and then
-	// a domain service should call the method to retrieve the generated
-	// host key here. For now, we'll generate it to stop the server bouncing.
-	//
-	// We could access state directly in the worker here, but 4.0 isn't
-	// released yet anyway.
-	hostKey, err := pkissh.NewMarshalledED25519()
-	if err != nil {
-		return errors.Annotatef(err, "failed to ensure ssh server host key")
-	}
-
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
 		Logger:               ssw.config.Logger,
 		NewSSHServerListener: ssw.config.NewSSHServerListener,
-		JumpHostKey:          string(hostKey), // TODO(ale8k): Use generated hostkey from initialise()
+		JumpHostKey:          temporaryJumpHostKey,
 		Port:                 port,
 	})
 	if err != nil {
