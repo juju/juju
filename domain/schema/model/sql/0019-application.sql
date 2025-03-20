@@ -9,6 +9,8 @@ CREATE TABLE application (
     placement TEXT,
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
+    -- space_uuid is the default binding for this application.
+    space_uuid TEXT,
     CONSTRAINT fk_application_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
@@ -17,7 +19,10 @@ CREATE TABLE application (
     REFERENCES charm (uuid),
     CONSTRAINT fk_application_password_hash_algorithm
     FOREIGN KEY (password_hash_algorithm_id)
-    REFERENCES password_hash_algorithm (id)
+    REFERENCES password_hash_algorithm (id),
+    CONSTRAINT fk_space_uuid
+    FOREIGN KEY (space_uuid)
+    REFERENCES space (uuid)
 );
 
 CREATE UNIQUE INDEX idx_application_name
