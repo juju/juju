@@ -9,20 +9,17 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/juju/loggo/v2"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/core/logger"
 )
 
 const (
 	stateFlushed = "flushed"
 	stateTicked  = "ticked"
-)
-
-var (
-	zeroTime = time.Time{}
 )
 
 // NewWriterFunc is a function that creates a new writer.
@@ -38,17 +35,19 @@ type LogSink struct {
 	batchSize     int
 	flushInterval time.Duration
 
-	in  chan loggo.Entry
-	out chan []logRecord
+	inLogEntry   chan loggo.Entry
+	inLogRecords chan []logger.LogRecord
 
-	pool sync.Pool
+	out chan []logRecord
 }
 
 // NewLogSink creates a new log sink that writes log messages to a file. There
 // can only be one writer writing to the same file at a time, otherwise bytes
-// will be written to the file in an interleaved manner (junk data).
-// LogSink writer will write log messages as JSON objects, one per line, even
-// if the log message is multiline.
+// will be written to the file in an interleaved manner (junk data). LogSink
+// writer will write log messages as JSON objects, one per line, even if the log
+// message is multiline. The batchSize parameter specifies the minimum number of
+// log messages to batch before writing to the underlying writer. The number of
+// entires can far exceed the batchSize if the log messages are large.
 func NewLogSink(writer io.Writer, batchSize int, flushInterval time.Duration) *LogSink {
 	return newLogSink(writer, batchSize, flushInterval, nil)
 }
@@ -63,14 +62,10 @@ func newLogSink(writer io.Writer, batchSize int, flushInterval time.Duration, in
 		batchSize:     batchSize,
 		flushInterval: flushInterval,
 
-		in:  make(chan loggo.Entry, batchSize),
-		out: make(chan []logRecord, batchSize),
+		inLogEntry:   make(chan loggo.Entry),
+		inLogRecords: make(chan []logger.LogRecord),
 
-		pool: sync.Pool{
-			New: func() any {
-				return logRecord{}
-			},
-		},
+		out: make(chan []logRecord),
 	}
 	w.tomb.Go(w.loop)
 	return w
@@ -82,7 +77,17 @@ func (w *LogSink) Write(entry loggo.Entry) {
 	select {
 	case <-w.tomb.Dying():
 		return
-	case w.in <- entry:
+	case w.inLogEntry <- entry:
+	}
+}
+
+// Log writes the given log records to the logger's storage.
+func (w *LogSink) Log(records []logger.LogRecord) error {
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.inLogRecords <- records:
+		return nil
 	}
 }
 
@@ -114,12 +119,33 @@ func (w *LogSink) loop() error {
 	})
 
 	timer := time.NewTimer(w.flushInterval)
-	entries := make([]loggo.Entry, 0, w.batchSize)
+
+	// It would be nice to create a fixed size for all the entries, but that
+	// requires splitting the log records into multiple batches. That creates
+	// more complexity, when we can just pipe the log entries to the writer in a
+	// single batch.
+	var entries []logRecord
 
 	// Tick-toc the in and out channels, to ensure that we can send the batch
 	// of log messages to the underlying writer.
-	in := w.in
+	inLogEntry := w.inLogEntry
+	inLogRecords := w.inLogRecords
+
 	var out chan []logRecord
+	var switchToRead = func() {
+		inLogEntry = w.inLogEntry
+		inLogRecords = w.inLogRecords
+
+		out = nil
+	}
+	var switchToWrite = func() {
+		inLogEntry = nil
+		inLogRecords = nil
+
+		out = w.out
+
+		timer.Reset(w.flushInterval)
+	}
 
 	for {
 		select {
@@ -129,71 +155,83 @@ func (w *LogSink) loop() error {
 				// write the remaining log messages that weren't written yet.
 				buffer := new(bytes.Buffer)
 				encoder := json.NewEncoder(buffer)
-				if err := w.write(buffer, encoder, w.records(entries)); err != nil {
+				if err := w.write(buffer, encoder, entries); err != nil {
 					return err
 				}
 			}
 			return tomb.ErrDying
 
-		case entry := <-in:
+		case entry := <-inLogEntry:
 			// Consume log entries until we have a full batch.
-			entries = append(entries, entry)
+			entries = append(entries, w.convertLogEntry(entry))
 			if len(entries) < w.batchSize {
 				continue
 			}
+			switchToWrite()
 
-			in = nil
-			out = w.out
-
-			timer.Reset(w.flushInterval)
+		case records := <-inLogRecords:
+			// Consume the log records, there is a higher chance that the
+			// entries will be larger than the batch size. In that case we
+			// just have a larger batch size for the log messages.
+			entries = append(entries, w.convertLogRecords(records)...)
+			if len(entries) < w.batchSize {
+				continue
+			}
+			switchToWrite()
 
 		case <-timer.C:
 			if len(entries) == 0 {
 				continue
 			}
-
-			in = nil
-			out = w.out
-
-			timer.Reset(w.flushInterval)
+			switchToWrite()
 
 			w.reportInternalState(stateTicked)
 
-		case out <- w.records(entries):
-			in = w.in
-			out = nil
-			entries = entries[:0]
+		case out <- entries:
+			switchToRead()
+
+			entries = nil
 		}
 	}
 }
 
-func (w *LogSink) records(entries []loggo.Entry) []logRecord {
-	if len(entries) == 0 {
-		return nil
+func (w *LogSink) convertLogEntry(entry loggo.Entry) logRecord {
+	var location string
+	if entry.Filename != "" {
+		location = fmt.Sprintf("%s:%d", entry.Filename, entry.Line)
 	}
 
-	records := make([]logRecord, len(entries))
-	for i, entry := range entries {
-		var location string
-		if entry.Filename != "" {
-			location = fmt.Sprintf("%s:%d", entry.Filename, entry.Line)
-		}
-
-		records[i] = w.pool.Get().(logRecord)
-		records[i].Time = entry.Timestamp
-		records[i].Module = entry.Module
-		records[i].Location = location
-		records[i].Level = entry.Level
-		records[i].Message = entry.Message
-
-		if entry.Labels == nil {
-			continue
-		}
-
-		records[i].Labels = entry.Labels
-		records[i].ModelUUID = entry.Labels["model-uuid"]
+	rec := logRecord{
+		Time:     entry.Timestamp,
+		Module:   entry.Module,
+		Location: location,
+		Level:    entry.Level.String(),
+		Message:  entry.Message,
 	}
-	return records
+
+	if entry.Labels != nil {
+		rec.Labels = entry.Labels
+		rec.ModelUUID = entry.Labels["model-uuid"]
+	}
+
+	return rec
+}
+
+func (w *LogSink) convertLogRecords(records []logger.LogRecord) []logRecord {
+	var recs []logRecord
+	for _, record := range records {
+		recs = append(recs, logRecord{
+			Time:      record.Time,
+			Module:    record.Module,
+			Entity:    record.Entity,
+			Location:  record.Location,
+			Level:     record.Level.String(),
+			Message:   record.Message,
+			Labels:    record.Labels,
+			ModelUUID: record.ModelUUID,
+		})
+	}
+	return recs
 }
 
 func (w *LogSink) write(buffer *bytes.Buffer, encoder *json.Encoder, records []logRecord) error {
@@ -223,20 +261,6 @@ func (w *LogSink) write(buffer *bytes.Buffer, encoder *json.Encoder, records []l
 	// Reset the buffer for the next batch of log messages.
 	buffer.Reset()
 
-	for i := range records {
-		// Remove any information from the pooled logRecord, this
-		// mimics a fresh record.
-		records[i].Time = zeroTime
-		records[i].Module = ""
-		records[i].Location = ""
-		records[i].Level = loggo.Level(0)
-		records[i].Message = ""
-		records[i].Labels = nil
-		records[i].ModelUUID = ""
-
-		w.pool.Put(records[i])
-	}
-
 	w.reportInternalState(stateFlushed)
 
 	return nil
@@ -255,8 +279,9 @@ func (w *LogSink) reportInternalState(state string) {
 type logRecord struct {
 	Time      time.Time         `json:"time"`
 	Module    string            `json:"module"`
+	Entity    string            `json:"entity,omitempty"`
 	Location  string            `json:"location,omitempty"`
-	Level     loggo.Level       `json:"level"`
+	Level     string            `json:"level"`
 	Message   string            `json:"message"`
 	Labels    map[string]string `json:"labels,omitempty"`
 	ModelUUID string            `json:"model-uuid,omitempty"`
