@@ -271,6 +271,9 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Sequence
 		"sequence",
+
+		// Agent binary store.
+		"agent_binary_store",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
@@ -331,6 +334,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_unit_resource",
 		"v_unit_storage_directive",
 		"v_unit_workload_status",
+		"v_agent_binary_store",
 	)
 	got := readEntityNames(c, s.DB(), "view")
 	c.Assert(got, jc.SameContents, expected.SortedValues(), gc.Commentf(

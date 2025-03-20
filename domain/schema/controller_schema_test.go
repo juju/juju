@@ -126,6 +126,9 @@ func (s *controllerSchemaSuite) TestControllerTables(c *gc.C) {
 		// cloud image metadata
 		"architecture",
 		"cloud_image_metadata",
+
+		// Agent binary metadata.
+		"agent_binary_store",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
@@ -176,6 +179,9 @@ func (s *controllerSchemaSuite) TestControllerViews(c *gc.C) {
 
 		// Object store metadata
 		"v_object_store_metadata",
+
+		// Agent binary store
+		"v_agent_binary_store",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }
