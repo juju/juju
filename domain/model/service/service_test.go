@@ -1151,8 +1151,9 @@ func (s *serviceSuite) TestWatchActivatedModels(c *gc.C) {
 	close(changes)
 	s.mockStringsWatcher.EXPECT().Changes().AnyTimes().Return(changes)
 
-	s.mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher("model", changestream.Changed,
-		gomock.Any(), gomock.Any()).Return(s.mockStringsWatcher, nil)
+	s.mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher(
+		gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(s.mockStringsWatcher, nil)
 
 	// Verifies that the service returns a watcher with the correct model UUIDs string.
 	watcher, err := svc.WatchActivatedModels(ctx)

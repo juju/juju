@@ -49,7 +49,8 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	wLocal, err := s.watcherFactory.NewNamespaceWatcher(
 		// We are only interested in CREATE changes because
 		// the secret_revision.revision is immutable anyway.
-		tableLocal, changestream.Changed, queryLocal,
+		queryLocal,
+		eventsource.NamespaceFilter(tableLocal, changestream.Changed),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -65,7 +66,8 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	tableRemote, queryRemote := s.secretState.InitialWatchStatementForConsumedRemoteSecretsChange(unitName)
 	wRemote, err := s.watcherFactory.NewNamespaceWatcher(
 		// We are interested in both CREATE and UPDATE changes on secret_reference table.
-		tableRemote, changestream.All, queryRemote,
+		queryRemote,
+		eventsource.NamespaceFilter(tableRemote, changestream.All),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -86,7 +88,8 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 func (s *WatchableService) WatchRemoteConsumedSecretsChanges(_ context.Context, appName string) (watcher.StringsWatcher, error) {
 	table, query := s.secretState.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
-		table, changestream.All, query,
+		query,
+		eventsource.NamespaceFilter(table, changestream.All),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -112,7 +115,8 @@ func (s *WatchableService) WatchObsolete(_ context.Context, owners ...CharmSecre
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	table, query := s.secretState.InitialWatchStatementForObsoleteRevision(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
-		table, changestream.Changed, query,
+		query,
+		eventsource.NamespaceFilter(table, changestream.Changed),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -132,7 +136,8 @@ func (s *WatchableService) WatchSecretRevisionsExpiryChanges(_ context.Context, 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	table, query := s.secretState.InitialWatchStatementForSecretsRevisionExpiryChanges(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
-		table, changestream.All, query,
+		query,
+		eventsource.NamespaceFilter(table, changestream.All),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -164,7 +169,8 @@ func (s *WatchableService) WatchSecretsRotationChanges(_ context.Context, owners
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	table, query := s.secretState.InitialWatchStatementForSecretsRotationChanges(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
-		table, changestream.All, query,
+		query,
+		eventsource.NamespaceFilter(table, changestream.All),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

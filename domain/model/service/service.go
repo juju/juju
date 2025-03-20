@@ -168,8 +168,8 @@ type WatcherFactory interface {
 	// The initialStateQuery ensures the watcher starts with the current state of the system,
 	// preventing data loss from prior events.
 	NewNamespaceMapperWatcher(
-		namespace string, changeMask changestream.ChangeType,
 		initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 }
 
@@ -645,8 +645,8 @@ func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.St
 	query := s.st.InitialWatchActivatedModelsStatement()
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
-		"model", changestream.Changed,
 		eventsource.InitialNamespaceChanges(query),
 		mapper,
+		eventsource.NamespaceFilter("model", changestream.Changed),
 	)
 }

@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/changestream"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 )
 
@@ -169,7 +168,7 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 		return nil
 	})
 	s.state.EXPECT().NamespaceForWatchControllerConfig().Return("controller_config")
-	s.watcherFactory.EXPECT().NewNamespaceWatcher("controller_config", changestream.All, gomock.Any()).Return(s.stringsWatcher, nil)
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(s.stringsWatcher, nil)
 
 	w, err := NewWatchableService(s.state, s.watcherFactory).WatchControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)

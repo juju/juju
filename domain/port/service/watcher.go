@@ -38,13 +38,17 @@ func NewWatchableService(st State, watcherFactory WatcherFactory, logger logger.
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewNamespaceMapperWatcher returns a new namespace watcher
-	// for events based on the input change mask and mapper.
+	// NewNamespaceMapperWatcher returns a new watcher that receives changes
+	// from the input base watcher's db/queue. Change-log events will be emitted
+	// only if the filter accepts them, and dispatching the notifications via
+	// the Changes channel, once the mapper has processed them. Filtering of
+	// values is done first by the filter, and then by the mapper. Based on the
+	// mapper's logic a subset of them (or none) may be emitted. A filter option
+	// is required, though additional filter options can be provided.
 	NewNamespaceMapperWatcher(
-		namespace string,
-		changeMask changestream.ChangeType,
-		initialStateQuery eventsource.NamespaceQuery,
+		initialQuery eventsource.NamespaceQuery,
 		mapper eventsource.Mapper,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 
 	// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
@@ -61,8 +65,8 @@ type WatcherState interface {
 	NamespaceForWatchOpenedPort() string
 
 	// InitialWatchMachineOpenedPortsStatement returns the name of the table
-	// that should be watched and the query to load the
-	// initial event for the WatchMachineOpenedPorts watcher
+	// that should be watched and the query to load the initial event for the
+	// WatchMachineOpenedPorts watcher.
 	InitialWatchMachineOpenedPortsStatement() (string, string)
 
 	// GetMachineNamesForUnits returns map from endpoint uuids to the uuids of
@@ -81,10 +85,9 @@ type WatcherState interface {
 func (s *WatchableService) WatchMachineOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
 	table, statement := s.st.InitialWatchMachineOpenedPortsStatement()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
-		table,
-		changestream.All,
 		eventsource.InitialNamespaceChanges(statement),
 		s.endpointToMachineMapper,
+		eventsource.NamespaceFilter(table, changestream.All),
 	)
 }
 

@@ -56,10 +56,14 @@ func (f *NamespaceWatcherFactory) FeedChange(
 
 // NewNamespaceWatcher implements WatcherFactory.NewNamespaceWatcher
 func (f *NamespaceWatcherFactory) NewNamespaceWatcher(
-	namespace string,
-	changeMask changestream.ChangeType,
 	initialStateQuery eventsource.NamespaceQuery,
+	filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 ) (watcher.StringsWatcher, error) {
+	if len(filterOptions) > 0 {
+		return nil, fmt.Errorf("filter options are not supported in testing")
+	}
+
+	namespace := filterOption.Namespace()
 	ch, exists := f.WatcherChans[namespace]
 	if !exists {
 		f.WatcherChans[namespace] = make(chan []string, 1)

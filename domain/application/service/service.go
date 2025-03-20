@@ -27,6 +27,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -112,6 +113,35 @@ type SupportedFeatureProvider interface {
 	environs.SupportedFeatureEnumerator
 }
 
+// WatcherFactory instances return watchers for a given namespace and UUID.
+type WatcherFactory interface {
+	// NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
+	// input table name that match the input mask.
+	NewUUIDsWatcher(
+		namespace string, changeMask changestream.ChangeType,
+	) (watcher.StringsWatcher, error)
+
+	NewValueWatcher(
+		namespace, changeValue string, changeMask changestream.ChangeType,
+	) (watcher.NotifyWatcher, error)
+
+	NewValueMapperWatcher(string, string, changestream.ChangeType, eventsource.Mapper,
+	) (watcher.NotifyWatcher, error)
+
+	// NewNamespaceMapperWatcher returns a new watcher that receives changes
+	// from the input base watcher's db/queue. Change-log events will be emitted
+	// only if the filter accepts them, and dispatching the notifications via
+	// the Changes channel, once the mapper has processed them. Filtering of
+	// values is done first by the filter, and then by the mapper. Based on the
+	// mapper's logic a subset of them (or none) may be emitted. A filter option
+	// is required, though additional filter options can be provided.
+	NewNamespaceMapperWatcher(
+		initialStateQuery eventsource.NamespaceQuery,
+		mapper eventsource.Mapper,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+}
+
 // WatchableService provides the API for working with applications and the
 // ability to create watchers.
 type WatchableService struct {
@@ -172,7 +202,10 @@ func (s *WatchableService) WatchApplicationUnitLife(appName string) (watcher.Str
 	lifeMapper := domain.LifeStringsWatcherMapperFunc(s.logger, lifeGetter)
 
 	table, query := s.st.InitialWatchStatementUnitLife(appName)
-	return s.watcherFactory.NewNamespaceMapperWatcher(table, changestream.All, query, lifeMapper)
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		query, lifeMapper,
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
 }
 
 // WatchApplicationScale returns a watcher that observes changes to an application's scale.
@@ -214,12 +247,11 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error) {
 	table, query := s.st.InitialWatchStatementApplicationsWithPendingCharms()
 	return s.watcherFactory.NewNamespaceMapperWatcher(
-		table,
-		changestream.Changed,
 		query,
 		func(ctx context.Context, _ database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 			return s.watchApplicationsWithPendingCharmsMapper(ctx, changes)
 		},
+		eventsource.NamespaceFilter(table, changestream.Changed),
 	)
 }
 
@@ -350,8 +382,6 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 
 	table, query := s.st.InitialWatchStatementApplicationConfigHash(name)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
-		table,
-		changestream.All,
 		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
 			initialResults, err := query(ctx, txn)
 			if err != nil {
@@ -394,6 +424,7 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 				newMaskedChangeIDEvent(change, sha256),
 			}, nil
 		},
+		eventsource.NamespaceFilter(table, changestream.All),
 	)
 }
 

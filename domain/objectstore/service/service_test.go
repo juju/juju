@@ -14,7 +14,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -261,7 +260,7 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	stmt := "SELECT key FROM objectstore"
 	s.state.EXPECT().InitialWatchStatement().Return(table, stmt)
 
-	s.watcherFactory.EXPECT().NewNamespaceWatcher(table, changestream.All, gomock.Any()).Return(watcher, nil)
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(watcher, nil)
 
 	w, err := NewWatchableService(s.state, s.watcherFactory).Watch()
 	c.Assert(err, jc.ErrorIsNil)

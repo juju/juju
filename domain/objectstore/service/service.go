@@ -61,9 +61,15 @@ type State interface {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewNamespaceWatcher returns a new namespace watcher
-	// for events based on the input change mask.
-	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
+	// NewNamespaceWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. Change-log events will be emitted only if
+	// the filter accepts them, and dispatching the notifications via the
+	// Changes channel. A filter option is required, though additional filter
+	// options can be provided.
+	NewNamespaceWatcher(
+		initialQuery eventsource.NamespaceQuery,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
 }
 
 // Service provides the API for working with the objectstore.
@@ -208,8 +214,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	table, stmt := s.st.InitialWatchStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
-		table,
-		changestream.All,
 		eventsource.InitialNamespaceChanges(stmt),
+		eventsource.NamespaceFilter(table, changestream.All),
 	)
 }

@@ -1949,7 +1949,7 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 		domainsecret.ApplicationOwners([]string{"mysql"}),
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
 	).Return("table", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Changed, gomock.Any()).Return(mockStringWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(mockStringWatcher, nil)
 
 	s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) ([]string, error) {
 		c.Assert(appOwners, jc.SameContents, domainsecret.ApplicationOwners([]string{"mysql"}))
@@ -2072,8 +2072,8 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	}
 	s.state.EXPECT().InitialWatchStatementForConsumedSecretsChange(unittesting.GenNewName(c, "mysql/0")).Return("secret_revision", namespaceQuery)
 	s.state.EXPECT().InitialWatchStatementForConsumedRemoteSecretsChange(unittesting.GenNewName(c, "mysql/0")).Return("secret_reference", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision", changestream.Changed, gomock.Any()).Return(mockStringWatcher, nil)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_reference", changestream.All, gomock.Any()).Return(mockStringWatcherRemote, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(mockStringWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(mockStringWatcherRemote, nil)
 
 	s.state.EXPECT().GetConsumedSecretURIsWithChanges(gomock.Any(),
 		unittesting.GenNewName(c, "mysql/0"), "revision-uuid-1",
@@ -2127,7 +2127,7 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 		return nil, nil
 	}
 	s.state.EXPECT().InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide("mysql").Return("secret_revision", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision", changestream.All, gomock.Any()).Return(mockStringWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(mockStringWatcher, nil)
 
 	s.state.EXPECT().GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appName string, secretIDs ...string) ([]string, error) {
 		c.Assert(appName, gc.Equals, "mysql")
@@ -2177,7 +2177,7 @@ func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	s.state.EXPECT().InitialWatchStatementForSecretsRotationChanges(
 		domainsecret.ApplicationOwners{"mediawiki"}, domainsecret.UnitOwners{"mysql/0", "mysql/1"},
 	).Return("secret_rotation", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_rotation", changestream.All, gomock.Any()).Return(mockStringWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(mockStringWatcher, nil)
 
 	now := s.clock.Now()
 	s.state.EXPECT().GetSecretsRotationChanges(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, secretIDs ...string) ([]domainsecret.RotationInfo, error) {
@@ -2261,7 +2261,7 @@ func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 	s.state.EXPECT().InitialWatchStatementForSecretsRevisionExpiryChanges(
 		domainsecret.ApplicationOwners{"mediawiki"}, domainsecret.UnitOwners{"mysql/0", "mysql/1"},
 	).Return("secret_revision_expire", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision_expire", changestream.All, gomock.Any()).Return(mockStringWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher(gomock.Any(), gomock.Any()).Return(mockStringWatcher, nil)
 
 	now := s.clock.Now()
 	s.state.EXPECT().GetSecretsRevisionExpiryChanges(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) ([]domainsecret.ExpiryInfo, error) {
