@@ -52,6 +52,7 @@ const (
 	cleanupAttachmentsForDyingVolume     cleanupKind = "volumeAttachments"
 	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
 	cleanupModelsForDyingController      cleanupKind = "models"
+	cleanupExpiredSSHConnRequests        cleanupKind = "sshConnRequests"
 
 	// IAAS models require machines to be cleaned up.
 	cleanupMachinesForDyingModel cleanupKind = "modelMachines"
@@ -244,6 +245,8 @@ func (st *State) Cleanup(secretContentDeleter SecretContentDeleter) (err error) 
 			err = st.cleanupForceStorage(args)
 		case cleanupBranchesForDyingModel:
 			err = st.cleanupBranchesForDyingModel(args)
+		case cleanupExpiredSSHConnRequests:
+			err = st.cleanupExpiredSSHConnReqRecord(doc.Prefix)
 		default:
 			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}

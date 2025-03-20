@@ -72,6 +72,7 @@ func insertSSHConnReqOp(arg SSHConnRequestArg) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
+	cleanupOp := newCleanupAtOp(doc.Expires, cleanupExpiredSSHConnRequests, doc.DocId)
 	return []txn.Op{
 		{
 			C:      sshConnRequestsC,
@@ -79,6 +80,7 @@ func insertSSHConnReqOp(arg SSHConnRequestArg) ([]txn.Op, error) {
 			Assert: txn.DocMissing,
 			Insert: doc,
 		},
+		cleanupOp,
 	}, nil
 }
 
@@ -149,4 +151,18 @@ func (st *State) WatchSSHConnRequest(unitName string) StringsWatcher {
 			return true
 		},
 	})
+}
+
+// cleanupExpiredSSHConnReqRecord removes the expired ssh connection request record.
+func (st *State) cleanupExpiredSSHConnReqRecord(docId string) error {
+	txs := []txn.Op{{
+		C:      sshConnRequestsC,
+		Id:     docId,
+		Remove: true,
+	}}
+	err := st.db().RunTransaction(txs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
